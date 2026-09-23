@@ -33,8 +33,8 @@ jobs:
         uses: docker/login-action@v3
         with:
           registry: quay.io
-          username: ${{ secrets.QUAY_USERNAME }}
-          password: ${{ secrets.QUAY_PASSWORD }}
+          username: ${{ secrets.QUAY_ROBOT_USER || secrets.QUAY_USERNAME }}
+          password: ${{ secrets.QUAY_ROBOT_PASSWORD || secrets.QUAY_ROBOT_TOKEN || secrets.QUAY_PASSWORD }}
       - uses: actions/setup-java@v5
         if: matrix.name == 'backend'
         with:
