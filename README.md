@@ -85,5 +85,5 @@ The stack exposes:
 
 Configure the following GitHub secrets before enabling image publication:
 
-- `QUAY_USERNAME`
-- `QUAY_PASSWORD`
+- `QUAY_ROBOT_USER` (preferred) or `QUAY_USERNAME`
+- `QUAY_ROBOT_PASSWORD` / `QUAY_ROBOT_TOKEN` (preferred) or `QUAY_PASSWORD`
