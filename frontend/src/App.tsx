@@ -25,7 +25,7 @@ type AuthProvidersResponse = {
 }
 
 const stateOptions: TodoState[] = ['OPEN', 'PLANNED', 'WORKING', 'DONE']
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'
+const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? (import.meta.env.DEV ? 'http://localhost:8080' : '')
 const authBaseUrl = `${apiBaseUrl}/api/auth/providers`
 const todosBaseUrl = `${apiBaseUrl}/api/todos`
 
@@ -43,7 +43,7 @@ function App() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
 
-  const groupedTodos = useMemo(
+  const sortedTodos = useMemo(
     () => [...todos].sort((left, right) => left.dueDate.localeCompare(right.dueDate)),
     [todos],
   )
@@ -170,6 +170,9 @@ function App() {
           </span>
         </div>
         <div className="provider-grid">
+          {providers.providers.length === 0 ? (
+            <p className="empty-state">No authentication providers are configured yet.</p>
+          ) : null}
           {providers.providers.map((provider) => (
             <article className="provider-card" key={provider.id}>
               <h3>{provider.label}</h3>
@@ -240,7 +243,7 @@ function App() {
           {loading ? <p>Loading todos…</p> : null}
           {error ? <p className="error-banner">{error}</p> : null}
           <div className="todo-list">
-            {groupedTodos.map((todo) => (
+            {sortedTodos.map((todo) => (
               <article className="todo-card" key={todo.id}>
                 <div>
                   <p className="todo-state">{todo.state}</p>
@@ -262,7 +265,7 @@ function App() {
                 </label>
               </article>
             ))}
-            {!loading && groupedTodos.length === 0 ? <p>No todos yet.</p> : null}
+            {!loading && sortedTodos.length === 0 ? <p>No todos yet.</p> : null}
           </div>
         </section>
       </section>

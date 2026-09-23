@@ -222,3 +222,8 @@ select {
     flex-direction: column;
   }
 }
+
+.empty-state {
+  margin: 0;
+  color: #cbd5e1;
+}

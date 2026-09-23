@@ -22,6 +22,7 @@ public class AuthProviderResource {
     @GET
     public AuthProvidersResponse providers() {
         List<AuthProviderResponse> providers = authProvidersConfig.providers().entrySet().stream()
+            .sorted(Map.Entry.comparingByKey())
             .map(entry -> new AuthProviderResponse(
                 entry.getKey(),
                 entry.getValue().label(),

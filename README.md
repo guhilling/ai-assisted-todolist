@@ -63,7 +63,7 @@ npm run dev
 
 Optional environment variable:
 
-- `VITE_API_BASE_URL` (defaults to `http://localhost:8080`)
+- `VITE_API_BASE_URL` (optional; defaults to same-origin `/api` in production and `http://localhost:8080` in local Vite development)
 
 ### Docker Compose
 
