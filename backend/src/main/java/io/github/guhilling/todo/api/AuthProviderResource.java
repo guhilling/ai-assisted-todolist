@@ -26,7 +26,8 @@ public class AuthProviderResource {
             .map(entry -> new AuthProviderResponse(
                 entry.getKey(),
                 entry.getValue().label(),
-                authProvidersConfig.enabled() && entry.getValue().clientId().filter(clientId -> !clientId.isBlank()).isPresent(),
+                authProvidersConfig.enabled()
+                    && entry.getValue().clientId().filter(clientId -> !clientId.isBlank()).isPresent(),
                 entry.getValue().issuer().orElse(""),
                 entry.getValue().redirectUri().orElse("")))
             .toList();
