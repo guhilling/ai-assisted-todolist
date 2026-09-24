@@ -39,7 +39,7 @@ jobs:
         if: matrix.name == 'backend'
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: '25'
           cache: maven
       - uses: actions/setup-node@v5
         if: matrix.name == 'frontend'
