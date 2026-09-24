@@ -79,4 +79,55 @@ describe('App', () => {
     )
     expect(taskCall?.[1]).toMatchObject({ credentials: 'include' })
   })
+
+  it('offers a sign-out link when authenticated', async () => {
+    globalThis.fetch = mockFetch({
+      '/api/auth/me': { email: 'alice@example.com' },
+      '/api/auth/providers': { enabled: true, providers: [] },
+      '/api/tasks': [],
+    }) as unknown as typeof fetch
+
+    render(<App />)
+
+    await waitFor(() => expect(screen.getByText(/current tasks/i)).toBeInTheDocument())
+    expect(screen.getByRole('link', { name: /sign out/i })).toHaveAttribute(
+      'href',
+      expect.stringContaining('/api/auth/logout'),
+    )
+  })
+
+  it('renders a disabled placeholder for providers that are not configured', async () => {
+    globalThis.fetch = mockFetch({
+      '/api/auth/me': 'error',
+      '/api/auth/providers': {
+        enabled: false,
+        providers: [
+          { id: 'apple', label: 'Apple', available: false, loginUrl: null, issuer: 'https://appleid.apple.com' },
+        ],
+      },
+    }) as unknown as typeof fetch
+
+    render(<App />)
+
+    await waitFor(() => expect(screen.getByText('Please sign in to continue.')).toBeInTheDocument())
+    expect(screen.getByRole('button', { name: /configure credentials/i })).toBeDisabled()
+    expect(screen.queryByRole('link', { name: /continue with apple/i })).not.toBeInTheDocument()
+  })
+
+  it('lists existing tasks with their state and importance', async () => {
+    globalThis.fetch = mockFetch({
+      '/api/auth/me': { email: 'alice@example.com' },
+      '/api/auth/providers': { enabled: true, providers: [] },
+      '/api/tasks': [
+        { id: 1, description: 'Write the report', dueDate: '2026-12-31', importance: 'HIGH', state: 'WORKING' },
+      ],
+    }) as unknown as typeof fetch
+
+    render(<App />)
+
+    await waitFor(() => expect(screen.getByText('Write the report')).toBeInTheDocument())
+    expect(screen.getByText('Due 2026-12-31')).toBeInTheDocument()
+    expect(screen.getByText('Importance: HIGH')).toBeInTheDocument()
+    expect(screen.getByLabelText('Update state')).toHaveValue('WORKING')
+  })
 })
