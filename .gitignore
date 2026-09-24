@@ -6,3 +6,15 @@ backend/target/
 .env.*
 !.env.example
 .DS_Store
+
+# IDE / editor
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+.fleet/
+.project
+.classpath
+.settings/
+*.swp
