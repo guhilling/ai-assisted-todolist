@@ -234,7 +234,7 @@ function App() {
             </div>
             <form className="todo-form" onSubmit={submitTask}>
               <label>
-                Description
+                <span>Description</span>
                 <input
                   required
                   value={form.description}
@@ -242,7 +242,7 @@ function App() {
                 />
               </label>
               <label>
-                Due date
+                <span>Due date</span>
                 <input
                   required
                   type="date"
@@ -251,7 +251,7 @@ function App() {
                 />
               </label>
               <label>
-                Importance
+                <span>Importance</span>
                 <select
                   value={form.importance}
                   onChange={(event) =>
@@ -266,7 +266,7 @@ function App() {
                 </select>
               </label>
               <label>
-                State
+                <span>State</span>
                 <select
                   value={form.state}
                   onChange={(event) =>
@@ -305,7 +305,7 @@ function App() {
                     <p>Importance: {task.importance}</p>
                   </div>
                   <label>
-                    Update state
+                    <span>Update state</span>
                     <select
                       value={task.state}
                       onChange={(event) => updateTaskState(task, event.target.value as TaskState)}
