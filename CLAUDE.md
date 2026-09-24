@@ -56,3 +56,7 @@ slows things down.
   and bounded contexts, before jumping to REST endpoints, database schema, or
   UI components. Surface domain modeling questions to Gunnar rather than
   assuming an answer.
+- **Never change or disable an existing unit test without asking Gunnar
+  first.** This includes editing its assertions/setup, deleting it, or
+  marking it skipped/disabled — always ask before touching a test that
+  already exists, even if it appears to be blocking other work.
