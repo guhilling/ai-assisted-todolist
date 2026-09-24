@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import type { FormEvent } from 'react'
+import type { SubmitEvent } from 'react'
 import './App.css'
 
 type TaskState = 'TODO' | 'WORKING' | 'DONE'
@@ -95,7 +95,7 @@ function App() {
     void load()
   }, [])
 
-  const submitTask = async (event: FormEvent<HTMLFormElement>) => {
+  const submitTask = async (event: SubmitEvent<HTMLFormElement>) => {
     event.preventDefault()
     setSaving(true)
     setError(null)
