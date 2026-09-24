@@ -47,6 +47,54 @@ const initialForm = {
   state: 'TODO' as TaskState,
 }
 
+type TaskForm = typeof initialForm
+
+function toErrorMessage(cause: unknown, fallback: string) {
+  return cause instanceof Error ? cause.message : fallback
+}
+
+async function readJson<T>(response: Response, failureMessage: string) {
+  if (!response.ok) {
+    throw new Error(failureMessage)
+  }
+  return (await response.json()) as T
+}
+
+async function fetchCurrentUser() {
+  const response = await fetch(authMeUrl, { credentials: 'include', headers: jsFetchHeaders })
+  return response.ok ? ((await response.json()) as CurrentUser) : null
+}
+
+async function fetchAuthProviders() {
+  const response = await fetch(authProvidersUrl)
+  return response.ok ? ((await response.json()) as AuthProvidersResponse) : null
+}
+
+async function fetchTasks() {
+  const response = await fetch(tasksBaseUrl, { credentials: 'include', headers: jsFetchHeaders })
+  return readJson<Task[]>(response, 'Unable to load tasks from the backend.')
+}
+
+async function postTask(form: TaskForm) {
+  const response = await fetch(tasksBaseUrl, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { ...jsFetchHeaders, 'Content-Type': 'application/json' },
+    body: JSON.stringify(form),
+  })
+  return readJson<Task>(response, 'Unable to create task.')
+}
+
+async function putTaskState(task: Task, nextState: TaskState) {
+  const response = await fetch(`${tasksBaseUrl}/${task.id}`, {
+    method: 'PUT',
+    credentials: 'include',
+    headers: { ...jsFetchHeaders, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...task, state: nextState }),
+  })
+  return readJson<Task>(response, 'Unable to update task state.')
+}
+
 function App() {
   const [tasks, setTasks] = useState<Task[]>([])
   const [providers, setProviders] = useState<AuthProvidersResponse>({ enabled: false, providers: [] })
@@ -64,29 +112,21 @@ function App() {
   useEffect(() => {
     const load = async () => {
       try {
-        const [meResponse, providersResponse] = await Promise.all([
-          fetch(authMeUrl, { credentials: 'include', headers: jsFetchHeaders }),
-          fetch(authProvidersUrl),
-        ])
+        const [user, authProviders] = await Promise.all([fetchCurrentUser(), fetchAuthProviders()])
 
-        if (providersResponse.ok) {
-          setProviders((await providersResponse.json()) as AuthProvidersResponse)
+        if (authProviders) {
+          setProviders(authProviders)
         }
 
-        if (!meResponse.ok) {
-          setCurrentUser(null)
+        setCurrentUser(user)
+
+        if (!user) {
           return
         }
 
-        setCurrentUser((await meResponse.json()) as CurrentUser)
-
-        const tasksResponse = await fetch(tasksBaseUrl, { credentials: 'include', headers: jsFetchHeaders })
-        if (!tasksResponse.ok) {
-          throw new Error('Unable to load tasks from the backend.')
-        }
-        setTasks((await tasksResponse.json()) as Task[])
+        setTasks(await fetchTasks())
       } catch (loadError) {
-        setError(loadError instanceof Error ? loadError.message : 'Unexpected error while loading data.')
+        setError(toErrorMessage(loadError, 'Unexpected error while loading data.'))
       } finally {
         setLoading(false)
       }
@@ -101,25 +141,11 @@ function App() {
     setError(null)
 
     try {
-      const response = await fetch(tasksBaseUrl, {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-          ...jsFetchHeaders,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(form),
-      })
-
-      if (!response.ok) {
-        throw new Error('Unable to create task.')
-      }
-
-      const createdTask = (await response.json()) as Task
+      const createdTask = await postTask(form)
       setTasks((currentTasks) => [...currentTasks, createdTask])
       setForm(initialForm)
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : 'Unexpected error while saving data.')
+      setError(toErrorMessage(saveError, 'Unexpected error while saving data.'))
     } finally {
       setSaving(false)
     }
@@ -129,26 +155,12 @@ function App() {
     setError(null)
 
     try {
-      const response = await fetch(`${tasksBaseUrl}/${task.id}`, {
-        method: 'PUT',
-        credentials: 'include',
-        headers: {
-          ...jsFetchHeaders,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ ...task, state: nextState }),
-      })
-
-      if (!response.ok) {
-        throw new Error('Unable to update task state.')
-      }
-
-      const updatedTask = (await response.json()) as Task
+      const updatedTask = await putTaskState(task, nextState)
       setTasks((currentTasks) =>
         currentTasks.map((currentTask) => (currentTask.id === updatedTask.id ? updatedTask : currentTask)),
       )
     } catch (updateError) {
-      setError(updateError instanceof Error ? updateError.message : 'Unexpected error while updating data.')
+      setError(toErrorMessage(updateError, 'Unexpected error while updating data.'))
     }
   }
 
