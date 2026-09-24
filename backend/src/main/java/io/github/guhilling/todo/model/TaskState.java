@@ -1,8 +1,7 @@
 package io.github.guhilling.todo.model;
 
-public enum TodoState {
-    OPEN,
-    PLANNED,
+public enum TaskState {
+    TODO,
     WORKING,
     DONE
 }

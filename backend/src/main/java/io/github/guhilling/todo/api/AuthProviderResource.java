@@ -13,6 +13,9 @@ import java.util.Optional;
 @Produces(MediaType.APPLICATION_JSON)
 public class AuthProviderResource {
 
+    private static final String GOOGLE_PROVIDER_ID = "google";
+    private static final String LOGIN_PATH = "/api/auth/login";
+
     private final AuthProvidersConfig authProvidersConfig;
 
     public AuthProviderResource(AuthProvidersConfig authProvidersConfig) {
@@ -23,15 +26,24 @@ public class AuthProviderResource {
     public AuthProvidersResponse providers() {
         List<AuthProviderResponse> providers = authProvidersConfig.providers().entrySet().stream()
             .sorted(Map.Entry.comparingByKey())
-            .map(entry -> new AuthProviderResponse(
-                entry.getKey(),
-                entry.getValue().label(),
-                authProvidersConfig.enabled()
-                    && entry.getValue().clientId().filter(clientId -> !clientId.isBlank()).isPresent(),
-                entry.getValue().issuer().orElse(""),
-                entry.getValue().redirectUri().orElse("")))
+            .map(entry -> {
+                boolean available = authProvidersConfig.enabled()
+                    && entry.getKey().equals(GOOGLE_PROVIDER_ID)
+                    && isPresent(entry.getValue().clientId())
+                    && isPresent(entry.getValue().clientSecret());
+                return new AuthProviderResponse(
+                    entry.getKey(),
+                    entry.getValue().label(),
+                    available,
+                    available ? LOGIN_PATH : null,
+                    entry.getValue().issuer().orElse(""));
+            })
             .toList();
         return new AuthProvidersResponse(authProvidersConfig.enabled(), providers);
+    }
+
+    private static boolean isPresent(Optional<String> value) {
+        return value.filter(candidate -> !candidate.isBlank()).isPresent();
     }
 
     @ConfigMapping(prefix = "todo.auth")
@@ -43,8 +55,8 @@ public class AuthProviderResource {
     public interface ProviderConfig {
         String label();
         Optional<String> clientId();
+        Optional<String> clientSecret();
         Optional<String> issuer();
-        Optional<String> redirectUri();
     }
 
     public record AuthProvidersResponse(boolean enabled, List<AuthProviderResponse> providers) {
@@ -53,9 +65,9 @@ public class AuthProviderResource {
     public record AuthProviderResponse(
         String id,
         String label,
-        boolean configured,
-        String issuer,
-        String redirectUri
+        boolean available,
+        String loginUrl,
+        String issuer
     ) {
     }
 }

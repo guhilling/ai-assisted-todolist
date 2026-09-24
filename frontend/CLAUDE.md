@@ -29,10 +29,11 @@ DDD, and project context all still apply here).
 
 ## Linting
 
-- `oxlint` is already part of the project (`npm run lint`) but not yet wired
-  into `frontend-ci.yml` as a failing check. Anything automatable — lint,
-  type-check, tests, coverage — should be enforced by the standard CI run,
-  not left as a manual convention (same principle as the backend).
+- `oxlint` is part of the project (`npm run lint`) and is wired into
+  `frontend-ci.yml` as a failing check, alongside tests/coverage. Anything
+  automatable — lint, type-check, tests, coverage — should be enforced by
+  the standard CI run, not left as a manual convention (same principle as
+  the backend).
 
 ## Code quality tooling
 
