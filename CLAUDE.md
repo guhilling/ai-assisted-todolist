@@ -32,6 +32,19 @@ silently. This applies especially to:
 Guessing silently and moving on is the failure mode to avoid here, even if it
 slows things down.
 
+## Workflow
+
+- Always work on a git branch, never commit directly to `main`.
+- Pull requests are not required for the time being — merging a branch
+  directly is fine.
+- Anything that can reasonably be enforced automatically (tests, coverage,
+  style/lint checks, build) should be enforced by the standard GitHub Actions
+  CI/CD runs, not left as a manual convention.
+- Never commit secrets (API keys, OIDC client secrets, real credentials,
+  etc.). Only local, testing-only placeholder values belong in the repo
+  (e.g. `.env.example`-style files or dev/test configuration); real secrets
+  are supplied via environment variables / CI secrets only.
+
 ## Development methodology
 
 - **TDD for implementation.** Write a failing test first, then the minimal
