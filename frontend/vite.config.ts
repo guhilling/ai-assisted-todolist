@@ -9,7 +9,9 @@ export default defineConfig({
     proxy: {
       '/api': {
         target: 'http://localhost:8080',
-        changeOrigin: true,
+        // The backend builds the OIDC redirect_uri from the Host header. Rewriting it would
+        // send the browser to :8080 after sign-in instead of back to the Vite dev server.
+        changeOrigin: false,
       },
     },
   },

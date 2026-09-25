@@ -1,0 +1,83 @@
+{
+  "realm": "todolist",
+  "enabled": true,
+  "sslRequired": "none",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "accessTokenLifespan": 1800,
+  "ssoSessionIdleTimeout": 1800,
+  "clients": [
+    {
+      "clientId": "todolist-backend",
+      "name": "Todo list backend",
+      "description": "Confidential client used by the Quarkus BFF for the authorization code flow.",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "secret": "todolist-secret",
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": true,
+      "serviceAccountsEnabled": false,
+      "redirectUris": [
+        "http://localhost:8080/*",
+        "http://localhost:8081/*",
+        "http://localhost:5173/*",
+        "http://localhost:3000/*"
+      ],
+      "webOrigins": [
+        "http://localhost:8080",
+        "http://localhost:8081",
+        "http://localhost:5173",
+        "http://localhost:3000"
+      ],
+      "defaultClientScopes": [
+        "web-origins",
+        "acr",
+        "profile",
+        "roles",
+        "email",
+        "basic"
+      ],
+      "optionalClientScopes": [
+        "address",
+        "phone",
+        "offline_access",
+        "microprofile-jwt"
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "gunnar",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "gunnar@example.com",
+      "firstName": "Gunnar",
+      "lastName": "Hilling",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "gunnar",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "lasse",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "lasse@example.com",
+      "firstName": "Lasse",
+      "lastName": "Hilling",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "lasse",
+          "temporary": false
+        }
+      ]
+    }
+  ]
+}

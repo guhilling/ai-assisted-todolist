@@ -13,7 +13,6 @@ import java.util.Optional;
 @Produces(MediaType.APPLICATION_JSON)
 public class AuthProviderResource {
 
-    private static final String GOOGLE_PROVIDER_ID = "google";
     private static final String LOGIN_PATH = "/api/auth/login";
 
     private final AuthProvidersConfig authProvidersConfig;
@@ -28,7 +27,6 @@ public class AuthProviderResource {
             .sorted(Map.Entry.comparingByKey())
             .map(entry -> {
                 boolean available = authProvidersConfig.enabled()
-                    && entry.getKey().equals(GOOGLE_PROVIDER_ID)
                     && isPresent(entry.getValue().clientId())
                     && isPresent(entry.getValue().clientSecret());
                 return new AuthProviderResponse(
