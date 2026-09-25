@@ -33,7 +33,14 @@ method body is ever reached. The body only runs on the way back, to redirect to 
 
 ## Sign-out
 
-`/api/auth/logout` expires `q_session` by hand and redirects. It is deliberately **not** an
+`/api/auth/logout` expires the session cookies by hand and redirects. Note the plural:
+Quarkus splits the session across `q_session_chunk_1`, `q_session_chunk_2` and so on once the
+encrypted tokens outgrow the 4 KB a single cookie holds, and whether it does that depends on
+how large the tokens happen to be on the day. Expiring only `q_session` therefore worked or
+silently did nothing from run to run, which showed up as an end-to-end test that "frequently"
+failed on sign-out. The endpoint now expires every cookie whose name starts with `q_session`.
+
+It is deliberately **not** an
 RP-initiated logout, so the identity provider's own session survives: signing out and back
 in will not prompt for credentials again. This matters for tests — the Playwright suite
 opens a fresh `browser.newContext()` per account, because reusing one would silently sign
@@ -102,7 +109,8 @@ able to sign in.
   `redirect_uri` from it, so sign-in dumped the browser on the backend's port instead of
   returning it to the app.
 - **`proxy_buffer_size 16k` and friends in nginx.** The session cookie carries encrypted
-  tokens and exceeds the default 4 KB header buffer, turning the callback into a 502.
+  tokens and exceeds the default 4 KB header buffer, turning the callback into a 502. The
+  same size is why the cookie gets chunked, and why sign-out has to clear every chunk.
 
 ## What is tested
 

@@ -11,6 +11,8 @@ import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
 import static io.restassured.RestAssured.given;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.not;
@@ -26,6 +28,9 @@ import static org.hamcrest.Matchers.not;
 @QuarkusTest
 @TestProfile(KeycloakLoginFlowTest.LocalAuthProfile.class)
 class KeycloakLoginFlowTest {
+
+    /** Quarkus OIDC's status for "you need to authenticate, but you asked me not to redirect". */
+    private static final int REDIRECT_SUPPRESSED = 499;
 
     private static final String GUNNAR_EMAIL = "gunnar@example.com";
 
@@ -90,6 +95,31 @@ class KeycloakLoginFlowTest {
      * Turns the provider list on the way local development does, without disturbing the
      * {@code %test} defaults the other test classes rely on.
      */
+    @Test
+    void shouldEndTheSessionOnSignOutEvenWhenTheCookieIsChunked() {
+        KeycloakLoginFlow flow = new KeycloakLoginFlow();
+        flow.signIn("gunnar", "gunnar");
+
+        // Quarkus splits the session cookie into q_session_chunk_N once it outgrows 4 KB, and
+        // whether it does depends on how big the tokens happen to be. Sign-out has to clear
+        // whatever it actually finds, so assert the shape we got before relying on it.
+        assertThat(flow.sessionCookieNames(), not(empty()));
+
+        flow.signOut();
+
+        assertThat(flow.sessionCookieNames(), empty());
+        // X-Requested-With is how the single-page app probes the session: it stops the backend
+        // redirecting a background request off to the identity provider, and Quarkus answers
+        // with its "authentication required, redirect suppressed" status instead. The frontend
+        // reads anything that is not 2xx here as "nobody is signed in".
+        flow.authenticated()
+            .header("X-Requested-With", "JavaScript")
+            .redirects().follow(false)
+            .when().get("/api/auth/me")
+            .then()
+            .statusCode(REDIRECT_SUPPRESSED);
+    }
+
     public static class LocalAuthProfile implements QuarkusTestProfile {
 
         @Override

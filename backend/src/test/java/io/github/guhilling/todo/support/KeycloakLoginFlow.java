@@ -4,6 +4,7 @@ import io.restassured.http.ContentType;
 import io.restassured.response.Response;
 import io.restassured.specification.RequestSpecification;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -64,6 +65,30 @@ public final class KeycloakLoginFlow {
      */
     public RequestSpecification authenticated() {
         return given().cookies(cookieJar);
+    }
+
+    /**
+     * Follows the application's sign-out endpoint and applies whatever cookie changes it asks
+     * for, so the jar afterwards is what a browser would be left holding.
+     */
+    public void signOut() {
+        Response response = unauthenticated().when().get("/api/auth/logout");
+        if (response.statusCode() / 100 != 3) {
+            throw new IllegalStateException("sign-out did not redirect, status " + response.statusCode());
+        }
+        response.getDetailedCookies().asList().stream()
+            .filter(cookie -> cookie.getMaxAge() == 0)
+            .forEach(cookie -> cookieJar.remove(cookie.getName()));
+    }
+
+    /**
+     * @return the names of the session cookies the jar currently holds, chunked or not
+     */
+    public List<String> sessionCookieNames() {
+        return cookieJar.keySet().stream()
+            .filter(name -> name.equals("q_session") || name.startsWith("q_session_"))
+            .sorted()
+            .toList();
     }
 
     private RequestSpecification unauthenticated() {
