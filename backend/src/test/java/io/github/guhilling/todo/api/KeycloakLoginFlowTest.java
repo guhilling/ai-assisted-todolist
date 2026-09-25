@@ -15,6 +15,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.matchesPattern;
 import static org.hamcrest.Matchers.not;
 
 /**
@@ -44,6 +45,25 @@ class KeycloakLoginFlowTest {
             .body("providers.find { it.id == 'keycloak' }.label", equalTo("Keycloak"))
             .body("providers.find { it.id == 'keycloak' }.available", equalTo(true))
             .body("providers.find { it.id == 'keycloak' }.loginUrl", equalTo("/api/auth/login"));
+    }
+
+    @Test
+    void shouldSendAnAlreadySignedInVisitorBackToTheApp() {
+        KeycloakLoginFlow gunnar = new KeycloakLoginFlow();
+        gunnar.signIn("gunnar", "gunnar");
+
+        // Hitting /login while a session already exists is the one way to reach the method
+        // body: on a first visit the security layer intercepts the request and starts the
+        // authorization code flow long before the resource is called. What it proves is that
+        // todo.post-login-redirect-uri is where the browser ends up.
+        gunnar.authenticated()
+            .redirects().follow(false)
+            .when().get("/api/auth/login")
+            .then()
+            .statusCode(303)
+            // seeOther resolves the configured relative URI against the request, so what
+            // arrives is the absolute form of "/" -- the app's own root, whatever the port.
+            .header("Location", matchesPattern("https?://[^/]+/"));
     }
 
     @Test

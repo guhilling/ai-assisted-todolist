@@ -15,6 +15,14 @@ DDD, and project context all still apply here).
 - Use **`@vitest/coverage-v8`** to produce coverage output, feeding
   **SonarCloud** for code quality/coverage analysis (mirrors the backend's
   JaCoCo → SonarCloud setup).
+- **Coverage is a gate.** `coverage.thresholds` in `vite.config.ts` fails
+  `npm run test:coverage` below the minimum, and `frontend-ci.yml` runs it. The
+  `include`/`exclude` there are deliberate: without them the report covers whatever the
+  tests happened to import, which let `App.css` in with empty counters and left `main.tsx`
+  out entirely.
+- **Prefer driving the UI over calling the module functions directly.** The interaction
+  tests fill the form and change the selects, so what they pin down is what a user does,
+  not the shape of the API layer.
 
 ## TypeScript
 

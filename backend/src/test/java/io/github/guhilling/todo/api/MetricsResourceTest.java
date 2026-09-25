@@ -22,6 +22,10 @@ class MetricsResourceTest {
             .when().get("/q/metrics")
             .then()
             .statusCode(200)
-            .body(containsString("jvm_gc_pause_seconds"));
+            // jvm_memory_used_bytes exists from startup. jvm_gc_pause_seconds was the earlier
+            // witness, but Micrometer only registers that timer once a garbage collection has
+            // actually happened, so the test passed or failed depending on where it landed in
+            // the run -- and it was never about garbage collection anyway.
+            .body(containsString("jvm_memory_used_bytes"));
     }
 }

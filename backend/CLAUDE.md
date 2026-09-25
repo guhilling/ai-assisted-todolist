@@ -29,10 +29,20 @@ Don't write backend production code without a test driving it first.
 
 ## Code quality tooling
 
-- **JaCoCo** is used to produce coverage reports, feeding **SonarCloud** for
-  code quality/coverage analysis. When adding JaCoCo, wire it into the normal
-  Maven build lifecycle so coverage data is generated on every test run, not
-  as a separate manual step.
+- **JaCoCo** produces coverage reports, feeding **SonarCloud**, and is wired into the
+  normal Maven lifecycle so coverage is generated on every test run.
+- **The `quarkus-jacoco` extension is load-bearing, not redundant.** The stock JaCoCo
+  agent cannot instrument the classes Quarkus rewrites at build time — the Panache
+  entities and everything touching entity fields or static finders — because
+  `QuarkusClassLoader` loads them. Without the extension those classes report 0% while
+  the rest of the report looks fine, which once put backend line coverage at 41% when it
+  was really 89%. Removing it fails nothing and silently halves the number.
+- **Coverage is a gate, not a report.** `jacoco:check` runs at `verify` against the
+  minimums in `pom.xml`. Raise them when coverage rises; never lower one to land a change.
+- **Prefer a plain JUnit test when the logic is not about HTTP or persistence.**
+  `AuthProviderMappingTest` is the model: it covers six configuration combinations in
+  milliseconds, where the equivalent `@QuarkusTest` can only reach the single combination
+  its profile declares.
 - Whatever can be checked automatically (tests, coverage, style) must run in
   backend CI (`backend-ci.yml`) so violations fail the build, not just get
   caught by convention.
