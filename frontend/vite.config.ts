@@ -26,6 +26,21 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       reporter: ['text', 'lcov'],
+      // Without an explicit include the report covers whatever the tests happened to import,
+      // which let App.css in with empty counters and left main.tsx out altogether.
+      include: ['src/**/*.{ts,tsx}'],
+      // main.tsx only mounts the app: there is nothing in it to assert that the e2e suite
+      // does not already prove by the page rendering at all.
+      exclude: ['src/main.tsx', 'src/setupTests.ts', 'src/**/*.test.{ts,tsx}'],
+      // The suite is at 100% on all four. The gate sits just below so a genuinely
+      // defensive branch does not fail the build on the day it is written -- raise these
+      // when coverage rises, never lower them to fit a change.
+      thresholds: {
+        lines: 95,
+        functions: 95,
+        branches: 95,
+        statements: 95,
+      },
     },
   },
 })

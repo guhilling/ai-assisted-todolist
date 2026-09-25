@@ -16,7 +16,10 @@ import org.junit.jupiter.api.Test;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.instanceOf;
+import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.notNullValue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
  * Pins down the create-on-first-sight rule that gives every authenticated email a user row.
@@ -42,6 +45,27 @@ class UserServiceTest {
 
         assertThat(first.id, notNullValue());
         assertThat(second.id, equalTo(first.id));
+    }
+
+    @Test
+    void shouldPropagateAFailureThatIsNotALostRace() {
+        // Losing the race is the only failure getOrCreateByEmail is allowed to swallow. A null
+        // email violates the not-blank rule instead, and has to surface as itself -- if it were
+        // absorbed, the caller would be told the user "vanished", which names neither the cause
+        // nor the culprit.
+        RuntimeException failure = assertThrows(
+            RuntimeException.class,
+            () -> QuarkusTransaction.requiringNew().call(() -> userService.getOrCreateByEmail(null)));
+
+        assertThat(rootCauseOf(failure), not(instanceOf(IllegalStateException.class)));
+    }
+
+    private static Throwable rootCauseOf(Throwable failure) {
+        Throwable cause = failure;
+        while (cause.getCause() != null && cause.getCause() != cause) {
+            cause = cause.getCause();
+        }
+        return cause;
     }
 
     @Test

@@ -32,9 +32,9 @@ jobs:
           cache: maven
       - name: Check code style
         run: ./mvnw -B checkstyle:check
-      - name: Run tests
-        run: ./mvnw -B test
-      - name: Build JVM package
-        run: ./mvnw -B package -DskipTests
+      - name: Run tests and enforce coverage
+        # verify runs the tests, packages the artifact, and fails the build if JaCoCo
+        # coverage drops below the minimum in pom.xml.
+        run: ./mvnw -B verify
       - name: Build backend container image
         run: ./mvnw -B package -DskipTests -Dquarkus.container-image.build=true
