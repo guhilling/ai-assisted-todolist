@@ -52,7 +52,9 @@ that does not exist — both yield 404 — which leaks nothing about other users
 - **No soft delete, no history.** A deleted task is gone. `createdAt` and `updatedAt` exist
   for operational sanity, not as a domain concept.
 - **No registration.** A `User` row appears the first time an authenticated request arrives
-  with an email the application has not seen. See `UserService.getOrCreateByEmail`.
+  with an email the application has not seen. See `UserService.getOrCreateByEmail`, which
+  is a check-then-act: the unique email constraint decides the winner when two first
+  requests arrive together, and the loser re-reads instead of failing.
 
 ## Persistence
 

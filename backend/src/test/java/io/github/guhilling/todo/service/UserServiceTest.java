@@ -4,7 +4,14 @@ import io.github.guhilling.todo.model.User;
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import org.junit.jupiter.api.Test;
 
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -21,6 +28,8 @@ import static org.hamcrest.Matchers.notNullValue;
 @QuarkusTest
 class UserServiceTest {
 
+    private static final int CONCURRENT_CALLERS = 8;
+
     @Inject
     UserService userService;
 
@@ -33,5 +42,36 @@ class UserServiceTest {
 
         assertThat(first.id, notNullValue());
         assertThat(second.id, equalTo(first.id));
+    }
+
+    @Test
+    void shouldCreateOnlyOneUserWhenRequestsForTheSameNewEmailOverlap() throws Exception {
+        String email = "concurrent-" + UUID.randomUUID() + "@example.com";
+        int callers = CONCURRENT_CALLERS;
+
+        // A barrier makes every caller reach the lookup at the same moment, which is what turns
+        // the check-then-act in getOrCreateByEmail into an actual collision rather than a
+        // theoretical one. The browser produces the same overlap on a first sign-in.
+        CyclicBarrier startTogether = new CyclicBarrier(callers);
+        ExecutorService executor = Executors.newFixedThreadPool(callers);
+        try {
+            List<Future<Long>> results = new ArrayList<>();
+            for (int caller = 0; caller < callers; caller++) {
+                results.add(executor.submit((Callable<Long>) () -> {
+                    startTogether.await();
+                    return QuarkusTransaction.requiringNew().call(() -> userService.getOrCreateByEmail(email).id);
+                }));
+            }
+
+            Long firstId = results.getFirst().get();
+            assertThat(firstId, notNullValue());
+            for (Future<Long> result : results) {
+                assertThat(result.get(), equalTo(firstId));
+            }
+        } finally {
+            executor.shutdownNow();
+        }
+
+        assertThat(QuarkusTransaction.requiringNew().call(() -> User.count("email", email)), equalTo(1L));
     }
 }
