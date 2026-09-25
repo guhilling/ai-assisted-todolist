@@ -2,13 +2,17 @@ package io.github.guhilling.todo.api;
 
 import io.quarkus.security.Authenticated;
 import jakarta.inject.Inject;
+import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.core.Cookie;
+import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.NewCookie;
 import jakarta.ws.rs.core.Response;
 import java.net.URI;
+import java.util.List;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.jwt.JsonWebToken;
 
@@ -26,8 +30,13 @@ import org.eclipse.microprofile.jwt.JsonWebToken;
 @Path("/api/auth")
 public class AuthResource {
 
+    private static final String SESSION_COOKIE = "q_session";
+
     @Inject
     JsonWebToken jwt;
+
+    @Context
+    HttpHeaders httpHeaders;
 
     @ConfigProperty(name = "todo.post-login-redirect-uri", defaultValue = "/")
     String postLoginRedirectUri;
@@ -40,7 +49,14 @@ public class AuthResource {
     }
 
     /**
-     * Ends the local session by expiring {@code q_session}.
+     * Ends the local session by expiring every session cookie the browser sent.
+     *
+     * <p>Naming one cookie is not enough. Quarkus splits the session across
+     * {@code q_session_chunk_1}, {@code q_session_chunk_2} and so on once the encrypted
+     * tokens outgrow the 4 KB a single cookie holds, and whether it does that depends on how
+     * large the tokens happen to be. Expiring only {@code q_session} therefore worked or
+     * silently did nothing depending on the run, leaving people signed in after they had
+     * asked to be signed out.</p>
      *
      * <p>This is deliberately not an RP-initiated logout: the identity provider's own
      * session survives, so signing out here and back in again will not prompt for
@@ -50,13 +66,25 @@ public class AuthResource {
     @GET
     @Path("/logout")
     public Response logout() {
-        NewCookie expiredSessionCookie = new NewCookie.Builder("q_session")
-            .path("/")
-            .maxAge(0)
-            .build();
-        return Response.seeOther(URI.create(postLoginRedirectUri))
-            .cookie(expiredSessionCookie)
-            .build();
+        Response.ResponseBuilder response = Response.seeOther(URI.create(postLoginRedirectUri));
+        for (NewCookie expired : expiredSessionCookies()) {
+            response.cookie(expired);
+        }
+        return response.build();
+    }
+
+    private List<NewCookie> expiredSessionCookies() {
+        return httpHeaders.getCookies().values().stream()
+            .map(Cookie::getName)
+            .filter(AuthResource::isSessionCookie)
+            .map(name -> new NewCookie.Builder(name).path("/").maxAge(0).build())
+            .toList();
+    }
+
+    private static boolean isSessionCookie(String name) {
+        // The chunks are q_session_chunk_N, and a named tenant would add its own suffix, so
+        // match the prefix rather than enumerating the shapes.
+        return name.equals(SESSION_COOKIE) || name.startsWith(SESSION_COOKIE + "_");
     }
 
     @GET
