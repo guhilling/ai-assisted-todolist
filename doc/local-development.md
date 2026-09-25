@@ -145,6 +145,15 @@ podman machine set --memory 5120 --cpus 4
 podman machine start
 ```
 
+**Dev mode floods the log with `IllegalAccessError: module java.base does not open
+java.lang`.** jboss-threads resets thread locals on Java 24 and later, which needs
+`java.lang` opened to the unnamed module. `backend/pom.xml` passes the flag to the JVM
+that `quarkus:dev` forks, so a current checkout does not need anything; if you are on an
+older one, `./mvnw quarkus:dev -Djvm.args="--add-opens java.base/java.lang=ALL-UNNAMED"`
+does the same thing for one run. The plugin's own `openJavaLang` option looks like the
+right answer but is broken in Quarkus 3.25.2 — it emits a doubled `=` and the forked JVM
+refuses to boot.
+
 **`docker build` succeeds but Compose cannot find the image.** With a buildx
 `docker-container` driver the build result stays in the build cache rather than in the
 image store; add `--load` to the `docker build` command.

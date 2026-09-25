@@ -117,6 +117,16 @@
                 <artifactId>quarkus-maven-plugin</artifactId>
                 <version>${quarkus.platform.version}</version>
                 <extensions>true</extensions>
+                <configuration>
+                    <!-- jboss-threads resets thread locals on Java 24+, which needs java.lang
+                         opened to the unnamed module. Without it, dev mode throws
+                         IllegalAccessError on every request-handling thread. Surefire and
+                         failsafe below pass the same flag for the JVMs they fork.
+                         The plugin's own openJavaLang option would be the obvious way to ask
+                         for this, but in 3.25.2 it emits a doubled '=' and the forked JVM
+                         refuses to boot, so the flag is spelled out here instead. -->
+                    <jvmArgs>--add-opens java.base/java.lang=ALL-UNNAMED</jvmArgs>
+                </configuration>
                 <executions>
                     <execution>
                         <goals>
