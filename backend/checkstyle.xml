@@ -10,6 +10,8 @@
     - DesignForExtension, FinalParameters, and mandatory per-member Javadoc
       (JavadocMethod/MissingJavadocMethod/JavadocVariable/JavadocPackage)
       are dropped: they fight idiomatic JAX-RS resource and CDI bean code.
+      Type-level Javadoc is the opposite case and is required
+      (MissingJavadocType): every public type has to say what it is for.
     - VisibilityModifier is dropped: Panache active-record entities use
       public fields by design.
     - HiddenField ignores constructor parameters, since `this.x = x` is the
@@ -52,6 +54,12 @@
     <module name="InvalidJavadocPosition"/>
     <module name="JavadocType"/>
     <module name="JavadocStyle"/>
+    <!-- RECORD_DEF is spelled out because the nested request/response records carry
+         the REST contract, which is exactly what a reader comes looking for. -->
+    <module name="MissingJavadocType">
+      <property name="scope" value="public"/>
+      <property name="tokens" value="INTERFACE_DEF, CLASS_DEF, ENUM_DEF, ANNOTATION_DEF, RECORD_DEF"/>
+    </module>
 
     <module name="ConstantName"/>
     <module name="LocalFinalVariableName"/>

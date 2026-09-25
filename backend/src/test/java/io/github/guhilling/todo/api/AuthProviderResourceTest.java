@@ -7,6 +7,14 @@ import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.equalTo;
 
+/**
+ * Pins down what the landing page is told before anyone signs in.
+ *
+ * <p>It runs under the plain {@code test} profile, where {@code todo.auth.enabled} is false,
+ * so it is the guard against a provider ever being advertised as clickable without
+ * credentials behind it. The complementary case -- a provider that <em>is</em> configured --
+ * lives in {@link KeycloakLoginFlowTest}, which switches authentication on.</p>
+ */
 @QuarkusTest
 class AuthProviderResourceTest {
 

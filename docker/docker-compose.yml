@@ -1,3 +1,12 @@
+# Production-shaped local stack: PostgreSQL, the Quarkus backend and the nginx-served
+# frontend, with no identity provider. Sign-in is off unless you supply Google credentials,
+# so this is the stack for checking the deployment shape, not for working on the app --
+# `./mvnw quarkus:dev` is far better for that. See doc/local-development.md.
+#
+# The project name is pinned because Compose otherwise derives it from this file's directory,
+# which would rename the postgres volume to docker_postgres-data and orphan the existing one.
+name: ai-assisted-todolist
+
 services:
   postgres:
     image: postgres:17-alpine
@@ -11,8 +20,11 @@ services:
       - postgres-data:/var/lib/postgresql/data
 
   backend:
-    build:
-      context: ./backend
+    # Built by Jib, not by a Dockerfile: `cd backend && ./mvnw package
+    # -Dquarkus.container-image.build=true` produces this image locally. There is no
+    # Dockerfile under backend/ to build from -- the ones Quarkus generates in
+    # src/main/docker are JDK 17 based and cannot run this Java 25 code.
+    image: ${BACKEND_IMAGE:-quay.io/ghilling/todo-backend:latest}
     environment:
       QUARKUS_DATASOURCE_JDBC_URL: jdbc:postgresql://postgres:5432/todolist
       QUARKUS_DATASOURCE_USERNAME: todolist
@@ -31,7 +43,7 @@ services:
 
   frontend:
     build:
-      context: ./frontend
+      context: ../frontend
       dockerfile: docker/Dockerfile
     depends_on:
       - backend

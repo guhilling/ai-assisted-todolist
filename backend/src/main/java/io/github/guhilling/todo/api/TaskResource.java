@@ -28,6 +28,15 @@ import java.time.LocalDate;
 import java.util.List;
 import org.eclipse.microprofile.jwt.JsonWebToken;
 
+/**
+ * The task board's REST surface: everything a signed-in user can do to their own tasks.
+ *
+ * <p>Ownership is enforced in every query rather than checked after loading, so a task
+ * belonging to someone else is indistinguishable from one that does not exist — an
+ * unauthorised update and a wrong id both come back as 404. The owner is derived from the
+ * token's email claim on each request, never taken from the request body, which is what
+ * keeps one account from writing into another's board.</p>
+ */
 @Path("/api/tasks")
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
@@ -102,6 +111,19 @@ public class TaskResource {
         return new TaskResponse(task.id, task.description, task.dueDate, task.importance, task.state);
     }
 
+    /**
+     * What a client may set on a task, and the only shape this resource accepts.
+     *
+     * <p>It exists so the {@link Task} entity never reaches the wire: there is no id and no
+     * owner here, so neither can be spoofed by a request body. The constraints mirror the
+     * entity's own, which means a bad payload is rejected with a 400 before anything
+     * touches the database.</p>
+     *
+     * @param description what is to be done, never blank
+     * @param dueDate when it is due, today or later
+     * @param importance how much it matters
+     * @param state where it stands in the workflow
+     */
     public record TaskRequest(
         @NotBlank @Size(max = Task.MAX_DESCRIPTION_LENGTH) String description,
         @NotNull @FutureOrPresent LocalDate dueDate,
@@ -110,6 +132,18 @@ public class TaskResource {
     ) {
     }
 
+    /**
+     * A task as the frontend sees it, matching the {@code Task} type in {@code App.tsx}.
+     *
+     * <p>The audit timestamps and the owner are deliberately left out: the board has no use
+     * for them, and the owner is always the caller anyway.</p>
+     *
+     * @param id the generated identifier, used to address the task on update and delete
+     * @param description what is to be done
+     * @param dueDate when it is due
+     * @param importance how much it matters
+     * @param state where it stands in the workflow
+     */
     public record TaskResponse(
         Long id,
         String description,

@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "description": "Browser end-to-end tests for the todo list, run against the docker-compose.e2e.yml stack.",
+  "description": "Browser end-to-end tests for the todo list, run against the docker/docker-compose.e2e.yml stack.",
   "scripts": {
     "test": "playwright test",
     "report": "playwright show-report"

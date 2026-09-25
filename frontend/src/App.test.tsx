@@ -1,3 +1,10 @@
+/**
+ * Characterization tests for the app shell, run against a stubbed `fetch`.
+ *
+ * They cover what the user sees in each state -- signed out, signed in with tasks, and a
+ * failed load -- without a backend. Anything that depends on a real session or real
+ * persistence is covered by the Playwright suite under /e2e instead.
+ */
 import { render, screen, waitFor } from '@testing-library/react'
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import App from './App'

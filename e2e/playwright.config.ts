@@ -1,7 +1,12 @@
 import { defineConfig, devices } from '@playwright/test'
 
-// The stack is owned by docker-compose.e2e.yml, so there is no webServer block here: start the
-// containers first, then run these tests against them.
+/**
+ * Playwright configuration for the browser end-to-end suite.
+ *
+ * There is deliberately no `webServer` block: the stack is owned by
+ * docker/docker-compose.e2e.yml, so bring the containers up first and run these tests
+ * against them. The suite is serial because the tests share one PostgreSQL database.
+ */
 export default defineConfig({
   testDir: './tests',
   fullyParallel: false,

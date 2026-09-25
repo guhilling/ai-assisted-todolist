@@ -19,6 +19,19 @@ import java.time.LocalDate;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
+/**
+ * A single thing its owner means to get done: the aggregate root of this domain.
+ *
+ * <p>A task has no independent existence — {@code owner} is mandatory and never changes,
+ * so every task belongs to exactly one {@link User} from the moment it is created. That is
+ * the invariant the whole board rests on, and it is enforced twice: by the not-null column
+ * here and by the ownership predicate in every query {@code TaskResource} issues.</p>
+ *
+ * <p>The fields are public because this is a Panache active-record entity; Hibernate
+ * rewrites accesses into accessor calls at build time, so the public fields are an idiom
+ * rather than an encapsulation hole. Checkstyle's VisibilityModifier check is switched off
+ * in this project for exactly that reason.</p>
+ */
 @Entity
 public class Task extends PanacheEntityBase {
 

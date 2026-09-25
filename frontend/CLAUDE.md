@@ -39,3 +39,22 @@ DDD, and project context all still apply here).
 
 - Frontend code is analyzed with **SonarCloud** (alongside the backend),
   using the Vitest coverage report as input.
+
+## Documentation
+
+- **TSDoc blocks on types, module-level functions and components**, following the same
+  rule as the backend: the first sentence says what the thing is _for_, and a second
+  paragraph carries the _why_ when there is one.
+- This is **convention only, not enforced** — oxlint ships no `require-jsdoc` rule, so
+  nothing will fail the build for a missing block. It depends on being remembered.
+- What _is_ linted is doc-comment hygiene: `jsdoc/check-tag-names`, `jsdoc/empty-tags` and
+  `jsdoc/no-blank-blocks` are errors in `.oxlintrc.json`. Deliberately not enabled are
+  `jsdoc/require-param-type` and `jsdoc/require-returns-type`, which would ask for types in
+  comments that TypeScript already carries.
+- **Types mirroring a backend enum say so**, because the two have to change together and
+  the string literals travel over the wire verbatim.
+- Files whose reason for existing is a configuration subtlety — the Vite proxy, the Vitest
+  setup, the Playwright config — get a file-level block explaining it, rather than a
+  comment that can drift away from the line it explains.
+- Anything larger than a single module belongs in `/doc`, and is updated in the same change
+  as the behaviour it describes.

@@ -20,6 +20,15 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.not;
 
+/**
+ * Covers the task board's REST contract with identity faked by {@code @TestSecurity}.
+ *
+ * <p>Injecting the email claim directly keeps these tests fast and lets them assert the
+ * ownership rules from several identities without a login round trip. The price is that
+ * they prove nothing about the sign-in flow itself -- that is
+ * {@link KeycloakLoginFlowTest}'s job, which drives the same endpoints through a real
+ * authorization code exchange.</p>
+ */
 @QuarkusTest
 class TaskResourceTest {
 
