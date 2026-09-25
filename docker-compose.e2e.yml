@@ -1,0 +1,72 @@
+# Full stack for the browser end-to-end tests: PostgreSQL, Keycloak, the Quarkus backend and
+# the nginx-served frontend.
+#
+# Keycloak is published on localhost:8082 for the browser, while the backend reaches it inside
+# the compose network as keycloak:8082. KC_HOSTNAME_BACKCHANNEL_DYNAMIC lets those two differ:
+# the issuer and the login URL stay on localhost, and the token/JWKS endpoints the backend
+# discovers follow whichever host asked for them. No hosts-file entry is needed.
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: todolist
+      POSTGRES_USER: todolist
+      POSTGRES_PASSWORD: todolist
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U todolist -d todolist"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.4
+    command: ["start-dev", "--import-realm", "--http-port=8082"]
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+      KC_HOSTNAME: http://localhost:8082
+      KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
+      KC_HOSTNAME_STRICT: "false"
+    volumes:
+      - ./keycloak/realm-todolist.json:/opt/keycloak/data/import/realm-todolist.json:ro
+    ports:
+      - "8082:8082"
+    healthcheck:
+      # The image ships no curl, so talk to the realm endpoint over bash's /dev/tcp. Asking for
+      # the realm metadata also proves the import finished, not just that the port is open.
+      test:
+        - CMD-SHELL
+        - >-
+          exec 3<>/dev/tcp/127.0.0.1/8082 &&
+          printf 'GET /realms/todolist/.well-known/openid-configuration HTTP/1.1\r\nHost: localhost:8082\r\nConnection: close\r\n\r\n' >&3 &&
+          head -n 1 <&3 | grep -q '200'
+      interval: 5s
+      timeout: 5s
+      retries: 40
+
+  backend:
+    image: ${BACKEND_IMAGE:-quay.io/ghilling/todo-backend:latest}
+    environment:
+      QUARKUS_DATASOURCE_JDBC_URL: jdbc:postgresql://postgres:5432/todolist
+      QUARKUS_DATASOURCE_USERNAME: todolist
+      QUARKUS_DATASOURCE_PASSWORD: todolist
+      FRONTEND_ORIGINS: http://localhost:3000
+      QUARKUS_OIDC_ENABLED: "true"
+      TODO_OIDC_COOKIE_SECURE: "false"
+      SMALLRYE_CONFIG_LOCATIONS: /config/backend-e2e.properties
+    volumes:
+      - ./e2e/backend-e2e.properties:/config/backend-e2e.properties:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+
+  frontend:
+    image: ${FRONTEND_IMAGE:-todo-frontend:e2e}
+    depends_on:
+      - backend
+    ports:
+      - "3000:80"
