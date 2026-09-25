@@ -37,6 +37,10 @@ slows things down.
 - Always work on a git branch, never commit directly to `main`.
 - Pull requests are not required for the time being — merging a branch
   directly is fine.
+- Delete a branch once its pull request is merged — locally and on `origin` —
+  unless told otherwise. Because pull requests are squash-merged, a merged
+  branch does not show up in `git branch --merged main`, so stale branches are
+  easy to lose track of if they are not cleaned up straight away.
 - Anything that can reasonably be enforced automatically (tests, coverage,
   style/lint checks, build) should be enforced by the standard GitHub Actions
   CI/CD runs, not left as a manual convention.
