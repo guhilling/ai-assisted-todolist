@@ -6,8 +6,11 @@ A monorepo for a browser-based todo list with due dates, descriptions, workflow 
 
 - `/backend` - Quarkus REST API with PostgreSQL persistence and container-image settings for `quay.io/ghilling/todo-backend`
 - `/frontend` - React + TypeScript single-page application with container build for `quay.io/ghilling/todo-frontend`
+- `/e2e` - Playwright browser tests that drive the whole stack through a real Keycloak sign-in
+- `/keycloak` - realm export with the local test accounts, shared by Dev Services and the end-to-end stack
 - `/docker-compose.yml` - local deployment stack for PostgreSQL, backend, and frontend
-- `/.github/workflows` - frontend CI, backend CI, and image publication workflows
+- `/docker-compose.e2e.yml` - the same stack plus Keycloak, used by the end-to-end tests
+- `/.github/workflows` - frontend CI, backend CI, end-to-end, and image publication workflows
 
 ## Backend features
 
@@ -30,36 +33,43 @@ A monorepo for a browser-based todo list with due dates, descriptions, workflow 
 - Browser-based todo dashboard
 - Create todos with due dates and workflow state
 - Update todo state from the list view
-- Provider overview for Google, Apple, Microsoft Entra ID, and Facebook OIDC configuration placeholders
+- Sign-in through the backend's OIDC provider: Google in production, a local Keycloak in development
 
 ## Local development
 
 ### Backend
 
 ```bash
-cd /home/runner/work/ai-assisted-todolist/ai-assisted-todolist/backend
+cd backend
 ./mvnw quarkus:dev
 ```
 
-Environment variables:
+Dev mode needs nothing but a running container engine. Quarkus Dev Services starts
+PostgreSQL and a Keycloak on `http://localhost:8082` (admin `admin`/`admin`), importing
+`keycloak/realm-todolist.json` so you can sign in right away:
 
-- `QUARKUS_DATASOURCE_JDBC_URL`
-- `QUARKUS_DATASOURCE_USERNAME`
-- `QUARKUS_DATASOURCE_PASSWORD`
-- `QUARKUS_OIDC_ENABLED`
-- `TODO_AUTH_ENABLED`
-- `TODO_OIDC_GOOGLE_CLIENT_ID`
-- `TODO_OIDC_APPLE_CLIENT_ID`
-- `TODO_OIDC_ENTRA_CLIENT_ID`
-- `TODO_OIDC_FACEBOOK_CLIENT_ID`
+| Account | Password | Email |
+| --- | --- | --- |
+| `gunnar` | `gunnar` | `gunnar@example.com` |
+| `lasse` | `lasse` | `lasse@example.com` |
+
+Each account owns its own tasks, so signing in as the other one is the quickest way to see
+the ownership rules at work.
+
+Google is the only provider in production, and it is configured through environment
+variables rather than being checked in - see `.env.example` for the full list. The dev and
+test profiles never talk to Google.
 
 ### Frontend
 
 ```bash
-cd /home/runner/work/ai-assisted-todolist/ai-assisted-todolist/frontend
+cd frontend
 npm install
 npm run dev
 ```
+
+Open `http://localhost:5173`; the dev server proxies `/api` to the backend on port 8080.
+Sign in through the "Continue with Keycloak" card.
 
 Optional environment variable:
 
@@ -77,9 +87,23 @@ The stack exposes:
 - backend: `http://localhost:8080`
 - postgres: `localhost:5432`
 
+### End-to-end tests
+
+The browser tests run against the containerised stack, so build both images first:
+
+```bash
+cd backend && ./mvnw package -DskipTests -Dquarkus.container-image.build=true && cd ..
+cd frontend && docker build -f docker/Dockerfile -t todo-frontend:e2e . && cd ..
+docker compose -f docker-compose.e2e.yml up -d --wait
+cd e2e && npm ci && npx playwright install chromium && npx playwright test
+docker compose -f docker-compose.e2e.yml down -v
+```
+
 ## CI/CD
 
 - `backend-ci.yml` runs backend tests, JVM packaging, and container image builds
+- `e2e.yml` builds both images, starts PostgreSQL, Keycloak, backend and frontend, and runs
+  the Playwright tests against them
 - `frontend-ci.yml` installs dependencies, lints, builds, and validates the frontend image build
 - `publish-images.yml` publishes both images to Quay from `main` or `workflow_dispatch`
 
