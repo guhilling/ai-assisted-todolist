@@ -1,32 +1,24 @@
-# React + TypeScript + Vite
+# frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+The React 19 + TypeScript single-page app, built with Vite and served in production by
+nginx. One screen: the sign-in cards when signed out, the task board when signed in.
 
-Currently, two official plugins are available:
-
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```bash
+npm install
+npm run dev             # http://localhost:5173, proxies /api to the backend on :8080
+npm run test            # Vitest
+npm run test:coverage   # with the lcov report SonarCloud consumes
+npm run lint            # oxlint
+npm run build           # tsc -b && vite build
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+The backend has to be running for anything beyond the shell to work — see
+[../doc/local-development.md](../doc/local-development.md).
+
+Conventions for working here — TDD, strict TypeScript, linting, TSDoc — are in
+[CLAUDE.md](CLAUDE.md). The app talks to the backend through a session cookie and never
+holds a token; [../doc/authentication.md](../doc/authentication.md) explains what that
+implies for the sign-in link and for `fetch`.
+
+`docker/Dockerfile` builds the production image. Its nginx config must keep forwarding the
+original `Host` header and its enlarged proxy buffers, both of which sign-in depends on.

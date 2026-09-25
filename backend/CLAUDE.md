@@ -79,3 +79,26 @@ Don't write backend production code without a test driving it first.
   Temurin JDK explicitly into the image rather than using a JDK-preloaded
   base image (e.g. `ubi9/openjdk-*`). This is a deliberate current choice,
   not a fixed long-term decision — revisit if it stops making sense.
+
+## Documentation
+
+- **Every public type carries a Javadoc block** — classes, interfaces, enums and records,
+  nested ones included. This is **enforced**: Checkstyle's `MissingJavadocType` fails
+  `./mvnw verify` on a type without one.
+- **The first sentence says what the type is _for_**, not what it is called. "Serves the
+  sign-in cards the landing page offers before anyone is authenticated." — not "The auth
+  provider resource." It ends with a period; `JavadocStyle` enforces that.
+- **A second paragraph carries the _why_** where there is one: the collaborator the type
+  exists to serve, the invariant it protects, or the alternative that was rejected and the
+  reason. A type whose purpose really is self-evident gets one sentence and stops.
+- **Per-member Javadoc stays optional**, deliberately — `@param`/`@return` ceremony on
+  JAX-RS resources and CDI beans is noise. Add it only where it says something the
+  signature does not, as `AuthResource.logout()` does. Records are the exception:
+  `JavadocType` requires a `@param` per component once a block exists, and since the
+  records _are_ the REST contract, documenting each field there is worth it.
+- **No `@author`, `@version` or `@since`.** Git holds that.
+- **Test classes get a block too**, saying which behaviour they pin down and at which layer
+  — faked identity versus a real login, in-JVM versus packaged. Checkstyle does not scan
+  `src/test`, so this one rests on habit.
+- Anything larger than a single type belongs in `/doc`, and is updated in the same change
+  as the behaviour it describes.

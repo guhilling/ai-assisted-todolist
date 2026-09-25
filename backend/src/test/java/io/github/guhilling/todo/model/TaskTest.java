@@ -16,6 +16,15 @@ import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+/**
+ * Covers the two things about a task that only a real persistence context can show:
+ * that the description length constraint is enforced, and that the audit timestamps are
+ * populated and maintained by Hibernate.
+ *
+ * <p>It runs against the PostgreSQL that Dev Services starts rather than an in-memory
+ * database, because timestamp generation and column constraints are exactly the behaviour
+ * that differs between engines.</p>
+ */
 @QuarkusTest
 class TaskTest {
 

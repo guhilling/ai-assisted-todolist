@@ -5,14 +5,14 @@ on:
     paths:
       - 'backend/**'
       - '.github/workflows/backend-ci.yml'
-      - 'docker-compose.yml'
+      - 'docker/docker-compose.yml'
   push:
     branches:
       - main
     paths:
       - 'backend/**'
       - '.github/workflows/backend-ci.yml'
-      - 'docker-compose.yml'
+      - 'docker/docker-compose.yml'
 
 permissions:
   contents: read

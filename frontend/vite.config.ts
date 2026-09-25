@@ -2,7 +2,11 @@
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
 
-// https://vite.dev/config/
+/**
+ * Vite configuration for the dev server, the production bundle and the Vitest run.
+ *
+ * See https://vite.dev/config/ for the full option reference.
+ */
 export default defineConfig({
   plugins: [react()],
   server: {

@@ -35,8 +35,9 @@ slows things down.
 ## Workflow
 
 - Always work on a git branch, never commit directly to `main`.
-- Pull requests are not required for the time being — merging a branch
-  directly is fine.
+- Every change reaches `main` through a pull request; the `main-branch`
+  ruleset enforces it and rejects direct pushes. No approving review is
+  required, so you can merge your own pull request once CI is green.
 - Delete a branch once its pull request is merged — locally and on `origin` —
   unless told otherwise. Because pull requests are squash-merged, a merged
   branch does not show up in `git branch --merged main`, so stale branches are
@@ -44,6 +45,16 @@ slows things down.
 - Anything that can reasonably be enforced automatically (tests, coverage,
   style/lint checks, build) should be enforced by the standard GitHub Actions
   CI/CD runs, not left as a manual convention.
+- Project-level documentation lives in `/doc` and is the source of truth; the
+  root `README.md` is a short entry point that links into it. Update `/doc` in
+  the same change as the behaviour it describes, never as a follow-up — the
+  README had already drifted into documenting endpoints and task states that no
+  longer existed.
+- Code-level documentation is Javadoc and TSDoc in the code itself, saying what
+  a type is *for*. The conventions are in `backend/CLAUDE.md` and
+  `frontend/CLAUDE.md`; on the backend they are enforced by Checkstyle.
+- Deployment artifacts — the Docker Compose stacks, and the AWS material that
+  will follow — live in `/docker`, not at the repository root.
 - Never commit secrets (API keys, OIDC client secrets, real credentials,
   etc.). Only local, testing-only placeholder values belong in the repo
   (e.g. `.env.example`-style files or dev/test configuration); real secrets

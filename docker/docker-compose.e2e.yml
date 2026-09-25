@@ -5,6 +5,11 @@
 # the compose network as keycloak:8082. KC_HOSTNAME_BACKCHANNEL_DYNAMIC lets those two differ:
 # the issuer and the login URL stay on localhost, and the token/JWKS endpoints the backend
 # discovers follow whichever host asked for them. No hosts-file entry is needed.
+# A distinct project name keeps this stack from colliding with the dev stack above: without
+# it both derive the same name from this directory and each treats the other's containers as
+# orphans. This stack owns no volumes and is always torn down with `down -v`.
+name: ai-assisted-todolist-e2e
+
 services:
   postgres:
     image: postgres:17-alpine
@@ -28,7 +33,7 @@ services:
       KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
       KC_HOSTNAME_STRICT: "false"
     volumes:
-      - ./keycloak/realm-todolist.json:/opt/keycloak/data/import/realm-todolist.json:ro
+      - ../keycloak/realm-todolist.json:/opt/keycloak/data/import/realm-todolist.json:ro
     ports:
       - "8082:8082"
     healthcheck:
@@ -55,7 +60,7 @@ services:
       TODO_OIDC_COOKIE_SECURE: "false"
       SMALLRYE_CONFIG_LOCATIONS: /config/backend-e2e.properties
     volumes:
-      - ./e2e/backend-e2e.properties:/config/backend-e2e.properties:ro
+      - ../e2e/backend-e2e.properties:/config/backend-e2e.properties:ro
     depends_on:
       postgres:
         condition: service_healthy

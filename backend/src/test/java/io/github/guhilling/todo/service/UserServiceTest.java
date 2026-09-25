@@ -11,6 +11,13 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.notNullValue;
 
+/**
+ * Pins down the create-on-first-sight rule that gives every authenticated email a user row.
+ *
+ * <p>The two lookups run in separate transactions on purpose: reusing an existing user has
+ * to work across requests, not merely within one persistence context, since that is how it
+ * will be called in production.</p>
+ */
 @QuarkusTest
 class UserServiceTest {
 

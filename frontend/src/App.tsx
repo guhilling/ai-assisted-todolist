@@ -1,10 +1,25 @@
+/**
+ * The whole single-page app: server state, the API layer that fetches it, and the markup
+ * that renders it.
+ *
+ * Keeping all three in one module is a deliberate choice for an app this size -- there is
+ * one screen, and splitting it would add indirection without removing anything. The API
+ * functions below were extracted out of the component so the component holds state and
+ * rendering only; they are the seam to split on first if this file grows.
+ */
 import { useEffect, useMemo, useState } from 'react'
 import type { SubmitEvent } from 'react'
 import './App.css'
 
+/**
+ * Where a task stands in the workflow. Mirrors the backend's TaskState enum; the two must
+ * be changed together, since these strings go over the wire verbatim.
+ */
 type TaskState = 'TODO' | 'WORKING' | 'DONE'
+/** How much a task matters. Mirrors the backend's TaskImportance enum. */
 type TaskImportance = 'LOW' | 'MEDIUM' | 'HIGH'
 
+/** A task as the backend returns it, matching TaskResource.TaskResponse. */
 type Task = {
   id: number
   description: string
@@ -13,6 +28,13 @@ type Task = {
   state: TaskState
 }
 
+/**
+ * One sign-in card offered by the backend.
+ *
+ * The frontend hardcodes no provider names: whatever the backend lists is what the user
+ * sees. `available` is false and `loginUrl` null when a provider is configured but has no
+ * credentials, in which case the card renders disabled rather than disappearing.
+ */
 type AuthProvider = {
   id: string
   label: string
@@ -21,25 +43,45 @@ type AuthProvider = {
   issuer: string
 }
 
+/**
+ * The reply from `/api/auth/providers`. `enabled` says whether authentication is switched
+ * on for this deployment at all, which is a different thing from every provider happening
+ * to be unconfigured.
+ */
 type AuthProvidersResponse = {
   enabled: boolean
   providers: AuthProvider[]
 }
 
+/** Who is signed in. The backend exposes only the email claim, which is the whole identity. */
 type CurrentUser = {
   email: string
 }
 
 const stateOptions: TaskState[] = ['TODO', 'WORKING', 'DONE']
 const importanceOptions: TaskImportance[] = ['LOW', 'MEDIUM', 'HIGH']
+/**
+ * Where the API lives. Empty by default, so requests go same-origin and are proxied --
+ * by Vite in development, by nginx in a container. Set VITE_API_BASE_URL only to point the
+ * app at a backend on a different origin.
+ */
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? ''
 const authProvidersUrl = `${apiBaseUrl}/api/auth/providers`
 const authMeUrl = `${apiBaseUrl}/api/auth/me`
 const authLogoutUrl = `${apiBaseUrl}/api/auth/logout`
 const tasksBaseUrl = `${apiBaseUrl}/api/tasks`
 
+/**
+ * Marks a request as coming from script rather than from browser navigation.
+ *
+ * The backend sets `quarkus.oidc.authentication.java-script-auto-redirect=false`, so a
+ * request carrying this header gets a plain 401 instead of a redirect to the identity
+ * provider -- which is what lets `fetchCurrentUser` probe the session without navigating
+ * the page away.
+ */
 const jsFetchHeaders = { 'X-Requested-With': 'JavaScript' }
 
+/** A blank new-task form. Also the shape the form resets to after a successful save. */
 const initialForm = {
   description: '',
   dueDate: '',
@@ -47,12 +89,18 @@ const initialForm = {
   state: 'TODO' as TaskState,
 }
 
+/** The new-task form's fields, derived from `initialForm` so the two cannot drift apart. */
 type TaskForm = typeof initialForm
 
+/** Unwraps a thrown value into something displayable, since a `catch` binding is `unknown`. */
 function toErrorMessage(cause: unknown, fallback: string) {
   return cause instanceof Error ? cause.message : fallback
 }
 
+/**
+ * Parses a successful JSON response, turning any non-2xx status into an error carrying a
+ * message the user can actually read.
+ */
 async function readJson<T>(response: Response, failureMessage: string) {
   if (!response.ok) {
     throw new Error(failureMessage)
@@ -60,21 +108,33 @@ async function readJson<T>(response: Response, failureMessage: string) {
   return (await response.json()) as T
 }
 
+/**
+ * Asks who is signed in, returning null rather than throwing when nobody is.
+ *
+ * Being signed out is the normal first-visit state, not a failure, so a 401 here is
+ * expected and must not surface as an error banner.
+ */
 async function fetchCurrentUser() {
   const response = await fetch(authMeUrl, { credentials: 'include', headers: jsFetchHeaders })
   return response.ok ? ((await response.json()) as CurrentUser) : null
 }
 
+/**
+ * Loads the sign-in cards to offer. Returns null on failure so the app can still render
+ * its signed-out view instead of breaking outright.
+ */
 async function fetchAuthProviders() {
   const response = await fetch(authProvidersUrl)
   return response.ok ? ((await response.json()) as AuthProvidersResponse) : null
 }
 
+/** Loads the signed-in user's tasks. Only ever their own -- the backend scopes the query. */
 async function fetchTasks() {
   const response = await fetch(tasksBaseUrl, { credentials: 'include', headers: jsFetchHeaders })
   return readJson<Task[]>(response, 'Unable to load tasks from the backend.')
 }
 
+/** Creates a task and returns it as the backend stored it, including its generated id. */
 async function postTask(form: TaskForm) {
   const response = await fetch(tasksBaseUrl, {
     method: 'POST',
@@ -85,6 +145,12 @@ async function postTask(form: TaskForm) {
   return readJson<Task>(response, 'Unable to create task.')
 }
 
+/**
+ * Moves a task to another state.
+ *
+ * The backend's update endpoint replaces the whole task, so the current task is sent back
+ * with only `state` changed rather than a partial patch.
+ */
 async function putTaskState(task: Task, nextState: TaskState) {
   const response = await fetch(`${tasksBaseUrl}/${task.id}`, {
     method: 'PUT',
@@ -95,6 +161,10 @@ async function putTaskState(task: Task, nextState: TaskState) {
   return readJson<Task>(response, 'Unable to update task state.')
 }
 
+/**
+ * The application shell: loads the session and the board on mount, then renders either the
+ * sign-in cards or the task board depending on whether anyone is signed in.
+ */
 function App() {
   const [tasks, setTasks] = useState<Task[]>([])
   const [providers, setProviders] = useState<AuthProvidersResponse>({ enabled: false, providers: [] })
