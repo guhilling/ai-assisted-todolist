@@ -113,3 +113,34 @@ an explicit `name:`.
 names are load-bearing: Compose otherwise derives the name from the containing directory,
 which would have renamed the PostgreSQL volume and left the existing one orphaned, and
 would have had the two stacks treat each other's containers as orphans.
+
+## Coverage is measured by `quarkus-jacoco`, and gates the build
+
+**Decision.** The `quarkus-jacoco` extension produces the coverage report; the
+`jacoco-maven-plugin` keeps only its agent and its `check` goal, which fails `verify` below
+95% line / 90% branch. The frontend equivalent is `coverage.thresholds` in `vite.config.ts`.
+
+**Why.** The Maven plugin alone reported 0% for `TaskResource`, `UserService`, `Task` and
+`User` while reporting correctly for everything else — they are the classes Quarkus rewrites
+at build time, loaded by `QuarkusClassLoader`, which the stock agent cannot instrument. That
+put backend line coverage at 41% when it was really 89%. A silently wrong number is worse
+than no number, because it invites work on the wrong problem.
+
+**Cost.** Two tools now share `target/jacoco-quarkus.exec`, which needs
+`quarkus.jacoco.reuse-data-file=true` so the extension does not wipe what the agent wrote.
+The plugin's `report` execution had to go, because it would overwrite the good report with
+the broken one. Removing the extension breaks nothing visibly and halves the number.
+
+## The end-to-end suite contributes no coverage
+
+**Decision.** Only the backend test JVM and the Vitest run feed the coverage figure. The
+Playwright suite is not instrumented, and there are no plans to instrument it.
+
+**Why.** Coverage is a question about unit and integration tests. The e2e suite exists to
+prove the real stack works — real redirects, real cookies, real persistence — and folding it
+in would inflate the number in exactly the way that hides a missing unit test. A line only a
+browser test reaches is a line with no unit test, and the number should say so.
+
+**Rejected.** Attaching a JaCoCo agent to the e2e backend container and merging the dump,
+and instrumenting the frontend bundle with istanbul to collect `window.__coverage__`. Both
+work; neither tells us anything we want to act on.
