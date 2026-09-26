@@ -1,5 +1,10 @@
 # ai-assisted-todolist
 
+[![Backend CI](https://github.com/guhilling/ai-assisted-todolist/actions/workflows/backend-ci.yml/badge.svg?branch=main)](https://github.com/guhilling/ai-assisted-todolist/actions/workflows/backend-ci.yml)
+[![Frontend CI](https://github.com/guhilling/ai-assisted-todolist/actions/workflows/frontend-ci.yml/badge.svg?branch=main)](https://github.com/guhilling/ai-assisted-todolist/actions/workflows/frontend-ci.yml)
+[![CodeQL](https://github.com/guhilling/ai-assisted-todolist/actions/workflows/codeql.yml/badge.svg?branch=main)](https://github.com/guhilling/ai-assisted-todolist/actions/workflows/codeql.yml)
+[![Quality gate](https://sonarcloud.io/api/project_badges/measure?project=guhilling_ai-assisted-todolist&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=guhilling_ai-assisted-todolist)
+
 A browser-based todo list: tasks with due dates, importance and workflow state, private to
 whoever signed in. Quarkus backend, React + TypeScript frontend, PostgreSQL persistence,
 OpenID Connect sign-in.
@@ -30,6 +35,7 @@ details, the second local account, the container stacks and the troubleshooting.
 | [authentication.md](doc/authentication.md) | The backend-for-frontend OIDC design |
 | [local-development.md](doc/local-development.md) | Running and testing everything locally |
 | [testing.md](doc/testing.md) | The test layers and how to run them |
+| [releasing.md](doc/releasing.md) | How a release is cut, and what it publishes |
 | [decisions.md](doc/decisions.md) | Decisions taken, why, and what was rejected |
 
 Code-level documentation lives in the code, as Javadoc and TSDoc. The conventions are in
@@ -68,7 +74,9 @@ Prometheus metrics at `/q/metrics`.
 - `frontend-ci.yml` — install, lint, build, frontend image build
 - `e2e.yml` — builds both images, starts the full stack, runs the Playwright suite
 - `sonarcloud.yml` — both test suites with coverage, then the Sonar scan
-- `publish-images.yml` — publishes both images to Quay from `main` or `workflow_dispatch`
+- `publish-images.yml` — publishes both images to Quay as `latest` from `main`
+- `codeql.yml` — CodeQL security scanning for Java and TypeScript, plus a weekly run
+- `release.yml` — on a `v*` tag: release checks, versioned images, a GitHub Release
 
 Image publication needs these repository secrets:
 
@@ -77,3 +85,28 @@ Image publication needs these repository secrets:
 
 Production Google credentials are supplied through environment variables and never checked
 in; `.env.example` lists them.
+
+## Releases
+
+```bash
+git tag v1.0.0 && git push origin v1.0.0
+```
+
+That is the whole procedure. No version is written down anywhere else: the backend's
+`pom.xml` carries `${revision}`, which the release build overrides from the tag, and the
+frontend package is private and never published. `release.yml` then refuses SNAPSHOT and
+pre-release dependencies, runs both suites, publishes `quay.io/ghilling/todo-backend:1.0.0`
+and `todo-frontend:1.0.0`, and opens a GitHub Release. Details, including why `latest` is
+not moved, are in [doc/releasing.md](doc/releasing.md).
+
+## Dependencies
+
+Renovate opens the update pull requests, configured in `.github/renovate.json`. Patch and
+minor updates merge themselves once every check on the pull request is green; major updates
+wait for a human. The dependency dashboard issue lists everything outstanding.
+
+## License
+
+Apache License 2.0 — see [LICENSE](LICENSE).
+
+Copyright 2026 Gunnar Hilling.

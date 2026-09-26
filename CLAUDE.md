@@ -59,6 +59,22 @@ slows things down.
   etc.). Only local, testing-only placeholder values belong in the repo
   (e.g. `.env.example`-style files or dev/test configuration); real secrets
   are supplied via environment variables / CI secrets only.
+- **Never hand-edit a version.** A release is a git tag (`v1.2.3`); the
+  backend's `pom.xml` carries `${revision}` and the release build overrides it
+  from the tag. `main` stays `1.0.0-SNAPSHOT` permanently, and the frontend's
+  `package.json` version is unused because the package is never published.
+  `doc/releasing.md` has the whole procedure.
+- **A SNAPSHOT dependency fails every backend build**, not just a release
+  (`requireReleaseDeps` at `validate`); the npm counterpart is
+  `npm run check:deps` in `frontend/`. Do not move either into a release-only
+  path — the point is to fail when the dependency is added.
+- **Dependency updates come from Renovate**, not by hand. Patch and minor
+  updates automerge once every check is green; majors wait for Gunnar. The
+  `platformAutomerge: false` in `.github/renovate.json` is load-bearing: the
+  `main-branch` ruleset requires no status checks, so GitHub's own auto-merge
+  would merge before anything had run.
+- The project is licensed **Apache-2.0** (`LICENSE`, verbatim). There are
+  deliberately no per-file license headers — see `doc/decisions.md`.
 
 ## Development methodology
 

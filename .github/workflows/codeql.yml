@@ -1,0 +1,62 @@
+name: CodeQL
+
+# Deliberately not path-filtered, unlike backend-ci and frontend-ci. The README carries a
+# CodeQL badge, and a path-filtered workflow makes that badge report the last run that
+# happened to touch the matching directory, which can be many commits old.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Queries are updated on GitHub's side, so a weekly run finds things that were not
+    # findable when the code landed.
+    - cron: '27 4 * * 1'
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    name: Analyze ${{ matrix.language }}
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      contents: read
+      actions: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - language: java-kotlin
+            build-mode: manual
+          - language: javascript-typescript
+            build-mode: none
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-java@v5
+        if: matrix.language == 'java-kotlin'
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+
+      - name: Initialise CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
+
+      - name: Compile the backend for the extractor
+        if: matrix.build-mode == 'manual'
+        working-directory: backend
+        # The extractor only needs the compiled classes. Quarkus's augmentation step,
+        # Checkstyle and the tests all run in backend-ci already, and skipping them here
+        # keeps a CodeQL failure meaning what it says.
+        run: ./mvnw -B package -DskipTests -Dcheckstyle.skip=true -Dquarkus.build.skip=true
+
+      - name: Analyse
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: /language:${{ matrix.language }}
