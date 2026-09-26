@@ -57,7 +57,7 @@ jobs:
         # verify then runs the tests, the coverage gate, Checkstyle and PIT.
         run: ./mvnw -B -Prelease -Drevision=${{ steps.version.outputs.version }} verify
 
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v7
         with:
           node-version: '22'
           cache: npm
@@ -122,7 +122,7 @@ jobs:
           -Dquarkus.container-image.build=true
           -Dquarkus.container-image.push=true
 
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v7
         if: matrix.name == 'frontend'
         with:
           node-version: '22'
