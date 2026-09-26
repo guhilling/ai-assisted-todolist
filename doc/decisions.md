@@ -273,5 +273,24 @@ ago. The weekly run exists because the queries improve on GitHub's side, so a sc
 finds things that were not findable when the code landed.
 
 **Why a manual build.** The extractor needs compiled classes and nothing more. Skipping
-Quarkus's augmentation step, Checkstyle and the tests keeps a red CodeQL badge meaning a
-CodeQL finding rather than a failure already reported by another workflow.
+Quarkus's augmentation step and Checkstyle keeps a red CodeQL badge meaning a CodeQL finding
+rather than a failure already reported by another workflow.
+
+**Why `-Dmaven.test.skip` and not `-DskipTests`.** `skipTests` only skips *running* the
+tests; `testCompile` still runs, so `backend/src/test` was compiled into the CodeQL database
+and scanned. That is close to pure noise — a test's hard-coded Keycloak password is the point
+of the test, not a finding — and `paths-ignore` cannot fix it, because that setting applies
+only to interpreted languages. For a compiled language the scope *is* whatever the build
+compiles, so not compiling the tests is the only lever.
+
+**The query suite is `security-extended`, not `security-and-quality`.** The quality half of
+that suite is maintainability and style analysis, which SonarCloud already performs on both
+languages here. Running it in CodeQL as well would bury the security findings under a second
+opinion on style. `security-extended` keeps CodeQL doing the one job nothing else in this
+repository does.
+
+**Note on what `configFileFound: false` means.** Every CodeQL run logs
+`"configFileFound": false` against `/home/runner/.config/codeql/config`. That is the CodeQL
+CLI's own per-user config file on the runner, which never exists on a hosted runner and is
+not something a repository supplies. It is not a sign of a missing
+`.github/codeql/codeql-config.yml`, and it still says `false` now that one exists.
