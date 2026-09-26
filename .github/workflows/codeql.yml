@@ -47,14 +47,20 @@ jobs:
         with:
           languages: ${{ matrix.language }}
           build-mode: ${{ matrix.build-mode }}
+          config-file: ./.github/codeql/codeql-config.yml
 
       - name: Compile the backend for the extractor
         if: matrix.build-mode == 'manual'
         working-directory: backend
-        # The extractor only needs the compiled classes. Quarkus's augmentation step,
-        # Checkstyle and the tests all run in backend-ci already, and skipping them here
-        # keeps a CodeQL failure meaning what it says.
-        run: ./mvnw -B package -DskipTests -Dcheckstyle.skip=true -Dquarkus.build.skip=true
+        # The extractor only needs the compiled classes. Quarkus's augmentation step and
+        # Checkstyle run in backend-ci already, and skipping them here keeps a CodeQL failure
+        # meaning what it says.
+        #
+        # -Dmaven.test.skip, not -DskipTests: skipTests still runs testCompile, which put
+        # backend/src/test into the CodeQL database. paths-ignore cannot exclude it either,
+        # because that setting does not apply to compiled languages — not compiling the tests
+        # is the only way to keep them out of scope.
+        run: ./mvnw -B package -Dmaven.test.skip=true -Dcheckstyle.skip=true -Dquarkus.build.skip=true
 
       - name: Analyse
         uses: github/codeql-action/analyze@v3

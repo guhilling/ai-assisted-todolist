@@ -1,0 +1,31 @@
+# CodeQL configuration, referenced by .github/workflows/codeql.yml.
+#
+# Two things are set here: which query suite runs, and which files the interpreted-language
+# extractor should ignore.
+
+name: ai-assisted-todolist
+
+# The default suite is deliberately widened to security-extended, and deliberately *not*
+# widened to security-and-quality. The quality half of that suite is maintainability and
+# style analysis, which SonarCloud already does for both languages in this repository —
+# running it here too would turn a CodeQL alert into a second opinion on style and make the
+# security findings harder to see. security-extended keeps CodeQL doing the one job nothing
+# else here does.
+queries:
+  - uses: security-extended
+
+# IMPORTANT: paths and paths-ignore apply to the *interpreted* languages only — here that is
+# javascript-typescript alone. They have no effect on java-kotlin, whose scope is whatever
+# the build in codeql.yml actually compiles. That build passes -Dmaven.test.skip=true, so
+# backend/src/test is never compiled and is out of scope by construction rather than by a
+# rule in this file. Adding backend paths below would look like it worked and would not.
+paths-ignore:
+  # Test code. Scanning it mostly reports the fixtures as findings: hard-coded test
+  # credentials are the point of a test, not a vulnerability in the product.
+  - frontend/src/**/*.test.ts
+  - frontend/src/**/*.test.tsx
+  - frontend/src/setupTests.ts
+  - e2e
+  # Build output and coverage reports: generated, minified, and not source.
+  - frontend/dist
+  - frontend/coverage
