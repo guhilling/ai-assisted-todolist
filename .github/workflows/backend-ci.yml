@@ -40,7 +40,7 @@ jobs:
         # Always, not just on failure: PIT reports rather than gating, so this artifact is
         # the only way to see which mutants survived. The build log gives only the total.
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: pit-report
           path: backend/target/pit-reports
