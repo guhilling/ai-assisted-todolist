@@ -82,16 +82,32 @@ sign-in return 401.
 
 ## Jib with a pinned Java 25 base image
 
-**Decision.** The backend image is built by Jib onto `eclipse-temurin:25-jre`. The
-Dockerfiles Quarkus generates under `backend/src/main/docker/` are unused.
+**Decision.** The backend image is built by Jib onto `eclipse-temurin:25-jre`. All four
+Dockerfiles Quarkus generated under `backend/src/main/docker/` have been deleted, along with
+`backend/.dockerignore`; the directory no longer exists.
 
 **Why.** Jib needs no Dockerfile and no daemon-side build. The pin is not optional: Jib's
-default base ships JDK 21 and the container exited silently on class file version 69. The
-generated Dockerfiles are JDK 17 based and would fail the same way.
+default base ships JDK 21 and the container exited silently on class file version 69.
 
-**Open.** `backend/CLAUDE.md` still expresses a preference for UBI minimal with Temurin
-installed explicitly. The current pin is a plain Temurin image; revisit when the deployment
-target is settled.
+**Why the Dockerfiles were deleted rather than left alone.** The two JVM ones were
+`ubi9/openjdk-17` based, so building from either would have failed on class file version 69 in
+exactly the way the pin exists to prevent — a trap for anyone who found them before finding
+this page. The two native ones were no better: equally unbuilt, and **none of the four was
+ever exercised by a test or by CI**, so nothing would have caught them rotting. Which is what
+happened — they sat at JDK 17 while the project moved to 25. They also cost review time:
+Renovate raised pull requests to advance the `openjdk-17` and `ubi-minimal` tags on files
+nothing built. Verified before deleting: the only references to any of them were inside their
+own comment headers, every `docker build` in the repository targets the *frontend* image, the
+`native` profile also builds through Jib, and
+`./mvnw package -Dquarkus.container-image.build=true` still produces the image afterwards on
+the same base image digest.
+
+**Settled: a plain Temurin image, not UBI minimal.** `backend/CLAUDE.md` used to prefer UBI
+minimal with Temurin installed on top, which left this ADR carrying an open question. The
+preference is dropped. A plain `eclipse-temurin` image is the same distribution and major
+version the build and CI already use, so there is one Java version to track instead of two,
+and nothing about the current deployment target argues for a Red Hat base. `backend/CLAUDE.md`
+now says so rather than contradicting it.
 
 ## sun_checks with documented relaxations
 

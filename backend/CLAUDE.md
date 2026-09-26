@@ -93,11 +93,25 @@ Don't write backend production code without a test driving it first.
 
 ## Container image
 
-- For now, base backend container images on **Red Hat UBI minimal**
-  (`registry.access.redhat.com/ubi9/ubi-minimal` or newer), installing the
-  Temurin JDK explicitly into the image rather than using a JDK-preloaded
-  base image (e.g. `ubi9/openjdk-*`). This is a deliberate current choice,
-  not a fixed long-term decision — revisit if it stops making sense.
+- **Jib builds the image onto `eclipse-temurin:25-jre`**, pinned by
+  `quarkus.jib.base-jvm-image` in `application.properties`. No Dockerfile, no
+  daemon-side build.
+- **A plain Temurin image is the settled choice**, not UBI minimal with a JDK
+  installed on top. It is the same distribution and major version the build and
+  CI use, so there is one Java version to keep straight rather than two. An
+  earlier version of this file preferred UBI minimal; that is no longer the
+  intent, and `doc/decisions.md` records the decision.
+- **The pin is load-bearing — never drop it.** Jib's default base ships JDK 21
+  while this code is compiled for 25, so on the default the container exits
+  immediately and silently on class file version 69. When
+  `maven.compiler.release` moves, move this tag in the same change.
+- **There are no Dockerfiles under `backend/`, deliberately.** The four Quarkus
+  generated (`Dockerfile.jvm`, `.legacy-jar`, `.native`, `.native-micro`) were
+  deleted: nothing built them, two were JDK 17 based and so were a trap, and none
+  was ever exercised by a test or by CI. `backend/.dockerignore` went with them,
+  since it only ever mattered to a `docker build` in that directory. If a
+  Dockerfile build is genuinely needed, add `quarkus-container-image-docker` and
+  write one on purpose rather than restoring scaffolding.
 
 ## Documentation
 

@@ -88,8 +88,8 @@ what makes Quarkus Dev Services start PostgreSQL and Keycloak automatically.
 The backend image is built by **Jib** rather than from a Dockerfile — `./mvnw package
 -Dquarkus.container-image.build=true` — on an explicitly pinned `eclipse-temurin:25-jre`
 base. The pin matters: Jib's default base ships JDK 21 and cannot load this code's class
-files. The Dockerfiles Quarkus generates under `backend/src/main/docker/` are unused
-leftovers and are JDK 17 based; do not build from them.
+files. There are no Dockerfiles under `backend/` at all: the four Quarkus generated were
+unused, two of them JDK 17 based, and all four were deleted.
 
 The frontend image is a two-stage Dockerfile at `frontend/docker/Dockerfile`: build with
 Node, serve with nginx.
