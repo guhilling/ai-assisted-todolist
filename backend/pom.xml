@@ -9,7 +9,7 @@
         <!-- Never edited by hand. A release build overrides it from the git tag
              (-Drevision=1.2.3); every other build is a snapshot of main. -->
         <revision>1.0.0-SNAPSHOT</revision>
-        <compiler-plugin.version>3.14.0</compiler-plugin.version>
+        <compiler-plugin.version>3.16.0</compiler-plugin.version>
         <maven.compiler.release>25</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
