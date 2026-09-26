@@ -19,7 +19,6 @@
         <jacoco-plugin.version>0.8.13</jacoco-plugin.version>
         <pitest-plugin.version>1.30.0</pitest-plugin.version>
         <pitest-junit5-plugin.version>1.2.3</pitest-junit5-plugin.version>
-        <pitest.mutation-threshold>90</pitest.mutation-threshold>
         <!-- quarkus-jacoco's default. Named here because the jacoco plugin's agent
              and check goal both have to point at the same file. -->
         <jacoco.data-file>${project.build.directory}/jacoco-quarkus.exec</jacoco.data-file>
@@ -232,10 +231,10 @@
                     </dependency>
                 </dependencies>
                 <configuration>
-                    <!-- Deliberately wide. A new production class with no fast unit test lands
-                         here as uncovered mutants and fails the threshold, which is the point:
-                         the way out is to write the unit test, or to add a line to
-                         excludedClasses below and say why. -->
+                    <!-- Deliberately wide, so a new production class with no fast unit test shows
+                         up in the report as uncovered mutants rather than being invisible. Since
+                         there is no threshold, this informs rather than enforces: it only works if
+                         somebody reads the report. -->
                     <targetClasses>
                         <param>io.github.guhilling.todo.*</param>
                     </targetClasses>
@@ -256,10 +255,12 @@
                     <targetTests>
                         <param>io.github.guhilling.todo.api.AuthProviderMappingTest</param>
                     </targetTests>
-                    <!-- The classes no allowlisted test reaches. Every line is a class with no
-                         fast unit test behind it, and deleting a line is the reward for writing
-                         one. Verified to bite: dropping the AuthResource line takes the score
-                         from 100% to 56% on eight NO_COVERAGE mutants and fails the build. -->
+                    <!-- The classes no allowlisted test reaches, excluded so the score reflects
+                         what was actually measured rather than being diluted by code PIT could
+                         never reach. Every line is a class with no fast unit test behind it, and
+                         deleting a line is the reward for writing one: dropping the AuthResource
+                         line, for instance, adds eight NO_COVERAGE mutants and takes the reported
+                         score from 100% to 56%. -->
                     <excludedClasses>
                         <param>io.github.guhilling.todo.api.AuthResource*</param>
                         <param>io.github.guhilling.todo.api.TaskResource*</param>
@@ -286,10 +287,9 @@
                         <jvmArg>java.base/java.lang=ALL-UNNAMED</jvmArg>
                         <jvmArg>-Djava.util.logging.manager=org.jboss.logmanager.LogManager</jvmArg>
                     </jvmArgs>
-                    <!-- Currently 100% of 10 mutants. Set just below, like the coverage gates, so
-                         one genuinely equivalent mutant does not fail the build the day it shows
-                         up. Raise it when the score rises. -->
-                    <mutationThreshold>${pitest.mutation-threshold}</mutationThreshold>
+                    <!-- No mutationThreshold on purpose. With one production class in scope a
+                         gate would police a corner of the codebase while saying nothing about the
+                         rest, so PIT reports and does not block. Revisit if the scope widens. -->
                 </configuration>
                 <executions>
                     <execution>

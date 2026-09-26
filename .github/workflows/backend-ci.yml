@@ -37,9 +37,9 @@ jobs:
         # coverage drops below the minimum in pom.xml.
         run: ./mvnw -B verify
       - name: Upload the mutation testing report
-        # Only useful when the gate failed: the report names which mutants survived, which
-        # the build log does not.
-        if: failure()
+        # Always, not just on failure: PIT reports rather than gating, so this artifact is
+        # the only way to see which mutants survived. The build log gives only the total.
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: pit-report

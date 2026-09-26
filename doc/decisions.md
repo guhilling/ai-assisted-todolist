@@ -147,14 +147,19 @@ work; neither tells us anything we want to act on.
 
 ## Mutation testing, scoped to the tests that do not boot Quarkus
 
-**Decision.** PIT runs at `verify` with a 90% threshold, over an explicit allowlist of
-non-Quarkus test classes. `targetClasses` stays wide, and each production class without a
-fast unit test is excluded by name.
+**Decision.** PIT runs at `verify` over an explicit allowlist of non-Quarkus test classes,
+and **reports without failing the build**. `targetClasses` stays wide, and each production
+class without a fast unit test is excluded by name. The report is a CI artifact on every
+backend run.
 
 **Why.** Line coverage is at 99%, which is the point where the number stops being
 informative — it says every line ran, not that anything would notice if a line changed.
-PIT answers the second question. Scoping it this way also puts pressure in the direction
-the project already wants: a new class without a plain unit test fails the build.
+PIT answers the second question.
+
+**Why no threshold.** Every other quality check here fails the build, and this one
+deliberately does not. With one production class of eight in scope, a gate would police a
+corner of the codebase while implying the whole of it was covered — a worse signal than an
+honest report that says plainly how narrow it is. Revisit if the scope widens.
 
 **Rejected.** Running PIT across the whole suite. It does not work, rather than merely
 running slowly: PIT gives each mutant a fresh minion JVM, a `@QuarkusTest` there means a
@@ -166,5 +171,6 @@ production code to suit a tool, and this codebase deliberately keeps its persist
 where it is.
 
 **Cost.** The scope is honest but narrow: one production class of eight today. The
-`excludedClasses` list has to be maintained, and a new plain unit test is not mutated until
-it is added to the allowlist.
+`excludedClasses` list has to be maintained, a new plain unit test is not mutated until it
+is added to the allowlist, and because nothing fails, the report only has an effect if
+somebody reads it.
