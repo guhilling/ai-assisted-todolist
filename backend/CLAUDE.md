@@ -43,9 +43,18 @@ Don't write backend production code without a test driving it first.
   `AuthProviderMappingTest` is the model: it covers six configuration combinations in
   milliseconds, where the equivalent `@QuarkusTest` can only reach the single combination
   its profile declares.
-- Whatever can be checked automatically (tests, coverage, style) must run in
-  backend CI (`backend-ci.yml`) so violations fail the build, not just get
-  caught by convention.
+- **Mutation testing with PIT runs at `verify`, and reports without blocking.** It is
+  deliberately not a gate: only one production class is in scope, so a threshold would
+  police a corner of the codebase while saying nothing about the rest. It is scoped that way
+  because PIT gives each mutant its own minion JVM, and a `@QuarkusTest` in scope means a
+  full boot with its own Dev Services containers per mutant. `doc/testing.md` has the
+  measurements, and the report lands as a CI artifact on every backend run.
+- **PIT's `excludedClasses` list is a to-do list, not configuration.** Each entry is a
+  production class with no fast unit test. Deleting an entry is the reward for writing the
+  test; adding one needs a stated reason.
+- Whatever can be checked automatically (tests, coverage, style) must run in backend CI
+  (`backend-ci.yml`) so violations fail the build, not just get caught by convention. The
+  mutation score is the deliberate exception, on the grounds above.
 
 ## Coding style
 

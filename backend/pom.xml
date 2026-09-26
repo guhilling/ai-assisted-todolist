@@ -17,6 +17,8 @@
         <surefire-plugin.version>3.5.3</surefire-plugin.version>
         <checkstyle-plugin.version>3.6.0</checkstyle-plugin.version>
         <jacoco-plugin.version>0.8.13</jacoco-plugin.version>
+        <pitest-plugin.version>1.30.0</pitest-plugin.version>
+        <pitest-junit5-plugin.version>1.2.3</pitest-junit5-plugin.version>
         <!-- quarkus-jacoco's default. Named here because the jacoco plugin's agent
              and check goal both have to point at the same file. -->
         <jacoco.data-file>${project.build.directory}/jacoco-quarkus.exec</jacoco.data-file>
@@ -211,6 +213,92 @@
                         <phase>verify</phase>
                         <goals>
                             <goal>check</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.pitest</groupId>
+                <artifactId>pitest-maven</artifactId>
+                <version>${pitest-plugin.version}</version>
+                <dependencies>
+                    <dependency>
+                        <!-- PIT discovers tests through the build tool's test engine, so JUnit 5
+                             support is a separate plugin rather than built in. -->
+                        <groupId>org.pitest</groupId>
+                        <artifactId>pitest-junit5-plugin</artifactId>
+                        <version>${pitest-junit5-plugin.version}</version>
+                    </dependency>
+                </dependencies>
+                <configuration>
+                    <!-- Deliberately wide, so a new production class with no fast unit test shows
+                         up in the report as uncovered mutants rather than being invisible. Since
+                         there is no threshold, this informs rather than enforces: it only works if
+                         somebody reads the report. -->
+                    <targetClasses>
+                        <param>io.github.guhilling.todo.*</param>
+                    </targetClasses>
+                    <!-- An allowlist, not a pattern: only tests that do not boot Quarkus.
+                         PIT gives every mutant a fresh minion JVM, so a @QuarkusTest in scope
+                         means a full application boot with its own Dev Services PostgreSQL and
+                         Keycloak containers. Measured on this codebase: mutating one class
+                         covered by a @QuarkusTest took 163 seconds for 14 mutants with most
+                         minions timing out; letting a single lightweight @QuarkusTest into
+                         scope took coverage calculation from under a second to 24; and putting
+                         the whole suite in scope aborts before mutating anything at all,
+                         because KeycloakLoginFlowTest cannot start its containers inside the
+                         minion.
+                         An allowlist because the failure mode then is benign. A new plain unit
+                         test simply is not mutated until it is named here, whereas a pattern
+                         that swept in a new @QuarkusTest would silently make every run minutes
+                         slower, or break it outright. -->
+                    <targetTests>
+                        <param>io.github.guhilling.todo.api.AuthProviderMappingTest</param>
+                    </targetTests>
+                    <!-- The classes no allowlisted test reaches, excluded so the score reflects
+                         what was actually measured rather than being diluted by code PIT could
+                         never reach. Every line is a class with no fast unit test behind it, and
+                         deleting a line is the reward for writing one: dropping the AuthResource
+                         line, for instance, adds eight NO_COVERAGE mutants and takes the reported
+                         score from 100% to 56%. -->
+                    <excludedClasses>
+                        <param>io.github.guhilling.todo.api.AuthResource*</param>
+                        <param>io.github.guhilling.todo.api.TaskResource*</param>
+                        <param>io.github.guhilling.todo.model.*</param>
+                        <param>io.github.guhilling.todo.service.*</param>
+                        <!-- SmallRye generates the config mapping implementation; it is not ours
+                             to test and its mutants are unkillable by construction. -->
+                        <param>*$$CMImpl</param>
+                    </excludedClasses>
+                    <outputFormats>
+                        <param>HTML</param>
+                        <param>XML</param>
+                    </outputFormats>
+                    <timestampedReports>false</timestampedReports>
+                    <!-- PIT reads surefire's configuration by default, and surefire's argLine
+                         carries JaCoCo's @{argLine} placeholder, which is only substituted when
+                         prepare-agent runs in the same session. PIT resolves it literally and
+                         dies on a file called "{argLine}". The minion JVM arguments are therefore
+                         spelled out below: the same add-opens flag surefire passes, plus the log
+                         manager the Quarkus tests need. -->
+                    <parseSurefireConfig>false</parseSurefireConfig>
+                    <jvmArgs>
+                        <jvmArg>--add-opens</jvmArg>
+                        <jvmArg>java.base/java.lang=ALL-UNNAMED</jvmArg>
+                        <jvmArg>-Djava.util.logging.manager=org.jboss.logmanager.LogManager</jvmArg>
+                    </jvmArgs>
+                    <!-- No mutationThreshold on purpose. With one production class in scope a
+                         gate would police a corner of the codebase while saying nothing about the
+                         rest, so PIT reports and does not block. Revisit if the scope widens. -->
+                </configuration>
+                <executions>
+                    <execution>
+                        <!-- At verify, beside Checkstyle and the coverage gate, so one command
+                             runs every quality check and backend-ci needs no extra step. -->
+                        <id>pitest-mutation-coverage</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>mutationCoverage</goal>
                         </goals>
                     </execution>
                 </executions>

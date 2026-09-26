@@ -36,5 +36,14 @@ jobs:
         # verify runs the tests, packages the artifact, and fails the build if JaCoCo
         # coverage drops below the minimum in pom.xml.
         run: ./mvnw -B verify
+      - name: Upload the mutation testing report
+        # Always, not just on failure: PIT reports rather than gating, so this artifact is
+        # the only way to see which mutants survived. The build log gives only the total.
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pit-report
+          path: backend/target/pit-reports
+          retention-days: 7
       - name: Build backend container image
         run: ./mvnw -B package -DskipTests -Dquarkus.container-image.build=true
