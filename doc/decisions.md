@@ -144,3 +144,27 @@ browser test reaches is a line with no unit test, and the number should say so.
 **Rejected.** Attaching a JaCoCo agent to the e2e backend container and merging the dump,
 and instrumenting the frontend bundle with istanbul to collect `window.__coverage__`. Both
 work; neither tells us anything we want to act on.
+
+## Mutation testing, scoped to the tests that do not boot Quarkus
+
+**Decision.** PIT runs at `verify` with a 90% threshold, over an explicit allowlist of
+non-Quarkus test classes. `targetClasses` stays wide, and each production class without a
+fast unit test is excluded by name.
+
+**Why.** Line coverage is at 99%, which is the point where the number stops being
+informative — it says every line ran, not that anything would notice if a line changed.
+PIT answers the second question. Scoping it this way also puts pressure in the direction
+the project already wants: a new class without a plain unit test fails the build.
+
+**Rejected.** Running PIT across the whole suite. It does not work, rather than merely
+running slowly: PIT gives each mutant a fresh minion JVM, a `@QuarkusTest` there means a
+full boot with its own Dev Services containers, and `KeycloakLoginFlowTest` cannot start
+its containers in a minion at all — so the run aborts before mutating anything, because PIT
+requires a green suite. Also rejected: reshaping `TaskResource` and `UserService` behind
+Quarkus-free seams to widen the scope. That is the standard advice, but it changes
+production code to suit a tool, and this codebase deliberately keeps its persistence logic
+where it is.
+
+**Cost.** The scope is honest but narrow: one production class of eight today. The
+`excludedClasses` list has to be maintained, and a new plain unit test is not mutated until
+it is added to the allowlist.
