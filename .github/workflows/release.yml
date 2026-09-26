@@ -1,0 +1,162 @@
+name: Release
+
+# The git tag is the only place a release version is written down. Nothing in pom.xml or
+# package.json is edited by hand or by this workflow: the backend's version is the
+# ${revision} property, which is overridden from the tag here, and the frontend package is
+# private and never published, so its version field is unused.
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+      - 'v[0-9]+.[0-9]+.[0-9]+-*'
+
+permissions:
+  contents: read
+
+jobs:
+  gate:
+    name: Release checks
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          # merge-base below needs history, not just the tagged commit.
+          fetch-depth: 0
+
+      - name: Derive the version from the tag
+        id: version
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Releasing $version from tag $GITHUB_REF_NAME"
+
+      - name: Refuse a tag that is not on main
+        # A tag on a side branch would publish code that never went through a pull request.
+        # main is fetched explicitly rather than relying on the checkout of a tag ref
+        # having left a usable origin/main behind.
+        run: |
+          git fetch --no-tags origin main
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" FETCH_HEAD; then
+            echo "::error::$GITHUB_REF_NAME does not point at a commit on main."
+            exit 1
+          fi
+          echo "$GITHUB_REF_NAME is on main."
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+
+      - name: Verify the backend at the release version
+        working-directory: backend
+        # -Prelease adds requireReleaseVersion to the requireReleaseDeps rule that every
+        # build runs, so this fails on a SNAPSHOT dependency and on a SNAPSHOT version.
+        # verify then runs the tests, the coverage gate, Checkstyle and PIT.
+        run: ./mvnw -B -Prelease -Drevision=${{ steps.version.outputs.version }} verify
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Refuse pre-release npm dependencies
+        working-directory: frontend
+        # npm's counterpart to requireReleaseDeps; see the script's own comment.
+        run: npm run check:deps
+
+      - name: Verify the frontend
+        working-directory: frontend
+        run: |
+          npm run lint
+          npm run test:coverage
+          npm run build
+
+  publish:
+    name: Publish ${{ matrix.name }} image
+    needs: gate
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - name: backend
+            context: backend
+          - name: frontend
+            context: frontend
+    defaults:
+      run:
+        working-directory: ${{ matrix.context }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Quay
+        uses: docker/login-action@v3
+        with:
+          registry: quay.io
+          username: ${{ secrets.QUAY_ROBOT_USER || secrets.QUAY_USERNAME }}
+          password: ${{ secrets.QUAY_ROBOT_PASSWORD || secrets.QUAY_ROBOT_TOKEN || secrets.QUAY_PASSWORD }}
+
+      - uses: actions/setup-java@v5
+        if: matrix.name == 'backend'
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+
+      - name: Publish the backend image
+        if: matrix.name == 'backend'
+        env:
+          # application.properties reads the tag from here.
+          IMAGE_TAG: ${{ needs.gate.outputs.version }}
+        run: >
+          ./mvnw -B -Prelease -Drevision=${{ needs.gate.outputs.version }}
+          package -DskipTests
+          -Dquarkus.container-image.build=true
+          -Dquarkus.container-image.push=true
+
+      - uses: actions/setup-node@v5
+        if: matrix.name == 'frontend'
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        if: matrix.name == 'frontend'
+        run: npm ci
+
+      - name: Publish the frontend image
+        if: matrix.name == 'frontend'
+        run: >
+          docker buildx build --push
+          --tag quay.io/ghilling/todo-frontend:${{ needs.gate.outputs.version }}
+          -f docker/Dockerfile .
+
+  announce:
+    name: GitHub Release
+    needs: [gate, publish]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.gate.outputs.version }}
+        # --verify-tag refuses to invent a tag if the ref has gone; --generate-notes builds
+        # the body from the pull requests merged since the previous release.
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            --verify-tag \
+            --title "$VERSION" \
+            --generate-notes

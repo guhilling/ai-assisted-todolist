@@ -1,0 +1,41 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    ":dependencyDashboard"
+  ],
+  "timezone": "Europe/Berlin",
+  "schedule": ["before 6am on monday"],
+  "labels": ["dependencies"],
+  "prConcurrentLimit": 5,
+  "packageRules": [
+    {
+      "description": "Bug-fix and minor updates merge themselves once every check is green.",
+      "matchUpdateTypes": ["patch", "minor", "digest", "pin", "pinDigest"],
+      "automerge": true,
+      "automergeType": "pr",
+      "platformAutomerge": false
+    },
+    {
+      "description": "Major updates open a pull request and wait for a human to merge it.",
+      "matchUpdateTypes": ["major"],
+      "automerge": false,
+      "addLabels": ["major"]
+    },
+    {
+      "description": "One pull request for the Quarkus platform rather than one per artifact, because the BOM and the extensions have to move together.",
+      "matchPackageNames": ["io.quarkus:**", "io.quarkus.platform:**"],
+      "groupName": "Quarkus"
+    },
+    {
+      "description": "React and its type definitions are a set; splitting them produces pull requests that cannot pass tsc on their own.",
+      "matchPackageNames": ["react", "react-dom", "@types/react", "@types/react-dom"],
+      "groupName": "React"
+    },
+    {
+      "description": "Test tooling churns often and cannot break production, so it travels together.",
+      "matchPackageNames": ["vitest", "@vitest/**", "@testing-library/**", "jsdom", "@playwright/test"],
+      "groupName": "frontend test tooling"
+    }
+  ]
+}

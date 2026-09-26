@@ -174,3 +174,104 @@ where it is.
 `excludedClasses` list has to be maintained, a new plain unit test is not mutated until it
 is added to the allowlist, and because nothing fails, the report only has an effect if
 somebody reads it.
+
+## Apache License 2.0, as a `LICENSE` file only
+
+**What.** The full Apache-2.0 text as `LICENSE`, verbatim from apache.org, plus a copyright
+line in the README. No per-file license headers, and no enforcement of them.
+
+**Why.** A permissive licence that grants patent rights and is well understood suits a
+project whose point is to be read. The file is unmodified, including the appendix that
+carries the header boilerplate template — Apache asks that the text not be altered, so the
+actual copyright statement lives in the README instead of being substituted into the
+appendix.
+
+**Rejected.** Adding the boilerplate header to every `.java` and `.ts` file and failing the
+build on a file without one. Every other quality convention here is enforced in CI, so this
+is a genuine exception: it would touch every source file in the repository to restate
+something one file already says, and this is a single-author demo project rather than a
+codebase whose files get copied out individually. Also rejected, for now: a `NOTICE` file,
+which matters when redistributing someone else's Apache-licensed work and there is none here.
+
+## A release is a git tag, and the version lives nowhere else
+
+**What.** Pushing `v1.2.3` runs `release.yml`, which builds at that version and publishes
+container images tagged `1.2.3`. `backend/pom.xml` declares `<version>${revision}</version>`
+and the release build passes `-Drevision=1.2.3`. No file in the repository records a release
+version, before or after.
+
+**Why.** The alternative flows all require editing a version and committing it — either by
+hand before tagging, or by a workflow that rewrites `pom.xml` and `package.json` and pushes
+back to `main`. The second needs a way around the `main-branch` ruleset that rejects direct
+pushes, and it means a release mutates the branch it is releasing. Deriving the version from
+the tag removes the bookkeeping entirely: `main` is permanently `1.0.0-SNAPSHOT` and nobody
+has to remember to open the next development version.
+
+**Why no Maven artifact.** Nothing outside this repository consumes the backend's POM, so
+there is no reason to publish to a Maven repository, and the one real caveat of
+`${revision}` — that an installed POM keeps the literal property unless
+`flatten-maven-plugin` rewrites it — does not bite. It would have to be added if that ever
+changes.
+
+**Cost.** `latest` still means the tip of `main`, because `publish-images.yml` already
+pushed it there on every merge and a release moving it would have the two workflows fighting
+over one tag. That is the opposite of the usual container convention and is the single most
+likely thing to surprise someone. `doc/releasing.md` says so and says where the change would
+go.
+
+## SNAPSHOT dependencies fail every build, not just releases
+
+**What.** `requireReleaseDeps` runs at `validate` on every backend build. `requireReleaseVersion`
+is release-only, in the `release` profile. The frontend's counterpart,
+`scripts/check-no-prerelease-deps.mjs`, fails on a semver pre-release anywhere in
+`package-lock.json`.
+
+**Why.** The request was for a check that a release has no SNAPSHOT dependencies, and the
+narrow reading would put it only in the release path. But a SNAPSHOT dependency is wrong the
+moment it is added — it makes the build unreproducible immediately, and finding out at
+release time means finding out when the cost of fixing it is highest. The check is cheap
+enough to run always. `requireReleaseVersion` genuinely is release-only: on `main` the
+version is always a SNAPSHOT, so it would fail every build.
+
+**Why the lockfile, not `package.json`.** A caret range in `package.json` says nothing about
+what a transitive dependency resolved to, and a pre-release that arrives transitively is
+exactly the case worth catching.
+
+## Renovate merges the small updates and asks about the large ones
+
+**What.** `.github/renovate.json`. Patch, minor, digest and pin updates carry
+`automerge: true`; major updates open a pull request and wait. Quarkus artifacts, React and
+its type definitions, and the frontend test tooling are each grouped into one pull request.
+
+**Why grouped.** React and `@types/react` moving separately produces a pull request that
+cannot pass `tsc` on its own, and the Quarkus BOM and its extensions have to move together
+by construction.
+
+**Why `platformAutomerge: false`.** This is the subtle one. GitHub's own auto-merge, which
+`platformAutomerge: true` delegates to, merges as soon as the *required* status checks pass
+— and the `main-branch` ruleset requires none. It would therefore merge immediately, before
+any test had run, which is the exact opposite of the intent. With it off, Renovate merges
+through the API only once it has seen every check on the branch succeed. The alternative fix
+is to make the checks required in the ruleset, which is a repository-settings change; until
+that happens this flag is load-bearing and must not be flipped.
+
+**Cost.** An automerged minor Quarkus upgrade goes to `main` without anyone looking at it.
+That is the stated intent, and it rests on the suites actually being a gate — which they are:
+coverage, Checkstyle and the end-to-end run all fail the build. It also rests on Renovate
+being installed as a GitHub App on the repository; the config file alone does nothing.
+
+## CodeQL scanning, unfiltered by path
+
+**What.** `codeql.yml` analyses `java-kotlin` and `javascript-typescript` on every push to
+`main`, every pull request, and weekly. The Java build mode is `manual`, compiling with
+`-DskipTests -Dcheckstyle.skip -Dquarkus.build.skip`.
+
+**Why unfiltered.** `backend-ci.yml` and `frontend-ci.yml` are path-filtered, which is right
+for them and wrong here: the README carries a CodeQL badge, and a path-filtered workflow
+makes its badge report whichever run last touched a matching directory, possibly many commits
+ago. The weekly run exists because the queries improve on GitHub's side, so a scheduled scan
+finds things that were not findable when the code landed.
+
+**Why a manual build.** The extractor needs compiled classes and nothing more. Skipping
+Quarkus's augmentation step, Checkstyle and the tests keeps a red CodeQL badge meaning a
+CodeQL finding rather than a failure already reported by another workflow.

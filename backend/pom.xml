@@ -3,9 +3,12 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>io.github.guhilling.todo</groupId>
     <artifactId>backend</artifactId>
-    <version>1.0.0-SNAPSHOT</version>
+    <version>${revision}</version>
 
     <properties>
+        <!-- Never edited by hand. A release build overrides it from the git tag
+             (-Drevision=1.2.3); every other build is a snapshot of main. -->
+        <revision>1.0.0-SNAPSHOT</revision>
         <compiler-plugin.version>3.14.0</compiler-plugin.version>
         <maven.compiler.release>25</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -16,6 +19,7 @@
         <skipITs>true</skipITs>
         <surefire-plugin.version>3.5.3</surefire-plugin.version>
         <checkstyle-plugin.version>3.6.0</checkstyle-plugin.version>
+        <enforcer-plugin.version>3.5.0</enforcer-plugin.version>
         <jacoco-plugin.version>0.8.13</jacoco-plugin.version>
         <pitest-plugin.version>1.30.0</pitest-plugin.version>
         <pitest-junit5-plugin.version>1.2.3</pitest-junit5-plugin.version>
@@ -304,6 +308,28 @@
                 </executions>
             </plugin>
             <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-enforcer-plugin</artifactId>
+                <version>${enforcer-plugin.version}</version>
+                <executions>
+                    <execution>
+                        <id>enforce-no-snapshot-dependencies</id>
+                        <phase>validate</phase>
+                        <goals>
+                            <goal>enforce</goal>
+                        </goals>
+                        <configuration>
+                            <rules>
+                                <requireReleaseDeps>
+                                    <message>A release cannot depend on a SNAPSHOT. Replace the
+                                        dependency named above with a released version.</message>
+                                </requireReleaseDeps>
+                            </rules>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
                 <groupId>org.jacoco</groupId>
                 <artifactId>jacoco-maven-plugin</artifactId>
                 <version>${jacoco-plugin.version}</version>
@@ -360,6 +386,38 @@
     </build>
 
     <profiles>
+        <profile>
+            <!-- Activated by release.yml, which also passes -Drevision from the git tag.
+                 requireReleaseDeps already runs on every build; what this adds is the
+                 check that the artifact being released is not itself a snapshot, which
+                 only means anything once a real version has been supplied. -->
+            <id>release</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-enforcer-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>enforce-release-version</id>
+                                <phase>validate</phase>
+                                <goals>
+                                    <goal>enforce</goal>
+                                </goals>
+                                <configuration>
+                                    <rules>
+                                        <requireReleaseVersion>
+                                            <message>A release must not be a SNAPSHOT. Pass
+                                                -Drevision with the version being released.</message>
+                                        </requireReleaseVersion>
+                                    </rules>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
         <profile>
             <id>native</id>
             <activation>
