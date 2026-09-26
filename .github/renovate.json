@@ -1,5 +1,12 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "description": [
+    "Deliberate: schedule restricts when pull requests are OPENED, not when they merge.",
+    "Renovate reports 'Automerge: At any time (no schedule defined)' regardless of it.",
+    "Renovate can also be told to run directly from the Mend dashboard, so activity",
+    "outside this window is expected and is not a sign of a broken schedule.",
+    "Do not remove this as setup debris. See doc/decisions.md."
+  ],
   "extends": [
     "config:recommended",
     ":dependencyDashboard"
