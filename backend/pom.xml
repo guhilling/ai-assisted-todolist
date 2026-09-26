@@ -19,7 +19,7 @@
         <skipITs>true</skipITs>
         <surefire-plugin.version>3.5.3</surefire-plugin.version>
         <checkstyle-plugin.version>3.6.0</checkstyle-plugin.version>
-        <enforcer-plugin.version>3.5.0</enforcer-plugin.version>
+        <enforcer-plugin.version>3.6.3</enforcer-plugin.version>
         <jacoco-plugin.version>0.8.15</jacoco-plugin.version>
         <pitest-plugin.version>1.30.0</pitest-plugin.version>
         <pitest-junit5-plugin.version>1.2.3</pitest-junit5-plugin.version>
