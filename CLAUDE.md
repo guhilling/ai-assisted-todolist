@@ -72,7 +72,10 @@ slows things down.
   updates automerge once every check is green; majors wait for Gunnar. The
   `platformAutomerge: false` in `.github/renovate.json` is load-bearing: the
   `main-branch` ruleset requires no status checks, so GitHub's own auto-merge
-  would merge before anything had run.
+  would merge before anything had run. The `schedule` there is deliberate and
+  restricts pull request *creation* only — Renovate acting outside it is
+  expected, because it can be run directly from the Mend dashboard, so never
+  remove it as leftover setup debris.
 - The project is licensed **Apache-2.0** (`LICENSE`, verbatim). There are
   deliberately no per-file license headers — see `doc/decisions.md`.
 

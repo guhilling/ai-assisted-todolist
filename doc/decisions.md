@@ -260,6 +260,23 @@ That is the stated intent, and it rests on the suites actually being a gate — 
 coverage, Checkstyle and the end-to-end run all fail the build. It also rests on Renovate
 being installed as a GitHub App on the repository; the config file alone does nothing.
 
+**The `schedule` restricts branch creation only, and stays.** `"before 6am on monday"` limits
+when Renovate *opens* pull requests, so updates arrive as one weekly batch rather than
+trickling in. It does not gate merging: Renovate reports `Automerge: At any time (no schedule
+defined)` in every pull request body, and an already-open pull request merges as soon as its
+checks go green regardless of the day.
+
+**A Renovate run outside that window is not a broken schedule.** The first 25 pull requests
+appeared on a Saturday, which looked like the setting being ignored. It was not: Renovate can
+be told to run directly from the Mend dashboard, and that is what happened. Two cheaper
+explanations were checked and ruled out first — the schedule string is valid (it passes
+`renovate-config-validator` as *repository* config on Renovate 44; validating the file by path
+alone checks it as global config, which silently skips `schedule` and `packageRules`), and the
+schedule was not suppressing automerge. So do not read off-schedule activity as a
+misconfiguration, and do not remove this setting as leftover debris from the setup — it is
+deliberate. The Mend job log, which is the only place that says why a given run happened, is
+behind the account rather than the repository API.
+
 ## CodeQL scanning, unfiltered by path
 
 **What.** `codeql.yml` analyses `java-kotlin` and `javascript-typescript` on every push to
