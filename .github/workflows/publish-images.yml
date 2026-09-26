@@ -41,7 +41,7 @@ jobs:
           distribution: temurin
           java-version: '25'
           cache: maven
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v7
         if: matrix.name == 'frontend'
         with:
           node-version: '22'
