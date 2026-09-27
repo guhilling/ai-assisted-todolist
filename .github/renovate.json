@@ -15,6 +15,15 @@
   "schedule": ["before 6am on monday"],
   "labels": ["dependencies"],
   "prConcurrentLimit": 5,
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "The Jib base image. It lives in a Quarkus properties file, which no built-in manager reads: the Maven manager updates dependency versions, not a container reference, so moving it into pom.xml would not have helped either.",
+      "managerFilePatterns": ["/^backend/src/main/resources/application\\.properties$/"],
+      "matchStrings": ["quarkus\\.jib\\.base-jvm-image=(?<depName>[^:\\s]+):(?<currentValue>\\S+)"],
+      "datasourceTemplate": "docker"
+    }
+  ],
   "packageRules": [
     {
       "description": "Bug-fix and minor updates merge themselves once every check is green.",

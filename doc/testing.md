@@ -105,7 +105,7 @@ anchors its arithmetic at UTC.
 ## Browser end-to-end
 
 Playwright against the full containerised stack, so it covers what nothing else does: real
-redirects, real nginx proxying, real cookies, real persistence.
+redirects, real httpd proxying, real cookies, real persistence.
 
 ```bash
 # build both images, then:
@@ -124,7 +124,7 @@ Two things in here exist because of failures that only a real stack produces:
 
 - **`up --wait` needs the backend healthcheck** in `docker-compose.e2e.yml`. Without one,
   Compose calls a container ready the moment it runs, and the backend takes over thirty
-  seconds to start — so Playwright met an nginx 502. The probe lives in
+  seconds to start — so Playwright met a 502 from httpd. The probe lives in
   `e2e/backend-healthcheck.sh` rather than inline, because an inline command is split on
   whitespace into separate argv entries: the first version became `bash -c exec`, a no-op
   that always succeeded, which looks exactly like a service that is always healthy.

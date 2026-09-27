@@ -102,15 +102,17 @@ able to sign in.
   strategy drops the access token, and restoring such a session throws a
   `NullPointerException` inside Quarkus OIDC — every request after a *successful* sign-in
   came back 401.
-- **`quarkus.jib.base-jvm-image=eclipse-temurin:25-jre`.** Jib's default base ships JDK 21;
-  this code is compiled for 25, so the container exited immediately and silently.
-- **`changeOrigin: false` in `vite.config.ts`, `proxy_set_header Host $http_host` in
-  nginx.** Both proxies default to rewriting the `Host` header. The backend builds
-  `redirect_uri` from it, so sign-in dumped the browser on the backend's port instead of
-  returning it to the app.
-- **`proxy_buffer_size 16k` and friends in nginx.** The session cookie carries encrypted
-  tokens and exceeds the default 4 KB header buffer, turning the callback into a 502. The
-  same size is why the cookie gets chunked, and why sign-out has to clear every chunk.
+- **`quarkus.jib.base-jvm-image` pinned to a Temurin 25 build.** Jib's default base ships
+  JDK 21; this code is compiled for 25, so the container exited immediately and silently.
+- **`changeOrigin: false` in `vite.config.ts`, `ProxyPreserveHost On` in httpd.** Both
+  proxies default to rewriting the `Host` header. The backend builds `redirect_uri` from it,
+  so sign-in dumped the browser on the backend's port instead of returning it to the app.
+- **`LimitRequestFieldSize 32768` in httpd.** The session cookie carries encrypted tokens
+  and is chunked across `q_session_chunk_1`, `_2` and so on, all of which come back in one
+  `Cookie` header — about 5.2 KB today against Apache's 8190-byte default. That fits, and
+  the limit is raised for headroom rather than to fix a current break, because the size
+  depends on the provider's claims. Under nginx the equivalent buffers genuinely did have to
+  be raised, which is the same reason the cookie is chunked and sign-out clears every chunk.
 
 ## What is tested
 
@@ -120,6 +122,6 @@ able to sign in.
   follow the redirect, post the Keycloak login form, land on the callback, then use the API
   with the resulting session. It also proves two real accounts cannot see each other's
   tasks.
-- `e2e/tests/login.spec.ts` — the same journey in a real browser through nginx.
+- `e2e/tests/login.spec.ts` — the same journey in a real browser through httpd.
 
 See [testing.md](testing.md).

@@ -7,7 +7,9 @@ ARG VITE_API_BASE_URL=
 ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
 RUN npm run build
 
-FROM nginx:1.31-alpine
-COPY docker/nginx.conf /etc/nginx/conf.d/default.conf
-COPY --from=build /app/dist /usr/share/nginx/html
-EXPOSE 80
+# Red Hat's hardened Apache image: non-root on 8080, and no shell in it at all, so anything
+# the runtime needs has to be COPYed in rather than assembled with RUN.
+FROM registry.access.redhat.com/hi/httpd:2
+COPY docker/httpd.conf /etc/httpd/conf.d/todolist.conf
+COPY --from=build /app/dist /var/www/html
+EXPOSE 8080
