@@ -1,0 +1,140 @@
+import { useEffect, useRef, useState } from 'react'
+import type { TaskImportance, TaskInput } from '../api'
+import { addDays, quickDates } from '../dates'
+
+const importanceOptions: TaskImportance[] = ['LOW', 'MEDIUM', 'HIGH']
+
+type AddTaskRowProps = {
+  today: string
+  saving: boolean
+  onAdd: (input: TaskInput) => Promise<boolean>
+}
+
+/**
+ * The inline "add a task" affordance at the top of the board.
+ *
+ * Collapsed it is a single row, so the board opens as a list rather than as a form. Expanded
+ * it offers the four dates a task is almost always due on, which is the point: typing a date
+ * is the slowest part of adding a task, and the default of tomorrow means the common case
+ * needs no date interaction at all.
+ */
+function AddTaskRow({ today, saving, onAdd }: AddTaskRowProps) {
+  const [open, setOpen] = useState(false)
+  const [description, setDescription] = useState('')
+  const [dueDate, setDueDate] = useState(addDays(today, 1))
+  const [importance, setImportance] = useState<TaskImportance>('MEDIUM')
+  const descriptionRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (open) {
+      descriptionRef.current?.focus()
+    }
+  }, [open])
+
+  const reset = () => {
+    setDescription('')
+    setDueDate(addDays(today, 1))
+    setImportance('MEDIUM')
+  }
+
+  const collapse = () => {
+    setOpen(false)
+    reset()
+  }
+
+  const submit = async () => {
+    if (description.trim() === '') {
+      return
+    }
+    // A new task is always TODO; the board has no reason to offer a state picker before the
+    // task exists, but the backend requires the field.
+    const saved = await onAdd({ description: description.trim(), dueDate, importance, state: 'TODO' })
+    if (saved) {
+      reset()
+      descriptionRef.current?.focus()
+    }
+  }
+
+  if (!open) {
+    return (
+      <button type="button" className="add-row" onClick={() => setOpen(true)}>
+        <span className="add-row-plus" aria-hidden="true">
+          +
+        </span>
+        Add a task
+      </button>
+    )
+  }
+
+  return (
+    <form
+      className="add-form"
+      onSubmit={(event) => {
+        event.preventDefault()
+        void submit()
+      }}
+      onKeyDown={(event) => {
+        if (event.key === 'Escape') {
+          collapse()
+        }
+      }}
+    >
+      <input
+        ref={descriptionRef}
+        className="add-description"
+        aria-label="What needs doing"
+        placeholder="What needs doing?"
+        value={description}
+        onChange={(event) => setDescription(event.target.value)}
+      />
+
+      <div className="quick-dates" role="group" aria-label="Due date shortcuts">
+        {quickDates(today).map((quick) => (
+          <button
+            key={quick.label}
+            type="button"
+            className={`chip${quick.iso === dueDate ? ' chip--active' : ''}`}
+            aria-pressed={quick.iso === dueDate}
+            onClick={() => setDueDate(quick.iso)}
+          >
+            {quick.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="add-controls">
+        <label className="add-field">
+          <span>Due date</span>
+          <input
+            required
+            type="date"
+            /* Matches the backend, which refuses a new task dated in the past. */
+            min={today}
+            value={dueDate}
+            onChange={(event) => setDueDate(event.target.value)}
+          />
+        </label>
+        <label className="add-field">
+          <span>Importance</span>
+          <select value={importance} onChange={(event) => setImportance(event.target.value as TaskImportance)}>
+            {importanceOptions.map((option) => (
+              <option key={option} value={option}>
+                {option.charAt(0) + option.slice(1).toLowerCase()}
+              </option>
+            ))}
+          </select>
+        </label>
+        <div className="add-actions">
+          <button type="button" className="button-quiet" onClick={collapse}>
+            Cancel
+          </button>
+          <button type="submit" className="button-primary" disabled={saving || description.trim() === ''}>
+            {saving ? 'Adding…' : 'Add'}
+          </button>
+        </div>
+      </div>
+    </form>
+  )
+}
+
+export default AddTaskRow

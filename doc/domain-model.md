@@ -34,12 +34,19 @@ plainly better and the trade is made knowingly.
 | --- | --- |
 | A task always has an owner | Not-null column and `@ManyToOne` on `Task.owner`; the owner is set from the token, never from the request |
 | A task's description is present and at most 255 characters | `@NotBlank` + `@Size` on both `Task` and `TaskRequest`, and a not-null column |
-| A task's due date is today or later | `@FutureOrPresent` on both `Task` and `TaskRequest` |
+| A **new** task's due date is today or later | `@FutureOrPresent` on `TaskCreateRequest` only |
 | State and importance are always set | Not-null columns; `state` defaults to `TODO` |
 | A user's email is present and unique | `@NotBlank` and a unique not-null column on `User` |
 | A user sees and changes only their own tasks | Every query in `TaskResource` carries an owner predicate |
 
-The last one is worth dwelling on. Ownership is part of the *query*, not a check performed
+That first one used to read "a task's due date is today or later", enforced on the entity as
+well as the request. It was wrong, and quietly so: Bean Validation runs on flush, so a stored
+task became invalid the day after it came due, and because the update endpoint replaces the
+whole task, every overdue task turned un-editable — including the state change that marks it
+done. The rule a board actually wants is "do not *file* something in the past", which is a
+create-time rule. See `doc/decisions.md`.
+
+The ownership one is worth dwelling on. Ownership is part of the *query*, not a check performed
 after loading. A task belonging to someone else is therefore indistinguishable from one
 that does not exist — both yield 404 — which leaks nothing about other users' data.
 

@@ -61,6 +61,7 @@ services:
       SMALLRYE_CONFIG_LOCATIONS: /config/backend-e2e.properties
     volumes:
       - ../e2e/backend-e2e.properties:/config/backend-e2e.properties:ro
+      - ../e2e/backend-healthcheck.sh:/config/healthcheck.sh:ro
     depends_on:
       postgres:
         condition: service_healthy
@@ -68,10 +69,20 @@ services:
         condition: service_healthy
     ports:
       - "8080:8080"
+    healthcheck:
+      # Without this, `up --wait` treats the backend as ready the moment the container runs,
+      # and Playwright starts against an application still booting -- it answers 502 through
+      # nginx until then. The probe is a mounted script rather than an inline command because
+      # an inline one is split on whitespace into separate argv entries; see the script.
+      test: ["CMD", "bash", "/config/healthcheck.sh"]
+      interval: 5s
+      timeout: 5s
+      retries: 24
 
   frontend:
     image: ${FRONTEND_IMAGE:-todo-frontend:e2e}
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     ports:
       - "3000:80"
