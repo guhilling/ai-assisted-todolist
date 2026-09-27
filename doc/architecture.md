@@ -6,7 +6,7 @@ Three deployable components and one external dependency:
 
 | Component | What it is | Where it lives |
 | --- | --- | --- |
-| Frontend | React 19 + TypeScript single-page app, served as static files by nginx | `frontend/` |
+| Frontend | React 19 + TypeScript single-page app, served as static files by Apache httpd | `frontend/` |
 | Backend | Quarkus 3.25 REST API on Java 25, also the OIDC client | `backend/` |
 | Database | PostgreSQL 17, schema managed by Liquibase | — |
 | Identity provider | Google in production; a Keycloak container in development and tests | `keycloak/` |
@@ -14,21 +14,25 @@ Three deployable components and one external dependency:
 ## How a request travels
 
 ```
-browser ──▶ nginx ──▶ Quarkus ──▶ PostgreSQL
+browser ──▶ httpd ──▶ Quarkus ──▶ PostgreSQL
             (static files, and a
              reverse proxy for /api)
 ```
 
-In production the browser talks to a single origin. nginx serves the built assets and
-proxies everything under `/api` to the backend, so the SPA makes same-origin requests and
-needs no CORS handling and no API base URL. In development Vite's dev server plays the
-same role: it serves the app on `:5173` and proxies `/api` to the backend on `:8080`.
+In production the browser talks to a single origin. httpd serves the built assets on
+`:8080` and proxies everything under `/api` to the backend, so the SPA makes same-origin
+requests and needs no CORS handling and no API base URL. In development Vite's dev server
+plays the same role: it serves the app on `:5173` and proxies `/api` to the backend on
+`:8080`.
 
 Both proxies must preserve the original `Host` header — Vite with `changeOrigin: false`,
-nginx with `proxy_set_header Host $http_host`. The backend builds the OIDC `redirect_uri`
-from that header, so a rewritten host sends the browser to the wrong port after sign-in.
-nginx additionally needs enlarged `proxy_buffer_size`/`proxy_buffers`, because the session
-cookie holds encrypted tokens and overflows the default 4 KB header buffer.
+httpd with `ProxyPreserveHost On`. The backend builds the OIDC `redirect_uri` from that
+header, so a rewritten host sends the browser to the wrong port after sign-in.
+
+`FallbackResource /index.html` is what makes a deep link work: any path that is not a real
+file is a route the app resolves, not a 404. It is scoped to the document root, and
+`ProxyPass` is matched first, so an unknown `/api` path still returns the backend's own 404
+rather than the index page.
 
 ## Why the backend is a backend-for-frontend
 
@@ -92,7 +96,7 @@ files. There are no Dockerfiles under `backend/` at all: the four Quarkus genera
 unused, two of them JDK 17 based, and all four were deleted.
 
 The frontend image is a two-stage Dockerfile at `frontend/docker/Dockerfile`: build with
-Node, serve with nginx.
+Node, serve with httpd.
 
 `docker/` holds the Compose stacks that wire these together —
 [local-development.md](local-development.md) describes both. AWS is the intended

@@ -1,7 +1,7 @@
 # frontend
 
 The React 19 + TypeScript single-page app, built with Vite and served in production by
-nginx. One screen: the sign-in cards when signed out, the task board when signed in.
+Apache httpd. One screen: sign-in when signed out, the task board when signed in.
 
 ```bash
 npm install
@@ -20,5 +20,6 @@ Conventions for working here — TDD, strict TypeScript, linting, TSDoc — are 
 holds a token; [../doc/authentication.md](../doc/authentication.md) explains what that
 implies for the sign-in link and for `fetch`.
 
-`docker/Dockerfile` builds the production image. Its nginx config must keep forwarding the
-original `Host` header and its enlarged proxy buffers, both of which sign-in depends on.
+`docker/Dockerfile` builds the production image on Red Hat's hardened httpd. Its
+`docker/httpd.conf` must keep `ProxyPreserveHost On`, which sign-in depends on, and
+`FallbackResource /index.html`, which is what makes a deep link resolve to the app.

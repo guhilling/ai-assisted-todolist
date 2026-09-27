@@ -93,14 +93,17 @@ Don't write backend production code without a test driving it first.
 
 ## Container image
 
-- **Jib builds the image onto `eclipse-temurin:25-jre`**, pinned by
-  `quarkus.jib.base-jvm-image` in `application.properties`. No Dockerfile, no
+- **Jib builds the image onto `eclipse-temurin:25.0.4.1_1-jre-ubi10-minimal`**, set
+  by `quarkus.jib.base-jvm-image` in `application.properties`. No Dockerfile, no
   daemon-side build.
-- **A plain Temurin image is the settled choice**, not UBI minimal with a JDK
-  installed on top. It is the same distribution and major version the build and
-  CI use, so there is one Java version to keep straight rather than two. An
-  earlier version of this file preferred UBI minimal; that is no longer the
-  intent, and `doc/decisions.md` records the decision.
+- **Temurin on a Red Hat base, pinned to an exact build.** The JRE is the same
+  Temurin the project compiles and tests with, so there is one Java version to
+  keep straight; the base under it is UBI. The tag does not float, because
+  `25-jre-ubi10-minimal` moves and two builds of one commit could then sit on
+  different bases. Renovate moves the pin through a custom regex manager in
+  `.github/renovate.json` — no built-in manager reads a Quarkus properties file,
+  and a pom property would not have helped, since the Maven manager updates
+  dependency versions rather than container references.
 - **The pin is load-bearing — never drop it.** Jib's default base ships JDK 21
   while this code is compiled for 25, so on the default the container exits
   immediately and silently on class file version 69. When

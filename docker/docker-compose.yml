@@ -1,4 +1,4 @@
-# Production-shaped local stack: PostgreSQL, the Quarkus backend and the nginx-served
+# Production-shaped local stack: PostgreSQL, the Quarkus backend and the httpd-served
 # frontend, with no identity provider. Sign-in is off unless you supply Google credentials,
 # so this is the stack for checking the deployment shape, not for working on the app --
 # `./mvnw quarkus:dev` is far better for that. See doc/local-development.md.
@@ -48,7 +48,7 @@ services:
     depends_on:
       - backend
     ports:
-      - "3000:80"
+      - "3000:8080"
 
 volumes:
   postgres-data:

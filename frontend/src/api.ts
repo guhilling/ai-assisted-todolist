@@ -64,7 +64,7 @@ export type CurrentUser = {
 
 /**
  * Where the API lives. Empty by default, so requests go same-origin and are proxied -- by
- * Vite in development, by nginx in a container. Set VITE_API_BASE_URL only to point the app
+ * Vite in development, by httpd in a container. Set VITE_API_BASE_URL only to point the app
  * at a backend on a different origin.
  */
 export const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? ''

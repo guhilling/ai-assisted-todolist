@@ -82,9 +82,10 @@ sign-in return 401.
 
 ## Jib with a pinned Java 25 base image
 
-**Decision.** The backend image is built by Jib onto `eclipse-temurin:25-jre`. All four
-Dockerfiles Quarkus generated under `backend/src/main/docker/` have been deleted, along with
-`backend/.dockerignore`; the directory no longer exists.
+**Decision.** The backend image is built by Jib onto a pinned
+`eclipse-temurin:25.0.4.1_1-jre-ubi10-minimal`. All four Dockerfiles Quarkus generated under
+`backend/src/main/docker/` have been deleted, along with `backend/.dockerignore`; the
+directory no longer exists.
 
 **Why.** Jib needs no Dockerfile and no daemon-side build. The pin is not optional: Jib's
 default base ships JDK 21 and the container exited silently on class file version 69.
@@ -102,12 +103,24 @@ own comment headers, every `docker build` in the repository targets the *fronten
 `./mvnw package -Dquarkus.container-image.build=true` still produces the image afterwards on
 the same base image digest.
 
-**Settled: a plain Temurin image, not UBI minimal.** `backend/CLAUDE.md` used to prefer UBI
-minimal with Temurin installed on top, which left this ADR carrying an open question. The
-preference is dropped. A plain `eclipse-temurin` image is the same distribution and major
-version the build and CI already use, so there is one Java version to track instead of two,
-and nothing about the current deployment target argues for a Red Hat base. `backend/CLAUDE.md`
-now says so rather than contradicting it.
+**Temurin, on a Red Hat base — which is both things at once.** This entry twice said something
+narrower. It first preferred UBI minimal with a JDK installed on top; then, when that was
+settled, it said a plain Temurin image and not UBI. `-ubi10-minimal` is the resolution rather
+than a reversal: the JRE is the same Temurin build the project compiles and tests with, so
+there is still one Java version to track, and the base underneath it is Red Hat's, which is
+what the preference for UBI was ever about. Installing a JDK by hand was the part worth
+dropping, not the base.
+
+**Why the tag is pinned to an exact build.** `25-jre-ubi10-minimal` moves, so two builds of the
+same commit could sit on different bases and only one of them fail. `25.0.4.1_1-jre-ubi10-minimal`
+does not move.
+
+**How a pin that nobody edits stays current.** Renovate, through a custom regex manager in
+`.github/renovate.json`. No built-in manager reads the value: it lives in a Quarkus properties
+file, and moving it into `pom.xml` would not have helped, because the Maven manager updates
+dependency versions rather than container references. The manager was checked against the real
+file rather than assumed — it resolves `eclipse-temurin` and the tag, with the `docker`
+datasource.
 
 ## sun_checks with documented relaxations
 
@@ -471,3 +484,40 @@ any colour at all — and a screen reader gets the word rather than a decorative
 
 **Also.** `n` opens the add row from anywhere on the board, ignored while the caret is in a
 field or a modifier is held, so it cannot swallow a typed letter or shadow a browser command.
+
+## The frontend is served by Red Hat's hardened httpd
+
+**Decision.** The frontend image is `registry.access.redhat.com/hi/httpd:2` — Apache 2.4,
+non-root on port 8080 — instead of `nginx:1.31-alpine`. The published port changes with it, so
+the Compose files map `3000:8080`.
+
+**Why.** It puts both images on a Red Hat maintained base, which is the point of the change.
+The image is also hardened: it runs as `apache` rather than root, and it ships **no shell at
+all**. That is worth knowing before debugging one — `podman exec ... sh` does not work, and
+anything the runtime needs has to be `COPY`ed in, because `RUN` has nothing to run.
+
+**What had to be carried across.** The nginx configuration was doing four things, and each has
+an equivalent that is easy to get wrong:
+
+| nginx | httpd | why it matters |
+| --- | --- | --- |
+| `root` + `index` | `DocumentRoot` | — |
+| `try_files $uri /index.html` | `FallbackResource /index.html` | a deep link is a route, not a 404 |
+| `proxy_set_header Host $http_host` | `ProxyPreserveHost On` | the backend builds `redirect_uri` from `Host`; without it sign-in returns the browser to the backend's port |
+| `proxy_buffer_size 16k` and friends | `LimitRequestFieldSize 32768` | the chunked session cookie comes back as one long `Cookie` header |
+
+The last one is headroom rather than a fix: measured, the cookies total about 5.2 KB against
+Apache's 8190-byte default, so they fit today. It is raised because the size depends on how many
+claims the provider puts in the token, and the failure would be a 400 on every request after
+sign-in — a symptom that points nowhere near its cause.
+
+**Verified rather than assumed.** The whole end-to-end suite passes against the new images,
+including a real Keycloak sign-in through the proxy, which is what exercises `ProxyPreserveHost`.
+Separately checked by hand: a deep link returns the app, a real asset still serves, and an
+unknown `/api` path returns the *backend's* 404 rather than the index page, which is what
+confirms `ProxyPass` is matched before the fallback.
+
+**Cost.** `hi/httpd:2` is a moving major tag, so Renovate will only raise a pull request when a
+`3` appears. Pinning it by digest would make it as reproducible as the backend's base, at the
+price of a pull request every time the image is rebuilt upstream; that is a separate decision
+and has not been taken.

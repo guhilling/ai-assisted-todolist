@@ -1,5 +1,5 @@
 # Full stack for the browser end-to-end tests: PostgreSQL, Keycloak, the Quarkus backend and
-# the nginx-served frontend.
+# the httpd-served frontend.
 #
 # Keycloak is published on localhost:8082 for the browser, while the backend reaches it inside
 # the compose network as keycloak:8082. KC_HOSTNAME_BACKCHANNEL_DYNAMIC lets those two differ:
@@ -72,7 +72,7 @@ services:
     healthcheck:
       # Without this, `up --wait` treats the backend as ready the moment the container runs,
       # and Playwright starts against an application still booting -- it answers 502 through
-      # nginx until then. The probe is a mounted script rather than an inline command because
+      # httpd until then. The probe is a mounted script rather than an inline command because
       # an inline one is split on whitespace into separate argv entries; see the script.
       test: ["CMD", "bash", "/config/healthcheck.sh"]
       interval: 5s
@@ -85,4 +85,4 @@ services:
       backend:
         condition: service_healthy
     ports:
-      - "3000:80"
+      - "3000:8080"

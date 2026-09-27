@@ -78,7 +78,7 @@ credentials locally, and a credential-less provider is meant to render disabled.
 
 ## Container stack
 
-The production-shaped stack: nginx serving built assets, the backend as a container image,
+The production-shaped stack: httpd serving built assets, the backend as a container image,
 PostgreSQL with a persistent volume. **No Keycloak**, so sign-in is off unless you supply
 real Google credentials.
 
@@ -169,11 +169,16 @@ again.
 
 **Sign-in lands you on port 8080 instead of returning to the app.** A proxy is rewriting
 the `Host` header. Check `changeOrigin: false` in `frontend/vite.config.ts`, or
-`proxy_set_header Host $http_host` in `frontend/docker/nginx.conf`.
+`ProxyPreserveHost On` in `frontend/docker/httpd.conf`.
 
-**502 on `/api/auth/callback` through nginx.** The session cookie exceeded nginx's header
-buffer. The `proxy_buffer_size` directives in `frontend/docker/nginx.conf` are what prevent
-this; check they are still there.
+**400 on every request after signing in.** The session cookie is chunked, and all the
+chunks come back in one `Cookie` header. If it has outgrown Apache's limit, raise
+`LimitRequestFieldSize` in `frontend/docker/httpd.conf` — it is already set well above
+what the current tokens need, so this means the provider started issuing larger ones.
+
+**A deep link 404s instead of loading the app.** `FallbackResource /index.html` is missing
+from `frontend/docker/httpd.conf`, or the path is being served from outside the document
+root.
 
 **The backend container exits immediately with no log output.** The image was built on a
 base with an older JDK than the code targets. `quarkus.jib.base-jvm-image` must stay pinned

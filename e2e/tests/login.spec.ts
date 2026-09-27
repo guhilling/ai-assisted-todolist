@@ -3,7 +3,7 @@
  * Keycloak and then using the board.
  *
  * Runs against the containerised stack from docker/docker-compose.e2e.yml, so it exercises
- * the same nginx proxying and OIDC redirects a deployment would.
+ * the same httpd proxying and OIDC redirects a deployment would.
  *
  * Each account gets its own `browser.newContext()`. Signing out of the app only expires the
  * backend session cookie -- Keycloak's own SSO session survives it -- so reusing a context
