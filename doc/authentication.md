@@ -14,7 +14,7 @@ and because a browser session is simply less machinery for an app with one origi
 ## The flow
 
 ```
-1. Browser  GET /api/auth/providers          → the cards to show while signed out
+1. Browser  GET /api/auth/providers          → the sign-in options for the signed-out page
 2. Browser  GET /api/auth/login              (full-page navigation, not fetch)
 3. Backend  302 → provider /authorize?...redirect_uri=<origin>/api/auth/callback
 4. Provider shows its login form; user authenticates
@@ -23,7 +23,7 @@ and because a browser session is simply less machinery for an app with one origi
 7. Browser  GET /api/auth/me                 → { "email": "..." }
 ```
 
-Steps 2 and 5 are browser navigations. That is why the sign-in card is a link rather than a
+Steps 2 and 5 are browser navigations. That is why the sign-in control is a link rather than a
 button with an `onClick` — a `fetch` cannot follow a cross-origin redirect into a login
 form.
 
@@ -60,10 +60,10 @@ simultaneously.
 Dev and test leave `quarkus.oidc.auth-server-url` unset on purpose — that absence is what
 makes Keycloak Dev Services start a container and fill it in.
 
-## The provider cards
+## The provider list
 
-`GET /api/auth/providers` drives the signed-out screen. A provider is advertised as
-clickable purely because configuration gave it a client id and secret:
+`GET /api/auth/providers` drives the signed-out screen. A provider is advertised as usable
+purely because configuration gave it a client id and secret:
 
 ```java
 boolean available = authProvidersConfig.enabled()
@@ -72,10 +72,15 @@ boolean available = authProvidersConfig.enabled()
 ```
 
 No provider name appears in the code, on either side. Adding one is a configuration change:
-a `todo.auth.providers.<id>.*` block appears and a card appears with it. In production only
-`google` is declared; dev and test add `keycloak`. A declared provider without credentials
-renders as a disabled card, which is exactly what a fresh production deployment shows
-before its Google secrets are supplied.
+a `todo.auth.providers.<id>.*` block appears and a sign-in button appears with it. In
+production only `google` is declared; dev and test add `keycloak`.
+
+A declared provider without credentials is **still reported**, with `available: false` and a
+null `loginUrl` — but the frontend **hides** it rather than showing it disabled, so a fresh
+production deployment shows no Google button at all until its secrets are supplied, and says
+sign-in is not configured. The endpoint reports it anyway so that a caller can tell a
+provider that exists but is unconfigured from one that was never declared; see
+`doc/decisions.md`, "The board is the front page".
 
 ## Local accounts
 

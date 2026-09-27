@@ -61,7 +61,7 @@ whole app — including sign-in — stays on port 5173.
 
 ### 3. Sign in
 
-The landing page shows a **"Continue with Keycloak"** card. Use either account:
+The landing page shows a single **"Continue with Keycloak"** button. Use either account:
 
 | Account | Password | Email |
 | --- | --- | --- |
@@ -73,8 +73,10 @@ ownership rules at work. Note that signing out of the app does **not** sign you 
 Keycloak — to switch accounts for real, use a private window or clear cookies for
 `localhost:8082`. This is by design; see [authentication.md](authentication.md).
 
-A "Google" card also appears, greyed out. That is correct: Google is declared but has no
-credentials locally, and a credential-less provider is meant to render disabled.
+**No "Google" button appears, and that is correct.** Google is declared locally but has no
+credentials, so `/api/auth/providers` reports it with `available: false` and the frontend
+hides it — a provider you cannot use is not offered. The endpoint still lists it, which is
+how a caller tells "declared but unconfigured" from "never declared" at all.
 
 ## Container stack
 

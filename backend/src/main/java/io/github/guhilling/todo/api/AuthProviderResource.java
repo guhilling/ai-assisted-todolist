@@ -10,13 +10,18 @@ import java.util.Map;
 import java.util.Optional;
 
 /**
- * Serves the sign-in cards the landing page offers before anyone is authenticated.
+ * Serves the sign-in options the landing page offers before anyone is authenticated.
  *
  * <p>A provider is advertised as usable purely because configuration gave it credentials,
  * never because its name is known to this class. That is what lets the same code offer
  * Google in production and the local Keycloak in dev and test: the profile decides which
- * {@code todo.auth.providers.*} entries exist, and an entry without a client id or secret
- * renders as a disabled card rather than a broken link.</p>
+ * {@code todo.auth.providers.*} entries exist.</p>
+ *
+ * <p>An entry without a client id or secret is still reported, with {@code available} false
+ * and a null {@code loginUrl}. Reporting it rather than omitting it is what lets the caller
+ * tell "this deployment has no sign-in configured" apart from "the list could not be
+ * fetched" — the frontend hides such an entry, so a fresh production deployment shows no
+ * Google button at all until its secrets are supplied.</p>
  */
 @Path("/api/auth/providers")
 @Produces(MediaType.APPLICATION_JSON)
@@ -71,8 +76,8 @@ public class AuthProviderResource {
      * One configured identity provider.
      *
      * <p>The credentials are optional because a provider may legitimately be declared with
-     * none — that is how production ships a Google card that stays disabled until the
-     * deployment supplies {@code TODO_OIDC_GOOGLE_CLIENT_ID} and its secret.</p>
+     * none — that is how production ships a declared Google provider that is not yet offered,
+     * until the deployment supplies {@code TODO_OIDC_GOOGLE_CLIENT_ID} and its secret.</p>
      */
     public interface ProviderConfig {
         String label();
@@ -95,15 +100,17 @@ public class AuthProviderResource {
     }
 
     /**
-     * A single sign-in card: what to label it, whether to make it clickable, and where to
-     * send the browser when it is.
+     * A single sign-in option: what to label it, whether it is usable, and where to send the
+     * browser when it is.
      *
-     * <p>{@code loginUrl} is null for an unusable provider rather than absent, so the
-     * frontend can render the card greyed out instead of hiding it.</p>
+     * <p>{@code loginUrl} is null for an unusable provider rather than the provider being
+     * left out of the list, so a caller can distinguish a provider that exists but is not
+     * configured from one that was never declared. What the frontend does with that is its
+     * own decision, and it currently offers only the usable ones.</p>
      *
      * @param id the configuration key of the provider, for example {@code google}
-     * @param label the human-readable name to put on the card
-     * @param available whether credentials are configured, and so whether the card is clickable
+     * @param label the human-readable name to put on the button
+     * @param available whether credentials are configured, and so whether it can be used
      * @param loginUrl where to send the browser to start sign-in, or null when unavailable
      * @param issuer the provider's issuer URL, empty when it was never configured
      */
