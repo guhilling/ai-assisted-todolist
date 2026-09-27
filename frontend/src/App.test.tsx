@@ -864,19 +864,16 @@ describe('removing tasks', () => {
     await waitFor(() => expect(screen.getByText('Unable to create task.')).toBeInTheDocument())
   })
 
-  it('can be dismissed, and gives up on its own', async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true })
-    try {
-      await renderSignedIn(mockApi({ me: ALICE, tasks: [task({ id: 16, description: 'Gone for good' })] }))
+  it('can be dismissed', async () => {
+    // No fake clock: dismissing is a click, and the countdown is another test's business.
+    await renderSignedIn(mockApi({ me: ALICE, tasks: [task({ id: 16, description: 'Gone for good' })] }))
 
-      fireEvent.click(openMenu('Gone for good').getByRole('button', { name: 'Delete' }))
-      await waitFor(() => expect(screen.getByText('Task deleted')).toBeInTheDocument())
+    fireEvent.click(openMenu('Gone for good').getByRole('button', { name: 'Delete' }))
+    await waitFor(() => expect(screen.getByText('Task deleted')).toBeInTheDocument())
 
-      fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }))
-      expect(screen.queryByText('Task deleted')).not.toBeInTheDocument()
-    } finally {
-      vi.useRealTimers()
-    }
+    fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }))
+
+    expect(screen.queryByText('Task deleted')).not.toBeInTheDocument()
   })
 
   it('withdraws the offer after a few seconds', async () => {
@@ -887,11 +884,16 @@ describe('removing tasks', () => {
       fireEvent.click(openMenu('Times out').getByRole('button', { name: 'Delete' }))
       await waitFor(() => expect(screen.getByText('Task deleted')).toBeInTheDocument())
 
+      // advanceTimersByTimeAsync, not the synchronous form: it yields between timers so the
+      // state update the callback schedules is actually flushed. And the disappearance is
+      // waited for rather than asserted on the next line -- advancing the clock says the
+      // callback ran, not that React has re-rendered, and asserting instantly made this test
+      // fail on a loaded CI runner roughly one run in three.
       await act(async () => {
-        vi.advanceTimersByTime(8000)
+        await vi.advanceTimersByTimeAsync(8000)
       })
 
-      expect(screen.queryByText('Task deleted')).not.toBeInTheDocument()
+      await waitFor(() => expect(screen.queryByText('Task deleted')).not.toBeInTheDocument())
     } finally {
       vi.useRealTimers()
     }

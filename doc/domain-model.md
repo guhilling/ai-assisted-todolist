@@ -54,8 +54,8 @@ that does not exist — both yield 404 — which leaks nothing about other users
 
 - **No state machine.** Any state may follow any other. A personal todo list gains nothing
   from forbidding `DONE` → `TODO`, and everything from letting someone correct a misclick.
-- **No effect from importance.** It colours the card and nothing else. Ordering is always
-  by due date, which is what people actually plan against.
+- **No effect from importance.** It sets the colour and fill of a dot on the row and nothing
+  else. Ordering is always by due date, which is what people actually plan against.
 - **No soft delete, no history.** A deleted task is gone. `createdAt` and `updatedAt` exist
   for operational sanity, not as a domain concept.
 - **No registration.** A `User` row appears the first time an authenticated request arrives
