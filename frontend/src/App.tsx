@@ -4,7 +4,7 @@
  * The wire lives in `api.ts` and the due-date words in `dates.ts`, so what remains here is
  * state and the decisions that depend on more than one piece of it.
  */
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import './App.css'
 import {
   authLogoutUrl,
@@ -14,6 +14,7 @@ import {
   fetchTasks,
   postTask,
   putTask,
+  restoreTask,
   toErrorMessage,
   type AuthProvidersResponse,
   type CurrentUser,
@@ -25,6 +26,7 @@ import AddTaskRow from './components/AddTaskRow'
 import CompletedSection from './components/CompletedSection'
 import SignedOut, { purposeUrl } from './components/SignedOut'
 import TaskSection from './components/TaskSection'
+import UndoToast from './components/UndoToast'
 import { bucketOf, todayIso, type DueBucket } from './dates'
 
 /** The dated sections, in the order they appear. `Completed` is handled separately. */
@@ -43,6 +45,7 @@ function App() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [deleted, setDeleted] = useState<Task[] | null>(null)
 
   /**
    * Read once per mount rather than per render, so a board left open overnight does not
@@ -130,23 +133,58 @@ function App() {
   const toggleDone = (task: Task) => void saveState(task, task.state === 'DONE' ? 'TODO' : 'DONE')
   const setTaskState = (task: Task, state: TaskState) => void saveState(task, state)
 
-  const removeTask = async (task: Task) => {
-    const previous = tasks
-    setError(null)
+  /**
+   * Deletes one task, putting the row back if the server refuses. Says whether it went.
+   *
+   * The rollback uses the updater form rather than a captured `tasks`, because clearing the
+   * completed section calls this in a loop and a captured array would be a render behind by
+   * the second iteration.
+   */
+  const deleteOne = async (task: Task) => {
     setTasks((current) => current.filter((candidate) => candidate.id !== task.id))
 
     try {
       await deleteTask(task)
+      return true
     } catch (deleteError) {
-      setTasks(previous)
+      setTasks((current) => [...current, task])
       setError(toErrorMessage(deleteError, 'Unexpected error while deleting data.'))
+      return false
+    }
+  }
+
+  const removeTask = async (task: Task) => {
+    setError(null)
+    if (await deleteOne(task)) {
+      setDeleted([task])
     }
   }
 
   const clearCompleted = async () => {
     setError(null)
+    const gone: Task[] = []
     for (const task of completedTasks) {
-      await removeTask(task)
+      if (await deleteOne(task)) {
+        gone.push(task)
+      }
+    }
+    if (gone.length > 0) {
+      setDeleted(gone)
+    }
+  }
+
+  /** Stable, so that a re-render of the board does not restart the undo countdown. */
+  const dismissUndo = useCallback(() => setDeleted(null), [])
+
+  const restoreDeleted = async (tasksToRestore: Task[]) => {
+    setDeleted(null)
+    setError(null)
+
+    try {
+      const restored = await Promise.all(tasksToRestore.map((task) => restoreTask(task, today)))
+      setTasks((current) => [...current, ...restored])
+    } catch (restoreError) {
+      setError(toErrorMessage(restoreError, 'Unexpected error while restoring data.'))
     }
   }
 
@@ -241,6 +279,14 @@ function App() {
           About this project ↗
         </a>
       </footer>
+
+      {deleted ? (
+        <UndoToast
+          count={deleted.length}
+          onUndo={() => void restoreDeleted(deleted)}
+          onDismiss={dismissUndo}
+        />
+      ) : null}
     </main>
   )
 }

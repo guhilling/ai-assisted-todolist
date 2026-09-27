@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import type { Task, TaskState } from '../api'
 import { describeDueDate, daysBetween } from '../dates'
 
-/** How a task's importance reads on the row. */
+/** What each importance reads as. Rendered for screen readers; sighted users get the dot. */
 const importanceLabels: Record<Task['importance'], string> = {
   LOW: 'Low',
   MEDIUM: 'Medium',
@@ -30,11 +30,14 @@ function TaskRow({ task, today, onToggleDone, onSetState, onDelete }: TaskRowPro
   const overdue = !done && daysBetween(today, task.dueDate) < 0
   const inputId = `task-${task.id}`
   const menuId = `task-menu-${task.id}`
+  const summaryId = `task-menu-summary-${task.id}`
   const [menuOpen, setMenuOpen] = useState(false)
 
   /**
    * A native `<details>` has no notion of dismissal: it stays open until something closes it,
-   * so without this every menu opened piles up over the board.
+   * so without this every menu opened piles up over the board. Escape closes it too and puts
+   * focus back on the trigger, because dismissing from the keyboard otherwise leaves focus on
+   * a button that has just been hidden.
    *
    * The click is tested for being inside this menu rather than relying on the listener being
    * attached after the opening click. React can flush the effect while that click is still
@@ -52,9 +55,20 @@ function TaskRow({ task, today, onToggleDone, onSetState, onDelete }: TaskRowPro
       }
     }
 
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setMenuOpen(false)
+        document.getElementById(summaryId)?.focus()
+      }
+    }
+
     document.addEventListener('click', closeUnlessInside)
-    return () => document.removeEventListener('click', closeUnlessInside)
-  }, [menuOpen, menuId])
+    document.addEventListener('keydown', closeOnEscape)
+    return () => {
+      document.removeEventListener('click', closeUnlessInside)
+      document.removeEventListener('keydown', closeOnEscape)
+    }
+  }, [menuOpen, menuId, summaryId])
 
   return (
     <li className={`task-row${done ? ' task-row--done' : ''}`}>
@@ -71,17 +85,24 @@ function TaskRow({ task, today, onToggleDone, onSetState, onDelete }: TaskRowPro
           {task.description}
         </label>
         <p className="task-meta">
+          {/*
+            * Importance leads the line, so it needs no separator before it, and it is a dot
+            * rather than a word because "Medium" on every row is noise. The three are told
+            * apart by fill as well as by colour -- hollow, solid, ringed -- because colour
+            * alone conveys nothing to a screen reader, which gets the word instead.
+            */}
+          <span className={`task-importance task-importance--${task.importance.toLowerCase()}`}>
+            <span className="visually-hidden">{importanceLabels[task.importance]}</span>
+          </span>
           <span className={overdue ? 'task-due task-due--overdue' : 'task-due'}>
             {describeDueDate(task.dueDate, today)}
-          </span>
-          <span className={`task-importance task-importance--${task.importance.toLowerCase()}`}>
-            {importanceLabels[task.importance]}
           </span>
           {task.state === 'WORKING' ? <span className="task-chip">doing</span> : null}
         </p>
       </div>
       <details className="task-menu" id={menuId} open={menuOpen}>
         <summary
+          id={summaryId}
           aria-label={`Actions for "${task.description}"`}
           onClick={(event) => {
             // The native toggle is suppressed so `menuOpen` is the only thing that decides,
@@ -118,9 +139,9 @@ function TaskRow({ task, today, onToggleDone, onSetState, onDelete }: TaskRowPro
             type="button"
             className="task-menu-danger"
             onClick={() => {
-                setMenuOpen(false)
-                onDelete(task)
-              }}
+              setMenuOpen(false)
+              onDelete(task)
+            }}
           >
             Delete
           </button>

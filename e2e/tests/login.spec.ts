@@ -71,7 +71,8 @@ test('signs a local account in through Keycloak and manages its tasks', async ({
 
   const task = page.locator('.task-row', { hasText: description })
   await expect(task).toBeVisible()
-  await expect(task.getByText('High')).toBeVisible()
+  // Importance is a dot now, not a word, so assert the cue rather than visible text.
+  await expect(task.locator('.task-importance--high')).toBeVisible()
   await expect(task.getByText('31 Dec')).toBeVisible()
 
   // The headline interaction: one click finishes the task. The tick is optimistic, so the
@@ -118,6 +119,37 @@ test('deletes a task for good', async ({ page }) => {
   // Deleted on the server, not merely dropped from the local list.
   await page.reload()
   await expect(page.locator('.task-row', { hasText: description })).toHaveCount(0)
+})
+
+test('puts a deleted task back when undo is used', async ({ page }) => {
+  const description = `Deleted by mistake ${Date.now()}`
+
+  await signIn(page, users.gunnar)
+  await addTask(page, description, '2026-12-29')
+
+  const task = page.locator('.task-row', { hasText: description })
+  await expect(task).toBeVisible()
+
+  const deleted = page.waitForResponse(
+    (response) => response.request().method() === 'DELETE' && response.url().includes('/api/tasks/'),
+  )
+  await task.getByLabel(`Actions for "${description}"`).click()
+  await task.getByRole('button', { name: 'Delete' }).click()
+  await expect(task).toHaveCount(0)
+  expect((await deleted).ok()).toBe(true)
+
+  // Restoring re-creates the task, so wait for that rather than the disappearance of the row.
+  const restored = page.waitForResponse(
+    (response) => response.request().method() === 'POST' && response.url().endsWith('/api/tasks'),
+  )
+  await page.getByRole('button', { name: 'Undo' }).click()
+  expect((await restored).ok()).toBe(true)
+
+  await expect(page.locator('.task-row', { hasText: description })).toBeVisible()
+
+  // Back on the server, not merely back on screen -- with a new id, which is invisible here.
+  await page.reload()
+  await expect(page.locator('.task-row', { hasText: description })).toBeVisible()
 })
 
 test('keeps the two local accounts from seeing each other tasks', async ({ browser }) => {

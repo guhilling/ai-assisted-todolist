@@ -48,6 +48,18 @@ DDD, and project context all still apply here).
 - This split replaced a single 413-line `App.tsx`. Its own header comment had named the API
   functions as the seam to cut first, which is where the cut was made.
 
+## Accessibility
+
+- **An icon that carries meaning keeps its word**, in a `.visually-hidden` span. The importance
+  dot is the example: sighted users get the dot, screen readers get "High".
+- **Never encode meaning in colour alone.** The importance levels differ in fill — hollow,
+  solid, ringed — so they survive greyscale, colour blindness and high-contrast modes.
+- **Prefer a real control to a styled one.** The row checkbox is an `input type="checkbox"` and
+  the row menu a `<details>`, so keyboard handling and roles come for free.
+- **A keyboard shortcut must not swallow typing.** The `n` shortcut ignores events whose target
+  is inside an `input`, `textarea`, `select` or `[contenteditable]`, and any event with a
+  modifier held.
+
 ## TypeScript
 
 - Use **strict typing wherever possible.** Enable `"strict": true` in
