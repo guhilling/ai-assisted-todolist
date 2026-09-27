@@ -172,3 +172,29 @@ export async function deleteTask(task: Task) {
     throw new Error('Unable to delete task.')
   }
 }
+
+/**
+ * Puts a deleted task back.
+ *
+ * Two requests rather than one, because creating refuses a date in the past: a task that was
+ * already overdue when it was deleted is created dated today and then corrected by an update,
+ * which does allow one. Without that, undo would fail for exactly the tasks people delete
+ * most -- the old ones.
+ *
+ * It comes back with a **new id**. The server has no memory of the old one, and nothing here
+ * refers to a task by id except the rows themselves, so the only visible effect is where it
+ * lands among tasks sharing its due date.
+ */
+export async function restoreTask(task: Task, today: string) {
+  const created = await postTask({
+    description: task.description,
+    dueDate: task.dueDate < today ? today : task.dueDate,
+    importance: task.importance,
+    state: task.state,
+  })
+
+  if (created.dueDate === task.dueDate) {
+    return created
+  }
+  return putTask({ ...created, dueDate: task.dueDate })
+}

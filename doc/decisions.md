@@ -430,3 +430,44 @@ from a service that is always healthy.
 quoting can be none of those.
 
 **Cost.** One more file, and a volume mount that has to stay in step with it.
+## Undo instead of a confirmation, and what it costs
+
+**Decision.** Deleting a task is one click with no dialog. An offer to undo stands for eight
+seconds. Undo re-creates the task through the API.
+
+**Why not a confirmation dialog.** "Are you sure?" on every delete trains people to click
+through it, so it stops protecting anything while still costing a click every time. An undo
+is cheaper when you meant it and better when you did not.
+
+**Two requests, not one.** Creating refuses a date in the past, so re-creating a task that was
+already overdue would fail — and overdue tasks are exactly the ones people delete. `restoreTask`
+therefore creates the task dated today and then corrects the date with an update, which does
+allow the past. That asymmetry is deliberate and is the subject of its own entry above; this is
+the first place it bit something other than the board.
+
+**Cost, and it is a real one.** The task comes back with a **new id**. The server has no memory
+of the old one. Nothing here refers to a task by id except the rows themselves, so the only
+visible effect is where it lands among tasks that share a due date — but "undo" restoring
+something that is not, strictly, the same record is worth knowing before anything starts
+referring to tasks by id.
+
+**Rejected: deferring the delete until the offer expires.** That would make undo a true cancel,
+with no new id and no date repair. It was not taken because the task would still exist on the
+server during the window, so a reload mid-offer resurrects something the user has already seen
+disappear — a worse surprise than a changed id, and a silent one.
+
+## Importance is a dot, and the word is still there
+
+**Decision.** Importance renders as a dot at the head of each row's metadata line: hollow for
+low, solid for medium, solid with a ring for high. The word is kept in the markup as
+screen-reader-only text.
+
+**Why.** `Importance: MEDIUM` on every row was noise on the thing people scan fastest. A dot
+carries the same information in a glance and takes no width.
+
+**Why fill as well as colour.** Colour alone fails for the colour-blind, in greyscale and in
+high-contrast modes. The three levels differ in fill, so they are still three things without
+any colour at all — and a screen reader gets the word rather than a decorative shape.
+
+**Also.** `n` opens the add row from anywhere on the board, ignored while the caret is in a
+field or a modifier is held, so it cannot swallow a typed letter or shadow a browser command.

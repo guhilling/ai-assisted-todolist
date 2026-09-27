@@ -31,6 +31,36 @@ function AddTaskRow({ today, saving, onAdd }: AddTaskRowProps) {
     }
   }, [open])
 
+  /**
+   * `n` opens the add row from anywhere on the board, the way a list app is expected to work.
+   *
+   * It is ignored while the caret is in a field, or the shortcut would eat the letter as
+   * somebody typed it, and ignored with a modifier held so it cannot shadow a browser or
+   * screen-reader command.
+   */
+  useEffect(() => {
+    if (open) {
+      return
+    }
+
+    const openOnShortcut = (event: KeyboardEvent) => {
+      if (event.key !== 'n' || event.metaKey || event.ctrlKey || event.altKey) {
+        return
+      }
+
+      const target = event.target as HTMLElement
+      if (target.closest('input, textarea, select, [contenteditable]') !== null) {
+        return
+      }
+
+      event.preventDefault()
+      setOpen(true)
+    }
+
+    document.addEventListener('keydown', openOnShortcut)
+    return () => document.removeEventListener('keydown', openOnShortcut)
+  }, [open])
+
   const reset = () => {
     setDescription('')
     setDueDate(addDays(today, 1))
@@ -62,6 +92,9 @@ function AddTaskRow({ today, saving, onAdd }: AddTaskRowProps) {
           +
         </span>
         Add a task
+        <kbd className="add-row-key" aria-hidden="true">
+          n
+        </kbd>
       </button>
     )
   }

@@ -9,7 +9,7 @@
  * clock once on mount and groups rows by how far away they are. The arithmetic comes from
  * `dates.ts`, whose own tests pin it down directly.
  */
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
 import { addDays, todayIso } from './dates'
@@ -43,9 +43,16 @@ function mockApi(options: {
   providers?: unknown
   tasks?: unknown
   post?: { status: number; body?: unknown }
+  /**
+   * Answers every POST by echoing what was sent back with a fresh id, the way the server
+   * does. Restoring several tasks at once needs this rather than a fixed list of replies,
+   * because the order they are deleted in is the board's, not the test's.
+   */
+  echoPost?: boolean
   put?: { status: number; body?: unknown }
   del?: { status: number }
 }) {
+  let nextId = 90
   return vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
     const url = typeof input === 'string' ? input : input.toString()
     const method = init?.method ?? 'GET'
@@ -58,6 +65,10 @@ function mockApi(options: {
     }
     if (url.includes('/api/tasks')) {
       if (method === 'POST') {
+        if (options.echoPost) {
+          nextId += 1
+          return respond({ ...JSON.parse(String(init?.body)), id: nextId }, 201)
+        }
         return respond(options.post?.body ?? null, options.post?.status ?? 201)
       }
       if (method === 'PUT') {
@@ -658,6 +669,27 @@ describe('the row menu', () => {
     expect(menuOf('Menu task').open).toBe(true)
   })
 
+  it('closes on Escape and hands focus back to the trigger', async () => {
+    await renderSignedIn(mockApi({ me: ALICE, tasks: [task({ id: 45, description: 'Menu task' })] }))
+
+    openMenu('Menu task')
+    expect(menuOf('Menu task').open).toBe(true)
+
+    fireEvent.keyDown(document, { key: 'Escape' })
+
+    expect(menuOf('Menu task').open).toBe(false)
+    expect(within(rowFor('Menu task')).getByLabelText('Actions for "Menu task"')).toHaveFocus()
+  })
+
+  it('ignores other keys while it is open', async () => {
+    await renderSignedIn(mockApi({ me: ALICE, tasks: [task({ id: 46, description: 'Menu task' })] }))
+
+    openMenu('Menu task')
+    fireEvent.keyDown(document, { key: 'a' })
+
+    expect(menuOf('Menu task').open).toBe(true)
+  })
+
   it('closes when the click lands somewhere else', async () => {
     await renderSignedIn(mockApi({ me: ALICE, tasks: [task({ id: 42, description: 'Menu task' })] }))
 
@@ -675,6 +707,75 @@ describe('the row menu', () => {
     openMenu('Menu task')
 
     expect(menuOf('Menu task').open).toBe(true)
+  })
+})
+
+describe('the keyboard shortcut', () => {
+  it('opens the add row when n is pressed', async () => {
+    await renderSignedIn(mockApi({ me: ALICE, tasks: [] }))
+
+    fireEvent.keyDown(document.body, { key: 'n' })
+
+    expect(screen.getByLabelText('What needs doing')).toBeInTheDocument()
+  })
+
+  it('leaves the letter alone when it lands in a field', async () => {
+    // A row's checkbox is a real input, so it stands in for "the caret is somewhere that
+    // takes typing" -- where the shortcut must not swallow the letter.
+    await renderSignedIn(mockApi({ me: ALICE, tasks: [task({ id: 47, description: 'A task' })] }))
+
+    fireEvent.keyDown(screen.getByLabelText('Mark "A task" as done'), { key: 'n' })
+
+    expect(screen.queryByLabelText('What needs doing')).not.toBeInTheDocument()
+  })
+
+  it('does not fire when a modifier is held', async () => {
+    await renderSignedIn(mockApi({ me: ALICE, tasks: [] }))
+
+    fireEvent.keyDown(document.body, { key: 'n', metaKey: true })
+    expect(screen.queryByLabelText('What needs doing')).not.toBeInTheDocument()
+
+    fireEvent.keyDown(document.body, { key: 'n', ctrlKey: true })
+    expect(screen.queryByLabelText('What needs doing')).not.toBeInTheDocument()
+
+    fireEvent.keyDown(document.body, { key: 'n', altKey: true })
+    expect(screen.queryByLabelText('What needs doing')).not.toBeInTheDocument()
+  })
+
+  it('is ignored once the add row is already open', async () => {
+    await renderSignedIn(mockApi({ me: ALICE, tasks: [] }))
+
+    startAdding('Typing away')
+    fireEvent.keyDown(screen.getByLabelText('What needs doing'), { key: 'n' })
+
+    expect(screen.getByLabelText('What needs doing')).toHaveValue('Typing away')
+  })
+})
+
+describe('importance', () => {
+  it('shows a dot, and says the word to a screen reader', async () => {
+    await renderSignedIn(
+      mockApi({ me: ALICE, tasks: [task({ id: 51, description: 'Urgent', importance: 'HIGH' })] }),
+    )
+
+    const row = rowFor('Urgent')
+    // The word is present for assistive technology but carries no visible text of its own.
+    expect(within(row).getByText('High')).toHaveClass('visually-hidden')
+    expect(row.querySelector('.task-importance--high')).not.toBeNull()
+  })
+
+  it.each([
+    ['LOW', 'Low'],
+    ['MEDIUM', 'Medium'],
+    ['HIGH', 'High'],
+  ])('distinguishes %s', async (importance, label) => {
+    await renderSignedIn(
+      mockApi({ me: ALICE, tasks: [task({ id: 52, description: 'Graded', importance })] }),
+    )
+
+    const row = rowFor('Graded')
+    expect(within(row).getByText(label)).toBeInTheDocument()
+    expect(row.querySelector(`.task-importance--${importance.toLowerCase()}`)).not.toBeNull()
   })
 })
 
@@ -705,6 +806,111 @@ describe('removing tasks', () => {
     expect(screen.getByLabelText('Mark "Sticky" as done')).toBeInTheDocument()
   })
 
+  it('offers to undo, and puts the task back', async () => {
+    const gone = task({ id: 13, description: 'Deleted by mistake', dueDate: isoIn(4) })
+    const fetchMock = mockApi({
+      me: ALICE,
+      tasks: [gone],
+      echoPost: true,
+    })
+    await renderSignedIn(fetchMock)
+
+    fireEvent.click(openMenu('Deleted by mistake').getByRole('button', { name: 'Delete' }))
+    await waitFor(() => expect(screen.getByText('Task deleted')).toBeInTheDocument())
+
+    fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
+
+    await waitFor(() => expect(screen.getByLabelText('Mark "Deleted by mistake" as done')).toBeInTheDocument())
+    expect(bodyOf(fetchMock, 'POST')).toEqual({
+      description: 'Deleted by mistake',
+      dueDate: isoIn(4),
+      importance: 'MEDIUM',
+      state: 'TODO',
+    })
+    expect(screen.queryByText('Task deleted')).not.toBeInTheDocument()
+  })
+
+  it('restores an overdue task by creating it today and correcting the date', async () => {
+    // Creating refuses a date in the past, so a plain re-create would fail for exactly the
+    // tasks people delete most. The date is repaired by an update, which does allow one.
+    const overdue = isoIn(-5)
+    const gone = task({ id: 14, description: 'Long overdue', dueDate: overdue })
+    const fetchMock = mockApi({
+      me: ALICE,
+      tasks: [gone],
+      echoPost: true,
+      put: { status: 200, body: { ...gone, id: 98 } },
+    })
+    await renderSignedIn(fetchMock)
+
+    fireEvent.click(openMenu('Long overdue').getByRole('button', { name: 'Delete' }))
+    await waitFor(() => expect(screen.getByText('Task deleted')).toBeInTheDocument())
+    fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
+
+    await waitFor(() => expect(screen.getByLabelText('Mark "Long overdue" as done')).toBeInTheDocument())
+    expect(bodyOf(fetchMock, 'POST')).toMatchObject({ dueDate: TODAY })
+    expect(bodyOf(fetchMock, 'PUT')).toMatchObject({ dueDate: overdue })
+  })
+
+  it('reports a restore that fails', async () => {
+    const gone = task({ id: 15, description: 'Unrestorable', dueDate: isoIn(4) })
+    const fetchMock = mockApi({ me: ALICE, tasks: [gone], post: { status: 500 } })
+    await renderSignedIn(fetchMock)
+
+    fireEvent.click(openMenu('Unrestorable').getByRole('button', { name: 'Delete' }))
+    await waitFor(() => expect(screen.getByText('Task deleted')).toBeInTheDocument())
+    fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
+
+    await waitFor(() => expect(screen.getByText('Unable to create task.')).toBeInTheDocument())
+  })
+
+  it('can be dismissed, and gives up on its own', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    try {
+      await renderSignedIn(mockApi({ me: ALICE, tasks: [task({ id: 16, description: 'Gone for good' })] }))
+
+      fireEvent.click(openMenu('Gone for good').getByRole('button', { name: 'Delete' }))
+      await waitFor(() => expect(screen.getByText('Task deleted')).toBeInTheDocument())
+
+      fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }))
+      expect(screen.queryByText('Task deleted')).not.toBeInTheDocument()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('withdraws the offer after a few seconds', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    try {
+      await renderSignedIn(mockApi({ me: ALICE, tasks: [task({ id: 17, description: 'Times out' })] }))
+
+      fireEvent.click(openMenu('Times out').getByRole('button', { name: 'Delete' }))
+      await waitFor(() => expect(screen.getByText('Task deleted')).toBeInTheDocument())
+
+      await act(async () => {
+        vi.advanceTimersByTime(8000)
+      })
+
+      expect(screen.queryByText('Task deleted')).not.toBeInTheDocument()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('does not offer an undo for a delete that failed', async () => {
+    const fetchMock = mockApi({
+      me: ALICE,
+      tasks: [task({ id: 18, description: 'Sticky again' })],
+      del: { status: 500 },
+    })
+    await renderSignedIn(fetchMock)
+
+    fireEvent.click(openMenu('Sticky again').getByRole('button', { name: 'Delete' }))
+
+    await waitFor(() => expect(screen.getByText('Unable to delete task.')).toBeInTheDocument())
+    expect(screen.queryByText('Task deleted')).not.toBeInTheDocument()
+  })
+
   it('clears every completed task at once', async () => {
     const fetchMock = mockApi({
       me: ALICE,
@@ -722,5 +928,45 @@ describe('removing tasks', () => {
     const deleted = fetchMock.mock.calls.filter(([, init]) => init?.method === 'DELETE').map(([url]) => String(url))
     expect(deleted).toHaveLength(2)
     expect(screen.getByLabelText('Mark "Still open" as done')).toBeInTheDocument()
+    // One offer covering the batch, not one per task.
+    expect(screen.getByText('2 tasks deleted')).toBeInTheDocument()
+  })
+
+  it('offers no undo when clearing the completed section fails outright', async () => {
+    const fetchMock = mockApi({
+      me: ALICE,
+      tasks: [
+        task({ id: 26, description: 'Done one', dueDate: isoIn(2), state: 'DONE' }),
+        task({ id: 27, description: 'Done two', dueDate: isoIn(3), state: 'DONE' }),
+      ],
+      del: { status: 500 },
+    })
+    await renderSignedIn(fetchMock)
+
+    fireEvent.click(screen.getByRole('button', { name: /clear completed/i }))
+
+    await waitFor(() => expect(screen.getByText('Unable to delete task.')).toBeInTheDocument())
+    // Nothing was removed, so there is nothing to offer back.
+    expect(screen.queryByText(/deleted$/)).not.toBeInTheDocument()
+    expect(screen.getByText('Completed (2)')).toBeInTheDocument()
+  })
+
+  it('puts a whole cleared batch back', async () => {
+    const one = task({ id: 24, description: 'Done one', dueDate: isoIn(2), state: 'DONE' })
+    const two = task({ id: 25, description: 'Done two', dueDate: isoIn(3), state: 'DONE' })
+    const fetchMock = mockApi({
+      me: ALICE,
+      tasks: [one, two],
+      echoPost: true,
+    })
+    await renderSignedIn(fetchMock)
+
+    fireEvent.click(screen.getByRole('button', { name: /clear completed/i }))
+    await waitFor(() => expect(screen.getByText('2 tasks deleted')).toBeInTheDocument())
+
+    fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
+
+    await waitFor(() => expect(screen.getByText('Completed (2)')).toBeInTheDocument())
+    expect(fetchMock.mock.calls.filter(([, init]) => init?.method === 'POST')).toHaveLength(2)
   })
 })
