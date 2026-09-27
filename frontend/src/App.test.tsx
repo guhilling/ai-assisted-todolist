@@ -1,43 +1,42 @@
 /**
- * Characterization tests for the app shell, run against a stubbed `fetch`.
+ * Behaviour tests for the board, run against a stubbed `fetch`.
  *
- * They cover what the user sees in each state -- signed out, signed in with tasks, and a
- * failed load -- without a backend. Anything that depends on a real session or real
- * persistence is covered by the Playwright suite under /e2e instead.
+ * They cover what the user sees and does in each state -- signed out, signed in, completing,
+ * adding, deleting -- without a backend. Anything needing a real session or real persistence
+ * is left to the Playwright suite under /e2e.
+ *
+ * Dates are computed from the real today rather than hardcoded, because the board reads the
+ * clock once on mount and groups rows by how far away they are. The arithmetic comes from
+ * `dates.ts`, whose own tests pin it down directly.
  */
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { describe, expect, it, vi, beforeEach } from 'vitest'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
+import { addDays, todayIso } from './dates'
 
-function mockFetch(routes: Record<string, unknown>) {
-  return vi.fn((input: RequestInfo | URL, _init?: RequestInit) => {
-    const url = typeof input === 'string' ? input : input.toString()
-    const match = Object.keys(routes).find((path) => url.includes(path))
-    if (!match) {
-      return Promise.resolve(new Response(null, { status: 404 }))
-    }
-    const value = routes[match]
-    if (value === 'error') {
-      return Promise.resolve(new Response(null, { status: 401 }))
-    }
-    return Promise.resolve(new Response(JSON.stringify(value), { status: 200 }))
-  })
+const TODAY = todayIso()
+
+/** An ISO date `offset` days from today, for readable fixtures. */
+function isoIn(offset: number) {
+  return addDays(TODAY, offset)
 }
 
-/** A 200 carrying `value`, or a 401 for the sentinel `'error'`, matching `mockFetch` above. */
+/** A 200 carrying `value`, or a 401 for the sentinel `'error'`. */
 function respond(value: unknown, status = 200) {
   if (value === 'error') {
     return Promise.resolve(new Response(null, { status: 401 }))
+  }
+  if (value === null) {
+    return Promise.resolve(new Response(null, { status }))
   }
   return Promise.resolve(new Response(JSON.stringify(value), { status }))
 }
 
 /**
- * A stub that answers by method as well as by path, which `mockFetch` above does not.
+ * A stub that answers by method as well as by path.
  *
- * The mutating paths all live behind POST and PUT to the same `/api/tasks` URL, so telling
- * a create from a list needs the method. Kept separate from `mockFetch` rather than folded
- * into it so the tests written against that one keep the setup they were written with.
+ * The mutating paths all live behind POST, PUT and DELETE on the same `/api/tasks` URL, so
+ * telling a create from a list needs the method rather than just the path.
  */
 function mockApi(options: {
   me?: unknown
@@ -45,6 +44,7 @@ function mockApi(options: {
   tasks?: unknown
   post?: { status: number; body?: unknown }
   put?: { status: number; body?: unknown }
+  del?: { status: number }
 }) {
   return vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
     const url = typeof input === 'string' ? input : input.toString()
@@ -63,6 +63,9 @@ function mockApi(options: {
       if (method === 'PUT') {
         return respond(options.put?.body ?? null, options.put?.status ?? 200)
       }
+      if (method === 'DELETE') {
+        return respond(null, options.del?.status ?? 204)
+      }
       return respond(options.tasks ?? [])
     }
     return Promise.resolve(new Response(null, { status: 404 }))
@@ -71,11 +74,60 @@ function mockApi(options: {
 
 const ALICE = { email: 'alice@example.com' }
 
-/** Waits for the signed-in view, which every task test starts from. */
+const GOOGLE = {
+  id: 'google',
+  label: 'Google',
+  available: true,
+  loginUrl: '/api/auth/login',
+  issuer: 'https://accounts.google.com',
+}
+
+const UNCONFIGURED_KEYCLOAK = {
+  id: 'keycloak',
+  label: 'Keycloak',
+  available: false,
+  loginUrl: null,
+  issuer: '',
+}
+
+function task(overrides: Partial<{ id: number; description: string; dueDate: string; importance: string; state: string }>) {
+  return {
+    id: 1,
+    description: 'A task',
+    dueDate: isoIn(1),
+    importance: 'MEDIUM',
+    state: 'TODO',
+    ...overrides,
+  }
+}
+
+/** Waits for the signed-in board. The add row exists only once there is a session. */
 async function renderSignedIn(fetchMock: ReturnType<typeof mockApi>) {
   globalThis.fetch = fetchMock as unknown as typeof fetch
   render(<App />)
-  await waitFor(() => expect(screen.getByText(/current tasks/i)).toBeInTheDocument())
+  await waitFor(() => expect(screen.getByRole('button', { name: /add a task/i })).toBeInTheDocument())
+}
+
+/** The `<li>` for one task, so per-row controls can be addressed unambiguously. */
+function rowFor(description: string) {
+  const checkbox = screen.getByLabelText(`Mark "${description}" as done`)
+  const row = checkbox.closest('li')
+  if (!row) {
+    throw new Error(`No row found for "${description}"`)
+  }
+  return row
+}
+
+/** Opens a row's overflow menu, as a user must before its actions are reachable. */
+function openMenu(description: string) {
+  // jsdom implements summary-toggles-details, so the click alone opens it.
+  fireEvent.click(within(rowFor(description)).getByLabelText(`Actions for "${description}"`))
+  return within(rowFor(description))
+}
+
+/** The `<details>` element backing a row's menu, for asserting whether it is open. */
+function menuOf(description: string) {
+  return rowFor(description).querySelector('details') as HTMLDetailsElement
 }
 
 function bodyOf(fetchMock: ReturnType<typeof mockApi>, method: string) {
@@ -83,198 +135,162 @@ function bodyOf(fetchMock: ReturnType<typeof mockApi>, method: string) {
   return JSON.parse(String(call?.[1]?.body))
 }
 
+/** Expands the add row and fills in a description. */
+function startAdding(description: string) {
+  fireEvent.click(screen.getByRole('button', { name: /add a task/i }))
+  fireEvent.change(screen.getByLabelText('What needs doing'), { target: { value: description } })
+}
+
 beforeEach(() => {
   vi.restoreAllMocks()
 })
 
-describe('App', () => {
-  it('shows a sign-in prompt and no task board when not authenticated', async () => {
-    globalThis.fetch = mockFetch({
-      '/api/auth/me': 'error',
-      '/api/auth/providers': {
-        enabled: true,
-        providers: [
-          { id: 'google', label: 'Google', available: true, loginUrl: '/api/auth/login', issuer: 'https://accounts.google.com' },
-        ],
-      },
-    }) as unknown as typeof fetch
-
+describe('signed out', () => {
+  it('offers the configured provider and a link to the project, and no board', async () => {
+    globalThis.fetch = mockApi({ providers: { enabled: true, providers: [GOOGLE] } }) as unknown as typeof fetch
     render(<App />)
 
-    await waitFor(() => expect(screen.getByText('Please sign in to continue.')).toBeInTheDocument())
-    expect(screen.queryByText(/current tasks/i)).not.toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /continue with google/i })).toHaveAttribute(
-      'href',
-      expect.stringContaining('/api/auth/login'),
+    await waitFor(() =>
+      expect(screen.getByRole('link', { name: /continue with google/i })).toHaveAttribute('href', '/api/auth/login'),
+    )
+    expect(screen.getByRole('link', { name: /about this project/i })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /add a task/i })).not.toBeInTheDocument()
+  })
+
+  it('does not offer a provider that has no credentials', async () => {
+    globalThis.fetch = mockApi({
+      providers: { enabled: true, providers: [GOOGLE, UNCONFIGURED_KEYCLOAK] },
+    }) as unknown as typeof fetch
+    render(<App />)
+
+    await waitFor(() => expect(screen.getByRole('link', { name: /continue with google/i })).toBeInTheDocument())
+    expect(screen.queryByText(/keycloak/i)).not.toBeInTheDocument()
+  })
+
+  it('says so when nothing is configured', async () => {
+    globalThis.fetch = mockApi({ providers: { enabled: false, providers: [] } }) as unknown as typeof fetch
+    render(<App />)
+
+    await waitFor(() =>
+      expect(screen.getByText('Sign-in is not configured for this deployment.')).toBeInTheDocument(),
     )
   })
 
-  it('shows the task board with the new task fields when authenticated', async () => {
-    globalThis.fetch = mockFetch({
-      '/api/auth/me': { email: 'alice@example.com' },
-      '/api/auth/providers': { enabled: true, providers: [] },
-      '/api/tasks': [],
-    }) as unknown as typeof fetch
-
+  it('still renders when the provider list is refused', async () => {
+    globalThis.fetch = mockApi({ providers: 'error' }) as unknown as typeof fetch
     render(<App />)
 
-    await waitFor(() => expect(screen.getByText(/current tasks/i)).toBeInTheDocument())
+    await waitFor(() =>
+      expect(screen.getByText('Sign-in is not configured for this deployment.')).toBeInTheDocument(),
+    )
+  })
+
+  it('still renders when the provider request fails outright', async () => {
+    globalThis.fetch = vi.fn((input: RequestInfo | URL) => {
+      if (String(input).includes('/api/auth/providers')) {
+        return Promise.reject(new Error('Network is down.'))
+      }
+      return respond('error')
+    }) as unknown as typeof fetch
+    render(<App />)
+
+    await waitFor(() =>
+      expect(screen.getByText('Sign-in is not configured for this deployment.')).toBeInTheDocument(),
+    )
+  })
+
+  it('offers sign-in even while the session probe is still outstanding', async () => {
+    // A cold backend is slow on its first authenticated request, and the signed-out page is
+    // nothing but the provider list -- so the button must not wait on the session probe.
+    globalThis.fetch = vi.fn((input: RequestInfo | URL) => {
+      if (String(input).includes('/api/auth/providers')) {
+        return respond({ enabled: true, providers: [GOOGLE] })
+      }
+      return new Promise<Response>(() => {})
+    }) as unknown as typeof fetch
+    render(<App />)
+
+    await waitFor(() => expect(screen.getByRole('link', { name: /continue with google/i })).toBeInTheDocument())
+  })
+})
+
+describe('signed in', () => {
+  it('shows who is signed in and a way out', async () => {
+    await renderSignedIn(mockApi({ me: ALICE }))
+
     expect(screen.getByText('alice@example.com')).toBeInTheDocument()
-
-    const stateSelect = screen.getByLabelText('State') as HTMLSelectElement
-    const stateOptions = Array.from(stateSelect.options).map((option) => option.value)
-    expect(stateOptions).toEqual(['TODO', 'WORKING', 'DONE'])
-
-    expect(screen.getByLabelText('Importance')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /sign out/i })).toHaveAttribute('href', '/api/auth/logout')
   })
 
-  it('includes credentials on task requests once authenticated', async () => {
-    const fetchMock = mockFetch({
-      '/api/auth/me': { email: 'alice@example.com' },
-      '/api/auth/providers': { enabled: false, providers: [] },
-      '/api/tasks': [],
+  it('sends credentials on task requests', async () => {
+    const fetchMock = mockApi({ me: ALICE })
+    await renderSignedIn(fetchMock)
+
+    const tasksCall = fetchMock.mock.calls.find(([url]) => String(url).includes('/api/tasks'))
+    expect(tasksCall?.[1]).toMatchObject({ credentials: 'include' })
+  })
+
+  it('says when there is nothing on the board', async () => {
+    await renderSignedIn(mockApi({ me: ALICE, tasks: [] }))
+
+    expect(screen.getByText('Nothing here yet. Add your first task.')).toBeInTheDocument()
+  })
+
+  it('offers nothing to interact with until the board has arrived', async () => {
+    // The list response replaces the whole array, so anything added or ticked before it
+    // lands is discarded. The board therefore stays out of reach until it is real.
+    let releaseTasks: (value: Response) => void = () => {}
+    const tasksArrived = new Promise<Response>((resolve) => {
+      releaseTasks = resolve
     })
-    globalThis.fetch = fetchMock as unknown as typeof fetch
-
-    render(<App />)
-
-    await waitFor(() => expect(screen.getByText(/current tasks/i)).toBeInTheDocument())
-
-    const taskCall = fetchMock.mock.calls.find(([input]) =>
-      (typeof input === 'string' ? input : input.toString()).includes('/api/tasks'),
-    )
-    expect(taskCall?.[1]).toMatchObject({ credentials: 'include' })
-  })
-
-  it('offers a sign-out link when authenticated', async () => {
-    globalThis.fetch = mockFetch({
-      '/api/auth/me': { email: 'alice@example.com' },
-      '/api/auth/providers': { enabled: true, providers: [] },
-      '/api/tasks': [],
+    globalThis.fetch = vi.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes('/api/auth/me')) {
+        return respond(ALICE)
+      }
+      if (url.includes('/api/auth/providers')) {
+        return respond({ enabled: true, providers: [] })
+      }
+      return tasksArrived
     }) as unknown as typeof fetch
 
     render(<App />)
 
-    await waitFor(() => expect(screen.getByText(/current tasks/i)).toBeInTheDocument())
-    expect(screen.getByRole('link', { name: /sign out/i })).toHaveAttribute(
-      'href',
-      expect.stringContaining('/api/auth/logout'),
-    )
+    await waitFor(() => expect(screen.getByText('Loading tasks…')).toBeInTheDocument())
+    expect(screen.queryByRole('button', { name: /add a task/i })).not.toBeInTheDocument()
+
+    releaseTasks(new Response(JSON.stringify([]), { status: 200 }))
+
+    await waitFor(() => expect(screen.getByRole('button', { name: /add a task/i })).toBeInTheDocument())
   })
 
-  it('renders a disabled placeholder for providers that are not configured', async () => {
-    globalThis.fetch = mockFetch({
-      '/api/auth/me': 'error',
-      '/api/auth/providers': {
-        enabled: false,
-        providers: [
-          { id: 'apple', label: 'Apple', available: false, loginUrl: null, issuer: 'https://appleid.apple.com' },
-        ],
-      },
+  it('shows a loading note until the board arrives', async () => {
+    // The board's own fetch is held open, because the loading state is by nature transient:
+    // letting the stub resolve immediately makes this a race that passes on timing rather
+    // than on behaviour.
+    let releaseTasks: (value: Response) => void = () => {}
+    const tasksArrived = new Promise<Response>((resolve) => {
+      releaseTasks = resolve
+    })
+    globalThis.fetch = vi.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes('/api/auth/me')) {
+        return respond(ALICE)
+      }
+      if (url.includes('/api/auth/providers')) {
+        return respond({ enabled: true, providers: [] })
+      }
+      return tasksArrived
     }) as unknown as typeof fetch
 
     render(<App />)
 
-    await waitFor(() => expect(screen.getByText('Please sign in to continue.')).toBeInTheDocument())
-    expect(screen.getByRole('button', { name: /configure credentials/i })).toBeDisabled()
-    expect(screen.queryByRole('link', { name: /continue with apple/i })).not.toBeInTheDocument()
-  })
+    await waitFor(() => expect(screen.getByText('Loading tasks…')).toBeInTheDocument())
 
-  it('lists existing tasks with their state and importance', async () => {
-    globalThis.fetch = mockFetch({
-      '/api/auth/me': { email: 'alice@example.com' },
-      '/api/auth/providers': { enabled: true, providers: [] },
-      '/api/tasks': [
-        { id: 1, description: 'Write the report', dueDate: '2026-12-31', importance: 'HIGH', state: 'WORKING' },
-      ],
-    }) as unknown as typeof fetch
+    releaseTasks(new Response(JSON.stringify([]), { status: 200 }))
 
-    render(<App />)
-
-    await waitFor(() => expect(screen.getByText('Write the report')).toBeInTheDocument())
-    expect(screen.getByText('Due 2026-12-31')).toBeInTheDocument()
-    expect(screen.getByText('Importance: HIGH')).toBeInTheDocument()
-    expect(screen.getByLabelText('Update state')).toHaveValue('WORKING')
-  })
-
-  it('creates a task, shows it, and clears the form', async () => {
-    const created = {
-      id: 7,
-      description: 'Write the report',
-      dueDate: '2026-12-31',
-      importance: 'HIGH',
-      state: 'WORKING',
-    }
-    const fetchMock = mockApi({ me: ALICE, tasks: [], post: { status: 201, body: created } })
-    await renderSignedIn(fetchMock)
-
-    fireEvent.change(screen.getByLabelText('Description'), { target: { value: 'Write the report' } })
-    fireEvent.change(screen.getByLabelText('Due date'), { target: { value: '2026-12-31' } })
-    fireEvent.change(screen.getByLabelText('Importance'), { target: { value: 'HIGH' } })
-    fireEvent.change(screen.getByLabelText('State'), { target: { value: 'WORKING' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Create task' }))
-
-    await waitFor(() => expect(screen.getByRole('heading', { name: 'Write the report' })).toBeInTheDocument())
-    expect(bodyOf(fetchMock, 'POST')).toEqual({
-      description: 'Write the report',
-      dueDate: '2026-12-31',
-      importance: 'HIGH',
-      state: 'WORKING',
-    })
-    // The form goes back to initialForm, not merely blank: importance returns to MEDIUM.
-    expect(screen.getByLabelText('Description')).toHaveValue('')
-    expect(screen.getByLabelText('Importance')).toHaveValue('MEDIUM')
-    expect(screen.getByLabelText('State')).toHaveValue('TODO')
-  })
-
-  it('reports a failed create without losing what was typed', async () => {
-    const fetchMock = mockApi({ me: ALICE, tasks: [], post: { status: 500 } })
-    await renderSignedIn(fetchMock)
-
-    fireEvent.change(screen.getByLabelText('Description'), { target: { value: 'Doomed task' } })
-    fireEvent.change(screen.getByLabelText('Due date'), { target: { value: '2026-12-31' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Create task' }))
-
-    await waitFor(() => expect(screen.getByText('Unable to create task.')).toBeInTheDocument())
-    expect(screen.getByLabelText('Description')).toHaveValue('Doomed task')
-  })
-
-  it('moves a task to another state and sends the whole task back', async () => {
-    const task = {
-      id: 3,
-      description: 'Write the report',
-      dueDate: '2026-12-31',
-      importance: 'HIGH',
-      state: 'TODO',
-    }
-    const fetchMock = mockApi({
-      me: ALICE,
-      tasks: [task],
-      put: { status: 200, body: { ...task, state: 'DONE' } },
-    })
-    await renderSignedIn(fetchMock)
-
-    fireEvent.change(await screen.findByLabelText('Update state'), { target: { value: 'DONE' } })
-
-    await waitFor(() => expect(screen.getByLabelText('Update state')).toHaveValue('DONE'))
-    // The backend replaces the whole task, so a partial patch would silently blank the rest.
-    expect(bodyOf(fetchMock, 'PUT')).toEqual({ ...task, state: 'DONE' })
-  })
-
-  it('reports a failed state change', async () => {
-    const task = {
-      id: 3,
-      description: 'Write the report',
-      dueDate: '2026-12-31',
-      importance: 'HIGH',
-      state: 'TODO',
-    }
-    const fetchMock = mockApi({ me: ALICE, tasks: [task], put: { status: 500 } })
-    await renderSignedIn(fetchMock)
-
-    fireEvent.change(await screen.findByLabelText('Update state'), { target: { value: 'DONE' } })
-
-    await waitFor(() => expect(screen.getByText('Unable to update task state.')).toBeInTheDocument())
+    await waitFor(() => expect(screen.queryByText('Loading tasks…')).not.toBeInTheDocument())
+    expect(screen.getByText('Nothing here yet. Add your first task.')).toBeInTheDocument()
   })
 
   it('reports a failure to load the board', async () => {
@@ -285,105 +301,426 @@ describe('App', () => {
     )
   })
 
+  it('falls back to a generic message when the failure is not an Error', async () => {
+    globalThis.fetch = vi.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes('/api/auth/me')) {
+        return Promise.resolve(new Response(JSON.stringify(ALICE), { status: 200 }))
+      }
+      if (url.includes('/api/auth/providers')) {
+        return Promise.resolve(new Response(JSON.stringify({ enabled: true, providers: [] }), { status: 200 }))
+      }
+      return Promise.reject('not an Error at all')
+    }) as unknown as typeof fetch
+    render(<App />)
+
+    await waitFor(() => expect(screen.getByText('Unexpected error while loading data.')).toBeInTheDocument())
+  })
+
+  it('shows a failure on the signed-out page when the session probe itself breaks', async () => {
+    globalThis.fetch = vi.fn((input: RequestInfo | URL) => {
+      if (String(input).includes('/api/auth/providers')) {
+        return respond({ enabled: true, providers: [GOOGLE] })
+      }
+      return Promise.reject(new Error('Network is down.'))
+    }) as unknown as typeof fetch
+    render(<App />)
+
+    await waitFor(() => expect(screen.getByText('Network is down.')).toBeInTheDocument())
+    expect(screen.getByRole('link', { name: /continue with google/i })).toBeInTheDocument()
+  })
+})
+
+describe('the board', () => {
+  it('shows each task with when it is due and how much it matters', async () => {
+    await renderSignedIn(
+      mockApi({
+        me: ALICE,
+        tasks: [task({ id: 7, description: 'Write the report', dueDate: isoIn(1), importance: 'HIGH' })],
+      }),
+    )
+
+    const row = rowFor('Write the report')
+    expect(within(row).getByText('Tomorrow')).toBeInTheDocument()
+    expect(within(row).getByText('High')).toBeInTheDocument()
+  })
+
+  it('groups tasks by when they are due', async () => {
+    await renderSignedIn(
+      mockApi({
+        me: ALICE,
+        tasks: [
+          task({ id: 1, description: 'Late thing', dueDate: isoIn(-2) }),
+          task({ id: 2, description: 'Today thing', dueDate: TODAY }),
+          task({ id: 3, description: 'Tomorrow thing', dueDate: isoIn(1) }),
+          task({ id: 4, description: 'Week thing', dueDate: isoIn(3) }),
+          task({ id: 5, description: 'Far thing', dueDate: isoIn(30) }),
+        ],
+      }),
+    )
+
+    expect(screen.getByRole('heading', { name: 'Overdue' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Today' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Tomorrow' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'This week' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Later' })).toBeInTheDocument()
+    expect(within(rowFor('Late thing')).getByText('2 days ago')).toBeInTheDocument()
+  })
+
   it('renders tasks in due date order whatever order they arrive in', async () => {
     await renderSignedIn(
       mockApi({
         me: ALICE,
         tasks: [
-          { id: 1, description: 'Last', dueDate: '2026-12-31', importance: 'LOW', state: 'TODO' },
-          { id: 2, description: 'First', dueDate: '2026-01-01', importance: 'LOW', state: 'TODO' },
-          { id: 3, description: 'Middle', dueDate: '2026-06-15', importance: 'LOW', state: 'TODO' },
+          task({ id: 1, description: 'Second', dueDate: isoIn(20) }),
+          task({ id: 2, description: 'First', dueDate: isoIn(10) }),
         ],
       }),
     )
 
-    await waitFor(() => expect(screen.getByRole('heading', { name: 'First' })).toBeInTheDocument())
-    // Only task cards use h3 in the signed-in view; the provider cards are not rendered.
-    const rendered = screen.getAllByRole('heading', { level: 3 }).map((heading) => heading.textContent)
-    expect(rendered).toEqual(['First', 'Middle', 'Last'])
+    const descriptions = screen.getAllByText(/^(First|Second)$/).map((node) => node.textContent)
+    expect(descriptions).toEqual(['First', 'Second'])
   })
 
-  it('says so when there is nothing on the board', async () => {
-    await renderSignedIn(mockApi({ me: ALICE, tasks: [] }))
-
-    await waitFor(() => expect(screen.getByText('No tasks yet.')).toBeInTheDocument())
-    expect(screen.queryByText('Loading tasks…')).not.toBeInTheDocument()
-  })
-
-
-  it('still renders the signed-out view when the provider list cannot be fetched', async () => {
-    globalThis.fetch = mockApi({ me: 'error', providers: 'error' }) as unknown as typeof fetch
-    render(<App />)
-
-    await waitFor(() => expect(screen.getByText('Please sign in to continue.')).toBeInTheDocument())
-    // Falling back to the initial empty list rather than breaking outright is the point.
-    expect(screen.getByText('No authentication providers are configured yet.')).toBeInTheDocument()
-  })
-
-  it('falls back to a generic message when the failure is not an Error', async () => {
-    globalThis.fetch = vi.fn((input: RequestInfo | URL) => {
-      const url = typeof input === 'string' ? input : input.toString()
-      if (url.includes('/api/auth/me')) {
-        return respond(ALICE)
-      }
-      if (url.includes('/api/auth/providers')) {
-        return respond({ enabled: true, providers: [] })
-      }
-      // A rejection carrying something other than an Error, which a catch binding types as
-      // unknown and which has no .message to show.
-      return Promise.reject('network is down')
-    }) as unknown as typeof fetch
-
-    render(<App />)
-
-    await waitFor(() =>
-      expect(screen.getByText('Unexpected error while loading data.')).toBeInTheDocument(),
+  it('orders two tasks on the same day by id, so the board never reshuffles', async () => {
+    await renderSignedIn(
+      mockApi({
+        me: ALICE,
+        tasks: [
+          task({ id: 9, description: 'Added later', dueDate: isoIn(2) }),
+          task({ id: 2, description: 'Added first', dueDate: isoIn(2) }),
+        ],
+      }),
     )
+
+    const descriptions = screen.getAllByText(/^Added (first|later)$/).map((node) => node.textContent)
+    expect(descriptions).toEqual(['Added first', 'Added later'])
   })
 
-  it('leaves the other tasks alone when one changes state', async () => {
-    const first = { id: 1, description: 'First', dueDate: '2026-01-01', importance: 'LOW', state: 'TODO' }
-    const second = { id: 2, description: 'Second', dueDate: '2026-02-02', importance: 'HIGH', state: 'TODO' }
+  it('leaves a section out when it has no tasks', async () => {
+    await renderSignedIn(mockApi({ me: ALICE, tasks: [task({ description: 'Only tomorrow', dueDate: isoIn(1) })] }))
+
+    expect(screen.getByRole('heading', { name: 'Tomorrow' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Overdue' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Later' })).not.toBeInTheDocument()
+  })
+
+  it('marks a task in progress from its menu', async () => {
     const fetchMock = mockApi({
       me: ALICE,
-      tasks: [first, second],
-      put: { status: 200, body: { ...first, state: 'DONE' } },
+      tasks: [task({ id: 3, description: 'Ongoing' })],
+      put: { status: 200, body: task({ id: 3, description: 'Ongoing', state: 'WORKING' }) },
     })
     await renderSignedIn(fetchMock)
 
-    const [firstSelect] = await screen.findAllByLabelText('Update state')
-    fireEvent.change(firstSelect, { target: { value: 'DONE' } })
+    fireEvent.click(openMenu('Ongoing').getByRole('button', { name: /mark as in progress/i }))
 
-    await waitFor(() => expect(screen.getAllByLabelText('Update state')[0]).toHaveValue('DONE'))
-    expect(screen.getAllByLabelText('Update state')[1]).toHaveValue('TODO')
-    expect(screen.getByRole('heading', { name: 'Second' })).toBeInTheDocument()
+    await waitFor(() => expect(within(rowFor('Ongoing')).getByText('doing')).toBeInTheDocument())
+    expect(bodyOf(fetchMock, 'PUT')).toMatchObject({ state: 'WORKING' })
+    expect(openMenu('Ongoing').getByRole('button', { name: /mark as not started/i })).toBeInTheDocument()
   })
 
-  it('shows a loading note until the board arrives', async () => {
-    let releaseTasks: (response: Response) => void = () => {}
-    const tasks = new Promise<Response>((resolve) => {
-      releaseTasks = resolve
+  it('marks an in-progress task back to not started', async () => {
+    const fetchMock = mockApi({
+      me: ALICE,
+      tasks: [task({ id: 31, description: 'Paused', state: 'WORKING' })],
+      put: { status: 200, body: task({ id: 31, description: 'Paused', state: 'TODO' }) },
     })
+    await renderSignedIn(fetchMock)
 
-    globalThis.fetch = vi.fn((input: RequestInfo | URL) => {
-      const url = typeof input === 'string' ? input : input.toString()
-      if (url.includes('/api/auth/me')) {
-        return respond(ALICE)
-      }
-      if (url.includes('/api/auth/providers')) {
-        return respond({ enabled: true, providers: [] })
-      }
-      return tasks
-    }) as unknown as typeof fetch
+    expect(within(rowFor('Paused')).getByText('doing')).toBeInTheDocument()
+    fireEvent.click(openMenu('Paused').getByRole('button', { name: /mark as not started/i }))
 
-    render(<App />)
+    await waitFor(() => expect(within(rowFor('Paused')).queryByText('doing')).not.toBeInTheDocument())
+    expect(bodyOf(fetchMock, 'PUT')).toMatchObject({ state: 'TODO' })
+  })
+})
 
-    await waitFor(() => expect(screen.getByText('Loading tasks…')).toBeInTheDocument())
+describe('completing a task', () => {
+  it('finishes a task in one click and sends the whole task back', async () => {
+    const done = task({ id: 4, description: 'Pay the invoice', dueDate: isoIn(1), state: 'DONE' })
+    const fetchMock = mockApi({
+      me: ALICE,
+      tasks: [task({ id: 4, description: 'Pay the invoice', dueDate: isoIn(1) })],
+      put: { status: 200, body: done },
+    })
+    await renderSignedIn(fetchMock)
 
-    releaseTasks(new Response(JSON.stringify([]), { status: 200 }))
+    fireEvent.click(screen.getByLabelText('Mark "Pay the invoice" as done'))
 
-    await waitFor(() => expect(screen.queryByText('Loading tasks…')).not.toBeInTheDocument())
-    expect(screen.getByText('No tasks yet.')).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByText('Completed (1)')).toBeInTheDocument())
+    expect(bodyOf(fetchMock, 'PUT')).toEqual({
+      description: 'Pay the invoice',
+      dueDate: isoIn(1),
+      importance: 'MEDIUM',
+      state: 'DONE',
+    })
+    expect(screen.getByLabelText('Mark "Pay the invoice" as done')).toBeChecked()
   })
 
+  it('completes a task whose due date has already passed', async () => {
+    const overdue = isoIn(-3)
+    const fetchMock = mockApi({
+      me: ALICE,
+      tasks: [task({ id: 5, description: 'Late thing', dueDate: overdue })],
+      put: { status: 200, body: task({ id: 5, description: 'Late thing', dueDate: overdue, state: 'DONE' }) },
+    })
+    await renderSignedIn(fetchMock)
+
+    fireEvent.click(screen.getByLabelText('Mark "Late thing" as done'))
+
+    await waitFor(() => expect(screen.getByText('Completed (1)')).toBeInTheDocument())
+    expect(bodyOf(fetchMock, 'PUT')).toMatchObject({ dueDate: overdue, state: 'DONE' })
+  })
+
+  it('puts a completed task back when it is unticked', async () => {
+    const fetchMock = mockApi({
+      me: ALICE,
+      tasks: [task({ id: 6, description: 'Done thing', state: 'DONE' })],
+      put: { status: 200, body: task({ id: 6, description: 'Done thing', state: 'TODO' }) },
+    })
+    await renderSignedIn(fetchMock)
+
+    fireEvent.click(screen.getByLabelText('Mark "Done thing" as done'))
+
+    await waitFor(() => expect(bodyOf(fetchMock, 'PUT')).toMatchObject({ state: 'TODO' }))
+    await waitFor(() => expect(screen.queryByText(/^Completed/)).not.toBeInTheDocument())
+  })
+
+  it('rolls the tick back and explains itself when the save fails', async () => {
+    const fetchMock = mockApi({
+      me: ALICE,
+      tasks: [task({ id: 7, description: 'Stubborn thing' })],
+      put: { status: 500 },
+    })
+    await renderSignedIn(fetchMock)
+
+    fireEvent.click(screen.getByLabelText('Mark "Stubborn thing" as done'))
+
+    await waitFor(() => expect(screen.getByText('Unable to update task.')).toBeInTheDocument())
+    expect(screen.getByLabelText('Mark "Stubborn thing" as done')).not.toBeChecked()
+  })
+
+  it('leaves the other tasks alone when one changes state', async () => {
+    const fetchMock = mockApi({
+      me: ALICE,
+      tasks: [
+        task({ id: 1, description: 'First', dueDate: isoIn(2) }),
+        task({ id: 2, description: 'Second', dueDate: isoIn(3) }),
+      ],
+      put: { status: 200, body: task({ id: 1, description: 'First', dueDate: isoIn(2), state: 'DONE' }) },
+    })
+    await renderSignedIn(fetchMock)
+
+    fireEvent.click(screen.getByLabelText('Mark "First" as done'))
+
+    await waitFor(() => expect(screen.getByLabelText('Mark "First" as done')).toBeChecked())
+    expect(screen.getByLabelText('Mark "Second" as done')).not.toBeChecked()
+  })
+})
+
+describe('adding a task', () => {
+  it('adds a task, shows it, and clears the form', async () => {
+    const created = task({ id: 9, description: 'Buy milk', dueDate: isoIn(1) })
+    const fetchMock = mockApi({ me: ALICE, tasks: [], post: { status: 201, body: created } })
+    await renderSignedIn(fetchMock)
+
+    startAdding('Buy milk')
+    fireEvent.click(screen.getByRole('button', { name: 'Add' }))
+
+    await waitFor(() => expect(screen.getByLabelText('Mark "Buy milk" as done')).toBeInTheDocument())
+    expect(bodyOf(fetchMock, 'POST')).toEqual({
+      description: 'Buy milk',
+      dueDate: isoIn(1),
+      importance: 'MEDIUM',
+      state: 'TODO',
+    })
+    expect(screen.getByLabelText('What needs doing')).toHaveValue('')
+  })
+
+  it('defaults to tomorrow, so adding a task needs no date interaction', async () => {
+    await renderSignedIn(mockApi({ me: ALICE, tasks: [] }))
+
+    fireEvent.click(screen.getByRole('button', { name: /add a task/i }))
+
+    expect(screen.getByLabelText('Due date')).toHaveValue(isoIn(1))
+    expect(screen.getByRole('button', { name: 'Tomorrow' })).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it.each([
+    ['Today', 0],
+    ['Tomorrow', 1],
+    ['In 1 week', 7],
+    ['In 2 weeks', 14],
+  ])('sets the due date from the %s shortcut', async (label, offset) => {
+    const fetchMock = mockApi({
+      me: ALICE,
+      tasks: [],
+      post: { status: 201, body: task({ id: 1, description: 'Chip task', dueDate: isoIn(offset) }) },
+    })
+    await renderSignedIn(fetchMock)
+
+    startAdding('Chip task')
+    fireEvent.click(screen.getByRole('button', { name: label }))
+    expect(screen.getByLabelText('Due date')).toHaveValue(isoIn(offset))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add' }))
+    await waitFor(() => expect(bodyOf(fetchMock, 'POST')).toMatchObject({ dueDate: isoIn(offset) }))
+  })
+
+  it('carries the chosen importance and a typed date', async () => {
+    const fetchMock = mockApi({
+      me: ALICE,
+      tasks: [],
+      post: { status: 201, body: task({ id: 1, description: 'Urgent thing', dueDate: isoIn(5), importance: 'HIGH' }) },
+    })
+    await renderSignedIn(fetchMock)
+
+    startAdding('Urgent thing')
+    fireEvent.change(screen.getByLabelText('Due date'), { target: { value: isoIn(5) } })
+    fireEvent.change(screen.getByLabelText('Importance'), { target: { value: 'HIGH' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Add' }))
+
+    await waitFor(() =>
+      expect(bodyOf(fetchMock, 'POST')).toMatchObject({ dueDate: isoIn(5), importance: 'HIGH' }),
+    )
+  })
+
+  it('reports a failed add without losing what was typed', async () => {
+    await renderSignedIn(mockApi({ me: ALICE, tasks: [], post: { status: 500 } }))
+
+    startAdding('Doomed task')
+    fireEvent.click(screen.getByRole('button', { name: 'Add' }))
+
+    await waitFor(() => expect(screen.getByText('Unable to create task.')).toBeInTheDocument())
+    expect(screen.getByLabelText('What needs doing')).toHaveValue('Doomed task')
+  })
+
+  it('will not add a task with no description', async () => {
+    const fetchMock = mockApi({ me: ALICE, tasks: [] })
+    await renderSignedIn(fetchMock)
+
+    fireEvent.click(screen.getByRole('button', { name: /add a task/i }))
+    expect(screen.getByRole('button', { name: 'Add' })).toBeDisabled()
+
+    fireEvent.submit(screen.getByLabelText('What needs doing').closest('form') as HTMLFormElement)
+    expect(fetchMock.mock.calls.some(([, init]) => init?.method === 'POST')).toBe(false)
+  })
+
+  it('keeps the add row open for any other key', async () => {
+    await renderSignedIn(mockApi({ me: ALICE, tasks: [] }))
+
+    startAdding('Still typing')
+    fireEvent.keyDown(screen.getByLabelText('What needs doing'), { key: 'a' })
+
+    expect(screen.getByLabelText('What needs doing')).toHaveValue('Still typing')
+  })
+
+  it('collapses on Escape and on Cancel, forgetting what was typed', async () => {
+    await renderSignedIn(mockApi({ me: ALICE, tasks: [] }))
+
+    startAdding('Abandoned')
+    fireEvent.keyDown(screen.getByLabelText('What needs doing'), { key: 'Escape' })
+    expect(screen.getByRole('button', { name: /add a task/i })).toBeInTheDocument()
+
+    startAdding('Abandoned again')
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    expect(screen.getByRole('button', { name: /add a task/i })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /add a task/i }))
+    expect(screen.getByLabelText('What needs doing')).toHaveValue('')
+  })
+})
+
+describe('the row menu', () => {
+  it('closes once an action has been chosen', async () => {
+    const fetchMock = mockApi({
+      me: ALICE,
+      tasks: [task({ id: 41, description: 'Menu task' })],
+      put: { status: 200, body: task({ id: 41, description: 'Menu task', state: 'WORKING' }) },
+    })
+    await renderSignedIn(fetchMock)
+
+    fireEvent.click(openMenu('Menu task').getByRole('button', { name: /mark as in progress/i }))
+
+    expect(menuOf('Menu task').open).toBe(false)
+  })
+
+  it('survives the click that opened it', async () => {
+    // React can flush the effect while the opening click is still propagating, which closed
+    // the menu the instant it opened. Only the browser showed it; jsdom did not.
+    await renderSignedIn(mockApi({ me: ALICE, tasks: [task({ id: 44, description: 'Menu task' })] }))
+
+    const summary = within(rowFor('Menu task')).getByLabelText('Actions for "Menu task"')
+    fireEvent.click(summary)
+    fireEvent.click(summary.closest('details') as HTMLElement)
+
+    expect(menuOf('Menu task').open).toBe(true)
+  })
+
+  it('closes when the click lands somewhere else', async () => {
+    await renderSignedIn(mockApi({ me: ALICE, tasks: [task({ id: 42, description: 'Menu task' })] }))
+
+    openMenu('Menu task')
+    expect(menuOf('Menu task').open).toBe(true)
+
+    fireEvent.click(document.body)
+
+    expect(menuOf('Menu task').open).toBe(false)
+  })
+
+  it('stays open until something is clicked', async () => {
+    await renderSignedIn(mockApi({ me: ALICE, tasks: [task({ id: 43, description: 'Menu task' })] }))
+
+    openMenu('Menu task')
+
+    expect(menuOf('Menu task').open).toBe(true)
+  })
+})
+
+describe('removing tasks', () => {
+  it('deletes a task from its menu', async () => {
+    const fetchMock = mockApi({ me: ALICE, tasks: [task({ id: 11, description: 'Unwanted' })] })
+    await renderSignedIn(fetchMock)
+
+    fireEvent.click(openMenu('Unwanted').getByRole('button', { name: 'Delete' }))
+
+    await waitFor(() => expect(screen.queryByLabelText('Mark "Unwanted" as done')).not.toBeInTheDocument())
+    expect(fetchMock.mock.calls.some(([url, init]) => init?.method === 'DELETE' && String(url).endsWith('/11'))).toBe(
+      true,
+    )
+  })
+
+  it('puts the task back when the delete fails', async () => {
+    const fetchMock = mockApi({
+      me: ALICE,
+      tasks: [task({ id: 12, description: 'Sticky' })],
+      del: { status: 500 },
+    })
+    await renderSignedIn(fetchMock)
+
+    fireEvent.click(openMenu('Sticky').getByRole('button', { name: 'Delete' }))
+
+    await waitFor(() => expect(screen.getByText('Unable to delete task.')).toBeInTheDocument())
+    expect(screen.getByLabelText('Mark "Sticky" as done')).toBeInTheDocument()
+  })
+
+  it('clears every completed task at once', async () => {
+    const fetchMock = mockApi({
+      me: ALICE,
+      tasks: [
+        task({ id: 21, description: 'Done one', state: 'DONE' }),
+        task({ id: 22, description: 'Done two', state: 'DONE' }),
+        task({ id: 23, description: 'Still open' }),
+      ],
+    })
+    await renderSignedIn(fetchMock)
+
+    fireEvent.click(screen.getByRole('button', { name: /clear completed/i }))
+
+    await waitFor(() => expect(screen.queryByText(/^Completed/)).not.toBeInTheDocument())
+    const deleted = fetchMock.mock.calls.filter(([, init]) => init?.method === 'DELETE').map(([url]) => String(url))
+    expect(deleted).toHaveLength(2)
+    expect(screen.getByLabelText('Mark "Still open" as done')).toBeInTheDocument()
+  })
 })

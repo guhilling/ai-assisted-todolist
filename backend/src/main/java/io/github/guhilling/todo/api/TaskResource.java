@@ -59,7 +59,7 @@ public class TaskResource {
 
     @POST
     @Transactional
-    public Response create(@Valid TaskRequest request) {
+    public Response create(@Valid TaskCreateRequest request) {
         Task task = new Task();
         task.owner = currentUser();
         apply(task, request);
@@ -72,7 +72,7 @@ public class TaskResource {
     @PUT
     @Path("/{id}")
     @Transactional
-    public TaskResponse update(@PathParam("id") Long id, @Valid TaskRequest request) {
+    public TaskResponse update(@PathParam("id") Long id, @Valid TaskUpdateRequest request) {
         Task task = findOwnedTaskOrNotFound(id);
         apply(task, request);
         return toResponse(task);
@@ -100,7 +100,7 @@ public class TaskResource {
         return userService.getOrCreateByEmail(jwt.getClaim("email"));
     }
 
-    private static void apply(Task task, TaskRequest request) {
+    private static void apply(Task task, TaskFields request) {
         task.description = request.description();
         task.dueDate = request.dueDate();
         task.importance = request.importance();
@@ -112,24 +112,65 @@ public class TaskResource {
     }
 
     /**
-     * What a client may set on a task, and the only shape this resource accepts.
+     * The fields a client may set on a task, whichever direction the request came from.
+     *
+     * <p>It exists so {@link #apply} has one parameter type while create and update can carry
+     * different constraints. Nothing outside this class implements it.</p>
+     */
+    public interface TaskFields {
+        String description();
+        LocalDate dueDate();
+        TaskImportance importance();
+        TaskState state();
+    }
+
+    /**
+     * What a client may set when creating a task.
      *
      * <p>It exists so the {@link Task} entity never reaches the wire: there is no id and no
-     * owner here, so neither can be spoofed by a request body. The constraints mirror the
-     * entity's own, which means a bad payload is rejected with a 400 before anything
-     * touches the database.</p>
+     * owner here, so neither can be spoofed by a request body. This is the one shape that
+     * requires {@code dueDate} to be today or later — filing something new in the past is
+     * almost always a mistyped year.</p>
+     *
+     * <p>The fields are declared again in {@link TaskUpdateRequest} rather than shared
+     * through validation groups. {@code @Valid} validates only the {@code Default} group, so
+     * a {@code @ConvertGroup} on this method would check the date and silently skip
+     * {@code @NotBlank}, {@code @Size} and the {@code @NotNull}s. Two records cannot fail
+     * that way, and the duplication is four lines.</p>
      *
      * @param description what is to be done, never blank
      * @param dueDate when it is due, today or later
      * @param importance how much it matters
      * @param state where it stands in the workflow
      */
-    public record TaskRequest(
+    public record TaskCreateRequest(
         @NotBlank @Size(max = Task.MAX_DESCRIPTION_LENGTH) String description,
         @NotNull @FutureOrPresent LocalDate dueDate,
         @NotNull TaskImportance importance,
         @NotNull TaskState state
-    ) {
+    ) implements TaskFields {
+    }
+
+    /**
+     * What a client may set when changing an existing task.
+     *
+     * <p>Identical to {@link TaskCreateRequest} except that {@code dueDate} may be in the
+     * past, which is the whole reason the two are separate. A task that came due yesterday
+     * still has to be completable, and because this endpoint replaces the whole task, a
+     * future-only rule here made every overdue task un-editable — including the state change
+     * that marks it done.</p>
+     *
+     * @param description what is to be done, never blank
+     * @param dueDate when it is due, past dates allowed
+     * @param importance how much it matters
+     * @param state where it stands in the workflow
+     */
+    public record TaskUpdateRequest(
+        @NotBlank @Size(max = Task.MAX_DESCRIPTION_LENGTH) String description,
+        @NotNull LocalDate dueDate,
+        @NotNull TaskImportance importance,
+        @NotNull TaskState state
+    ) implements TaskFields {
     }
 
     /**

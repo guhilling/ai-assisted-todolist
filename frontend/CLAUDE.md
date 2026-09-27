@@ -20,9 +20,33 @@ DDD, and project context all still apply here).
   `include`/`exclude` there are deliberate: without them the report covers whatever the
   tests happened to import, which let `App.css` in with empty counters and left `main.tsx`
   out entirely.
-- **Prefer driving the UI over calling the module functions directly.** The interaction
-  tests fill the form and change the selects, so what they pin down is what a user does,
-  not the shape of the API layer.
+- **Prefer driving the UI over calling the module functions directly.** The interaction tests
+  tick checkboxes and use the add row, so what they pin down is what a user does, not the
+  shape of the API layer.
+- **`dates.ts` is the exception, and is tested directly.** It is the only pure logic here and
+  the only place an off-by-one hides. Every function takes today as an ISO string rather than
+  reading the clock, so a render is a pure function of its inputs and no test fakes a clock.
+  Keep it that way, and keep the arithmetic anchored at UTC midnight: `new Date('2026-10-26')`
+  is the 25th west of UTC, and day arithmetic across a daylight-saving change is off by one.
+- **Test fixtures compute dates from the real today**, never hardcode them. The board groups
+  rows by how far away they are, so a fixed date changes section as time passes.
+- **Do not assert a transient state against an immediately-resolving stub.** The loading test
+  holds the board's fetch open on purpose; the version that did not was a race that passed on
+  timing.
+- **Optimistic updates need the board gated on its first load.** The list response replaces the
+  whole array, so anything added or ticked while it was still in flight was silently discarded.
+  Nothing is interactive until `loading` is false. Mock-driven tests answer instantly and can
+  never show this; the browser suite against a slow backend did.
+
+## Module layout
+
+- `api.ts` holds the wire: the types the backend speaks, the URLs, and every `fetch`. It is the
+  only place that knows a request shape.
+- `dates.ts` holds due-date arithmetic and the words the board puts on screen.
+- `App.tsx` holds state and composition, and nothing else.
+- `components/` holds the pieces. They take callbacks and data; none of them fetches.
+- This split replaced a single 413-line `App.tsx`. Its own header comment had named the API
+  functions as the seam to cut first, which is where the cut was made.
 
 ## TypeScript
 

@@ -182,6 +182,47 @@ class TaskResourceTest {
             .body("find { it.id == " + taskId + " }.state", equalTo("DONE"));
     }
 
+    /**
+     * A task whose due date has passed must still be completable.
+     *
+     * <p>This is the case the board is for: the whole point of ticking something off is that
+     * it is late. The due-date rule therefore applies to creating a task, not to changing
+     * one -- {@code @FutureOrPresent} on the update path made a task un-editable the day
+     * after it came due, and because the update replaces the whole task, that took the state
+     * change down with it.</p>
+     */
+    @Test
+    @TestSecurity(user = ALICE)
+    @OidcSecurity(claims = { @Claim(key = "email", value = ALICE) })
+    void shouldCompleteATaskWhoseDueDateHasPassed() {
+        String description = "Overdue " + UUID.randomUUID();
+        Long taskId = createTask(description, LocalDate.now().plusDays(3), "HIGH", "TODO");
+        LocalDate overdue = LocalDate.now().minusDays(2);
+        // A bulk update rather than loading and saving the entity: it goes straight to SQL,
+        // so the date can be moved into the past without any validation having a say. That
+        // is the only way to arrange the state a real board reaches simply by waiting.
+        QuarkusTransaction.requiringNew().run(() -> Task.update("dueDate = ?1 where id = ?2", overdue, taskId));
+
+        given()
+            .contentType(ContentType.JSON)
+            .body(Map.of(
+                "description", description,
+                "dueDate", overdue.toString(),
+                "importance", "HIGH",
+                "state", "DONE"))
+            .when().put("/api/tasks/{id}", taskId)
+            .then()
+            .statusCode(200)
+            .body("state", equalTo("DONE"))
+            .body("dueDate", equalTo(overdue.toString()));
+
+        given()
+            .when().get("/api/tasks")
+            .then()
+            .statusCode(200)
+            .body("find { it.id == " + taskId + " }.state", equalTo("DONE"));
+    }
+
     @ParameterizedTest(name = "rejects {0}")
     @MethodSource("invalidTaskRequests")
     @TestSecurity(user = ALICE)

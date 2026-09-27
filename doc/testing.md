@@ -9,6 +9,7 @@ about what exists and how to run it.
 | --- | --- | --- | --- |
 | Backend unit / integration | `backend/src/test/**` | Quarkus + real PostgreSQL + Keycloak via Dev Services | `backend-ci.yml`, `sonarcloud.yml` |
 | Packaged smoke test | `TaskResourceIT` | the built runner | skipped by default |
+| Frontend unit | `frontend/src/dates.test.ts` | nothing; pure functions | `frontend-ci.yml`, `sonarcloud.yml` |
 | Frontend component | `frontend/src/App.test.tsx` | jsdom, stubbed `fetch` | `frontend-ci.yml`, `sonarcloud.yml` |
 | Browser end-to-end | `e2e/tests/` | the whole containerised stack | `e2e.yml` |
 
@@ -27,7 +28,7 @@ cd backend
 ```
 
 Dev Services starts PostgreSQL and Keycloak automatically, so a container engine has to be
-running. Thirty-four tests across seven classes:
+running. Thirty-five tests across seven classes:
 
 - **`AuthProviderMappingTest`** — the only test here that does not boot Quarkus. Provider
   availability is a decision about configuration, so feeding `AuthProvidersConfig` directly
@@ -80,14 +81,26 @@ npm run lint            # oxlint
 npm run build           # tsc -b && vite build
 ```
 
-`App.test.tsx` renders the app against a stubbed `fetch` and checks what the user sees in
-each state: signed out, signed in with tasks, creating and moving a task, and each way the
-backend can refuse. Anything needing a real session or real persistence is left to the
-end-to-end suite rather than mocked more elaborately.
+`App.test.tsx` renders the board against a stubbed `fetch` and checks what the user sees and
+does in each state: signed out, signed in, adding, completing, deleting, clearing, and each
+way the backend can refuse. `mockApi` routes on the method as well as the path, because list,
+create, update and delete all share the `/api/tasks` URL and only the method tells them apart.
 
-Two stubs live side by side. `mockFetch` routes on the URL alone; `mockApi` also routes on
-the method, because create, update and list all share the `/api/tasks` URL and only the
-method tells them apart.
+Two details are deliberate:
+
+- **Fixture dates are computed from the real today**, not hardcoded. The board reads the clock
+  once on mount and groups rows by how far away they are, so a fixed date would change which
+  section a row lands in as time passed, and the suite would rot quietly.
+- **The loading-state test holds the board's own fetch open** rather than letting the stub
+  resolve straight away. Loading is transient, and asserting it against an immediate stub is a
+  race that passes on timing rather than on behaviour — it did, until it did not.
+
+`dates.test.ts` covers the due-date logic directly rather than through the DOM. It is the only
+pure logic in the frontend and the only place an off-by-one can hide: "Today", "Tomorrow", a
+weekday name and a plain date are each one day apart. It includes a daylight-saving case,
+because building a `Date` from `yyyy-mm-dd` at local midnight gets the answer wrong by a day
+across a clock change — which is why every function there takes today as an argument and
+anchors its arithmetic at UTC.
 
 ## Browser end-to-end
 
@@ -106,6 +119,20 @@ debugging: `--headed`, `--debug`, and `npx playwright show-report` after a failu
 The suite is serial (`workers: 1`) because all tests share one database, and each account
 gets its own `browser.newContext()` because Keycloak's SSO session outlives the app's
 sign-out.
+
+Two things in here exist because of failures that only a real stack produces:
+
+- **`up --wait` needs the backend healthcheck** in `docker-compose.e2e.yml`. Without one,
+  Compose calls a container ready the moment it runs, and the backend takes over thirty
+  seconds to start — so Playwright met an nginx 502. The probe lives in
+  `e2e/backend-healthcheck.sh` rather than inline, because an inline command is split on
+  whitespace into separate argv entries: the first version became `bash -c exec`, a no-op
+  that always succeeded, which looks exactly like a service that is always healthy.
+- **A reload has to wait for the save it is testing.** Ticking a task and deleting one are
+  both optimistic — the board updates before the server answers — so `page.reload()` fired
+  while the request was still in flight and cancelled it. The specs now await the `PUT` and
+  `DELETE` response before reloading. It passed against a warm backend, where the request
+  takes milliseconds, and failed against a cold one.
 
 ## Coverage
 

@@ -327,3 +327,106 @@ repository does.
 CLI's own per-user config file on the runner, which never exists on a hosted runner and is
 not something a repository supplies. It is not a sign of a missing
 `.github/codeql/codeql-config.yml`, and it still says `false` now that one exists.
+
+## The due-date rule applies to filing a task, not to changing one
+
+**Decision.** `@FutureOrPresent` lives on `TaskCreateRequest` alone. It is gone from the
+`Task` entity and absent from `TaskUpdateRequest`, so an overdue task can be edited and
+completed while a new one still cannot be filed in the past.
+
+**Why.** The old rule made a task un-editable the day after it came due. It sat on the entity
+as well as the request, and Bean Validation runs on flush, so a stored task silently became
+invalid as time passed — no edit required. Because the update endpoint replaces the whole task
+rather than patching it, that took the state change down with it: ticking off something late,
+which is the single most common thing anyone wants to do with a board, returned 400. Confirmed
+by writing the test first and watching it fail with `Expected status code <200> but was <400>`.
+
+**Why two records rather than validation groups.** `@Valid` validates the `Default` group only.
+Putting `@FutureOrPresent(groups = OnCreate.class)` on a shared record and annotating `create`
+with `@ConvertGroup(from = Default.class, to = OnCreate.class)` would validate the date rule and
+*silently stop validating* `@NotBlank`, `@Size` and the `@NotNull`s. That failure is invisible —
+the endpoint still works, it just stops rejecting rubbish. `TaskCreateRequest` and
+`TaskUpdateRequest` duplicate four field declarations and cannot fail that way.
+
+**Cost.** Two records to keep in step, and a `TaskFields` interface so `apply` still takes one
+parameter type. Nothing stops a client backdating an existing task, which is a feature more
+than a risk: correcting a date you typed wrong is now possible.
+
+## The board is the front page; the project description is a link
+
+**Decision.** The signed-out page is an app name, one sign-in button and a link to
+`doc/purpose.md` on GitHub. The old hero section — the tech-stack prose and the
+"Backend / Frontend / Deployment" list — is gone. Signed in, the whole page is the board.
+
+**Why.** The front page described the repository rather than doing anything, which put the
+project's own explanation in the way of the app for the person using it daily. A link serves
+the visitor who wants that explanation without charging the daily user for it.
+
+**Why only the usable provider.** `AuthProviderResource` reports `available` per provider and
+`loginUrl: null` when credentials are missing. The old UI rendered those as disabled cards, so
+every deployment showed a dead "Configure credentials" button — in dev, a Google card that
+could never work. The frontend now filters to `available`, which in practice leaves exactly
+one: the profile decides whether that is Google or the local Keycloak.
+
+**Rejected: redirecting automatically to that single provider.** It is the obvious move once
+there is only one, and it was asked for. But this repository exists to be read, and bouncing
+every anonymous visitor to an identity provider leaves nowhere to say so — the purpose link
+would have had to live behind the sign-in it explains. One button is one click, and the page
+costs nothing.
+
+## A checkbox for done, a quiet marker for in progress
+
+**Decision.** The round checkbox on each row toggles `TODO` and `DONE`. `WORKING` is set from
+the row's overflow menu and shows as a `doing` chip. The enum is unchanged.
+
+**Why.** Completing a task is overwhelmingly the common action and it should cost one click; a
+three-value `<select>` charged three interactions for it. `WORKING` is real but rare, so it
+belongs where rare things go. Keeping it out of the checkbox also keeps the checkbox honest:
+a control that does not complete on the first click is a surprise, and makes "untick" ambiguous.
+
+**Why optimistic.** The tick is applied before the server answers and rolled back if the save
+fails. A round trip is perceptible, and a checkbox that lags feels broken rather than careful.
+The rollback is what keeps it safe: a rejected change never leaves the board asserting
+something untrue.
+
+**Cost.** `WORKING` is now two clicks away and less discoverable. That is the trade, and it is
+the right way round.
+
+## Due dates are relative words, set from defaults
+
+**Decision.** Rows say `Today`, `Tomorrow`, `Yesterday`, `3 days ago`, a weekday name inside
+the week, then `31 Dec`. The board groups into Overdue / Today / Tomorrow / This week / Later.
+Adding a task offers `Today`, `Tomorrow`, `In 1 week` and `In 2 weeks`, and defaults to
+tomorrow.
+
+**Why.** `Due 2026-12-31` requires arithmetic to read, and "what is late and what is today" is
+the only question a todo list has to answer at a glance. Typing a date was also the slowest
+part of adding a task; the default means the common case needs no date interaction at all.
+
+**Why the logic takes today as a parameter.** `dates.ts` never reads the clock. Every function
+receives today as an ISO string, so a render is a pure function of its inputs and the tests
+need no clock faking. Dates are anchored at UTC midnight and handled as strings, because
+`new Date('2026-10-26')` in a zone behind UTC is the 25th, and day arithmetic over a
+daylight-saving change is off by one — both bugs that look like correct code.
+
+**Cost.** The board reads the clock once per mount, so one left open overnight keeps yesterday's
+headings until it is reloaded. Rows silently re-sorting under the pointer would be worse.
+
+## Compose probes live in scripts, not inline
+
+**Decision.** A healthcheck or other multi-part command in a Compose file goes in a script
+file next to it, mounted read-only, and is referenced by path:
+`test: ["CMD", "bash", "/config/healthcheck.sh"]`. The same will apply to Kubernetes
+`command`/`args` when that arrives.
+
+**Why.** The first version of the backend healthcheck was written inline as a YAML folded
+scalar. Compose split it on whitespace into separate argv entries, so what actually ran was
+`bash -c exec` — a no-op that exits 0. The healthcheck therefore passed instantly and always,
+`up --wait` returned while the backend was still booting, and the browser suite met a 502 from
+nginx. The failure mode is the dangerous kind: a check that can never fail is indistinguishable
+from a service that is always healthy.
+
+**Also.** A script can be read, commented and run by hand; an inline one-liner with nested
+quoting can be none of those.
+
+**Cost.** One more file, and a volume mount that has to stay in step with it.

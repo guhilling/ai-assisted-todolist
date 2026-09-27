@@ -9,50 +9,115 @@
  * backend session cookie -- Keycloak's own SSO session survives it -- so reusing a context
  * would silently sign the second user in as the first.
  */
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test, type Locator, type Page } from '@playwright/test'
 
 const users = {
   gunnar: { username: 'gunnar', password: 'gunnar', email: 'gunnar@example.com' },
   lasse: { username: 'lasse', password: 'lasse', email: 'lasse@example.com' },
 }
 
+/**
+ * Signs in through Keycloak.
+ *
+ * The landing page offers exactly one button, because the frontend shows only providers the
+ * backend reports as usable and this stack configures Keycloak alone. Google is declared with
+ * no credentials and so is not offered at all.
+ */
 async function signIn(page: Page, user: (typeof users)[keyof typeof users]) {
   await page.goto('/')
-  await expect(page.getByText('Please sign in to continue.')).toBeVisible()
+  const signInLink = page.getByRole('link', { name: /continue with keycloak/i })
+  await expect(signInLink).toBeVisible()
+  await expect(page.getByRole('link', { name: /about this project/i })).toBeVisible()
 
-  await page.getByRole('link', { name: /continue with keycloak/i }).click()
+  await signInLink.click()
 
   await page.locator('#username').fill(user.username)
   await page.locator('#password').fill(user.password)
   await page.locator('#kc-login').click()
 
   await expect(page.getByText(user.email).first()).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Add a task' })).toBeVisible()
+}
+
+/** Adds a task through the inline add row, which has to be expanded first. */
+async function addTask(page: Page, description: string, dueDate: string, importance = 'MEDIUM') {
+  await page.getByRole('button', { name: 'Add a task' }).click()
+  await page.getByLabel('What needs doing').fill(description)
+  // Addressed by role and accessible name rather than by label text. getByLabel matches
+  // substrings, so "Due date" also hits the "Due date shortcuts" group; and with exact it
+  // misses the select entirely, because a wrapping label's text content swallows the option
+  // labels ("ImportanceLowMediumHigh"). The accessible name is the thing worth asserting.
+  await page.getByRole('textbox', { name: 'Due date' }).fill(dueDate)
+  await page.getByRole('combobox', { name: 'Importance' }).selectOption(importance)
+  await page.getByRole('button', { name: 'Add', exact: true }).click()
+}
+
+/** Opens the collapsed completed section and returns the row for `description` inside it. */
+async function completedRow(page: Page, description: string): Promise<Locator> {
+  const section = page.locator('.completed-section')
+  await expect(section).toBeVisible()
+  if (!(await section.evaluate((element: HTMLDetailsElement) => element.open))) {
+    // A direct child: every row inside also has a <summary> for its own actions menu.
+    await section.locator('> summary').click()
+  }
+  return section.locator('.task-row', { hasText: description })
 }
 
 test('signs a local account in through Keycloak and manages its tasks', async ({ page }) => {
   const description = `Ship the Keycloak setup ${Date.now()}`
 
   await signIn(page, users.gunnar)
-  await expect(page.getByRole('heading', { name: /current tasks/i })).toBeVisible()
+  await addTask(page, description, '2026-12-31', 'HIGH')
 
-  await page.getByLabel('Description').fill(description)
-  await page.getByLabel('Due date').fill('2026-12-31')
-  await page.getByLabel('Importance').selectOption('HIGH')
-  await page.getByRole('button', { name: /create task/i }).click()
-
-  const task = page.locator('.todo-card', { hasText: description })
+  const task = page.locator('.task-row', { hasText: description })
   await expect(task).toBeVisible()
-  await expect(task.getByText('Importance: HIGH')).toBeVisible()
+  await expect(task.getByText('High')).toBeVisible()
+  await expect(task.getByText('31 Dec')).toBeVisible()
 
-  await task.getByLabel('Update state').selectOption('DONE')
-  await expect(task.getByLabel('Update state')).toHaveValue('DONE')
+  // The headline interaction: one click finishes the task. The tick is optimistic, so the
+  // save has to be waited for explicitly -- the UI says "done" before the server agrees, and
+  // reloading while the request is still in flight cancels it. That is exactly what happened
+  // against a cold backend, where the first PUT takes seconds rather than milliseconds.
+  const saved = page.waitForResponse(
+    (response) => response.request().method() === 'PUT' && response.url().includes('/api/tasks/'),
+  )
+  await page.getByLabel(`Mark "${description}" as done`).check()
 
-  // The state change has to survive a round trip through the backend, not just the local state.
+  const finished = await completedRow(page, description)
+  await expect(finished.getByRole('checkbox')).toBeChecked()
+
+  expect((await saved).ok()).toBe(true)
+
+  // The state change has to survive a round trip through the backend, not just local state.
   await page.reload()
-  await expect(page.locator('.todo-card', { hasText: description }).getByLabel('Update state')).toHaveValue('DONE')
+  const afterReload = await completedRow(page, description)
+  await expect(afterReload.getByRole('checkbox')).toBeChecked()
 
   await page.getByRole('link', { name: /sign out/i }).click()
-  await expect(page.getByText('Please sign in to continue.')).toBeVisible()
+  await expect(page.getByRole('link', { name: /continue with keycloak/i })).toBeVisible()
+})
+
+test('deletes a task for good', async ({ page }) => {
+  const description = `Throwaway ${Date.now()}`
+
+  await signIn(page, users.gunnar)
+  await addTask(page, description, '2026-12-30')
+
+  const task = page.locator('.task-row', { hasText: description })
+  await expect(task).toBeVisible()
+
+  const deleted = page.waitForResponse(
+    (response) => response.request().method() === 'DELETE' && response.url().includes('/api/tasks/'),
+  )
+  await task.getByLabel(`Actions for "${description}"`).click()
+  await task.getByRole('button', { name: 'Delete' }).click()
+  await expect(task).toHaveCount(0)
+
+  expect((await deleted).ok()).toBe(true)
+
+  // Deleted on the server, not merely dropped from the local list.
+  await page.reload()
+  await expect(page.locator('.task-row', { hasText: description })).toHaveCount(0)
 })
 
 test('keeps the two local accounts from seeing each other tasks', async ({ browser }) => {
@@ -63,16 +128,13 @@ test('keeps the two local accounts from seeing each other tasks', async ({ brows
   const gunnarContext = await browser.newContext()
   const gunnarPage = await gunnarContext.newPage()
   await signIn(gunnarPage, users.gunnar)
-  await gunnarPage.getByLabel('Description').fill(description)
-  await gunnarPage.getByLabel('Due date').fill('2026-11-30')
-  await gunnarPage.getByRole('button', { name: /create task/i }).click()
-  await expect(gunnarPage.locator('.todo-card', { hasText: description })).toBeVisible()
+  await addTask(gunnarPage, description, '2026-11-30')
+  await expect(gunnarPage.locator('.task-row', { hasText: description })).toBeVisible()
   await gunnarContext.close()
 
   const lasseContext = await browser.newContext()
   const lassePage = await lasseContext.newPage()
   await signIn(lassePage, users.lasse)
-  await expect(lassePage.getByRole('heading', { name: /current tasks/i })).toBeVisible()
-  await expect(lassePage.locator('.todo-card', { hasText: description })).toHaveCount(0)
+  await expect(lassePage.locator('.task-row', { hasText: description })).toHaveCount(0)
   await lasseContext.close()
 })
