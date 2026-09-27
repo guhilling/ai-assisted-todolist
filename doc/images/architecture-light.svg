@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 390"
+     width="1000" height="390" role="img" aria-label="The browser talks only to httpd, which serves the app and proxies /api to the Quarkus backend. The backend is the OIDC client: it exchanges the code with the identity provider itself and returns an encrypted session cookie, so the browser never holds a token."
+     font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7"
+            markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#5b6672"/>
+    </marker>
+    <marker id="arrow-accent" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7"
+            markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#1a73e8"/>
+    </marker>
+  </defs>
+  <rect width="1000" height="390" fill="#ffffff"/>
+  <rect x="30" y="190" width="150" height="72" rx="10" fill="#f6f8fa" stroke="#d5dbe1" stroke-width="1.5"/>
+  <text x="105.0" y="221.5" text-anchor="middle" font-size="13" font-weight="600" fill="#1a1f24">Browser</text>
+  <text x="105.0" y="240.5" text-anchor="middle" font-size="11.5" font-weight="400" fill="#5b6672">the SPA</text>
+  <rect x="270" y="190" width="170" height="72" rx="10" fill="#f6f8fa" stroke="#d5dbe1" stroke-width="1.5"/>
+  <text x="355.0" y="221.5" text-anchor="middle" font-size="13" font-weight="600" fill="#1a1f24">httpd</text>
+  <text x="355.0" y="240.5" text-anchor="middle" font-size="11.5" font-weight="400" fill="#5b6672">static files + /api</text>
+  <rect x="530" y="190" width="190" height="72" rx="10" fill="#e8f0fe" stroke="#1a73e8" stroke-width="1.5"/>
+  <text x="625.0" y="221.5" text-anchor="middle" font-size="13" font-weight="600" fill="#1a1f24">Quarkus backend</text>
+  <text x="625.0" y="240.5" text-anchor="middle" font-size="11.5" font-weight="400" fill="#5b6672">the OIDC client</text>
+  <rect x="810" y="190" width="160" height="72" rx="10" fill="#f6f8fa" stroke="#d5dbe1" stroke-width="1.5"/>
+  <text x="890.0" y="221.5" text-anchor="middle" font-size="13" font-weight="600" fill="#1a1f24">PostgreSQL</text>
+  <text x="890.0" y="240.5" text-anchor="middle" font-size="11.5" font-weight="400" fill="#5b6672">Liquibase schema</text>
+  <rect x="530" y="40" width="190" height="64" rx="10" fill="#f6f8fa" stroke="#d5dbe1" stroke-width="1.5"/>
+  <text x="625.0" y="67.5" text-anchor="middle" font-size="13" font-weight="600" fill="#1a1f24">Identity provider</text>
+  <text x="625.0" y="86.5" text-anchor="middle" font-size="11.5" font-weight="400" fill="#5b6672">Keycloak · Google</text>
+  <polyline points="180,226 270,226" fill="none" stroke="#5b6672" stroke-width="1.6" marker-end="url(#arrow)"/>
+  <text x="225" y="216" text-anchor="middle" font-size="11.5" fill="#5b6672">same origin</text>
+  <polyline points="440,226 530,226" fill="none" stroke="#5b6672" stroke-width="1.6" marker-end="url(#arrow)"/>
+  <text x="485" y="216" text-anchor="middle" font-size="11.5" fill="#5b6672">/api</text>
+  <polyline points="720,226 810,226" fill="none" stroke="#5b6672" stroke-width="1.6" marker-end="url(#arrow)"/>
+  <text x="765" y="216" text-anchor="middle" font-size="11.5" fill="#5b6672">SQL</text>
+  <text x="890" y="292" text-anchor="middle" font-size="11" fill="#5b6672">every query carries</text>
+  <text x="890" y="307" text-anchor="middle" font-size="11" fill="#5b6672">an owner predicate</text>
+  <polyline points="625,190 625,104" fill="none" stroke="#5b6672" stroke-width="1.6" marker-end="url(#arrow)"/>
+  <text x="640" y="148" text-anchor="start" font-size="11" fill="#5b6672">code exchange,</text>
+  <text x="640" y="163" text-anchor="start" font-size="11" fill="#5b6672">server to server</text>
+  <polyline points="105,190 105,72 530,72" fill="none" stroke="#5b6672" stroke-width="1.6" marker-end="url(#arrow)"/>
+  <text x="310" y="62" text-anchor="middle" font-size="11.5" fill="#5b6672">redirected to sign in</text>
+  <polyline points="625,262 625,312 105,312 105,262" fill="none" stroke="#1a73e8" stroke-width="1.6" marker-end="url(#arrow-accent)"/>
+  <text x="365" y="334" text-anchor="middle" font-size="12" fill="#1a73e8">encrypted session cookie</text>
+  <text x="365" y="352" text-anchor="middle" font-size="12" fill="#1a73e8">the browser never holds a token</text>
+</svg>

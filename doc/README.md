@@ -14,6 +14,21 @@ truth; the root `README.md` is a short entry point that links here.
 | [releasing.md](releasing.md) | How a release is cut, what it checks, and what it publishes |
 | [decisions.md](decisions.md) | Decisions taken, why, and what was rejected |
 
+## The diagrams
+
+`images/` holds the two diagrams the root README shows: how the application fits together,
+and how a change reaches `main`. They are **generated** — `python3 doc/images/generate.py`
+rewrites all four files — so edit the generator rather than the SVGs.
+
+Four files for two diagrams, because a README is rendered by GitHub through `<img>`: an
+embedded SVG has no page foreground to inherit, so `currentColor` is no use, and a `<style>`
+block carrying a `prefers-color-scheme` query is stripped by GitHub's sanitiser. A light and
+a dark file behind a `<picture>` element is the arrangement that actually works, and
+generating both from one source is what keeps them from drifting apart.
+
+Re-run the generator whenever a diagram stops being true — it is idempotent, so a run that
+changes nothing leaves nothing to commit.
+
 ## Keeping it current
 
 Documentation is updated in the same change as the behaviour it describes, not as a

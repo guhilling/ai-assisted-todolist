@@ -12,6 +12,34 @@ OpenID Connect sign-in.
 The todo list is not really the point — this repository exists to build up experience with
 AI-assisted software development. See [doc/purpose.md](doc/purpose.md).
 
+## How the application fits together
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="doc/images/architecture-dark.svg">
+  <img alt="The browser talks only to httpd, which serves the app and proxies /api to the Quarkus backend. The backend is the OIDC client: it exchanges the code with the identity provider itself and returns an encrypted session cookie, so the browser never holds a token." src="doc/images/architecture-light.svg">
+</picture>
+
+The backend is a *backend-for-frontend*: it is the OIDC client, it performs the code
+exchange itself, and what reaches the browser is an encrypted session cookie rather than a
+token. One origin, so the SPA needs no CORS handling and no API base URL.
+[architecture.md](doc/architecture.md) has the deployment shape and
+[authentication.md](doc/authentication.md) the sign-in flow in full.
+
+## How a change reaches main
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="doc/images/workflow-dark.svg">
+  <img alt="Every change starts from a question rather than a guess, then a failing test, then the change and its documentation in one commit. A pull request must pass Checkstyle, the tests and coverage gate, CodeQL and SonarCloud, and the browser end-to-end run before it is squashed onto main. PIT mutation testing reports but does not block." src="doc/images/workflow-light.svg">
+</picture>
+
+Anything that can be checked by a machine is, so that a convention does not depend on
+somebody remembering it. The one deliberate exception is mutation testing, which reports
+rather than blocks — [testing.md](doc/testing.md) says why, and
+[decisions.md](doc/decisions.md) records that and every other choice with its reasoning.
+
+Both diagrams are generated: edit `doc/images/generate.py` and re-run it rather than
+touching the SVGs, which exist in a light and a dark variant that must stay in step.
+
 ## Getting it running
 
 ```bash
@@ -25,21 +53,33 @@ details, the second local account, the container stacks and the troubleshooting.
 
 ## Documentation
 
-`doc/` is the source of truth; this page is the entry point.
+`doc/` is the source of truth; this page is the entry point. Each page answers one
+question, so start from the question rather than the filename.
 
-| Document | What it covers |
+**Understanding it**
+
+| | |
 | --- | --- |
-| [purpose.md](doc/purpose.md) | What this project is for, and the conventions that follow |
-| [architecture.md](doc/architecture.md) | The pieces, how a request travels, how they are deployed |
-| [domain-model.md](doc/domain-model.md) | Ubiquitous language, the Task aggregate, the invariants |
-| [authentication.md](doc/authentication.md) | The backend-for-frontend OIDC design |
-| [local-development.md](doc/local-development.md) | Running and testing everything locally |
-| [testing.md](doc/testing.md) | The test layers and how to run them |
-| [releasing.md](doc/releasing.md) | How a release is cut, and what it publishes |
-| [decisions.md](doc/decisions.md) | Decisions taken, why, and what was rejected |
+| [purpose.md](doc/purpose.md) | *Why does this repository exist, and why is it built the way it is?* |
+| [architecture.md](doc/architecture.md) | *What are the pieces, how does a request travel, how is it deployed?* |
+| [domain-model.md](doc/domain-model.md) | *What is a Task, and where is each invariant enforced?* |
+| [authentication.md](doc/authentication.md) | *How does sign-in work, and why is the backend the OIDC client?* |
+
+**Working on it**
+
+| | |
+| --- | --- |
+| [local-development.md](doc/local-development.md) | *How do I run it, and what do I do when it misbehaves?* |
+| [testing.md](doc/testing.md) | *What is tested where, and which checks can fail my build?* |
+| [releasing.md](doc/releasing.md) | *How do I cut a release, and what does it publish?* |
+| [decisions.md](doc/decisions.md) | *Why is it like this — and what was tried and rejected?* |
+
+`decisions.md` is the one worth reading before changing anything structural: several
+settings in this repository look removable and are not, and it says which and why.
 
 Code-level documentation lives in the code, as Javadoc and TSDoc. The conventions are in
-`backend/CLAUDE.md` and `frontend/CLAUDE.md`, and the backend build enforces them.
+[backend/CLAUDE.md](backend/CLAUDE.md) and [frontend/CLAUDE.md](frontend/CLAUDE.md), and
+the backend build enforces them.
 
 ## Repository layout
 
