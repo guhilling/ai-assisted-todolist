@@ -33,7 +33,7 @@ class KeycloakLoginFlowTest {
     /** Quarkus OIDC's status for "you need to authenticate, but you asked me not to redirect". */
     private static final int REDIRECT_SUPPRESSED = 499;
 
-    private static final String GUNNAR_EMAIL = "gunnar@example.com";
+    private static final String GUNNAR_EMAIL = "jboss.gunnar@hilling.de";
 
     @Test
     void shouldOfferKeycloakAsAnAvailableProvider() {

@@ -12,7 +12,7 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
 
 const users = {
-  gunnar: { username: 'gunnar', password: 'gunnar', email: 'gunnar@example.com', name: 'Gunnar Hilling', initials: 'GH' },
+  gunnar: { username: 'gunnar', password: 'gunnar', email: 'jboss.gunnar@hilling.de', name: 'Gunnar Hilling', initials: 'GH' },
   lasse: { username: 'lasse', password: 'lasse', email: 'lasse@example.com', name: 'Lasse Hilling', initials: 'LH' },
 }
 
@@ -38,9 +38,12 @@ async function signIn(page: Page, user: (typeof users)[keyof typeof users]) {
   // The header shows the display name, not the email: proof that the profile scope survived a
   // real authorization code flow and that the name claim reached the browser.
   await expect(page.getByText(user.name).first()).toBeVisible()
-  // Keycloak supplies no picture and these addresses have no Gravatar, so the avatar is the
-  // initials fallback -- the path a provider without a picture actually takes.
-  await expect(page.locator('.user-avatar--initials')).toHaveText(user.initials)
+  // Only that an avatar is there. Gunnar's address has a real Gravatar, so his is normally a
+  // picture and Lasse's is always initials -- but requiring the picture would make this suite
+  // fail whenever gravatar.com is slow or unreachable from CI, and a browser test is the wrong
+  // place to depend on a third party. The picture path is pinned down without a network in
+  // GravatarServiceTest and in the frontend's own tests.
+  await expect(page.locator('.user-avatar')).toBeVisible()
   await expect(page.getByRole('button', { name: 'Add a task' })).toBeVisible()
 }
 
@@ -172,6 +175,9 @@ test('keeps the two local accounts from seeing each other tasks', async ({ brows
   const lasseContext = await browser.newContext()
   const lassePage = await lasseContext.newPage()
   await signIn(lassePage, users.lasse)
+  // Deterministic: example.com is reserved, so this address can never acquire a Gravatar, which
+  // makes it the one account whose initials fallback is safe to assert in CI.
+  await expect(lassePage.locator('.user-avatar--initials')).toHaveText(users.lasse.initials)
   await expect(lassePage.locator('.task-row', { hasText: description })).toHaveCount(0)
   await lasseContext.close()
 })
