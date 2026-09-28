@@ -112,7 +112,13 @@ function taskUrl(id: Task['id']) {
   if (!Number.isSafeInteger(id)) {
     throw new Error('That task could not be addressed.')
   }
-  return `${tasksBaseUrl}/${id}`
+  // The check above is the guard that matters: past it, `id` is an integer and could be
+  // interpolated as it stands. The encoding is kept for two reasons. A path segment should be
+  // encoded on principle rather than because this particular value happens to be safe. And
+  // Sonar's taint analysis recognises `encodeURIComponent` as a sanitiser where it does not
+  // recognise a numeric guard — checked, not assumed: with the guard alone the traversal
+  // finding stayed open.
+  return `${tasksBaseUrl}/${encodeURIComponent(id)}`
 }
 
 /** Unwraps a thrown value into something displayable, since a `catch` binding is `unknown`. */
