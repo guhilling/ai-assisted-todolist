@@ -95,6 +95,32 @@ const jsFetchHeaders = { 'X-Requested-With': 'JavaScript' }
 
 const jsonHeaders = { ...jsFetchHeaders, 'Content-Type': 'application/json' }
 
+/**
+ * The URL that addresses one task.
+ *
+ * The id is checked rather than interpolated, because nothing else checks it. `readJson`
+ * *asserts* the response's type with `as T`, and TypeScript erases that at runtime — so `id`
+ * is a number by claim, not by verification. A backend that returned `"../../elsewhere"`, or
+ * an absolute URL, would otherwise have the browser issue that request with the session cookie
+ * attached. SonarCloud reports this path as API traversal and client-side request forgery, and
+ * it is right that nothing was looking.
+ *
+ * It throws rather than coercing: a task whose id is not a task id is a broken response, and
+ * quietly addressing a different one would be worse than failing.
+ */
+function taskUrl(id: Task['id']) {
+  if (!Number.isSafeInteger(id)) {
+    throw new Error('That task could not be addressed.')
+  }
+  // The check above is the guard that matters: past it, `id` is an integer and could be
+  // interpolated as it stands. The encoding is kept for two reasons. A path segment should be
+  // encoded on principle rather than because this particular value happens to be safe. And
+  // Sonar's taint analysis recognises `encodeURIComponent` as a sanitiser where it does not
+  // recognise a numeric guard — checked, not assumed: with the guard alone the traversal
+  // finding stayed open.
+  return `${tasksBaseUrl}/${encodeURIComponent(id)}`
+}
+
 /** Unwraps a thrown value into something displayable, since a `catch` binding is `unknown`. */
 export function toErrorMessage(cause: unknown, fallback: string) {
   return cause instanceof Error ? cause.message : fallback
@@ -156,7 +182,7 @@ export async function postTask(input: TaskInput) {
  * the common edit is completing something that is already late.
  */
 export async function putTask(task: Task) {
-  const response = await fetch(`${tasksBaseUrl}/${task.id}`, {
+  const response = await fetch(taskUrl(task.id), {
     method: 'PUT',
     credentials: 'include',
     headers: jsonHeaders,
@@ -172,7 +198,7 @@ export async function putTask(task: Task) {
 
 /** Removes a task for good. The backend answers 204, so there is nothing to parse. */
 export async function deleteTask(task: Task) {
-  const response = await fetch(`${tasksBaseUrl}/${task.id}`, {
+  const response = await fetch(taskUrl(task.id), {
     method: 'DELETE',
     credentials: 'include',
     headers: jsFetchHeaders,
