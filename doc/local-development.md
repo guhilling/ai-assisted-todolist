@@ -65,7 +65,7 @@ The landing page shows a single **"Continue with Keycloak"** button. Use either 
 
 | Account | Password | Email |
 | --- | --- | --- |
-| `gunnar` | `gunnar` | `gunnar@example.com` |
+| `gunnar` | `gunnar` | `jboss.gunnar@hilling.de` |
 | `lasse` | `lasse` | `lasse@example.com` |
 
 Each account owns its own tasks, so signing in as the other is the quickest way to see the

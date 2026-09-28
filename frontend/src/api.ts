@@ -57,9 +57,18 @@ export type AuthProvidersResponse = {
   providers: AuthProvider[]
 }
 
-/** Who is signed in. The backend exposes only the email claim, which is the whole identity. */
+/**
+ * Who is signed in.
+ *
+ * The email is the identity — it is what the backend keys a user by and decides ownership on.
+ * `name` and `pictureUrl` are neither stored nor identifying: the backend reads them from the
+ * provider's token on each request, so they exist only for as long as the session does, and
+ * either may be absent because a provider need not supply it.
+ */
 export type CurrentUser = {
   email: string
+  name?: string | null
+  pictureUrl?: string | null
 }
 
 /**
