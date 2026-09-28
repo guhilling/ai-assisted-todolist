@@ -27,6 +27,12 @@ import jakarta.ws.rs.core.Response;
 import java.time.LocalDate;
 import java.util.List;
 import org.eclipse.microprofile.jwt.JsonWebToken;
+import org.eclipse.microprofile.openapi.annotations.Operation;
+import org.eclipse.microprofile.openapi.annotations.media.Content;
+import org.eclipse.microprofile.openapi.annotations.media.ExampleObject;
+import org.eclipse.microprofile.openapi.annotations.media.Schema;
+import org.eclipse.microprofile.openapi.annotations.responses.APIResponse;
+import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 
 /**
  * The task board's REST surface: everything a signed-in user can do to their own tasks.
@@ -41,7 +47,17 @@ import org.eclipse.microprofile.jwt.JsonWebToken;
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 @Authenticated
+@Tag(name = "Tasks", description = "Everything a signed-in user can do to their own tasks.")
 public class TaskResource {
+
+    private static final String EXAMPLE_TASK = """
+        {
+          "id": 42,
+          "description": "Renew the passport",
+          "dueDate": "2026-11-30",
+          "importance": "HIGH",
+          "state": "TODO"
+        }""";
 
     @Inject
     JsonWebToken jwt;
@@ -50,6 +66,10 @@ public class TaskResource {
     UserService userService;
 
     @GET
+    @Operation(summary = "List the caller's tasks", description = "Ordered by due date, then id.")
+    @APIResponse(responseCode = "200", description = "The caller's tasks.",
+        content = @Content(mediaType = MediaType.APPLICATION_JSON,
+            examples = @ExampleObject(name = "tasks", value = "[" + EXAMPLE_TASK + "]")))
     public List<TaskResponse> list() {
         User owner = currentUser();
         return Task.<Task>find("owner = ?1 order by dueDate asc, id asc", owner).stream()
@@ -59,6 +79,12 @@ public class TaskResource {
 
     @POST
     @Transactional
+    @Operation(summary = "Create a task", description = "The caller becomes the owner; the id cannot be set.")
+    @APIResponse(responseCode = "201", description = "The task as created.",
+        content = @Content(mediaType = MediaType.APPLICATION_JSON,
+            examples = @ExampleObject(name = "task", value = EXAMPLE_TASK)))
+    @APIResponse(responseCode = "400", description = "A field failed validation, for example a blank "
+        + "description or a due date in the past.")
     public Response create(@Valid TaskCreateRequest request) {
         Task task = new Task();
         task.owner = currentUser();
@@ -72,6 +98,12 @@ public class TaskResource {
     @PUT
     @Path("/{id}")
     @Transactional
+    @Operation(summary = "Replace a task", description = "Replaces every field of a task owned by the caller.")
+    @APIResponse(responseCode = "200", description = "The task as updated.",
+        content = @Content(mediaType = MediaType.APPLICATION_JSON,
+            examples = @ExampleObject(name = "task", value = EXAMPLE_TASK)))
+    @APIResponse(responseCode = "400", description = "A field failed validation.")
+    @APIResponse(responseCode = "404", description = "No task with this id is owned by the caller.")
     public TaskResponse update(@PathParam("id") Long id, @Valid TaskUpdateRequest request) {
         Task task = findOwnedTaskOrNotFound(id);
         apply(task, request);
@@ -81,6 +113,9 @@ public class TaskResource {
     @DELETE
     @Path("/{id}")
     @Transactional
+    @Operation(summary = "Delete a task")
+    @APIResponse(responseCode = "204", description = "The task was deleted.")
+    @APIResponse(responseCode = "404", description = "No task with this id is owned by the caller.")
     public Response delete(@PathParam("id") Long id) {
         Task task = findOwnedTaskOrNotFound(id);
         task.delete();
@@ -144,10 +179,11 @@ public class TaskResource {
      * @param state where it stands in the workflow
      */
     public record TaskCreateRequest(
-        @NotBlank @Size(max = Task.MAX_DESCRIPTION_LENGTH) String description,
-        @NotNull @FutureOrPresent LocalDate dueDate,
-        @NotNull TaskImportance importance,
-        @NotNull TaskState state
+        @NotBlank @Size(max = Task.MAX_DESCRIPTION_LENGTH) @Schema(example = "Renew the passport")
+        String description,
+        @NotNull @FutureOrPresent @Schema(example = "2026-11-30") LocalDate dueDate,
+        @NotNull @Schema(example = "HIGH") TaskImportance importance,
+        @NotNull @Schema(example = "TODO") TaskState state
     ) implements TaskFields {
     }
 
@@ -166,10 +202,11 @@ public class TaskResource {
      * @param state where it stands in the workflow
      */
     public record TaskUpdateRequest(
-        @NotBlank @Size(max = Task.MAX_DESCRIPTION_LENGTH) String description,
-        @NotNull LocalDate dueDate,
-        @NotNull TaskImportance importance,
-        @NotNull TaskState state
+        @NotBlank @Size(max = Task.MAX_DESCRIPTION_LENGTH) @Schema(example = "Renew the passport")
+        String description,
+        @NotNull @Schema(example = "2026-11-30") LocalDate dueDate,
+        @NotNull @Schema(example = "HIGH") TaskImportance importance,
+        @NotNull @Schema(example = "TODO") TaskState state
     ) implements TaskFields {
     }
 
@@ -186,11 +223,11 @@ public class TaskResource {
      * @param state where it stands in the workflow
      */
     public record TaskResponse(
-        Long id,
-        String description,
-        LocalDate dueDate,
-        TaskImportance importance,
-        TaskState state
+        @Schema(example = "42") Long id,
+        @Schema(example = "Renew the passport") String description,
+        @Schema(example = "2026-11-30") LocalDate dueDate,
+        @Schema(example = "HIGH") TaskImportance importance,
+        @Schema(example = "TODO") TaskState state
     ) {
     }
 }

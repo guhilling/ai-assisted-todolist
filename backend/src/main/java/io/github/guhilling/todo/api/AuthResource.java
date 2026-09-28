@@ -16,6 +16,12 @@ import java.net.URI;
 import java.util.List;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.jwt.JsonWebToken;
+import org.eclipse.microprofile.openapi.annotations.Operation;
+import org.eclipse.microprofile.openapi.annotations.media.Content;
+import org.eclipse.microprofile.openapi.annotations.media.ExampleObject;
+import org.eclipse.microprofile.openapi.annotations.media.Schema;
+import org.eclipse.microprofile.openapi.annotations.responses.APIResponse;
+import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 
 /**
  * Drives the browser side of sign-in for a backend that acts as the frontend's
@@ -29,6 +35,7 @@ import org.eclipse.microprofile.jwt.JsonWebToken;
  * the authorization code flow before this method is ever reached.</p>
  */
 @Path("/api/auth")
+@Tag(name = "Authentication", description = "The browser side of sign-in, sign-out, and the current session.")
 public class AuthResource {
 
     private static final String SESSION_COOKIE = "q_session";
@@ -48,6 +55,10 @@ public class AuthResource {
     @GET
     @Path("/login")
     @Authenticated
+    @Operation(summary = "Start or complete sign-in",
+        description = "Being @Authenticated is the whole point: an unauthenticated request is intercepted "
+            + "by the OIDC authorization code flow before this method ever runs.")
+    @APIResponse(responseCode = "303", description = "Sign-in succeeded; redirects to the post-login URI.")
     public Response login() {
         return Response.seeOther(URI.create(postLoginRedirectUri)).build();
     }
@@ -69,6 +80,9 @@ public class AuthResource {
      */
     @GET
     @Path("/logout")
+    @Operation(summary = "End the local session", description = "Expires every session cookie the browser "
+        + "sent; the identity provider's own session is untouched.")
+    @APIResponse(responseCode = "303", description = "Signed out; redirects to the post-login URI.")
     public Response logout() {
         Response.ResponseBuilder response = Response.seeOther(URI.create(postLoginRedirectUri));
         for (NewCookie expired : expiredSessionCookies()) {
@@ -95,6 +109,17 @@ public class AuthResource {
     @Path("/me")
     @Authenticated
     @Produces(MediaType.APPLICATION_JSON)
+    @Operation(summary = "The signed-in identity", description = "The only identity the frontend is allowed "
+        + "to know about.")
+    @APIResponse(responseCode = "200", description = "The signed-in user.",
+        content = @Content(mediaType = MediaType.APPLICATION_JSON,
+            examples = @ExampleObject(name = "currentUser", value = """
+                {
+                  "email": "person@example.com",
+                  "name": "Person Example",
+                  "pictureUrl": "https://example.com/avatar.jpg"
+                }""")))
+    @APIResponse(responseCode = "401", description = "No one is signed in.")
     public CurrentUserResponse me() {
         String email = jwt.getClaim("email");
         String picture = jwt.getClaim("picture");
@@ -124,6 +149,10 @@ public class AuthResource {
      * @param name the provider's display name for them, or null when it supplied none
      * @param pictureUrl the provider's picture, or a Gravatar for the address, or null for neither
      */
-    public record CurrentUserResponse(String email, String name, String pictureUrl) {
+    public record CurrentUserResponse(
+        @Schema(example = "person@example.com") String email,
+        @Schema(example = "Person Example") String name,
+        @Schema(example = "https://example.com/avatar.jpg") String pictureUrl
+    ) {
     }
 }
