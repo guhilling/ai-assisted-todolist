@@ -572,3 +572,27 @@ somebody else's avatar or nobody's, never an error.
 **Rejected: initials only, no third party.** It would have removed the question entirely, and
 it is what the fallback does anyway when no image exists. The issue asked for Gravatar, and the
 trade is now written down rather than decided by omission.
+
+## A task id is checked before it is put in a URL
+
+**Decision.** `putTask` and `deleteTask` build their URL through `taskUrl`, which throws unless
+the id is a safe integer, rather than interpolating whatever arrived.
+
+**Why.** `readJson` ends with `as T`. That is an assertion, not a check, and TypeScript erases
+it — so every field of every response is the right type only by claim. An `id` of
+`"../../elsewhere"` or an absolute URL would have been interpolated straight into a `fetch`,
+and the browser would have issued that request with the session cookie attached. SonarCloud
+reports the path as API traversal and client-side request forgery.
+
+**How much of a risk it actually was.** Small: the tainted source is this application's own
+backend, and a backend able to return a malicious id can already do worse directly. The reason
+to fix it anyway is that the check is three lines and the alternative is a frontend that
+believes whatever it is told about where to send an authenticated request.
+
+**It throws rather than coercing.** A task whose id is not a task id is a broken response.
+Silently addressing a different task, or dropping the request, would both hide that.
+
+**The root cause is larger and is not fixed here.** `as T` lies about every response, not just
+this field. Validating response shapes properly would mean a schema library and a runtime
+check at each boundary — a real change with a dependency attached, and a separate decision.
+This closes the reachable sink.
