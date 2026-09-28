@@ -28,7 +28,7 @@ cd backend
 ```
 
 Dev Services starts PostgreSQL and Keycloak automatically, so a container engine has to be
-running. Thirty-five tests across seven classes:
+running. Fifty-two tests across ten classes:
 
 - **`AuthProviderMappingTest`** — the only test here that does not boot Quarkus. Provider
   availability is a decision about configuration, so feeding `AuthProvidersConfig` directly
@@ -43,8 +43,14 @@ running. Thirty-five tests across seven classes:
   `@OidcSecurity`. Fast, and able to switch identity freely; proves nothing about sign-in.
   Covers all four verbs, the ownership 404s, due-date ordering, and every shape the
   validation constraints reject.
-- **`AuthProviderResourceTest`** — with authentication off, no provider is offered as
-  clickable.
+- **`AuthProviderResourceTest`** — with authentication off, no provider is offered as usable.
+- **`AuthResourceTest`** — what `/api/auth/me` tells the browser when the provider supplied a
+  name, a picture, both or neither. Faked claims are the point: a real login could only ever
+  exercise whatever the identity provider happens to put in its token.
+- **`GravatarUrlTest`** and **`GravatarServiceTest`** — the address derived from an email, and
+  the probe that decides whether a picture is there. The second runs against a local
+  `HttpServer` rather than gravatar.com, so it can exercise 200, 404, a server that never
+  answers and an interrupted lookup without depending on the internet.
 - **`KeycloakLoginFlowTest`** — the real authorization code flow (see below).
 - **`MetricsResourceTest`** — `/q/metrics` is actually exposed, since Micrometer
   contributes it through configuration that nothing else would notice breaking.
@@ -196,14 +202,14 @@ cd backend
 open target/pit-reports/index.html                # which mutants survived, line by line
 ```
 
-Currently **10 mutants, all killed**. Every kill names the test that caught it, so the
-report doubles as evidence that `AuthProviderMappingTest` is doing real work rather than
-merely executing lines.
+Currently **21 mutants, all killed**. Every kill names the test that caught it, so the
+report doubles as evidence that the plain unit tests are doing real work rather than merely
+executing lines.
 
 **This one reports; it does not block.** Unlike the coverage gates there is no threshold,
-because only one production class is in scope: a gate there would police a corner of the
-codebase while saying nothing about the other seven, which is a worse signal than an honest
-report. `backend-ci.yml` uploads `pit-report` as an artifact on every backend run, so the
+because three production classes of ten are in scope: a gate there would police a corner of
+the codebase while saying nothing about the other seven, which is a worse signal than an
+honest report. `backend-ci.yml` uploads `pit-report` as an artifact on every backend run, so the
 result is readable without running anything locally. Revisit the decision if the scope
 widens.
 
@@ -241,9 +247,12 @@ mutants and takes the reported score from 100% to 56%.
 Being wide informs rather than enforces, since nothing fails. It only works if somebody
 reads the report, which is why it is uploaded as an artifact rather than left in `target/`.
 
-The exclusion list is therefore a to-do list. Every line is a class whose behaviour is only
-pinned down by tests too heavy to mutate, and deleting a line is the reward for writing a
-fast one.
+The exclusion list is therefore a to-do list, and it has been collected on: `service.*`
+narrowed to `service.UserService*` when `GravatarUrl` and `GravatarService` earned plain unit
+tests, taking the run from 10 mutants to 21 and all of them killed. Every remaining line is a
+class whose behaviour is only pinned down by tests too heavy to mutate, and deleting a line is
+the reward for writing a fast one — remembering to add the new test to `targetTests`, or it is
+written but never used.
 
 ## Continuous integration
 

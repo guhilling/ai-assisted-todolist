@@ -98,6 +98,49 @@ one would fail on their first request. See [domain-model.md](domain-model.md).
 These credentials are testing-only placeholders and belong in the repository. Real secrets
 never do.
 
+## What the browser learns about you
+
+`GET /api/auth/me` answers with three fields, and only the first is identity:
+
+| Field | Where it comes from | Absent when |
+| --- | --- | --- |
+| `email` | the `email` claim | never — a user without one fails on their first request |
+| `name` | the `name` claim | the provider supplied none |
+| `pictureUrl` | the `picture` claim, else a Gravatar the backend has confirmed exists | neither is available |
+
+**The name and picture are not stored.** They are read from the token on each request and
+live only as long as the session. That is why adding them needed no migration and cannot go
+stale: the email remains the whole of the identity, which is what `User` is keyed by and what
+ownership is decided on. A consequence worth knowing: because nothing is persisted, a name can
+only ever be shown to its own owner. Anything that had to display one user's name to another —
+sharing, an audit trail — would have to revisit that.
+
+Both require the `profile` scope, which is why
+`quarkus.oidc.authentication.scopes=email,profile` is now set for every profile rather than
+only for dev and test. These are non-sensitive scopes; Google needs no verification review for
+them, and `picture` arrives with `profile` rather than being a permission of its own.
+
+### The Gravatar fallback
+
+Consulted **only** when the provider sent no `picture`. Google almost always does; Keycloak
+here never does, which keeps this path exercised locally rather than only in production.
+
+The backend makes the request rather than the browser, so that "if an image is available" is
+actually answered — `?d=404` is what makes Gravatar say no instead of inventing a picture.
+**This does not make the browser's request go away**: the page still loads the image from
+gravatar.com, so a third party still sees the reader's address and a hash of their email. What
+the server-side check buys is a truthful answer, not privacy. `doc/decisions.md` records that
+rather than leaving it implied.
+
+Two things stop it becoming a liability on the sign-in path. The result is **cached** by
+address, because `/api/auth/me` runs on every page load and would otherwise mean an outbound
+request on every page load. And **failure is not an error**: a slow or unreachable Gravatar
+yields no picture and sign-in carries on. Nobody should be locked out of their tasks because
+an avatar service is having a bad day.
+
+`todo.gravatar.enabled=false` switches it off entirely, which is what the test profile does so
+that no `@QuarkusTest` reaches the internet.
+
 ## Configuration that is load-bearing
 
 Four settings look innocuous and are not. Each was found the hard way, by nobody being

@@ -37,6 +37,7 @@ plainly better and the trade is made knowingly.
 | A **new** task's due date is today or later | `@FutureOrPresent` on `TaskCreateRequest` only |
 | State and importance are always set | Not-null columns; `state` defaults to `TODO` |
 | A user's email is present and unique | `@NotBlank` and a unique not-null column on `User` |
+| A user's name and picture are **not** domain state | Nothing persists them; they are read from the token per request |
 | A user sees and changes only their own tasks | Every query in `TaskResource` carries an owner predicate |
 
 That first one used to read "a task's due date is today or later", enforced on the entity as

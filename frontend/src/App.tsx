@@ -26,6 +26,7 @@ import AddTaskRow from './components/AddTaskRow'
 import CompletedSection from './components/CompletedSection'
 import SignedOut, { purposeUrl } from './components/SignedOut'
 import TaskSection from './components/TaskSection'
+import UserAvatar from './components/UserAvatar'
 import UndoToast from './components/UndoToast'
 import { bucketOf, todayIso, type DueBucket } from './dates'
 
@@ -223,7 +224,8 @@ function App() {
       <header className="app-header">
         <h1 className="app-title">Tasks</h1>
         <div className="app-identity">
-          <span className="app-email">{currentUser.email}</span>
+          <UserAvatar email={currentUser.email} name={currentUser.name} pictureUrl={currentUser.pictureUrl} />
+          <span className="app-email">{currentUser.name ?? currentUser.email}</span>
           <a className="text-link" href={authLogoutUrl}>
             Sign out
           </a>

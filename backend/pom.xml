@@ -54,6 +54,12 @@
             <artifactId>quarkus-hibernate-validator</artifactId>
         </dependency>
         <dependency>
+            <!-- Backs the Gravatar lookup's @CacheResult. Without it /api/auth/me would make an
+                 outbound request on every page load, which is every page load. -->
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-cache</artifactId>
+        </dependency>
+        <dependency>
             <groupId>io.quarkus</groupId>
             <artifactId>quarkus-smallrye-openapi</artifactId>
         </dependency>
@@ -258,6 +264,8 @@
                          slower, or break it outright. -->
                     <targetTests>
                         <param>io.github.guhilling.todo.api.AuthProviderMappingTest</param>
+                        <param>io.github.guhilling.todo.service.GravatarUrlTest</param>
+                        <param>io.github.guhilling.todo.service.GravatarServiceTest</param>
                     </targetTests>
                     <!-- The classes no allowlisted test reaches, excluded so the score reflects
                          what was actually measured rather than being diluted by code PIT could
@@ -269,7 +277,9 @@
                         <param>io.github.guhilling.todo.api.AuthResource*</param>
                         <param>io.github.guhilling.todo.api.TaskResource*</param>
                         <param>io.github.guhilling.todo.model.*</param>
-                        <param>io.github.guhilling.todo.service.*</param>
+                        <!-- Narrowed from service.* when the Gravatar classes earned plain unit
+                             tests; UserService still has none that avoids booting Quarkus. -->
+                        <param>io.github.guhilling.todo.service.UserService*</param>
                         <!-- SmallRye generates the config mapping implementation; it is not ours
                              to test and its mutants are unkillable by construction. -->
                         <param>*$$CMImpl</param>

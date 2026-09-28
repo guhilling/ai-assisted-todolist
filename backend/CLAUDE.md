@@ -44,14 +44,17 @@ Don't write backend production code without a test driving it first.
   milliseconds, where the equivalent `@QuarkusTest` can only reach the single combination
   its profile declares.
 - **Mutation testing with PIT runs at `verify`, and reports without blocking.** It is
-  deliberately not a gate: only one production class is in scope, so a threshold would
+  deliberately not a gate: three production classes of ten are in scope, so a threshold would
   police a corner of the codebase while saying nothing about the rest. It is scoped that way
   because PIT gives each mutant its own minion JVM, and a `@QuarkusTest` in scope means a
   full boot with its own Dev Services containers per mutant. `doc/testing.md` has the
   measurements, and the report lands as a CI artifact on every backend run.
 - **PIT's `excludedClasses` list is a to-do list, not configuration.** Each entry is a
   production class with no fast unit test. Deleting an entry is the reward for writing the
-  test; adding one needs a stated reason.
+  test; adding one needs a stated reason. It has been collected on once: `service.*` narrowed
+  to `service.UserService*` when the Gravatar classes earned plain unit tests, which took the
+  run from 10 mutants to 21. Add a new plain test to `targetTests` at the same time, or it is
+  written but never used.
 - Whatever can be checked automatically (tests, coverage, style) must run in backend CI
   (`backend-ci.yml`) so violations fail the build, not just get caught by convention. The
   mutation score is the deliberate exception, on the grounds above.

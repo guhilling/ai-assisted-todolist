@@ -12,8 +12,8 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
 
 const users = {
-  gunnar: { username: 'gunnar', password: 'gunnar', email: 'gunnar@example.com' },
-  lasse: { username: 'lasse', password: 'lasse', email: 'lasse@example.com' },
+  gunnar: { username: 'gunnar', password: 'gunnar', email: 'gunnar@example.com', name: 'Gunnar Hilling', initials: 'GH' },
+  lasse: { username: 'lasse', password: 'lasse', email: 'lasse@example.com', name: 'Lasse Hilling', initials: 'LH' },
 }
 
 /**
@@ -35,7 +35,12 @@ async function signIn(page: Page, user: (typeof users)[keyof typeof users]) {
   await page.locator('#password').fill(user.password)
   await page.locator('#kc-login').click()
 
-  await expect(page.getByText(user.email).first()).toBeVisible()
+  // The header shows the display name, not the email: proof that the profile scope survived a
+  // real authorization code flow and that the name claim reached the browser.
+  await expect(page.getByText(user.name).first()).toBeVisible()
+  // Keycloak supplies no picture and these addresses have no Gravatar, so the avatar is the
+  // initials fallback -- the path a provider without a picture actually takes.
+  await expect(page.locator('.user-avatar--initials')).toHaveText(user.initials)
   await expect(page.getByRole('button', { name: 'Add a task' })).toBeVisible()
 }
 

@@ -342,6 +342,56 @@ describe('signed in', () => {
   })
 })
 
+describe('who is signed in', () => {
+  it('shows the display name in place of the email when the provider gave one', async () => {
+    await renderSignedIn(mockApi({ me: { ...ALICE, name: 'Alice Example' }, tasks: [] }))
+
+    expect(screen.getByText('Alice Example')).toBeInTheDocument()
+    expect(screen.queryByText('alice@example.com')).not.toBeInTheDocument()
+  })
+
+  it('falls back to the email when there is no name', async () => {
+    await renderSignedIn(mockApi({ me: ALICE, tasks: [] }))
+
+    expect(screen.getByText('alice@example.com')).toBeInTheDocument()
+  })
+
+  it('shows the picture the backend resolved', async () => {
+    await renderSignedIn(
+      mockApi({ me: { ...ALICE, pictureUrl: 'https://example.com/alice.png' }, tasks: [] }),
+    )
+
+    const avatar = document.querySelector('.user-avatar') as HTMLImageElement
+    expect(avatar.tagName).toBe('IMG')
+    expect(avatar).toHaveAttribute('src', 'https://example.com/alice.png')
+  })
+
+  it('falls back to initials when the picture will not load', async () => {
+    // A URL the backend confirmed can still rot; a broken image icon is worse than initials.
+    await renderSignedIn(
+      mockApi({
+        me: { ...ALICE, name: 'Alice Example', pictureUrl: 'https://example.com/gone.png' },
+        tasks: [],
+      }),
+    )
+
+    fireEvent.error(document.querySelector('.user-avatar') as HTMLImageElement)
+
+    expect(screen.getByText('AE')).toBeInTheDocument()
+  })
+
+  it.each([
+    ['a two-word name', { name: 'Gunnar Hilling' }, 'GH'],
+    ['a one-word name', { name: 'Gunnar' }, 'G'],
+    ['a dotted email local part', { name: null }, 'AE'],
+  ])('builds initials from %s', async (_case, extra, expected) => {
+    const me = { email: 'alice.example@example.com', ...extra }
+    await renderSignedIn(mockApi({ me, tasks: [] }))
+
+    expect(screen.getByText(expected)).toBeInTheDocument()
+  })
+})
+
 describe('the board', () => {
   it('shows each task with when it is due and how much it matters', async () => {
     await renderSignedIn(

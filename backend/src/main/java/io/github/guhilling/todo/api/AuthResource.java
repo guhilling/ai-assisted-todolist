@@ -1,5 +1,6 @@
 package io.github.guhilling.todo.api;
 
+import io.github.guhilling.todo.service.GravatarService;
 import io.quarkus.security.Authenticated;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.core.Context;
@@ -34,6 +35,9 @@ public class AuthResource {
 
     @Inject
     JsonWebToken jwt;
+
+    @Inject
+    GravatarService gravatar;
 
     @Context
     HttpHeaders httpHeaders;
@@ -92,18 +96,34 @@ public class AuthResource {
     @Authenticated
     @Produces(MediaType.APPLICATION_JSON)
     public CurrentUserResponse me() {
-        return new CurrentUserResponse(jwt.getClaim("email"));
+        String email = jwt.getClaim("email");
+        String picture = jwt.getClaim("picture");
+
+        // Gravatar is consulted only when the provider supplied nothing. Google almost always
+        // does; Keycloak here never does, which is what keeps this path exercised in dev.
+        if (picture == null) {
+            picture = gravatar.avatarUrlFor(email).orElse(null);
+        }
+
+        return new CurrentUserResponse(email, jwt.getClaim("name"), picture);
     }
 
     /**
      * The identity the frontend is allowed to know about.
      *
-     * <p>Only the email claim is exposed, because the email is the whole of this
-     * application's notion of identity — see {@link io.github.guhilling.todo.model.User}.
-     * Nothing else from the token needs to cross to the browser.</p>
+     * <p>The email is still the whole of this application's notion of identity — it is what
+     * {@link io.github.guhilling.todo.model.User} is keyed by and what ownership is decided on.
+     * The name and picture are not identity: they are how the signed-in person is shown their
+     * own session, read from the token on each request and stored nowhere. That is deliberate,
+     * and it is why adding them needed no migration; see {@code doc/decisions.md}.</p>
      *
-     * @param email the email claim of the signed-in user
+     * <p>Both may be null. A provider need not supply either, and the frontend is expected to
+     * fall back rather than assume.</p>
+     *
+     * @param email the email claim of the signed-in user, always present
+     * @param name the provider's display name for them, or null when it supplied none
+     * @param pictureUrl the provider's picture, or a Gravatar for the address, or null for neither
      */
-    public record CurrentUserResponse(String email) {
+    public record CurrentUserResponse(String email, String name, String pictureUrl) {
     }
 }
