@@ -50,6 +50,12 @@ slows things down.
   the same change as the behaviour it describes, never as a follow-up — the
   README had already drifted into documenting endpoints and task states that no
   longer existed.
+- **The API contract is generated and drift-gated, never written twice.** The backend's
+  OpenAPI document and the per-type JSON Schemas under `doc/api/` come from
+  `doc/api/generate.py`; the frontend's wire types and response validators under
+  `frontend/src/generated/` come from `npm run generate:api`. Backend CI and Frontend CI each
+  regenerate their half and fail on any difference, so neither can go stale and neither is
+  hand-edited. A wire change starts at the backend record.
 - Code-level documentation is Javadoc and TSDoc in the code itself, saying what
   a type is *for*. The conventions are in `backend/CLAUDE.md` and
   `frontend/CLAUDE.md`; on the backend they are enforced by Checkstyle.

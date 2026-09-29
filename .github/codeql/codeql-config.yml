@@ -29,3 +29,6 @@ paths-ignore:
   # Build output and coverage reports: generated, minified, and not source.
   - frontend/dist
   - frontend/coverage
+  # Ahead-of-time compiled Ajv validators and the generated wire types. Machine output, whose
+  # correctness belongs to the schemas it came from -- and those are reviewed in doc/api.
+  - frontend/src/generated
