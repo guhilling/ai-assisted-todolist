@@ -72,6 +72,16 @@ BUNDLE_SRC = re.compile(r'src="(https://cdn\.redocly\.com/[^"]+\.js)"')
 # The only version string the generated document contains, asserted rather than assumed.
 SNAPSHOT_VERSION_LINE = "\n  version: 1.0.0-SNAPSHOT\n"
 
+# The instruction files, as (slug, path in the repository, what the sidebar calls it). They are
+# published because this project exists to build up experience with AI-assisted development, and
+# these are the method rather than a description of it. The sidebar names them by the part of
+# the repository they govern, because their own headings are all "CLAUDE.md".
+INSTRUCTIONS = [
+    ("index", "CLAUDE.md", "Repository"),
+    ("backend", "backend/CLAUDE.md", "Backend"),
+    ("frontend", "frontend/CLAUDE.md", "Frontend"),
+]
+
 # The order the sidebar lists the documentation in, which is doc/README.md's order rather than
 # the alphabetical one: it goes from why the project exists to how a release is cut. A file that
 # is added and not listed here still appears, at the end, rather than vanishing silently.
@@ -259,7 +269,12 @@ def vendor_renderer(site: pathlib.Path, pages: list[pathlib.Path]) -> None:
 def masthead(depth: int, current: str) -> str:
     """The bar at the top of every page this script writes. `depth` is how far from the root."""
     up = "../" * depth
-    links = [("Docs", f"{up}doc/", "doc"), ("API", f"{up}api/", "api"), ("GitHub", REPO_URL, "")]
+    links = [
+        ("Docs", f"{up}doc/", "doc"),
+        ("Instructions", f"{up}instructions/", "instructions"),
+        ("API", f"{up}api/", "api"),
+        ("GitHub", REPO_URL, ""),
+    ]
     nav = "\n      ".join(
         f'<a href="{href}"{" aria-current=\"page\"" if key and key == current else ""}>{text}</a>'
         for text, href, key in links
@@ -338,6 +353,9 @@ def site_path(repo_relative: str) -> str | None:
     if repo_relative.startswith("doc/") and repo_relative.endswith(".md"):
         stem = repo_relative[len("doc/"):-len(".md")]
         return "doc/index.html" if stem == "README" else f"doc/{stem}.html"
+    for slug, source, _ in INSTRUCTIONS:
+        if repo_relative == source:
+            return f"instructions/{slug}.html"
     return None
 
 
@@ -406,19 +424,29 @@ def first_heading(path: pathlib.Path) -> str:
     return path.stem
 
 
-def sidebar(pages: list[tuple[str, str]], current: str) -> str:
-    """The list of documents, marking the one being read."""
-    items = [("index", "Overview")] + pages
-    links = "\n      ".join(
-        f'<li><a href="{"index.html" if slug == "index" else f"{slug}.html"}"'
-        f'{" aria-current=\"page\"" if slug == current else ""}>{html.escape(title)}</a></li>'
-        for slug, title in items
+def sidebar(pages: list[tuple[str, str]], section: str, current: str) -> str:
+    """
+    The navigation both sections share, marking the page being read.
+
+    Links are written `../doc/...` and `../instructions/...` rather than as bare file names,
+    because the same list is rendered into two directories and has to resolve from either.
+    """
+    def group(heading: str, directory: str, items: list[tuple[str, str]]) -> str:
+        links = "\n      ".join(
+            f'<li><a href="../{directory}/{slug}.html"'
+            f'{" aria-current=\"page\"" if section == directory and slug == current else ""}>'
+            f"{html.escape(title)}</a></li>"
+            for slug, title in items
+        )
+        return f"    <h2>{heading}</h2>\n    <ul>\n      {links}\n    </ul>"
+
+    documentation = group("Documentation", "doc", [("index", "Overview")] + pages)
+    instructions = group(
+        "Instructions to Claude", "instructions", [(slug, label) for slug, _, label in INSTRUCTIONS]
     )
     return f"""  <aside class="sidebar">
-    <h2>Documentation</h2>
-    <ul>
-      {links}
-    </ul>
+{documentation}
+{instructions}
     <h2>Reference</h2>
     <ul>
       <li><a href="../api/">API contract</a></li>
@@ -482,8 +510,25 @@ def render_markdown(source: pathlib.Path, *, base: str, depth: int) -> str:
     return retarget_links(renderer().convert(source.read_text()), base=base, depth=depth)
 
 
-def build_docs(site: pathlib.Path) -> None:
-    """Renders doc/ into doc/ on the site, each page carrying the sidebar."""
+def write_page(
+    target: pathlib.Path, *, title: str, description: str, section: str, slug: str,
+    body: str, pages: list[tuple[str, str]],
+) -> None:
+    """One page in a sidebar-bearing section."""
+    target.write_text(
+        page(
+            title=f"{title} · {PROJECT}",
+            description=description,
+            depth=1,
+            current=section,
+            body=f'  <div class="layout">\n{sidebar(pages, section, slug)}\n'
+            f'  <main class="prose">\n{body}\n  </main>\n  </div>',
+        )
+    )
+
+
+def build_docs(site: pathlib.Path, pages: list[tuple[str, str]]) -> None:
+    """Renders doc/ into doc/ on the site, each page carrying the shared sidebar."""
     out = site / "doc"
     out.mkdir(parents=True, exist_ok=True)
     # The artwork only. generate.py lives beside it and is not something to publish.
@@ -491,21 +536,43 @@ def build_docs(site: pathlib.Path) -> None:
     for drawing in sorted(IMAGES.glob("*.svg")):
         shutil.copyfile(drawing, out / "images" / drawing.name)
 
-    pages = doc_pages()
-    for slug, source in [("index", DOCS / "README.md")] + [(s, DOCS / f"{s}.md") for s, _ in pages]:
-        body = render_markdown(source, base="doc", depth=1)
+    sources = [("index", DOCS / "README.md")] + [(slug, DOCS / f"{slug}.md") for slug, _ in pages]
+    for slug, source in sources:
         title = first_heading(source)
-        (out / f"{slug}.html").write_text(
-            page(
-                title=f"{title} · {PROJECT}",
-                description=f"{title} — project documentation for {PROJECT}.",
-                depth=1,
-                current="doc",
-                body=f'  <div class="layout">\n{sidebar(pages, slug)}\n'
-                f'  <main class="prose">\n{body}\n  </main>\n  </div>',
-            )
+        write_page(
+            out / f"{slug}.html",
+            title=title,
+            description=f"{title} — project documentation for {PROJECT}.",
+            section="doc",
+            slug=slug,
+            body=render_markdown(source, base="doc", depth=1),
+            pages=pages,
         )
-    print(f"rendered {len(pages) + 1} documentation pages")
+    print(f"rendered {len(sources)} documentation pages")
+
+
+def build_instructions(site: pathlib.Path, pages: list[tuple[str, str]]) -> None:
+    """
+    Renders the CLAUDE.md files, which are the working agreement this repository is built under.
+
+    Each is rendered from where it sits, because its links are relative to that directory: the
+    backend's file means the backend's pom.xml when it says so.
+    """
+    out = site / "instructions"
+    out.mkdir(parents=True, exist_ok=True)
+    for slug, source, label in INSTRUCTIONS:
+        path = REPO / source
+        base = posixpath.dirname(source)
+        write_page(
+            out / f"{slug}.html",
+            title=f"{label} instructions",
+            description=f"The instructions Claude Code works under in {source}.",
+            section="instructions",
+            slug=slug,
+            body=render_markdown(path, base=base, depth=1),
+            pages=pages,
+        )
+    print(f"rendered {len(INSTRUCTIONS)} instruction pages")
 
 
 def build_landing(site: pathlib.Path, versions: list[tuple[str, str]]) -> None:
@@ -526,6 +593,9 @@ def build_landing(site: pathlib.Path, versions: list[tuple[str, str]]) -> None:
         ("Documentation", "doc/",
          "Why the project exists, how it fits together, and every decision taken, with the "
          "rejected alternatives."),
+        ("Instructions to Claude", "instructions/",
+         "The working agreement this repository is built under, published because it is the "
+         "method rather than a description of it."),
         ("API reference", f"api/{newest}/",
          "The REST contract as OpenAPI 3.1, with one JSON Schema per type beside it."),
         ("Source", REPO_URL,
@@ -629,7 +699,9 @@ def main(argv: list[str]) -> int:
     vendor_renderer(site, pages)
 
     build_assets(site)
-    build_docs(site)
+    pages = doc_pages()
+    build_docs(site, pages)
+    build_instructions(site, pages)
     build_api_index(site, published)
     build_landing(site, published)
     check_links(site)

@@ -245,9 +245,10 @@ pre code { padding: 0; background: none; border: 0; white-space: pre; }
 
 .cards {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
   gap: 1rem;
-  max-width: 52rem;
+  /* Wider than the prose below it, so four cards sit in one row rather than leaving an orphan. */
+  max-width: 64rem;
   margin: 2.5rem auto 0;
   padding: 0 clamp(1rem, 4vw, 2.5rem);
 }
