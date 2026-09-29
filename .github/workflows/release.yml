@@ -55,15 +55,22 @@ jobs:
         # -Prelease adds requireReleaseVersion to the requireReleaseDeps rule that every
         # build runs, so this fails on a SNAPSHOT dependency and on a SNAPSHOT version.
         # verify then runs the tests, the coverage gate, Checkstyle and PIT. It also writes
-        # target/openapi/openapi.yaml (quarkus.smallrye-openapi.store-schema-directory),
-        # which announce attaches to the GitHub Release below.
+        # target/openapi (quarkus.smallrye-openapi.store-schema-directory), which the next
+        # step turns into the contract announce attaches to the GitHub Release.
         run: ./mvnw -B -Prelease -Drevision=${{ steps.version.outputs.version }} verify
 
-      - name: Upload the OpenAPI spec
+      - name: Regenerate the API contract at the release version
+        # The committed doc/api says 1.0.0-SNAPSHOT, because that is what main's revision
+        # permanently is. Regenerating here, after a build that overrode the revision from the
+        # tag, is what makes the attached spec claim the version it actually describes. It
+        # dirties the working tree, which does not matter: nothing commits from this job.
+        run: python3 doc/api/generate.py
+
+      - name: Upload the API contract
         uses: actions/upload-artifact@v7
         with:
-          name: openapi
-          path: backend/target/openapi/openapi.yaml
+          name: api-contract
+          path: doc/api
 
       - uses: actions/setup-node@v7
         with:
@@ -157,10 +164,11 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - name: Download the OpenAPI spec
+      - name: Download the API contract
         uses: actions/download-artifact@v8
         with:
-          name: openapi
+          name: api-contract
+          path: api-contract
 
       - name: Create the release
         env:
@@ -174,7 +182,15 @@ jobs:
             --title "$VERSION" \
             --generate-notes
 
-      - name: Attach the OpenAPI spec to the release
+      - name: Attach the API contract to the release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload "$GITHUB_REF_NAME" openapi.yaml
+        # Individually rather than as an archive, so every document has a direct download URL
+        # that can be cited. The basenames are already unique, so the schema/ nesting is lost
+        # without collision -- and the relative $refs between the schemas still resolve,
+        # because they name siblings.
+        run: >
+          gh release upload "$GITHUB_REF_NAME"
+          api-contract/openapi.yaml
+          api-contract/openapi.json
+          api-contract/schema/*.schema.json

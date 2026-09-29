@@ -88,7 +88,7 @@ the backend build enforces them.
 - `e2e/` — Playwright browser tests driving the whole stack through a real sign-in
 - `keycloak/` — realm export with the local test accounts, shared by Dev Services and CI
 - `docker/` — Compose stacks; where AWS deployment material will land
-- `doc/` — project documentation
+- `doc/` — project documentation, including `doc/api/`: the generated wire contract
 - `.github/workflows/` — CI for backend, frontend, end-to-end, SonarCloud and publication
 
 ## API
@@ -107,6 +107,12 @@ All endpoints require a session except `/api/auth/providers`.
 A task has a description, a due date, an importance (`LOW`, `MEDIUM`, `HIGH`) and a state
 (`TODO`, `WORKING`, `DONE`). OpenAPI is at `/q/openapi`, Swagger UI at `/q/swagger-ui`,
 Prometheus metrics at `/q/metrics`.
+
+The contract is **published**, not only served:
+[**the API reference**](https://guhilling.github.io/ai-assisted-todolist/) has `/api/main/` for
+the current code and `/api/v1.2.3/` per release, each with the OpenAPI 3.1 document and one
+JSON Schema per type. The same files are committed under [`doc/api/`](doc/api/) and attached to
+every release. They are generated and CI fails if the committed copy has drifted.
 
 ## CI/CD
 

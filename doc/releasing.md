@@ -30,7 +30,7 @@ trigger matches those two shapes only, so an unrelated tag does not start a rele
 | --- | --- |
 | `gate` | Derives the version, refuses a tag that is not on `main`, then runs the full backend `verify` and the full frontend suite at the release version |
 | `publish` | Builds and pushes `todo-backend` and `todo-frontend` to Quay, tagged with the version |
-| `announce` | Creates the GitHub Release, with notes generated from the pull requests since the previous release |
+| `announce` | Creates the GitHub Release, with notes generated from the pull requests since the previous release, and attaches the API contract |
 
 `gate` runs everything again rather than trusting the CI run on `main`. That is deliberate:
 `backend-ci.yml` and `frontend-ci.yml` are path-filtered, so for any given commit on `main`
@@ -64,6 +64,26 @@ pre-release: `-beta.2`, `-rc.1`, `-canary.a1b2c3`, which is what installing a `n
 `package-lock.json` — not `package.json`, because a caret range says nothing about what a
 transitive dependency actually resolved to — and fails naming each offender. Run it locally
 with `npm run check:deps`.
+
+## What a release publishes besides the images
+
+Every release carries the API contract as downloadable assets: `openapi.yaml`,
+`openapi.json`, and one `<Name>.schema.json` per type. They are attached individually rather
+than as an archive so each has a citable URL, and the relative `$ref`s between the schemas
+still resolve because they name siblings.
+
+These are **regenerated during `gate`**, not taken from the commit. The committed
+`doc/api/openapi.yaml` says `1.0.0-SNAPSHOT`, because that is what `main`'s revision
+permanently is; `gate` builds with the revision overridden from the tag, so regenerating
+afterwards is what makes the attached spec claim the version it describes.
+
+The same contract is also on GitHub Pages, at
+[guhilling.github.io/ai-assisted-todolist](https://guhilling.github.io/ai-assisted-todolist/):
+`/api/v1.2.3/` per release, `/api/latest/` for the newest, and `/api/main/` tracking the
+current code. `pages.yml` rebuilds the whole site from git history on every push to `main` and
+on every published release, so nothing is carried over between deployments. It patches
+`info.version` from the tag for a released version; the release assets need no such patch,
+which is why those are the authoritative download.
 
 ## `latest` is not moved by a release
 

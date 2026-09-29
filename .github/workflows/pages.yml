@@ -1,0 +1,66 @@
+name: API contract on Pages
+
+# Publishes doc/api as a browsable site: one directory per version of the contract, each with
+# the OpenAPI document, the per-type JSON Schemas and a rendered reference.
+#
+# main is published as well as the releases, deliberately. A release-only spec answers what the
+# last release promised and never what the code currently does, and there needs to be a way to
+# see and consume the contract for the current main -- what a -SNAPSHOT gives you in Maven.
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'doc/api/**'
+      - '.github/scripts/build-api-site.py'
+      - '.github/workflows/pages.yml'
+  release:
+    types: [published]
+  # The site is rebuilt from scratch every run, so a manual run is always safe and is the way
+  # to republish after enabling Pages or after a failed deployment.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Pages allows one deployment at a time, and a queued run must finish rather than be cancelled:
+# cancelling the deploy job is what leaves the environment stuck in "in progress".
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Assemble the site
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # Every released version of the contract is read out of its tag, so the tags and the
+          # history behind them have to be here.
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+
+      - name: Build the site
+        run: python3 .github/scripts/build-api-site.py _site
+
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: _site
+
+  deploy:
+    name: Deploy to Pages
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v4
