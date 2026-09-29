@@ -1,3 +1,12 @@
+<p align="center">
+  <a href="https://guhilling.github.io/ai-assisted-todolist/">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="doc/images/logo-dark.svg">
+      <img src="doc/images/logo-light.svg" alt="" width="92" height="92">
+    </picture>
+  </a>
+</p>
+
 # ai-assisted-todolist
 
 [![Backend CI](https://github.com/guhilling/ai-assisted-todolist/actions/workflows/backend-ci.yml/badge.svg?branch=main)](https://github.com/guhilling/ai-assisted-todolist/actions/workflows/backend-ci.yml)
@@ -8,6 +17,10 @@
 A browser-based todo list: tasks with due dates, importance and workflow state, private to
 whoever signed in. Quarkus backend, React + TypeScript frontend, PostgreSQL persistence,
 OpenID Connect sign-in.
+
+📖 **[The documentation and the API reference are published at
+guhilling.github.io/ai-assisted-todolist](https://guhilling.github.io/ai-assisted-todolist/)** —
+everything under `doc/` rendered, plus the OpenAPI contract for `main` and for every release.
 
 The todo list is not really the point — this repository exists to build up experience with
 AI-assisted software development. See [doc/purpose.md](doc/purpose.md).

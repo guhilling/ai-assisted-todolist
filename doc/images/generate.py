@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Generates the README's diagrams as SVG, one file per diagram per colour scheme.
+Generates the project's SVG artwork: the README's diagrams, and the logo.
 
-Run it after changing anything a diagram claims:
+Run it after changing anything a diagram claims, or the mark:
 
     python3 doc/images/generate.py
 
@@ -236,13 +236,91 @@ def workflow(p: Palette) -> str:
     return document(w, h, "\n  ".join(parts), p, aria)
 
 
+# The mark, as geometry rather than as a literal, because three files draw the same shape: the
+# two colour variants and the self-adapting favicon.
+#
+# A rounded square with its top-right corner deliberately missing, and a check mark leaving
+# through the gap. The open corner is the whole idea: a closed box with a tick in it is the most
+# generic todo icon there is, and a task that is done is one that has left the list rather than
+# one that sits in it wearing a mark. It also survives being 16 pixels wide, which a busier
+# drawing would not.
+LOGO_VIEWBOX = 128
+# Clockwise from where the right edge resumes below the absent corner, round to where the top
+# edge stops before it. The arcs are the three corners that do exist.
+LOGO_OUTLINE = (
+    "M 112 54 L 112 86 A 26 26 0 0 1 86 112 L 42 112 "
+    "A 26 26 0 0 1 16 86 L 16 42 A 26 26 0 0 1 42 16 L 70 16"
+)
+# Ends outside the square, past where the corner would have been.
+LOGO_CHECK = "M 40 68 L 58 88 L 118 24"
+
+
+def logo_body(outline: str, check: str) -> str:
+    """The two strokes, given the colours or the class names that will carry them."""
+    return (
+        f'<path d="{LOGO_OUTLINE}" fill="none" {outline} stroke-width="9" '
+        'stroke-linecap="round"/>\n  '
+        f'<path d="{LOGO_CHECK}" fill="none" {check} stroke-width="12" '
+        'stroke-linecap="round" stroke-linejoin="round"/>'
+    )
+
+
+ARIA_LOGO = (
+    "A rounded square missing its top-right corner, with a check mark leaving through the gap"
+)
+
+
+def logo(p: Palette) -> str:
+    """
+    The mark, on no background at all.
+
+    Transparent rather than filled, unlike the diagrams: a logo has to sit on a README, a page
+    header and a browser tab, and a background of its own would be wrong on at least one of
+    them. The colour variants exist so the strokes suit what it is sitting on.
+    """
+    body = logo_body(f'stroke="{p.text}"', f'stroke="{p.accent}"')
+    return (
+        f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {LOGO_VIEWBOX} {LOGO_VIEWBOX}"\n'
+        f'     width="{LOGO_VIEWBOX}" height="{LOGO_VIEWBOX}" role="img"\n'
+        f'     aria-label="{ARIA_LOGO}">\n  {body}\n</svg>\n'
+    )
+
+
+def favicon() -> str:
+    """
+    One file for the browser tab, choosing its own colours.
+
+    A tab is the one place that cannot be handed two files and told to pick, the way a README
+    does with `<picture>` and a page does with a media query in CSS. An SVG favicon can carry
+    the query itself, so this is a single file that adapts.
+    """
+    body = logo_body('class="edge"', 'class="tick"')
+    return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {LOGO_VIEWBOX} {LOGO_VIEWBOX}"
+     role="img" aria-label="{ARIA_LOGO}">
+  <style>
+    .edge {{ stroke: {LIGHT.text}; }}
+    .tick {{ stroke: {LIGHT.accent}; }}
+    @media (prefers-color-scheme: dark) {{
+      .edge {{ stroke: {DARK.text}; }}
+      .tick {{ stroke: {DARK.accent}; }}
+    }}
+  </style>
+  {body}
+</svg>
+"""
+
+
 def main() -> None:
-    diagrams = {"architecture": architecture, "workflow": workflow}
-    for name, build in diagrams.items():
+    per_scheme = {"architecture": architecture, "workflow": workflow, "logo": logo}
+    for name, build in per_scheme.items():
         for palette in (LIGHT, DARK):
             path = HERE / f"{name}-{palette.name}.svg"
             path.write_text(build(palette))
             print(f"wrote {path.relative_to(HERE.parent.parent)}")
+
+    path = HERE / "favicon.svg"
+    path.write_text(favicon())
+    print(f"wrote {path.relative_to(HERE.parent.parent)}")
 
 
 if __name__ == "__main__":

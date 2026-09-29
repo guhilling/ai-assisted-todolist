@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128"
+     width="128" height="128" role="img"
+     aria-label="A rounded square missing its top-right corner, with a check mark leaving through the gap">
+  <path d="M 112 54 L 112 86 A 26 26 0 0 1 86 112 L 42 112 A 26 26 0 0 1 16 86 L 16 42 A 26 26 0 0 1 42 16 L 70 16" fill="none" stroke="#e6eaee" stroke-width="9" stroke-linecap="round"/>
+  <path d="M 40 68 L 58 88 L 118 24" fill="none" stroke="#8ab4f8" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
