@@ -1,0 +1,312 @@
+/*
+ * The published site's one stylesheet, copied to /assets/site.css by build-site.py.
+ *
+ * A separate file rather than a string inside the generator, so it can be read and edited as
+ * CSS. The palette is the same one doc/images/generate.py draws the diagrams and the logo with,
+ * which is why the artwork sits on these pages without looking pasted on.
+ */
+
+:root {
+  --bg: #ffffff;
+  --surface: #f6f8fa;
+  --border: #d5dbe1;
+  --text: #1a1f24;
+  --muted: #5b6672;
+  --accent: #1a73e8;
+  --accent-soft: #e8f0fe;
+  --shadow: 0 1px 2px rgb(16 24 32 / 6%), 0 8px 24px rgb(16 24 32 / 5%);
+  --sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial,
+    sans-serif;
+  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #14181c;
+    --surface: #1e242a;
+    --border: #39424b;
+    --text: #e6eaee;
+    --muted: #9aa5b1;
+    --accent: #8ab4f8;
+    --accent-soft: #1f2b3d;
+    --shadow: 0 1px 2px rgb(0 0 0 / 40%), 0 8px 24px rgb(0 0 0 / 30%);
+  }
+}
+
+* { box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 16px;
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+}
+
+a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+a:hover { text-decoration-thickness: 2px; }
+
+/* ---------- the bar every page carries ---------- */
+
+.masthead {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  padding: 0.7rem clamp(1rem, 4vw, 2.5rem);
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+}
+
+.masthead__home {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-weight: 650;
+  color: var(--text);
+  text-decoration: none;
+  letter-spacing: -0.01em;
+}
+
+.masthead__home img { display: block; width: 26px; height: 26px; }
+
+.masthead nav { margin-left: auto; display: flex; gap: 1.1rem; font-size: 0.92rem; }
+.masthead nav a { color: var(--muted); text-decoration: none; }
+.masthead nav a:hover,
+.masthead nav a[aria-current="page"] { color: var(--text); }
+.masthead nav a[aria-current="page"] { font-weight: 600; }
+
+/* ---------- prose ---------- */
+
+.prose {
+  max-width: 46rem;
+  margin: 0 auto;
+  padding: 2.5rem clamp(1rem, 4vw, 2.5rem) 5rem;
+}
+
+.prose h1, .prose h2, .prose h3, .prose h4 {
+  line-height: 1.25;
+  letter-spacing: -0.02em;
+  margin: 2.4em 0 0.6em;
+}
+.prose h1 { font-size: 2.1rem; margin-top: 0; letter-spacing: -0.03em; }
+.prose h2 { font-size: 1.4rem; padding-top: 0.6em; border-top: 1px solid var(--border); }
+.prose h3 { font-size: 1.1rem; }
+.prose h4 { font-size: 1rem; color: var(--muted); }
+.prose > *:first-child { margin-top: 0; }
+
+.prose p, .prose ul, .prose ol { margin: 1em 0; }
+.prose li { margin: 0.35em 0; }
+.prose li > ul, .prose li > ol { margin: 0.35em 0; }
+
+.prose blockquote {
+  margin: 1.4em 0;
+  padding: 0.1em 0 0.1em 1.1em;
+  border-left: 3px solid var(--accent);
+  color: var(--muted);
+}
+
+.prose img { max-width: 100%; height: auto; }
+
+.prose hr { border: 0; border-top: 1px solid var(--border); margin: 2.5em 0; }
+
+/* Anchors appear on hover, so a heading can be linked without a permanent mark beside it. */
+.prose .headerlink {
+  margin-left: 0.4rem;
+  color: var(--muted);
+  text-decoration: none;
+  opacity: 0;
+  font-weight: 400;
+}
+.prose h2:hover .headerlink,
+.prose h3:hover .headerlink,
+.prose h4:hover .headerlink,
+.prose .headerlink:focus { opacity: 1; }
+
+/* ---------- code ---------- */
+
+code, pre, kbd, samp { font-family: var(--mono); font-size: 0.875em; }
+
+:not(pre) > code {
+  padding: 0.15em 0.4em;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  white-space: nowrap;
+}
+
+pre {
+  margin: 1.4em 0;
+  padding: 1rem 1.1rem;
+  overflow-x: auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  line-height: 1.55;
+}
+pre code { padding: 0; background: none; border: 0; white-space: pre; }
+
+/* ---------- tables ---------- */
+
+.prose table {
+  width: 100%;
+  margin: 1.5em 0;
+  border-collapse: collapse;
+  font-size: 0.94rem;
+  display: block;
+  overflow-x: auto;
+}
+.prose th, .prose td {
+  padding: 0.55rem 0.8rem;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+}
+.prose thead th {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  border-bottom-color: var(--text);
+}
+.prose tbody tr:last-child td { border-bottom: 0; }
+
+/* ---------- the docs layout: sidebar beside prose ---------- */
+
+.layout { display: block; }
+
+@media (min-width: 60rem) {
+  .layout {
+    display: grid;
+    grid-template-columns: 16rem minmax(0, 1fr);
+    gap: clamp(1rem, 3vw, 3rem);
+    align-items: start;
+    max-width: 72rem;
+    margin: 0 auto;
+  }
+  .layout .prose { margin-left: 0; padding-left: 0; padding-right: 2rem; }
+}
+
+.sidebar {
+  padding: 2.5rem clamp(1rem, 4vw, 2.5rem) 0;
+  font-size: 0.93rem;
+}
+@media (min-width: 60rem) {
+  .sidebar { position: sticky; top: 4rem; padding-right: 0; max-height: calc(100vh - 5rem); overflow-y: auto; }
+}
+
+.sidebar h2 {
+  margin: 0 0 0.8rem;
+  font-size: 0.74rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--muted);
+}
+.sidebar ul { list-style: none; margin: 0 0 2rem; padding: 0; }
+.sidebar li { margin: 0; }
+.sidebar a {
+  display: block;
+  padding: 0.3rem 0.7rem;
+  margin-left: -0.7rem;
+  border-radius: 7px;
+  color: var(--muted);
+  text-decoration: none;
+}
+.sidebar a:hover { background: var(--surface); color: var(--text); }
+.sidebar a[aria-current="page"] {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* ---------- the landing page ---------- */
+
+.hero {
+  max-width: 52rem;
+  margin: 0 auto;
+  padding: clamp(3rem, 9vw, 6rem) clamp(1rem, 4vw, 2.5rem) 1rem;
+  text-align: center;
+}
+.hero img { width: 84px; height: 84px; }
+.hero h1 {
+  margin: 1.2rem 0 0.4rem;
+  font-size: clamp(2rem, 6vw, 2.9rem);
+  letter-spacing: -0.035em;
+  line-height: 1.1;
+}
+.hero p { margin: 0 auto; max-width: 34rem; color: var(--muted); font-size: 1.08rem; }
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  gap: 1rem;
+  max-width: 52rem;
+  margin: 2.5rem auto 0;
+  padding: 0 clamp(1rem, 4vw, 2.5rem);
+}
+.card {
+  display: block;
+  padding: 1.2rem 1.3rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  text-decoration: none;
+  color: inherit;
+  transition: border-color 120ms ease, transform 120ms ease, box-shadow 120ms ease;
+}
+.card:hover { border-color: var(--accent); transform: translateY(-2px); box-shadow: var(--shadow); }
+.card strong { display: block; font-size: 1.02rem; margin-bottom: 0.2rem; }
+.card span { color: var(--muted); font-size: 0.92rem; line-height: 1.5; display: block; }
+
+/* ---------- the API version list ---------- */
+
+.versions { list-style: none; margin: 1.5rem 0 0; padding: 0; }
+.versions li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem 1rem;
+  padding: 0.85rem 0;
+  border-top: 1px solid var(--border);
+}
+.versions li > a:first-child { font-weight: 600; font-size: 1.02rem; }
+.versions .files { margin-left: auto; display: flex; gap: 0.9rem; font-size: 0.88rem; }
+.versions .files a { color: var(--muted); }
+.tag {
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+/* ---------- footer ---------- */
+
+.site-footer {
+  border-top: 1px solid var(--border);
+  padding: 1.6rem clamp(1rem, 4vw, 2.5rem);
+  color: var(--muted);
+  font-size: 0.88rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1.2rem;
+}
+.site-footer a { color: var(--muted); }
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

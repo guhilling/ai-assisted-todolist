@@ -1,7 +1,8 @@
 name: API contract on Pages
 
-# Publishes doc/api as a browsable site: one directory per version of the contract, each with
-# the OpenAPI document, the per-type JSON Schemas and a rendered reference.
+# Publishes the project documentation and the API contract as a browsable site: doc/ rendered
+# as pages, and one directory per version of the contract with the OpenAPI document, the
+# per-type JSON Schemas and a rendered reference.
 #
 # main is published as well as the releases, deliberately. A release-only spec answers what the
 # last release promised and never what the code currently does, and there needs to be a way to
@@ -11,8 +12,9 @@ on:
     branches:
       - main
     paths:
-      - 'doc/api/**'
-      - '.github/scripts/build-api-site.py'
+      - 'doc/**'
+      - 'README.md'
+      - '.github/scripts/**'
       - '.github/workflows/pages.yml'
   # Deliberately *not* `release: published`. A release event runs with github.ref set to
   # refs/tags/v1.2.3, and the github-pages environment permits deployments from the single branch
@@ -53,8 +55,11 @@ jobs:
         with:
           node-version: '24'
 
+      - name: Install the site generator's dependencies
+        run: pip install -r .github/scripts/requirements.txt
+
       - name: Build the site
-        run: python3 .github/scripts/build-api-site.py _site
+        run: python3 .github/scripts/build-site.py _site
 
       - uses: actions/upload-pages-artifact@v5
         with:
