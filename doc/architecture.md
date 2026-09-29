@@ -68,6 +68,19 @@ That is idiomatic Quarkus rather than an encapsulation lapse: Hibernate rewrites
 access into accessor calls at build time. It is why Checkstyle's `VisibilityModifier`
 check is switched off here.
 
+## API documentation
+
+Every JAX-RS resource carries MicroProfile OpenAPI annotations (`@Tag`, `@Operation`,
+`@APIResponse`), and the request/response records carry `@Schema` examples, so the
+generated spec has real descriptions and sample payloads rather than bare paths. Two ways
+to see it:
+
+- Live, including Swagger UI's interactive "Try it out": `./mvnw quarkus:dev`, then
+  `http://localhost:8080/q/swagger-ui` (the raw spec is at `/q/openapi`).
+- As a file: every build writes `target/openapi/openapi.yaml`
+  (`quarkus.smallrye-openapi.store-schema-directory`), and every GitHub Release attaches
+  that file as a downloadable asset.
+
 ## Schema management
 
 Liquibase owns the schema; Hibernate is set to `validate` and never generates DDL. Every

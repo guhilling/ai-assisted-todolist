@@ -54,8 +54,16 @@ jobs:
         working-directory: backend
         # -Prelease adds requireReleaseVersion to the requireReleaseDeps rule that every
         # build runs, so this fails on a SNAPSHOT dependency and on a SNAPSHOT version.
-        # verify then runs the tests, the coverage gate, Checkstyle and PIT.
+        # verify then runs the tests, the coverage gate, Checkstyle and PIT. It also writes
+        # target/openapi/openapi.yaml (quarkus.smallrye-openapi.store-schema-directory),
+        # which announce attaches to the GitHub Release below.
         run: ./mvnw -B -Prelease -Drevision=${{ steps.version.outputs.version }} verify
+
+      - name: Upload the OpenAPI spec
+        uses: actions/upload-artifact@v7
+        with:
+          name: openapi
+          path: backend/target/openapi/openapi.yaml
 
       - uses: actions/setup-node@v7
         with:
@@ -149,6 +157,11 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      - name: Download the OpenAPI spec
+        uses: actions/download-artifact@v8
+        with:
+          name: openapi
+
       - name: Create the release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -160,3 +173,8 @@ jobs:
             --verify-tag \
             --title "$VERSION" \
             --generate-notes
+
+      - name: Attach the OpenAPI spec to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "$GITHUB_REF_NAME" openapi.yaml

@@ -8,6 +8,12 @@ import jakarta.ws.rs.core.MediaType;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import org.eclipse.microprofile.openapi.annotations.Operation;
+import org.eclipse.microprofile.openapi.annotations.media.Content;
+import org.eclipse.microprofile.openapi.annotations.media.ExampleObject;
+import org.eclipse.microprofile.openapi.annotations.media.Schema;
+import org.eclipse.microprofile.openapi.annotations.responses.APIResponse;
+import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 
 /**
  * Serves the sign-in options the landing page offers before anyone is authenticated.
@@ -25,6 +31,7 @@ import java.util.Optional;
  */
 @Path("/api/auth/providers")
 @Produces(MediaType.APPLICATION_JSON)
+@Tag(name = "Authentication", description = "The browser side of sign-in, sign-out, and the current session.")
 public class AuthProviderResource {
 
     private static final String LOGIN_PATH = "/api/auth/login";
@@ -36,6 +43,23 @@ public class AuthProviderResource {
     }
 
     @GET
+    @Operation(summary = "List the configured sign-in providers", description = "Every provider this "
+        + "deployment declares, usable or not, needing no authentication to ask.")
+    @APIResponse(responseCode = "200", description = "The configured providers.",
+        content = @Content(mediaType = MediaType.APPLICATION_JSON,
+            examples = @ExampleObject(name = "providers", value = """
+            {
+              "enabled": true,
+              "providers": [
+                {
+                  "id": "google",
+                  "label": "Google",
+                  "available": true,
+                  "loginUrl": "/api/auth/login",
+                  "issuer": "https://accounts.google.com"
+                }
+              ]
+            }""")))
     public AuthProvidersResponse providers() {
         List<AuthProviderResponse> providers = authProvidersConfig.providers().entrySet().stream()
             .sorted(Map.Entry.comparingByKey())
@@ -115,11 +139,11 @@ public class AuthProviderResource {
      * @param issuer the provider's issuer URL, empty when it was never configured
      */
     public record AuthProviderResponse(
-        String id,
-        String label,
+        @Schema(example = "google") String id,
+        @Schema(example = "Google") String label,
         boolean available,
-        String loginUrl,
-        String issuer
+        @Schema(example = "/api/auth/login") String loginUrl,
+        @Schema(example = "https://accounts.google.com") String issuer
     ) {
     }
 }
