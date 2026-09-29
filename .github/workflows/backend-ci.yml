@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - 'backend/**'
+      - 'doc/api/**'
       - '.github/workflows/backend-ci.yml'
       - 'docker/docker-compose.yml'
   push:
@@ -11,6 +12,7 @@ on:
       - main
     paths:
       - 'backend/**'
+      - 'doc/api/**'
       - '.github/workflows/backend-ci.yml'
       - 'docker/docker-compose.yml'
 
@@ -36,6 +38,21 @@ jobs:
         # verify runs the tests, packages the artifact, and fails the build if JaCoCo
         # coverage drops below the minimum in pom.xml.
         run: ./mvnw -B verify
+      - name: Check the committed API contract is current
+        working-directory: .
+        # verify has just written target/openapi. Regenerating and diffing is what keeps
+        # doc/api honest: the frontend generates its response validators from those files, so a
+        # stale contract there means a validator that checks the wrong shape.
+        run: |
+          python3 doc/api/generate.py
+          # --intent-to-add first, or a brand new schema file would be untracked and so
+          # invisible to git diff -- the one case the gate most needs to catch.
+          git add --all --intent-to-add doc/api
+          git diff --exit-code doc/api || {
+            echo "::error::doc/api is out of date. Run: cd backend && ./mvnw -B package -DskipTests && python3 doc/api/generate.py"
+            exit 1
+          }
+
       - name: Upload the mutation testing report
         # Always, not just on failure: PIT reports rather than gating, so this artifact is
         # the only way to see which mutants survived. The build log gives only the total.

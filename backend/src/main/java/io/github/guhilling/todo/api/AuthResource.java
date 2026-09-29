@@ -147,12 +147,18 @@ public class AuthResource {
      *
      * @param email the email claim of the signed-in user, always present
      * @param name the provider's display name for them, or null when it supplied none
+     * <p>Only {@code email} is required in the generated schema, and the other two are marked
+     * nullable, because the frontend compiles that schema into a runtime validator. They are
+     * sent as null rather than omitted, so a validator that did not allow null would reject a
+     * perfectly ordinary response.</p>
+     *
      * @param pictureUrl the provider's picture, or a Gravatar for the address, or null for neither
      */
+    @Schema(requiredProperties = {"email"})
     public record CurrentUserResponse(
         @Schema(example = "person@example.com") String email,
-        @Schema(example = "Person Example") String name,
-        @Schema(example = "https://example.com/avatar.jpg") String pictureUrl
+        @Schema(example = "Person Example", nullable = true) String name,
+        @Schema(example = "https://example.com/avatar.jpg", nullable = true) String pictureUrl
     ) {
     }
 }

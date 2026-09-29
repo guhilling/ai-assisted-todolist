@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "TaskResponse.schema.json",
+  "required": [
+    "id",
+    "description",
+    "dueDate",
+    "importance",
+    "state"
+  ],
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "integer",
+      "format": "int64",
+      "examples": [
+        42
+      ]
+    },
+    "description": {
+      "type": "string",
+      "examples": [
+        "Renew the passport"
+      ]
+    },
+    "dueDate": {
+      "type": "string",
+      "examples": [
+        "2026-11-30"
+      ],
+      "$ref": "LocalDate.schema.json"
+    },
+    "importance": {
+      "type": "string",
+      "examples": [
+        "HIGH"
+      ],
+      "$ref": "TaskImportance.schema.json"
+    },
+    "state": {
+      "type": "string",
+      "examples": [
+        "TODO"
+      ],
+      "$ref": "TaskState.schema.json"
+    }
+  }
+}

@@ -220,8 +220,14 @@ public class TaskResource {
      * @param description what is to be done
      * @param dueDate when it is due
      * @param importance how much it matters
+     * <p>Every field is marked required in the generated schema, because the frontend compiles
+     * that schema into a runtime validator: a field the spec leaves optional is a field the
+     * frontend would accept as missing. None of them is ever absent here, so declaring it
+     * only writes down what this record already guarantees.</p>
+     *
      * @param state where it stands in the workflow
      */
+    @Schema(requiredProperties = {"id", "description", "dueDate", "importance", "state"})
     public record TaskResponse(
         @Schema(example = "42") Long id,
         @Schema(example = "Renew the passport") String description,

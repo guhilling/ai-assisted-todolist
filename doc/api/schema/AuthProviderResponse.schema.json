@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "AuthProviderResponse.schema.json",
+  "required": [
+    "id",
+    "label",
+    "available",
+    "loginUrl",
+    "issuer"
+  ],
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "examples": [
+        "google"
+      ]
+    },
+    "label": {
+      "type": "string",
+      "examples": [
+        "Google"
+      ]
+    },
+    "available": {
+      "type": "boolean"
+    },
+    "loginUrl": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "examples": [
+        "/api/auth/login"
+      ]
+    },
+    "issuer": {
+      "type": "string",
+      "examples": [
+        "https://accounts.google.com"
+      ]
+    }
+  }
+}
