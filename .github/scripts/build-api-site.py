@@ -129,8 +129,9 @@ def render(directory: pathlib.Path) -> None:
         ["npx", "--yes", REDOCLY_CLI, "build-docs", "openapi.yaml", "-o", "index.html"],
         cwd=directory,
         check=True,
-        # The repository fixed S6505 by passing --ignore-scripts everywhere packages are
-        # installed. npx is no exception, and it takes the setting through the environment.
+        # npx fetches a package to run it, and a fetched package's install scripts would
+        # otherwise run with whatever this job can reach. Nothing is being built from that
+        # package here, only a document rendered, so the scripts have nothing to do.
         env={**os.environ, "npm_config_ignore_scripts": "true"},
     )
 
