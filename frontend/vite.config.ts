@@ -31,7 +31,15 @@ export default defineConfig({
       include: ['src/**/*.{ts,tsx}'],
       // main.tsx only mounts the app: there is nothing in it to assert that the e2e suite
       // does not already prove by the page rendering at all.
-      exclude: ['src/main.tsx', 'src/setupTests.ts', 'src/**/*.test.{ts,tsx}'],
+      // src/generated is written by `npm run generate:api`. Its correctness is the schemas' and
+      // Ajv's, tested through api.ts rather than directly, and declaration files have nothing
+      // to count anyway.
+      exclude: [
+        'src/main.tsx',
+        'src/setupTests.ts',
+        'src/generated/**',
+        'src/**/*.test.{ts,tsx}',
+      ],
       // The suite is at 100% on all four. The gate sits just below so a genuinely
       // defensive branch does not fail the build on the day it is written -- raise these
       // when coverage rises, never lower them to fit a change.

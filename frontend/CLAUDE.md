@@ -66,10 +66,14 @@ DDD, and project context all still apply here).
   `tsconfig.app.json` (currently only a handful of individual flags are set,
   not full strict mode) and avoid `any` / unchecked `as` casts as escape
   hatches.
-- Prefer typing the API boundary properly rather than hand-maintained,
-  possibly-drifting interfaces: consider generating request/response types
-  for the todo API from the backend's OpenAPI spec (`/q/openapi`) rather than
-  duplicating them by hand.
+- **The API boundary is generated, not hand-maintained.** `src/generated/` holds the wire
+  types and the ahead-of-time compiled Ajv validators, written by `npm run generate:api` from
+  the JSON Schemas the backend publishes under `doc/api/schema/`. **Never hand-edit anything in
+  `src/generated/`** — `frontend-ci.yml` regenerates it and fails on any difference. Change the
+  backend's record, regenerate the contract, regenerate these.
+- **`ajv` is a devDependency and must stay one.** The validators are compiled to plain
+  JavaScript, so nothing new reaches the browser. The generator asserts this: if the compiled
+  output ever needs a runtime `import`, it fails rather than quietly adding a dependency.
 
 ## Linting
 
@@ -95,8 +99,9 @@ DDD, and project context all still apply here).
   `jsdoc/no-blank-blocks` are errors in `.oxlintrc.json`. Deliberately not enabled are
   `jsdoc/require-param-type` and `jsdoc/require-returns-type`, which would ask for types in
   comments that TypeScript already carries.
-- **Types mirroring a backend enum say so**, because the two have to change together and
-  the string literals travel over the wire verbatim.
+- **A type the backend owns is not redeclared here**, it is aliased from `src/generated/` with
+  a block saying what the application calls it and why. Types used to be mirrored by hand with a
+  comment saying the two had to change together; generating them is what replaced that.
 - Files whose reason for existing is a configuration subtlety — the Vite proxy, the Vitest
   setup, the Playwright config — get a file-level block explaining it, rather than a
   comment that can drift away from the line it explains.

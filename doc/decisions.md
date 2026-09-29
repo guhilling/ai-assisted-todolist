@@ -592,7 +592,60 @@ believes whatever it is told about where to send an authenticated request.
 **It throws rather than coercing.** A task whose id is not a task id is a broken response.
 Silently addressing a different task, or dropping the request, would both hide that.
 
-**The root cause is larger and is not fixed here.** `as T` lies about every response, not just
-this field. Validating response shapes properly would mean a schema library and a runtime
-check at each boundary — a real change with a dependency attached, and a separate decision.
-This closes the reachable sink.
+**The root cause is larger and was not fixed here.** `as T` lies about every response, not just
+this field. It is fixed by the next decision; the guard in `taskUrl` stays anyway, because
+`putTask` and `deleteTask` take a `Task` from a caller and a caller can build one.
+
+## Responses are validated against the schema the backend publishes
+
+**Decision.** `api.ts` declares none of the shapes it receives. The types and the runtime
+validators are both generated from `doc/api/schema/*.schema.json` by `npm run generate:api`,
+and every response is checked before anything reads a field off it.
+
+**Why.** `readJson` used to end with `as T`, which TypeScript erases — so every field of every
+response was the right type by claim only. SonarCloud reported one consequence of that as
+client-side request forgery, and the rule's own mapping says what to do about it: CWE-20 and
+ASVS 5.1.4, *validate structured data against a defined schema*. Not encode the output, which
+is what the previous attempt did.
+
+**Why generated rather than a schema written by hand.** A hand-written validator is a second
+description of the same shape, and `api.ts` already had the first: its `TaskState` and
+`TaskImportance` carried comments saying the backend's enums and these "must be changed
+together". That is a convention that depends on being remembered. The backend publishes the
+schemas already (see `architecture.md`), so the frontend can check against the definition
+instead of against a copy of it.
+
+**Why Ajv compiled ahead of time.** Ajv's standalone mode turns a schema into ordinary
+JavaScript at build time, so `ajv` stays a devDependency and `dependencies` remains React
+alone. The generator *asserts* this rather than hoping for it: if the compiled output ever
+needs an `import` at runtime, it fails and says so.
+
+That assertion is why only the three response shapes get validators. Adding the request
+schemas pulls in `maxLength`, whose compiled form needs a helper from `ajv` — and the requests
+do not need checking here anyway, because the backend validates what it is sent and answers
+400.
+
+**Why `format: date` is a regular expression.** `ajv-formats` would be an import at runtime for
+one format. A RegExp is inlined. It checks the shape and the ranges but not the calendar, so
+`2026-02-30` passes — a due date that cannot exist is a backend bug that shows as an odd label,
+not something a malformed response could exploit.
+
+**Why a checked response is copied rather than returned.** `toTask` builds a new object, with
+`id: Number(data.id)`. Past that point the id is a number because a check said so and `Number`
+produced it. It is also where the safe-integer test belongs, because the schema cannot express
+it: `format: int64` describes a range JavaScript has no exact numbers for.
+
+**Extra fields are allowed, deliberately.** The schemas do not set
+`additionalProperties: false`. A backend that starts sending a new field must not break a
+frontend deployed before it; the parsers copy the fields the contract names and ignore the
+rest.
+
+**Rejected: zod or valibot.** Either would mean a runtime dependency and a third description
+of the shape — hand-written schemas, derived types — which is the thing being removed. Ajv
+consumes the published JSON Schema directly.
+
+**Rejected: marking the SonarCloud finding a false positive.** It would have been defensible.
+`Number.isSafeInteger` did reject every hostile value, and the finding is the engine failing to
+recognise a guard rather than a reachable flaw. It was rejected because the rule was pointing
+at something true: the frontend believed whatever it was told about every field, not just this
+one.

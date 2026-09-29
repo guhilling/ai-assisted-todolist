@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "generate:api": "node scripts/generate-api.mjs",
     "lint": "oxlint",
     "check:deps": "node scripts/check-no-prerelease-deps.mjs",
     "preview": "vite preview",
@@ -24,6 +25,7 @@
     "@types/react-dom": "^19.2.7",
     "@vitejs/plugin-react": "^6.1.1",
     "@vitest/coverage-v8": "^5.0.1",
+    "ajv": "^8.20.0",
     "jsdom": "^30.1.1",
     "oxlint": "^1.81.0",
     "typescript": "~7.0.0",

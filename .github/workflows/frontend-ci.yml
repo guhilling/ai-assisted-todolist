@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - 'frontend/**'
+      - 'doc/api/**'
       - '.github/workflows/frontend-ci.yml'
       - 'docker/docker-compose.yml'
   push:
@@ -11,6 +12,7 @@ on:
       - main
     paths:
       - 'frontend/**'
+      - 'doc/api/**'
       - '.github/workflows/frontend-ci.yml'
       - 'docker/docker-compose.yml'
 
@@ -32,6 +34,18 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - name: Install dependencies
         run: npm ci
+      - name: Check the generated wire types and validators are current
+        # Regenerated from the committed schemas under doc/api, so this needs no backend build.
+        # It catches both halves of a drift: a schema change that nobody regenerated against,
+        # and a hand-edit of the generated files.
+        run: |
+          npm run generate:api
+          git add --all --intent-to-add src/generated
+          git diff --exit-code src/generated || {
+            echo "::error::src/generated is out of date. Run: cd frontend && npm run generate:api"
+            exit 1
+          }
+
       - name: Lint frontend
         run: npm run lint
       - name: Run tests
