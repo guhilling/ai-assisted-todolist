@@ -17,7 +17,12 @@ on:
   release:
     types: [published]
   # The site is rebuilt from scratch every run, so a manual run is always safe and is the way
-  # to republish after enabling Pages or after a failed deployment.
+  # to republish after a failed deployment.
+  #
+  # Note what this workflow's triggers mean for reviewing a change to it: none of them is
+  # `pull_request`, so a pull request cannot exercise it. Deploy to Pages in particular only
+  # ever runs on main, which is how this file's first version reached main with a deploy step
+  # that could not succeed. A change here is not demonstrated by a green pull request.
   workflow_dispatch:
 
 permissions:
@@ -47,7 +52,7 @@ jobs:
       - name: Build the site
         run: python3 .github/scripts/build-api-site.py _site
 
-      - uses: actions/upload-pages-artifact@v4
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: _site
 
@@ -63,4 +68,4 @@ jobs:
       url: ${{ steps.deploy.outputs.page_url }}
     steps:
       - id: deploy
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
