@@ -16,7 +16,7 @@ permissions:
 jobs:
   gate:
     name: Release checks
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     outputs:
       version: ${{ steps.version.outputs.version }}
     steps:
@@ -97,7 +97,7 @@ jobs:
   publish:
     name: Publish ${{ matrix.name }} image
     needs: gate
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     strategy:
       matrix:
         include:
@@ -158,9 +158,11 @@ jobs:
   announce:
     name: GitHub Release
     needs: [gate, publish]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: write
+      # To ask pages.yml to rebuild the published site, below.
+      actions: write
     steps:
       - uses: actions/checkout@v7
 
@@ -194,3 +196,13 @@ jobs:
           api-contract/openapi.yaml
           api-contract/openapi.json
           api-contract/schema/*.schema.json
+
+      - name: Publish the new version on Pages
+        env:
+          GH_TOKEN: ${{ github.token }}
+        # On main, not on this tag. The github-pages environment permits deployments from the
+        # branch main alone, so a deploy triggered by the release event -- whose ref is
+        # refs/tags/v1.2.3 -- would be refused before its first step. Dispatching on main instead
+        # keeps every deployment coming from main, and the tag is already in history by now, so
+        # build-api-site.py picks the new version up.
+        run: gh workflow run pages.yml --ref main

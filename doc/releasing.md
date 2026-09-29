@@ -80,10 +80,15 @@ afterwards is what makes the attached spec claim the version it describes.
 The same contract is also on GitHub Pages, at
 [guhilling.github.io/ai-assisted-todolist](https://guhilling.github.io/ai-assisted-todolist/):
 `/api/v1.2.3/` per release, `/api/latest/` for the newest, and `/api/main/` tracking the
-current code. `pages.yml` rebuilds the whole site from git history on every push to `main` and
-on every published release, so nothing is carried over between deployments. It patches
-`info.version` from the tag for a released version; the release assets need no such patch,
-which is why those are the authoritative download.
+current code. `pages.yml` rebuilds the whole site from git history, so nothing is carried over
+between deployments. It patches `info.version` from the tag for a released version; the release
+assets need no such patch, which is why those are the authoritative download.
+
+`announce` asks for that rebuild with `gh workflow run pages.yml --ref main` once the release
+exists — **on `main`, not on the tag.** The `github-pages` environment permits deployments from
+the branch `main` alone, so a rebuild triggered by the release event, whose ref is
+`refs/tags/v1.2.3`, would be refused before its first step. By then the tag is in history, so
+the build sees the new version anyway.
 
 ## `latest` is not moved by a release
 

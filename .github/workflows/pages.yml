@@ -14,15 +14,19 @@ on:
       - 'doc/api/**'
       - '.github/scripts/build-api-site.py'
       - '.github/workflows/pages.yml'
-  release:
-    types: [published]
-  # The site is rebuilt from scratch every run, so a manual run is always safe and is the way
-  # to republish after a failed deployment.
+  # Deliberately *not* `release: published`. A release event runs with github.ref set to
+  # refs/tags/v1.2.3, and the github-pages environment permits deployments from the single branch
+  # main -- so a deploy reached that way is refused before its first step. release.yml asks this
+  # workflow to run on main instead, once the release exists; the tag is already in history by
+  # then, so the build below sees it.
   #
-  # Note what this workflow's triggers mean for reviewing a change to it: none of them is
-  # `pull_request`, so a pull request cannot exercise it. Deploy to Pages in particular only
-  # ever runs on main, which is how this file's first version reached main with a deploy step
-  # that could not succeed. A change here is not demonstrated by a green pull request.
+  # The site is rebuilt from scratch every run, so a manual run is always safe and is the way to
+  # republish after a failed deployment.
+  #
+  # Note what these triggers mean for reviewing a change to this file: none of them is
+  # `pull_request`, so a pull request cannot exercise it, and the deploy job only ever runs on
+  # main. That is how this file's first version reached main with a deploy step that could not
+  # succeed. A change here is not demonstrated by a green pull request.
   workflow_dispatch:
 
 permissions:
@@ -37,7 +41,7 @@ concurrency:
 jobs:
   build:
     name: Assemble the site
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
         with:
@@ -59,7 +63,12 @@ jobs:
   deploy:
     name: Deploy to Pages
     needs: build
-    runs-on: ubuntu-latest
+    # Only ever from main. Deploying a branch makes no sense -- the site is what main and the
+    # release tags say -- and the environment's branch policy refuses it anyway. Skipping rather
+    # than failing is what lets `workflow_dispatch` on a branch build the site to check a change
+    # to this workflow without leaving a red run behind.
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
     permissions:
       pages: write
       id-token: write
