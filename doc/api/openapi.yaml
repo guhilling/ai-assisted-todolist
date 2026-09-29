@@ -1,0 +1,387 @@
+---
+openapi: 3.1.0
+components:
+  schemas:
+    AuthProviderResponse:
+      required:
+      - id
+      - label
+      - available
+      - loginUrl
+      - issuer
+      type: object
+      properties:
+        id:
+          type: string
+          examples:
+          - google
+        label:
+          type: string
+          examples:
+          - Google
+        available:
+          type: boolean
+        loginUrl:
+          type:
+          - string
+          - "null"
+          examples:
+          - /api/auth/login
+        issuer:
+          type: string
+          examples:
+          - https://accounts.google.com
+    AuthProvidersResponse:
+      required:
+      - enabled
+      - providers
+      type: object
+      properties:
+        enabled:
+          type: boolean
+        providers:
+          type: array
+          items:
+            $ref: "#/components/schemas/AuthProviderResponse"
+    CurrentUserResponse:
+      required:
+      - email
+      type: object
+      properties:
+        email:
+          type: string
+          examples:
+          - person@example.com
+        name:
+          type:
+          - string
+          - "null"
+          examples:
+          - Person Example
+        pictureUrl:
+          type:
+          - string
+          - "null"
+          examples:
+          - https://example.com/avatar.jpg
+    LocalDate:
+      type: string
+      format: date
+    TaskCreateRequest:
+      type: object
+      required:
+      - description
+      - dueDate
+      - importance
+      - state
+      properties:
+        description:
+          type: string
+          examples:
+          - Renew the passport
+          pattern: \S
+          maxLength: 255
+        dueDate:
+          type: string
+          examples:
+          - 2026-11-30
+          $ref: "#/components/schemas/LocalDate"
+        importance:
+          type: string
+          examples:
+          - HIGH
+          $ref: "#/components/schemas/TaskImportance"
+        state:
+          type: string
+          examples:
+          - TODO
+          $ref: "#/components/schemas/TaskState"
+    TaskImportance:
+      type: string
+      enum:
+      - LOW
+      - MEDIUM
+      - HIGH
+    TaskResponse:
+      required:
+      - id
+      - description
+      - dueDate
+      - importance
+      - state
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          examples:
+          - 42
+        description:
+          type: string
+          examples:
+          - Renew the passport
+        dueDate:
+          type: string
+          examples:
+          - 2026-11-30
+          $ref: "#/components/schemas/LocalDate"
+        importance:
+          type: string
+          examples:
+          - HIGH
+          $ref: "#/components/schemas/TaskImportance"
+        state:
+          type: string
+          examples:
+          - TODO
+          $ref: "#/components/schemas/TaskState"
+    TaskState:
+      type: string
+      enum:
+      - TODO
+      - WORKING
+      - DONE
+    TaskUpdateRequest:
+      type: object
+      required:
+      - description
+      - dueDate
+      - importance
+      - state
+      properties:
+        description:
+          type: string
+          examples:
+          - Renew the passport
+          pattern: \S
+          maxLength: 255
+        dueDate:
+          type: string
+          examples:
+          - 2026-11-30
+          $ref: "#/components/schemas/LocalDate"
+        importance:
+          type: string
+          examples:
+          - HIGH
+          $ref: "#/components/schemas/TaskImportance"
+        state:
+          type: string
+          examples:
+          - TODO
+          $ref: "#/components/schemas/TaskState"
+  securitySchemes:
+    SecurityScheme:
+      type: openIdConnect
+      openIdConnectUrl: https://accounts.google.com/.well-known/openid-configuration
+      description: Authentication
+tags:
+- name: Authentication
+  description: "The browser side of sign-in, sign-out, and the current session."
+- name: Tasks
+  description: Everything a signed-in user can do to their own tasks.
+paths:
+  /api/auth/login:
+    get:
+      summary: Start or complete sign-in
+      description: "Being @Authenticated is the whole point: an unauthenticated request\
+        \ is intercepted by the OIDC authorization code flow before this method ever\
+        \ runs."
+      tags:
+      - Authentication
+      responses:
+        "303":
+          description: Sign-in succeeded; redirects to the post-login URI.
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+      - SecurityScheme: []
+  /api/auth/logout:
+    get:
+      summary: End the local session
+      description: Expires every session cookie the browser sent; the identity provider's
+        own session is untouched.
+      tags:
+      - Authentication
+      responses:
+        "303":
+          description: Signed out; redirects to the post-login URI.
+  /api/auth/me:
+    get:
+      summary: The signed-in identity
+      description: The only identity the frontend is allowed to know about.
+      tags:
+      - Authentication
+      responses:
+        "200":
+          description: The signed-in user.
+          content:
+            application/json:
+              examples:
+                currentUser:
+                  value:
+                    email: person@example.com
+                    name: Person Example
+                    pictureUrl: https://example.com/avatar.jpg
+        "401":
+          description: No one is signed in.
+        "403":
+          description: Not Allowed
+      security:
+      - SecurityScheme: []
+  /api/auth/providers:
+    get:
+      summary: List the configured sign-in providers
+      description: "Every provider this deployment declares, usable or not, needing\
+        \ no authentication to ask."
+      tags:
+      - Authentication
+      responses:
+        "200":
+          description: The configured providers.
+          content:
+            application/json:
+              examples:
+                providers:
+                  value:
+                    enabled: true
+                    providers:
+                    - id: google
+                      label: Google
+                      available: true
+                      loginUrl: /api/auth/login
+                      issuer: https://accounts.google.com
+  /api/tasks:
+    get:
+      summary: List the caller's tasks
+      description: "Ordered by due date, then id."
+      tags:
+      - Tasks
+      responses:
+        "200":
+          description: The caller's tasks.
+          content:
+            application/json:
+              examples:
+                tasks:
+                  value:
+                  - id: 42
+                    description: Renew the passport
+                    dueDate: 2026-11-30
+                    importance: HIGH
+                    state: TODO
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+      - SecurityScheme: []
+    post:
+      summary: Create a task
+      description: The caller becomes the owner; the id cannot be set.
+      tags:
+      - Tasks
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TaskCreateRequest"
+        required: true
+      responses:
+        "201":
+          description: The task as created.
+          content:
+            application/json:
+              examples:
+                task:
+                  value:
+                    id: 42
+                    description: Renew the passport
+                    dueDate: 2026-11-30
+                    importance: HIGH
+                    state: TODO
+        "400":
+          description: "A field failed validation, for example a blank description\
+            \ or a due date in the past."
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+      - SecurityScheme: []
+  /api/tasks/{id}:
+    put:
+      summary: Replace a task
+      description: Replaces every field of a task owned by the caller.
+      tags:
+      - Tasks
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TaskUpdateRequest"
+        required: true
+      responses:
+        "200":
+          description: The task as updated.
+          content:
+            application/json:
+              examples:
+                task:
+                  value:
+                    id: 42
+                    description: Renew the passport
+                    dueDate: 2026-11-30
+                    importance: HIGH
+                    state: TODO
+        "400":
+          description: A field failed validation.
+        "404":
+          description: No task with this id is owned by the caller.
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+      - SecurityScheme: []
+    delete:
+      summary: Delete a task
+      tags:
+      - Tasks
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "204":
+          description: The task was deleted.
+        "404":
+          description: No task with this id is owned by the caller.
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+      - SecurityScheme: []
+info:
+  title: ai-assisted-todolist API
+  version: 1.0.0-SNAPSHOT
+  description: The task board's REST surface. Every response schema here is published
+    as JSON Schema and checked at runtime by the frontend.
+  license:
+    name: Apache-2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0
+servers:
+- url: /

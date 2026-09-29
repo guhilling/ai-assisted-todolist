@@ -14,6 +14,18 @@ truth; the root `README.md` is a short entry point that links here.
 | [releasing.md](releasing.md) | How a release is cut, what it checks, and what it publishes |
 | [decisions.md](decisions.md) | Decisions taken, why, and what was rejected |
 
+## The API contract
+
+`api/` holds the wire contract as files: the generated OpenAPI 3.1 document, and one
+standalone JSON Schema per type under `api/schema/`. Like the diagrams below, these are
+**generated** — `python3 doc/api/generate.py` reads what the backend build wrote to
+`backend/target/openapi/` — so change the resource or the record, not the file.
+
+Unlike the diagrams, they are enforced rather than trusted: Backend CI regenerates them and
+fails on any difference. They are committed rather than built on demand because the frontend
+generates its response validators from them, and because a change to the wire contract should
+be visible in the pull request that causes it.
+
 ## The diagrams
 
 `images/` holds the two diagrams the root README shows: how the application fits together,

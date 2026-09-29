@@ -118,8 +118,13 @@ public class AuthProviderResource {
      * tell "authentication is switched off here" apart from "this provider is not set up".</p>
      *
      * @param enabled whether authentication is switched on for this deployment at all
+     * <p>Both fields are marked required in the generated schema, which the frontend compiles
+     * into a runtime validator. Neither is ever absent, so this only writes down what the
+     * record already guarantees.</p>
+     *
      * @param providers every configured provider, usable or not, ordered by id
      */
+    @Schema(requiredProperties = {"enabled", "providers"})
     public record AuthProvidersResponse(boolean enabled, List<AuthProviderResponse> providers) {
     }
 
@@ -136,13 +141,19 @@ public class AuthProviderResource {
      * @param label the human-readable name to put on the button
      * @param available whether credentials are configured, and so whether it can be used
      * @param loginUrl where to send the browser to start sign-in, or null when unavailable
+     * <p>Every field is required in the generated schema, {@code loginUrl} among them even
+     * though it is nullable: the frontend compiles that schema into a runtime validator, and
+     * the distinction above only works if an unusable provider still carries the field, set to
+     * null. Required and nullable are different claims, and both are meant here.</p>
+     *
      * @param issuer the provider's issuer URL, empty when it was never configured
      */
+    @Schema(requiredProperties = {"id", "label", "available", "loginUrl", "issuer"})
     public record AuthProviderResponse(
         @Schema(example = "google") String id,
         @Schema(example = "Google") String label,
         boolean available,
-        @Schema(example = "/api/auth/login") String loginUrl,
+        @Schema(example = "/api/auth/login", nullable = true) String loginUrl,
         @Schema(example = "https://accounts.google.com") String issuer
     ) {
     }

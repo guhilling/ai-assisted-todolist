@@ -6,6 +6,7 @@ backend/target/
 .env.*
 !.env.example
 .DS_Store
+__pycache__/
 
 # IDE / editor
 .idea/
