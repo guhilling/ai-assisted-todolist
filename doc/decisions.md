@@ -649,3 +649,48 @@ consumes the published JSON Schema directly.
 recognise a guard rather than a reachable flaw. It was rejected because the rule was pointing
 at something true: the frontend believed whatever it was told about every field, not just this
 one.
+
+## The runner is pinned, so an image migration is a decision
+
+**Decision.** Every `runs-on` in `.github/workflows/` names `ubuntu-24.04` rather than
+`ubuntu-latest` — 13 entries across 10 files.
+
+**Why.** `ubuntu-latest` began annotating every run with notice that the label migrates to
+Ubuntu 26 on 19 October 2026. Riding that would have changed the image under every job on a date
+nobody here chose, and a build that breaks because its runner moved is a confusing failure: the
+commit that reveals it is unrelated to the cause.
+
+**It does not become a manual chore, which was the obvious objection.** Renovate's
+`github-actions` manager — already the one updating `actions/*` here — extracts a runner label as
+a `github-runner` dependency. So `ubuntu-26.04` arrives as a pull request, and because 24 → 26 is
+a *major* update, `.github/renovate.json` makes it wait for a human rather than automerging. The
+pin turns the migration from something that happens into something that is approved.
+
+**Rejected: pinning only the workflow that raised the notice.** The notice was on all 13 entries,
+not on one. Pinning one would have left the other nine files riding a label whose meaning changes,
+and made the pinned one look like an exception with a forgotten reason.
+
+## Pages deploys only from `main`
+
+**Decision.** `pages.yml`'s deploy job is guarded with `if: github.ref == 'refs/heads/main'`, and
+the workflow does **not** subscribe to `release: published`. `release.yml` asks it to run instead,
+with `gh workflow run pages.yml --ref main`, once the release exists.
+
+**Why.** The `github-pages` environment carries a deployment branch policy permitting the single
+branch `main`, so a deployment from any other ref is refused before its first step. Two things
+follow, and the second was a real bug.
+
+A `workflow_dispatch` on a branch — the only way to exercise this workflow, since none of its
+triggers is `pull_request` — used to fail on the deploy job. Now it builds the site and skips the
+deployment, so a change to the workflow can be checked without leaving a red run behind.
+
+**A tag is not `main`.** A `release: published` event runs with `github.ref` set to
+`refs/tags/v1.2.3`, so the release-triggered deployment would have been refused too — the
+published `/api/v1.2.3/` would never have appeared, and nothing would have found that out until
+the first release. Dispatching on `main` keeps every deployment coming from `main`, and by then
+the tag is in history, so `build-api-site.py` sees the new version anyway.
+
+**Why guard the job as well, when the environment already refuses it.** So the refusal is a
+deliberate skip with a reason in the file, rather than a red run whose cause is a setting in the
+repository's web UI.
+
