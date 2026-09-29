@@ -26,6 +26,11 @@ fails on any difference. They are committed rather than built on demand because 
 generates its response validators from them, and because a change to the wire contract should
 be visible in the pull request that causes it.
 
+They are also published, with a rendered reference, at
+[guhilling.github.io/ai-assisted-todolist](https://guhilling.github.io/ai-assisted-todolist/) —
+`/api/main/` for the current code, `/api/v1.2.3/` per release. `.github/scripts/build-api-site.py`
+builds that site, and `releasing.md` says what each release attaches.
+
 ## The diagrams
 
 `images/` holds the two diagrams the root README shows: how the application fits together,
