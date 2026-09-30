@@ -141,14 +141,45 @@ operation for two hostnames.
 automated agent" was enforceable by there being nothing in the prod account to assume. In one
 account it becomes a **policy** guarantee, which is weaker:
 
+## Who may do what
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="images/identities-dark.svg">
+  <img alt="Three identities, in order of how much they may do. A human IAM admin creates the free foundation once: the VPC, subnets, security groups, IAM, the certificate and the DNS records. A role that same human assumes creates and destroys everything that bills: the database, the load balancer and the Fargate service. Below the line, the only unattended identity is the deploy role, assumed from GitHub Actions through OIDC, which may update the service and the site bucket and cannot create, change or delete any infrastructure. Separately, the task roles are what the container runs as rather than an identity anyone assumes, and a read-only user exists for looking at things." src="images/identities-light.svg">
+</picture>
+
+The ordering principle is **what a mistake costs**, which is not the same as what a resource
+does. The foundation is free and effectively permanent, so it is created once and rarely
+touched. The billing resources are the ones torn down and rebuilt whenever an environment is not
+being demoed, which makes that a routine operation rather than a one-off. And redeploying the
+application happens many times a day, unattended — so it gets the identity that can do the least.
+
+The line in the picture is the claim: **the only identity that runs unattended is the one that
+cannot create or destroy anything.** Everything with a bill attached needs a person.
+
 Three technical identities, one job each:
 
 | Identity | May do | Used by |
 | --- | --- | --- |
+| `gunnar` (IAM admin user) | anything, including the free foundation | a person, with MFA. **Not the account root user**, which has no access keys and is used for nothing |
+| `todolist-<env>-lifecycle` (role) | create and destroy what bills: RDS, the load balancer, the Fargate service | a person assuming it. *Planned, not yet built* |
 | `todolist-qa-deploy` (role) | redeploy the qa application; **no infrastructure** | GitHub Actions, unattended |
 | `todolist-prod-deploy` (role) | redeploy the prod application; **no infrastructure** | GitHub Actions, **only from the `prod` environment**, which requires approval |
 | `todolist-monitoring` (user) | read-only, everywhere | dashboards and a local CLI profile; can change nothing |
 
+**Why a separate lifecycle role, rather than just using the admin user.** Standing an environment
+up and tearing it down again is the routine operation in this project's cost model, not a one-off
+— so it is worth having an identity whose blast radius is that operation, and an audit trail that
+says which of the two things a given session was doing. It is also the seam at which a "bring qa
+up" workflow could later exist.
+
+**Be honest about what that role is, though.** Creating an RDS instance and a load balancer needs
+create *and delete* on those services plus `iam:PassRole` for the task roles, which is close to
+administrator for the environment. Scoping it by `env` tag helps and is worth doing, but it is a
+**scoping and audit boundary, not a security boundary**: it will not survive a determined misuse
+the way the deploy role's policy will. The practical consequence is that it stays human-assumed.
+If a qa up/down workflow is ever built, it may use this role because qa is disposable; prod must
+not, because "delete the database" is one API call and the snapshot is the only way back.
 **The split is by lifecycle stage, not by tag.** Infrastructure — the VPC, the database, the load
 balancer, the cluster — is created by a human with their own privileges. The deploy identities
 cannot touch any of it. This is stronger than scoping an apply credential by tag, and for a
