@@ -81,3 +81,16 @@ variable "running" {
   type        = bool
   default     = false
 }
+
+variable "state_bucket" {
+  description = <<-EOT
+    The bucket holding OpenTofu state. The lifecycle role needs read and write on this
+    environment's key, because an apply reads and writes state before it touches anything else.
+
+    It must match the `bucket` in each root's backend.tf, which cannot reference a variable
+    defined here -- a backend block is evaluated before the module exists. The two are kept in
+    step by hand, and a mismatch shows up immediately as a 403 on the first apply.
+  EOT
+  type        = string
+  default     = "todolist-tofu-state"
+}

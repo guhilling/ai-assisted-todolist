@@ -211,6 +211,13 @@ AWS_PROFILE=todolist-qa-lifecycle tofu -chdir=environments/qa apply
 The profile form is the one worth setting up: the SDK prompts for the MFA code and caches the
 session, so this is one extra prompt a day rather than a ritual.
 
+**Adding a resource later: writes stay narrow, reads follow the root.** `tofu apply` refreshes
+the whole root rather than the subset it is about to change, so this role needs a *read* action
+for every resource type in the module, including the ones it can never write. A new resource type
+without one fails the next apply with a 403 naming an API rather than a resource, which is a
+confusing way to find out. The read statement uses wildcards per service so this is usually
+already true.
+
 **What this role is not.** Creating an RDS instance needs create *and* delete on RDS, and
 creating a service needs `iam:PassRole` — together that is close to administrator for the
 environment. It is a scoping and audit boundary, not a security boundary: it gives you a way to

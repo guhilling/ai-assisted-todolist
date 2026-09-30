@@ -60,29 +60,70 @@ resource "aws_iam_role" "lifecycle" {
 }
 
 data "aws_iam_policy_document" "lifecycle" {
-  # Reading is unrestricted, and has to be: Describe and List calls take no resource, so there is
-  # nothing to scope them to. This is also what lets a plan refresh the foundation it does not
-  # own -- it can see the VPC and the security groups, and cannot touch them.
+  # Reading is broad, and has to be. `tofu apply` refreshes the *whole* root, not the subset it
+  # is about to change, so this role must be able to read every resource in the module -- the
+  # VPC, the subnets, the security groups, the other two IAM roles -- even though it can write
+  # none of them. That is the price of the single-root design, and it is the right trade: reads
+  # cannot change anything, and the alternative was a second root and a state migration.
+  #
+  # **The rule for anything added later: writes stay narrow, reads follow the root.** A new
+  # resource type in this module needs its read action here, or the next apply fails with a 403
+  # naming an API rather than a resource. The wildcards below exist so that this is usually
+  # already true.
+  #
+  # Describe and List calls take no resource, so `*` is not a choice made here.
   statement {
-    sid = "ReadEnoughToPlan"
+    sid = "ReadEverythingInTheRootSoApplyCanRefresh"
     actions = [
       "ec2:Describe*",
+      # Get*/List* rather than four named actions: the OIDC provider data source needs
+      # GetOpenIDConnectProvider and ListOpenIDConnectProviders, refreshing a role wants
+      # ListRoleTags, and enumerating them one at a time turns every new resource into a 403.
+      # This is read-only -- it discloses IAM configuration and can change none of it.
+      "iam:Get*",
+      "iam:List*",
       "rds:Describe*",
       "rds:ListTagsForResource",
       "elasticloadbalancing:Describe*",
       "ecs:Describe*",
       "ecs:List*",
       "logs:Describe*",
-      "iam:GetRole",
-      "iam:ListRolePolicies",
-      "iam:GetRolePolicy",
-      "iam:ListAttachedRolePolicies",
       "secretsmanager:DescribeSecret",
       "secretsmanager:ListSecrets",
       "kms:DescribeKey",
       "kms:ListAliases",
     ]
     resources = ["*"]
+  }
+
+  # The state backend. Without this the role cannot run OpenTofu at all: the first thing an apply
+  # does is read the state object, which failed with a bare S3 403 naming no bucket.
+  #
+  # ListBucket is on the bucket and deliberately carries no prefix condition -- the backend lists
+  # to decide whether the state exists, and a wrong prefix condition fails as a 403 that looks
+  # like a missing bucket. Seeing the other environment's key name discloses nothing.
+  statement {
+    sid = "ListTheStateBucket"
+    actions = [
+      "s3:ListBucket",
+      "s3:GetBucketVersioning",
+      "s3:GetBucketLocation",
+    ]
+    resources = ["arn:aws:s3:::${var.state_bucket}"]
+  }
+
+  # Only this environment's key. The qa role cannot read or write prod's state, which is the one
+  # place in this policy where the separation genuinely bites: state holds every attribute of
+  # every resource. The `.tflock` object the S3 backend uses for locking sits under the same
+  # prefix, so it is covered.
+  statement {
+    sid = "ReadAndWriteOnlyThisEnvironmentsState"
+    actions = [
+      "s3:GetObject",
+      "s3:PutObject",
+      "s3:DeleteObject",
+    ]
+    resources = ["arn:aws:s3:::${var.state_bucket}/${var.environment}/*"]
   }
 
   # The database: the single most expensive thing in the environment, and the one whose deletion
