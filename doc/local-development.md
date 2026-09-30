@@ -35,7 +35,7 @@ cd backend
 
 Quarkus Dev Services starts two containers for you and wires the application to them:
 
-- **PostgreSQL** (`postgres:17-alpine`) on a random port, with a fresh schema applied by
+- **PostgreSQL** (`postgres:18-alpine`) on a random port, with a fresh schema applied by
   Liquibase. The data is discarded when dev mode stops.
 - **Keycloak** (`quay.io/keycloak/keycloak:26.4`) on **`http://localhost:8082`**, importing
   `keycloak/realm-todolist.json`. Its admin console is at `http://localhost:8082` with

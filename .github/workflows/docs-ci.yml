@@ -1,20 +1,27 @@
-name: Docs CI
+name: Consistency
 
-# The generated artwork is committed, so it can go stale the moment someone edits the generator
-# without running it -- or hand-edits an SVG, which looks like it worked right up until the next
-# regeneration silently reverts it. This is the counterpart of the `doc/api` drift gate in
-# Backend CI, and it needs nothing but Python's standard library.
+# Checks that nothing here contradicts anything else here. Both jobs guard the same class of
+# problem: a fact stated in more than one place, where the copies drift silently and the first
+# evidence is something unrelated going wrong much later.
+#
+# Neither needs more than Python's standard library.
 
 on:
   pull_request:
     paths:
-      - 'doc/images/**'
+      - 'doc/**'
+      - 'deployment/docker/**'
+      - 'backend/src/main/resources/application.properties'
+      - '.github/scripts/**'
       - '.github/workflows/docs-ci.yml'
   push:
     branches:
       - main
     paths:
-      - 'doc/images/**'
+      - 'doc/**'
+      - 'deployment/docker/**'
+      - 'backend/src/main/resources/application.properties'
+      - '.github/scripts/**'
       - '.github/workflows/docs-ci.yml'
 
 permissions:
@@ -22,10 +29,14 @@ permissions:
 
 jobs:
   images:
+    name: Generated artwork is current
     runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v7
       - name: Check the committed artwork is current
+        # The artwork is committed, so it goes stale the moment someone edits the generator
+        # without running it -- or hand-edits an SVG, which looks like it worked right up until
+        # the next regeneration silently reverts it.
         run: |
           python3 doc/images/generate.py
           # --intent-to-add first, or a brand new diagram would be untracked and so invisible
@@ -35,3 +46,14 @@ jobs:
             echo "::error::doc/images is out of date. Run: python3 doc/images/generate.py"
             exit 1
           }
+
+  postgres-version:
+    name: One PostgreSQL version
+    runs-on: ubuntu-26.04
+    steps:
+      - uses: actions/checkout@v7
+      - name: Check every PostgreSQL pin agrees
+        # Dev Services for %dev and %test, both Compose stacks, and the local-development doc
+        # each name a version. They drifted to 17 and 18 once already, which matters because the
+        # enum-type tests run against whatever Dev Services starts.
+        run: python3 .github/scripts/check-postgres-version.py
