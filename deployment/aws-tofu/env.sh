@@ -59,16 +59,52 @@ fi
 # means it. `status` deliberately does not: reading what the last apply recorded needs nothing
 # but the state bucket, and demanding an MFA-backed role to answer a question is friction with
 # no safety behind it.
-use_lifecycle_profile() {
-    # Already chosen: someone who sets AWS_PROFILE means it.
-    [[ -z "${AWS_PROFILE:-}" ]] || return 0
+# Resolve a profile into actual credentials, rather than handing OpenTofu the profile name.
+#
+# OpenTofu cannot assume a role that requires MFA: its AWS layer has nowhere to ask for the
+# code, and fails with "assume role with MFA enabled, but AssumeRoleTokenProvider session
+# option not set". The AWS CLI *can* ask, and caches the answer for the life of the session, so
+# the CLI does the assuming and passes on the temporary credentials it gets back.
+#
+# AWS_PROFILE is unset afterwards: leaving it set would have OpenTofu resolve the chain a second
+# time and hit the same wall.
+export_credentials_for() {
+    local profile="$1" credentials
 
-    local wanted="todolist-${ENVIRONMENT}-lifecycle"
+    echo "Resolving AWS profile ${profile} (you may be asked for an MFA code)."
+
+    # stderr is deliberately not redirected -- the MFA prompt arrives on it.
+    if ! credentials="$(aws configure export-credentials --profile "$profile" --format env)"; then
+        echo "Could not resolve profile ${profile}." >&2
+        echo "Check ~/.aws/config, or set AWS_PROFILE to something else." >&2
+        exit 1
+    fi
+
+    eval "$credentials"
+    unset AWS_PROFILE
+}
+
+use_lifecycle_profile() {
+    local wanted="${AWS_PROFILE:-todolist-${ENVIRONMENT}-lifecycle}"
 
     if aws configure list-profiles 2>/dev/null | grep -qx "$wanted"; then
-        export AWS_PROFILE="$wanted"
-        echo "Using AWS profile ${wanted} (set AWS_PROFILE to override)."
+        # export-credentials arrived in AWS CLI 2.13. Without it, fall back to the old behaviour
+        # and say what will happen, rather than failing on a missing subcommand.
+        if aws configure export-credentials help >/dev/null 2>&1; then
+            export_credentials_for "$wanted"
+        else
+            export AWS_PROFILE="$wanted"
+            echo "Using AWS profile ${wanted}." >&2
+            echo "Note: this AWS CLI is too old for 'configure export-credentials'." >&2
+            echo "If the profile requires MFA, OpenTofu cannot prompt and will fail." >&2
+        fi
         return 0
+    fi
+
+    # An explicitly chosen profile that does not exist is an error, not something to shrug at.
+    if [[ -n "${AWS_PROFILE:-}" ]]; then
+        echo "AWS_PROFILE is set to ${AWS_PROFILE}, which is not configured." >&2
+        exit 1
     fi
 
     # Not configured -- which is the normal state until the role exists, since the role is part
