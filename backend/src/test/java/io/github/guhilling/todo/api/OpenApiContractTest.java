@@ -5,7 +5,9 @@ import org.junit.jupiter.api.Test;
 
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.startsWith;
 
 /**
@@ -68,6 +70,38 @@ class OpenApiContractTest {
             // Required but nullable: an unconfigured provider has no login URL, and the board
             // relies on being told so rather than on the field going missing.
             .body("components.schemas.AuthProviderResponse.properties.loginUrl.type", hasItem("null"));
+    }
+
+    @Test
+    void shouldBoundEveryStringTheApiReturns() {
+        // The frontend compiles these schemas into its response validators, so a bound written
+        // here is a bound it actually enforces. An unbounded string is one the board would
+        // render however long it arrived.
+        spec()
+            .body("components.schemas.TaskResponse.properties.description.maxLength", equalTo(255))
+            .body("components.schemas.CurrentUserResponse.properties.email.maxLength", equalTo(254))
+            .body("components.schemas.CurrentUserResponse.properties.name.maxLength", equalTo(255))
+            .body("components.schemas.CurrentUserResponse.properties.pictureUrl.maxLength", equalTo(2048))
+            .body("components.schemas.AuthProviderResponse.properties.id.maxLength", equalTo(64))
+            .body("components.schemas.AuthProviderResponse.properties.label.maxLength", equalTo(100))
+            .body("components.schemas.AuthProviderResponse.properties.loginUrl.maxLength", equalTo(2048))
+            .body("components.schemas.AuthProviderResponse.properties.issuer.maxLength", equalTo(2048));
+    }
+
+    @Test
+    void shouldSayThatTheEmailIsAnEmail() {
+        // @Email is runtime-only: SmallRye puts nothing in the schema for it, so the document
+        // says what the string is only because @Schema(format) says so.
+        spec().body("components.schemas.CurrentUserResponse.properties.email.format", equalTo("email"));
+    }
+
+    @Test
+    void shouldDeclareEveryOperationsResponseSchema() {
+        // An Optional<T> component silently costs an operation its schema reference, which is
+        // how the frontend and every other consumer learns what an endpoint returns.
+        spec()
+            .body("paths.'/api/tasks'.get.responses.'200'.content.'application/json'.schema", notNullValue())
+            .body("paths.'/api/auth/me'.get.responses.'200'.content.'application/json'.schema", notNullValue());
     }
 
     @Test

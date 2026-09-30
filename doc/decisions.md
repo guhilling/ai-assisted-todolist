@@ -742,3 +742,52 @@ has for this.
 and the argument for it — only this application writes — is an argument that holds until it
 does not.
 
+## The schema carries the constraints, and every string has a bound
+
+**Decision.** Jakarta Bean Validation annotations on the response records, not only on the
+requests, with these bounds:
+
+| Field | Max | Why that number |
+| --- | --- | --- |
+| `description` | 255 | The column width; the two must agree or a valid value is a 500 |
+| `email` | 254 | RFC 5321: a 64-character local part, an at sign, a domain of up to 255 |
+| display name | 255 | Not stored, so only the schema bounds it |
+| any URL | 2048 | The practical ceiling browsers have long enforced |
+| provider id | 64 | Our own configuration key, and short |
+| provider label | 100 | A word or two on a button |
+
+**Why bound them at all.** The frontend compiles these schemas into the validators it checks
+every response with, so a bound written here is enforced in the browser. Before this, every
+string on the wire was unbounded: `description` could exceed the column that stores it, and
+nothing said an email was an email.
+
+**Why standards-based rather than tighter.** A bound that rejects a legitimate value is worse
+than one that is loose. A provider's picture URL carries size and crop parameters and is
+routinely a few hundred characters; 2048 bounds it without guessing at a provider's habits.
+
+**`@NotNull` replaced the hand-written required lists,** except where required and non-null
+differ. `AuthProviderResponse.loginUrl` is required *and* null for an unusable provider, and
+`available` is a primitive, so that record still lists its required properties on the type.
+
+**Rejected: `Optional<T>` for the optional fields**, which issue #70 asked for. Measured rather
+than assumed: a single `Optional` component costs the *operation* its schema reference. The
+component schema survives, but `/api/auth/me` stops declaring what it returns, so Redoc and any
+generator lose the link. `Optional` is used in service signatures instead, where it helps and
+touches no schema.
+
+**`@Email` turned out to be runtime-only.** SmallRye emits nothing in the schema for it, so the
+document says what the string is through `@Schema(format = "email")`. The frontend registers
+`email` as a regular expression, deliberately as loose as the backend's own constraint: a
+stricter pattern would reject an address the backend had already accepted and stored.
+
+**A side effect worth recording: no operation had declared its response schema.** Every
+`@APIResponse` that specified `@Content` for its examples had suppressed the schema SmallRye
+would otherwise have derived, so the document described five endpoints that returned something
+unspecified. `OpenApiContractTest` now asserts the reference exists.
+
+**The one cost.** `maxLength` makes Ajv's compiled validators call into `ajv/dist/runtime`,
+which the generator previously refused outright. The check now allows Ajv's own helpers, which
+Vite bundles at build time, and still refuses any other package: adding `format` through
+`ajv-formats` would land there, which is why `date` and `email` are regular expressions. `ajv`
+remains a devDependency and `dependencies` is still React alone. The bundle grew by 2.5 kB.
+

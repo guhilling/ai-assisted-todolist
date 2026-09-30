@@ -79,6 +79,36 @@ Don't write backend production code without a test driving it first.
     rejects an unknown state needs a string the enum deliberately does not contain, so there is
     no constant to use.
 
+## Input validation
+
+Constraints are the schema. SmallRye turns Jakarta Bean Validation annotations into the
+published JSON Schema, and the frontend compiles that schema into the validators it checks
+every response with, so an annotation here is enforced in the browser as well as on the wire.
+
+- **`@NotNull` by default.** A component that may legitimately be absent is the exception and
+  says so, with `@Schema(nullable = true)`. On a response record `@NotNull` has no runtime
+  effect -- nothing validates an outgoing object -- but it is what marks the property required
+  in the schema, and it cannot drift from the components the way a
+  `@Schema(requiredProperties = ...)` list on the type can.
+  - The exception is a field that is **required but nullable**, like `AuthProviderResponse`'s
+    `loginUrl`, and a primitive like `available`. `@NotNull` would assert something untrue of
+    the first and nothing of the second, so those records list their required properties on the
+    type instead, with a comment saying why.
+- **Bound every string with `@Size`.** An unbounded string is one the board would render
+  however long it arrived, and for a persisted field it is a 500 waiting for a long value. The
+  bounds are in `doc/decisions.md`; the constant lives next to the field it constrains.
+- **Constrain responses, not only requests.** The backend validates what it is sent, but what
+  makes the *frontend* safe is the schema, and the schema comes from these annotations.
+- **`@Email` is runtime-only.** SmallRye puts nothing in the schema for it, so add
+  `@Schema(format = "email")` when the document should say what the string is. Measured, not
+  assumed.
+- **Do not use `Optional` in a record that appears on the wire.** It costs the operation its
+  schema reference: `content` keeps its examples and loses `schema`, so nothing can tell what
+  the endpoint returns. `Optional` in service and internal signatures is fine and preferred.
+- **An `@APIResponse` with `@Content` must set `schema`.** Specifying `@Content` for the
+  examples alone *suppresses* the schema SmallRye would have derived. Every operation here once
+  lost its response schema that way, and nothing noticed until a test asserted it.
+
 ## Database migrations
 
 - Schema changes are managed with **Liquibase** changelogs, not the current

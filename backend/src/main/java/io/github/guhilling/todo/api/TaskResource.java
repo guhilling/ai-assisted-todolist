@@ -28,6 +28,7 @@ import java.time.LocalDate;
 import java.util.List;
 import org.eclipse.microprofile.jwt.JsonWebToken;
 import org.eclipse.microprofile.openapi.annotations.Operation;
+import org.eclipse.microprofile.openapi.annotations.enums.SchemaType;
 import org.eclipse.microprofile.openapi.annotations.media.Content;
 import org.eclipse.microprofile.openapi.annotations.media.ExampleObject;
 import org.eclipse.microprofile.openapi.annotations.media.Schema;
@@ -69,6 +70,7 @@ public class TaskResource {
     @Operation(summary = "List the caller's tasks", description = "Ordered by due date, then id.")
     @APIResponse(responseCode = "200", description = "The caller's tasks.",
         content = @Content(mediaType = MediaType.APPLICATION_JSON,
+            schema = @Schema(type = SchemaType.ARRAY, implementation = TaskResponse.class),
             examples = @ExampleObject(name = "tasks", value = "[" + EXAMPLE_TASK + "]")))
     public List<TaskResponse> list() {
         User owner = currentUser();
@@ -82,6 +84,7 @@ public class TaskResource {
     @Operation(summary = "Create a task", description = "The caller becomes the owner; the id cannot be set.")
     @APIResponse(responseCode = "201", description = "The task as created.",
         content = @Content(mediaType = MediaType.APPLICATION_JSON,
+            schema = @Schema(implementation = TaskResponse.class),
             examples = @ExampleObject(name = "task", value = EXAMPLE_TASK)))
     @APIResponse(responseCode = "400", description = "A field failed validation, for example a blank "
         + "description or a due date in the past.")
@@ -101,6 +104,7 @@ public class TaskResource {
     @Operation(summary = "Replace a task", description = "Replaces every field of a task owned by the caller.")
     @APIResponse(responseCode = "200", description = "The task as updated.",
         content = @Content(mediaType = MediaType.APPLICATION_JSON,
+            schema = @Schema(implementation = TaskResponse.class),
             examples = @ExampleObject(name = "task", value = EXAMPLE_TASK)))
     @APIResponse(responseCode = "400", description = "A field failed validation.")
     @APIResponse(responseCode = "404", description = "No task with this id is owned by the caller.")
@@ -220,20 +224,22 @@ public class TaskResource {
      * @param description what is to be done
      * @param dueDate when it is due
      * @param importance how much it matters
-     * <p>Every field is marked required in the generated schema, because the frontend compiles
-     * that schema into a runtime validator: a field the spec leaves optional is a field the
-     * frontend would accept as missing. None of them is ever absent here, so declaring it
-     * only writes down what this record already guarantees.</p>
+     * <p>Every component carries {@code @NotNull}, which is what marks it required in the
+     * generated schema. The frontend compiles that schema into a runtime validator, so a field
+     * the spec leaves optional is a field it would accept as missing. None of them is ever
+     * absent here, so the annotations only write down what this record already guarantees --
+     * and being annotations rather than a list on the type, they cannot drift from the
+     * components they describe.</p>
      *
      * @param state where it stands in the workflow
      */
-    @Schema(requiredProperties = {"id", "description", "dueDate", "importance", "state"})
     public record TaskResponse(
-        @Schema(example = "42") Long id,
-        @Schema(example = "Renew the passport") String description,
-        @Schema(example = "2026-11-30") LocalDate dueDate,
-        @Schema(example = "HIGH") TaskImportance importance,
-        @Schema(example = "TODO") TaskState state
+        @NotNull @Schema(example = "42") Long id,
+        @NotNull @Size(max = Task.MAX_DESCRIPTION_LENGTH) @Schema(example = "Renew the passport")
+        String description,
+        @NotNull @Schema(example = "2026-11-30") LocalDate dueDate,
+        @NotNull @Schema(example = "HIGH") TaskImportance importance,
+        @NotNull @Schema(example = "TODO") TaskState state
     ) {
     }
 }

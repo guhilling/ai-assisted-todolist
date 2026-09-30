@@ -1,6 +1,7 @@
 package io.github.guhilling.todo.api;
 
 import io.smallrye.config.ConfigMapping;
+import jakarta.validation.constraints.Size;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
@@ -34,6 +35,15 @@ import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 @Tag(name = "Authentication", description = "The browser side of sign-in, sign-out, and the current session.")
 public class AuthProviderResource {
 
+    /** A provider's configuration key, such as {@code google}. Ours to choose, and short. */
+    private static final int MAX_PROVIDER_ID_LENGTH = 64;
+
+    /** The name that goes on the sign-in button. */
+    private static final int MAX_PROVIDER_LABEL_LENGTH = 100;
+
+    /** The practical ceiling for a URL; see {@code doc/decisions.md} for the published bounds. */
+    private static final int MAX_URL_LENGTH = 2048;
+
     private static final String LOGIN_PATH = "/api/auth/login";
 
     private final AuthProvidersConfig authProvidersConfig;
@@ -47,6 +57,7 @@ public class AuthProviderResource {
         + "deployment declares, usable or not, needing no authentication to ask.")
     @APIResponse(responseCode = "200", description = "The configured providers.",
         content = @Content(mediaType = MediaType.APPLICATION_JSON,
+            schema = @Schema(implementation = AuthProvidersResponse.class),
             examples = @ExampleObject(name = "providers", value = """
             {
               "enabled": true,
@@ -146,15 +157,20 @@ public class AuthProviderResource {
      * the distinction above only works if an unusable provider still carries the field, set to
      * null. Required and nullable are different claims, and both are meant here.</p>
      *
+     * <p>That is also why this record lists its required properties on the type instead of
+     * using {@code @NotNull} on each component, as the other responses do: {@code @NotNull}
+     * would make the field required *and* assert it is never null, and here the second half is
+     * untrue. {@code available} is a primitive, which needs listing for the same reason.</p>
+     *
      * @param issuer the provider's issuer URL, empty when it was never configured
      */
     @Schema(requiredProperties = {"id", "label", "available", "loginUrl", "issuer"})
     public record AuthProviderResponse(
-        @Schema(example = "google") String id,
-        @Schema(example = "Google") String label,
+        @Size(max = MAX_PROVIDER_ID_LENGTH) @Schema(example = "google") String id,
+        @Size(max = MAX_PROVIDER_LABEL_LENGTH) @Schema(example = "Google") String label,
         boolean available,
-        @Schema(example = "/api/auth/login", nullable = true) String loginUrl,
-        @Schema(example = "https://accounts.google.com") String issuer
+        @Size(max = MAX_URL_LENGTH) @Schema(example = "/api/auth/login", nullable = true) String loginUrl,
+        @Size(max = MAX_URL_LENGTH) @Schema(example = "https://accounts.google.com") String issuer
     ) {
     }
 }

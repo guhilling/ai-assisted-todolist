@@ -1,16 +1,18 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "CurrentUserResponse.schema.json",
+  "type": "object",
   "required": [
     "email"
   ],
-  "type": "object",
   "properties": {
     "email": {
       "type": "string",
+      "format": "email",
       "examples": [
         "person@example.com"
-      ]
+      ],
+      "maxLength": 254
     },
     "name": {
       "type": [
@@ -19,7 +21,8 @@
       ],
       "examples": [
         "Person Example"
-      ]
+      ],
+      "maxLength": 255
     },
     "pictureUrl": {
       "type": [
@@ -28,7 +31,8 @@
       ],
       "examples": [
         "https://example.com/avatar.jpg"
-      ]
+      ],
+      "maxLength": 2048
     }
   }
 }

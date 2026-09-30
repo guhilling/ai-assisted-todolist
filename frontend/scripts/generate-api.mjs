@@ -59,6 +59,16 @@ const KNOWN = new Set([
  */
 const DATE = /^\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01])$/;
 
+/**
+ * `format: email`, deliberately looser than it could be.
+ *
+ * This checks responses from our own backend, whose `@Email` constraint accepts anything with
+ * a local part, an at sign and a domain -- `a@b` included. A stricter pattern here would reject
+ * a value the backend considers valid and had already stored, which is a worse failure than
+ * letting an odd-looking address through to be rendered.
+ */
+const EMAIL = /^[^@\s]+@[^@\s]+$/;
+
 /** Reads every schema, keyed by the file name that is also its `$id`. */
 function readSchemas() {
     const names = readdirSync(SCHEMA_DIR).filter((name) => name.endsWith('.schema.json')).sort();
@@ -146,6 +156,7 @@ function writeTypes(schemas) {
 function writeValidators(schemas) {
     const ajv = new Ajv2020({ schemas: [...schemas.values()], code: { source: true, esm: true } });
     ajv.addFormat('date', DATE);
+    ajv.addFormat('email', EMAIL);
     // int64 says the integer fits 64 bits, which JavaScript cannot represent past 2^53 and so
     // cannot check. `type: integer` already rejects a fraction and a string; the safe-integer
     // range is checked where it matters, in api.ts, on the value about to address a task.
@@ -156,9 +167,19 @@ function writeValidators(schemas) {
         Object.fromEntries(VALIDATED.map((name) => [`validate${name}`, `${name}.schema.json`])),
     );
 
-    const needed = [...code.matchAll(/(?:^|[^.\w])(?:require\(|import\s[^;]*?from\s)["']([^"']+)["']/g)];
-    if (needed.length > 0) {
-        fail(`the compiled validators want ${[...new Set(needed.map((match) => match[1]))].join(', ')} at runtime, which would make it a shipped dependency rather than a build-time one. Narrow what is validated, or decide to take the dependency deliberately.`);
+    const needed = [...new Set(
+        [...code.matchAll(/(?:^|[^.\w])(?:require\(|import\s[^;]*?from\s)["']([^"']+)["']/g)]
+            .map((match) => match[1]),
+    )];
+    // Ajv's own helpers are allowed: a keyword like `maxLength` compiles to a call into
+    // ajv/dist/runtime, which Vite resolves and bundles at build time, so ajv stays a
+    // devDependency and nothing new is installed to run the app. Anything else is a package
+    // the browser would need, and is refused -- that is what this check is for. Adding
+    // `format: date` or `email` through ajv-formats would land here, which is why both are
+    // registered above as regular expressions instead.
+    const shipped = needed.filter((module) => !module.startsWith('ajv/dist/runtime/'));
+    if (shipped.length > 0) {
+        fail(`the compiled validators want ${shipped.join(', ')} at runtime, which would make it a shipped dependency rather than a build-time one. Narrow what is validated, or decide to take the dependency deliberately.`);
     }
 
     writeFileSync(

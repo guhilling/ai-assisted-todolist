@@ -14,13 +14,15 @@
       "type": "string",
       "examples": [
         "google"
-      ]
+      ],
+      "maxLength": 64
     },
     "label": {
       "type": "string",
       "examples": [
         "Google"
-      ]
+      ],
+      "maxLength": 100
     },
     "available": {
       "type": "boolean"
@@ -32,13 +34,15 @@
       ],
       "examples": [
         "/api/auth/login"
-      ]
+      ],
+      "maxLength": 2048
     },
     "issuer": {
       "type": "string",
       "examples": [
         "https://accounts.google.com"
-      ]
+      ],
+      "maxLength": 2048
     }
   }
 }

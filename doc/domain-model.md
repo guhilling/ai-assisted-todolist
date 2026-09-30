@@ -33,7 +33,7 @@ plainly better and the trade is made knowingly.
 | Invariant | Enforced by |
 | --- | --- |
 | A task always has an owner | Not-null column and `@ManyToOne` on `Task.owner`; the owner is set from the token, never from the request |
-| A task's description is present and at most 255 characters | `@NotBlank` + `@Size` on both `Task` and `TaskRequest`, and a not-null column |
+| A task's description is present and at most 255 characters | `@NotBlank` + `@Size` on `Task`, on the request records **and on `TaskResponse`**, a not-null column, and `maxLength` in the published schema, which the frontend enforces on every response |
 | A **new** task's due date is today or later | `@FutureOrPresent` on `TaskCreateRequest` only |
 | State and importance are always set | Not-null columns; `state` defaults to `TODO` |
 | A user's email is present and unique | `@NotBlank` and a unique not-null column on `User` |

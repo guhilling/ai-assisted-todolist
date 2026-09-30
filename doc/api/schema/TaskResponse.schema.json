@@ -1,6 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "TaskResponse.schema.json",
+  "type": "object",
   "required": [
     "id",
     "description",
@@ -8,7 +9,6 @@
     "importance",
     "state"
   ],
-  "type": "object",
   "properties": {
     "id": {
       "type": "integer",
@@ -21,7 +21,8 @@
       "type": "string",
       "examples": [
         "Renew the passport"
-      ]
+      ],
+      "maxLength": 255
     },
     "dueDate": {
       "type": "string",
