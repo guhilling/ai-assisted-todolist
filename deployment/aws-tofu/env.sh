@@ -169,13 +169,20 @@ case "$COMMAND" in
         ;;
 
     up|down)
+        # These describe the switch being flipped, not an outcome. The earlier wording asserted
+        # that resources would be created, and said so before the plan had been computed -- so
+        # `up` on an environment with nothing billable yet announced a cost that never came. A
+        # warning that is sometimes untrue is one people stop reading, and this one guards an
+        # apply.
         if [[ "$COMMAND" == "up" ]]; then
             running="true"
-            echo "Planning: bring ${ENVIRONMENT} UP (creates resources that cost money)."
+            echo "Planning: bring ${ENVIRONMENT} UP, by setting running = true."
+            echo "Anything billable appears in the plan below; that plan is the truth, not this line."
         else
             running="false"
-            echo "Planning: take ${ENVIRONMENT} DOWN (destroys the database, load balancer and service)."
-            echo "The foundation -- VPC, subnets, security groups, IAM -- is not touched."
+            echo "Planning: take ${ENVIRONMENT} DOWN, by setting running = false."
+            echo "Anything billable is destroyed. The foundation -- VPC, subnets, security groups,"
+            echo "IAM -- is not touched."
         fi
 
         use_lifecycle_profile
