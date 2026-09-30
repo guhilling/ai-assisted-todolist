@@ -1,10 +1,18 @@
-import { apiBaseUrl, type AuthProvidersResponse } from '../api'
+import type { AuthProvidersResponse } from '../api'
 
 /** Where the project explains itself. Linked rather than inlined, so the board stays a board. */
 export const purposeUrl = 'https://github.com/guhilling/ai-assisted-todolist/blob/main/doc/purpose.md'
 
 type SignedOutProps = {
   providers: AuthProvidersResponse
+  /**
+   * What a provider's `loginUrl` is relative to, passed in rather than read from the wire
+   * module. The component used to import `apiBaseUrl` from `api.ts`, which pulled the whole
+   * wire layer -- generated validators included -- into anything that rendered a sign-in
+   * screen. It is the caller that knows where the API lives, and this is the only fact about
+   * it the component needs.
+   */
+  apiBaseUrl: string
 }
 
 /**
@@ -18,7 +26,7 @@ type SignedOutProps = {
  * Deliberately not an automatic redirect to that single provider. This repository exists to
  * be read, and bouncing every visitor to an identity provider would leave nowhere to say so.
  */
-function SignedOut({ providers }: SignedOutProps) {
+function SignedOut({ providers, apiBaseUrl }: SignedOutProps) {
   const available = providers.providers.filter((provider) => provider.available && provider.loginUrl)
 
   return (

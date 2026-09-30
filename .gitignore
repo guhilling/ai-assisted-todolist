@@ -1,5 +1,6 @@
 frontend/node_modules/
 frontend/dist/
+frontend/dist-ds/
 frontend/coverage/
 backend/target/
 .env
@@ -24,3 +25,10 @@ __pycache__/
 e2e/node_modules/
 e2e/test-results/
 e2e/playwright-report/
+
+# Design-system sync (claude.ai/design)
+.ds-sync/
+ds-bundle/
+.design-sync/.cache/
+.design-sync/learnings/
+.design-sync/node_modules

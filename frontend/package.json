@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "build:ds": "vite build --config vite.ds.config.ts && tsc -p tsconfig.ds.json",
     "generate:api": "node scripts/generate-api.mjs",
     "lint": "oxlint",
     "check:deps": "node scripts/check-no-prerelease-deps.mjs",
@@ -31,5 +32,14 @@
     "typescript": "~7.0.0",
     "vite": "^8.3.0",
     "vitest": "^5.0.1"
+  },
+  "module": "./dist-ds/index.js",
+  "types": "./dist-ds/design-system.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist-ds/design-system.d.ts",
+      "import": "./dist-ds/index.js"
+    },
+    "./styles.css": "./dist-ds/frontend.css"
   }
 }

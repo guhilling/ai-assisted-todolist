@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.app.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "declaration": true,
+    "emitDeclarationOnly": true,
+    "outDir": "dist-ds",
+    "rootDir": "src",
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.ds.tsbuildinfo"
+  },
+  "include": ["src/design-system.ts", "src/components", "src/api.ts", "src/dates.ts", "src/generated"]
+}

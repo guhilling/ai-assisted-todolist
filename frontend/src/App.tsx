@@ -7,6 +7,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import './App.css'
 import {
+  apiBaseUrl,
   authLogoutUrl,
   deleteTask,
   fetchAuthProviders,
@@ -214,7 +215,7 @@ function App() {
             {error}
           </p>
         ) : null}
-        <SignedOut providers={providers} />
+        <SignedOut providers={providers} apiBaseUrl={apiBaseUrl} />
       </main>
     )
   }

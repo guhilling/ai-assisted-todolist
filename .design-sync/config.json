@@ -1,0 +1,10 @@
+{
+  "projectId": "14825462-2aa2-4632-a270-19df50017435",
+  "shape": "package",
+  "pkg": "frontend",
+  "globalName": "TodoBoard",
+  "buildCmd": "npm run build:ds",
+  "tsconfig": "tsconfig.ds.json",
+  "cssEntry": "dist-ds/frontend.css",
+  "readmeHeader": ".design-sync/conventions.md"
+}
