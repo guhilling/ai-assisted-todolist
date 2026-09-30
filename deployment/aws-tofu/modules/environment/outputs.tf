@@ -32,3 +32,8 @@ output "name_prefix" {
   description = "The <project>-<environment> prefix every resource is named with."
   value       = local.name
 }
+
+output "deploy_role_arn" {
+  description = "The role GitHub Actions assumes to deploy this environment. Goes in the workflow, not in a secret."
+  value       = aws_iam_role.deploy.arn
+}

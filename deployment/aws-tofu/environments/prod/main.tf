@@ -51,3 +51,8 @@ output "name_prefix" {
   description = "The prefix every resource in this environment is named with."
   value       = module.environment.name_prefix
 }
+
+output "deploy_role_arn" {
+  description = "The role GitHub Actions assumes to deploy this environment."
+  value       = module.environment.deploy_role_arn
+}

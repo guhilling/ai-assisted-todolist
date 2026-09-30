@@ -26,7 +26,14 @@ Install it with `brew install opentofu`. CI pins 1.12.6; keep the local version 
 modules/environment/     every resource, parameterised
 environments/qa/         a root that instantiates the module
 environments/prod/       the same root, different values
+account/                 the things there is one of per AWS account
 ```
+
+`account/` is a root with resources written directly in it, which the environment roots are
+forbidden from having. The rule exists to stop qa and prod drifting, and does not apply where
+there is exactly one of the thing: a module instantiated twice would have both environments
+fighting over one GitHub OIDC provider. **Apply `account/` first** — the environments look the
+OIDC provider up by URL and cannot plan until it exists.
 
 The environment roots are **byte-identical apart from `terraform.tfvars`**, and
 `check-environments-match.py` fails the build when they are not. That is the whole design: prod is
@@ -90,6 +97,15 @@ aws s3api put-public-access-block \
 
 ## Running it
 
+Once, first:
+
+```sh
+cd deployment/aws-tofu/account
+tofu init && tofu apply
+```
+
+Then an environment:
+
 ```sh
 cd deployment/aws-tofu/environments/qa
 tofu init
@@ -100,6 +116,49 @@ tofu apply
 `prod` is the same commands in the other directory. The state key differs, so the two never see
 each other.
 
+**Apply is a human's job.** There is deliberately no credential that can run it — see *Who may
+deploy* below — so this is run from a profile with the privileges to create infrastructure.
+
+## Who may deploy
+
+Each environment gets an IAM **role**, `todolist-<env>-deploy`, assumed from GitHub Actions
+through OIDC. There is no access key anywhere: a workflow job trades a signed token describing
+itself for credentials that last minutes.
+
+The role may register a task definition, point the one service at it, run the Liquibase task and
+write the site bucket. It may not create, change or delete infrastructure. `doc/decisions.md`
+explains why that split is drawn there; `deploy.tf` carries the reasoning statement by statement,
+including the `iam:PassRole` condition that is what makes the rest of it safe.
+
+To use it from a workflow, take the ARN from the output and give the job the `id-token` permission
+and a GitHub environment matching the AWS one:
+
+```sh
+tofu -chdir=environments/qa output -raw deploy_role_arn
+```
+
+```yaml
+permissions:
+  id-token: write        # without this the job cannot request a token at all
+  contents: read
+environment: qa          # load-bearing: the role's trust condition requires it
+steps:
+  - uses: aws-actions/configure-aws-credentials@v5
+    with:
+      role-to-assume: arn:aws:iam::<account>:role/todolist-qa-deploy
+      aws-region: eu-central-1
+```
+
+The `environment:` line is not decoration. The trust policy requires a token whose subject is
+`repo:<owner>/<repo>:environment:<env>`, and GitHub only mints that when the job declares the
+environment — so for prod, where the environment is protected, AWS refuses the credentials until
+the deployment has been approved.
+
+**Names in the policy come from a `locals` block**, because most of the resources it grants access
+to do not exist yet. Whichever change creates the cluster, the service, the migration task family
+or the site bucket must take its name from that block, or the policy and the resource drift into
+an `AccessDenied` that is very hard to read.
+
 **Check it without credentials and without a backend** — which is what CI does, and what to run
 before opening a pull request:
 
@@ -107,7 +166,7 @@ before opening a pull request:
 cd deployment/aws-tofu
 tofu fmt -recursive -check -diff
 python3 check-environments-match.py
-for e in environments/*/; do tofu -chdir="$e" init -backend=false && tofu -chdir="$e" validate; done
+for r in environments/*/ account/; do tofu -chdir="$r" init -backend=false && tofu -chdir="$r" validate; done
 ```
 
 `validate` catches more than it looks like: it resolves the module, type-checks every variable,

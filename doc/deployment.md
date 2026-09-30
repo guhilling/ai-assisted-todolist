@@ -141,26 +141,50 @@ operation for two hostnames.
 automated agent" was enforceable by there being nothing in the prod account to assume. In one
 account it becomes a **policy** guarantee, which is weaker:
 
-Three IAM **users** — technical identities, one job each:
+Three technical identities, one job each:
 
-| User | May touch | Used by |
+| Identity | May do | Used by |
 | --- | --- | --- |
-| `todolist-qa-deploy` | resources tagged `env=qa`; denied everything tagged `env=prod` | GitHub Actions, unattended |
-| `todolist-prod-deploy` | resources tagged `env=prod` | GitHub Actions, **only from the `prod` environment**, which requires approval |
-| `todolist-monitoring` | read-only, everywhere | dashboards and alarms; can change nothing |
+| `todolist-qa-deploy` (role) | redeploy the qa application; **no infrastructure** | GitHub Actions, unattended |
+| `todolist-prod-deploy` (role) | redeploy the prod application; **no infrastructure** | GitHub Actions, **only from the `prod` environment**, which requires approval |
+| `todolist-monitoring` (user) | read-only, everywhere | dashboards and a local CLI profile; can change nothing |
 
-Two consequences worth being plain about:
+**The split is by lifecycle stage, not by tag.** Infrastructure — the VPC, the database, the load
+balancer, the cluster — is created by a human with their own privileges. The deploy identities
+cannot touch any of it. This is stronger than scoping an apply credential by tag, and for a
+structural reason: a role that could run `tofu apply` needs create *and delete* on everything the
+configuration manages, which is administrator for that environment under a different name. Not
+creating such a credential is a guarantee; constraining one is an argument.
 
-- **These users have long-lived access keys**, held as GitHub Actions secrets, prod's scoped to
-  the protected environment. That is a real difference from a role assumed through OIDC, which
-  issues short-lived credentials and stores nothing. The mitigations are the usual ones — least
-  privilege by tag, scheduled rotation, and an alarm on either key being used from outside
-  Actions — and moving to OIDC later would change nothing else in this plan.
+A deploy is therefore four things and nothing else: register a task definition, point the service
+at it, run the Liquibase task, and sync the frontend artifact into the site bucket.
+
+**The deploy identities are roles assumed through GitHub OIDC, not users with access keys.** A
+workflow job trades a signed token describing itself for credentials that expire in minutes, so
+no secret is stored in GitHub and there is nothing to rotate. The trust condition names the
+repository *and* the GitHub environment, which is what makes the prod approval gate an AWS
+refusal rather than only a GitHub courtesy: GitHub will not mint a token claiming
+`environment:prod` unless the job declares it, and a protected environment holds the job until
+approved.
+
+Three consequences worth being plain about:
+
+- **`ecs:RegisterTaskDefinition` cannot be scoped to a resource.** The call creates one, so there
+  is no ARN or tag for a condition to match, and the qa role can register a revision in prod's
+  family. It is tolerable because a task definition nobody runs is inert and the calls that would
+  run or deploy one are both scoped to this environment — but "denied everything tagged
+  `env=prod`" is not literally achievable, and claiming it would be a wall that is not there.
+- **`iam:PassRole` is the statement that decides whether the rest is safe.** Running a task means
+  handing it a role; granted on `*`, that one permission escalates "redeploy the application" to
+  account administrator in a single step. It names the two task roles for this environment and
+  conditions on `iam:PassedToService = ecs-tasks.amazonaws.com`.
 - **Local credentials are the remaining hole.** An agent running with an administrator profile
   on a developer machine could reach prod, because nothing structural stops it. The mitigation is
   that the profile available locally is itself least-privilege and explicitly denies
   `env=prod`-tagged resources — a discipline, not a wall. Separate accounts were the wall, and
-  they were traded for simplicity.
+  they were traded for simplicity. Note that this hole is *unrelated* to the deploy roles: they
+  cannot reach infrastructure at all, so the risk here is an admin profile, not a leaked
+  deploy credential.
 
 State is one S3 bucket with a key per environment. There is no lock table: OpenTofu's S3
 backend takes the lock from S3 itself, so the bootstrap is one bucket and nothing else.
@@ -181,7 +205,12 @@ The layout is one module holding every resource, instantiated by a thin root per
 modules/environment/     every resource, parameterised
 environments/qa/         a root that instantiates the module
 environments/prod/       the same root, different values
+account/                 the things there is one of per AWS account
 ```
+
+`account/` holds the GitHub OIDC provider and the monitoring user. It exists because those are
+singular: instantiating them from a module applied twice would have the two environments fighting
+over one provider. It is applied **before** either environment, which look the provider up by URL.
 
 **The two roots are identical apart from `terraform.tfvars`** — the state key is
 interpolated from a variable, which Terraform could not do — and

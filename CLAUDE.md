@@ -67,6 +67,12 @@ slows things down.
   `deployment/aws-tofu/check-environments-match.py` fails CI when they are not. Every
   resource belongs in `modules/environment/`; anything that must differ between `qa` and
   `prod` becomes a module variable. Never add a resource to an environment root.
+- `deployment/aws-tofu/account/` is the exception, and is a root with resources in it: it holds
+  what there is one of per AWS account, such as the GitHub OIDC provider. **Apply it before
+  either environment** — they look the OIDC provider up by URL and cannot plan until it exists.
+- **Infrastructure is applied by a human, never by CI.** The deploy identities are OIDC roles
+  scoped to redeploying the application; there is deliberately no credential anywhere that can
+  run `tofu apply`. `doc/decisions.md` explains why that is a guarantee rather than a policy.
 - Never commit secrets (API keys, OIDC client secrets, real credentials,
   etc.). Only local, testing-only placeholder values belong in the repo
   (e.g. `.env.example`-style files or dev/test configuration); real secrets
