@@ -15,10 +15,12 @@ components:
           type: string
           examples:
           - google
+          maxLength: 64
         label:
           type: string
           examples:
           - Google
+          maxLength: 100
         available:
           type: boolean
         loginUrl:
@@ -27,10 +29,12 @@ components:
           - "null"
           examples:
           - /api/auth/login
+          maxLength: 2048
         issuer:
           type: string
           examples:
           - https://accounts.google.com
+          maxLength: 2048
     AuthProvidersResponse:
       required:
       - enabled
@@ -44,26 +48,30 @@ components:
           items:
             $ref: "#/components/schemas/AuthProviderResponse"
     CurrentUserResponse:
+      type: object
       required:
       - email
-      type: object
       properties:
         email:
           type: string
+          format: email
           examples:
           - person@example.com
+          maxLength: 254
         name:
           type:
           - string
           - "null"
           examples:
           - Person Example
+          maxLength: 255
         pictureUrl:
           type:
           - string
           - "null"
           examples:
           - https://example.com/avatar.jpg
+          maxLength: 2048
     LocalDate:
       type: string
       format: date
@@ -103,13 +111,13 @@ components:
       - MEDIUM
       - HIGH
     TaskResponse:
+      type: object
       required:
       - id
       - description
       - dueDate
       - importance
       - state
-      type: object
       properties:
         id:
           type: integer
@@ -120,6 +128,7 @@ components:
           type: string
           examples:
           - Renew the passport
+          maxLength: 255
         dueDate:
           type: string
           examples:
@@ -225,6 +234,8 @@ paths:
                     email: person@example.com
                     name: Person Example
                     pictureUrl: https://example.com/avatar.jpg
+              schema:
+                $ref: "#/components/schemas/CurrentUserResponse"
         "401":
           description: No one is signed in.
         "403":
@@ -253,6 +264,8 @@ paths:
                       available: true
                       loginUrl: /api/auth/login
                       issuer: https://accounts.google.com
+              schema:
+                $ref: "#/components/schemas/AuthProvidersResponse"
   /api/tasks:
     get:
       summary: List the caller's tasks
@@ -272,6 +285,10 @@ paths:
                     dueDate: 2026-11-30
                     importance: HIGH
                     state: TODO
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TaskResponse"
         "401":
           description: Not Authorized
         "403":
@@ -302,6 +319,8 @@ paths:
                     dueDate: 2026-11-30
                     importance: HIGH
                     state: TODO
+              schema:
+                $ref: "#/components/schemas/TaskResponse"
         "400":
           description: "A field failed validation, for example a blank description\
             \ or a due date in the past."
@@ -343,6 +362,8 @@ paths:
                     dueDate: 2026-11-30
                     importance: HIGH
                     state: TODO
+              schema:
+                $ref: "#/components/schemas/TaskResponse"
         "400":
           description: A field failed validation.
         "404":

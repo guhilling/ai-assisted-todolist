@@ -16,13 +16,15 @@
             "type": "string",
             "examples": [
               "google"
-            ]
+            ],
+            "maxLength": 64
           },
           "label": {
             "type": "string",
             "examples": [
               "Google"
-            ]
+            ],
+            "maxLength": 100
           },
           "available": {
             "type": "boolean"
@@ -34,13 +36,15 @@
             ],
             "examples": [
               "/api/auth/login"
-            ]
+            ],
+            "maxLength": 2048
           },
           "issuer": {
             "type": "string",
             "examples": [
               "https://accounts.google.com"
-            ]
+            ],
+            "maxLength": 2048
           }
         }
       },
@@ -63,16 +67,18 @@
         }
       },
       "CurrentUserResponse": {
+        "type": "object",
         "required": [
           "email"
         ],
-        "type": "object",
         "properties": {
           "email": {
             "type": "string",
+            "format": "email",
             "examples": [
               "person@example.com"
-            ]
+            ],
+            "maxLength": 254
           },
           "name": {
             "type": [
@@ -81,7 +87,8 @@
             ],
             "examples": [
               "Person Example"
-            ]
+            ],
+            "maxLength": 255
           },
           "pictureUrl": {
             "type": [
@@ -90,7 +97,8 @@
             ],
             "examples": [
               "https://example.com/avatar.jpg"
-            ]
+            ],
+            "maxLength": 2048
           }
         }
       },
@@ -147,6 +155,7 @@
         ]
       },
       "TaskResponse": {
+        "type": "object",
         "required": [
           "id",
           "description",
@@ -154,7 +163,6 @@
           "importance",
           "state"
         ],
-        "type": "object",
         "properties": {
           "id": {
             "type": "integer",
@@ -167,7 +175,8 @@
             "type": "string",
             "examples": [
               "Renew the passport"
-            ]
+            ],
+            "maxLength": 255
           },
           "dueDate": {
             "type": "string",
@@ -319,6 +328,9 @@
                       "pictureUrl": "https://example.com/avatar.jpg"
                     }
                   }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/CurrentUserResponse"
                 }
               }
             }
@@ -364,6 +376,9 @@
                       ]
                     }
                   }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/AuthProvidersResponse"
                 }
               }
             }
@@ -394,6 +409,12 @@
                         "state": "TODO"
                       }
                     ]
+                  }
+                },
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TaskResponse"
                   }
                 }
               }
@@ -443,6 +464,9 @@
                       "state": "TODO"
                     }
                   }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/TaskResponse"
                 }
               }
             }
@@ -507,6 +531,9 @@
                       "state": "TODO"
                     }
                   }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/TaskResponse"
                 }
               }
             }

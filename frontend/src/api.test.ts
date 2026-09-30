@@ -99,6 +99,25 @@ describe('trusting a response', () => {
     await expect(fetchTasks()).rejects.toThrow(/does not match/i)
   })
 
+  it('refuses a description longer than the column that stores it', async () => {
+    backendReturning([{ ...VALID, description: 'x'.repeat(256) }])
+
+    await expect(fetchTasks()).rejects.toThrow(/does not match/i)
+  })
+
+  it('accepts a description of exactly the maximum length', async () => {
+    const atTheLimit = { ...VALID, description: 'x'.repeat(255) }
+    backendReturning([atTheLimit])
+
+    await expect(fetchTasks()).resolves.toEqual([atTheLimit])
+  })
+
+  it('refuses an email that is not one', async () => {
+    backendReturning({ email: 'not-an-email' })
+
+    await expect(fetchCurrentUser()).rejects.toThrow(/does not match/i)
+  })
+
   it('accepts a field the backend has added and this version knows nothing about', async () => {
     // Forwards compatibility is deliberate: the schemas do not forbid extra properties, so a
     // backend that starts sending a new field does not break a frontend deployed before it.

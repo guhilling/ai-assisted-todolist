@@ -1,8 +1,12 @@
 package io.github.guhilling.todo.api;
 
 import io.github.guhilling.todo.service.GravatarService;
+import io.github.guhilling.todo.model.User;
 import io.quarkus.security.Authenticated;
 import jakarta.inject.Inject;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
@@ -37,6 +41,19 @@ import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 @Path("/api/auth")
 @Tag(name = "Authentication", description = "The browser side of sign-in, sign-out, and the current session.")
 public class AuthResource {
+
+    /**
+     * How long a provider's display name may be. It is not stored, so nothing but the schema
+     * bounds it, and an identity provider is free to send whatever it likes.
+     */
+    private static final int MAX_DISPLAY_NAME_LENGTH = 255;
+
+    /**
+     * The practical ceiling for a URL, which is what browsers have long enforced. Generous on
+     * purpose: a provider's picture URL carries size and crop parameters and is routinely a
+     * few hundred characters.
+     */
+    private static final int MAX_URL_LENGTH = 2048;
 
     private static final String SESSION_COOKIE = "q_session";
 
@@ -113,6 +130,7 @@ public class AuthResource {
         + "to know about.")
     @APIResponse(responseCode = "200", description = "The signed-in user.",
         content = @Content(mediaType = MediaType.APPLICATION_JSON,
+            schema = @Schema(implementation = CurrentUserResponse.class),
             examples = @ExampleObject(name = "currentUser", value = """
                 {
                   "email": "person@example.com",
@@ -147,17 +165,23 @@ public class AuthResource {
      *
      * @param email the email claim of the signed-in user, always present
      * @param name the provider's display name for them, or null when it supplied none
-     * <p>Only {@code email} is required in the generated schema, and the other two are marked
-     * nullable, because the frontend compiles that schema into a runtime validator. They are
-     * sent as null rather than omitted, so a validator that did not allow null would reject a
-     * perfectly ordinary response.</p>
+     * <p>Only {@code email} carries {@code @NotNull}, so only it is required in the generated
+     * schema; the other two are marked nullable, because the frontend compiles that schema into
+     * a runtime validator and they are sent as null rather than omitted. A validator that did
+     * not allow null would reject a perfectly ordinary response.</p>
+     *
+     * <p>{@code @Email} is runtime validation only: SmallRye puts nothing in the schema for it,
+     * which is why {@code format} says so separately. The lengths are the published bounds from
+     * {@code doc/decisions.md}.</p>
      *
      * @param pictureUrl the provider's picture, or a Gravatar for the address, or null for neither
      */
-    @Schema(requiredProperties = {"email"})
     public record CurrentUserResponse(
-        @Schema(example = "person@example.com") String email,
+        @NotNull @Email @Size(max = User.MAX_EMAIL_LENGTH)
+        @Schema(example = "person@example.com", format = "email") String email,
+        @Size(max = MAX_DISPLAY_NAME_LENGTH)
         @Schema(example = "Person Example", nullable = true) String name,
+        @Size(max = MAX_URL_LENGTH)
         @Schema(example = "https://example.com/avatar.jpg", nullable = true) String pictureUrl
     ) {
     }

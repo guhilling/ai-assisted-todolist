@@ -7,7 +7,9 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import java.time.Instant;
 
 /**
@@ -23,11 +25,20 @@ import java.time.Instant;
 @Table(name = "app_user")
 public class User extends PanacheEntityBase {
 
+    /**
+     * The longest address RFC 5321 allows: a 64-character local part, an at sign, and a domain
+     * of up to 255. The column is VARCHAR(255) and so accepts one more, deliberately -- the
+     * database is the looser bound, and validation is what decides.
+     */
+    public static final int MAX_EMAIL_LENGTH = 254;
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     public Long id;
 
     @NotBlank
+    @Email
+    @Size(max = MAX_EMAIL_LENGTH)
     @Column(nullable = false, unique = true)
     public String email;
 
