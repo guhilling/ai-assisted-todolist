@@ -72,46 +72,90 @@ data "aws_iam_policy_document" "lifecycle" {
   # already true.
   #
   # Describe and List calls take no resource, so `*` is not a choice made here.
+  # Reading is broad, and has to be. `tofu apply` refreshes the *whole* root, not the subset it
+  # is about to change, so this role must be able to read every resource in the module -- the
+  # VPC, the subnets, the security groups, the other two IAM roles -- even though it can write
+  # none of them. That is the price of the single-root design, and it is the right trade: reads
+  # cannot change anything, and the alternative was a second root and a state migration.
+  #
+  # **The wildcards are per service and deliberately wide.** Three applies failed in a row on a
+  # missing read action -- ec2:DescribeManagedPrefixLists was granted but the data source also
+  # calls ec2:GetManagedPrefixListEntries, and `ec2:Describe*` does not match `Get*`. Naming
+  # read actions one at a time turns every new resource into a 403 and a round trip, so the
+  # services this project uses get Describe/Get/List wholesale. The security boundary of this
+  # role is its *writes*, which stay narrow; a read cannot change anything.
+  #
+  # The services listed go beyond what the module contains today, on purpose: CloudFront, Route
+  # 53, ACM and the rest are already in the plan, and adding them now costs nothing.
+  #
+  # S3 is the deliberate exception and is NOT wildcarded here -- see the two statements below.
+  # `s3:Get*` would let the qa role read prod's state file, which holds every attribute of every
+  # prod resource. That is the one read worth refusing.
   statement {
     sid = "ReadEverythingInTheRootSoApplyCanRefresh"
     actions = [
+      "acm:Describe*",
+      "acm:Get*",
+      "acm:List*",
+      "application-autoscaling:Describe*",
+      "cloudfront:Get*",
+      "cloudfront:List*",
+      "cloudwatch:Describe*",
+      "cloudwatch:Get*",
+      "cloudwatch:List*",
       "ec2:Describe*",
-      # Get*/List* rather than four named actions: the OIDC provider data source needs
-      # GetOpenIDConnectProvider and ListOpenIDConnectProviders, refreshing a role wants
-      # ListRoleTags, and enumerating them one at a time turns every new resource into a 403.
-      # This is read-only -- it discloses IAM configuration and can change none of it.
-      "iam:Get*",
-      "iam:List*",
-      "rds:Describe*",
-      "rds:ListTagsForResource",
-      "elasticloadbalancing:Describe*",
+      "ec2:Get*",
       "ecs:Describe*",
       "ecs:List*",
+      "elasticloadbalancing:Describe*",
+      "iam:Get*",
+      "iam:List*",
+      "kms:Describe*",
+      "kms:List*",
       "logs:Describe*",
-      "secretsmanager:DescribeSecret",
-      "secretsmanager:ListSecrets",
-      "kms:DescribeKey",
-      "kms:ListAliases",
+      "logs:Get*",
+      "logs:List*",
+      "rds:Describe*",
+      "rds:List*",
+      "route53:Get*",
+      "route53:List*",
+      # Describe and List only: GetSecretValue is a real privilege, and refreshing a secret does
+      # not need it. If a resource ever does, it gets its own statement and its own reason.
+      "secretsmanager:Describe*",
+      "secretsmanager:List*",
+      "servicediscovery:Get*",
+      "servicediscovery:List*",
     ]
     resources = ["*"]
+  }
+
+  # Bucket-level reads for this environment's own buckets, so a refresh can see their
+  # configuration. Bucket-level only: no object actions, which is what keeps the statement below
+  # the only way this role reaches an object.
+  statement {
+    sid = "ReadThisEnvironmentsOwnBucketConfiguration"
+    actions = [
+      "s3:GetBucket*",
+      "s3:GetAccelerateConfiguration",
+      "s3:GetEncryptionConfiguration",
+      "s3:GetLifecycleConfiguration",
+      "s3:GetReplicationConfiguration",
+      "s3:ListBucket",
+    ]
+    resources = [
+      "arn:aws:s3:::${local.site_bucket}",
+      "arn:aws:s3:::${var.state_bucket}",
+    ]
   }
 
   # The state backend. Without this the role cannot run OpenTofu at all: the first thing an apply
   # does is read the state object, which failed with a bare S3 403 naming no bucket.
   #
-  # ListBucket is on the bucket and deliberately carries no prefix condition -- the backend lists
+  # ListBucket on the state bucket carries no prefix condition, deliberately: the backend lists
   # to decide whether the state exists, and a wrong prefix condition fails as a 403 that looks
-  # like a missing bucket. Seeing the other environment's key name discloses nothing.
-  statement {
-    sid = "ListTheStateBucket"
-    actions = [
-      "s3:ListBucket",
-      "s3:GetBucketVersioning",
-      "s3:GetBucketLocation",
-    ]
-    resources = ["arn:aws:s3:::${var.state_bucket}"]
-  }
-
+  # like a missing bucket. It is granted by the bucket-configuration statement above. Seeing the
+  # other environment's key name discloses nothing; reading it would, which is the next
+  # statement's job to prevent.
   # Only this environment's key. The qa role cannot read or write prod's state, which is the one
   # place in this policy where the separation genuinely bites: state holds every attribute of
   # every resource. The `.tflock` object the S3 backend uses for locking sits under the same
