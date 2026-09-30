@@ -93,6 +93,14 @@ compile them into runtime validators for every response it parses. `OpenApiContr
 asserts the version, and asserts that the response records mark their fields required — a
 field the spec left optional would be a field the frontend accepted as missing.
 
+## Deployment
+
+Locally and in the end-to-end stack, httpd serves the built SPA and reverse-proxies `/api`, which
+is what makes the application same-origin. [deployment.md](deployment.md) plans the AWS shape,
+where that job moves to a CloudFront distribution with two origins — S3 for the SPA, the load
+balancer for `/api` — precisely so the same-origin arrangement the OIDC flow depends on survives.
+Nothing in it is built yet.
+
 ## Schema management
 
 Liquibase owns the schema; Hibernate is set to `validate` and never generates DDL. Every

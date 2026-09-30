@@ -12,6 +12,7 @@ truth; the root `README.md` is a short entry point that links here.
 | [local-development.md](local-development.md) | How to get everything running on your machine, and how to test it |
 | [testing.md](testing.md) | The test layers, what each is for, and how to run them |
 | [releasing.md](releasing.md) | How a release is cut, what it checks, and what it publishes |
+| [deployment.md](deployment.md) | The planned AWS shape: what runs where, who may change it, and what it costs |
 | [decisions.md](decisions.md) | Decisions taken, why, and what was rejected |
 
 ## The API contract

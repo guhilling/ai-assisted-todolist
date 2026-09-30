@@ -871,3 +871,56 @@ anything, including the layout the design agent writes around these components.
 `npm run check:conventions` already validates every name it lists, so the new tokens are covered
 by the existing guard without changing it.
 
+## The deployment shape
+
+The plan is `deployment.md`; these are the choices in it that had a real alternative. Nothing is
+built yet — #60 produced the plan deliberately, because several of these are hard to reverse once
+anything exists.
+
+**Separate AWS accounts, not IAM identities in one.** QA and prod are different accounts under
+Organizations, which costs nothing extra. It is what makes "prod is never created by an automated
+agent" enforceable rather than aspirational: the prod account holds no user, no access key and no
+role a local session can assume, so an agent on a developer machine has no path in at all.
+*Rejected: roles and policies inside one account.* Less setup, and one policy mistake away from a
+QA action reaching prod — which is exactly the failure the boundary exists to prevent.
+
+**PostgreSQL on RDS, destroyed with a final snapshot when idle.** The database is managed because
+this stands in for a commercial project and a managed database is part of what it proves.
+*Rejected: stopping the instance.* It still bills storage, and **AWS restarts a stopped instance
+after seven days**, so it does not survive a demo that is idle for weeks. *Rejected: Aurora
+Serverless v2 with scale-to-zero*, which pauses properly and resumes in about fifteen seconds —
+but it is Aurora rather than plain RDS, and the commercial project this represents would use
+plain RDS. *Rejected: PostgreSQL as a container*, the original plan, for the same reason RDS was
+chosen.
+
+**The frontend is static on S3 behind CloudFront, with `/api/*` on the same distribution.** No
+container, no task, no image to patch — which is also part of the answer to #66. The second
+origin is not optional: httpd currently serves the SPA *and* proxies the API, and that
+same-origin arrangement is what the OIDC `redirect_uri` and the session cookie depend on.
+Serving only S3 would break sign-in after deployment, where nothing local would catch it.
+*Rejected: the frontend container on ECS*, which keeps local and production identical at the cost
+of a load balancer target, a task and a base image that needs patching forever.
+
+**GitHub Actions with OIDC, not CodePipeline.** One pipeline rather than two, no long-lived AWS
+keys, and the prod gate is a protected environment. Cost did not decide it — a V1 pipeline is
+about a dollar a month and CodeDeploy is free for ECS. *Rejected: CodePipeline*, which would be
+right if demonstrating AWS-native CI/CD were itself the point, or if blue/green still required
+CodeDeploy. It no longer does: ECS has blue/green natively, which removed the main argument.
+
+**Two deployment paths rather than expand-and-contract.** A release with no migration goes
+blue/green with zero downtime and an instant rollback; a release with a migration takes the
+downtime, because nothing old running means nothing needs to be backward-compatible. The image
+carries the schema it expects and the deployment picks the path. *Rejected: expand-and-contract
+everywhere*, the usual answer, which buys zero-downtime schema changes at the cost of every
+change shipping in two releases — not worth it when downtime is acceptable. *Rejected:
+`migrate-at-start` in production*, which on ECS would migrate from a new task while an old one
+still served.
+
+**Fargate tasks in public subnets, with no NAT gateway.** A NAT gateway is about $33 a month
+before data — more than the database, and the largest line item in an environment that would
+otherwise cost about $50. The tasks take a public IP and are reachable from nothing: the security
+group admits only the load balancer. *Rejected: private subnets with a NAT gateway*, which is
+what a commercial deployment should do and what the plan says to do when this stops being a demo.
+*Rejected: VPC endpoints instead of NAT*, which is cheaper than NAT but still per-endpoint, and
+more moving parts than a demo justifies.
+

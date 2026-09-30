@@ -85,6 +85,7 @@ question, so start from the question rather than the filename.
 | [local-development.md](doc/local-development.md) | *How do I run it, and what do I do when it misbehaves?* |
 | [testing.md](doc/testing.md) | *What is tested where, and which checks can fail my build?* |
 | [releasing.md](doc/releasing.md) | *How do I cut a release, and what does it publish?* |
+| [deployment.md](doc/deployment.md) | *Where will this run on AWS, who may change it, and what does it cost?* |
 | [decisions.md](doc/decisions.md) | *Why is it like this — and what was tried and rejected?* |
 
 `decisions.md` is the one worth reading before changing anything structural: several
