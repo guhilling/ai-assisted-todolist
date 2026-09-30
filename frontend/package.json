@@ -10,6 +10,7 @@
     "generate:api": "node scripts/generate-api.mjs",
     "lint": "oxlint",
     "check:deps": "node scripts/check-no-prerelease-deps.mjs",
+    "check:conventions": "node scripts/check-conventions.mjs",
     "preview": "vite preview",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage"

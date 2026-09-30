@@ -5,6 +5,7 @@ on:
     paths:
       - 'frontend/**'
       - 'doc/api/**'
+      - '.design-sync/conventions.md'
       - '.github/workflows/frontend-ci.yml'
       - 'docker/docker-compose.yml'
   push:
@@ -13,6 +14,7 @@ on:
     paths:
       - 'frontend/**'
       - 'doc/api/**'
+      - '.design-sync/conventions.md'
       - '.github/workflows/frontend-ci.yml'
       - 'docker/docker-compose.yml'
 
@@ -78,6 +80,12 @@ jobs:
             exit 1
           fi
           echo "library build produced its entry, stylesheet and declarations"
+
+      - name: Check the conventions header still names things that exist
+        # conventions.md is inlined into the design agent's system prompt, so a class
+        # renamed in App.css leaves the agent writing a name that styles nothing. The
+        # page still renders -- that is why nothing else catches it.
+        run: npm run check:conventions
 
       - name: Build frontend container image
         run: docker build -f docker/Dockerfile -t todo-frontend:test .
