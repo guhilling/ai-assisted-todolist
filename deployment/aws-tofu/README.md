@@ -181,6 +181,20 @@ Where each value comes from:
 | `mfa_serial` | `aws iam list-mfa-devices --query 'MFADevices[0].SerialNumber' --output text` |
 | `region` | The `region` in that environment's `terraform.tfvars` |
 
+**OpenTofu cannot prompt for the MFA code**, and fails with *"assume role with MFA enabled, but
+AssumeRoleTokenProvider session option not set"* if it is handed the profile name. So `env.sh`
+does not hand it one: it asks the AWS CLI to resolve the profile — the CLI *can* prompt, and
+caches the answer for the life of the session — and passes OpenTofu the temporary credentials
+that come back. This needs AWS CLI 2.13 or newer for `aws configure export-credentials`; on an
+older one the script falls back to the profile name and says that MFA will not work.
+
+Doing it by hand, if you ever want to:
+
+```sh
+eval "$(aws configure export-credentials --profile todolist-qa-lifecycle --format env)"
+tofu -chdir=environments/qa apply
+```
+
 **You do not have to look any of these up.** Running `env.sh up` or `env.sh down` without the
 profile configured prints this stanza with your own account id, MFA serial and region already
 filled in, and then carries on with whatever credentials are active.
