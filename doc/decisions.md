@@ -871,3 +871,109 @@ anything, including the layout the design agent writes around these components.
 `npm run check:conventions` already validates every name it lists, so the new tokens are covered
 by the existing guard without changing it.
 
+## The deployment shape
+
+The plan is `deployment.md`; these are the choices in it that had a real alternative. Nothing is
+built yet — #60 produced the plan deliberately, because several of these are hard to reverse once
+anything exists.
+
+**One AWS account, with IAM roles and resource tags.** This reverses an earlier decision to use
+separate accounts. The hosted zone and the certificates live in the existing account, and
+splitting turned every DNS record and every ACM validation into a cross-account operation — for
+two hostnames.
+
+**What it costs is stated rather than glossed.** With separate accounts, "prod is never created
+by an automated agent" was enforceable because the prod account held nothing to assume. In one
+account it is a policy: three technical IAM users, one per job, scoped by resource tag — a QA
+deployer denied everything tagged `env=prod`, a prod deployer whose key lives in a GitHub
+environment that requires human approval, and a read-only user for monitoring. The hole that remains is local credentials — an agent
+running with an administrator profile could reach prod, and only a least-privilege local profile
+stops it. That is a discipline, not a wall. The wall was the account boundary, and it was traded
+for not having to cross an account boundary to write two DNS records.
+
+A second consequence: with no per-account bill, cost attribution moves to tags, and an untagged
+resource becomes invisible to both environment budgets.
+
+**PostgreSQL on RDS, destroyed with a final snapshot when idle.** The database is managed because
+this stands in for a commercial project and a managed database is part of what it proves.
+*Rejected: stopping the instance.* It still bills storage, and **AWS restarts a stopped instance
+after seven days**, so it does not survive a demo that is idle for weeks. *Rejected: Aurora
+Serverless v2 with scale-to-zero*, which pauses properly and resumes in about fifteen seconds —
+but it is Aurora rather than plain RDS, and the commercial project this represents would use
+plain RDS. *Rejected: PostgreSQL as a container*, the original plan, for the same reason RDS was
+chosen.
+
+**The frontend is static on S3 behind CloudFront, with `/api/*` on the same distribution.** No
+container, no task, no image to patch — which is also part of the answer to #66. The second
+origin is not optional: httpd currently serves the SPA *and* proxies the API, and that
+same-origin arrangement is what the OIDC `redirect_uri` and the session cookie depend on.
+Serving only S3 would break sign-in after deployment, where nothing local would catch it.
+*Rejected: the frontend container on ECS*, which keeps local and production identical at the cost
+of a load balancer target, a task and a base image that needs patching forever.
+
+**GitHub Actions, not CodePipeline.** One pipeline rather than two, and the prod gate is a
+protected environment. It runs as a **technical IAM user per environment** rather than assuming a
+role through OIDC, which is what was asked for. The cost is **long-lived access keys** held as
+GitHub secrets, where OIDC would have issued short-lived credentials and stored nothing; least
+privilege by tag, rotation, and an alarm on use from outside Actions are the mitigations, and
+moving to OIDC later changes nothing else in the plan. Cost did not decide the CodePipeline
+question — a V1 pipeline is
+about a dollar a month and CodeDeploy is free for ECS. *Rejected: CodePipeline*, which would be
+right if demonstrating AWS-native CI/CD were itself the point, or if blue/green still required
+CodeDeploy. It no longer does: ECS has blue/green natively, which removed the main argument.
+
+**Two deployment paths rather than expand-and-contract.** A release with no migration goes
+blue/green with zero downtime and an instant rollback; a release with a migration takes the
+downtime, because nothing old running means nothing needs to be backward-compatible. The image
+carries the schema it expects and the deployment picks the path. *Rejected: expand-and-contract
+everywhere*, the usual answer, which buys zero-downtime schema changes at the cost of every
+change shipping in two releases — not worth it when downtime is acceptable. *Rejected:
+`migrate-at-start` in production*, which on ECS would migrate from a new task while an old one
+still served.
+
+**The load balancer stays, and is internal.** It is the largest fixed cost in an environment
+(~$16 a month, idle or not), so it was challenged. It stays because **ECS blue/green shifts
+traffic between two target groups**, which is a load balancer's job — there is no
+load-balancer-free form of it, and demonstrating blue/green is one of the reasons this
+deployment exists. *Rejected: a Network Load Balancer*, the same price per hour, and worse here —
+ECS adds a ten-minute delay to the blue/green lifecycle stages with an NLB and supports only
+all-at-once shifting. *Rejected: CloudFront straight to the ECS service*, which VPC origins do
+not support and which a changing task IP would break anyway. *Rejected: an API Gateway HTTP API
+with a VPC link* — which is cheaper, but by less than it appears. **A VPC link is $0.01/hour,
+about $7.20 a month, charged at zero traffic**, so the comparison is $16 against $7.20 and the
+saving is about nine dollars an environment, not sixteen. That nine dollars buys the blue/green
+demonstration, and it only applies while an environment is up — which, by design, QA usually is
+not. The real lever is destroying idle environments, and it destroys the load balancer too.
+
+*Rejected: one load balancer shared by both environments* with host-based rules. It would halve
+the cost only while both are up, which is the uncommon case, and it cannot be destroyed with
+either environment — so it needs a third Terraform stack and couples the two together.
+
+It is **internal**, reached through a CloudFront VPC origin, so it has no public address.
+*Rejected: a public load balancer with a shared secret header* that CloudFront sends and the
+load balancer checks — the older pattern, which works but leaves a bypass that depends on a
+secret staying secret. VPC origins remove the public address instead, at no cost.
+
+**Custom hostnames under an existing zone.** `todolist-qa.cloud.hilling.de` and
+`todolist.cloud.hilling.de`, as alias records to each environment's distribution. This is what
+makes the Google OIDC redirect URIs knowable before the environments exist, which matters
+because that configuration is manual and cannot be Terraformed. One consequence is worth
+recording rather than rediscovering: **the ACM certificate must live in `us-east-1`**, whatever
+region the environment uses, because CloudFront accepts certificates from nowhere else.
+
+They are **alias records, not `CNAME`s**. Route 53 does not charge for queries to an alias record
+pointing at an AWS resource, while a `CNAME` is $0.40 per million — and a `CNAME` to another name
+in the same zone is billed as two queries, because the resolver asks twice. The amounts are
+trivial at demo traffic; the point is that the alias is free, needs one lookup instead of two,
+and is the only one of the two that works at a zone apex. *Rejected: CloudFront's own domain*,
+which would have worked and would have left the sign-in configuration undoable until after the
+first deployment.
+
+**Fargate tasks in public subnets, with no NAT gateway.** A NAT gateway is about $33 a month
+before data — more than the database, and the largest line item in an environment that would
+otherwise cost about $50. The tasks take a public IP and are reachable from nothing: the security
+group admits only the load balancer. *Rejected: private subnets with a NAT gateway*, which is
+what a commercial deployment should do and what the plan says to do when this stops being a demo.
+*Rejected: VPC endpoints instead of NAT*, which is cheaper than NAT but still per-endpoint, and
+more moving parts than a demo justifies.
+
