@@ -74,16 +74,35 @@ use_lifecycle_profile() {
     # Not configured -- which is the normal state until the role exists, since the role is part
     # of the foundation an administrator applies. Exporting it anyway produced "failed to get
     # shared config profile", an error naming something the reader never set up.
+    #
+    # The stanza below is filled in from the caller's own account rather than left as angle
+    # brackets. A snippet someone has to go and look three values up for is a snippet they have
+    # to ask about, which is exactly what happened to the version that did.
+    local account mfa region source_profile
+    account="$(aws sts get-caller-identity --query Account --output text 2>/dev/null || true)"
+    mfa="$(aws iam list-mfa-devices --query 'MFADevices[0].SerialNumber' --output text 2>/dev/null || true)"
+    region="$(sed -n 's/^ *region *= *"\([^"]*\)".*/\1/p' "${ROOT}/terraform.tfvars" 2>/dev/null | head -1)"
+    source_profile="${AWS_DEFAULT_PROFILE:-default}"
+
+    [[ -n "$account" ]] || account="<account-id>"
+    [[ -n "$region" ]] || region="<region>"
+    # `--output text` prints None for a null, and a user may genuinely have no MFA device.
+    if [[ -z "$mfa" || "$mfa" == "None" ]]; then
+        mfa="# no MFA device found -- the lifecycle role requires one"
+    fi
+
     cat >&2 <<NOTE
 Note: no AWS profile named ${wanted} is configured, so this runs as whatever
 credentials are already active. That is expected before the role exists.
 
-Once it does, add this to ~/.aws/config so up and down run with least privilege:
+Once it does -- it is created when this environment is applied -- add this to
+~/.aws/config so up and down run with least privilege:
 
   [profile ${wanted}]
-  role_arn       = <the lifecycle_role_arn output of environments/${ENVIRONMENT}>
-  source_profile = default
-  mfa_serial     = arn:aws:iam::<account>:mfa/<your-user>
+  role_arn       = arn:aws:iam::${account}:role/${wanted}
+  source_profile = ${source_profile}
+  mfa_serial     = ${mfa}
+  region         = ${region}
 
 NOTE
 }

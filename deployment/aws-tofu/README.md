@@ -166,14 +166,29 @@ more simply, by setting up a named profile:
 ```ini
 # ~/.aws/config
 [profile todolist-qa-lifecycle]
-role_arn       = arn:aws:iam::<account>:role/todolist-qa-lifecycle
+role_arn       = arn:aws:iam::<account-id>:role/todolist-qa-lifecycle
 source_profile = default
-mfa_serial     = arn:aws:iam::<account>:mfa/<your-user>
+mfa_serial     = arn:aws:iam::<account-id>:mfa/<your-iam-user>
+region         = eu-central-1
 ```
 
-The role has to exist before the profile is useful, and it is part of the foundation — so the
-order is: apply `account/`, apply the environment, then add this stanza. `env.sh` says so if the
-profile is missing rather than failing on it.
+Where each value comes from:
+
+| Field | Value |
+| --- | --- |
+| `role_arn` | `arn:aws:iam::<account-id>:role/todolist-<env>-lifecycle`. The name is the environment prefix plus `-lifecycle`, so it is predictable; `tofu -chdir=environments/qa output -raw lifecycle_role_arn` prints it once applied |
+| `source_profile` | The profile holding your own long-term key — the one `aws sts get-caller-identity` answers as today. Usually `default` |
+| `mfa_serial` | `aws iam list-mfa-devices --query 'MFADevices[0].SerialNumber' --output text` |
+| `region` | The `region` in that environment's `terraform.tfvars` |
+
+**You do not have to look any of these up.** Running `env.sh up` or `env.sh down` without the
+profile configured prints this stanza with your own account id, MFA serial and region already
+filled in, and then carries on with whatever credentials are active.
+
+The role has to exist before the profile is useful, and it is created when the environment is
+applied — so the order is: apply `account/`, apply the environment, then add this stanza. The
+profile is per environment, so `prod` gets its own with `prod` in both the profile name and the
+role ARN.
 
 ```sh
 AWS_PROFILE=todolist-qa-lifecycle tofu -chdir=environments/qa apply
