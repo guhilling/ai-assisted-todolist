@@ -11,13 +11,23 @@ services and a real account boundary over the cheapest possible demo.
 Two environments, `qa` and `prod`, in **separate AWS accounts**. Each holds the same thing:
 
 ```
-            CloudFront ──── /*      ──> S3          (the built SPA)
-                 │
-                 └───────── /api/*  ──> ALB ──> ECS Fargate ──> RDS PostgreSQL
-                                                  (the Quarkus backend)
+  todolist.cloud.hilling.de
+  todolist-qa.cloud.hilling.de
+            │
+            ▼
+       CloudFront ──── /*      ──> S3                    (the built SPA)
+            │
+            └───────── /api/*  ──> ALB ──> ECS Fargate ──> RDS PostgreSQL
+                                (internal)   (the Quarkus backend)
 ```
 
 One distribution, two origins. That is not a detail — see the next section.
+
+The load balancer is **internal**: CloudFront reaches it through a [VPC
+origin](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/private-content-vpc-origins.html),
+so it has no public address at all. That closes the hole where someone finds the load balancer's
+hostname and bypasses CloudFront entirely, and it costs nothing — it replaces the older trick of
+having CloudFront send a shared secret header that the load balancer checks.
 
 Google is the identity provider in both environments, as it already is in the `prod` profile.
 Keycloak stays local-only.
@@ -47,6 +57,66 @@ work, which means **the Compose stack is no longer the same shape as production*
 `local-development.md` claim that it is "the stack for checking the deployment shape" needs
 qualifying when this is built.
 
+## Why there is a load balancer at all
+
+It is the most expensive fixed item here (~$16/month, whether or not anyone uses it), so it is
+worth saying why it stays.
+
+**ECS blue/green needs one.** The deployment works by shifting traffic between **two target
+groups**, which is a load balancer's job — there is no load-balancer-free form of it. Blue/green
+is something this deployment is meant to demonstrate, so the load balancer follows from that
+choice rather than from habit.
+
+The alternatives were checked rather than assumed:
+
+- **A Network Load Balancer** costs about the same per hour, and is worse here: ECS adds a
+  ten-minute delay to the blue/green lifecycle stages with an NLB, and only all-at-once shifting
+  is supported.
+- **CloudFront straight to the ECS service.** Not possible: VPC origins support load balancers
+  and EC2 instances, not ECS services, and a task's IP changes on every deployment.
+- **API Gateway HTTP API with a VPC link.** Has no hourly charge and would genuinely be cheaper —
+  but it cannot do the two-target-group traffic shift, so it costs the blue/green demonstration.
+
+**The saving comes from destroying the environment, not from avoiding the load balancer.** An
+environment that is up costs about $50 a month; one that has been `terraform destroy`-ed costs
+cents. That is the lever, and it is why QA is disposable by design.
+
+## Names and certificates
+
+The zone `cloud.hilling.de` already exists in Route 53.
+
+| Environment | Host |
+| --- | --- |
+| QA | `todolist-qa.cloud.hilling.de` |
+| Prod | `todolist.cloud.hilling.de` |
+
+Each is an A and AAAA alias record pointing at that environment's CloudFront distribution;
+alias records to CloudFront are not charged.
+
+**Two things that catch people, both worth knowing before building:**
+
+- **The certificate must be in `us-east-1`.** CloudFront only accepts ACM certificates from that
+  region, whatever region everything else lives in. The backend's own certificate, if the
+  internal load balancer ever needs one, is separate and regional.
+- **The hosted zone is in one account and the environments are in others.** Creating the alias
+  record and answering the ACM DNS validation challenge therefore cross an account boundary.
+  Either the environment's Terraform assumes a narrow role in the zone-owning account that may
+  only write records under its own name, or `cloud.hilling.de` delegates a subdomain per
+  environment with `NS` records. The narrow role is fewer moving parts for two names; the
+  delegation is cleaner if this grows.
+
+### The Google OIDC configuration
+
+Fixed hostnames make these knowable now, so they can be set up once the environments exist.
+The backend uses `quarkus.oidc.authentication.redirect-path=/api/auth/callback`, and `/api/*`
+routes through the same distribution, so the authorised redirect URIs are:
+
+- `https://todolist-qa.cloud.hilling.de/api/auth/callback`
+- `https://todolist.cloud.hilling.de/api/auth/callback`
+
+This is manual configuration in the Google console and cannot be Terraformed. The client id and
+secret then go into that environment's Secrets Manager.
+
 ## Accounts and the IAM boundary
 
 Three identities, and the boundary is an account boundary rather than a policy:
@@ -75,10 +145,13 @@ Per environment, identical unless noted:
 
 | Resource | Why |
 | --- | --- |
-| VPC, two public subnets in two AZs | Two AZs because ALB requires it, not for availability |
+| VPC, two public subnets in two AZs | Two AZs because the load balancer requires it, not for availability |
 | **No NAT gateway, no private subnets** | See *Cost* — this is the single biggest saving |
 | Security groups | ALB open on 443; ECS open only to the ALB; RDS open only to ECS |
-| ALB + ACM certificate | TLS terminates here; the only inbound path to the backend |
+| **Internal** ALB, two target groups | Blue/green shifts traffic between them; reachable only from CloudFront |
+| Two private subnets | For the load balancer only. No NAT gateway: nothing in them makes outbound calls |
+| ACM certificate in **us-east-1** | CloudFront accepts certificates from that region only |
+| Route 53 alias records | In the account that owns `cloud.hilling.de`, written cross-account |
 | ECS cluster, one Fargate service | The Quarkus backend, 0.5 vCPU / 1 GB |
 | ECS task for migrations | Same image, different command; see *The database* |
 | RDS PostgreSQL, single-AZ, `db.t4g.micro` | HA is explicitly not required |
@@ -162,11 +235,12 @@ One environment, running continuously:
 
 | | Estimate/month | Note |
 | --- | --- | --- |
-| ALB | ~$16 | Fixed, whether or not anyone uses it |
+| ALB | ~$16 | Fixed, whether or not anyone uses it. Unavoidable while blue/green is demonstrated |
 | Fargate 0.5 vCPU / 1 GB | ~$18 | |
 | RDS `db.t4g.micro` single-AZ | ~$12 | Plus ~$2 for 20 GB gp3 |
 | S3 + CloudFront | ~$1 | At demo traffic |
 | CloudWatch, Secrets Manager | ~$2 | |
+| Route 53 | $0 | The zone already exists; alias records are free |
 | **NAT gateway** | **~$33 — avoided** | Would have been the largest line item |
 | **Total** | **~$50** | ~$83 with a NAT gateway |
 
@@ -183,8 +257,6 @@ purpose — an environment left up is exactly what the alarm is for.
   requirement.
 - **Autoscaling.** Demo traffic does not need it, and a fixed task count makes the cost
   predictable.
-- **A custom domain.** CloudFront's own domain is enough; adding Route 53 is a small change when
-  it is wanted.
 - **Multi-region, WAF, private subnets.** Each is a real commercial requirement and none is
   demonstrated by having it here.
 
@@ -192,10 +264,12 @@ purpose — an environment left up is exactly what the alarm is for.
 
 Honest gaps, because a plan that hides them is worse than one that names them:
 
-- **ECS-native blue/green** is used rather than CodeDeploy. It is recent; confirm it covers
-  bake time and automatic rollback on alarm before relying on it.
+- **ECS-native blue/green** is used rather than CodeDeploy, and it is confirmed to need two
+  target groups on one load balancer. What is not yet confirmed is its bake-time and
+  automatic-rollback-on-alarm behaviour.
 - **`eu-central-1` pricing** — every figure above is a US East rate.
-- **CloudFront to a private ALB origin** needs the ALB reachable from CloudFront; confirm whether
-  that requires a public ALB with a restricted security group or the VPC origin feature.
-- **Google OIDC redirect URIs** must list the CloudFront domain of each environment, which is
-  manual configuration in the Google console and cannot be Terraformed.
+- **VPC origins require an internet gateway attached to the VPC** — present here as a marker
+  that the VPC may receive CloudFront traffic, not as a route. Confirm it behaves that way with
+  the load balancer in a private subnet and the tasks in public ones.
+- **Cross-account Route 53 writes**: whether the narrow assumed role or subdomain delegation is
+  less friction in practice, including for ACM's DNS validation.

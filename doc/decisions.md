@@ -916,6 +916,34 @@ change shipping in two releases — not worth it when downtime is acceptable. *R
 `migrate-at-start` in production*, which on ECS would migrate from a new task while an old one
 still served.
 
+**The load balancer stays, and is internal.** It is the largest fixed cost in an environment
+(~$16 a month, idle or not), so it was challenged. It stays because **ECS blue/green shifts
+traffic between two target groups**, which is a load balancer's job — there is no
+load-balancer-free form of it, and demonstrating blue/green is one of the reasons this
+deployment exists. *Rejected: a Network Load Balancer*, the same price per hour, and worse here —
+ECS adds a ten-minute delay to the blue/green lifecycle stages with an NLB and supports only
+all-at-once shifting. *Rejected: CloudFront straight to the ECS service*, which VPC origins do
+not support and which a changing task IP would break anyway. *Rejected: an API Gateway HTTP API
+with a VPC link*, genuinely cheaper with no hourly charge, and unable to do the two-target-group
+shift — it would have cost the blue/green demonstration to save sixteen dollars. The saving
+comes instead from destroying the environment when it is idle, which is already the design.
+
+It is **internal**, reached through a CloudFront VPC origin, so it has no public address.
+*Rejected: a public load balancer with a shared secret header* that CloudFront sends and the
+load balancer checks — the older pattern, which works but leaves a bypass that depends on a
+secret staying secret. VPC origins remove the public address instead, at no cost.
+
+**Custom hostnames under an existing zone.** `todolist-qa.cloud.hilling.de` and
+`todolist.cloud.hilling.de`, as alias records to each environment's distribution. This is what
+makes the Google OIDC redirect URIs knowable before the environments exist, which matters
+because that configuration is manual and cannot be Terraformed. Two consequences are worth
+recording rather than rediscovering: **the ACM certificate must live in `us-east-1`**, whatever
+region the environment uses, because CloudFront accepts certificates from nowhere else; and the
+hosted zone sits in one account while the environments sit in others, so writing the record and
+answering ACM's validation challenge **cross an account boundary**. *Rejected: CloudFront's own
+domain*, which would have worked and would have left the sign-in configuration undoable until
+after the first deployment.
+
 **Fargate tasks in public subnets, with no NAT gateway.** A NAT gateway is about $33 a month
 before data — more than the database, and the largest line item in an environment that would
 otherwise cost about $50. The tasks take a public IP and are reachable from nothing: the security
