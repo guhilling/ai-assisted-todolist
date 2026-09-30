@@ -119,6 +119,46 @@ each other.
 **Apply is a human's job.** There is deliberately no credential that can run it — see *Who may
 deploy* below — so this is run from a profile with the privileges to create infrastructure.
 
+## Who may create and destroy what bills
+
+Each environment gets `todolist-<env>-lifecycle`, a role a **person** assumes with MFA. It may
+create and delete the database, the load balancer and the running service, and nothing else — no
+`ec2:Create*`, no `iam:CreateRole`, no S3, no CloudFront, no Route 53. The foundation is applied
+by an administrator and this role cannot touch it.
+
+To use it, first exchange your long-term key for an MFA session, then assume:
+
+```sh
+aws sts get-session-token \
+  --serial-number arn:aws:iam::<account>:mfa/<user> \
+  --token-code <from your authenticator>
+```
+
+Export those three values, then point OpenTofu at the role by adding to the provider block or,
+more simply, by setting up a named profile:
+
+```ini
+# ~/.aws/config
+[profile todolist-qa-lifecycle]
+role_arn       = arn:aws:iam::<account>:role/todolist-qa-lifecycle
+source_profile = gunnar
+mfa_serial     = arn:aws:iam::<account>:mfa/gunnar
+```
+
+```sh
+AWS_PROFILE=todolist-qa-lifecycle tofu -chdir=environments/qa apply
+```
+
+The profile form is the one worth setting up: the SDK prompts for the MFA code and caches the
+session, so this is one extra prompt a day rather than a ritual.
+
+**What this role is not.** Creating an RDS instance needs create *and* delete on RDS, and
+creating a service needs `iam:PassRole` — together that is close to administrator for the
+environment. It is a scoping and audit boundary, not a security boundary: it gives you a way to
+work without administrator and a log saying you chose to. That is why it is assumed by a person
+and, for prod, never handed to unattended automation. Deleting the database is one API call and
+the snapshot is the only way back.
+
 ## Who may deploy
 
 Each environment gets an IAM **role**, `todolist-<env>-deploy`, assumed from GitHub Actions

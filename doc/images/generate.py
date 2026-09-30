@@ -207,12 +207,12 @@ def identities(p: Palette) -> str:
         label(380, rows[0] + box_h / 2 - 10, "creates", p),
 
         box(left_x, rows[1], left_w, box_h,
-            ["todolist-<env>-lifecycle", "a role gunnar assumes", "planned, not yet built"], p,
-            dashed=True),
+            ["todolist-<env>-lifecycle", "a role gunnar assumes", "MFA required"], p),
         box(right_x, rows[1], right_w, box_h,
             ["Everything that bills",
              "RDS instance \u00b7 load balancer \u00b7 Fargate service",
              "destroyed again when nothing is being demoed"], p, dashed=True),
+        # The right half stays dashed: the role exists, the resources it will create do not yet.
         arrow([(left_x + left_w, rows[1] + box_h / 2), (right_x, rows[1] + box_h / 2)], p,
               dashed=True),
         label(380, rows[1] + box_h / 2 - 10, "creates \u00b7 destroys", p),

@@ -56,3 +56,8 @@ output "deploy_role_arn" {
   description = "The role GitHub Actions assumes to deploy this environment."
   value       = module.environment.deploy_role_arn
 }
+
+output "lifecycle_role_arn" {
+  description = "The role a person assumes, with MFA, to create or destroy what bills in this environment."
+  value       = module.environment.lifecycle_role_arn
+}

@@ -22,10 +22,10 @@
   <text x="725.0" y="109.0" text-anchor="middle" font-size="11.5" font-weight="400" fill="#9aa5b1">IAM · ACM certificate · Route 53 records</text>
   <polyline points="290,85.0 470,85.0" fill="none" stroke="#9aa5b1" stroke-width="1.6" marker-end="url(#arrow)"/>
   <text x="380" y="75.0" text-anchor="middle" font-size="11.5" fill="#9aa5b1">creates</text>
-  <rect x="40" y="180" width="250" height="90" rx="10" fill="#1e242a" stroke="#39424b" stroke-width="1.5" stroke-dasharray="5 4"/>
+  <rect x="40" y="180" width="250" height="90" rx="10" fill="#1e242a" stroke="#39424b" stroke-width="1.5"/>
   <text x="165.0" y="211.0" text-anchor="middle" font-size="13" font-weight="600" fill="#e6eaee">todolist-&lt;env&gt;-lifecycle</text>
   <text x="165.0" y="230.0" text-anchor="middle" font-size="11.5" font-weight="400" fill="#9aa5b1">a role gunnar assumes</text>
-  <text x="165.0" y="249.0" text-anchor="middle" font-size="11.5" font-weight="400" fill="#9aa5b1">planned, not yet built</text>
+  <text x="165.0" y="249.0" text-anchor="middle" font-size="11.5" font-weight="400" fill="#9aa5b1">MFA required</text>
   <rect x="470" y="180" width="510" height="90" rx="10" fill="#1e242a" stroke="#39424b" stroke-width="1.5" stroke-dasharray="5 4"/>
   <text x="725.0" y="211.0" text-anchor="middle" font-size="13" font-weight="600" fill="#e6eaee">Everything that bills</text>
   <text x="725.0" y="230.0" text-anchor="middle" font-size="11.5" font-weight="400" fill="#9aa5b1">RDS instance · load balancer · Fargate service</text>

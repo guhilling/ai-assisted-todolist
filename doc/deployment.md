@@ -162,7 +162,7 @@ Three technical identities, one job each:
 | Identity | May do | Used by |
 | --- | --- | --- |
 | `gunnar` (IAM admin user) | anything, including the free foundation | a person, with MFA. **Not the account root user**, which has no access keys and is used for nothing |
-| `todolist-<env>-lifecycle` (role) | create and destroy what bills: RDS, the load balancer, the Fargate service | a person assuming it. *Planned, not yet built* |
+| `todolist-<env>-lifecycle` (role) | create and destroy what bills: RDS, the load balancer, the Fargate service | a person assuming it, **with MFA** |
 | `todolist-qa-deploy` (role) | redeploy the qa application; **no infrastructure** | GitHub Actions, unattended |
 | `todolist-prod-deploy` (role) | redeploy the prod application; **no infrastructure** | GitHub Actions, **only from the `prod` environment**, which requires approval |
 | `todolist-monitoring` (user) | read-only, everywhere | dashboards and a local CLI profile; can change nothing |
@@ -172,6 +172,9 @@ up and tearing it down again is the routine operation in this project's cost mod
 — so it is worth having an identity whose blast radius is that operation, and an audit trail that
 says which of the two things a given session was doing. It is also the seam at which a "bring qa
 up" workflow could later exist.
+
+It is assumed rather than attached, and the trust policy requires MFA — so using it is a
+deliberate act with a timestamp, which is most of the point. Sessions last an hour.
 
 **Be honest about what that role is, though.** Creating an RDS instance and a load balancer needs
 create *and delete* on those services plus `iam:PassRole` for the task roles, which is close to
@@ -307,6 +310,23 @@ unapproved run.
 The SPA deploys as `aws s3 sync` of a **release artifact**, the same way `openapi.yaml` is already
 attached to each release. Rolling the frontend back is re-syncing the previous release, which is
 why the build has to be an artifact rather than something rebuilt at deploy time.
+
+## Open: how an environment is torn down
+
+The lifecycle role exists; the mechanism it drives does not yet, and there are two candidates.
+They differ in a way worth settling before RDS lands, because changing afterwards means migrating
+state.
+
+- **A `billable` flag.** One root, as now, with the database, load balancer and service behind
+  `count = var.billable ? 1 : 0`. Tearing down is then `tofu apply` with the flag flipped —
+  a parameter change, exactly like the difference between qa and prod, and reviewable as a plan.
+  Nothing moves, nothing migrates.
+- **A separate root and state for the billable layer.** `tofu destroy` in that root is then
+  unambiguous and cannot reach the foundation. Stronger isolation, but the environment roots have
+  already been applied, so their state keys would have to move.
+
+The flag fits the existing design better and costs nothing to adopt; the separate root is the
+safer one if `tofu destroy` is ever going to be typed in a hurry.
 
 ## The database
 

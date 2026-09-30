@@ -37,3 +37,8 @@ output "deploy_role_arn" {
   description = "The role GitHub Actions assumes to deploy this environment. Goes in the workflow, not in a secret."
   value       = aws_iam_role.deploy.arn
 }
+
+output "lifecycle_role_arn" {
+  description = "The role a person assumes, with MFA, to create or destroy what bills in this environment."
+  value       = aws_iam_role.lifecycle.arn
+}
