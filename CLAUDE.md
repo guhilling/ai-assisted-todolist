@@ -85,6 +85,19 @@ slows things down.
 - The project is licensed **Apache-2.0** (`LICENSE`, verbatim). There are
   deliberately no per-file license headers — see `doc/decisions.md`.
 
+## Issues
+
+- A piece of work Claude should finish without a conversation first is written with the
+  **Story** issue form (`.github/ISSUE_TEMPLATE/story.yml`): what and why, **done when**,
+  constraints, **decisions — yours or mine**, out of scope.
+- **Prefer the outcome to the mechanism.** A named mechanism that turns out not to work costs a
+  round trip; an outcome does not. Issue #70 asked for `Optional<T>`, which breaks the OpenAPI
+  document, so the ask became a question instead of a change.
+- **Say which decisions are delegated.** Ask-don't-guess above means an unmarked decision
+  becomes a question and the run stops there, which is right — but most decisions do not need
+  Gunnar, and saying so is what lets a story be finished in one go.
+- Anything that is not a story — a bug, a question, a note to self — uses the blank form.
+
 ## Development methodology
 
 - **TDD for implementation.** Write a failing test first, then the minimal

@@ -1,0 +1,73 @@
+name: Story
+description: A piece of work Claude should be able to pick up and finish without a conversation first.
+labels: ["story"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        The four fields below are what turned round trips into autonomous runs on this project.
+        Fill in what you know — an empty field is better than an invented one, because a wrong
+        constraint is followed and a missing one gets asked about.
+
+  - type: textarea
+    id: intent
+    attributes:
+      label: What and why
+      description: >
+        The outcome you want and the reason for it. Prefer the problem to the mechanism: a
+        mechanism that turns out not to work costs a round trip, an outcome does not. Issue #70
+        asked for `Optional<T>`; it breaks the OpenAPI document, and the ask became a question.
+      placeholder: |
+        Responses carry unbounded strings, so the frontend renders whatever arrives and nothing
+        says an email is an email.
+    validations:
+      required: true
+
+  - type: textarea
+    id: done
+    attributes:
+      label: Done when
+      description: >
+        How we will both know it is finished — checkable if possible. A command, a query, a
+        green check. "Fix the security issues" left open whether marking a false positive
+        counts; "SonarCloud reports zero open vulnerabilities on main" would not have.
+      placeholder: |
+        - `./mvnw verify` green with a test that fails without the change
+        - The published schema carries a maxLength for every string
+    validations:
+      required: true
+
+  - type: textarea
+    id: constraints
+    attributes:
+      label: Constraints
+      description: >
+        The boundaries that hold whatever the implementation turns out to be — dependencies,
+        compatibility, performance, house style. These survive contact with the code when a
+        named mechanism does not.
+      placeholder: |
+        - No new runtime dependency in the frontend bundle
+        - The wire format must not change
+        - This is a demo; prefer the clear version over the clever one
+
+  - type: textarea
+    id: decisions
+    attributes:
+      label: Decisions — yours or mine
+      description: >
+        Name the choices you want to make yourself, and say the rest are delegated. This is the
+        single most useful field: `CLAUDE.md` says to stop and ask rather than guess, so an
+        unmarked decision becomes a question and the run stops there.
+      placeholder: |
+        Mine: the actual length limits, and whether we take a new dependency.
+        Yours: naming, file layout, how it is tested.
+
+  - type: textarea
+    id: out-of-scope
+    attributes:
+      label: Out of scope
+      description: >
+        What not to touch, and anything you have already considered and rejected. Saves the
+        proposal coming back to you.
+      placeholder: |
+        Don't restructure the components; don't change the release workflow.
