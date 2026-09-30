@@ -101,7 +101,8 @@ the backend build enforces them.
 - `frontend/` — React + TypeScript SPA, published as `quay.io/ghilling/todo-frontend`
 - `e2e/` — Playwright browser tests driving the whole stack through a real sign-in
 - `keycloak/` — realm export with the local test accounts, shared by Dev Services and CI
-- `docker/` — Compose stacks; where AWS deployment material will land
+- `deployment/` — everything that deploys the app: `docker/` for the Compose stacks,
+  `aws-tofu/` for the AWS infrastructure as OpenTofu
 - `doc/` — project documentation, including `doc/api/`: the generated wire contract
 - `.github/workflows/` — CI for backend, frontend, end-to-end, SonarCloud and publication
 

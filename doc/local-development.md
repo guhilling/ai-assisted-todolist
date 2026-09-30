@@ -88,7 +88,7 @@ The backend image is built by Jib rather than from a Dockerfile, so build it fir
 
 ```bash
 cd backend && ./mvnw package -DskipTests -Dquarkus.container-image.build=true && cd ..
-docker compose -f docker/docker-compose.yml up --build
+docker compose -f deployment/docker/docker-compose.yml up --build
 ```
 
 - frontend: `http://localhost:3000`
@@ -99,7 +99,7 @@ To point this stack at real Google credentials, copy `.env.example` to `.env`, f
 and set `QUARKUS_OIDC_ENABLED=true` and `TODO_AUTH_ENABLED=true`. `.env` is git-ignored and
 must stay that way.
 
-Tear down with `docker compose -f docker/docker-compose.yml down`, or `down -v` to discard
+Tear down with `docker compose -f deployment/docker/docker-compose.yml down`, or `down -v` to discard
 the database volume as well.
 
 > **One-off: an existing volume from before the baseline changelog will not start.** The three
@@ -108,7 +108,7 @@ the database volume as well.
 > volume once and let it rebuild:
 >
 > ```bash
-> docker compose -f docker/docker-compose.yml down -v
+> docker compose -f deployment/docker/docker-compose.yml down -v
 > ```
 >
 > Nothing else needs doing: `quarkus:dev` and the test suite use Dev Services containers that
@@ -123,7 +123,7 @@ have to exist first:
 cd backend && ./mvnw package -DskipTests -Dquarkus.container-image.build=true && cd ..
 cd frontend && docker build -f docker/Dockerfile -t todo-frontend:e2e . && cd ..
 
-docker compose -f docker/docker-compose.e2e.yml up -d --wait
+docker compose -f deployment/docker/docker-compose.e2e.yml up -d --wait
 
 cd e2e && npm ci && npx playwright install chromium && npx playwright test
 ```
@@ -134,7 +134,7 @@ Here the app is on `http://localhost:3000` with sign-in enabled against Keycloak
 Always tear it down when finished — it binds the same ports as the other stacks:
 
 ```bash
-docker compose -f docker/docker-compose.e2e.yml down -v
+docker compose -f deployment/docker/docker-compose.e2e.yml down -v
 ```
 
 See [testing.md](testing.md) for what the suite covers and how to run it interactively.
@@ -173,8 +173,8 @@ refuses to boot.
 image store; add `--load` to the `docker build` command.
 
 **Port 8080, 8082, 5173 or 3000 is already in use.** Usually one of the other stacks is
-still up. `docker compose -f docker/docker-compose.e2e.yml down -v` and
-`docker compose -f docker/docker-compose.yml down`, then check for a stray `quarkus:dev`.
+still up. `docker compose -f deployment/docker/docker-compose.e2e.yml down -v` and
+`docker compose -f deployment/docker/docker-compose.yml down`, then check for a stray `quarkus:dev`.
 
 **Signed in, but every request comes back 401.** Usually a `q_session` cookie left over
 from a previous run whose Keycloak realm no longer exists — the cookie decrypts to tokens

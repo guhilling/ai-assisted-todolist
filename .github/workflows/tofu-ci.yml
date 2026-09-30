@@ -1,0 +1,59 @@
+name: OpenTofu CI
+
+# Everything here runs without AWS credentials: formatting, the environment-sameness rule, and
+# `validate`, which resolves the module and checks every resource against the provider's own
+# schema. There is deliberately no `plan` -- that needs credentials and a state lock, and a plan
+# on a pull request would describe changes to a live environment rather than check the code.
+
+on:
+  pull_request:
+    paths:
+      - 'deployment/aws-tofu/**'
+      - '.github/workflows/tofu-ci.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'deployment/aws-tofu/**'
+      - '.github/workflows/tofu-ci.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  tofu:
+    runs-on: ubuntu-26.04
+    defaults:
+      run:
+        working-directory: deployment/aws-tofu
+    steps:
+      - uses: actions/checkout@v7
+      - uses: opentofu/setup-opentofu@v1
+        with:
+          # Pinned, and matching what is installed locally, so a formatting or validation
+          # difference is never just a version difference -- `fmt` output has changed between
+          # minor releases before now.
+          tofu_version: '1.12.6'
+          # The wrapper replaces the CLI with a script that also sets step outputs, which
+          # swallows exit codes inside the `for` loop below.
+          tofu_wrapper: false
+
+      - name: Check formatting
+        run: tofu fmt -recursive -check -diff
+
+      - name: Check the environments still differ only in their values
+        # The point of the module-plus-thin-root layout is that prod is a parameter change. This
+        # is what stops it quietly becoming a second codebase.
+        run: python3 check-environments-match.py
+
+      - name: Validate every environment
+        # -backend=false skips the S3 backend, which would need credentials. It still downloads
+        # the provider, which is what makes the validation meaningful: the resource schemas come
+        # from the provider, not from OpenTofu.
+        run: |
+          for environment in environments/*/; do
+            echo "::group::${environment}"
+            tofu -chdir="${environment}" init -backend=false -input=false
+            tofu -chdir="${environment}" validate
+            echo "::endgroup::"
+          done

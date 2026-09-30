@@ -43,7 +43,7 @@ services:
 
   frontend:
     build:
-      context: ../frontend
+      context: ../../frontend
       dockerfile: docker/Dockerfile
     depends_on:
       - backend

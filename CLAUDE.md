@@ -59,8 +59,14 @@ slows things down.
 - Code-level documentation is Javadoc and TSDoc in the code itself, saying what
   a type is *for*. The conventions are in `backend/CLAUDE.md` and
   `frontend/CLAUDE.md`; on the backend they are enforced by Checkstyle.
-- Deployment artifacts — the Docker Compose stacks, and the AWS material that
-  will follow — live in `/docker`, not at the repository root.
+- Deployment artifacts live under `/deployment`, never at the repository root:
+  `deployment/docker/` holds the Compose stacks and `deployment/aws-tofu/` the AWS
+  infrastructure. The AWS code is **OpenTofu**, not Terraform — the binary is `tofu`,
+  and `deployment/aws-tofu/README.md` says what that changes.
+- **The two AWS environment roots are byte-identical apart from `terraform.tfvars`**, and
+  `deployment/aws-tofu/check-environments-match.py` fails CI when they are not. Every
+  resource belongs in `modules/environment/`; anything that must differ between `qa` and
+  `prod` becomes a module variable. Never add a resource to an environment root.
 - Never commit secrets (API keys, OIDC client secrets, real credentials,
   etc.). Only local, testing-only placeholder values belong in the repo
   (e.g. `.env.example`-style files or dev/test configuration); real secrets

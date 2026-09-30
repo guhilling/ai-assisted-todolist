@@ -1,0 +1,34 @@
+output "vpc_id" {
+  description = "The environment's VPC."
+  value       = aws_vpc.this.id
+}
+
+output "public_subnet_ids" {
+  description = "Where the ECS tasks run."
+  value       = aws_subnet.public[*].id
+}
+
+output "private_subnet_ids" {
+  description = "Where the internal load balancer lives."
+  value       = aws_subnet.private[*].id
+}
+
+output "alb_security_group_id" {
+  description = "Attach the load balancer to this."
+  value       = aws_security_group.alb.id
+}
+
+output "tasks_security_group_id" {
+  description = "Attach the ECS service to this."
+  value       = aws_security_group.tasks.id
+}
+
+output "database_security_group_id" {
+  description = "Attach the RDS instance to this."
+  value       = aws_security_group.database.id
+}
+
+output "name_prefix" {
+  description = "The <project>-<environment> prefix every resource is named with."
+  value       = local.name
+}

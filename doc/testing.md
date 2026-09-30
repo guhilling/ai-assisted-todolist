@@ -115,7 +115,7 @@ redirects, real httpd proxying, real cookies, real persistence.
 
 ```bash
 # build both images, then:
-docker compose -f docker/docker-compose.e2e.yml up -d --wait
+docker compose -f deployment/docker/docker-compose.e2e.yml up -d --wait
 cd e2e && npx playwright test
 ```
 

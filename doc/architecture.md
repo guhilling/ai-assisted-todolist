@@ -149,8 +149,9 @@ unused, two of them JDK 17 based, and all four were deleted.
 The frontend image is a two-stage Dockerfile at `frontend/docker/Dockerfile`: build with
 Node, serve with httpd.
 
-`docker/` holds the Compose stacks that wire these together —
-[local-development.md](local-development.md) describes both. AWS is the intended
-deployment target, and `docker/` is where that material will land once the target is
-chosen. Nothing about the application assumes it: it is a stateless container reading its
-configuration from the environment, plus a PostgreSQL it connects to by URL.
+`deployment/` holds everything that deploys the app. `deployment/docker/` has the Compose
+stacks that wire the pieces together — [local-development.md](local-development.md)
+describes both — and `deployment/aws-tofu/` has the AWS infrastructure, written in
+OpenTofu; [deployment.md](deployment.md) is the plan it implements. Nothing about the
+application assumes AWS: it is a stateless container reading its configuration from the
+environment, plus a PostgreSQL it connects to by URL.

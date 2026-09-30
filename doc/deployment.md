@@ -52,7 +52,8 @@ The error-response rule replaces httpd's `FallbackResource /index.html`, which i
 deep link work. The cache rule on `/api/*` is what stops a logged-in user's response being
 served to someone else — the failure mode worth being most careful about.
 
-The frontend container image is no longer deployed anywhere. It stays in `docker/` for local
+The frontend container image is no longer deployed anywhere. It stays in `deployment/docker/`
+for local
 work, which means **the Compose stack is no longer the same shape as production**; the
 `local-development.md` claim that it is "the stack for checking the deployment shape" needs
 qualifying when this is built.
@@ -86,7 +87,7 @@ Also checked and not chosen:
   and EC2 instances, and a task's IP changes on every deployment.
 - **One load balancer shared by both environments**, with host-based rules. It would halve the
   cost *while both are up*, which is the uncommon case, and it cannot be destroyed with either
-  environment — so it needs a third Terraform stack and couples the two environments together.
+  environment — so it needs a third OpenTofu stack and couples the two environments together.
   Not worth it for a saving that mostly does not apply.
 
 ## Names and certificates
@@ -126,7 +127,7 @@ routes through the same distribution, so the authorised redirect URIs are:
 - `https://todolist-qa.cloud.hilling.de/api/auth/callback`
 - `https://todolist.cloud.hilling.de/api/auth/callback`
 
-This is manual configuration in the Google console and cannot be Terraformed. The client id and
+This is manual configuration in the Google console and cannot be automated here. The client id and
 secret then go into that environment's Secrets Manager.
 
 ## One account, and what that costs in guarantees
@@ -161,7 +162,32 @@ Two consequences worth being plain about:
   `env=prod`-tagged resources — a discipline, not a wall. Separate accounts were the wall, and
   they were traded for simplicity.
 
-Terraform state is one bucket with a key per environment, and a lock table.
+State is one S3 bucket with a key per environment. There is no lock table: OpenTofu's S3
+backend takes the lock from S3 itself, so the bootstrap is one bucket and nothing else.
+
+## Where the code is
+
+`deployment/aws-tofu/` implements this, and its `README.md` covers running it — bootstrapping
+the state bucket, the credential-free checks that CI runs, and the provider lock file.
+
+**The tool is OpenTofu, not Terraform.** The language is identical, the binary is `tofu`, and
+two of its features are used deliberately: a backend block may interpolate a variable, so the
+environment roots share one `backend.tf`; and the S3 backend takes its lock from S3, so there
+is no DynamoDB table. `decisions.md` records the choice.
+
+The layout is one module holding every resource, instantiated by a thin root per environment:
+
+```
+modules/environment/     every resource, parameterised
+environments/qa/         a root that instantiates the module
+environments/prod/       the same root, different values
+```
+
+**The two roots are identical apart from `terraform.tfvars`** — the state key is
+interpolated from a variable, which Terraform could not do — and
+`check-environments-match.py` fails CI when they are not. Making prod a parameter change is the
+intent of this plan; that check is what keeps it from decaying into two codebases that drift.
+Anything which must differ between environments becomes a module variable instead.
 
 **Cost attribution moves to tags.** With one account there is no per-account bill, so every
 resource carries `env=qa` or `env=prod` and the budgets filter on that. This only works if the
@@ -175,7 +201,7 @@ Per environment, identical unless noted:
 | Resource | Why |
 | --- | --- |
 | VPC, two public subnets in two AZs | Two AZs because the load balancer requires it, not for availability |
-| **No NAT gateway, no private subnets** | See *Cost* — this is the single biggest saving |
+| **No NAT gateway** | See *Cost* — this is the single biggest saving, and it is why the tasks sit in the public subnets |
 | Security groups | ALB open on 443; ECS open only to the ALB; RDS open only to ECS |
 | **Internal** ALB, two target groups | Blue/green shifts traffic between them; reachable only from CloudFront |
 | Two private subnets | For the load balancer only. No NAT gateway: nothing in them makes outbound calls |
@@ -237,7 +263,7 @@ anything uses the value, and the only way back is the snapshot. That is the pric
 decision in `decisions.md`, and it is the sharpest edge in this plan.
 
 **Idle cost** is handled by destroying the environment, database included, with a final snapshot.
-Terraform restores from it on demand. Stopping is not enough: a stopped RDS instance still bills
+OpenTofu restores from it on demand. Stopping is not enough: a stopped RDS instance still bills
 storage *and AWS restarts it automatically after seven days*.
 
 ## Observability
@@ -278,7 +304,7 @@ One environment, running continuously:
 **Both environments up at once** is therefore about $100 a month, which is the number the total
 budget alarm is really guarding against.
 
-**Idle, after `terraform destroy`:** a few cents of snapshot and S3 storage. This is the point of
+**Idle, after `tofu destroy`:** a few cents of snapshot and S3 storage. This is the point of
 making QA disposable, and it is worth more than any per-resource tuning.
 
 Proposed budget alarms, for sign-off: **QA $25**, **prod $40**, **total $75**, alerting at 80% of

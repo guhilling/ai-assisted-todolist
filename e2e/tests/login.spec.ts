@@ -2,7 +2,7 @@
  * End-to-end coverage of the path no other test reaches: a real browser signing in through
  * Keycloak and then using the board.
  *
- * Runs against the containerised stack from docker/docker-compose.e2e.yml, so it exercises
+ * Runs against the containerised stack from deployment/docker/docker-compose.e2e.yml, so it exercises
  * the same httpd proxying and OIDC redirects a deployment would.
  *
  * Each account gets its own `browser.newContext()`. Signing out of the app only expires the

@@ -133,15 +133,50 @@ a stated reason rather than being silently dropped. Per-member Javadoc stays opt
 because it fights JAX-RS and CDI code; type-level Javadoc is required because "what is this
 type for?" is the question that code cannot answer for itself.
 
-## Compose files under `docker/`
+## OpenTofu rather than Terraform
+
+**Decision.** The AWS infrastructure under `deployment/aws-tofu/` is OpenTofu. The binary is
+`tofu`, CI pins 1.12.6, and `required_version` is `>= 1.10`.
+
+**Why.** The choice was made after comparing the two, and the honest summary is that Terraform
+was the safer default and lost on two specific features:
+
+- **A backend block can interpolate a variable** (OpenTofu 1.8). Terraform evaluates nothing in
+  a backend block, so the state key has to be written out per environment. That made `backend.tf`
+  the one file the environment roots could not share, and so the one exception
+  `check-environments-match.py` had to carve out. On OpenTofu the roots are identical apart from
+  `terraform.tfvars`, and the exception is gone — which matters because *prod is a parameter
+  change from qa* is the design of that directory, and every exception is somewhere drift can
+  hide.
+- **The S3 backend locks using S3** (OpenTofu 1.10), so there is no DynamoDB table to create,
+  pay for, or forget when tearing an environment down. The bootstrap is one bucket.
+
+Licensing was the reason to look, not the reason to switch. OpenTofu is MPL-2.0 where Terraform
+is BUSL-1.1, but BUSL only forbids offering a competing infrastructure-as-code product; using it
+to manage your own infrastructure is unrestricted, and neither licence touches this repository's
+own Apache-2.0.
+
+**What it costs, stated rather than discovered later.** Terraform is what a commercial project is
+more likely to use, and this environment is partly a proof-of-concept for one — so HCP Terraform,
+Stacks and Sentinel are all out of reach, and documentation for awkward edge cases is thinner.
+The languages and the provider protocol are the same, so the knowledge transfers; the tooling
+around them does not entirely. Two further notes: state files stay compatible in both directions
+*unless* OpenTofu's state encryption is enabled, which is a one-way door and is not used here;
+and file names stay `.tf` and `terraform.tfvars` rather than OpenTofu's optional `.tofu`
+extension, because every example and every provider document is written that way.
+
+## Compose files under `deployment/docker/`
 
 **Decision.** Both Compose stacks moved from the repository root into `docker/`, each with
-an explicit `name:`.
+an explicit `name:`, and later into `deployment/docker/` when the AWS material arrived and
+needed a sibling.
 
 **Why.** Deployment artifacts get a home before AWS material arrives. The explicit project
-names are load-bearing: Compose otherwise derives the name from the containing directory,
-which would have renamed the PostgreSQL volume and left the existing one orphaned, and
-would have had the two stacks treat each other's containers as orphans.
+names are load-bearing, and became more so with the second move: Compose otherwise derives
+the project name from the containing directory, so without them the move would have
+renamed the PostgreSQL volume and orphaned the existing one, and would have had the two
+stacks treat each other's containers as strays. As written, the directory can move again
+and the volumes do not notice.
 
 ## Coverage is measured by `quarkus-jacoco`, and gates the build
 
@@ -947,7 +982,7 @@ not. The real lever is destroying idle environments, and it destroys the load ba
 
 *Rejected: one load balancer shared by both environments* with host-based rules. It would halve
 the cost only while both are up, which is the uncommon case, and it cannot be destroyed with
-either environment — so it needs a third Terraform stack and couples the two together.
+either environment — so it needs a third OpenTofu stack and couples the two together.
 
 It is **internal**, reached through a CloudFront VPC origin, so it has no public address.
 *Rejected: a public load balancer with a shared secret header* that CloudFront sends and the
@@ -957,7 +992,7 @@ secret staying secret. VPC origins remove the public address instead, at no cost
 **Custom hostnames under an existing zone.** `todolist-qa.cloud.hilling.de` and
 `todolist.cloud.hilling.de`, as alias records to each environment's distribution. This is what
 makes the Google OIDC redirect URIs knowable before the environments exist, which matters
-because that configuration is manual and cannot be Terraformed. One consequence is worth
+because that configuration is manual and cannot be automated here. One consequence is worth
 recording rather than rediscovering: **the ACM certificate must live in `us-east-1`**, whatever
 region the environment uses, because CloudFront accepts certificates from nowhere else.
 
