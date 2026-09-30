@@ -101,6 +101,24 @@ in with the code that needs it, and applied at startup by
 `quarkus.liquibase.migrate-at-start`. The application therefore fails fast on a schema it
 does not recognise rather than quietly adapting to it.
 
+`001-baseline.xml` is the whole schema as one changelog. It replaced the three that had built
+it up, because no database they applied to outlived them and reading three files to learn the
+shape of two tables was the only thing that history added.
+
+**`state` and `importance` are native PostgreSQL enum types**, `task_state` and
+`task_importance`, not `VARCHAR`. The database rejects a value the application does not define
+rather than storing it for someone else to find. The entity says so with
+`@JdbcTypeCode(SqlTypes.NAMED_ENUM)` and a `columnDefinition` naming the type; without the
+first, the driver sends a `varchar` parameter that PostgreSQL will not assign to an enum
+column, and without the second, Hibernate looks for a type named after the Java class.
+
+The cost is that the type and the Java enum are declared in two places. `TaskEnumColumnTest`
+is what keeps them honest: it asserts that both columns really are enum types and that their
+labels match the Java constants exactly, so adding a value to one and not the other fails the
+build rather than the first request that uses it. Adding a value later is
+`ALTER TYPE ... ADD VALUE`, which PostgreSQL allows; renaming or removing one needs a new type
+and a column rewrite.
+
 ## Configuration
 
 One `application.properties` with profile prefixes (`%prod.`, `%dev,test.`, `%qa.`) rather

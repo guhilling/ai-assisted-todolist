@@ -102,6 +102,18 @@ must stay that way.
 Tear down with `docker compose -f docker/docker-compose.yml down`, or `down -v` to discard
 the database volume as well.
 
+> **One-off: an existing volume from before the baseline changelog will not start.** The three
+> changelogs that built the schema up were squashed into `001-baseline.xml`, so Liquibase finds
+> changesets in `databasechangelog` that no longer exist and refuses to continue. Discard the
+> volume once and let it rebuild:
+>
+> ```bash
+> docker compose -f docker/docker-compose.yml down -v
+> ```
+>
+> Nothing else needs doing: `quarkus:dev` and the test suite use Dev Services containers that
+> are created fresh each run, and the end-to-end stack is already torn down with `-v`.
+
 ## End-to-end stack
 
 The same stack plus Keycloak, which is what the Playwright suite runs against. Both images

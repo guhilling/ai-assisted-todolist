@@ -16,7 +16,9 @@ import jakarta.validation.constraints.Size;
 import java.time.Instant;
 import java.time.LocalDate;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.annotations.UpdateTimestamp;
+import org.hibernate.type.SqlTypes;
 
 /**
  * A single thing its owner means to get done: the aggregate root of this domain.
@@ -48,12 +50,24 @@ public class Task extends PanacheEntityBase {
     @Column(name = "due_date", nullable = false)
     public LocalDate dueDate;
 
+    /**
+     * How much the task matters, as the PostgreSQL {@code task_importance} enum type.
+     *
+     * <p>{@code NAMED_ENUM} is what makes the column the database's own enum rather than a
+     * string: the driver would otherwise send a {@code varchar} parameter, which PostgreSQL
+     * refuses to assign to an enum column without a cast. {@code columnDefinition} names the
+     * type, because Hibernate would otherwise derive it from this Java type and look for
+     * {@code taskimportance}.</p>
+     */
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
+    @Column(nullable = false, columnDefinition = "task_importance")
     public TaskImportance importance;
 
+    /** Where the task stands, as the PostgreSQL {@code task_state} enum type. */
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
+    @Column(nullable = false, columnDefinition = "task_state")
     public TaskState state = TaskState.TODO;
 
     @CreationTimestamp
