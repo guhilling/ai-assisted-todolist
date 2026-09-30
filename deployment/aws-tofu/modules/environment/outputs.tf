@@ -42,3 +42,8 @@ output "lifecycle_role_arn" {
   description = "The role a person assumes, with MFA, to create or destroy what bills in this environment."
   value       = aws_iam_role.lifecycle.arn
 }
+
+output "running" {
+  description = "Whether this environment's billable resources exist, as of the last apply."
+  value       = var.running
+}

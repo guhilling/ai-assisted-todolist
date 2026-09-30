@@ -62,3 +62,22 @@ variable "github_repository" {
   type        = string
   default     = "guhilling/ai-assisted-todolist"
 }
+
+variable "running" {
+  description = <<-EOT
+    Whether this environment's billable resources exist: the database, the load balancer and the
+    running service. The foundation -- VPC, subnets, security groups, IAM -- ignores this and is
+    always present, because it is free and nothing is gained by destroying it.
+
+    It defaults to **false** on purpose. An environment that nobody is demoing is meant to cost
+    nothing, so the safe outcome of an apply nobody thought hard about is a foundation and no
+    bill. Bringing an environment up is the deliberate act, not leaving it up.
+
+    It is deliberately not set in terraform.tfvars. Whether an environment happens to be up right
+    now is a transient fact about the world, and committing it would make every teardown a commit
+    and every `git pull` a possible surprise. Pass it on the command line -- or use `env.sh`,
+    which is the reason that script exists.
+  EOT
+  type        = bool
+  default     = false
+}

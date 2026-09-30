@@ -29,3 +29,9 @@ variable "private_subnet_cidrs" {
   description = "Two subnets for the internal load balancer."
   type        = list(string)
 }
+
+variable "running" {
+  description = "Whether the billable resources exist. Passed on the command line, never in terraform.tfvars -- see env.sh."
+  type        = bool
+  default     = false
+}

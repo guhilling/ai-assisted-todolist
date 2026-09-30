@@ -119,6 +119,32 @@ each other.
 **Apply is a human's job.** There is deliberately no credential that can run it — see *Who may
 deploy* below — so this is run from a profile with the privileges to create infrastructure.
 
+## Bringing an environment up and down
+
+Teardown is a **parameter**, not a `tofu destroy`. The resources that cost money exist only when
+`running` is true; the foundation ignores it and is always there.
+
+```sh
+./env.sh up qa       # create the database, load balancer and service
+./env.sh down qa     # destroy them; VPC, subnets, security groups and IAM stay
+./env.sh status qa   # what the last apply recorded
+```
+
+`env.sh` shows the plan and waits for an answer on every run, and applies the **saved plan file**
+rather than re-evaluating, so what is applied is exactly what was displayed. `--yes` skips the
+prompt, for a workflow. It defaults to the lifecycle profile for `up` and `down`, and deliberately
+not for `status` — reading what the last apply recorded needs nothing but the state bucket.
+
+`running` defaults to **false**, so a plain `tofu apply` creates a foundation and no bill.
+Bringing an environment up is the deliberate act. It is never set in `terraform.tfvars`: whether
+an environment happens to be up is a transient fact about the world, and committing it would make
+every teardown a commit.
+
+**A new resource that costs money goes in `modules/environment/billable.tf` and carries
+`count = var.running ? 1 : 0`.** This is checked, not remembered — `check-billable-guard.py` fails
+the build otherwise, because the failure mode is silent: the teardown succeeds, that one resource
+keeps running, and the bill is the first evidence.
+
 ## Who may create and destroy what bills
 
 Each environment gets `todolist-<env>-lifecycle`, a role a **person** assumes with MFA. It may

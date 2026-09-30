@@ -46,6 +46,17 @@ jobs:
         # is what stops it quietly becoming a second codebase.
         run: python3 check-environments-match.py
 
+      - name: Check every billable resource is behind the teardown switch
+        # Tearing an environment down is a parameter change, which only works if the resources
+        # that bill are actually guarded. An unguarded one fails silently -- the teardown
+        # succeeds, the resource keeps running, and the bill is the first evidence.
+        run: python3 check-billable-guard.py
+
+      - name: Lint the shell script
+        # shellcheck ships on the GitHub-hosted Ubuntu images. env.sh is the one place here where
+        # a quoting mistake would be discovered by destroying the wrong thing.
+        run: shellcheck env.sh
+
       - name: Validate every root
         # Every directory that is applied on its own: the two environments, and `account/` for
         # the things there is one of per AWS account.
