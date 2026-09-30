@@ -59,27 +59,35 @@ qualifying when this is built.
 
 ## Why there is a load balancer at all
 
-It is the most expensive fixed item here (~$16/month, whether or not anyone uses it), so it is
-worth saying why it stays.
+It is the largest fixed item here, so it was challenged on cost twice. It stays, and the
+arithmetic is worth writing down because the intuition is wrong.
 
-**ECS blue/green needs one.** The deployment works by shifting traffic between **two target
-groups**, which is a load balancer's job — there is no load-balancer-free form of it. Blue/green
-is something this deployment is meant to demonstrate, so the load balancer follows from that
-choice rather than from habit.
+**The alternative is not free.** An API Gateway HTTP API needs a **VPC link to reach the tasks,
+and a VPC link costs $0.01/hour — about $7.20 a month, charged at zero traffic.** Requests are
+$1.00 per million on top, which is nothing here. So the comparison is roughly **$16 against
+$7.20**: a saving of about **$9 a month per environment**, not the $16 it first looks like.
 
-The alternatives were checked rather than assumed:
+What that $9 costs is blue/green. ECS shifts traffic between **two target groups**, which is a
+load balancer's job; an API Gateway private integration cannot do it. Deployments would become
+rolling or stop-and-start — acceptable, since downtime is acceptable here, but the demonstration
+goes.
 
-- **A Network Load Balancer** costs about the same per hour, and is worse here: ECS adds a
-  ten-minute delay to the blue/green lifecycle stages with an NLB, and only all-at-once shifting
-  is supported.
-- **CloudFront straight to the ECS service.** Not possible: VPC origins support load balancers
-  and EC2 instances, not ECS services, and a task's IP changes on every deployment.
-- **API Gateway HTTP API with a VPC link.** Has no hourly charge and would genuinely be cheaper —
-  but it cannot do the two-target-group traffic shift, so it costs the blue/green demonstration.
+**The real lever is uptime, not the load balancer.** An environment that exists costs about $35
+a month before the load balancer; one that has been destroyed costs cents, *including* its load
+balancer. Nine dollars a month applies only while an environment is up, and the design already
+says QA should not be. Keeping the load balancer therefore costs little in practice and keeps a
+capability that is worth demonstrating in a proof of concept.
 
-**The saving comes from destroying the environment, not from avoiding the load balancer.** An
-environment that is up costs about $50 a month; one that has been `terraform destroy`-ed costs
-cents. That is the lever, and it is why QA is disposable by design.
+Also checked and not chosen:
+
+- **A Network Load Balancer**: the same price per hour, and worse — ECS adds a ten-minute delay
+  to the blue/green lifecycle stages with an NLB and supports only all-at-once shifting.
+- **CloudFront straight to the ECS service**: not possible. VPC origins support load balancers
+  and EC2 instances, and a task's IP changes on every deployment.
+- **One load balancer shared by both environments**, with host-based rules. It would halve the
+  cost *while both are up*, which is the uncommon case, and it cannot be destroyed with either
+  environment — so it needs a third Terraform stack and couples the two environments together.
+  Not worth it for a saving that mostly does not apply.
 
 ## Names and certificates
 
@@ -98,12 +106,16 @@ alias records to CloudFront are not charged.
 - **The certificate must be in `us-east-1`.** CloudFront only accepts ACM certificates from that
   region, whatever region everything else lives in. The backend's own certificate, if the
   internal load balancer ever needs one, is separate and regional.
-- **The hosted zone is in one account and the environments are in others.** Creating the alias
-  record and answering the ACM DNS validation challenge therefore cross an account boundary.
-  Either the environment's Terraform assumes a narrow role in the zone-owning account that may
-  only write records under its own name, or `cloud.hilling.de` delegates a subdomain per
-  environment with `NS` records. The narrow role is fewer moving parts for two names; the
-  delegation is cleaner if this grows.
+- **The zone and the environments are in the same account**, which is one of the reasons that
+  decision was reverted — no cross-account role, no subdomain delegation, and ACM's DNS
+  validation writes its record directly.
+
+**Alias records, not `CNAME`s**, and the cost difference is real though small here. Route 53 does
+not charge for queries to an alias record that points at an AWS resource; a `CNAME` is a standard
+record at **$0.40 per million queries**, and a `CNAME` pointing at another name in the same zone
+is billed as **two** queries because the resolver has to ask twice. At demo traffic that is
+fractions of a cent either way — but an alias is free, avoids the second lookup, and is the only
+one of the two that would work at a zone apex. There is no case for the `CNAME`.
 
 ### The Google OIDC configuration
 
@@ -117,27 +129,32 @@ routes through the same distribution, so the authorised redirect URIs are:
 This is manual configuration in the Google console and cannot be Terraformed. The client id and
 secret then go into that environment's Secrets Manager.
 
-## Accounts and the IAM boundary
+## One account, and what that costs in guarantees
 
-Three identities, and the boundary is an account boundary rather than a policy:
+QA and prod live in **one AWS account**, separated by IAM roles and resource tags. This reverses
+an earlier decision; the reason is that the hosted zone and the certificates live there too, and
+splitting the account turned every DNS record and every ACM validation into a cross-account
+operation for two hostnames.
 
-| Account | Holds | Who can change it |
-| --- | --- | --- |
-| `qa` | the whole QA environment | the QA OIDC role, from GitHub Actions, unattended |
-| `prod` | the whole prod environment | the prod OIDC role, from GitHub Actions, **only via a protected environment that requires Gunnar's approval** |
-| management | Organizations, consolidated billing, the read-only monitoring identity | nobody, routinely |
+**Be clear about what is given up.** With separate accounts, "prod is never created by an
+automated agent" was enforceable by there being nothing in the prod account to assume. In one
+account it becomes a **policy** guarantee, which is weaker:
 
-**"Prod is never created by an automated agent" is enforced by there being nothing to assume.**
-The prod account trusts exactly one principal — the GitHub OIDC provider, restricted to this
-repository and to the `prod` environment — and holds no IAM user, no access key and no role a
-local session could assume. An agent on a developer machine has no path in. Automation reaches
-prod only through a gate a human opens.
+- Deployment to prod uses a role assumable only by the GitHub OIDC provider, restricted to this
+  repository **and** to the `prod` environment, which requires a human approval.
+- The QA role is scoped by resource tag and name prefix and denied everything tagged `prod`.
+- **Local credentials are the remaining hole.** An agent running with an administrator profile
+  on a developer machine could reach prod, because nothing structural stops it. The mitigation is
+  that the profile available locally is itself least-privilege and explicitly denies
+  `env=prod`-tagged resources — a discipline, not a wall. Separate accounts were the wall, and
+  they were traded for simplicity.
 
-Terraform state lives per account, in an S3 bucket in that account with versioning and a DynamoDB
-lock table. Cross-account state would put a QA mistake one typo away from prod.
+Terraform state is one bucket with a key per environment, and a lock table.
 
-The monitoring identity is a role in the management account with `ReadOnlyAccess` assumable into
-both, so dashboards and alarms can see everything and change nothing.
+**Cost attribution moves to tags.** With one account there is no per-account bill, so every
+resource carries `env=qa` or `env=prod` and the budgets filter on that. This only works if the
+tagging is complete: an untagged resource is invisible to both environment budgets and shows up
+only in the total.
 
 ## Resource inventory
 
@@ -151,7 +168,7 @@ Per environment, identical unless noted:
 | **Internal** ALB, two target groups | Blue/green shifts traffic between them; reachable only from CloudFront |
 | Two private subnets | For the load balancer only. No NAT gateway: nothing in them makes outbound calls |
 | ACM certificate in **us-east-1** | CloudFront accepts certificates from that region only |
-| Route 53 alias records | In the account that owns `cloud.hilling.de`, written cross-account |
+| Route 53 alias records | In the same account as everything else; free to query |
 | ECS cluster, one Fargate service | The Quarkus backend, 0.5 vCPU / 1 GB |
 | ECS task for migrations | Same image, different command; see *The database* |
 | RDS PostgreSQL, single-AZ, `db.t4g.micro` | HA is explicitly not required |
@@ -240,9 +257,12 @@ One environment, running continuously:
 | RDS `db.t4g.micro` single-AZ | ~$12 | Plus ~$2 for 20 GB gp3 |
 | S3 + CloudFront | ~$1 | At demo traffic |
 | CloudWatch, Secrets Manager | ~$2 | |
-| Route 53 | $0 | The zone already exists; alias records are free |
+| Route 53 | $0 | The zone already exists; alias queries are not charged |
 | **NAT gateway** | **~$33 — avoided** | Would have been the largest line item |
 | **Total** | **~$50** | ~$83 with a NAT gateway |
+
+**Both environments up at once** is therefore about $100 a month, which is the number the total
+budget alarm is really guarding against.
 
 **Idle, after `terraform destroy`:** a few cents of snapshot and S3 storage. This is the point of
 making QA disposable, and it is worth more than any per-resource tuning.
@@ -271,5 +291,5 @@ Honest gaps, because a plan that hides them is worse than one that names them:
 - **VPC origins require an internet gateway attached to the VPC** — present here as a marker
   that the VPC may receive CloudFront traffic, not as a route. Confirm it behaves that way with
   the load balancer in a private subnet and the tasks in public ones.
-- **Cross-account Route 53 writes**: whether the narrow assumed role or subdomain delegation is
-  less friction in practice, including for ACM's DNS validation.
+- **Tag-filtered budgets** report with a delay and ignore untagged resources; confirm the
+  per-environment figures are trustworthy before relying on them instead of a per-account bill.

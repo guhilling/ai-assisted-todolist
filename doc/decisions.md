@@ -877,12 +877,22 @@ The plan is `deployment.md`; these are the choices in it that had a real alterna
 built yet — #60 produced the plan deliberately, because several of these are hard to reverse once
 anything exists.
 
-**Separate AWS accounts, not IAM identities in one.** QA and prod are different accounts under
-Organizations, which costs nothing extra. It is what makes "prod is never created by an automated
-agent" enforceable rather than aspirational: the prod account holds no user, no access key and no
-role a local session can assume, so an agent on a developer machine has no path in at all.
-*Rejected: roles and policies inside one account.* Less setup, and one policy mistake away from a
-QA action reaching prod — which is exactly the failure the boundary exists to prevent.
+**One AWS account, with IAM roles and resource tags.** This reverses an earlier decision to use
+separate accounts. The hosted zone and the certificates live in the existing account, and
+splitting turned every DNS record and every ACM validation into a cross-account operation — for
+two hostnames.
+
+**What it costs is stated rather than glossed.** With separate accounts, "prod is never created
+by an automated agent" was enforceable because the prod account held nothing to assume. In one
+account it is a policy: the prod deployment role is assumable only by the GitHub OIDC provider,
+restricted to this repository and to an environment that requires human approval, and the QA role
+is denied everything tagged `env=prod`. The hole that remains is local credentials — an agent
+running with an administrator profile could reach prod, and only a least-privilege local profile
+stops it. That is a discipline, not a wall. The wall was the account boundary, and it was traded
+for not having to cross an account boundary to write two DNS records.
+
+A second consequence: with no per-account bill, cost attribution moves to tags, and an untagged
+resource becomes invisible to both environment budgets.
 
 **PostgreSQL on RDS, destroyed with a final snapshot when idle.** The database is managed because
 this stands in for a commercial project and a managed database is part of what it proves.
@@ -924,9 +934,15 @@ deployment exists. *Rejected: a Network Load Balancer*, the same price per hour,
 ECS adds a ten-minute delay to the blue/green lifecycle stages with an NLB and supports only
 all-at-once shifting. *Rejected: CloudFront straight to the ECS service*, which VPC origins do
 not support and which a changing task IP would break anyway. *Rejected: an API Gateway HTTP API
-with a VPC link*, genuinely cheaper with no hourly charge, and unable to do the two-target-group
-shift — it would have cost the blue/green demonstration to save sixteen dollars. The saving
-comes instead from destroying the environment when it is idle, which is already the design.
+with a VPC link* — which is cheaper, but by less than it appears. **A VPC link is $0.01/hour,
+about $7.20 a month, charged at zero traffic**, so the comparison is $16 against $7.20 and the
+saving is about nine dollars an environment, not sixteen. That nine dollars buys the blue/green
+demonstration, and it only applies while an environment is up — which, by design, QA usually is
+not. The real lever is destroying idle environments, and it destroys the load balancer too.
+
+*Rejected: one load balancer shared by both environments* with host-based rules. It would halve
+the cost only while both are up, which is the uncommon case, and it cannot be destroyed with
+either environment — so it needs a third Terraform stack and couples the two together.
 
 It is **internal**, reached through a CloudFront VPC origin, so it has no public address.
 *Rejected: a public load balancer with a shared secret header* that CloudFront sends and the
@@ -936,13 +952,17 @@ secret staying secret. VPC origins remove the public address instead, at no cost
 **Custom hostnames under an existing zone.** `todolist-qa.cloud.hilling.de` and
 `todolist.cloud.hilling.de`, as alias records to each environment's distribution. This is what
 makes the Google OIDC redirect URIs knowable before the environments exist, which matters
-because that configuration is manual and cannot be Terraformed. Two consequences are worth
+because that configuration is manual and cannot be Terraformed. One consequence is worth
 recording rather than rediscovering: **the ACM certificate must live in `us-east-1`**, whatever
-region the environment uses, because CloudFront accepts certificates from nowhere else; and the
-hosted zone sits in one account while the environments sit in others, so writing the record and
-answering ACM's validation challenge **cross an account boundary**. *Rejected: CloudFront's own
-domain*, which would have worked and would have left the sign-in configuration undoable until
-after the first deployment.
+region the environment uses, because CloudFront accepts certificates from nowhere else.
+
+They are **alias records, not `CNAME`s**. Route 53 does not charge for queries to an alias record
+pointing at an AWS resource, while a `CNAME` is $0.40 per million — and a `CNAME` to another name
+in the same zone is billed as two queries, because the resolver asks twice. The amounts are
+trivial at demo traffic; the point is that the alias is free, needs one lookup instead of two,
+and is the only one of the two that works at a zone apex. *Rejected: CloudFront's own domain*,
+which would have worked and would have left the sign-in configuration undoable until after the
+first deployment.
 
 **Fargate tasks in public subnets, with no NAT gateway.** A NAT gateway is about $33 a month
 before data — more than the database, and the largest line item in an environment that would
