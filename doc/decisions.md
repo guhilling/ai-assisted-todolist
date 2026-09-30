@@ -133,6 +133,40 @@ a stated reason rather than being silently dropped. Per-member Javadoc stays opt
 because it fights JAX-RS and CDI code; type-level Javadoc is required because "what is this
 type for?" is the question that code cannot answer for itself.
 
+## Tearing an environment down is a parameter, not a destroy
+
+**Decision.** Each environment has a `running` variable, default `false`. The resources that bill
+live in `modules/environment/billable.tf`, each carrying `count = var.running ? 1 : 0`, so taking
+an environment down is `tofu apply` with the variable false. `deployment/aws-tofu/env.sh` wraps
+the two pieces of ceremony — the right AWS profile and the right variable — and
+`check-billable-guard.py` fails the build on an unguarded resource in that file.
+
+**Why not a separate root for the billable layer.** That was the alternative, and its appeal is
+real: `tofu destroy` in a runtime root cannot reach the foundation, so there is nothing to aim.
+It was rejected on two grounds. The environment roots have already been applied, so splitting
+them now means migrating state keys on a live environment. And a parameter is the mechanism this
+directory already uses for the only other axis it has — the difference between qa and prod — so
+teardown becomes the same kind of reviewable change rather than a second concept.
+
+**Why the default is `false`.** The cost model is that an idle environment costs nothing, so the
+safe outcome of an apply nobody thought hard about should be a foundation and no bill. Defaulting
+to `true` would mean the careless path is the expensive one.
+
+**Why it is never committed to `terraform.tfvars`.** Whether an environment is up right now is a
+fact about the world, not about the configuration. Committing it would make every teardown a
+commit, and every `git pull` a potential surprise about what exists in AWS.
+
+**Why the guard is checked rather than remembered.** A billable resource added without `count`
+fails silently: the teardown succeeds, that one resource keeps running, and the first evidence is
+the bill. That is exactly the class of mistake worth spending a check on, and the check is a
+deliberately literal string match — a cleverer equivalent it cannot recognise is still something
+a human has to reason about, which is what the rule exists to avoid.
+
+**On the script.** It exists because the ceremony is two things that are quiet when wrong, not
+because `tofu` is hard. It deliberately shows the plan and waits on every run, and applies the
+saved plan file rather than re-evaluating, so what is applied is what was displayed. A script that
+applied without showing would be how an environment gets destroyed by muscle memory.
+
 ## Deploy identities are OIDC roles, scoped to deploying and nothing else
 
 **Decision.** GitHub Actions deploys each environment by assuming an IAM **role** through GitHub's

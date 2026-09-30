@@ -119,6 +119,91 @@ each other.
 **Apply is a human's job.** There is deliberately no credential that can run it — see *Who may
 deploy* below — so this is run from a profile with the privileges to create infrastructure.
 
+## Bringing an environment up and down
+
+Teardown is a **parameter**, not a `tofu destroy`. The resources that cost money exist only when
+`running` is true; the foundation ignores it and is always there.
+
+```sh
+./env.sh up qa       # create the database, load balancer and service
+./env.sh down qa     # destroy them; VPC, subnets, security groups and IAM stay
+./env.sh status qa   # what the last apply recorded
+```
+
+`env.sh` shows the plan and waits for an answer on every run, and applies the **saved plan file**
+rather than re-evaluating, so what is applied is exactly what was displayed. `--yes` skips the
+prompt, for a workflow. It defaults to the lifecycle profile for `up` and `down`, and deliberately
+not for `status` — reading what the last apply recorded needs nothing but the state bucket.
+
+`running` defaults to **false**, so a plain `tofu apply` creates a foundation and no bill.
+Bringing an environment up is the deliberate act. It is never set in `terraform.tfvars`: whether
+an environment happens to be up is a transient fact about the world, and committing it would make
+every teardown a commit.
+
+**A new resource that costs money goes in `modules/environment/billable.tf` and carries
+`count = var.running ? 1 : 0`.** This is checked, not remembered — `check-billable-guard.py` fails
+the build otherwise, because the failure mode is silent: the teardown succeeds, that one resource
+keeps running, and the bill is the first evidence.
+
+## Who may create and destroy what bills
+
+Each environment gets `todolist-<env>-lifecycle`, a role a **person** assumes with MFA. It may
+create and delete the database, the load balancer and the running service, and nothing else — no
+`ec2:Create*`, no `iam:CreateRole`, no S3, no CloudFront, no Route 53. The foundation is applied
+by an administrator and this role cannot touch it.
+
+To use it, first exchange your long-term key for an MFA session, then assume:
+
+```sh
+aws sts get-session-token \
+  --serial-number arn:aws:iam::<account>:mfa/<user> \
+  --token-code <from your authenticator>
+```
+
+Export those three values, then point OpenTofu at the role by adding to the provider block or,
+more simply, by setting up a named profile:
+
+```ini
+# ~/.aws/config
+[profile todolist-qa-lifecycle]
+role_arn       = arn:aws:iam::<account-id>:role/todolist-qa-lifecycle
+source_profile = default
+mfa_serial     = arn:aws:iam::<account-id>:mfa/<your-iam-user>
+region         = eu-central-1
+```
+
+Where each value comes from:
+
+| Field | Value |
+| --- | --- |
+| `role_arn` | `arn:aws:iam::<account-id>:role/todolist-<env>-lifecycle`. The name is the environment prefix plus `-lifecycle`, so it is predictable; `tofu -chdir=environments/qa output -raw lifecycle_role_arn` prints it once applied |
+| `source_profile` | The profile holding your own long-term key — the one `aws sts get-caller-identity` answers as today. Usually `default` |
+| `mfa_serial` | `aws iam list-mfa-devices --query 'MFADevices[0].SerialNumber' --output text` |
+| `region` | The `region` in that environment's `terraform.tfvars` |
+
+**You do not have to look any of these up.** Running `env.sh up` or `env.sh down` without the
+profile configured prints this stanza with your own account id, MFA serial and region already
+filled in, and then carries on with whatever credentials are active.
+
+The role has to exist before the profile is useful, and it is created when the environment is
+applied — so the order is: apply `account/`, apply the environment, then add this stanza. The
+profile is per environment, so `prod` gets its own with `prod` in both the profile name and the
+role ARN.
+
+```sh
+AWS_PROFILE=todolist-qa-lifecycle tofu -chdir=environments/qa apply
+```
+
+The profile form is the one worth setting up: the SDK prompts for the MFA code and caches the
+session, so this is one extra prompt a day rather than a ritual.
+
+**What this role is not.** Creating an RDS instance needs create *and* delete on RDS, and
+creating a service needs `iam:PassRole` — together that is close to administrator for the
+environment. It is a scoping and audit boundary, not a security boundary: it gives you a way to
+work without administrator and a log saying you chose to. That is why it is assumed by a person
+and, for prod, never handed to unattended automation. Deleting the database is one API call and
+the snapshot is the only way back.
+
 ## Who may deploy
 
 Each environment gets an IAM **role**, `todolist-<env>-deploy`, assumed from GitHub Actions

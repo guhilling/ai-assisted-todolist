@@ -162,7 +162,7 @@ Three technical identities, one job each:
 | Identity | May do | Used by |
 | --- | --- | --- |
 | `gunnar` (IAM admin user) | anything, including the free foundation | a person, with MFA. **Not the account root user**, which has no access keys and is used for nothing |
-| `todolist-<env>-lifecycle` (role) | create and destroy what bills: RDS, the load balancer, the Fargate service | a person assuming it. *Planned, not yet built* |
+| `todolist-<env>-lifecycle` (role) | create and destroy what bills: RDS, the load balancer, the Fargate service | a person assuming it, **with MFA** |
 | `todolist-qa-deploy` (role) | redeploy the qa application; **no infrastructure** | GitHub Actions, unattended |
 | `todolist-prod-deploy` (role) | redeploy the prod application; **no infrastructure** | GitHub Actions, **only from the `prod` environment**, which requires approval |
 | `todolist-monitoring` (user) | read-only, everywhere | dashboards and a local CLI profile; can change nothing |
@@ -172,6 +172,9 @@ up and tearing it down again is the routine operation in this project's cost mod
 — so it is worth having an identity whose blast radius is that operation, and an audit trail that
 says which of the two things a given session was doing. It is also the seam at which a "bring qa
 up" workflow could later exist.
+
+It is assumed rather than attached, and the trust policy requires MFA — so using it is a
+deliberate act with a timestamp, which is most of the point. Sessions last an hour.
 
 **Be honest about what that role is, though.** Creating an RDS instance and a load balancer needs
 create *and delete* on those services plus `iam:PassRole` for the task roles, which is close to
@@ -307,6 +310,43 @@ unapproved run.
 The SPA deploys as `aws s3 sync` of a **release artifact**, the same way `openapi.yaml` is already
 attached to each release. Rolling the frontend back is re-syncing the previous release, which is
 why the build has to be an artifact rather than something rebuilt at deploy time.
+
+## How an environment is torn down
+
+**Teardown is a parameter, not a `tofu destroy`.** Each environment has a `running` variable; the
+resources that cost money — the database, the load balancer, the service — exist only when it is
+true. The foundation ignores it and is always there, because it is free and destroying it buys
+nothing.
+
+```sh
+deployment/aws-tofu/env.sh up qa       # create what bills
+deployment/aws-tofu/env.sh down qa     # destroy it; VPC, subnets and IAM stay
+deployment/aws-tofu/env.sh status qa   # what the last apply recorded
+```
+
+Three properties of this are deliberate:
+
+- **`running` defaults to `false`.** An environment nobody is demoing is meant to cost nothing, so
+  the safe outcome of an apply nobody thought hard about is a foundation and no bill. Bringing an
+  environment up is the deliberate act; leaving it up is not.
+- **It is never set in `terraform.tfvars`.** Whether an environment happens to be up is a
+  transient fact about the world. Committing it would make every teardown a commit and every
+  `git pull` a possible surprise — so it is passed on the command line, which is what `env.sh`
+  is for.
+- **Every billable resource is guarded, and that is checked.** `check-billable-guard.py` fails the
+  build on a resource in `billable.tf` without `count = var.running ? 1 : 0`. The failure mode it
+  prevents is silent: teardown succeeds, the resource keeps running, and the bill a month later is
+  the first evidence.
+
+The alternative was a separate root and state for the billable layer, where `tofu destroy` could
+not reach the foundation. It was rejected: the environment roots are already applied, so their
+state keys would have had to move, and a parameter is the same mechanism this directory already
+uses for the difference between qa and prod.
+
+`env.sh` shows the plan and waits for an answer on every run, and applies the saved plan file
+rather than re-evaluating — so what is applied is exactly what was displayed. It defaults to the
+lifecycle profile for `up` and `down`, and deliberately not for `status`, since reading what the
+last apply recorded needs nothing but the state bucket.
 
 ## The database
 

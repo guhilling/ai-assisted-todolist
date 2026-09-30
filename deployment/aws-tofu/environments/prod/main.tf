@@ -40,6 +40,7 @@ module "environment" {
   vpc_cidr             = var.vpc_cidr
   public_subnet_cidrs  = var.public_subnet_cidrs
   private_subnet_cidrs = var.private_subnet_cidrs
+  running              = var.running
 }
 
 output "vpc_id" {
@@ -55,4 +56,14 @@ output "name_prefix" {
 output "deploy_role_arn" {
   description = "The role GitHub Actions assumes to deploy this environment."
   value       = module.environment.deploy_role_arn
+}
+
+output "lifecycle_role_arn" {
+  description = "The role a person assumes, with MFA, to create or destroy what bills in this environment."
+  value       = module.environment.lifecycle_role_arn
+}
+
+output "running" {
+  description = "Whether this environment's billable resources exist, as of the last apply."
+  value       = module.environment.running
 }
