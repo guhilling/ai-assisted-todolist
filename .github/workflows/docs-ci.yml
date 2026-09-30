@@ -1,0 +1,37 @@
+name: Docs CI
+
+# The generated artwork is committed, so it can go stale the moment someone edits the generator
+# without running it -- or hand-edits an SVG, which looks like it worked right up until the next
+# regeneration silently reverts it. This is the counterpart of the `doc/api` drift gate in
+# Backend CI, and it needs nothing but Python's standard library.
+
+on:
+  pull_request:
+    paths:
+      - 'doc/images/**'
+      - '.github/workflows/docs-ci.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'doc/images/**'
+      - '.github/workflows/docs-ci.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  images:
+    runs-on: ubuntu-26.04
+    steps:
+      - uses: actions/checkout@v7
+      - name: Check the committed artwork is current
+        run: |
+          python3 doc/images/generate.py
+          # --intent-to-add first, or a brand new diagram would be untracked and so invisible
+          # to git diff -- the one case this gate most needs to catch.
+          git add --all --intent-to-add doc/images
+          git diff --exit-code doc/images || {
+            echo "::error::doc/images is out of date. Run: python3 doc/images/generate.py"
+            exit 1
+          }

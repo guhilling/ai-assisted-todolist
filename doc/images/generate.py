@@ -106,6 +106,15 @@ def arrow(points, p: Palette, *, accent=False, dashed=False, marker="arrow"):
     )
 
 
+def rule(x1, x2, y, p: Palette, *, accent=False):
+    """A horizontal dashed divider. Not an arrow: it separates rather than points."""
+    colour = p.accent if accent else p.border
+    return (
+        f'<line x1="{x1}" y1="{y}" x2="{x2}" y2="{y}" stroke="{colour}" '
+        f'stroke-width="1.6" stroke-dasharray="6 5"/>'
+    )
+
+
 def label(x, y, text, p: Palette, *, anchor="middle", accent=False, size=11.5):
     colour = p.accent if accent else p.muted
     return (
@@ -174,6 +183,79 @@ def architecture(p: Palette) -> str:
         "Quarkus backend. The backend is the OIDC client: it exchanges the code with the "
         "identity provider itself and returns an encrypted session cookie, so the browser "
         "never holds a token."
+    )
+    return document(w, h, "\n  ".join(parts), p, aria)
+
+
+def identities(p: Palette) -> str:
+    """Who may do what to AWS, and where the line between a person and automation falls."""
+    w, h = 1020, 600
+    left_x, left_w = 40, 250
+    right_x, right_w = 470, 510
+    box_h = 90
+    rows = (40, 180, 340)
+    line_y = 300
+
+    parts = [
+        box(left_x, rows[0], left_w, box_h,
+            ["gunnar", "IAM admin user \u00b7 MFA", "not the account root user"], p),
+        box(right_x, rows[0], right_w, box_h,
+            ["Foundation \u2014 free, created once",
+             "VPC \u00b7 subnets \u00b7 route tables \u00b7 security groups",
+             "IAM \u00b7 ACM certificate \u00b7 Route 53 records"], p),
+        arrow([(left_x + left_w, rows[0] + box_h / 2), (right_x, rows[0] + box_h / 2)], p),
+        label(380, rows[0] + box_h / 2 - 10, "creates", p),
+
+        box(left_x, rows[1], left_w, box_h,
+            ["todolist-<env>-lifecycle", "a role gunnar assumes", "planned, not yet built"], p,
+            dashed=True),
+        box(right_x, rows[1], right_w, box_h,
+            ["Everything that bills",
+             "RDS instance \u00b7 load balancer \u00b7 Fargate service",
+             "destroyed again when nothing is being demoed"], p, dashed=True),
+        arrow([(left_x + left_w, rows[1] + box_h / 2), (right_x, rows[1] + box_h / 2)], p,
+              dashed=True),
+        label(380, rows[1] + box_h / 2 - 10, "creates \u00b7 destroys", p),
+
+        # The claim: the only identity that runs unattended is the one that cannot create
+        # anything. Everything with a bill attached to it needs a person.
+        rule(30, 990, line_y, p, accent=True),
+        label(34, line_y - 10, "above \u2014 a person at a terminal; prod needs an approval", p,
+              anchor="start"),
+        label(34, line_y + 22,
+              "below \u2014 unattended, and cannot create, change or delete infrastructure", p,
+              anchor="start", accent=True, size=12),
+
+        box(left_x, rows[2], left_w, box_h,
+            ["todolist-<env>-deploy", "GitHub Actions, via OIDC", "no stored credential"], p,
+            accent=True),
+        box(right_x, rows[2], right_w, box_h,
+            ["Redeploy only",
+             "task definition \u00b7 service \u00b7 migration task",
+             "frontend artifact \u2192 site bucket"], p),
+        arrow([(left_x + left_w, rows[2] + box_h / 2), (right_x, rows[2] + box_h / 2)], p,
+              accent=True),
+        label(380, rows[2] + box_h / 2 - 10, "updates", p, accent=True),
+
+        box(left_x, 470, left_w, 84,
+            ["todolist-monitoring", "read-only, everywhere", "a person at a console"], p),
+        box(right_x, 470, right_w, 84,
+            ["todolist-<env>-task-execution \u00b7 -task",
+             "what the container runs as \u2014 nobody assumes these",
+             "pulls the image, reads the database secret, writes logs"], p),
+        arrow([(725, rows[2] + box_h), (725, 470)], p),
+        label(738, 452, "iam:PassRole \u2014 only these two, only to ECS", p, anchor="start"),
+    ]
+    aria = (
+        "Three identities, in order of how much they may do. A human IAM admin creates the "
+        "free foundation once: the VPC, subnets, security groups, IAM, the certificate and "
+        "the DNS records. A role that same human assumes creates and destroys everything "
+        "that bills: the database, the load balancer and the Fargate service. Below the "
+        "line, the only unattended identity is the deploy role, assumed from GitHub Actions "
+        "through OIDC, which may update the service and the site bucket and cannot create, "
+        "change or delete any infrastructure. Separately, the task roles are what the "
+        "container runs as rather than an identity anyone assumes, and a read-only user "
+        "exists for looking at things."
     )
     return document(w, h, "\n  ".join(parts), p, aria)
 
@@ -311,7 +393,12 @@ def favicon() -> str:
 
 
 def main() -> None:
-    per_scheme = {"architecture": architecture, "workflow": workflow, "logo": logo}
+    per_scheme = {
+        "architecture": architecture,
+        "workflow": workflow,
+        "identities": identities,
+        "logo": logo,
+    }
     for name, build in per_scheme.items():
         for palette in (LIGHT, DARK):
             path = HERE / f"{name}-{palette.name}.svg"

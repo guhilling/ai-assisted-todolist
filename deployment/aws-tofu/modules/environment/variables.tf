@@ -51,3 +51,14 @@ variable "backend_port" {
   type        = number
   default     = 8080
 }
+
+variable "github_repository" {
+  description = <<-EOT
+    The repository whose workflows may assume this environment's deploy role, as owner/name.
+    Part of the OIDC trust condition, so a token from any other repository is refused. It has a
+    default because it is a property of the project rather than of an environment -- keeping it
+    out of the values files, which exist for what actually differs between qa and prod.
+  EOT
+  type        = string
+  default     = "guhilling/ai-assisted-todolist"
+}

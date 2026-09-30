@@ -46,14 +46,17 @@ jobs:
         # is what stops it quietly becoming a second codebase.
         run: python3 check-environments-match.py
 
-      - name: Validate every environment
+      - name: Validate every root
+        # Every directory that is applied on its own: the two environments, and `account/` for
+        # the things there is one of per AWS account.
+        #
         # -backend=false skips the S3 backend, which would need credentials. It still downloads
         # the provider, which is what makes the validation meaningful: the resource schemas come
         # from the provider, not from OpenTofu.
         run: |
-          for environment in environments/*/; do
-            echo "::group::${environment}"
-            tofu -chdir="${environment}" init -backend=false -input=false
-            tofu -chdir="${environment}" validate
+          for root in environments/*/ account/; do
+            echo "::group::${root}"
+            tofu -chdir="${root}" init -backend=false -input=false
+            tofu -chdir="${root}" validate
             echo "::endgroup::"
           done
