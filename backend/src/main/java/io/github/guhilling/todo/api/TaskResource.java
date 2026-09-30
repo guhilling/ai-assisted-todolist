@@ -136,7 +136,7 @@ public class TaskResource {
     }
 
     private User currentUser() {
-        return userService.getOrCreateByEmail(jwt.getClaim("email"));
+        return userService.getOrCreateByEmail(jwt.getClaim(OidcClaims.EMAIL));
     }
 
     private static void apply(Task task, TaskFields request) {

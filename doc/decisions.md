@@ -791,3 +791,42 @@ Vite bundles at build time, and still refuses any other package: adding `format`
 `ajv-formats` would land there, which is why `date` and `email` are regular expressions. `ajv`
 remains a devDependency and `dependencies` is still React alone. The bundle grew by 2.5 kB.
 
+## Wire identifiers are constants, and a GET's query count is asserted
+
+**Decision.** The OpenID Connect claim names this application reads live in `OidcClaims`, and
+`TaskQueryCountTest` holds the list endpoint to a constant number of database statements.
+
+**Why the claim names.** They were literals at each call site: `jwt.getClaim("email")`,
+`jwt.getClaim("picture")`. A claim name is a wire identifier, and misspelling one compiles,
+passes a test that stubs the token with the same misspelling, and surfaces only as an empty
+field in the browser.
+
+**What the standard library actually covers, since the issue asked.** MicroProfile JWT's
+`Claims` enum names each claim by its own `name()`, so `Claims.email.name()` is `"email"` and
+is used. It has **no `picture`**. It does have `full_name`, which is *not* OpenID Connect's
+`name` claim — the constant is called `full_name` and so is the claim it stands for. So one of
+the three is covered by the standard and two are declared here, with that written down so the
+search is not repeated.
+
+**Why the query count is a test rather than a rule.** The rule is that a GET runs a constant
+number of statements — one ideally, two or three acceptable — and never a number that grows
+with the rows returned. Nothing else notices when that breaks: the responses stay correct, the
+tests stay green, and only the statement count moves. The change that causes it is usually
+somewhere else entirely, so the count is what has to be asserted.
+
+**The test's limits, stated rather than overread.** `Task.owner` cannot produce an N+1 however
+it is fetched, because every task in one response belongs to the same user and that user is
+already in the persistence context from resolving the caller — touching it per row costs
+nothing. The test was validated against genuine per-row work instead, which took the count from
+three to twelve and failed both assertions. Its value is in guarding what comes later: a
+collection on `Task`, an association added to a response.
+
+**Rejected: extracting every repeated literal.** The component names inside
+`@Schema(requiredProperties = ...)` are repeated, and turning them into constants would make
+them harder to read while protecting nothing a rename would not also break. The better answer
+was removing most of those lists, which `@NotNull` on the components already did.
+
+**Rejected: enabling Hibernate statistics everywhere.** Collecting them costs something and the
+production application has no use for the numbers, so
+`%test.quarkus.hibernate-orm.statistics=true` is test-only.
+

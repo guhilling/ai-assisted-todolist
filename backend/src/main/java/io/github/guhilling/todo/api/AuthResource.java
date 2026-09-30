@@ -139,8 +139,8 @@ public class AuthResource {
                 }""")))
     @APIResponse(responseCode = "401", description = "No one is signed in.")
     public CurrentUserResponse me() {
-        String email = jwt.getClaim("email");
-        String picture = jwt.getClaim("picture");
+        String email = jwt.getClaim(OidcClaims.EMAIL);
+        String picture = jwt.getClaim(OidcClaims.PICTURE);
 
         // Gravatar is consulted only when the provider supplied nothing. Google almost always
         // does; Keycloak here never does, which is what keeps this path exercised in dev.
@@ -148,7 +148,7 @@ public class AuthResource {
             picture = gravatar.avatarUrlFor(email).orElse(null);
         }
 
-        return new CurrentUserResponse(email, jwt.getClaim("name"), picture);
+        return new CurrentUserResponse(email, jwt.getClaim(OidcClaims.NAME), picture);
     }
 
     /**

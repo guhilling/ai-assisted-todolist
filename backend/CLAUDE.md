@@ -78,6 +78,39 @@ Don't write backend production code without a test driving it first.
   - The exception is a test whose subject is an *invalid* value. Checking that the backend
     rejects an unknown state needs a string the enum deliberately does not contain, so there is
     no constant to use.
+  - The other exception is an annotation. `@Schema(example = "TODO")` cannot call
+    `TaskState.TODO.name()`, because an annotation value must be a compile-time constant and a
+    method call is not one. Those literals stay.
+
+## Magic strings
+
+- **A string that identifies something on a wire is a constant, not a literal.** Claim names,
+  header names, cookie names: misspelling one compiles, passes a test that stubs it with the
+  same misspelling, and shows up as an empty field in the browser.
+- **Look for the standard constant before declaring one.** Where it exists, use it:
+  `OidcClaims.EMAIL` is `Claims.email.name()` from MicroProfile JWT, not a string of our own.
+- **Write down what the library does not cover**, so the next person does not repeat the
+  search. MicroProfile's `Claims` has no `picture`, and its `full_name` is a different claim
+  from OpenID Connect's `name` — both are declared in `OidcClaims` with that noted.
+- **Not everything repeated is a magic string.** The component names inside
+  `@Schema(requiredProperties = ...)` are the record's own fields; replacing them with
+  constants would make them harder to read, not safer. Prefer removing the list altogether by
+  putting `@NotNull` on the components, which is what most of the records now do.
+
+## Database access
+
+- **A GET runs a constant number of statements.** One is the aim, two or three are fine, and
+  the count must never grow with the number of rows returned. That growth is an N+1: invisible
+  in development where everyone has three tasks, expensive against a real database, and silent
+  — the responses stay correct and only the statement count moves.
+- **Enforce it by counting, not by reading the code**, because the change that causes it is
+  usually somewhere else: a lazy association touched while mapping a response, a fetch mode
+  altered, a field added to a response record. `TaskQueryCountTest` clears Hibernate's
+  statistics, calls the endpoint and asserts the count both stays under the limit and does not
+  move when ten more rows exist. `%test.quarkus.hibernate-orm.statistics=true` is what makes
+  the count readable, and it is deliberately test-only.
+- **Keep associations `LAZY`** and do not touch them while building a response. If a response
+  genuinely needs one, fetch it in the same query rather than per row.
 
 ## Input validation
 
