@@ -163,6 +163,24 @@ Two consequences worth being plain about:
 
 Terraform state is one bucket with a key per environment, and a lock table.
 
+## Where the code is
+
+`docker/terraform/` implements this, and its `README.md` covers running it — bootstrapping the
+state bucket, the credential-free checks that CI runs, and the provider lock file.
+
+The layout is one module holding every resource, instantiated by a thin root per environment:
+
+```
+modules/environment/     every resource, parameterised
+environments/qa/         a root that instantiates the module
+environments/prod/       the same root, different values
+```
+
+**The two roots are identical apart from `terraform.tfvars` and the state key**, and
+`check-environments-match.py` fails CI when they are not. Making prod a parameter change is the
+intent of this plan; that check is what keeps it from decaying into two codebases that drift.
+Anything which must differ between environments becomes a module variable instead.
+
 **Cost attribution moves to tags.** With one account there is no per-account bill, so every
 resource carries `env=qa` or `env=prod` and the budgets filter on that. This only works if the
 tagging is complete: an untagged resource is invisible to both environment budgets and shows up
@@ -175,7 +193,7 @@ Per environment, identical unless noted:
 | Resource | Why |
 | --- | --- |
 | VPC, two public subnets in two AZs | Two AZs because the load balancer requires it, not for availability |
-| **No NAT gateway, no private subnets** | See *Cost* — this is the single biggest saving |
+| **No NAT gateway** | See *Cost* — this is the single biggest saving, and it is why the tasks sit in the public subnets |
 | Security groups | ALB open on 443; ECS open only to the ALB; RDS open only to ECS |
 | **Internal** ALB, two target groups | Blue/green shifts traffic between them; reachable only from CloudFront |
 | Two private subnets | For the load balancer only. No NAT gateway: nothing in them makes outbound calls |
