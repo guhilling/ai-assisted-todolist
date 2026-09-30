@@ -830,3 +830,44 @@ was removing most of those lists, which `@NotNull` on the components already did
 production application has no use for the numbers, so
 `%test.quarkus.hibernate-orm.statistics=true` is test-only.
 
+## Spacing and type are scales, not values
+
+**Decision.** `App.css` defines a strict 4px spacing grid and exactly four type sizes, and every
+padding, margin, gap and font size in the stylesheet comes from them.
+
+| | |
+| --- | --- |
+| Spacing | `--space-1` … `--space-16`, the number being the step count, so `--space-4` is 16px |
+| Type | `--font-display` 2rem, `--font-title` 1.5rem, `--font-body` 1rem, `--font-small` 0.875rem |
+
+**Why.** Colour was already tokenised and dark-mode aware; spacing and type were not. There
+were **16 distinct pixel values** across padding, margin and gap and **ten** font sizes, mixing
+`rem` with a stray `16px`. Most of the spacing was already a 4px multiple, which is what made
+the outliers worth removing rather than accommodating: `7px`, `10px`, `14px`, `6px` were drift,
+not intent.
+
+**What actually moved.** Sixteen declarations changed value; the rest only changed to a token.
+The largest were `.app-footer` 40 → 32, `.button-primary` 20 → 24, `.task-section` and
+`.completed-section` 28 → 24, and the type collapse: `1.25rem` and `1.1rem` to body,
+`0.8125rem`, `0.75rem` and `0.6875rem` to small. Verified by rebuilding the design-system bundle
+and comparing the rendered cards before and after — the risk was `.user-avatar--initials` going
+11px → 14px inside a 28px circle, and it fits.
+
+**Four declarations are deliberately off the scale**, each with a comment saying so:
+`:root`'s `font-size: 16px`, which defines what `1rem` means rather than being an entry in the
+scale; `.visually-hidden`'s `margin: -1px`, part of the standard clip idiom; and the `2px` top
+margins on `.task-check` and `.task-meta`, which are optical nudges that a scale step in either
+direction visibly misaligns.
+
+**Rejected: keeping every existing value and naming it.** A scale with `--space-7px` in it is a
+list, not a scale, and gives the design agent no reason to prefer one value over another. The
+point of a strict grid is that the next person has eight choices rather than sixteen.
+
+**Rejected: a separate spacing token per component.** Tokens named for where they are used
+(`--task-row-gap`) grow with the component count and stop composing; a step scale is reusable by
+anything, including the layout the design agent writes around these components.
+
+**The agent is told.** `.design-sync/conventions.md` carries both scales, and
+`npm run check:conventions` already validates every name it lists, so the new tokens are covered
+by the existing guard without changing it.
+
