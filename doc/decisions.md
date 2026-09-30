@@ -694,3 +694,51 @@ the tag is in history, so `build-api-site.py` sees the new version anyway.
 deliberate skip with a reason in the file, rather than a red run whose cause is a setting in the
 repository's web UI.
 
+## The database defines the enums, and the changelogs were squashed to say so
+
+**Decision.** `state` and `importance` are native PostgreSQL enum types, `task_state` and
+`task_importance`, created in `001-baseline.xml`. That file is the whole schema as one
+changelog, replacing the three that had built it up.
+
+**Why an enum type rather than `VARCHAR`.** The column was `VARCHAR(16)` with no constraint, so
+the database would have accepted `'BANANA'`. What stood between it and a bad value was Jackson's
+deserialisation, Bean Validation, and the frontend's generated schema — all of them in the
+application. That is fine while this application is the only writer, and it stops being fine the
+moment anything else writes: a SQL client, a fix applied by hand, a second service. A column
+whose legal values are written down in the database does not depend on who is doing the writing.
+
+**Why the changelogs were squashed.** The sequence was todoitem, then app_user, then the
+replacement of todoitem by task. No database it applied to outlived it — every environment here
+is built from scratch — so the only thing the history added was having to read three files to
+learn the shape of two tables. It cost a one-off reset, which `local-development.md` records,
+because Liquibase refuses to run against a `databasechangelog` naming changesets that no longer
+exist.
+
+**What the mapping needs, and why both halves.** `@JdbcTypeCode(SqlTypes.NAMED_ENUM)` makes the
+driver send the enum rather than a `varchar` parameter, which PostgreSQL will not assign to an
+enum column without a cast. `@Column(columnDefinition = "task_state")` names the type, because
+Hibernate otherwise derives it from the Java class and looks for `taskstate`. Neither is
+optional, and dropping either leaves an application that still compiles.
+
+**The cost, stated rather than discovered.** Adding a value later is a new changeSet with
+`ALTER TYPE ... ADD VALUE`, which PostgreSQL allows. Renaming or removing one is not: it needs a
+new type and a column rewrite. That asymmetry is the price of the database enforcing the values,
+and it is worth paying for a set of three that describes a workflow.
+
+**The type and the Java enum are declared twice, so a test holds them together.**
+`TaskEnumColumnTest` asserts that both columns really are enum types and that the type's labels
+match the Java constants exactly, in order. Drift fails the build rather than the first request
+that uses the new value — checked by adding a constant on one side and watching it fail, not
+assumed.
+
+**Rejected: a `CHECK` constraint.** It would have enforced the values with none of the
+asymmetry above, and `ALTER TABLE ... DROP CONSTRAINT` would make changes easier. It was
+rejected because a check constraint states the values in a condition rather than as a type:
+nothing else can refer to it, `information_schema` does not describe it as a domain of values,
+and every table wanting the same set repeats the condition. The enum is the thing PostgreSQL
+has for this.
+
+**Rejected: leaving it as `VARCHAR` and relying on the application.** That is what was there,
+and the argument for it — only this application writes — is an argument that holds until it
+does not.
+

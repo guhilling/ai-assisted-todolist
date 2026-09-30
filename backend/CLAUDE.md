@@ -84,6 +84,13 @@ Don't write backend production code without a test driving it first.
 - Schema changes are managed with **Liquibase** changelogs, not the current
   `import.sql`/Hibernate-managed-schema approach. Every schema change gets
   its own changelog entry, checked in alongside the code that needs it.
+- **An enum belongs in the database as an enum**, not as a `VARCHAR`. Map it with
+  `@Enumerated(EnumType.STRING)` plus `@JdbcTypeCode(SqlTypes.NAMED_ENUM)` and a
+  `@Column(columnDefinition = "...")` naming the type; create the type in the changelog with
+  raw `<sql>`, since Liquibase has no change type for it.
+- When a type and a Java enum have to agree, **assert it in a test** rather than trusting the
+  two files to be edited together. `TaskEnumColumnTest` compares the type's labels to the
+  enum's constants, so drift fails the build instead of the first request.
 
 ## Logging
 
