@@ -17,7 +17,7 @@ the whole setup, and dark mode already works. Do not add a theme context; there 
 
 Plain CSS classes, BEM-ish: a block (`.task-row`) and a `--` modifier (`.task-row--done`).
 There are no utility classes — no `p-4`, no `flex`, no `bg-surface`. For your own layout glue,
-write CSS using the tokens rather than inventing colour values.
+write CSS using the tokens rather than inventing colour values, spacing or type sizes.
 
 **Tokens** (all of them; each flips automatically in dark mode):
 
@@ -27,6 +27,16 @@ write CSS using the tokens rather than inventing colour values.
 | Text | `--text`, `--text-muted` |
 | Accent | `--accent`, `--accent-contrast` |
 | Status | `--danger`, `--importance-low`, `--importance-medium`, `--importance-high` |
+| Spacing | `--space-1` `--space-2` `--space-3` `--space-4` `--space-6` `--space-8` `--space-12` `--space-16` |
+| Type | `--font-display`, `--font-title`, `--font-body`, `--font-small` |
+
+**Spacing is a strict 4px grid** and the number is the step count, so `--space-4` is 16px and
+`--space-6` is 24px. Every padding, margin and gap in this system comes from it. Use it for
+your own layout too — do not write a raw pixel value, and do not invent a step between two of
+these.
+
+**There are four type sizes and nothing between them.** 2rem, 1.5rem, 1rem, 0.875rem. If a
+piece of text needs its own size, it wants one of these four instead.
 
 **Class families** (the real names — use these, don't invent):
 
@@ -80,7 +90,10 @@ defined there. Each component's `.prompt.md` carries its props and usage.
     onDelete={remove}
   />
 
-  <p className="board-note" style={{ color: 'var(--text-muted)' }}>
+  <p
+    className="board-note"
+    style={{ color: 'var(--text-muted)', fontSize: 'var(--font-small)', marginTop: 'var(--space-6)' }}
+  >
     Nothing else due this week.
   </p>
 </main>

@@ -21,9 +21,28 @@
   --importance-high: #c5221f;
   --radius: 10px;
 
+  /* Spacing: a strict 4px grid, named by how many steps it is. Every padding, margin
+     and gap in this file comes from here -- see doc/decisions.md for why. */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  /* Type: four sizes and nothing between them. The root size below defines 1rem. */
+  --font-display: 2rem;
+  --font-title: 1.5rem;
+  --font-body: 1rem;
+  --font-small: 0.875rem;
+
+
   color: var(--text);
   background: var(--bg);
   font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  /* This is what 1rem means, not an entry in the type scale above. */
   font-size: 16px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
@@ -58,6 +77,8 @@
   position: absolute;
   width: 1px;
   height: 1px;
+  /* Not spacing: part of the standard clip idiom that hides this from sight but not
+     from a screen reader. Deliberately off the scale. */
   margin: -1px;
   padding: 0;
   overflow: hidden;
@@ -88,22 +109,22 @@ button {
 .app {
   max-width: 640px;
   margin: 0 auto;
-  padding: 24px 16px 64px;
+  padding: var(--space-6) var(--space-4) var(--space-16);
 }
 
 .app-header {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: 16px;
+  gap: var(--space-4);
   flex-wrap: wrap;
-  padding-bottom: 16px;
+  padding-bottom: var(--space-4);
   border-bottom: 1px solid var(--border);
 }
 
 .app-title {
   margin: 0;
-  font-size: 1.5rem;
+  font-size: var(--font-title);
   font-weight: 600;
   letter-spacing: -0.01em;
 }
@@ -111,8 +132,8 @@ button {
 .app-identity {
   display: flex;
   align-items: center;
-  gap: 10px;
-  font-size: 0.875rem;
+  gap: var(--space-3);
+  font-size: var(--font-small);
 }
 
 .user-avatar {
@@ -131,7 +152,7 @@ button {
   justify-content: center;
   background: var(--accent);
   color: var(--accent-contrast);
-  font-size: 0.6875rem;
+  font-size: var(--font-small);
   font-weight: 600;
   letter-spacing: 0.02em;
 }
@@ -141,10 +162,10 @@ button {
 }
 
 .app-footer {
-  margin-top: 40px;
-  padding-top: 16px;
+  margin-top: var(--space-8);
+  padding-top: var(--space-4);
   border-top: 1px solid var(--border);
-  font-size: 0.875rem;
+  font-size: var(--font-small);
 }
 
 .text-link {
@@ -159,12 +180,12 @@ button {
 
 .board-note {
   color: var(--text-muted);
-  padding: 16px 0;
+  padding: var(--space-4) 0;
 }
 
 .error-banner {
-  margin: 16px 0 0;
-  padding: 12px 14px;
+  margin: var(--space-4) 0 0;
+  padding: var(--space-3) var(--space-4);
   border: 1px solid var(--danger);
   border-radius: var(--radius);
   color: var(--danger);
@@ -178,7 +199,7 @@ button {
   align-items: center;
   justify-content: center;
   min-height: 44px;
-  padding: 0 20px;
+  padding: 0 var(--space-6);
   border: none;
   border-radius: 999px;
   background: var(--accent);
@@ -194,7 +215,7 @@ button {
 
 .button-quiet {
   min-height: 44px;
-  padding: 0 12px;
+  padding: 0 var(--space-3);
   border: none;
   border-radius: 999px;
   background: none;
@@ -211,13 +232,13 @@ button {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 16px;
-  padding: 48px 0;
+  gap: var(--space-4);
+  padding: var(--space-12) 0;
 }
 
 .signed-out-title {
   margin: 0;
-  font-size: 2rem;
+  font-size: var(--font-display);
   font-weight: 600;
   letter-spacing: -0.02em;
 }
@@ -235,7 +256,7 @@ button {
 .signed-out-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: var(--space-3);
 }
 
 /* ---------- add row ---------- */
@@ -243,11 +264,11 @@ button {
 .add-row {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--space-3);
   width: 100%;
   min-height: 52px;
-  margin-top: 8px;
-  padding: 0 8px;
+  margin-top: var(--space-2);
+  padding: 0 var(--space-2);
   border: none;
   border-radius: var(--radius);
   background: none;
@@ -261,19 +282,19 @@ button {
 }
 
 .add-row-plus {
-  font-size: 1.25rem;
+  font-size: var(--font-body);
   line-height: 1;
 }
 
 .add-row-key {
   margin-left: auto;
-  padding: 1px 7px;
+  padding: 0 var(--space-2);
   border: 1px solid var(--border);
   border-radius: 5px;
   background: var(--surface-raised);
   color: var(--text-muted);
   font-family: inherit;
-  font-size: 0.75rem;
+  font-size: var(--font-small);
 }
 
 .add-row:hover .add-row-key {
@@ -283,9 +304,9 @@ button {
 .add-form {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  margin-top: 8px;
-  padding: 16px;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
+  padding: var(--space-4);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--surface-raised);
@@ -294,11 +315,11 @@ button {
 .add-description {
   width: 100%;
   min-height: 44px;
-  padding: 0 4px;
+  padding: 0 var(--space-1);
   border: none;
   border-bottom: 2px solid var(--accent);
   background: none;
-  font-size: 1rem;
+  font-size: var(--font-body);
 }
 
 .add-description:focus {
@@ -308,17 +329,17 @@ button {
 .quick-dates {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: var(--space-2);
 }
 
 .chip {
   min-height: 36px;
-  padding: 0 14px;
+  padding: 0 var(--space-4);
   border: 1px solid var(--border);
   border-radius: 999px;
   background: var(--surface);
   color: var(--text-muted);
-  font-size: 0.875rem;
+  font-size: var(--font-small);
 }
 
 .chip--active {
@@ -332,21 +353,21 @@ button {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
-  gap: 16px;
+  gap: var(--space-4);
 }
 
 .add-field {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  font-size: 0.8125rem;
+  gap: var(--space-1);
+  font-size: var(--font-small);
   color: var(--text-muted);
 }
 
 .add-field input,
 .add-field select {
   min-height: 44px;
-  padding: 0 8px;
+  padding: 0 var(--space-2);
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--surface);
@@ -354,19 +375,19 @@ button {
 
 .add-actions {
   display: flex;
-  gap: 8px;
+  gap: var(--space-2);
   margin-left: auto;
 }
 
 /* ---------- sections ---------- */
 
 .task-section {
-  margin-top: 28px;
+  margin-top: var(--space-6);
 }
 
 .section-title {
-  margin: 0 0 4px;
-  font-size: 0.8125rem;
+  margin: 0 0 var(--space-1);
+  font-size: var(--font-small);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -388,8 +409,8 @@ button {
 .task-row {
   display: flex;
   align-items: flex-start;
-  gap: 12px;
-  padding: 12px 4px;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-1);
   border-bottom: 1px solid var(--border);
 }
 
@@ -397,6 +418,8 @@ button {
   flex: none;
   width: 20px;
   height: 20px;
+  /* Not spacing: an optical nudge that sits the 20px box on the first line of text.
+     A scale step in either direction visibly misaligns it. */
   margin: 2px 0 0;
   accent-color: var(--accent);
   cursor: pointer;
@@ -429,15 +452,17 @@ button {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-2);
+  /* Not spacing: an optical nudge that sits the meta line under the description.
+     A scale step in either direction visibly misaligns it. */
   margin: 2px 0 0;
-  font-size: 0.8125rem;
+  font-size: var(--font-small);
   color: var(--text-muted);
 }
 
 .task-meta > * + *::before {
   content: '·';
-  margin-right: 6px;
+  margin-right: var(--space-2);
 }
 
 /* The dot leads the line, so what follows it is not a second item needing a separator. */
@@ -476,7 +501,7 @@ button {
 }
 
 .task-chip {
-  padding: 1px 8px;
+  padding: 0 var(--space-2);
   border-radius: 999px;
   background: var(--surface-raised);
   border: 1px solid var(--border);
@@ -517,7 +542,7 @@ button {
   display: flex;
   flex-direction: column;
   min-width: 190px;
-  padding: 4px;
+  padding: var(--space-1);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--surface);
@@ -526,7 +551,7 @@ button {
 
 .task-menu-items button {
   min-height: 40px;
-  padding: 0 12px;
+  padding: 0 var(--space-3);
   border: none;
   border-radius: 8px;
   background: none;
@@ -544,12 +569,12 @@ button {
 /* ---------- completed ---------- */
 
 .completed-section {
-  margin-top: 28px;
+  margin-top: var(--space-6);
 }
 
 .completed-section > summary {
   cursor: pointer;
-  padding: 4px 0;
+  padding: var(--space-1) 0;
 }
 
 .completed-actions {
@@ -567,9 +592,9 @@ button {
   z-index: 2;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
   max-width: calc(100vw - 32px);
-  padding: 6px 8px 6px 16px;
+  padding: var(--space-2) var(--space-2) var(--space-2) var(--space-4);
   border-radius: var(--radius);
   background: var(--text);
   color: var(--bg);
@@ -578,7 +603,7 @@ button {
 
 .undo-action {
   min-height: 36px;
-  padding: 0 12px;
+  padding: 0 var(--space-3);
   border: none;
   border-radius: 8px;
   background: none;
@@ -598,6 +623,6 @@ button {
   border-radius: 8px;
   background: none;
   color: inherit;
-  font-size: 1.1rem;
+  font-size: var(--font-body);
   line-height: 1;
 }
