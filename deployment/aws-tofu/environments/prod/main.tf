@@ -6,7 +6,9 @@
 # than an intention.
 
 terraform {
-  required_version = ">= 1.5"
+  # OpenTofu, not Terraform -- see ../../README.md. The floor is 1.10 because backend.tf
+  # interpolates a variable (1.8) and the S3 backend locks without DynamoDB (1.10).
+  required_version = ">= 1.10"
 
   required_providers {
     aws = {
@@ -25,7 +27,7 @@ provider "aws" {
     tags = {
       project    = var.project
       env        = var.environment
-      managed-by = "terraform"
+      managed-by = "opentofu"
     }
   }
 }

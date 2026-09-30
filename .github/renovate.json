@@ -22,6 +22,15 @@
       "managerFilePatterns": ["/^backend/src/main/resources/application\\.properties$/"],
       "matchStrings": ["quarkus\\.jib\\.base-jvm-image=(?<depName>[^:\\s]+):(?<currentValue>\\S+)"],
       "datasourceTemplate": "docker"
+    },
+    {
+      "customType": "regex",
+      "description": "The pinned OpenTofu version in the CI workflow. The github-actions manager updates the action reference, not an input passed to it, so without this the pin would never move -- the same gap as the Jib base image above. The pin itself is deliberate: tofu fmt output has changed between minor releases, so CI and the developer machine must agree.",
+      "managerFilePatterns": ["/^\\.github/workflows/tofu-ci\\.yml$/"],
+      "matchStrings": ["tofu_version:\\s*'(?<currentValue>\\S+)'"],
+      "depNameTemplate": "opentofu/opentofu",
+      "datasourceTemplate": "github-releases",
+      "extractVersionTemplate": "^v(?<version>.*)$"
     }
   ],
   "packageRules": [

@@ -6,7 +6,7 @@ on:
       - 'backend/**'
       - 'doc/api/**'
       - '.github/workflows/backend-ci.yml'
-      - 'docker/docker-compose.yml'
+      - 'deployment/docker/docker-compose.yml'
   push:
     branches:
       - main
@@ -14,7 +14,7 @@ on:
       - 'backend/**'
       - 'doc/api/**'
       - '.github/workflows/backend-ci.yml'
-      - 'docker/docker-compose.yml'
+      - 'deployment/docker/docker-compose.yml'
 
 permissions:
   contents: read

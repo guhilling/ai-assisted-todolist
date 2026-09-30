@@ -1,4 +1,4 @@
-name: Terraform CI
+name: OpenTofu CI
 
 # Everything here runs without AWS credentials: formatting, the environment-sameness rule, and
 # `validate`, which resolves the module and checks every resource against the provider's own
@@ -8,38 +8,38 @@ name: Terraform CI
 on:
   pull_request:
     paths:
-      - 'docker/terraform/**'
-      - '.github/workflows/terraform-ci.yml'
+      - 'deployment/aws-tofu/**'
+      - '.github/workflows/tofu-ci.yml'
   push:
     branches:
       - main
     paths:
-      - 'docker/terraform/**'
-      - '.github/workflows/terraform-ci.yml'
+      - 'deployment/aws-tofu/**'
+      - '.github/workflows/tofu-ci.yml'
 
 permissions:
   contents: read
 
 jobs:
-  terraform:
+  tofu:
     runs-on: ubuntu-26.04
     defaults:
       run:
-        working-directory: docker/terraform
+        working-directory: deployment/aws-tofu
     steps:
       - uses: actions/checkout@v7
-      - uses: hashicorp/setup-terraform@v3
+      - uses: opentofu/setup-opentofu@v1
         with:
-          # Pinned to the version used locally, so a formatting or validation difference is
-          # never just a version difference. `terraform fmt` output has changed between minor
-          # releases before now.
-          terraform_version: '1.5.7'
-          # The wrapper turns the CLI into a script that also sets step outputs, which swallows
-          # exit codes in a `for` loop below.
-          terraform_wrapper: false
+          # Pinned, and matching what is installed locally, so a formatting or validation
+          # difference is never just a version difference -- `fmt` output has changed between
+          # minor releases before now.
+          tofu_version: '1.12.6'
+          # The wrapper replaces the CLI with a script that also sets step outputs, which
+          # swallows exit codes inside the `for` loop below.
+          tofu_wrapper: false
 
       - name: Check formatting
-        run: terraform fmt -recursive -check -diff
+        run: tofu fmt -recursive -check -diff
 
       - name: Check the environments still differ only in their values
         # The point of the module-plus-thin-root layout is that prod is a parameter change. This
@@ -49,11 +49,11 @@ jobs:
       - name: Validate every environment
         # -backend=false skips the S3 backend, which would need credentials. It still downloads
         # the provider, which is what makes the validation meaningful: the resource schemas come
-        # from the provider, not from Terraform.
+        # from the provider, not from OpenTofu.
         run: |
           for environment in environments/*/; do
             echo "::group::${environment}"
-            terraform -chdir="${environment}" init -backend=false -input=false
-            terraform -chdir="${environment}" validate
+            tofu -chdir="${environment}" init -backend=false -input=false
+            tofu -chdir="${environment}" validate
             echo "::endgroup::"
           done

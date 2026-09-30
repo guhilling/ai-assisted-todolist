@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-Fails when the environment roots have stopped being the same Terraform.
+Fails when the environment roots have stopped being the same configuration.
 
 Run it from anywhere:
 
-    python3 docker/terraform/check-environments-match.py
+    python3 deployment/aws-tofu/check-environments-match.py
 
 "prod is merely a config change from qa" is the design of this directory, and it is the kind of
 claim that stays true for exactly as long as nobody is in a hurry. The tempting shortcut -- add
@@ -16,31 +16,27 @@ So the rule is mechanical: every environment root contains the same files, and a
 byte-identical except
 
     terraform.tfvars   the values, which are the entire intended difference
-    backend.tf         which may differ in its state key and nowhere else
 
 Anything that must vary between environments therefore has to become a module variable, which
 is the outcome this check exists to force.
+
+There used to be a second exception, for the state key in backend.tf. OpenTofu evaluates
+variables early enough for a backend block to interpolate one, so that file is now identical
+too and the exception is gone. On Terraform, which evaluates nothing in a backend block, it would have to come back.
 """
 
 import pathlib
-import re
 import sys
 
-# Both are per-environment by nature; the rest of the root is shared Terraform.
+# Per-environment by nature; the rest of the root is shared configuration.
 VALUES_FILE = "terraform.tfvars"
-BACKEND_FILE = "backend.tf"
-
-# The one line backend.tf is allowed to disagree on. Terraform's S3 backend takes no variables
-# and no interpolation, so this cannot be factored out the way everything else can -- the key
-# has to be written per environment, and this check is what keeps it to the key.
-BACKEND_VARYING_LINE = re.compile(r'^\s*key\s*=')
 
 ENVIRONMENTS = pathlib.Path(__file__).resolve().parent / "environments"
 
 
 def files_of(root):
     """
-    Every file in one environment root that is part of the Terraform, relative to it.
+    Every file in one environment root that is part of the configuration, relative to it.
 
     Dot-prefixed paths are skipped, which is not a stylistic choice: `.terraform/` is init's
     local cache and an editor's `.main.tf.swp` is neither environment's business. Both are
@@ -53,12 +49,6 @@ def files_of(root):
         if path.is_file()
         and not any(part.startswith(".") for part in path.relative_to(root).parts)
     )
-
-
-def backend_shape(root):
-    """backend.tf with its key line removed -- what must be identical everywhere."""
-    lines = (root / BACKEND_FILE).read_text().splitlines()
-    return [line for line in lines if not BACKEND_VARYING_LINE.match(line)]
 
 
 def main():
@@ -85,14 +75,6 @@ def main():
             if name == VALUES_FILE:
                 continue
 
-            if name == BACKEND_FILE:
-                if backend_shape(reference) != backend_shape(root):
-                    problems.append(
-                        f"{root.name}/{BACKEND_FILE} differs from {reference.name}/{BACKEND_FILE} "
-                        "in more than the state key."
-                    )
-                continue
-
             if (reference / name).read_bytes() != (root / name).read_bytes():
                 problems.append(
                     f"{root.name}/{name} differs from {reference.name}/{name}. "
@@ -111,7 +93,7 @@ def main():
         return 1
 
     names = ", ".join(root.name for root in roots)
-    print(f"{names}: same files, identical apart from {VALUES_FILE} and the state key.")
+    print(f"{names}: same files, identical apart from {VALUES_FILE}.")
     return 0
 
 

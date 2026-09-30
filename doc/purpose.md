@@ -42,6 +42,6 @@ repository root and in `backend/` and `frontend/`:
 ## What is deliberately absent
 
 No user registration, no password handling, no roles or permissions beyond ownership, no
-multi-tenancy, and no production deployment yet. AWS is the intended target and the
-`docker/` folder is where that material will land; until the target is actually chosen,
-writing it down would be fiction.
+multi-tenancy, and nothing deployed to AWS yet. The target is chosen and planned in
+[deployment.md](deployment.md), and `deployment/aws-tofu/` has begun to implement it, but
+no environment has been created.

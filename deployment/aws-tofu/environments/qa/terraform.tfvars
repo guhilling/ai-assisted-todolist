@@ -1,4 +1,6 @@
-# The whole difference between this environment and the other one.
+# The whole difference between this environment and the other one. Literally: every other
+# file in this directory is byte-identical to its counterpart, and
+# check-environments-match.py fails the build if that stops being true.
 
 region      = "eu-central-1"
 project     = "todolist"

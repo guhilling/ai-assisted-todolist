@@ -33,7 +33,7 @@ services:
       KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
       KC_HOSTNAME_STRICT: "false"
     volumes:
-      - ../keycloak/realm-todolist.json:/opt/keycloak/data/import/realm-todolist.json:ro
+      - ../../keycloak/realm-todolist.json:/opt/keycloak/data/import/realm-todolist.json:ro
     ports:
       - "8082:8082"
     healthcheck:
@@ -60,8 +60,8 @@ services:
       TODO_OIDC_COOKIE_SECURE: "false"
       SMALLRYE_CONFIG_LOCATIONS: /config/backend-e2e.properties
     volumes:
-      - ../e2e/backend-e2e.properties:/config/backend-e2e.properties:ro
-      - ../e2e/backend-healthcheck.sh:/config/healthcheck.sh:ro
+      - ../../e2e/backend-e2e.properties:/config/backend-e2e.properties:ro
+      - ../../e2e/backend-healthcheck.sh:/config/healthcheck.sh:ro
     depends_on:
       postgres:
         condition: service_healthy
