@@ -140,9 +140,21 @@ operation for two hostnames.
 automated agent" was enforceable by there being nothing in the prod account to assume. In one
 account it becomes a **policy** guarantee, which is weaker:
 
-- Deployment to prod uses a role assumable only by the GitHub OIDC provider, restricted to this
-  repository **and** to the `prod` environment, which requires a human approval.
-- The QA role is scoped by resource tag and name prefix and denied everything tagged `prod`.
+Three IAM **users** — technical identities, one job each:
+
+| User | May touch | Used by |
+| --- | --- | --- |
+| `todolist-qa-deploy` | resources tagged `env=qa`; denied everything tagged `env=prod` | GitHub Actions, unattended |
+| `todolist-prod-deploy` | resources tagged `env=prod` | GitHub Actions, **only from the `prod` environment**, which requires approval |
+| `todolist-monitoring` | read-only, everywhere | dashboards and alarms; can change nothing |
+
+Two consequences worth being plain about:
+
+- **These users have long-lived access keys**, held as GitHub Actions secrets, prod's scoped to
+  the protected environment. That is a real difference from a role assumed through OIDC, which
+  issues short-lived credentials and stores nothing. The mitigations are the usual ones — least
+  privilege by tag, scheduled rotation, and an alarm on either key being used from outside
+  Actions — and moving to OIDC later would change nothing else in this plan.
 - **Local credentials are the remaining hole.** An agent running with an administrator profile
   on a developer machine could reach prod, because nothing structural stops it. The mitigation is
   that the profile available locally is itself least-privilege and explicitly denies
@@ -173,6 +185,7 @@ Per environment, identical unless noted:
 | ECS task for migrations | Same image, different command; see *The database* |
 | RDS PostgreSQL, single-AZ, `db.t4g.micro` | HA is explicitly not required |
 | Secrets Manager | The database password and the Google client secret |
+| Three IAM users and their policies | The technical identities above, scoped by tag |
 | S3 bucket, private | The built SPA; reachable only through CloudFront's origin access control |
 | CloudFront distribution | The two origins above |
 | CloudWatch log groups, alarms, dashboard | See *Observability* |
@@ -201,8 +214,9 @@ deployment compares that with the database and takes the corresponding path. Hib
 runs `schema-management.strategy=validate`, so a mismatch already fails fast — this makes it
 fail before any traffic moves, and say why.
 
-Deployment runs from GitHub Actions, assuming the per-account role through OIDC. No CodePipeline
-and no long-lived AWS keys; the prod gate is a protected environment.
+Deployment runs from GitHub Actions as the environment's technical user. No CodePipeline; the
+prod gate is a protected environment, which is also what keeps the prod key unreadable from an
+unapproved run.
 
 The SPA deploys as `aws s3 sync` of a **release artifact**, the same way `openapi.yaml` is already
 attached to each release. Rolling the frontend back is re-syncing the previous release, which is
@@ -293,3 +307,5 @@ Honest gaps, because a plan that hides them is worse than one that names them:
   the load balancer in a private subnet and the tasks in public ones.
 - **Tag-filtered budgets** report with a delay and ignore untagged resources; confirm the
   per-environment figures are trustworthy before relying on them instead of a per-account bill.
+- **Whether a GitHub environment secret is genuinely unreadable** from a workflow run that has
+  not passed the approval gate — the prod key's protection rests on it.

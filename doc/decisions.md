@@ -884,9 +884,9 @@ two hostnames.
 
 **What it costs is stated rather than glossed.** With separate accounts, "prod is never created
 by an automated agent" was enforceable because the prod account held nothing to assume. In one
-account it is a policy: the prod deployment role is assumable only by the GitHub OIDC provider,
-restricted to this repository and to an environment that requires human approval, and the QA role
-is denied everything tagged `env=prod`. The hole that remains is local credentials — an agent
+account it is a policy: three technical IAM users, one per job, scoped by resource tag — a QA
+deployer denied everything tagged `env=prod`, a prod deployer whose key lives in a GitHub
+environment that requires human approval, and a read-only user for monitoring. The hole that remains is local credentials — an agent
 running with an administrator profile could reach prod, and only a least-privilege local profile
 stops it. That is a discipline, not a wall. The wall was the account boundary, and it was traded
 for not having to cross an account boundary to write two DNS records.
@@ -911,8 +911,13 @@ Serving only S3 would break sign-in after deployment, where nothing local would 
 *Rejected: the frontend container on ECS*, which keeps local and production identical at the cost
 of a load balancer target, a task and a base image that needs patching forever.
 
-**GitHub Actions with OIDC, not CodePipeline.** One pipeline rather than two, no long-lived AWS
-keys, and the prod gate is a protected environment. Cost did not decide it — a V1 pipeline is
+**GitHub Actions, not CodePipeline.** One pipeline rather than two, and the prod gate is a
+protected environment. It runs as a **technical IAM user per environment** rather than assuming a
+role through OIDC, which is what was asked for. The cost is **long-lived access keys** held as
+GitHub secrets, where OIDC would have issued short-lived credentials and stored nothing; least
+privilege by tag, rotation, and an alarm on use from outside Actions are the mitigations, and
+moving to OIDC later changes nothing else in the plan. Cost did not decide the CodePipeline
+question — a V1 pipeline is
 about a dollar a month and CodeDeploy is free for ECS. *Rejected: CodePipeline*, which would be
 right if demonstrating AWS-native CI/CD were itself the point, or if blue/green still required
 CodeDeploy. It no longer does: ECS has blue/green natively, which removed the main argument.
