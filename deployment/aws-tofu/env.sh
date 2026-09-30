@@ -60,10 +60,32 @@ fi
 # but the state bucket, and demanding an MFA-backed role to answer a question is friction with
 # no safety behind it.
 use_lifecycle_profile() {
-    if [[ -z "${AWS_PROFILE:-}" ]]; then
-        export AWS_PROFILE="todolist-${ENVIRONMENT}-lifecycle"
-        echo "Using AWS profile ${AWS_PROFILE} (set AWS_PROFILE to override)."
+    # Already chosen: someone who sets AWS_PROFILE means it.
+    [[ -z "${AWS_PROFILE:-}" ]] || return 0
+
+    local wanted="todolist-${ENVIRONMENT}-lifecycle"
+
+    if aws configure list-profiles 2>/dev/null | grep -qx "$wanted"; then
+        export AWS_PROFILE="$wanted"
+        echo "Using AWS profile ${wanted} (set AWS_PROFILE to override)."
+        return 0
     fi
+
+    # Not configured -- which is the normal state until the role exists, since the role is part
+    # of the foundation an administrator applies. Exporting it anyway produced "failed to get
+    # shared config profile", an error naming something the reader never set up.
+    cat >&2 <<NOTE
+Note: no AWS profile named ${wanted} is configured, so this runs as whatever
+credentials are already active. That is expected before the role exists.
+
+Once it does, add this to ~/.aws/config so up and down run with least privilege:
+
+  [profile ${wanted}]
+  role_arn       = <the lifecycle_role_arn output of environments/${ENVIRONMENT}>
+  source_profile = default
+  mfa_serial     = arn:aws:iam::<account>:mfa/<your-user>
+
+NOTE
 }
 
 run_tofu() { tofu -chdir="$ROOT" "$@"; }
@@ -106,9 +128,25 @@ case "$COMMAND" in
 
         # A saved plan, so what gets applied is what was just shown on screen.
         plan_file="$(mktemp -t "tofu-${ENVIRONMENT}")"
-        trap 'rm -f "$plan_file"' EXIT
 
-        run_tofu plan -input=false -var "running=${running}" -out="$plan_file"
+        # The output is teed so the one failure with a non-obvious cause can be recognised and
+        # explained, rather than every failure getting a guess appended to it.
+        plan_log="$(mktemp -t "tofu-${ENVIRONMENT}-log")"
+        trap 'rm -f "$plan_file" "$plan_log"' EXIT
+
+        if ! run_tofu plan -input=false -var "running=${running}" -out="$plan_file" 2>&1 | tee "$plan_log"; then
+            if grep -q "openid_connect_provider" "$plan_log"; then
+                cat >&2 <<NOTE
+
+The account-wide root has not been applied. The environments look the GitHub OIDC provider
+up by URL, so they cannot plan until it exists:
+
+  tofu -chdir="${HERE}/account" init && tofu -chdir="${HERE}/account" apply
+
+NOTE
+            fi
+            exit 1
+        fi
 
         if [[ "$ASSUME_YES" != "yes" ]]; then
             read -r -p "Apply this plan to ${ENVIRONMENT}? [y/N] " answer
