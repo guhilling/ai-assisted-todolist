@@ -52,5 +52,32 @@ jobs:
         run: npm run test:coverage
       - name: Build frontend
         run: npm run build
+
+      - name: Build the component library
+        # Not covered by `npm run build`, which builds the app. This target exists so the
+        # components can be rendered outside the app -- by the design system published from
+        # them -- and nothing else here would notice if it broke.
+        run: npm run build:ds
+
+      - name: Check the library build produced what a consumer needs
+        # An entry, a stylesheet and the declarations, because a bundler resolves the first,
+        # a component without the second renders unstyled, and a consumer without the third
+        # gets no types. A silent partial build is the failure worth naming.
+        run: |
+          missing=()
+          for artifact in \
+            dist-ds/index.js \
+            dist-ds/frontend.css \
+            dist-ds/design-system.d.ts \
+            dist-ds/components/TaskRow.d.ts
+          do
+            [ -s "$artifact" ] || missing+=("$artifact")
+          done
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo "::error::npm run build:ds did not produce: ${missing[*]}"
+            exit 1
+          fi
+          echo "library build produced its entry, stylesheet and declarations"
+
       - name: Build frontend container image
         run: docker build -f docker/Dockerfile -t todo-frontend:test .
