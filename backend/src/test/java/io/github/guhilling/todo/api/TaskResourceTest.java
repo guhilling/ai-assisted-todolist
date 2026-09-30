@@ -60,8 +60,8 @@ class TaskResourceTest {
             .body(Map.of(
                 "description", description,
                 "dueDate", LocalDate.now().plusDays(3).toString(),
-                "importance", "HIGH",
-                "state", "TODO"))
+                "importance", TaskImportance.HIGH.name(),
+                "state", TaskState.TODO.name()))
             .when().post("/api/tasks")
             .then()
             .statusCode(201)
@@ -71,7 +71,7 @@ class TaskResourceTest {
             .when().get("/api/tasks")
             .then()
             .statusCode(200)
-            .body("find { it.description == '" + description + "' }.importance", equalTo("HIGH"));
+            .body("find { it.description == '" + description + "' }.importance", equalTo(TaskImportance.HIGH.name()));
     }
 
     @Test
@@ -87,8 +87,8 @@ class TaskResourceTest {
             .body(Map.of(
                 "description", aliceDescription,
                 "dueDate", LocalDate.now().plusDays(2).toString(),
-                "importance", "MEDIUM",
-                "state", "TODO"))
+                "importance", TaskImportance.MEDIUM.name(),
+                "state", TaskState.TODO.name()))
             .when().post("/api/tasks")
             .then()
             .statusCode(201);
@@ -112,8 +112,8 @@ class TaskResourceTest {
             .body(Map.of(
                 "description", "attempted takeover",
                 "dueDate", LocalDate.now().plusDays(1).toString(),
-                "importance", "LOW",
-                "state", "DONE"))
+                "importance", TaskImportance.LOW.name(),
+                "state", TaskState.DONE.name()))
             .when().put("/api/tasks/{id}", otherUsersTaskId)
             .then()
             .statusCode(404);
@@ -123,7 +123,8 @@ class TaskResourceTest {
     @TestSecurity(user = ALICE)
     @OidcSecurity(claims = { @Claim(key = "email", value = ALICE) })
     void shouldDeleteOwnTask() {
-        Long taskId = createTask("Delete me " + UUID.randomUUID(), LocalDate.now().plusDays(4), "LOW", "TODO");
+        Long taskId = createTask("Delete me " + UUID.randomUUID(), LocalDate.now().plusDays(4),
+            TaskImportance.LOW, TaskState.TODO);
 
         given()
             .when().delete("/api/tasks/{id}", taskId)
@@ -157,7 +158,8 @@ class TaskResourceTest {
     @TestSecurity(user = ALICE)
     @OidcSecurity(claims = { @Claim(key = "email", value = ALICE) })
     void shouldUpdateOwnTask() {
-        Long taskId = createTask("Before " + UUID.randomUUID(), LocalDate.now().plusDays(4), "LOW", "TODO");
+        Long taskId = createTask("Before " + UUID.randomUUID(), LocalDate.now().plusDays(4),
+            TaskImportance.LOW, TaskState.TODO);
         String updatedDescription = "After " + UUID.randomUUID();
 
         given()
@@ -165,21 +167,21 @@ class TaskResourceTest {
             .body(Map.of(
                 "description", updatedDescription,
                 "dueDate", LocalDate.now().plusDays(6).toString(),
-                "importance", "HIGH",
-                "state", "DONE"))
+                "importance", TaskImportance.HIGH.name(),
+                "state", TaskState.DONE.name()))
             .when().put("/api/tasks/{id}", taskId)
             .then()
             .statusCode(200)
             .body("id", equalTo(taskId.intValue()))
             .body("description", equalTo(updatedDescription))
-            .body("importance", equalTo("HIGH"))
-            .body("state", equalTo("DONE"));
+            .body("importance", equalTo(TaskImportance.HIGH.name()))
+            .body("state", equalTo(TaskState.DONE.name()));
 
         given()
             .when().get("/api/tasks")
             .then()
             .statusCode(200)
-            .body("find { it.id == " + taskId + " }.state", equalTo("DONE"));
+            .body("find { it.id == " + taskId + " }.state", equalTo(TaskState.DONE.name()));
     }
 
     /**
@@ -196,7 +198,7 @@ class TaskResourceTest {
     @OidcSecurity(claims = { @Claim(key = "email", value = ALICE) })
     void shouldCompleteATaskWhoseDueDateHasPassed() {
         String description = "Overdue " + UUID.randomUUID();
-        Long taskId = createTask(description, LocalDate.now().plusDays(3), "HIGH", "TODO");
+        Long taskId = createTask(description, LocalDate.now().plusDays(3), TaskImportance.HIGH, TaskState.TODO);
         LocalDate overdue = LocalDate.now().minusDays(2);
         // A bulk update rather than loading and saving the entity: it goes straight to SQL,
         // so the date can be moved into the past without any validation having a say. That
@@ -208,19 +210,19 @@ class TaskResourceTest {
             .body(Map.of(
                 "description", description,
                 "dueDate", overdue.toString(),
-                "importance", "HIGH",
-                "state", "DONE"))
+                "importance", TaskImportance.HIGH.name(),
+                "state", TaskState.DONE.name()))
             .when().put("/api/tasks/{id}", taskId)
             .then()
             .statusCode(200)
-            .body("state", equalTo("DONE"))
+            .body("state", equalTo(TaskState.DONE.name()))
             .body("dueDate", equalTo(overdue.toString()));
 
         given()
             .when().get("/api/tasks")
             .then()
             .statusCode(200)
-            .body("find { it.id == " + taskId + " }.state", equalTo("DONE"));
+            .body("find { it.id == " + taskId + " }.state", equalTo(TaskState.DONE.name()));
     }
 
     @ParameterizedTest(name = "rejects {0}")
@@ -239,13 +241,15 @@ class TaskResourceTest {
     static Stream<Arguments> invalidTaskRequests() {
         String tomorrow = LocalDate.now().plusDays(1).toString();
         return Stream.of(
-            Arguments.of("a blank description", taskJson("", tomorrow, "\"MEDIUM\"", "\"TODO\"")),
+            Arguments.of("a blank description", taskJson("", tomorrow, TaskImportance.MEDIUM, TaskState.TODO)),
             Arguments.of("a description past the column length",
-                taskJson("x".repeat(Task.MAX_DESCRIPTION_LENGTH + 1), tomorrow, "\"MEDIUM\"", "\"TODO\"")),
+                taskJson("x".repeat(Task.MAX_DESCRIPTION_LENGTH + 1), tomorrow,
+                    TaskImportance.MEDIUM, TaskState.TODO)),
             Arguments.of("a due date in the past",
-                taskJson("Yesterday's job", LocalDate.now().minusDays(1).toString(), "\"MEDIUM\"", "\"TODO\"")),
-            Arguments.of("no importance", taskJson("Unrated job", tomorrow, "null", "\"TODO\"")),
-            Arguments.of("no state", taskJson("Stateless job", tomorrow, "\"MEDIUM\"", "null")));
+                taskJson("Yesterday's job", LocalDate.now().minusDays(1).toString(),
+                    TaskImportance.MEDIUM, TaskState.TODO)),
+            Arguments.of("no importance", taskJson("Unrated job", tomorrow, null, TaskState.TODO)),
+            Arguments.of("no state", taskJson("Stateless job", tomorrow, TaskImportance.MEDIUM, null)));
     }
 
     @Test
@@ -257,7 +261,8 @@ class TaskResourceTest {
 
         given()
             .contentType(ContentType.JSON)
-            .body(taskJson(description, LocalDate.now().minusDays(1).toString(), "\"HIGH\"", "\"TODO\""))
+            .body(taskJson(description, LocalDate.now().minusDays(1).toString(),
+                TaskImportance.HIGH, TaskState.TODO))
             .when().post("/api/tasks")
             .then()
             .statusCode(400);
@@ -274,9 +279,9 @@ class TaskResourceTest {
     @OidcSecurity(claims = { @Claim(key = "email", value = ALICE) })
     void shouldListTasksInDueDateOrder() {
         String marker = "ordering-" + UUID.randomUUID();
-        createTask(marker + " third", LocalDate.now().plusDays(9), "LOW", "TODO");
-        createTask(marker + " first", LocalDate.now().plusDays(3), "LOW", "TODO");
-        createTask(marker + " second", LocalDate.now().plusDays(6), "LOW", "TODO");
+        createTask(marker + " third", LocalDate.now().plusDays(9), TaskImportance.LOW, TaskState.TODO);
+        createTask(marker + " first", LocalDate.now().plusDays(3), TaskImportance.LOW, TaskState.TODO);
+        createTask(marker + " second", LocalDate.now().plusDays(6), TaskImportance.LOW, TaskState.TODO);
 
         List<String> ordered = given()
             .when().get("/api/tasks")
@@ -295,7 +300,8 @@ class TaskResourceTest {
         given()
             .header("X-Requested-With", "JavaScript")
             .contentType(ContentType.JSON)
-            .body(taskJson("Anonymous job", LocalDate.now().plusDays(1).toString(), "\"HIGH\"", "\"TODO\""))
+            .body(taskJson("Anonymous job", LocalDate.now().plusDays(1).toString(),
+                TaskImportance.HIGH, TaskState.TODO))
             .when().post("/api/tasks")
             .then()
             .statusCode(not(201));
@@ -307,14 +313,15 @@ class TaskResourceTest {
             .statusCode(not(204));
     }
 
-    private static Long createTask(String description, LocalDate dueDate, String importance, String state) {
+    private static Long createTask(
+        String description, LocalDate dueDate, TaskImportance importance, TaskState state) {
         return given()
             .contentType(ContentType.JSON)
             .body(Map.of(
                 "description", description,
                 "dueDate", dueDate.toString(),
-                "importance", importance,
-                "state", state))
+                "importance", importance.name(),
+                "state", state.name()))
             .when().post("/api/tasks")
             .then()
             .statusCode(201)
@@ -324,11 +331,19 @@ class TaskResourceTest {
     /**
      * Builds a request body as text rather than as a map, so a null enum can be sent -- which
      * is one of the shapes the validation constraints exist to reject.
+     *
+     * <p>The enums are still enums here, and null still means null; quoting happens in
+     * {@link #jsonValue} so no test has to spell a constant's name, or escape a quote, itself.</p>
      */
-    private static String taskJson(String description, String dueDate, String importance, String state) {
+    private static String taskJson(String description, String dueDate, TaskImportance importance, TaskState state) {
         return """
             {"description":"%s","dueDate":"%s","importance":%s,"state":%s}"""
-            .formatted(description, dueDate, importance, state);
+            .formatted(description, dueDate, jsonValue(importance), jsonValue(state));
+    }
+
+    /** One enum constant as a JSON value, or the JSON null a missing one has to be sent as. */
+    private static String jsonValue(Enum<?> value) {
+        return value == null ? "null" : "\"" + value.name() + "\"";
     }
 
     private static int ownTaskCount() {

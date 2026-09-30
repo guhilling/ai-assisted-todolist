@@ -1,5 +1,7 @@
 package io.github.guhilling.todo.api;
 
+import io.github.guhilling.todo.model.TaskImportance;
+import io.github.guhilling.todo.model.TaskState;
 import io.github.guhilling.todo.support.KeycloakLoginFlow;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.junit.QuarkusTestProfile;
@@ -90,8 +92,8 @@ class KeycloakLoginFlowTest {
             .body(Map.of(
                 "description", description,
                 "dueDate", LocalDate.now().plusDays(2).toString(),
-                "importance", "MEDIUM",
-                "state", "TODO"))
+                "importance", TaskImportance.MEDIUM.name(),
+                "state", TaskState.TODO.name()))
             .when().post("/api/tasks")
             .then()
             .statusCode(201);

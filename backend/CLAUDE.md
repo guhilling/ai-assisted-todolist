@@ -67,6 +67,17 @@ Don't write backend production code without a test driving it first.
 - This style is **enforced**, not just a convention: wire Checkstyle into the
   Maven build (`sun_checks.xml` ruleset) so a style violation fails the
   build, and run it in CI.
+- **Use the enum, never a string literal that repeats one of its constants.** This holds in
+  test code as much as in production code: `"HIGH"` in a test is a second definition of
+  `TaskImportance` in a place the compiler cannot check, so renaming a constant leaves the
+  tests compiling and asserting the old name.
+  - Where a string really is required — a JSON request body, a JSONPath assertion — derive it
+    from the enum at that one boundary rather than giving up: pass the enum into the test
+    helper and call `.name()` inside it, and assert with `equalTo(TaskState.DONE.name())`. The
+    literal then exists once, beside the serialisation, instead of once per test.
+  - The exception is a test whose subject is an *invalid* value. Checking that the backend
+    rejects an unknown state needs a string the enum deliberately does not contain, so there is
+    no constant to use.
 
 ## Database migrations
 
