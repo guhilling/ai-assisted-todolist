@@ -211,12 +211,17 @@ AWS_PROFILE=todolist-qa-lifecycle tofu -chdir=environments/qa apply
 The profile form is the one worth setting up: the SDK prompts for the MFA code and caches the
 session, so this is one extra prompt a day rather than a ritual.
 
-**Adding a resource later: writes stay narrow, reads follow the root.** `tofu apply` refreshes
+**Adding a resource later: writes stay narrow, reads are already wide.** `tofu apply` refreshes
 the whole root rather than the subset it is about to change, so this role needs a *read* action
-for every resource type in the module, including the ones it can never write. A new resource type
-without one fails the next apply with a 403 naming an API rather than a resource, which is a
-confusing way to find out. The read statement uses wildcards per service so this is usually
-already true.
+for every resource type in the module, including ones it can never write. Three applies failed in
+a row on a missing one — most memorably `ec2:GetManagedPrefixListEntries`, because `ec2:Describe*`
+does not match `Get*` — so the read statement now grants Describe, Get and List wholesale for
+every service this project uses, including ones it does not use yet. The security boundary of
+this role is its **writes**; a read changes nothing.
+
+**S3 is the deliberate exception**, and is scoped by ARN instead. `s3:Get*` would let the qa role
+read prod's state file, which holds every attribute of every prod resource — the one read worth
+refusing. Object access is limited to this environment's own state key.
 
 **What this role is not.** Creating an RDS instance needs create *and* delete on RDS, and
 creating a service needs `iam:PassRole` — together that is close to administrator for the
