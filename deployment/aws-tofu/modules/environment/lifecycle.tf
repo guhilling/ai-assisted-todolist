@@ -172,6 +172,12 @@ data "aws_iam_policy_document" "lifecycle" {
 
   # The database: the single most expensive thing in the environment, and the one whose deletion
   # is irreversible without the snapshot.
+  #
+  # Unlike the service and the load balancer, this is NOT pinned to the VPC, because RDS offers
+  # no condition key for it: CreateDBSubnetGroup cannot be conditioned on its subnets, nor
+  # CreateDBInstance on its security groups. This role could therefore build its own database in
+  # the other environment's subnets. Accepted because the role is assumed by a person with MFA
+  # and is an audit boundary, not a security one -- see the header of this file.
   statement {
     sid = "TheDatabase"
     actions = [
@@ -201,12 +207,41 @@ data "aws_iam_policy_document" "lifecycle" {
     resources = ["arn:aws:rds:${local.region}:${local.account}:subgrp:${local.db_subnet_group}"]
   }
 
-  # The load balancer and its target groups. Blue/green needs two target groups, which is why
-  # the names are a prefix match rather than one ARN.
+  # Creating the load balancer is where it is placed, so the name in the ARN is not enough: this
+  # pins it to this environment's private subnets and its own security group, and to internal,
+  # so an apply can neither put it in the other environment's VPC nor give it a public address.
+  #
+  # ForAllValues passes on an absent key, which is safe here only because an ALB cannot be
+  # created without subnets. The scheme is a plain StringEquals, so it must be stated.
+  statement {
+    sid       = "CreateTheLoadBalancerInsideThisEnvironment"
+    actions   = ["elasticloadbalancing:CreateLoadBalancer"]
+    resources = ["arn:aws:elasticloadbalancing:${local.region}:${local.account}:loadbalancer/app/${local.alb_name}/*"]
+
+    condition {
+      test     = "ForAllValues:StringEquals"
+      variable = "elasticloadbalancing:Subnet"
+      values   = aws_subnet.private[*].id
+    }
+
+    condition {
+      test     = "ForAllValues:StringEquals"
+      variable = "elasticloadbalancing:SecurityGroup"
+      values   = [aws_security_group.alb.id]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "elasticloadbalancing:Scheme"
+      values   = ["internal"]
+    }
+  }
+
+  # The rest of the load balancer and its target groups. Blue/green needs two target groups,
+  # which is why the names are a prefix match rather than one ARN.
   statement {
     sid = "TheLoadBalancer"
     actions = [
-      "elasticloadbalancing:CreateLoadBalancer",
       "elasticloadbalancing:DeleteLoadBalancer",
       "elasticloadbalancing:ModifyLoadBalancerAttributes",
       "elasticloadbalancing:CreateTargetGroup",
@@ -227,6 +262,8 @@ data "aws_iam_policy_document" "lifecycle" {
   }
 
   # The running service. Creating and deleting it is what starts and stops the Fargate bill.
+  # Pinned to this environment's subnets for the same reason as in deploy.tf: the subnets decide
+  # the VPC, and with it whose database the tasks can reach.
   statement {
     sid = "TheService"
     actions = [
@@ -237,6 +274,12 @@ data "aws_iam_policy_document" "lifecycle" {
       "ecs:UntagResource",
     ]
     resources = [local.service_arn]
+
+    condition {
+      test     = "ForAllValues:StringEquals"
+      variable = "ecs:subnet"
+      values   = aws_subnet.public[*].id
+    }
   }
 
   # Cannot be scoped, for the same reason as in deploy.tf: the call creates the resource, so
