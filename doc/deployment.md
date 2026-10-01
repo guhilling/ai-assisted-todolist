@@ -218,9 +218,11 @@ Four consequences worth being plain about:
   service are therefore pinned to their own environment's subnets with `ecs:subnet`, which pins
   the VPC too, since a security group must be in its subnet's VPC; the lifecycle role's
   `CreateLoadBalancer` is pinned the same way, to the private subnets, the `alb` group and
-  `internal`. **RDS is the gap:** it has no condition key for subnets or security groups, so the
-  lifecycle role could create a database in the other environment's subnets. That is accepted
-  because the role is assumed by a person with MFA.
+  `internal`, and its `CreateDBInstance` and `RestoreDBInstanceFromDBSnapshot` to
+  `rds:PubliclyAccessible = false`. **RDS is the gap:** it has no condition key for security
+  groups, so the lifecycle role could attach the other environment's database group to its own
+  instance. The subnet group is foundation and not the role's to create. That is accepted because
+  the role is assumed by a person with MFA.
 - **Local credentials are the remaining hole.** An agent running with an administrator profile
   on a developer machine could reach prod, because nothing structural stops it. The mitigation is
   that the profile available locally is itself least-privilege and explicitly denies
@@ -288,7 +290,7 @@ Per environment, identical unless noted:
 | ECS cluster, one Fargate service | The Quarkus backend, 0.5 vCPU / 1 GB |
 | ECS task for migrations | Same image, different command; see *The database* |
 | RDS PostgreSQL, single-AZ, `db.t4g.micro` | HA is explicitly not required |
-| Secrets Manager | The database password and the Google client secret |
+| Secrets Manager | The RDS-managed master password, for bootstrapping and administration only, and the Google client secret. The application has no database password at all |
 | Three IAM users and their policies | The technical identities above, scoped by tag |
 | S3 bucket, private | The built SPA; reachable only through CloudFront's origin access control |
 | CloudFront distribution | The two origins above |
@@ -378,8 +380,46 @@ anything uses the value, and the only way back is the snapshot. That is the pric
 decision in `decisions.md`, and it is the sharpest edge in this plan.
 
 **Idle cost** is handled by destroying the environment, database included, with a final snapshot.
-OpenTofu restores from it on demand. Stopping is not enough: a stopped RDS instance still bills
-storage *and AWS restarts it automatically after seven days*.
+Stopping is not enough: a stopped RDS instance still bills storage *and AWS restarts it
+automatically after seven days*.
+
+**A down/up cycle keeps the data, not the instance.** `env.sh down` destroys the instance and
+leaves a final snapshot named `todolist-<env>-db-final-<timestamp>`; `env.sh up` looks up the
+newest one and passes it as `db_restore_snapshot`, so the new instance starts from it. With no
+snapshot it starts empty, and it says which on screen. To start empty on purpose, or from an
+older snapshot, run the plan by hand with `-var db_restore_snapshot=…` (or `=null`). Snapshots
+are never deleted automatically; at this size each is cents a month, and old ones are removed in
+the console when wanted.
+
+**The application logs in with IAM, not a password.** The ECS task role
+(`todolist-<env>-task`) may `rds-db:connect` as one database user, `todolist_<env>`, and
+nothing else. On every new connection `RdsIamCredentialsProvider` signs a token from the task
+role's credentials, valid for 15 minutes; RDS checks it against IAM. Nothing secret is configured,
+injected or rotated, and the counterpart on EKS would be a service account. The backend switches
+it on with `TODO_DATASOURCE_CREDENTIALS_PROVIDER=rds-iam`; without it, as in the Compose stacks,
+the password is used as before. Migrations run as the same user.
+
+**The master password is RDS's, and is for bootstrapping only.** `manage_master_user_password`
+has RDS generate it, keep it in Secrets Manager and rotate it every seven days, so it is never in
+state. Injecting it into the running service was rejected for exactly that rotation: ECS reads a
+secret once, at task start, so a long-running task would keep the old password and fail on its
+next connection after a rotation.
+
+**Still to do, in the ECS change (#107): create the database user once.** `todolist_<env>` does not
+exist until someone runs, as the master user, `CREATE ROLE todolist_<env> LOGIN`,
+`GRANT rds_iam TO todolist_<env>` and the grants on the schema. Nothing can reach the database to
+do that yet — it is in private subnets with no route out, and admits only the `tasks` security
+group — so it becomes a one-off ECS task with the master secret injected (a one-off task reads the
+secret fresh on every run, so rotation does not bite there). It is needed once per environment,
+because every later `up` restores the user along with the data.
+
+**A restore needs its managed password re-established.** For PostgreSQL, RDS cannot turn on
+managed credentials during a snapshot restore — AWS supports that for Oracle only — so a restored
+instance comes back with the master password from the time of the snapshot, whose secret was
+deleted with the old instance. The AWS provider follows the restore with a `ModifyDBInstance`
+that turns managed credentials back on and creates a new secret. That is expected rather than
+verified; if the first restore shows no `db_master_secret_arn`, the fallback is
+`aws rds modify-db-instance --db-instance-identifier todolist-<env>-db --manage-master-user-password --apply-immediately`.
 
 ## Observability
 
@@ -413,7 +453,7 @@ One environment, running continuously:
 | --- | --- | --- |
 | ALB | ~$16 | Fixed, whether or not anyone uses it. Unavoidable while blue/green is demonstrated |
 | Fargate 0.5 vCPU / 1 GB | ~$18 | |
-| RDS `db.t4g.micro` single-AZ | ~$12 | Plus ~$2 for 20 GB gp3 |
+| RDS `db.t4g.micro` single-AZ | ~$13 | Plus ~$3 for 20 GB gp3. Seven days of backups and Performance Insights are within the free allowances. An estimate until qa has run for a month |
 | S3 + CloudFront | ~$1 | At demo traffic |
 | CloudWatch, Secrets Manager | ~$2 | |
 | Route 53 | $0 | The zone already exists; alias queries are not charged |

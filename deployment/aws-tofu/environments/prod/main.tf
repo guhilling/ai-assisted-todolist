@@ -41,6 +41,7 @@ module "environment" {
   public_subnet_cidrs  = var.public_subnet_cidrs
   private_subnet_cidrs = var.private_subnet_cidrs
   running              = var.running
+  db_restore_snapshot  = var.db_restore_snapshot
 }
 
 output "vpc_id" {
@@ -66,4 +67,24 @@ output "lifecycle_role_arn" {
 output "running" {
   description = "Whether this environment's billable resources exist, as of the last apply."
   value       = module.environment.running
+}
+
+output "db_endpoint" {
+  description = "Where the database listens, host:port, or null while the environment is down."
+  value       = module.environment.db_endpoint
+}
+
+output "db_app_user" {
+  description = "The database user the backend logs in as, with IAM authentication."
+  value       = module.environment.db_app_user
+}
+
+output "db_master_secret_arn" {
+  description = "The RDS-managed master credentials, for bootstrapping and administration only."
+  value       = module.environment.db_master_secret_arn
+}
+
+output "task_role_arn" {
+  description = "What the backend container runs as."
+  value       = module.environment.task_role_arn
 }

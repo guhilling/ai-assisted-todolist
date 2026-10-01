@@ -16,6 +16,7 @@
         <quarkus.platform.artifact-id>quarkus-bom</quarkus.platform.artifact-id>
         <quarkus.platform.group-id>io.quarkus.platform</quarkus.platform.group-id>
         <quarkus.platform.version>3.39.5</quarkus.platform.version>
+        <awssdk.version>2.55.9</awssdk.version>
         <skipITs>true</skipITs>
         <surefire-plugin.version>3.6.0</surefire-plugin.version>
         <checkstyle-plugin.version>3.6.0</checkstyle-plugin.version>
@@ -38,6 +39,15 @@
                 <groupId>${quarkus.platform.group-id}</groupId>
                 <artifactId>${quarkus.platform.artifact-id}</artifactId>
                 <version>${quarkus.platform.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <dependency>
+                <!-- The AWS SDK's own BOM, so its modules move together. Quarkus core does not
+                     manage AWS SDK versions. -->
+                <groupId>software.amazon.awssdk</groupId>
+                <artifactId>bom</artifactId>
+                <version>${awssdk.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -66,6 +76,23 @@
         <dependency>
             <groupId>io.quarkus</groupId>
             <artifactId>quarkus-jdbc-postgresql</artifactId>
+        </dependency>
+        <dependency>
+            <!-- RdsUtilities, which signs the IAM database authentication token. Signing is
+                 local, so neither HTTP client is needed: no RDS API call is ever made, and the
+                 task-role credentials are fetched by the SDK's own JDK-based loader. -->
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>rds</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>software.amazon.awssdk</groupId>
+                    <artifactId>apache-client</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>software.amazon.awssdk</groupId>
+                    <artifactId>netty-nio-client</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <dependency>
             <groupId>io.quarkus</groupId>
@@ -266,6 +293,7 @@
                         <param>io.github.guhilling.todo.api.AuthProviderMappingTest</param>
                         <param>io.github.guhilling.todo.service.GravatarUrlTest</param>
                         <param>io.github.guhilling.todo.service.GravatarServiceTest</param>
+                        <param>io.github.guhilling.todo.datasource.RdsIamCredentialsProviderTest</param>
                     </targetTests>
                     <!-- The classes no allowlisted test reaches, excluded so the score reflects
                          what was actually measured rather than being diluted by code PIT could

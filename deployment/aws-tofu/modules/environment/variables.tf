@@ -94,3 +94,17 @@ variable "state_bucket" {
   type        = string
   default     = "todolist-tofu-state"
 }
+
+variable "db_restore_snapshot" {
+  description = <<-EOT
+    The snapshot a newly created database is restored from, or null for an empty one. Only read
+    when the instance is created: on a running database it is ignored, so passing a newer
+    snapshot can never replace it.
+
+    `env.sh up` sets it to the newest final snapshot of this environment's database, which is
+    what makes a down/up cycle keep the data. Like `running`, it is deliberately not in
+    terraform.tfvars -- which snapshot is newest is a fact about the world, not the code.
+  EOT
+  type        = string
+  default     = null
+}

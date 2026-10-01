@@ -35,3 +35,9 @@ variable "running" {
   type        = bool
   default     = false
 }
+
+variable "db_restore_snapshot" {
+  description = "Snapshot a newly created database is restored from. Passed by env.sh up, never in terraform.tfvars."
+  type        = string
+  default     = null
+}

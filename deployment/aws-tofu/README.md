@@ -58,6 +58,8 @@ The network, the security groups and the flow logs — the layer everything else
 | `network.tf` | VPC, two public subnets, two private subnets, internet gateway, route tables |
 | `security.tf` | The four-hop chain: CloudFront → load balancer → task → database |
 | `flow-logs.tf` | VPC flow logs, all traffic, into a private bucket of the environment's own, kept 30 days |
+| `database.tf` | The database's subnet group, and the ECS task role with its IAM login to the database |
+| `billable.tf` | What costs money while it exists: so far the RDS PostgreSQL instance |
 
 Three properties of the network are deliberate and will look wrong without the reason:
 
@@ -66,12 +68,13 @@ Three properties of the network are deliberate and will look wrong without the r
   keeps them private is the security group in `security.tf`, which lets nothing but the load
   balancer open a connection to them.
 - **The private subnets have a route table with no routes.** That is what "no NAT" looks like
-  written down. They exist for the internal load balancer and, later, the database.
+  written down. They hold the internal load balancer and the database.
 - **Two availability zones because the load balancer requires two**, not for high availability.
   A single task in one AZ is not highly available, and the plan does not claim it is.
 
-Still to come, each as its own change: RDS and Secrets Manager; ECS, the ALB and its target
-groups; S3, CloudFront, ACM and Route 53; the CloudWatch alarms, budgets and IAM users.
+Still to come, each as its own change: ECS, with the one-off task that creates the database
+user; the ALB and its target groups; S3, CloudFront, ACM and Route 53; the CloudWatch alarms,
+budgets and IAM users.
 
 ## Bootstrapping the state bucket, once
 
@@ -135,6 +138,11 @@ Teardown is a **parameter**, not a `tofu destroy`. The resources that cost money
 rather than re-evaluating, so what is applied is exactly what was displayed. `--yes` skips the
 prompt, for a workflow. It defaults to the lifecycle profile for `up` and `down`, and deliberately
 not for `status` — reading what the last apply recorded needs nothing but the state bucket.
+
+**`up` restores the database from the newest final snapshot** of that environment, which `down`
+leaves behind, so the data survives a cycle even though the instance does not. It says on screen
+which snapshot, or that there is none and the database starts empty. `doc/deployment.md`, *The
+database*, covers starting empty on purpose and the one-time step after the first restore.
 
 `running` defaults to **false**, so a plain `tofu apply` creates a foundation and no bill.
 Bringing an environment up is the deliberate act. It is never set in `terraform.tfvars`: whether
@@ -279,7 +287,7 @@ cd deployment/aws-tofu
 tofu fmt -recursive -check -diff
 python3 check-environments-match.py
 python3 check-billable-guard.py
-trivy config --skip-check-update --exit-code 1 .
+trivy config --skip-check-update --exit-code 1 --tf-vars trivy.tfvars .
 for r in environments/*/ account/; do tofu -chdir="$r" init -backend=false && tofu -chdir="$r" validate; done
 ```
 
@@ -295,6 +303,11 @@ AWS-0104 on the tasks' egress are both the no-NAT decision. The scan uses the ch
 the pinned Trivy version (`--skip-check-update`), so a new check arrives with a Renovate pull
 request instead of failing an unrelated change on the day it ships. Keep the local version in
 step with the one in `tofu-ci.yml` for the same reason as with `tofu` (`brew install trivy`).
+
+**Trivy scans as if the environment were up** (`--tf-vars trivy.tfvars`, which sets
+`running = true`). With the defaults, every resource in `billable.tf` has a count of zero and
+Trivy evaluates none of them — the database passed the scan by not existing until that was
+noticed.
 
 ## `.terraform.lock.hcl` is committed, for two platforms
 

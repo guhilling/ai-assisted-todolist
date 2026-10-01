@@ -62,9 +62,13 @@ jobs:
         # binary instead of downloading the latest bundle: a new check then arrives with a
         # Renovate pull request, rather than failing an unrelated change on the day it ships.
         # It runs before `init`, so it scans this repository's code and not downloaded modules.
+        #
+        # trivy.tfvars sets running = true. Without it every billable resource evaluates to
+        # zero instances and is never checked at all -- the database once passed this scan by
+        # not existing.
         uses: docker://aquasec/trivy:0.74.0
         with:
-          args: config --skip-check-update --exit-code 1 deployment/aws-tofu
+          args: config --skip-check-update --exit-code 1 --tf-vars deployment/aws-tofu/trivy.tfvars deployment/aws-tofu
 
       - name: Lint the shell script
         # shellcheck ships on the GitHub-hosted Ubuntu images. env.sh is the one place here where

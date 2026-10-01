@@ -6,9 +6,9 @@ Run it from anywhere:
 
     python3 .github/scripts/check-postgres-version.py
 
-The version is pinned in four places that have no reason to know about each other: Dev Services
-for `%dev` and for `%test` in the backend's application.properties, and the image in each of the
-two Compose stacks. They drifted -- dev and test ran 17 while both Compose stacks ran 18 -- and
+The version is pinned in places that have no reason to know about each other: Dev Services for
+`%dev` and for `%test` in the backend's application.properties, the image in each of the two
+Compose stacks, and the RDS engine's major version in the OpenTofu module. They drifted -- dev and test ran 17 while both Compose stacks ran 18 -- and
 nothing noticed until somebody went looking for which version RDS should run.
 
 That drift is not cosmetic. `task_state` and `task_importance` are native PostgreSQL enum types,
@@ -32,6 +32,10 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
 # never four digits.
 PIN = re.compile(r"(?<![/\w])postgres:(\d+)(?:-[a-z0-9.]+)?")
 
+# The RDS engine is not an image, so it has its own spelling: the `db_engine_major` local in the
+# OpenTofu module. Matched by name, because a bare version string in HCL could be anything.
+RDS_PIN = re.compile(r'\bdb_engine_major\s*=\s*"(\d+)"')
+
 
 def tracked_text_files():
     """Only files git tracks, so build output and node_modules cannot contribute a pin."""
@@ -41,7 +45,7 @@ def tracked_text_files():
     )
     for name in listing.stdout.splitlines():
         path = ROOT / name
-        if path.suffix in {".properties", ".yml", ".yaml", ".md", ".java", ".ts", ".tsx"}:
+        if path.suffix in {".properties", ".yml", ".yaml", ".md", ".java", ".ts", ".tsx", ".tf"}:
             yield path
 
 
@@ -54,7 +58,7 @@ def main():
         except (UnicodeDecodeError, OSError):
             continue
         for number, line in enumerate(text.splitlines(), 1):
-            for match in PIN.finditer(line):
+            for match in [*PIN.finditer(line), *RDS_PIN.finditer(line)]:
                 version = int(match.group(1))
                 if version >= 1000:
                     continue
