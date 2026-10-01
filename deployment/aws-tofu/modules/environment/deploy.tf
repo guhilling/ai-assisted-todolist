@@ -33,6 +33,7 @@ locals {
   cluster_name        = local.name
   service_name        = "${local.name}-backend"
   migrate_family      = "${local.name}-migrate"
+  db_bootstrap_family = "${local.name}-db-bootstrap"
   site_bucket         = "${local.name}-site"
   task_execution_role = "${local.name}-task-execution"
   task_role           = "${local.name}-task"

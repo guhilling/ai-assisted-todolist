@@ -322,6 +322,47 @@ data "aws_iam_policy_document" "lifecycle" {
     }
   }
 
+  # The two one-off tasks, started by a person through env.sh: creating the database user and
+  # running the migrations. Only those two families and only in this environment's cluster --
+  # the bootstrap task carries the master credentials, which is why the deploy role cannot run it.
+  statement {
+    sid     = "RunTheOneOffTasks"
+    actions = ["ecs:RunTask"]
+    resources = [
+      "arn:aws:ecs:${local.region}:${local.account}:task-definition/${local.db_bootstrap_family}:*",
+      "arn:aws:ecs:${local.region}:${local.account}:task-definition/${local.migrate_family}:*",
+    ]
+
+    condition {
+      test     = "ArnEquals"
+      variable = "ecs:cluster"
+      values   = [local.cluster_arn]
+    }
+  }
+
+  statement {
+    sid       = "StopATaskInThisCluster"
+    actions   = ["ecs:StopTask"]
+    resources = ["arn:aws:ecs:${local.region}:${local.account}:task/${local.cluster_name}/*"]
+
+    condition {
+      test     = "ArnEquals"
+      variable = "ecs:cluster"
+      values   = [local.cluster_arn]
+    }
+  }
+
+  # Registering a tagged task definition is also a TagResource call on it, and the provider's
+  # default_tags tag everything. Scoped to this environment's families.
+  statement {
+    sid     = "TagThisEnvironmentsTaskDefinitions"
+    actions = ["ecs:TagResource", "ecs:UntagResource"]
+    resources = [
+      "arn:aws:ecs:${local.region}:${local.account}:task-definition/${local.db_bootstrap_family}:*",
+      "arn:aws:ecs:${local.region}:${local.account}:task-definition/${local.migrate_family}:*",
+    ]
+  }
+
   # Cannot be scoped, for the same reason as in deploy.tf: the call creates the resource, so
   # there is no ARN to match on.
   statement {

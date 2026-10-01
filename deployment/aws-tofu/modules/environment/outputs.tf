@@ -67,3 +67,18 @@ output "task_role_arn" {
   description = "What the backend container runs as."
   value       = aws_iam_role.task.arn
 }
+
+output "cluster_name" {
+  description = "The ECS cluster the one-off tasks run in."
+  value       = aws_ecs_cluster.this.name
+}
+
+output "db_bootstrap_task_family" {
+  description = "The task that creates the application's database user. Run by env.sh db-bootstrap."
+  value       = local.db_bootstrap_family
+}
+
+output "migrate_task_family" {
+  description = "The task that runs Liquibase over IAM authentication. Run by env.sh migrate."
+  value       = local.migrate_family
+}

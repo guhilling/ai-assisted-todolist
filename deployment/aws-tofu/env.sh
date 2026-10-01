@@ -16,6 +16,8 @@
 #   ./env.sh down qa        destroy them; the VPC, subnets and IAM stay
 #   ./env.sh status qa      what the last apply recorded
 #   ./env.sh up qa --yes    skip the confirmation, for a workflow
+#   ./env.sh db-bootstrap qa   create the application's database user, once per environment
+#   ./env.sh migrate qa        run the Liquibase migrations, logged in with IAM
 #
 set -euo pipefail
 
@@ -23,7 +25,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly HERE
 
 usage() {
-    sed -n '3,18p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+    sed -n '3,20p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
     exit "${1:-1}"
 }
 
@@ -145,6 +147,71 @@ NOTE
 
 run_tofu() { tofu -chdir="$ROOT" "$@"; }
 
+# The region, from terraform.tfvars. export_credentials_for passes on credentials but not a
+# region, so the AWS CLI calls below name it rather than trusting the CLI's default.
+tfvars_region() {
+    sed -n 's/^ *region *= *"\([^"]*\)".*/\1/p' "${ROOT}/terraform.tfvars" | head -1
+}
+
+# Runs one of the two one-off tasks, waits for it, prints its log and exits with its exit code.
+#
+# Both exist only while the environment is up -- they point at the database -- so asking for one
+# while it is down is answered with that, not with an ECS error about a missing task definition.
+# The task runs where the backend will: a public subnet for its outbound calls, and the tasks
+# security group, which is the only one the database admits.
+run_one_off() {
+    local which="$1" family cluster subnets group region task_arn task_id exit_code reason
+
+    if [[ "$(run_tofu output -json db_endpoint 2>/dev/null || echo null)" == "null" ]]; then
+        echo "${ENVIRONMENT} is down, so there is no database to ${which}." >&2
+        echo "Run './env.sh up ${ENVIRONMENT}' first." >&2
+        exit 1
+    fi
+
+    case "$which" in
+        db-bootstrap) family="$(run_tofu output -raw db_bootstrap_task_family)" ;;
+        migrate)      family="$(run_tofu output -raw migrate_task_family)" ;;
+    esac
+    cluster="$(run_tofu output -raw cluster_name)"
+    group="$(run_tofu output -raw tasks_security_group_id)"
+    # ["subnet-a","subnet-b"] -> subnet-a,subnet-b, the shape the shorthand below wants.
+    subnets="$(run_tofu output -json public_subnet_ids | tr -d '[]" \n')"
+    region="$(tfvars_region)"
+
+    task_arn="$(aws ecs run-task --region "$region" --cluster "$cluster" --task-definition "$family" \
+        --launch-type FARGATE --started-by env.sh \
+        --network-configuration "awsvpcConfiguration={subnets=[${subnets}],securityGroups=[${group}],assignPublicIp=ENABLED}" \
+        --query 'tasks[0].taskArn' --output text)"
+    task_id="${task_arn##*/}"
+    echo "Started ${which} as task ${task_id}; waiting for it to finish."
+
+    # Up to ten minutes, which is the waiter's own limit. Pulling the image is most of it.
+    if ! aws ecs wait tasks-stopped --region "$region" --cluster "$cluster" --tasks "$task_arn"; then
+        echo "Gave up waiting. The task may still be running: ${task_id}" >&2
+        exit 1
+    fi
+
+    exit_code="$(aws ecs describe-tasks --region "$region" --cluster "$cluster" --tasks "$task_arn" \
+        --query 'tasks[0].containers[0].exitCode' --output text)"
+    reason="$(aws ecs describe-tasks --region "$region" --cluster "$cluster" --tasks "$task_arn" \
+        --query 'tasks[0].stoppedReason' --output text)"
+
+    echo "--- last lines of its log ---"
+    aws logs get-log-events --region "$region" --log-group-name "/ecs/todolist-${ENVIRONMENT}" \
+        --log-stream-name "task/${which}/${task_id}" --limit 40 \
+        --query 'events[].[message]' --output text 2>/dev/null || echo "(no log stream -- it never started)"
+    echo "---"
+
+    # No exit code at all means the container never ran: an image pull or a secret that could
+    # not be fetched. stoppedReason is then the only explanation there is.
+    if [[ "$exit_code" == "0" ]]; then
+        echo "${which} succeeded."
+    else
+        echo "${which} failed (exit code ${exit_code}): ${reason}" >&2
+        exit 1
+    fi
+}
+
 # The newest final snapshot of this environment's database, or nothing if there is none.
 #
 # Teardown destroys the database and leaves a final snapshot; this is the other half, so that a
@@ -156,7 +223,7 @@ run_tofu() { tofu -chdir="$ROOT" "$@"; }
 # becomes a fresh database and the data appears to be gone.
 newest_final_snapshot() {
     local region snapshot
-    region="$(sed -n 's/^ *region *= *"\([^"]*\)".*/\1/p' "${ROOT}/terraform.tfvars" | head -1)"
+    region="$(tfvars_region)"
 
     # The backticks are a JMESPath string literal, not a command substitution, so single quotes
     # are exactly right here.
@@ -260,6 +327,12 @@ NOTE
         fi
 
         run_tofu apply -input=false "$plan_file"
+        ;;
+
+    db-bootstrap|migrate)
+        use_lifecycle_profile
+        run_tofu init -input=false >/dev/null
+        run_one_off "$COMMAND"
         ;;
 
     *)

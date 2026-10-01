@@ -1027,6 +1027,16 @@ replaced, where the credentials provider leaves the PostgreSQL driver and every 
 the migrations, and the IAM grant names that user rather than the instance — an instance's
 resource id changes with every restore, while the user travels with the snapshot.
 
+**The database user is created by a one-off ECS task, run by a person.** It is the only thing
+that needs the master credentials, and it is needed once per environment, so it is a task the
+lifecycle role may run and the deploy role may not, started by `env.sh db-bootstrap`. ECS
+injects the credentials when the task starts, so the seven-day rotation that ruled out injecting
+them into the service does not apply to a task that lives for seconds. The master secret is
+matched by the `aws:rds:primaryDBInstanceArn` tag RDS puts on it, because its name is random and
+changes with every restore. *Rejected: the backend creating its own user at start-up*, which
+would put the master credentials in the service. *Rejected: a Lambda in the VPC*, which is more
+infrastructure for something that runs once.
+
 **The frontend is static on S3 behind CloudFront, with `/api/*` on the same distribution.** No
 container, no task, no image to patch — which is also part of the answer to #66. The second
 origin is not optional: httpd currently serves the SPA *and* proxies the API, and that

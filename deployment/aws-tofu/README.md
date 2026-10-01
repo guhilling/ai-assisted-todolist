@@ -59,7 +59,8 @@ The network, the security groups and the flow logs — the layer everything else
 | `security.tf` | The four-hop chain: CloudFront → load balancer → task → database |
 | `flow-logs.tf` | VPC flow logs, all traffic, into a private bucket of the environment's own, kept 30 days |
 | `database.tf` | The database's subnet group, and the ECS task role with its IAM login to the database |
-| `billable.tf` | What costs money while it exists: so far the RDS PostgreSQL instance |
+| `ecs.tf` | The ECS cluster, the task log group, and the role ECS uses to start a task |
+| `billable.tf` | What costs money while it exists, or points at what does: the RDS instance and the two one-off task definitions |
 
 Three properties of the network are deliberate and will look wrong without the reason:
 
@@ -72,9 +73,8 @@ Three properties of the network are deliberate and will look wrong without the r
 - **Two availability zones because the load balancer requires two**, not for high availability.
   A single task in one AZ is not highly available, and the plan does not claim it is.
 
-Still to come, each as its own change: ECS, with the one-off task that creates the database
-user; the ALB and its target groups; S3, CloudFront, ACM and Route 53; the CloudWatch alarms,
-budgets and IAM users.
+Still to come, each as its own change: the backend service with the ALB and its target groups;
+S3, CloudFront, ACM and Route 53; the CloudWatch alarms, budgets and IAM users.
 
 ## Bootstrapping the state bucket, once
 
@@ -132,6 +132,8 @@ Teardown is a **parameter**, not a `tofu destroy`. The resources that cost money
 ./env.sh up qa       # create the database, load balancer and service
 ./env.sh down qa     # destroy them; VPC, subnets, security groups and IAM stay
 ./env.sh status qa   # what the last apply recorded
+./env.sh db-bootstrap qa   # once per environment: create the database user
+./env.sh migrate qa        # run the Liquibase migrations
 ```
 
 `env.sh` shows the plan and waits for an answer on every run, and applies the **saved plan file**

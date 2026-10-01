@@ -288,7 +288,7 @@ Per environment, identical unless noted:
 | ACM certificate in **us-east-1** | CloudFront accepts certificates from that region only |
 | Route 53 alias records | In the same account as everything else; free to query |
 | ECS cluster, one Fargate service | The Quarkus backend, 0.5 vCPU / 1 GB |
-| ECS task for migrations | Same image, different command; see *The database* |
+| ECS cluster, and two one-off tasks | `migrate` (the backend image with `quarkus.init-and-exit`) and `db-bootstrap` (`psql`, once per environment); see *The database* |
 | RDS PostgreSQL, single-AZ, `db.t4g.micro` | HA is explicitly not required |
 | Secrets Manager | The RDS-managed master password, for bootstrapping and administration only, and the Google client secret. The application has no database password at all |
 | Three IAM users and their policies | The technical identities above, scoped by tag |
@@ -405,13 +405,31 @@ state. Injecting it into the running service was rejected for exactly that rotat
 secret once, at task start, so a long-running task would keep the old password and fail on its
 next connection after a rotation.
 
-**Still to do, in the ECS change (#107): create the database user once.** `todolist_<env>` does not
-exist until someone runs, as the master user, `CREATE ROLE todolist_<env> LOGIN`,
-`GRANT rds_iam TO todolist_<env>` and the grants on the schema. Nothing can reach the database to
-do that yet — it is in private subnets with no route out, and admits only the `tasks` security
-group — so it becomes a one-off ECS task with the master secret injected (a one-off task reads the
-secret fresh on every run, so rotation does not bite there). It is needed once per environment,
-because every later `up` restores the user along with the data.
+**Creating the database user is one command, once per environment.** `todolist_<env>` does not
+exist until the master user creates it, and nothing outside the VPC can reach the database to do
+that, so it is a one-off ECS task:
+
+```sh
+./env.sh up qa             # the database, and the two task definitions that point at it
+./env.sh db-bootstrap qa   # creates todolist_qa: CREATE ROLE, GRANT rds_iam, schema grants
+./env.sh migrate qa        # Liquibase, logged in as todolist_qa with an IAM token
+```
+
+`db-bootstrap` runs `psql` from the official PostgreSQL image (pulled from ECR Public's mirror,
+which has no Docker Hub rate limit) with the SQL in `modules/environment/db-bootstrap.sql`. It is
+the only task that receives the master credentials, and the only one the deploy role cannot run.
+It verifies the server with the region's RDS CA bundle, which is committed under
+`modules/environment/rds-ca/` and passed in as a variable, because the image does not carry it.
+Every statement is idempotent, so running it again — or on a restored database, which already has
+the user — changes nothing. It is needed once per environment: every later `up` restores the user
+along with the data.
+
+`migrate` is the backend image with `quarkus.init-and-exit`, so Quarkus runs Liquibase and stops
+instead of serving. It logs in exactly as the application will, with `verify-full` against the RDS
+bundle that `backend/src/main/jib/opt/rds/` puts in the image, so a run that exits 0 proves the
+whole path: the user exists, RDS accepts the token, and the certificate checks out. Both commands
+print the task's log and exit with its exit code. The tasks run `quay.io/ghilling/todo-backend:latest`
+until the deploy change pins a release.
 
 **A restore needs its managed password re-established.** For PostgreSQL, RDS cannot turn on
 managed credentials during a snapshot restore — AWS supports that for Oracle only — so a restored

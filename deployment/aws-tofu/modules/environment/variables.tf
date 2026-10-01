@@ -108,3 +108,19 @@ variable "db_restore_snapshot" {
   type        = string
   default     = null
 }
+
+variable "log_retention_days" {
+  description = "How long the ECS task logs are kept. Shorter in qa than in prod, per doc/deployment.md."
+  type        = number
+}
+
+variable "backend_image" {
+  description = <<-EOT
+    The backend image the one-off tasks run. Quay's `latest`, which main publishes, until the
+    deploy change pins a release: from then on the deploy role registers a task definition per
+    release, and this only seeds the first one. Public, so no registry credentials are needed --
+    the tasks pull it over their public IP.
+  EOT
+  type        = string
+  default     = "quay.io/ghilling/todo-backend:latest"
+}

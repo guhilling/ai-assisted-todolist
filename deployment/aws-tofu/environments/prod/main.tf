@@ -42,6 +42,7 @@ module "environment" {
   private_subnet_cidrs = var.private_subnet_cidrs
   running              = var.running
   db_restore_snapshot  = var.db_restore_snapshot
+  log_retention_days   = var.log_retention_days
 }
 
 output "vpc_id" {
@@ -87,4 +88,29 @@ output "db_master_secret_arn" {
 output "task_role_arn" {
   description = "What the backend container runs as."
   value       = module.environment.task_role_arn
+}
+
+output "cluster_name" {
+  description = "The ECS cluster the one-off tasks run in."
+  value       = module.environment.cluster_name
+}
+
+output "public_subnet_ids" {
+  description = "Where the tasks run, with a public IP for their outbound calls."
+  value       = module.environment.public_subnet_ids
+}
+
+output "tasks_security_group_id" {
+  description = "The security group the tasks run in: the only one the database admits."
+  value       = module.environment.tasks_security_group_id
+}
+
+output "db_bootstrap_task_family" {
+  description = "The task that creates the application's database user."
+  value       = module.environment.db_bootstrap_task_family
+}
+
+output "migrate_task_family" {
+  description = "The task that runs Liquibase over IAM authentication."
+  value       = module.environment.migrate_task_family
 }
