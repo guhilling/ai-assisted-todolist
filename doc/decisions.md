@@ -1085,5 +1085,9 @@ otherwise cost about $50. The tasks take a public IP and are reachable from noth
 group admits only the load balancer. *Rejected: private subnets with a NAT gateway*, which is
 what a commercial deployment should do and what the plan says to do when this stops being a demo.
 *Rejected: VPC endpoints instead of NAT*, which is cheaper than NAT but still per-endpoint, and
-more moving parts than a demo justifies.
+more moving parts than a demo justifies. Without endpoints there is also no *request-side* VPC restriction:
+`aws:SourceVpc` is only set on a request that goes through one, and `aws:Ec2InstanceSourceVpc`
+covers EC2 instance credentials, not Fargate task roles. What is restricted by VPC instead is where
+the deploy and lifecycle roles may *place* the service and the load balancer — see
+`deployment.md`.
 

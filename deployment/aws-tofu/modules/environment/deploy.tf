@@ -82,13 +82,27 @@ resource "aws_iam_role" "deploy" {
 data "aws_iam_policy_document" "deploy" {
   # Point the running service at a new task definition. This is what a backend deploy *is*, and
   # it is scoped to one service ARN, so this role cannot touch the other environment's service.
+  #
+  # The ARN alone is not enough, because UpdateService also takes a network configuration. Without
+  # the condition, the qa role could move the qa service into prod's subnets with prod's tasks
+  # security group -- and a qa image would then have a network path to prod's database. Pinning
+  # the subnets pins the VPC as well, since a security group must belong to its subnet's VPC.
+  #
+  # ForAllValues because an ordinary deploy sends no network configuration, so the key is absent,
+  # and ForAllValues passes on an absent key where StringEquals would deny every deploy.
   statement {
-    sid = "UpdateTheBackendService"
+    sid = "UpdateTheBackendServiceWithinThisEnvironmentsSubnets"
     actions = [
       "ecs:UpdateService",
       "ecs:DescribeServices",
     ]
     resources = [local.service_arn]
+
+    condition {
+      test     = "ForAllValues:StringEquals"
+      variable = "ecs:subnet"
+      values   = aws_subnet.public[*].id
+    }
   }
 
   # Registering a task definition cannot be restricted to a resource: the call *creates* one, so

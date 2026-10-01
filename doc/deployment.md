@@ -201,7 +201,7 @@ refusal rather than only a GitHub courtesy: GitHub will not mint a token claimin
 `environment:prod` unless the job declares it, and a protected environment holds the job until
 approved.
 
-Three consequences worth being plain about:
+Four consequences worth being plain about:
 
 - **`ecs:RegisterTaskDefinition` cannot be scoped to a resource.** The call creates one, so there
   is no ARN or tag for a condition to match, and the qa role can register a revision in prod's
@@ -212,6 +212,15 @@ Three consequences worth being plain about:
   handing it a role; granted on `*`, that one permission escalates "redeploy the application" to
   account administrator in a single step. It names the two task roles for this environment and
   conditions on `iam:PassedToService = ecs-tasks.amazonaws.com`.
+- **An ARN says which resource, not where it goes.** `ecs:UpdateService` also takes a network
+  configuration, so a role scoped to the qa service could still move it into prod's subnets with
+  prod's tasks security group — a path to prod's database. Both roles that create or update the
+  service are therefore pinned to their own environment's subnets with `ecs:subnet`, which pins
+  the VPC too, since a security group must be in its subnet's VPC; the lifecycle role's
+  `CreateLoadBalancer` is pinned the same way, to the private subnets, the `alb` group and
+  `internal`. **RDS is the gap:** it has no condition key for subnets or security groups, so the
+  lifecycle role could create a database in the other environment's subnets. That is accepted
+  because the role is assumed by a person with MFA.
 - **Local credentials are the remaining hole.** An agent running with an administrator profile
   on a developer machine could reach prod, because nothing structural stops it. The mitigation is
   that the profile available locally is itself least-privilege and explicitly denies
