@@ -41,3 +41,8 @@ variable "db_restore_snapshot" {
   type        = string
   default     = null
 }
+
+variable "log_retention_days" {
+  description = "How long the ECS task logs are kept."
+  type        = number
+}

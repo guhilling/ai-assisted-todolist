@@ -192,6 +192,10 @@ every response with, so an annotation here is enforced in the browser as well as
   while this code is compiled for 25, so on the default the container exits
   immediately and silently on class file version 69. When
   `maven.compiler.release` moves, move this tag in the same change.
+- **`src/main/jib/` is copied into the image as-is.** It holds the RDS CA bundle at
+  `opt/rds/global-bundle.pem`, which the AWS JDBC URL names as `sslrootcert` so that
+  `sslmode=verify-full` can check the server. It is AWS's public bundle, downloaded from
+  `truststore.pki.rds.amazonaws.com`, and is not a secret.
 - **There are no Dockerfiles under `backend/`, deliberately.** The four Quarkus
   generated (`Dockerfile.jvm`, `.legacy-jar`, `.native`, `.native-micro`) were
   deleted: nothing built them, two were JDK 17 based and so were a trap, and none

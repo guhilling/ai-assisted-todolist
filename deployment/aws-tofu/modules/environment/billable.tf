@@ -88,3 +88,121 @@ resource "aws_db_instance" "this" {
     ignore_changes = [final_snapshot_identifier, snapshot_identifier]
   }
 }
+
+locals {
+  # What both one-off tasks need to reach the database, while it exists.
+  db_address = one(aws_db_instance.this[*].address)
+  db_port    = one(aws_db_instance.this[*].port)
+
+  ecs_log_configuration = {
+    logDriver = "awslogs"
+    options = {
+      awslogs-group         = aws_cloudwatch_log_group.ecs.name
+      awslogs-region        = local.region
+      awslogs-stream-prefix = "task"
+    }
+  }
+}
+
+# Creates todolist_<env> in the database, once. `./env.sh db-bootstrap <env>` runs it.
+#
+# The only place the master credentials are ever used, and the only task that receives them:
+# ECS injects them from the RDS-managed secret when the task starts, so a rotation since the last
+# run does not matter. The long-running service never has them -- see doc/deployment.md.
+#
+# psql verifies the server against the region's RDS CA bundle, passed in as a variable because
+# the postgres image does not carry it, and written to a file because libpq wants a path. The
+# shell line does nothing else; the SQL is in db-bootstrap.sql and reaches psql on stdin, which
+# is where psql interpolates :app_user (it does not inside -c).
+resource "aws_ecs_task_definition" "db_bootstrap" {
+  count = var.running ? 1 : 0
+
+  family                   = local.db_bootstrap_family
+  requires_compatibilities = ["FARGATE"]
+  network_mode             = "awsvpc"
+  cpu                      = 256
+  memory                   = 512
+  execution_role_arn       = aws_iam_role.task_execution.arn
+
+  runtime_platform {
+    operating_system_family = "LINUX"
+    cpu_architecture        = "X86_64"
+  }
+
+  container_definitions = jsonencode([{
+    name      = "db-bootstrap"
+    image     = "public.ecr.aws/docker/library/postgres:${local.db_engine_major}-alpine"
+    essential = true
+
+    entryPoint = ["sh", "-c"]
+    command = [
+      "printf '%s\\n' \"$RDS_CA_BUNDLE\" > /tmp/rds-ca.pem && printf '%s\\n' \"$BOOTSTRAP_SQL\" | psql -v ON_ERROR_STOP=1 -v app_user=\"$APP_USER\" -f -",
+    ]
+
+    environment = [
+      { name = "PGHOST", value = local.db_address },
+      { name = "PGPORT", value = tostring(local.db_port) },
+      { name = "PGDATABASE", value = local.db_name },
+      { name = "PGSSLMODE", value = "verify-full" },
+      { name = "PGSSLROOTCERT", value = "/tmp/rds-ca.pem" },
+      { name = "APP_USER", value = local.db_app_user },
+      { name = "RDS_CA_BUNDLE", value = file("${path.module}/rds-ca/${local.region}-bundle.pem") },
+      { name = "BOOTSTRAP_SQL", value = file("${path.module}/db-bootstrap.sql") },
+    ]
+
+    secrets = [
+      { name = "PGUSER", valueFrom = "${one(aws_db_instance.this[*].master_user_secret[0].secret_arn)}:username::" },
+      { name = "PGPASSWORD", valueFrom = "${one(aws_db_instance.this[*].master_user_secret[0].secret_arn)}:password::" },
+    ]
+
+    logConfiguration = local.ecs_log_configuration
+  }])
+
+  tags = { Name = local.db_bootstrap_family }
+}
+
+# Liquibase, over IAM authentication, then exit. `./env.sh migrate <env>` runs it.
+#
+# The backend image with `quarkus.init-and-exit`: Quarkus runs its start-up tasks -- Liquibase
+# among them, switched on here -- and stops instead of serving. It logs in exactly as the
+# application will, which is what makes a successful run the proof that the user exists, the
+# token is accepted and verify-full holds. The CA bundle is the one baked into the image under
+# /opt/rds by backend/src/main/jib.
+resource "aws_ecs_task_definition" "migrate" {
+  count = var.running ? 1 : 0
+
+  family                   = local.migrate_family
+  requires_compatibilities = ["FARGATE"]
+  network_mode             = "awsvpc"
+  cpu                      = 512
+  memory                   = 1024
+  execution_role_arn       = aws_iam_role.task_execution.arn
+  task_role_arn            = aws_iam_role.task.arn
+
+  runtime_platform {
+    operating_system_family = "LINUX"
+    cpu_architecture        = "X86_64"
+  }
+
+  container_definitions = jsonencode([{
+    name      = "migrate"
+    image     = var.backend_image
+    essential = true
+
+    environment = [
+      { name = "QUARKUS_INIT_AND_EXIT", value = "true" },
+      { name = "QUARKUS_LIQUIBASE_MIGRATE_AT_START", value = "true" },
+      {
+        name  = "QUARKUS_DATASOURCE_JDBC_URL"
+        value = "jdbc:postgresql://${local.db_address}:${local.db_port}/${local.db_name}?sslmode=verify-full&sslrootcert=/opt/rds/global-bundle.pem"
+      },
+      { name = "QUARKUS_DATASOURCE_USERNAME", value = local.db_app_user },
+      { name = "TODO_DATASOURCE_CREDENTIALS_PROVIDER", value = "rds-iam" },
+      { name = "AWS_REGION", value = local.region },
+    ]
+
+    logConfiguration = local.ecs_log_configuration
+  }])
+
+  tags = { Name = local.migrate_family }
+}
