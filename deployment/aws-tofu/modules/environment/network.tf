@@ -40,6 +40,9 @@ resource "aws_internet_gateway" "this" {
   tags = { Name = local.name }
 }
 
+# AWS-0164, a subnet that hands out public IPs, is the no-NAT decision above: the tasks need an
+# address to reach the internet, and the tasks security group is what keeps them unreachable.
+#trivy:ignore:AWS-0164
 resource "aws_subnet" "public" {
   count = length(var.public_subnet_cidrs)
 

@@ -144,6 +144,7 @@ data "aws_iam_policy_document" "lifecycle" {
     ]
     resources = [
       "arn:aws:s3:::${local.site_bucket}",
+      "arn:aws:s3:::${local.flow_log_bucket}",
       "arn:aws:s3:::${var.state_bucket}",
     ]
   }

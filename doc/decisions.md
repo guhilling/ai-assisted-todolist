@@ -1091,3 +1091,21 @@ covers EC2 instance credentials, not Fargate task roles. What is restricted by V
 the deploy and lifecycle roles may *place* the service and the load balancer — see
 `deployment.md`.
 
+
+**Misconfiguration scanning is static, in CI, with Trivy — not AWS Config.** Most of what a
+best-practice rule set checks — public buckets, open ingress, unencrypted storage, wildcard IAM —
+is readable from the `.tf` files, so Trivy fails the pull request before the change exists. It
+fails at every severity, and an exception is a `#trivy:ignore:<ID>` comment beside the resource
+with the reason, so the list of exceptions is the code rather than a dashboard. *Rejected for now:
+AWS Config*, which adds what a static scan cannot see — changes made outside OpenTofu, and the
+history of a resource's configuration — at about $2–5 a month for recording and a handful of
+managed rules, and $10–20 with a full conformance pack, because this project's up/down cycles
+and deploys churn configuration items. With one human applying infrastructure that is a small
+risk for a fixed cost; it is worth revisiting when this stops being a demo. *Not chosen: Checkov*,
+which would have done the same job equally well; Trivy is simply the one chosen.
+
+**VPC flow logs go to S3, all traffic, for 30 days.** Delivery to S3 is about half the per-GB
+price of CloudWatch Logs and needs no delivery role, and logs read when something needs
+explaining do not need CloudWatch's query console. All traffic rather than rejected-only, because
+the useful question is what talked to what. The bucket is encrypted with S3-managed keys:
+*rejected: a customer-managed KMS key*, which at about $1 a month costs more than the logs.

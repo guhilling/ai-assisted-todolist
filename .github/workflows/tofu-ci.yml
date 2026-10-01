@@ -52,6 +52,20 @@ jobs:
         # succeeds, the resource keeps running, and the bill is the first evidence.
         run: python3 check-billable-guard.py
 
+      - name: Scan for misconfigurations
+        # Trivy reads the .tf files and fails on any finding, at every severity: a finding is
+        # either fixed or suppressed inline with `#trivy:ignore:<ID>` and a comment saying why, so
+        # every exception is written next to the thing it excuses.
+        #
+        # Run from the official image rather than through an action, so the step is one pinned
+        # binary and no install script. --skip-check-update uses the checks embedded in that
+        # binary instead of downloading the latest bundle: a new check then arrives with a
+        # Renovate pull request, rather than failing an unrelated change on the day it ships.
+        # It runs before `init`, so it scans this repository's code and not downloaded modules.
+        uses: docker://aquasec/trivy:0.74.0
+        with:
+          args: config --skip-check-update --exit-code 1 deployment/aws-tofu
+
       - name: Lint the shell script
         # shellcheck ships on the GitHub-hosted Ubuntu images. env.sh is the one place here where
         # a quoting mistake would be discovered by destroying the wrong thing.
