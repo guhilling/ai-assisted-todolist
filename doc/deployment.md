@@ -251,7 +251,12 @@ environments/prod/       the same root, different values
 account/                 the things there is one of per AWS account
 ```
 
-`account/` holds the GitHub OIDC provider and the monitoring user. It exists because those are
+`account/` holds the GitHub OIDC provider and the monitoring user. Its permissions come from a
+`read-only` group: `ReadOnlyAccess`, everything **denied without MFA** except registering a
+device, and the state bucket's objects denied even with it. `ReadOnlyAccess` reads every bucket,
+so without the MFA rule a leaked access key would have read prod's state. From the CLI the user
+therefore needs a session from `aws sts get-session-token --serial-number … --token-code …`; the
+bare access key is refused. It exists because those are
 singular: instantiating them from a module applied twice would have the two environments fighting
 over one provider. It is applied **before** either environment, which look the provider up by URL.
 
@@ -275,6 +280,7 @@ Per environment, identical unless noted:
 | VPC, two public subnets in two AZs | Two AZs because the load balancer requires it, not for availability |
 | **No NAT gateway** | See *Cost* — this is the single biggest saving, and it is why the tasks sit in the public subnets |
 | Security groups | ALB open on 443; ECS open only to the ALB; RDS open only to ECS |
+| VPC flow logs, to a private S3 bucket | All traffic, kept 30 days; see *Observability*. Not behind the teardown switch, because delivery is charged per GB and a torn-down VPC sends almost nothing |
 | **Internal** ALB, two target groups | Blue/green shifts traffic between them; reachable only from CloudFront |
 | Two private subnets | For the load balancer only. No NAT gateway: nothing in them makes outbound calls |
 | ACM certificate in **us-east-1** | CloudFront accepts certificates from that region only |
@@ -387,6 +393,10 @@ Named, because "best practices are applied" plans nothing:
 - **Alarms**, each on a condition a person can act on: ALB 5xx rate; ALB target health; ECS
   service running-count below desired; RDS free storage; RDS CPU credit balance — `t4g` instances
   are burstable and exhausting credits looks exactly like a slow application.
+- **Flow logs.** Every connection in and out of the VPC, accepted and rejected, delivered to a
+  private S3 bucket per environment and expired after 30 days. S3 rather than CloudWatch Logs:
+  half the delivery price and no delivery role. They are read when something needs explaining —
+  with Athena or `aws s3 cp` — not watched, and at demo traffic they cost cents a month.
 - **Traces.** Not in this plan. One service and one database do not repay X-Ray yet; when the
   commercial shape has more than one service, this is where it goes.
 - **Alerting to** an SNS topic per environment with Gunnar's email subscribed.

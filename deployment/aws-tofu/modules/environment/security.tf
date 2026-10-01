@@ -75,6 +75,9 @@ resource "aws_vpc_security_group_ingress_rule" "tasks_from_alb" {
 #
 # ip_protocol "-1" means every protocol, and the ports must then be left unset rather than set
 # to 0 -- the provider rejects a port range on an all-protocols rule.
+#
+# This is the egress Trivy reports as AWS-0104, suppressed for the reason above.
+#trivy:ignore:AWS-0104
 resource "aws_vpc_security_group_egress_rule" "tasks_egress" {
   security_group_id = aws_security_group.tasks.id
   description       = "Image registry, identity provider, Gravatar"

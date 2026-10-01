@@ -51,12 +51,13 @@ Today the entire difference is:
 
 ## What exists so far
 
-The network and the security groups — the layer everything else attaches to.
+The network, the security groups and the flow logs — the layer everything else attaches to.
 
 | File | What it holds |
 | --- | --- |
 | `network.tf` | VPC, two public subnets, two private subnets, internet gateway, route tables |
 | `security.tf` | The four-hop chain: CloudFront → load balancer → task → database |
+| `flow-logs.tf` | VPC flow logs, all traffic, into a private bucket of the environment's own, kept 30 days |
 
 Three properties of the network are deliberate and will look wrong without the reason:
 
@@ -277,12 +278,23 @@ before opening a pull request:
 cd deployment/aws-tofu
 tofu fmt -recursive -check -diff
 python3 check-environments-match.py
+python3 check-billable-guard.py
+trivy config --skip-check-update --exit-code 1 .
 for r in environments/*/ account/; do tofu -chdir="$r" init -backend=false && tofu -chdir="$r" validate; done
 ```
 
 `validate` catches more than it looks like: it resolves the module, type-checks every variable,
 and asks the provider's own schema whether each resource is well-formed. The apostrophe that AWS
 forbids in a security group rule description was caught here, not in an apply.
+
+**Trivy fails on every finding, at every severity.** A finding is either fixed or suppressed
+with a `#trivy:ignore:<ID>` comment on the line above the resource it is reported on, under a
+comment saying why — so every exception sits next to what it excuses, and a reviewer sees it in
+the diff. Two of them are the design rather than an oversight: AWS-0164 on the public subnets and
+AWS-0104 on the tasks' egress are both the no-NAT decision. The scan uses the checks built into
+the pinned Trivy version (`--skip-check-update`), so a new check arrives with a Renovate pull
+request instead of failing an unrelated change on the day it ships. Keep the local version in
+step with the one in `tofu-ci.yml` for the same reason as with `tofu` (`brew install trivy`).
 
 ## `.terraform.lock.hcl` is committed, for two platforms
 

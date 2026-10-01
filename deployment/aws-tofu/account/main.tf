@@ -61,7 +61,97 @@ resource "aws_iam_user" "monitoring" {
   name = "${var.project}-monitoring"
 }
 
-resource "aws_iam_user_policy_attachment" "monitoring_read_only" {
-  user       = aws_iam_user.monitoring.name
+# The permission belongs to a group rather than to the user, so that what "read-only" means is
+# defined once, and a second reader is a group membership rather than a copied attachment.
+# This is what Trivy's AWS-0143 asks for.
+resource "aws_iam_group" "read_only" {
+  name = "${var.project}-read-only"
+}
+
+resource "aws_iam_group_policy_attachment" "read_only" {
+  group      = aws_iam_group.read_only.name
   policy_arn = "arn:aws:iam::aws:policy/ReadOnlyAccess"
+}
+
+# Non-exclusive: it manages this user's membership of this group, and leaves any other group
+# the user is added to in the console alone. aws_iam_group_membership would be the exclusive
+# version and would silently remove members it does not know about.
+resource "aws_iam_user_group_membership" "monitoring" {
+  user   = aws_iam_user.monitoring.name
+  groups = [aws_iam_group.read_only.name]
+}
+
+# MFA, enforced on the group rather than trusted to the person. ReadOnlyAccess is broad -- it
+# reads every bucket's objects -- so a leaked access key on its own must be useless, which is the
+# same property the lifecycle role already has.
+#
+# The shape is AWS's own published pattern: deny everything without MFA except what a user needs
+# to set up MFA in the first place. In practice that means the console works as usual once a
+# device is registered, and the CLI needs a session from `aws sts get-session-token` with the
+# device's code rather than the bare access key.
+data "aws_iam_policy_document" "read_only_guard" {
+  # What ReadOnlyAccess does not grant and registering a device needs. Creating a virtual device
+  # is on mfa/* because the device is named by whoever creates it; everything that binds a
+  # device to a user is scoped to the caller's own user.
+  statement {
+    sid       = "CreateAVirtualMfaDevice"
+    actions   = ["iam:CreateVirtualMFADevice"]
+    resources = ["arn:aws:iam::*:mfa/*"]
+  }
+
+  statement {
+    sid = "ManageOwnMfaDevice"
+    actions = [
+      "iam:EnableMFADevice",
+      "iam:ResyncMFADevice",
+      "iam:DeactivateMFADevice",
+    ]
+    resources = ["arn:aws:iam::*:user/$${aws:username}"]
+  }
+
+  statement {
+    sid       = "ChangeOwnPassword"
+    actions   = ["iam:ChangePassword"]
+    resources = ["arn:aws:iam::*:user/$${aws:username}"]
+  }
+
+  # BoolIfExists, because a request signed with a bare access key carries no MFA key at all, and
+  # a plain Bool would not match it -- the deny would then miss exactly the case it is for.
+  # Deactivating a device is deliberately not in the exception list: that takes MFA.
+  statement {
+    sid    = "DenyEverythingElseWithoutMfa"
+    effect = "Deny"
+    not_actions = [
+      "iam:CreateVirtualMFADevice",
+      "iam:EnableMFADevice",
+      "iam:ResyncMFADevice",
+      "iam:GetUser",
+      "iam:ListMFADevices",
+      "iam:ListVirtualMFADevices",
+      "iam:ChangePassword",
+      "sts:GetSessionToken",
+    ]
+    resources = ["*"]
+
+    condition {
+      test     = "BoolIfExists"
+      variable = "aws:MultiFactorAuthPresent"
+      values   = ["false"]
+    }
+  }
+
+  # With or without MFA. Looking at the account never needs the state, and the state is the one
+  # place where every attribute of every resource -- prod's included -- sits in one readable file.
+  statement {
+    sid       = "NeverReadTheState"
+    effect    = "Deny"
+    actions   = ["s3:GetObject", "s3:GetObjectVersion"]
+    resources = ["arn:aws:s3:::${var.state_bucket}/*"]
+  }
+}
+
+resource "aws_iam_group_policy" "read_only_guard" {
+  name   = "${var.project}-read-only-guard"
+  group  = aws_iam_group.read_only.name
+  policy = data.aws_iam_policy_document.read_only_guard.json
 }
