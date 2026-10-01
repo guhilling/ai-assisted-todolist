@@ -1,6 +1,7 @@
-# State lives in one bucket with a key per environment, and a lock table shared by both. Both
-# are created once, by hand, before the first init -- see ../../README.md. No tool can create
-# the backend it is about to use.
+# State lives in one bucket with a key per environment. There is no lock table: the S3 backend
+# takes its lock from a `.tflock` object next to the state (OpenTofu 1.10). The bucket is created
+# once, by hand, before the first init -- see ../../README.md. No tool can create the backend it
+# is about to use.
 #
 # The key is interpolated from var.environment, which is what makes this file identical in every
 # environment root. That needs OpenTofu 1.8 or newer: Terraform evaluates nothing in a backend
