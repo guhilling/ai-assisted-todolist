@@ -175,38 +175,77 @@ data "aws_iam_policy_document" "lifecycle" {
   # is irreversible without the snapshot.
   #
   # Unlike the service and the load balancer, this is NOT pinned to the VPC, because RDS offers
-  # no condition key for it: CreateDBSubnetGroup cannot be conditioned on its subnets, nor
-  # CreateDBInstance on its security groups. This role could therefore build its own database in
-  # the other environment's subnets. Accepted because the role is assumed by a person with MFA
+  # no condition key for it: CreateDBInstance cannot be conditioned on its security groups. This
+  # role could therefore attach the other environment's database security group to its own
+  # instance. Accepted because the role is assumed by a person with MFA
   # and is an audit boundary, not a security one -- see the header of this file.
+  #
+  # Creating and restoring are where an instance gets its network placement, so they carry the
+  # one placement condition RDS offers: never publicly accessible. The default parameter and
+  # option groups are listed because both calls are authorised against them too, even when, as
+  # here, they are only used implicitly.
   statement {
-    sid = "TheDatabase"
+    sid = "CreateTheDatabaseNeverPublic"
     actions = [
       "rds:CreateDBInstance",
-      "rds:DeleteDBInstance",
-      "rds:ModifyDBInstance",
-      "rds:RebootDBInstance",
-      "rds:AddTagsToResource",
-      "rds:RemoveTagsFromResource",
-      "rds:CreateDBSnapshot",
       "rds:RestoreDBInstanceFromDBSnapshot",
     ]
     resources = [
       "arn:aws:rds:${local.region}:${local.account}:db:${local.db_instance}",
       "arn:aws:rds:${local.region}:${local.account}:snapshot:${local.name}-*",
       "arn:aws:rds:${local.region}:${local.account}:subgrp:${local.db_subnet_group}",
+      "arn:aws:rds:${local.region}:${local.account}:pg:default.${local.db_engine}${local.db_engine_major}",
+      "arn:aws:rds:${local.region}:${local.account}:og:default:${local.db_engine}-${local.db_engine_major}",
     ]
+
+    condition {
+      test     = "Bool"
+      variable = "rds:PubliclyAccessible"
+      values   = ["false"]
+    }
   }
 
   statement {
-    sid = "TheDatabaseSubnetGroup"
+    sid = "TheDatabase"
     actions = [
-      "rds:CreateDBSubnetGroup",
-      "rds:DeleteDBSubnetGroup",
-      "rds:ModifyDBSubnetGroup",
+      "rds:DeleteDBInstance",
+      "rds:ModifyDBInstance",
+      "rds:RebootDBInstance",
+      "rds:AddTagsToResource",
+      "rds:RemoveTagsFromResource",
+      "rds:CreateDBSnapshot",
     ]
-    resources = ["arn:aws:rds:${local.region}:${local.account}:subgrp:${local.db_subnet_group}"]
+    resources = [
+      "arn:aws:rds:${local.region}:${local.account}:db:${local.db_instance}",
+      "arn:aws:rds:${local.region}:${local.account}:snapshot:${local.name}-*",
+      "arn:aws:rds:${local.region}:${local.account}:subgrp:${local.db_subnet_group}",
+      "arn:aws:rds:${local.region}:${local.account}:pg:default.${local.db_engine}${local.db_engine_major}",
+      "arn:aws:rds:${local.region}:${local.account}:og:default:${local.db_engine}-${local.db_engine_major}",
+    ]
   }
+
+  # The managed master password. RDS creates the secret with the caller's own permissions, which
+  # is why this role needs them at all; aws:CalledVia limits them to exactly that, so the role
+  # cannot create or tag secrets of its own. The secret's name is chosen by RDS (rds!db-<uuid>),
+  # so there is no environment in it to scope by. kms:DescribeKey on the Secrets Manager key,
+  # which AWS also lists, is already covered by the read statement above.
+  statement {
+    sid = "SecretsManagerOnBehalfOfRds"
+    actions = [
+      "secretsmanager:CreateSecret",
+      "secretsmanager:TagResource",
+    ]
+    resources = ["arn:aws:secretsmanager:${local.region}:${local.account}:secret:rds!db-*"]
+
+    condition {
+      test     = "ForAnyValue:StringEquals"
+      variable = "aws:CalledVia"
+      values   = ["rds.amazonaws.com"]
+    }
+  }
+
+  # Deliberately no CreateDBSubnetGroup: the subnet group is free, so it is foundation
+  # (database.tf), created by an administrator and left standing across teardowns.
 
   # Creating the load balancer is where it is placed, so the name in the ARN is not enough: this
   # pins it to this environment's private subnets and its own security group, and to internal,

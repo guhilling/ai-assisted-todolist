@@ -47,3 +47,23 @@ output "running" {
   description = "Whether this environment's billable resources exist, as of the last apply."
   value       = var.running
 }
+
+output "db_endpoint" {
+  description = "Where the database listens, host:port, or null while the environment is down."
+  value       = one(aws_db_instance.this[*].endpoint)
+}
+
+output "db_app_user" {
+  description = "The database user the backend logs in as, with IAM authentication rather than a password."
+  value       = local.db_app_user
+}
+
+output "db_master_secret_arn" {
+  description = "The RDS-managed master credentials, for bootstrapping and administration only. Null while down."
+  value       = one(aws_db_instance.this[*].master_user_secret[0].secret_arn)
+}
+
+output "task_role_arn" {
+  description = "What the backend container runs as."
+  value       = aws_iam_role.task.arn
+}

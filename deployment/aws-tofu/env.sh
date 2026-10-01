@@ -145,6 +145,34 @@ NOTE
 
 run_tofu() { tofu -chdir="$ROOT" "$@"; }
 
+# The newest final snapshot of this environment's database, or nothing if there is none.
+#
+# Teardown destroys the database and leaves a final snapshot; this is the other half, so that a
+# down/up cycle keeps the data. The region is read from terraform.tfvars rather than trusted to
+# the CLI's default, because export_credentials_for passes on credentials but not a region.
+#
+# A failed lookup stops the run instead of falling through to an empty database: "the lookup
+# was refused" and "there is no snapshot" must not look the same, or a permissions problem
+# becomes a fresh database and the data appears to be gone.
+newest_final_snapshot() {
+    local region snapshot
+    region="$(sed -n 's/^ *region *= *"\([^"]*\)".*/\1/p' "${ROOT}/terraform.tfvars" | head -1)"
+
+    # The backticks are a JMESPath string literal, not a command substitution, so single quotes
+    # are exactly right here.
+    # shellcheck disable=SC2016
+    if ! snapshot="$(aws rds describe-db-snapshots --region "$region" \
+        --db-instance-identifier "todolist-${ENVIRONMENT}-db" --snapshot-type manual \
+        --query 'reverse(sort_by(DBSnapshots[?Status==`available`], &SnapshotCreateTime))[0].DBSnapshotIdentifier' \
+        --output text)"; then
+        echo "Could not look up the database snapshots for ${ENVIRONMENT}; not planning." >&2
+        exit 1
+    fi
+
+    # `--output text` prints None for a null.
+    [[ "$snapshot" == "None" ]] || echo "$snapshot"
+}
+
 case "$COMMAND" in
     status)
         run_tofu init -input=false >/dev/null
@@ -188,6 +216,19 @@ case "$COMMAND" in
         use_lifecycle_profile
         run_tofu init -input=false >/dev/null
 
+        # Only read when the database is created, so passing it to an environment that is already
+        # up changes nothing. `down` does not look: there is nothing to restore into.
+        restore_args=()
+        if [[ "$COMMAND" == "up" ]]; then
+            snapshot="$(newest_final_snapshot)"
+            if [[ -n "$snapshot" ]]; then
+                echo "A newly created database is restored from ${snapshot}."
+                restore_args=(-var "db_restore_snapshot=${snapshot}")
+            else
+                echo "No final snapshot of the ${ENVIRONMENT} database exists; a new one starts empty."
+            fi
+        fi
+
         # A saved plan, so what gets applied is what was just shown on screen.
         plan_file="$(mktemp -t "tofu-${ENVIRONMENT}")"
 
@@ -196,7 +237,10 @@ case "$COMMAND" in
         plan_log="$(mktemp -t "tofu-${ENVIRONMENT}-log")"
         trap 'rm -f "$plan_file" "$plan_log"' EXIT
 
-        if ! run_tofu plan -input=false -var "running=${running}" -out="$plan_file" 2>&1 | tee "$plan_log"; then
+        # The odd expansion is for macOS's bash 3.2, where "${restore_args[@]}" on an empty array
+        # is an unbound-variable error under `set -u`.
+        if ! run_tofu plan -input=false -var "running=${running}" ${restore_args[@]+"${restore_args[@]}"} \
+            -out="$plan_file" 2>&1 | tee "$plan_log"; then
             if grep -q "openid_connect_provider" "$plan_log"; then
                 cat >&2 <<NOTE
 

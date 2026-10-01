@@ -1013,6 +1013,20 @@ but it is Aurora rather than plain RDS, and the commercial project this represen
 plain RDS. *Rejected: PostgreSQL as a container*, the original plan, for the same reason RDS was
 chosen.
 
+**The application authenticates to RDS with IAM, not a password.** The task role is the
+credential: a token signed per connection by a Quarkus `CredentialsProvider`, which Agroal asks
+again for every connection it opens — `DatasourceCredentialsPerConnectionTest` holds it to that,
+because a token fetched once would fail 15 minutes after the first connection was replaced.
+*Rejected: injecting the database password from Secrets Manager* through the task definition.
+RDS rotates a managed secret every seven days and ECS reads it only at task start, so a running
+task would keep the old one; it would also have meant the application using the master user.
+*Rejected: the AWS Advanced JDBC Wrapper*, which does the same signing inside a replacement
+driver. It would have needed `db-kind=other`, an explicit Hibernate dialect, and Dev Services
+replaced, where the credentials provider leaves the PostgreSQL driver and every test untouched.
+*Decided: one database user per environment*, `todolist_<env>`, for both the application and
+the migrations, and the IAM grant names that user rather than the instance — an instance's
+resource id changes with every restore, while the user travels with the snapshot.
+
 **The frontend is static on S3 behind CloudFront, with `/api/*` on the same distribution.** No
 container, no task, no image to patch — which is also part of the answer to #66. The second
 origin is not optional: httpd currently serves the SPA *and* proxies the API, and that
