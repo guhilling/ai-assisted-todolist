@@ -357,13 +357,15 @@ data "aws_iam_policy_document" "lifecycle" {
   }
 
   # Registering a tagged task definition is also a TagResource call on it, and the provider's
-  # default_tags tag everything. Scoped to this environment's families.
+  # default_tags tag everything. Scoped to this environment's families -- all three, including
+  # the backend's own, which the first `up` of the service found missing.
   statement {
     sid     = "TagThisEnvironmentsTaskDefinitions"
     actions = ["ecs:TagResource", "ecs:UntagResource"]
     resources = [
       "arn:aws:ecs:${local.region}:${local.account}:task-definition/${local.db_bootstrap_family}:*",
       "arn:aws:ecs:${local.region}:${local.account}:task-definition/${local.migrate_family}:*",
+      "arn:aws:ecs:${local.region}:${local.account}:task-definition/${local.service_name}:*",
     ]
   }
 
@@ -443,10 +445,17 @@ data "aws_iam_policy_document" "lifecycle" {
     resources = [aws_cloudfront_distribution.this.arn]
   }
 
+  # CreateVpcOrigin has no resource type at all -- IAM matches it only against "*" -- so it
+  # cannot share the vpcorigin/* statement below without silently never matching.
+  statement {
+    sid       = "CreateTheApiVpcOriginWhichCannotBeScoped"
+    actions   = ["cloudfront:CreateVpcOrigin"]
+    resources = ["*"]
+  }
+
   statement {
     sid = "TheApiVpcOrigin"
     actions = [
-      "cloudfront:CreateVpcOrigin",
       "cloudfront:UpdateVpcOrigin",
       "cloudfront:DeleteVpcOrigin",
       "cloudfront:TagResource",
