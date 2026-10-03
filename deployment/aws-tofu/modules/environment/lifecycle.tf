@@ -88,6 +88,10 @@ data "aws_iam_policy_document" "lifecycle" {
   # The services listed go beyond what the module contains today, on purpose: CloudFront, Route
   # 53, ACM and the rest are already in the plan, and adding them now costs nothing.
   #
+  # Every service the module uses gets all of its read verbs (Describe, Get, List -- whichever it
+  # has), checked against AWS's service reference: CloudFront's Describe* was missing until the
+  # CloudFront Function made `up` call DescribeFunction, and ECS and load balancing had no Get*.
+  #
   # S3 is the deliberate exception and is NOT wildcarded here -- see the two statements below.
   # `s3:Get*` would let the qa role read prod's state file, which holds every attribute of every
   # prod resource. That is the one read worth refusing.
@@ -98,6 +102,7 @@ data "aws_iam_policy_document" "lifecycle" {
       "acm:Get*",
       "acm:List*",
       "application-autoscaling:Describe*",
+      "cloudfront:Describe*",
       "cloudfront:Get*",
       "cloudfront:List*",
       "cloudwatch:Describe*",
@@ -106,8 +111,10 @@ data "aws_iam_policy_document" "lifecycle" {
       "ec2:Describe*",
       "ec2:Get*",
       "ecs:Describe*",
+      "ecs:Get*",
       "ecs:List*",
       "elasticloadbalancing:Describe*",
+      "elasticloadbalancing:Get*",
       "iam:Get*",
       "iam:List*",
       "kms:Describe*",
@@ -119,9 +126,11 @@ data "aws_iam_policy_document" "lifecycle" {
       "rds:List*",
       "route53:Get*",
       "route53:List*",
-      # Describe and List only: GetSecretValue is a real privilege, and refreshing a secret does
-      # not need it. If a resource ever does, it gets its own statement and its own reason.
+      # Describe and List, and the one Get a refresh needs: reading a secret's resource policy.
+      # Not Get*, because that would include GetSecretValue -- a real privilege, which refreshing
+      # a secret does not need.
       "secretsmanager:Describe*",
+      "secretsmanager:GetResourcePolicy",
       "secretsmanager:List*",
       "servicediscovery:Get*",
       "servicediscovery:List*",
