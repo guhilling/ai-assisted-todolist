@@ -267,7 +267,7 @@ def workflow(p: Palette) -> str:
     gates = [
         "Checkstyle + Javadoc",
         "Tests, coverage 95 / 90",
-        "CodeQL + SonarCloud",
+        "CodeQL",
         "End-to-end in a browser",
         "PIT mutation \u00b7 reports only",
     ]
@@ -297,6 +297,8 @@ def workflow(p: Palette) -> str:
         label(615, 190, "pull request", p, size=11),
         arrow([(panel_x + panel_w, 200), (950, 200)], p, accent=True),
         label(925, 190, "squash", p, accent=True, size=11),
+        # SonarCloud runs after the merge, on main only; a failed gate becomes an issue.
+        label(1005, 160, "SonarCloud gate \u2192 issue", p, size=11),
     ]
 
     for i, name in enumerate(gates):
@@ -312,8 +314,9 @@ def workflow(p: Palette) -> str:
     aria = (
         "Every change starts from a question rather than a guess, then a failing test, then "
         "the change and its documentation in one commit. A pull request must pass Checkstyle, "
-        "the tests and coverage gate, CodeQL and SonarCloud, and the browser end-to-end run "
-        "before it is squashed onto main. PIT mutation testing reports but does not block."
+        "the tests and coverage gate, CodeQL, and the browser end-to-end run before it is "
+        "squashed onto main. SonarCloud then analyses main, and a failed quality gate becomes "
+        "a GitHub issue. PIT mutation testing reports but does not block."
     )
     return document(w, h, "\n  ".join(parts), p, aria)
 

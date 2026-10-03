@@ -73,8 +73,8 @@ DDD, and project context all still apply here).
   backend's record, regenerate the contract, regenerate these.
 - **A component's props are `Readonly<…Props>`.** Write `function Row({ … }: Readonly<RowProps>)`.
   It is what Sonar's S6759 asks for, and the seven components it once flagged were changed to
-  this form (#121). oxlint has no rule for it, so Sonar on the pull request is what catches a
-  new component that forgets.
+  this form (#121). oxlint has no rule for it, so SonarCloud is what catches a new component
+  that forgets — after the merge, as the quality-gate issue `sonarcloud.yml` opens on `main`.
 - **`ajv` is a devDependency and must stay one.** The validators are compiled to plain
   JavaScript, so nothing new reaches the browser. The generator asserts this: if the compiled
   output ever needs a runtime `import`, it fails rather than quietly adding a dependency.

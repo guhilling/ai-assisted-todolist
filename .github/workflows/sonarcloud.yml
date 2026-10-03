@@ -1,14 +1,27 @@
 name: SonarCloud
 
+# Runs after the merge, on main only -- not on pull requests. It re-runs the whole backend suite to
+# get its coverage, which made it the check every pull request waited for, including the many that
+# change no code at all. Findings now arrive after the merge, and the quality gate is what makes
+# them impossible to miss: the job waits for it, fails when it fails, and sonar-gate-issue.py turns
+# a failed gate into one open GitHub issue (commented on while it stays red, closed when it is
+# green again). To-dos are issues here, and so are quality findings.
+
 on:
   push:
     branches:
       - main
-  pull_request:
-    types: [opened, synchronize, reopened]
+  workflow_dispatch:
 
 permissions:
   contents: read
+  # sonar-gate-issue.py opens, comments on and closes the gate issue.
+  issues: write
+
+# Two merges in quick succession must not both decide there is no open issue and open two.
+concurrency:
+  group: sonarcloud-main
+  cancel-in-progress: false
 
 jobs:
   sonarcloud:
@@ -43,7 +56,24 @@ jobs:
         run: npm run test:coverage
 
       - name: SonarCloud Scan
+        id: scan
         uses: SonarSource/sonarqube-scan-action@v8
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          # Wait for SonarCloud to compute the quality gate and fail the step if it fails. Without
+          # this the job only proved that an analysis had been uploaded, never that it passed.
+          args: >
+            -Dsonar.qualitygate.wait=true
+            -Dsonar.qualitygate.timeout=300
+
+      - name: Open, update or close the quality-gate issue
+        # Also when the scan failed -- a failed gate is exactly when this has to run. Not when the
+        # scan never started (tests failed earlier): then there is no new gate to report on, and
+        # acting on the previous analysis could close an issue nobody fixed.
+        if: always() && (steps.scan.outcome == 'success' || steps.scan.outcome == 'failure')
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: python3 .github/scripts/sonar-gate-issue.py

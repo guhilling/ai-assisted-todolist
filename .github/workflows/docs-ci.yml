@@ -1,10 +1,11 @@
 name: Consistency
 
-# Checks that nothing here contradicts anything else here. Both jobs guard the same class of
-# problem: a fact stated in more than one place, where the copies drift silently and the first
-# evidence is something unrelated going wrong much later.
+# Checks that nothing here contradicts anything else here. The first two jobs guard the same class
+# of problem: a fact stated in more than one place, where the copies drift silently and the first
+# evidence is something unrelated going wrong much later. The third tests the scripts under
+# .github/scripts that make decisions rather than comparisons.
 #
-# Neither needs more than Python's standard library.
+# None needs more than Python's standard library.
 
 on:
   pull_request:
@@ -59,3 +60,13 @@ jobs:
         # each name a version. They drifted to 17 and 18 once already, which matters because the
         # enum-type tests run against whatever Dev Services starts.
         run: python3 .github/scripts/check-postgres-version.py
+
+  script-tests:
+    name: Script tests
+    runs-on: ubuntu-26.04
+    steps:
+      - uses: actions/checkout@v7
+      - name: Test the scripts that have tests
+        # sonar-gate-issue.py decides between opening, commenting on and closing an issue; a
+        # wrong decision is silence or duplicates, and nothing else would notice either.
+        run: python3 -m unittest discover -s .github/scripts -p 'test_*.py' -v
