@@ -19,6 +19,15 @@
     ],
     "jsdoc/check-tag-names": "error",
     "jsdoc/empty-tags": "error",
-    "jsdoc/no-blank-blocks": "error"
+    "jsdoc/no-blank-blocks": "error",
+    "no-warning-comments": [
+      "error",
+      {
+        "terms": [
+          "todo:"
+        ],
+        "location": "start"
+      }
+    ]
   }
 }

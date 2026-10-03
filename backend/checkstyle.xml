@@ -120,7 +120,12 @@
     <module name="InterfaceIsType"/>
 
     <module name="ArrayTypeStyle"/>
-    <module name="TodoComment"/>
+    <!-- The marker `TODO:` (the module's default format) fails the build: to-dos are issues,
+         not comments (#121). It also replaces Sonar's S1135, which cannot be narrowed and fired
+         on the domain word todo itself. -->
+    <module name="TodoComment">
+      <message key="todo.match" value="A TODO: comment is not where a to-do lives. Open a GitHub issue instead and remove the marker."/>
+    </module>
     <module name="UpperEll"/>
 
   </module>

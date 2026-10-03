@@ -18,7 +18,7 @@ type TaskSectionProps = {
  * answerable at a glance: the question is nearly always "what is late and what is today", and
  * a single list ordered by date makes that a reading exercise.
  */
-function TaskSection({ title, tasks, today, overdue, onToggleDone, onSetState, onDelete }: TaskSectionProps) {
+function TaskSection({ title, tasks, today, overdue, onToggleDone, onSetState, onDelete }: Readonly<TaskSectionProps>) {
   if (tasks.length === 0) {
     return null
   }

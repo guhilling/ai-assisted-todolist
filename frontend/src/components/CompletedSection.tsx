@@ -17,7 +17,7 @@ type CompletedSectionProps = {
  * ticked, but kept rather than hidden so a mis-click can be undone by ticking it back. The
  * count on the summary is what makes the section worth opening.
  */
-function CompletedSection({ tasks, today, onToggleDone, onSetState, onDelete, onClear }: CompletedSectionProps) {
+function CompletedSection({ tasks, today, onToggleDone, onSetState, onDelete, onClear }: Readonly<CompletedSectionProps>) {
   if (tasks.length === 0) {
     return null
   }

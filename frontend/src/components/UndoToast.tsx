@@ -19,7 +19,7 @@ type UndoToastProps = {
  * `onDismiss` has to be referentially stable, or every render of the board would restart the
  * countdown.
  */
-function UndoToast({ count, onUndo, onDismiss }: UndoToastProps) {
+function UndoToast({ count, onUndo, onDismiss }: Readonly<UndoToastProps>) {
   useEffect(() => {
     const timer = setTimeout(onDismiss, DISMISS_AFTER_MS)
     return () => clearTimeout(timer)

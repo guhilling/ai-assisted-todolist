@@ -26,7 +26,7 @@ type SignedOutProps = {
  * Deliberately not an automatic redirect to that single provider. This repository exists to
  * be read, and bouncing every visitor to an identity provider would leave nowhere to say so.
  */
-function SignedOut({ providers, apiBaseUrl }: SignedOutProps) {
+function SignedOut({ providers, apiBaseUrl }: Readonly<SignedOutProps>) {
   const available = providers.providers.filter((provider) => provider.available && provider.loginUrl)
 
   return (

@@ -25,7 +25,7 @@ type TaskRowProps = {
  * name carries the description, because a board of identically-named checkboxes is unusable
  * to anyone not looking at it.
  */
-function TaskRow({ task, today, onToggleDone, onSetState, onDelete }: TaskRowProps) {
+function TaskRow({ task, today, onToggleDone, onSetState, onDelete }: Readonly<TaskRowProps>) {
   const done = task.state === 'DONE'
   const overdue = !done && daysBetween(today, task.dueDate) < 0
   const inputId = `task-${task.id}`

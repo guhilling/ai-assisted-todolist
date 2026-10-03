@@ -71,6 +71,10 @@ DDD, and project context all still apply here).
   the JSON Schemas the backend publishes under `doc/api/schema/`. **Never hand-edit anything in
   `src/generated/`** — `frontend-ci.yml` regenerates it and fails on any difference. Change the
   backend's record, regenerate the contract, regenerate these.
+- **A component's props are `Readonly<…Props>`.** Write `function Row({ … }: Readonly<RowProps>)`.
+  It is what Sonar's S6759 asks for, and the seven components it once flagged were changed to
+  this form (#121). oxlint has no rule for it, so Sonar on the pull request is what catches a
+  new component that forgets.
 - **`ajv` is a devDependency and must stay one.** The validators are compiled to plain
   JavaScript, so nothing new reaches the browser. The generator asserts this: if the compiled
   output ever needs a runtime `import`, it fails rather than quietly adding a dependency.
@@ -82,6 +86,11 @@ DDD, and project context all still apply here).
   automatable — lint, type-check, tests, coverage — should be enforced by
   the standard CI run, not left as a manual convention (same principle as
   the backend).
+- **A `TODO:` comment fails the lint.** To-dos are GitHub issues, not comments (#121), so
+  `.oxlintrc.json` sets `no-warning-comments` to the marker `todo:` at the start of a comment.
+  It is narrowed on purpose: the domain word — the `TODO` task state — is everywhere and is
+  fine. This replaces Sonar's S1135, which cannot be narrowed and is switched off in
+  `sonar-project.properties`.
 
 ## Code quality tooling
 
