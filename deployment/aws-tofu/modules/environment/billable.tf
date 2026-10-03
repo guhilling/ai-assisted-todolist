@@ -206,3 +206,258 @@ resource "aws_ecs_task_definition" "migrate" {
 
   tags = { Name = local.migrate_family }
 }
+
+# The internal load balancer: no public address, in the private subnets, reachable only through
+# the CloudFront VPC origin below. About $20 a month while it exists, which is why it is here.
+# Deletion protection is off for the database's reason: it would make every `down` fail.
+resource "aws_lb" "this" {
+  count = var.running ? 1 : 0
+
+  name               = local.alb_name
+  load_balancer_type = "application"
+  internal           = true
+  subnets            = aws_subnet.private[*].id
+  security_groups    = [aws_security_group.alb.id]
+
+  drop_invalid_header_fields = true
+  enable_deletion_protection = false
+
+  tags = { Name = local.alb_name }
+}
+
+# Blue and green: ECS keeps the running version in one and starts the next in the other, then
+# moves the listener rule across. Which is which at any moment is ECS's business.
+resource "aws_lb_target_group" "blue" {
+  count = var.running ? 1 : 0
+
+  name        = "${local.name}-blue"
+  vpc_id      = aws_vpc.this.id
+  target_type = "ip"
+  protocol    = "HTTP"
+  port        = var.backend_port
+
+  # Short, because a demo deploy waits on it: the default is five minutes.
+  deregistration_delay = 30
+
+  health_check {
+    path                = "/q/health/ready"
+    matcher             = "200"
+    interval            = 15
+    healthy_threshold   = 2
+    unhealthy_threshold = 3
+  }
+
+  tags = { Name = "${local.name}-blue" }
+}
+
+# Identical to blue; two resources rather than a for_each, because check-billable-guard.py
+# accepts the guard only in its literal form.
+resource "aws_lb_target_group" "green" {
+  count = var.running ? 1 : 0
+
+  name        = "${local.name}-green"
+  vpc_id      = aws_vpc.this.id
+  target_type = "ip"
+  protocol    = "HTTP"
+  port        = var.backend_port
+
+  # Short, because a demo deploy waits on it: the default is five minutes.
+  deregistration_delay = 30
+
+  health_check {
+    path                = "/q/health/ready"
+    matcher             = "200"
+    interval            = 15
+    healthy_threshold   = 2
+    unhealthy_threshold = 3
+  }
+
+  tags = { Name = "${local.name}-green" }
+}
+
+# TLS from CloudFront, with this region's certificate for the environment's own name: /api/*
+# forwards the viewer's Host header, and CloudFront checks the origin certificate against it.
+resource "aws_lb_listener" "https" {
+  count = var.running ? 1 : 0
+
+  load_balancer_arn = aws_lb.this[0].arn
+  port              = 443
+  protocol          = "HTTPS"
+  ssl_policy        = "ELBSecurityPolicy-TLS13-1-2-2021-06"
+  certificate_arn   = aws_acm_certificate_validation.origin.certificate_arn
+
+  # Anything no rule matches. The rule below matches everything, so this is only reached if it
+  # is missing -- and a 404 says so rather than reaching the backend by a back door.
+  default_action {
+    type = "fixed-response"
+
+    fixed_response {
+      content_type = "text/plain"
+      status_code  = "404"
+      message_body = "No route"
+    }
+  }
+
+  tags = { Name = local.alb_name }
+}
+
+# The production rule ECS moves between blue and green. Blue/green needs a rule rather than the
+# listener's default action, and ECS rewrites its weights on every deployment -- so the forward
+# action is ignored after creation, or every plan would try to put back whatever it first saw.
+resource "aws_lb_listener_rule" "production" {
+  count = var.running ? 1 : 0
+
+  listener_arn = aws_lb_listener.https[0].arn
+  priority     = 100
+
+  action {
+    type = "forward"
+
+    forward {
+      target_group {
+        arn    = aws_lb_target_group.blue[0].arn
+        weight = 100
+      }
+
+      target_group {
+        arn    = aws_lb_target_group.green[0].arn
+        weight = 0
+      }
+    }
+  }
+
+  condition {
+    path_pattern {
+      values = ["/*"]
+    }
+  }
+
+  tags = { Name = "${local.alb_name}-production" }
+
+  lifecycle {
+    ignore_changes = [action]
+  }
+}
+
+# The long-running backend. Same image and the same IAM database login as `migrate`, but it
+# serves instead of exiting, and it never migrates: the schema changes only through the migrate
+# task, so that a deployment with a migration can take the downtime it needs (doc/deployment.md).
+resource "aws_ecs_task_definition" "backend" {
+  count = var.running ? 1 : 0
+
+  family                   = local.service_name
+  requires_compatibilities = ["FARGATE"]
+  network_mode             = "awsvpc"
+  cpu                      = 512
+  memory                   = 1024
+  execution_role_arn       = aws_iam_role.task_execution.arn
+  task_role_arn            = aws_iam_role.task.arn
+
+  runtime_platform {
+    operating_system_family = "LINUX"
+    cpu_architecture        = "X86_64"
+  }
+
+  container_definitions = jsonencode([{
+    name      = "backend"
+    image     = var.backend_image
+    essential = true
+
+    portMappings = [{ containerPort = var.backend_port, protocol = "tcp" }]
+
+    environment = [
+      { name = "QUARKUS_LIQUIBASE_MIGRATE_AT_START", value = "false" },
+      {
+        name  = "QUARKUS_DATASOURCE_JDBC_URL"
+        value = "jdbc:postgresql://${local.db_address}:${local.db_port}/${local.db_name}?sslmode=verify-full&sslrootcert=/opt/rds/global-bundle.pem"
+      },
+      { name = "QUARKUS_DATASOURCE_USERNAME", value = local.db_app_user },
+      { name = "TODO_DATASOURCE_CREDENTIALS_PROVIDER", value = "rds-iam" },
+      { name = "AWS_REGION", value = local.region },
+    ]
+
+    logConfiguration = local.ecs_log_configuration
+  }])
+
+  tags = { Name = local.service_name }
+}
+
+resource "aws_ecs_service" "backend" {
+  count = var.running ? 1 : 0
+
+  name            = local.service_name
+  cluster         = aws_ecs_cluster.this.arn
+  task_definition = aws_ecs_task_definition.backend[0].arn
+  desired_count   = 1
+  launch_type     = "FARGATE"
+
+  # Long enough for the JVM to start and the first readiness check to pass; until then a
+  # failing health check does not count against the task.
+  health_check_grace_period_seconds = 60
+
+  network_configuration {
+    subnets          = aws_subnet.public[*].id
+    security_groups  = [aws_security_group.tasks.id]
+    assign_public_ip = true
+  }
+
+  # Five minutes of both versions running after traffic has moved, so that a bad release can be
+  # rolled back by moving it straight back. The circuit breaker rolls back a deployment whose
+  # tasks never become healthy.
+  deployment_configuration {
+    strategy             = "BLUE_GREEN"
+    bake_time_in_minutes = 5
+  }
+
+  deployment_circuit_breaker {
+    enable   = true
+    rollback = true
+  }
+
+  load_balancer {
+    target_group_arn = aws_lb_target_group.blue[0].arn
+    container_name   = "backend"
+    container_port   = var.backend_port
+
+    advanced_configuration {
+      alternate_target_group_arn = aws_lb_target_group.green[0].arn
+      production_listener_rule   = aws_lb_listener_rule.production[0].arn
+      role_arn                   = aws_iam_role.ecs_infrastructure.arn
+    }
+  }
+
+  # `env.sh up` returns once the backend is actually serving, not when ECS has merely accepted
+  # the service.
+  wait_for_steady_state = true
+
+  tags = { Name = local.service_name }
+
+  # After a blue/green deployment the live target group is whichever ECS last shifted to, so the
+  # one named here stops being true; the deploy story will also register task definitions this
+  # file never sees.
+  lifecycle {
+    ignore_changes = [load_balancer, task_definition]
+  }
+}
+
+# The /api/* origin: CloudFront's private path into the VPC to the internal load balancer. It
+# names the load balancer's ARN, so it is created and destroyed with it, and the distribution in
+# edge.tf adds and drops its /api/* behaviour accordingly.
+resource "aws_cloudfront_vpc_origin" "api" {
+  count = var.running ? 1 : 0
+
+  vpc_origin_endpoint_config {
+    name                   = local.alb_name
+    arn                    = aws_lb.this[0].arn
+    http_port              = 80
+    https_port             = 443
+    origin_protocol_policy = "https-only"
+
+    origin_ssl_protocols {
+      items    = ["TLSv1.2"]
+      quantity = 1
+    }
+  }
+
+  tags = { Name = local.alb_name }
+}

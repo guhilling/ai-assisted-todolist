@@ -82,3 +82,13 @@ output "migrate_task_family" {
   description = "The task that runs Liquibase over IAM authentication. Run by env.sh migrate."
   value       = local.migrate_family
 }
+
+output "url" {
+  description = "Where this environment answers, through CloudFront."
+  value       = "https://${var.hostname}"
+}
+
+output "distribution_id" {
+  description = "The CloudFront distribution, which outlives every up and down."
+  value       = aws_cloudfront_distribution.this.id
+}

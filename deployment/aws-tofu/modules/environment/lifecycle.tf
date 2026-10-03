@@ -293,11 +293,15 @@ data "aws_iam_policy_document" "lifecycle" {
       "elasticloadbalancing:ModifyListener",
       "elasticloadbalancing:AddTags",
       "elasticloadbalancing:RemoveTags",
+      "elasticloadbalancing:CreateRule",
+      "elasticloadbalancing:DeleteRule",
+      "elasticloadbalancing:ModifyRule",
     ]
     resources = [
       "arn:aws:elasticloadbalancing:${local.region}:${local.account}:loadbalancer/app/${local.alb_name}/*",
       "arn:aws:elasticloadbalancing:${local.region}:${local.account}:targetgroup/${local.name}-*/*",
       "arn:aws:elasticloadbalancing:${local.region}:${local.account}:listener/app/${local.alb_name}/*/*",
+      "arn:aws:elasticloadbalancing:${local.region}:${local.account}:listener-rule/app/${local.alb_name}/*/*/*",
     ]
   }
 
@@ -407,13 +411,54 @@ data "aws_iam_policy_document" "lifecycle" {
         "ecs.amazonaws.com",
         "elasticloadbalancing.amazonaws.com",
         "rds.amazonaws.com",
+        "vpcorigin.cloudfront.amazonaws.com",
       ]
     }
   }
 
-  # Deliberately absent: everything in the foundation. No ec2:Create*, no ec2:Delete*, no
-  # iam:CreateRole, no s3:*, no cloudfront:*, no route53:*. This role can make the environment
-  # cost money and stop it costing money, and it can do nothing else.
+  # Blue/green: creating the service hands ECS the role it shifts the listener rule with. Only
+  # that role, and only to ECS itself.
+  statement {
+    sid       = "PassTheBlueGreenRoleOnlyToEcs"
+    actions   = ["iam:PassRole"]
+    resources = [aws_iam_role.ecs_infrastructure.arn]
+
+    condition {
+      test     = "StringEquals"
+      variable = "iam:PassedToService"
+      values   = ["ecs.amazonaws.com"]
+    }
+  }
+
+  # CloudFront's /api/* origin comes and goes with the load balancer it points at (edge.tf), so
+  # `up` and `down` must create and delete the VPC origin and change the distribution to match.
+  # The distribution is named by its ARN: this role can change this environment's distribution
+  # and no other, and it cannot create or delete distributions at all. VPC origin ids are
+  # generated, so those are `vpcorigin/*` -- which reaches the other environment's VPC origin
+  # too, accepted for the reason the database statements give: a person with MFA, an audit
+  # boundary rather than a security one.
+  statement {
+    sid       = "UpdateThisEnvironmentsDistribution"
+    actions   = ["cloudfront:UpdateDistribution"]
+    resources = [aws_cloudfront_distribution.this.arn]
+  }
+
+  statement {
+    sid = "TheApiVpcOrigin"
+    actions = [
+      "cloudfront:CreateVpcOrigin",
+      "cloudfront:UpdateVpcOrigin",
+      "cloudfront:DeleteVpcOrigin",
+      "cloudfront:TagResource",
+      "cloudfront:UntagResource",
+    ]
+    resources = ["arn:aws:cloudfront::${local.account}:vpcorigin/*"]
+  }
+
+  # Deliberately absent: everything else in the foundation. No ec2:Create*, no ec2:Delete*, no
+  # iam:CreateRole, no s3:*, no route53:*, and nothing that creates or deletes a distribution.
+  # This role can make the environment cost money and stop it costing money, and it can do
+  # nothing else.
 }
 
 resource "aws_iam_role_policy" "lifecycle" {

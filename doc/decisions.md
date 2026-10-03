@@ -1133,3 +1133,27 @@ price of CloudWatch Logs and needs no delivery role, and logs read when somethin
 explaining do not need CloudWatch's query console. All traffic rather than rejected-only, because
 the useful question is what talked to what. The bucket is encrypted with S3-managed keys:
 *rejected: a customer-managed KMS key*, which at about $1 a month costs more than the logs.
+
+**CloudFront's `/api/*` origin comes and goes with the environment; the distribution stays.** A
+VPC origin names one load balancer ARN and cannot be changed or deleted while a distribution uses
+it, so destroying the load balancer on `down` means detaching and deleting the VPC origin, and
+`up` means creating a new one and attaching it — up to ~15–20 minutes each way. The lifecycle
+role therefore may update this environment's one distribution and create and delete VPC origins,
+and still cannot create or delete distributions. *Rejected: keeping the load balancer up
+permanently*, which would leave the distribution untouched and `up`/`down` fast, for about $20 a
+month even while qa is down. *Rejected: the distribution coming and going too*, which is no faster
+and needs more rights. An earlier version of this choice claimed the distribution could stay
+untouched while the origin changed; it cannot.
+
+**CloudFront reaches the load balancer over HTTPS with the environment's own name.** The ALB
+carries a regional ACM certificate for `todolist-<env>.cloud.hilling.de`, the same name as
+CloudFront's own (which has to be in us-east-1). That works because `/api/*` forwards the viewer's
+`Host` header, and AWS documents that the origin certificate may then match the `Host` header
+instead of the origin's domain name — so no second name for the load balancer is needed. Both
+certificates validate through the same DNS record.
+
+**ECS-native blue/green, which needed AWS provider 6.** Two target groups, a production listener
+rule ECS moves between them, a five-minute bake with both versions running, and the circuit
+breaker for a deployment whose tasks never become healthy. Provider 5.x has no
+`deployment_configuration` for it; the upgrade was its own pull request (#111), and a plan of
+every root showed no change from it. *Rejected: CodeDeploy*, which the plan had already ruled out.

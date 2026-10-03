@@ -25,9 +25,12 @@ resource "aws_security_group" "alb" {
 # The load balancer has no public address at all -- CloudFront reaches it through a VPC origin.
 # This still restricts the source, so that nothing else inside the VPC can reach it either.
 #
-# TO VERIFY before the first apply: that VPC-origin traffic does arrive from this prefix list.
-# doc/deployment.md lists it as an open question; if it does not, the source becomes the VPC
-# CIDR and this comment goes away.
+# AWS documents two ways to admit a VPC origin: this prefix list, or the security group CloudFront
+# creates with each VPC origin. The prefix list is used because it exists before the VPC origin
+# does: the service group is created anew with every VPC origin, i.e. on every `up`, and admitting
+# it would mean the lifecycle role editing this foundation group each time. Nothing outside the
+# VPC can use the prefix list to get here -- the load balancer is internal -- so the reach is the
+# same: only this account's VPC origins.
 resource "aws_vpc_security_group_ingress_rule" "alb_from_cloudfront" {
   security_group_id = aws_security_group.alb.id
   description       = "HTTPS from the CloudFront origin-facing ranges"

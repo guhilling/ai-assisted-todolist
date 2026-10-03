@@ -17,6 +17,10 @@ terraform {
     aws = {
       source  = "hashicorp/aws"
       version = "~> 6.0"
+
+      # CloudFront takes its viewer certificate from us-east-1 only, whatever region everything
+      # else is in, so the module is handed a second provider for that one resource.
+      configuration_aliases = [aws.us_east_1]
     }
   }
 }

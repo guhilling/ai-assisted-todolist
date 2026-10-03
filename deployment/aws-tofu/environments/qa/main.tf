@@ -32,8 +32,28 @@ provider "aws" {
   }
 }
 
+# The same account and tags, in us-east-1: CloudFront accepts viewer certificates from that
+# region only. Used for nothing else.
+provider "aws" {
+  alias  = "us_east_1"
+  region = "us-east-1"
+
+  default_tags {
+    tags = {
+      project    = var.project
+      env        = var.environment
+      managed-by = "opentofu"
+    }
+  }
+}
+
 module "environment" {
   source = "../../modules/environment"
+
+  providers = {
+    aws           = aws
+    aws.us_east_1 = aws.us_east_1
+  }
 
   project              = var.project
   environment          = var.environment
@@ -43,6 +63,7 @@ module "environment" {
   running              = var.running
   db_restore_snapshot  = var.db_restore_snapshot
   log_retention_days   = var.log_retention_days
+  hostname             = var.hostname
 }
 
 output "vpc_id" {
@@ -113,4 +134,9 @@ output "db_bootstrap_task_family" {
 output "migrate_task_family" {
   description = "The task that runs Liquibase over IAM authentication."
   value       = module.environment.migrate_task_family
+}
+
+output "url" {
+  description = "Where this environment answers, through CloudFront."
+  value       = module.environment.url
 }

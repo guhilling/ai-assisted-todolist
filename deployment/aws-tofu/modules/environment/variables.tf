@@ -124,3 +124,18 @@ variable "backend_image" {
   type        = string
   default     = "quay.io/ghilling/todo-backend:latest"
 }
+
+variable "hostname" {
+  description = <<-EOT
+    The environment's public name. CloudFront answers on it, and the load balancer's own
+    certificate carries it too: /api/* forwards the viewer's Host header, so CloudFront checks the
+    origin certificate against this name rather than the load balancer's AWS-generated one.
+  EOT
+  type        = string
+}
+
+variable "dns_zone" {
+  description = "The existing Route 53 zone the hostname lives in. A property of the project, not of an environment."
+  type        = string
+  default     = "cloud.hilling.de"
+}
