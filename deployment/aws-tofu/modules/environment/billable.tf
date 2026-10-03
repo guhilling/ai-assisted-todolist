@@ -460,4 +460,22 @@ resource "aws_cloudfront_vpc_origin" "api" {
   }
 
   tags = { Name = local.alb_name }
+
+  # Delete only after the distribution has let go of it. Without this, OpenTofu orders the
+  # deletion before the distribution's update -- the update waits for the delete, as `tofu graph`
+  # shows -- and CloudFront refuses to delete a VPC origin a distribution still uses
+  # (CannotDeleteEntityWhileInUse, which the first `down` of qa hit). create_before_destroy
+  # reverses that edge: the distribution is updated first, then the origin goes.
+  #
+  # For an origin that already exists, the setting only counts once the state records it, which
+  # takes one apply that keeps the origin (running = true). A `down` planned straight from a state
+  # written without it still orders the deletion first -- reproduced with terraform_data, and
+  # visible in `tofu graph -type=apply` as the distribution waiting on the load balancer's destroy.
+  #
+  # OpenTofu passes create_before_destroy on to what this depends on, i.e. the load balancer. A
+  # change that *replaces* the load balancer would then try to create a second one under the same
+  # name and fail; take the environment down and up instead of replacing it in place.
+  lifecycle {
+    create_before_destroy = true
+  }
 }
