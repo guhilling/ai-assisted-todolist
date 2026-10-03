@@ -121,6 +121,13 @@ tofu apply
 `prod` is the same commands in the other directory. The state key differs, so the two never see
 each other.
 
+**A plain `tofu apply` while an environment is up takes it down.** `running` defaults to `false`
+and is never in `terraform.tfvars`, so an administrator's apply of foundation changes plans to
+destroy everything billable unless it says otherwise. While the environment is up, either pass
+`-var running=true`, which on its own creates an *empty* database if there is none, since only
+`env.sh up` passes the snapshot to restore, or apply just the resource that changed with
+`-target=…`. When in doubt, `./env.sh status <env>` first.
+
 **Apply is a human's job.** There is deliberately no credential that can run it — see *Who may
 deploy* below — so this is run from a profile with the privileges to create infrastructure.
 
