@@ -97,3 +97,36 @@ resource "aws_iam_role_policy" "task_execution" {
   role   = aws_iam_role.task_execution.id
   policy = data.aws_iam_policy_document.task_execution.json
 }
+
+# The role ECS itself uses for a blue/green deployment: it moves the production listener rule from
+# one target group to the other, and back on a rollback. AWS's managed policy for exactly that,
+# rather than a hand-written copy that would fall behind it.
+data "aws_iam_policy_document" "ecs_infrastructure_trust" {
+  statement {
+    actions = ["sts:AssumeRole"]
+
+    principals {
+      type        = "Service"
+      identifiers = ["ecs.amazonaws.com"]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "aws:SourceAccount"
+      values   = [local.account]
+    }
+  }
+}
+
+resource "aws_iam_role" "ecs_infrastructure" {
+  name               = local.ecs_infrastructure
+  description        = "Lets ECS shift ${var.environment} traffic between the blue and green target groups."
+  assume_role_policy = data.aws_iam_policy_document.ecs_infrastructure_trust.json
+
+  tags = { Name = local.ecs_infrastructure }
+}
+
+resource "aws_iam_role_policy_attachment" "ecs_infrastructure" {
+  role       = aws_iam_role.ecs_infrastructure.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonECSInfrastructureRolePolicyForLoadBalancers"
+}

@@ -37,6 +37,7 @@ locals {
   site_bucket         = "${local.name}-site"
   task_execution_role = "${local.name}-task-execution"
   task_role           = "${local.name}-task"
+  ecs_infrastructure  = "${local.name}-ecs-infrastructure"
 
   cluster_arn     = "arn:aws:ecs:${local.region}:${local.account}:cluster/${local.cluster_name}"
   service_arn     = "arn:aws:ecs:${local.region}:${local.account}:service/${local.cluster_name}/${local.service_name}"

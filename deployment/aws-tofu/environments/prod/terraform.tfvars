@@ -11,3 +11,5 @@ public_subnet_cidrs  = ["10.30.0.0/20", "10.30.16.0/20"]
 private_subnet_cidrs = ["10.30.128.0/20", "10.30.144.0/20"]
 
 log_retention_days = 90
+
+hostname = "todolist.cloud.hilling.de"

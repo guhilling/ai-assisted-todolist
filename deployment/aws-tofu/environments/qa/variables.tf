@@ -46,3 +46,8 @@ variable "log_retention_days" {
   description = "How long the ECS task logs are kept."
   type        = number
 }
+
+variable "hostname" {
+  description = "The environment's public name, under the cloud.hilling.de zone."
+  type        = string
+}

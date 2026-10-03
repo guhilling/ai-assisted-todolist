@@ -59,8 +59,9 @@ The network, the security groups and the flow logs — the layer everything else
 | `security.tf` | The four-hop chain: CloudFront → load balancer → task → database |
 | `flow-logs.tf` | VPC flow logs, all traffic, into a private bucket of the environment's own, kept 30 days |
 | `database.tf` | The database's subnet group, and the ECS task role with its IAM login to the database |
-| `ecs.tf` | The ECS cluster, the task log group, and the role ECS uses to start a task |
-| `billable.tf` | What costs money while it exists, or points at what does: the RDS instance and the two one-off task definitions |
+| `ecs.tf` | The ECS cluster, the task log group, the role ECS uses to start a task, and the one it shifts blue/green traffic with |
+| `edge.tf` | The hostname, both certificates, the site bucket, and the CloudFront distribution in front of everything |
+| `billable.tf` | What costs money while it exists, or points at what does: the RDS instance, the internal load balancer with its blue and green target groups, the backend service, the CloudFront VPC origin, and the task definitions |
 
 Three properties of the network are deliberate and will look wrong without the reason:
 
@@ -73,8 +74,8 @@ Three properties of the network are deliberate and will look wrong without the r
 - **Two availability zones because the load balancer requires two**, not for high availability.
   A single task in one AZ is not highly available, and the plan does not claim it is.
 
-Still to come, each as its own change: the backend service with the ALB and its target groups;
-S3, CloudFront, ACM and Route 53; the CloudWatch alarms, budgets and IAM users.
+Still to come, each as its own change: the SPA in the site bucket and Google sign-in; the deploy
+workflow; the CloudWatch alarms, budgets and IAM users.
 
 ## Bootstrapping the state bucket, once
 
@@ -129,7 +130,7 @@ Teardown is a **parameter**, not a `tofu destroy`. The resources that cost money
 `running` is true; the foundation ignores it and is always there.
 
 ```sh
-./env.sh up qa       # create the database, load balancer and service
+./env.sh up qa       # create the database, load balancer and service; ~25-35 minutes
 ./env.sh down qa     # destroy them; VPC, subnets, security groups and IAM stay
 ./env.sh status qa   # what the last apply recorded
 ./env.sh db-bootstrap qa   # once per environment: create the database user
@@ -159,9 +160,11 @@ keeps running, and the bill is the first evidence.
 ## Who may create and destroy what bills
 
 Each environment gets `todolist-<env>-lifecycle`, a role a **person** assumes with MFA. It may
-create and delete the database, the load balancer and the running service, and nothing else — no
-`ec2:Create*`, no `iam:CreateRole`, no S3, no CloudFront, no Route 53. The foundation is applied
-by an administrator and this role cannot touch it.
+create and delete the database, the load balancer and the running service, and — because
+CloudFront's `/api/*` origin has to follow the load balancer — create and delete VPC origins and
+update this environment's one distribution. Nothing else: no `ec2:Create*`, no `iam:CreateRole`,
+no S3, no Route 53, and it cannot create or delete a distribution. The foundation is applied by an
+administrator and this role cannot touch it.
 
 To use it, first exchange your long-term key for an MFA session, then assume:
 

@@ -162,7 +162,7 @@ Three technical identities, one job each:
 | Identity | May do | Used by |
 | --- | --- | --- |
 | `gunnar` (IAM admin user) | anything, including the free foundation | a person, with MFA. **Not the account root user**, which has no access keys and is used for nothing |
-| `todolist-<env>-lifecycle` (role) | create and destroy what bills: RDS, the load balancer, the Fargate service | a person assuming it, **with MFA** |
+| `todolist-<env>-lifecycle` (role) | create and destroy what bills: RDS, the load balancer, the Fargate service — and the CloudFront VPC origin that follows the load balancer | a person assuming it, **with MFA** |
 | `todolist-qa-deploy` (role) | redeploy the qa application; **no infrastructure** | GitHub Actions, unattended |
 | `todolist-prod-deploy` (role) | redeploy the prod application; **no infrastructure** | GitHub Actions, **only from the `prod` environment**, which requires approval |
 | `todolist-monitoring` (user) | read-only, everywhere | dashboards and a local CLI profile; can change nothing |
@@ -335,6 +335,15 @@ resources that cost money — the database, the load balancer, the service — e
 true. The foundation ignores it and is always there, because it is free and destroying it buys
 nothing.
 
+**The CloudFront distribution stays; its `/api/*` origin does not.** A CloudFront VPC origin names
+one load balancer ARN and cannot be changed or deleted while a distribution uses it, and the load
+balancer is destroyed on every `down`. So `down` drops the distribution's `/api/*` behaviour and
+deletes the VPC origin, and `up` creates a new one and adds the behaviour back. Deploying a VPC
+origin takes up to 15 minutes and a distribution change several more, so `up` and `down` each take
+**roughly 25–35 minutes**. That is the price of a `down` that costs nothing; keeping the load
+balancer up instead would have cost about $20 a month while nobody was using the environment.
+While down, the distribution still answers, from the site bucket alone.
+
 ```sh
 deployment/aws-tofu/env.sh up qa       # create what bills
 deployment/aws-tofu/env.sh down qa     # destroy it; VPC, subnets and IAM stay
@@ -469,8 +478,8 @@ One environment, running continuously:
 
 | | Estimate/month | Note |
 | --- | --- | --- |
-| ALB | ~$16 | Fixed, whether or not anyone uses it. Unavoidable while blue/green is demonstrated |
-| Fargate 0.5 vCPU / 1 GB | ~$18 | |
+| ALB | ~$20 | Fixed, whether or not anyone uses it, while the environment is up. Unavoidable while blue/green is demonstrated. eu-central-1 estimate |
+| Fargate 0.5 vCPU / 1 GB | ~$20 | One task, x86. eu-central-1 estimate |
 | RDS `db.t4g.micro` single-AZ | ~$13 | Plus ~$3 for 20 GB gp3. Seven days of backups and Performance Insights are within the free allowances. An estimate until qa has run for a month |
 | S3 + CloudFront | ~$1 | At demo traffic |
 | CloudWatch, Secrets Manager | ~$2 | |
@@ -505,9 +514,13 @@ Honest gaps, because a plan that hides them is worse than one that names them:
   target groups on one load balancer. What is not yet confirmed is its bake-time and
   automatic-rollback-on-alarm behaviour.
 - **`eu-central-1` pricing** — every figure above is a US East rate.
-- **VPC origins require an internet gateway attached to the VPC** — present here as a marker
-  that the VPC may receive CloudFront traffic, not as a route. Confirm it behaves that way with
-  the load balancer in a private subnet and the tasks in public ones.
+- ~~**VPC origins require an internet gateway attached to the VPC**~~ — confirmed by AWS's own
+  documentation: the internet gateway is required "to denote that the VPC can receive traffic from
+  the internet" and is not used for routing to the origin. The load balancer can sit in a subnet
+  with no route out.
+- ~~**Whether VPC-origin traffic arrives from the CloudFront prefix list**~~ — yes; AWS documents
+  the prefix list and the per-VPC-origin security group as the two ways to admit it. `security.tf`
+  says why the prefix list.
 - **Tag-filtered budgets** report with a delay and ignore untagged resources; confirm the
   per-environment figures are trustworthy before relying on them instead of a per-account bill.
 - **Whether a GitHub environment secret is genuinely unreadable** from a workflow run that has
