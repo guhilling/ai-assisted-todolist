@@ -1167,3 +1167,16 @@ so the deploy role still needs no `cloudfront:CreateInvalidation`, and the hashe
 deleted, so a rollback is only the previous release's `index.html`. *Decided by Gunnar:* the
 frontend half of the deploy workflow came forward (#119) rather than uploading by hand, because
 the release mechanism needed testing anyway.
+
+**SonarCloud runs on `main` only, and a failed quality gate becomes an issue.** On pull requests it
+re-ran the entire backend suite for its coverage report, and with no path filter it was the check
+every pull request waited for — including the infrastructure and documentation changes that make
+up most of them. It now runs after the merge. Until then it also never failed on findings: the scan
+uploaded an analysis without waiting for the quality gate. It now waits
+(`sonar.qualitygate.wait`), and `sonar-gate-issue.py` turns a failure into **one** open issue,
+labelled `sonarcloud-gate`: commented on while the gate stays red, closed when it is green again.
+*Rejected: keeping it on pull requests without waiting for it*, because Renovate merges only when
+every check is green and cannot leave one out. *Not done: reusing backend CI's coverage report
+instead of re-running the tests*, which would need artifacts handed between workflows for a
+saving that no longer blocks anything. The cost is that a finding is seen after the merge, not
+before — accepted, because it then becomes an issue like any other piece of work.

@@ -42,7 +42,7 @@ token. One origin, so the SPA needs no CORS handling and no API base URL.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="doc/images/workflow-dark.svg">
-  <img alt="Every change starts from a question rather than a guess, then a failing test, then the change and its documentation in one commit. A pull request must pass Checkstyle, the tests and coverage gate, CodeQL and SonarCloud, and the browser end-to-end run before it is squashed onto main. PIT mutation testing reports but does not block." src="doc/images/workflow-light.svg">
+  <img alt="Every change starts from a question rather than a guess, then a failing test, then the change and its documentation in one commit. A pull request must pass Checkstyle, the tests and coverage gate, CodeQL, and the browser end-to-end run before it is squashed onto main. SonarCloud then analyses main, and a failed quality gate becomes a GitHub issue. PIT mutation testing reports but does not block." src="doc/images/workflow-light.svg">
 </picture>
 
 Anything that can be checked by a machine is, so that a convention does not depend on
@@ -134,7 +134,7 @@ every release. They are generated and CI fails if the committed copy has drifted
 - `backend-ci.yml` — backend tests, JVM packaging, container image build
 - `frontend-ci.yml` — install, lint, build, frontend image build
 - `e2e.yml` — builds both images, starts the full stack, runs the Playwright suite
-- `sonarcloud.yml` — both test suites with coverage, then the Sonar scan
+- `sonarcloud.yml` — on `main` only: both test suites with coverage, the Sonar scan, and the quality gate, a failure of which opens a GitHub issue
 - `publish-images.yml` — publishes both images to Quay as `latest` from `main`
 - `codeql.yml` — CodeQL security scanning for Java and TypeScript, plus a weekly run
 - `release.yml` — on a `v*` tag: release checks, versioned images, a GitHub Release

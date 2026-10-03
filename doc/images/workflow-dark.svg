@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1090 420"
-     width="1090" height="420" role="img" aria-label="Every change starts from a question rather than a guess, then a failing test, then the change and its documentation in one commit. A pull request must pass Checkstyle, the tests and coverage gate, CodeQL and SonarCloud, and the browser end-to-end run before it is squashed onto main. PIT mutation testing reports but does not block."
+     width="1090" height="420" role="img" aria-label="Every change starts from a question rather than a guess, then a failing test, then the change and its documentation in one commit. A pull request must pass Checkstyle, the tests and coverage gate, CodeQL, and the browser end-to-end run before it is squashed onto main. SonarCloud then analyses main, and a failed quality gate becomes a GitHub issue. PIT mutation testing reports but does not block."
      font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif">
   <defs>
     <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7"
@@ -29,12 +29,13 @@
   <text x="615" y="190" text-anchor="middle" font-size="11" fill="#9aa5b1">pull request</text>
   <polyline points="900,200 950,200" fill="none" stroke="#8ab4f8" stroke-width="1.6" marker-end="url(#arrow-accent)"/>
   <text x="925" y="190" text-anchor="middle" font-size="11" fill="#8ab4f8">squash</text>
+  <text x="1005" y="160" text-anchor="middle" font-size="11" fill="#9aa5b1">SonarCloud gate → issue</text>
   <rect x="675" y="108.0" width="210" height="34" rx="8" fill="#1e242a" stroke="#39424b" stroke-width="1.5"/>
   <text x="780.0" y="130.0" text-anchor="middle" font-size="13" font-weight="600" fill="#e6eaee">Checkstyle + Javadoc</text>
   <rect x="675" y="154.0" width="210" height="34" rx="8" fill="#1e242a" stroke="#39424b" stroke-width="1.5"/>
   <text x="780.0" y="176.0" text-anchor="middle" font-size="13" font-weight="600" fill="#e6eaee">Tests, coverage 95 / 90</text>
   <rect x="675" y="200.0" width="210" height="34" rx="8" fill="#1e242a" stroke="#39424b" stroke-width="1.5"/>
-  <text x="780.0" y="222.0" text-anchor="middle" font-size="13" font-weight="600" fill="#e6eaee">CodeQL + SonarCloud</text>
+  <text x="780.0" y="222.0" text-anchor="middle" font-size="13" font-weight="600" fill="#e6eaee">CodeQL</text>
   <rect x="675" y="246.0" width="210" height="34" rx="8" fill="#1e242a" stroke="#39424b" stroke-width="1.5"/>
   <text x="780.0" y="268.0" text-anchor="middle" font-size="13" font-weight="600" fill="#e6eaee">End-to-end in a browser</text>
   <rect x="675" y="292.0" width="210" height="34" rx="8" fill="#1e242a" stroke="#39424b" stroke-width="1.5" stroke-dasharray="5 4"/>
