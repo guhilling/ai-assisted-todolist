@@ -33,7 +33,7 @@ function initialsFor(email: string, name?: string | null) {
  * It is decorative on purpose: `alt=""` and `aria-hidden` on the initials, because the name or
  * email sits beside it as real text. Labelling it would make a screen reader say the name twice.
  */
-function UserAvatar({ email, name, pictureUrl }: UserAvatarProps) {
+function UserAvatar({ email, name, pictureUrl }: Readonly<UserAvatarProps>) {
   // Keyed by URL rather than a boolean, so a new picture is tried afresh instead of inheriting
   // the previous one's failure.
   const [failedUrl, setFailedUrl] = useState<string | null>(null)

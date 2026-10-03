@@ -18,7 +18,7 @@ type AddTaskRowProps = {
  * is the slowest part of adding a task, and the default of tomorrow means the common case
  * needs no date interaction at all.
  */
-function AddTaskRow({ today, saving, onAdd }: AddTaskRowProps) {
+function AddTaskRow({ today, saving, onAdd }: Readonly<AddTaskRowProps>) {
   const [open, setOpen] = useState(false)
   const [description, setDescription] = useState('')
   const [dueDate, setDueDate] = useState(addDays(today, 1))
