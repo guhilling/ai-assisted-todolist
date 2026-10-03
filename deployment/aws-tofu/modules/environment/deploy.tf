@@ -22,7 +22,7 @@ data "aws_iam_openid_connect_provider" "github" {
 
 locals {
   account = data.aws_caller_identity.current.account_id
-  region  = data.aws_region.current.name
+  region  = data.aws_region.current.region
 
   # The names of resources this role will deploy, most of which do not exist yet. They are
   # written here rather than waited for because they are *chosen*, not generated -- so the policy
