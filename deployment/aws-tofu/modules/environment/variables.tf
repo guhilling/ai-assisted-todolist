@@ -52,15 +52,25 @@ variable "backend_port" {
   default     = 8080
 }
 
-variable "github_repository" {
+variable "github_oidc_repository" {
   description = <<-EOT
-    The repository whose workflows may assume this environment's deploy role, as owner/name.
-    Part of the OIDC trust condition, so a token from any other repository is refused. It has a
-    default because it is a property of the project rather than of an environment -- keeping it
-    out of the values files, which exist for what actually differs between qa and prod.
+    The repository whose workflows may assume this environment's deploy role, exactly as GitHub
+    writes it into the OIDC token's `sub` claim after `repo:`. Part of the trust condition, so a
+    token from any other repository is refused.
+
+    The repository uses GitHub's *immutable subject*, so this is owner@id/name@id rather than
+    owner/name: a repository deleted and recreated under the same name, or a rename, gets new
+    ids and is refused, where the plain name could not tell them apart. The value is what
+    `gh api repos/<owner>/<repo>/actions/oidc/customization/sub` reports as sub_claim_prefix,
+    without the leading `repo:`. A plain owner/name here was why the first deploy could not
+    assume the role.
+
+    It has a default because it is a property of the project rather than of an environment --
+    keeping it out of the values files, which exist for what actually differs between qa and
+    prod.
   EOT
   type        = string
-  default     = "guhilling/ai-assisted-todolist"
+  default     = "guhilling@2537533/ai-assisted-todolist@1383592232"
 }
 
 variable "running" {

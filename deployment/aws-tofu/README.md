@@ -282,8 +282,10 @@ steps:
 ```
 
 The `environment:` line is not decoration. The trust policy requires a token whose subject is
-`repo:<owner>/<repo>:environment:<env>`, and GitHub only mints that when the job declares the
-environment — so for prod, where the environment is protected, AWS refuses the credentials until
+`repo:<owner>@<owner-id>/<repo>@<repo-id>:environment:<env>` — this repository uses GitHub's
+*immutable subject*, which carries the numeric ids so that a recreated or renamed repository is
+not trusted by name alone; `gh api repos/<owner>/<repo>/actions/oidc/customization/sub` shows the
+prefix — and GitHub only mints that when the job declares the environment — so for prod, where the environment is protected, AWS refuses the credentials until
 the deployment has been approved.
 
 **Names in the policy come from a `locals` block**, because most of the resources it grants access
