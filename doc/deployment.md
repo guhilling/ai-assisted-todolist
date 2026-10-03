@@ -153,6 +153,16 @@ This is manual configuration in the Google console and cannot be automated here.
 - **Who may sign in** is decided in the Google console: with the app in *Testing*, only the Google
   accounts listed as test users can.
 
+### The documentation site's own name
+
+Google's consent screen asks for an application home page, a privacy policy and terms of service,
+all under the authorised domain `hilling.de`. They are the GitHub Pages site, under
+**`https://todolist-docs.cloud.hilling.de/`**: the home page is the rendered README, and
+[`privacy.md`](privacy.md) and [`terms.md`](terms.md) are linked from the footer of every page.
+The name is a CNAME to `guhilling.github.io`, managed in the `account/` root
+(`docs_hostname`), and the repository's Pages settings name the same host, which is what makes
+GitHub serve the site there and issue its certificate.
+
 ## One account, and what that costs in guarantees
 
 QA and prod live in **one AWS account**, separated by IAM roles and resource tags. This reverses

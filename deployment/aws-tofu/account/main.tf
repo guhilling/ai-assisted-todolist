@@ -155,3 +155,21 @@ resource "aws_iam_group_policy" "read_only_guard" {
   group  = aws_iam_group.read_only.name
   policy = data.aws_iam_policy_document.read_only_guard.json
 }
+
+# The documentation site under the project's own name: a CNAME to GitHub Pages, which serves the
+# site there once the repository's Pages settings name the same host (doc/deployment.md). One per
+# account, like everything here, because there is one site, not one per environment.
+#
+# Google's OAuth consent screen needs it: the application home page, privacy policy and terms of
+# service must all be under the authorised domain, and guhilling.github.io is not.
+data "aws_route53_zone" "cloud" {
+  name = "cloud.hilling.de"
+}
+
+resource "aws_route53_record" "docs" {
+  zone_id = data.aws_route53_zone.cloud.zone_id
+  name    = var.docs_hostname
+  type    = "CNAME"
+  ttl     = 300
+  records = ["guhilling.github.io"]
+}
