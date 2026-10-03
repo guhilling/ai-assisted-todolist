@@ -16,8 +16,10 @@ import static org.hamcrest.Matchers.equalTo;
  * <p>Google's access tokens are opaque, so {@code %prod} and {@code %qa} verify them against the
  * UserInfo endpoint ({@code quarkus.oidc.token.verify-access-token-with-user-info}); without it,
  * every Google sign-in failed on the way back. Keycloak's tokens are JWTs, so this cannot show
- * the original failure — only qa can — but it does pin that the setting keeps the sign-in and
- * the restored session working, which nothing else here exercises.</p>
+ * the original failure — only qa can — but with both settings on, the sign-in does fetch UserInfo
+ * from Keycloak, so it pins that the fetch works and the restored session keeps working, which
+ * nothing else here exercises. With only the first setting, the opaque-token path failed in qa
+ * with "user info is null"; this test could not have caught that.</p>
  */
 @QuarkusTest
 @TestProfile(UserInfoVerifiedSessionTest.VerifiedWithUserInfo.class)
@@ -42,7 +44,8 @@ class UserInfoVerifiedSessionTest {
         public Map<String, String> getConfigOverrides() {
             return Map.of(
                 "todo.auth.enabled", "true",
-                "quarkus.oidc.token.verify-access-token-with-user-info", "true");
+                "quarkus.oidc.token.verify-access-token-with-user-info", "true",
+                "quarkus.oidc.authentication.user-info-required", "true");
         }
     }
 }
