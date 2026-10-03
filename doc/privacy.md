@@ -9,9 +9,12 @@ that have been invited to it; nobody else can sign in.
 
 ## Who is responsible
 
-Gunnar Hilling
-‹postal address›
-‹contact email›
+Gunnar Hilling<br>
+Sophie-Charlotte-Str. 61<br>
+49076 Osnabrueck<br>
+Germany
+
+Email: [demo-apps@hilling.de](mailto:demo-apps@hilling.de)
 
 Write to that address for anything in this policy, including every request under “Your rights”
 below.
@@ -98,12 +101,16 @@ based on legitimate interests (Art. 15–21 GDPR).
 **To delete your account**, write to the contact address above. The application has no
 self-service deletion yet; your email address and all your tasks are then deleted.
 
-You also have the right to complain to a data protection supervisory authority, for example
-‹the supervisory authority for the controller's federal state›.
+You also have the right to complain to a data protection supervisory authority, for example the
+one responsible for the operator:
+
+Der Landesbeauftragte für den Datenschutz Niedersachsen<br>
+Prinzenstraße 5<br>
+30159 Hannover
 
 ## Changes
 
 This policy is part of the project's documentation and is changed in the open, in the
 repository. The date below is the date of the last change to its content.
 
-Last changed: ‹date of publication›
+Last changed: 3 October 2026
