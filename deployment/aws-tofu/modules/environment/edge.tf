@@ -17,8 +17,8 @@ data "aws_route53_zone" "this" {
 
 # Two certificates for the same name. The viewer certificate has to be in us-east-1 for
 # CloudFront; the load balancer needs its own in this region. Both are free, and both validate
-# through the same DNS record -- ACM uses one validation name per domain per account -- so the
-# records below are deduplicated by name.
+# through the same DNS record: ACM creates the record "specifically for your domain and your
+# account", and the token "works for any AWS Region" (ACM user guide, DNS validation).
 resource "aws_acm_certificate" "viewer" {
   provider = aws.us_east_1
 
@@ -43,22 +43,19 @@ resource "aws_acm_certificate" "origin" {
   }
 }
 
+# One record, without for_each, because there is one name. An earlier version keyed a for_each
+# by the record's name, which ACM only generates once the certificate exists -- and for_each
+# needs its keys at plan time, so the very first plan failed. The name and value can be unknown
+# while planning; only the number of instances cannot.
 locals {
-  certificate_validation = {
-    for option in concat(
-      tolist(aws_acm_certificate.viewer.domain_validation_options),
-      tolist(aws_acm_certificate.origin.domain_validation_options),
-    ) : option.resource_record_name => option...
-  }
+  certificate_validation = one(aws_acm_certificate.viewer.domain_validation_options)
 }
 
 resource "aws_route53_record" "certificate_validation" {
-  for_each = local.certificate_validation
-
   zone_id = data.aws_route53_zone.this.zone_id
-  name    = each.key
-  type    = each.value[0].resource_record_type
-  records = [each.value[0].resource_record_value]
+  name    = local.certificate_validation.resource_record_name
+  type    = local.certificate_validation.resource_record_type
+  records = [local.certificate_validation.resource_record_value]
   ttl     = 300
 
   allow_overwrite = true
@@ -68,12 +65,12 @@ resource "aws_acm_certificate_validation" "viewer" {
   provider = aws.us_east_1
 
   certificate_arn         = aws_acm_certificate.viewer.arn
-  validation_record_fqdns = [for record in aws_route53_record.certificate_validation : record.fqdn]
+  validation_record_fqdns = [aws_route53_record.certificate_validation.fqdn]
 }
 
 resource "aws_acm_certificate_validation" "origin" {
   certificate_arn         = aws_acm_certificate.origin.arn
-  validation_record_fqdns = [for record in aws_route53_record.certificate_validation : record.fqdn]
+  validation_record_fqdns = [aws_route53_record.certificate_validation.fqdn]
 }
 
 # The site bucket: private, reachable only through this distribution's origin access control.
