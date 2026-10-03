@@ -94,6 +94,8 @@ DOC_ORDER = [
     "testing",
     "releasing",
     "decisions",
+    "privacy",
+    "terms",
 ]
 
 
@@ -299,6 +301,8 @@ def footer(depth: int) -> str:
     <span>Apache-2.0</span>
     <a href="{REPO_URL}">Source on GitHub</a>
     <a href="{up}api/">API contract</a>
+    <a href="{up}doc/privacy.html">Privacy policy</a>
+    <a href="{up}doc/terms.html">Terms of service</a>
     <span>Built from <code>main</code>; every page here is generated.</span>
   </footer>"""
 

@@ -14,6 +14,8 @@ truth; the root `README.md` is a short entry point that links here.
 | [releasing.md](releasing.md) | How a release is cut, what it checks, and what it publishes |
 | [deployment.md](deployment.md) | The planned AWS shape: what runs where, who may change it, and what it costs |
 | [decisions.md](decisions.md) | Decisions taken, why, and what was rejected |
+| [privacy.md](privacy.md) | The application's privacy policy: what is stored, why, for how long, and who else sees it |
+| [terms.md](terms.md) | The application's terms of service |
 
 ## The API contract
 

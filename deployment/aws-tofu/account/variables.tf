@@ -17,3 +17,14 @@ variable "state_bucket" {
   type        = string
   default     = "todolist-tofu-state"
 }
+
+variable "docs_hostname" {
+  description = <<-EOT
+    Where the project's GitHub Pages site -- documentation, API contract, privacy policy and terms
+    -- answers under the project's own domain. It is the "application home page" Google's OAuth
+    consent screen asks for, which has to be under the authorised domain hilling.de; the
+    github.io address is not.
+  EOT
+  type        = string
+  default     = "todolist-docs.cloud.hilling.de"
+}
