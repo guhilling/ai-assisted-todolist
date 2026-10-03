@@ -43,3 +43,23 @@ test('the rest of the request is passed on untouched', () => {
   assert.equal(result.method, 'GET')
   assert.deepEqual(result.headers, { accept: { value: 'text/html' } })
 })
+
+// While the environment is down there is no /api/* behaviour, so API requests fall through to
+// this function. They must not become the app with a 200 -- the frontend would try to read HTML
+// as JSON -- but say plainly that the backend is not there.
+const respond = (uri) => context.handler({ request: { uri, method: 'GET', headers: {} } })
+
+test('an API request while the backend is down is a 503, never the app', () => {
+  const response = respond('/api/auth/providers')
+  assert.equal(response.statusCode, 503)
+  assert.equal(response.headers['cache-control'].value, 'no-store')
+  assert.match(response.body.data, /not running/)
+})
+
+test('the bare /api path is an API request too', () => {
+  assert.equal(respond('/api').statusCode, 503)
+})
+
+test('a route that merely starts with the letters api is still the app', () => {
+  assert.equal(route('/apiary'), '/index.html')
+})
