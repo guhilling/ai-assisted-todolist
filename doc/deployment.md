@@ -328,6 +328,21 @@ The SPA deploys as `aws s3 sync` of a **release artifact**, the same way `openap
 attached to each release. Rolling the frontend back is re-syncing the previous release, which is
 why the build has to be an artifact rather than something rebuilt at deploy time.
 
+**This half exists** (#119). `release.yml` attaches `todo-frontend-<version>.tar.gz`, the built
+`dist/`, to every release, and **`deploy-frontend.yml`** — started by hand from the Actions tab
+with an environment and a tag — syncs it into that environment's site bucket as the deploy role.
+It uploads in three passes so no viewer ever sees an `index.html` naming an asset that is not
+there yet: the hashed `assets/` first, cached for a year and never deleted (a browser holding the
+old page keeps working, and so does a rollback); then the remaining files, cached five minutes;
+`index.html` last with `no-cache`, which under CloudFront's `CachingOptimized` policy means it is
+held for its one-second minimum — so a release is visible at once and no invalidation is needed.
+
+**Deep links** are a CloudFront Function on the default behaviour (`spa-routing.js`): a path whose
+last segment has no dot gets `index.html`, and a path that names a file is passed through, so a
+missing asset is still the bucket's 403. It replaces httpd's `FallbackResource`. CloudFront's
+custom error responses would have been the usual way, and are not used because they apply to
+every origin: `/api/*` errors would have become the app with a 200.
+
 ## How an environment is torn down
 
 **Teardown is a parameter, not a `tofu destroy`.** Each environment has a `running` variable; the

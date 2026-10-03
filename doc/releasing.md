@@ -28,9 +28,9 @@ trigger matches those two shapes only, so an unrelated tag does not start a rele
 
 | Job | What it does |
 | --- | --- |
-| `gate` | Derives the version, refuses a tag that is not on `main`, then runs the full backend `verify` and the full frontend suite at the release version |
+| `gate` | Derives the version, refuses a tag that is not on `main`, then runs the full backend `verify` and the full frontend suite at the release version, and packs the frontend build |
 | `publish` | Builds and pushes `todo-backend` and `todo-frontend` to Quay, tagged with the version |
-| `announce` | Creates the GitHub Release, with notes generated from the pull requests since the previous release, and attaches the API contract |
+| `announce` | Creates the GitHub Release, with notes generated from the pull requests since the previous release, and attaches the API contract and `todo-frontend-<version>.tar.gz` — the build `deploy-frontend.yml` puts into a site bucket |
 
 `gate` runs everything again rather than trusting the CI run on `main`. That is deliberate:
 `backend-ci.yml` and `frontend-ci.yml` are path-filtered, so for any given commit on `main`

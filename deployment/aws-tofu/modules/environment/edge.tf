@@ -74,9 +74,9 @@ resource "aws_acm_certificate_validation" "origin" {
 }
 
 # The site bucket: private, reachable only through this distribution's origin access control.
-# It is the distribution's default origin from the start because a distribution must have one,
-# and this is the one it will keep; putting the built SPA in it is the next story. Until then
-# every path outside /api/* is a 403 from an empty bucket.
+# It is the distribution's default origin because a distribution must have one, and this is the
+# one it keeps. A release's frontend build is synced into it by deploy-frontend.yml, with the
+# deploy role -- see doc/deployment.md.
 #
 # Suppressed for the reasons the flow-log bucket gives: AWS-0089 (access logging would need
 # another bucket), AWS-0090 (versioning: a release is rolled back by syncing the previous one,
@@ -195,6 +195,19 @@ locals {
   api_origin_id  = "api"
 }
 
+# Deep links: any path whose last segment has no dot gets the app's index.html. Only on the
+# default behaviour, so /api/* errors stay the backend's own -- CloudFront's custom error
+# responses, the usual way, apply to every origin and would have turned them into the app.
+# The code and why are in spa-routing.js, and spa-routing.test.mjs pins it (Tofu CI runs it).
+# Free at this traffic: the first two million invocations a month cost nothing.
+resource "aws_cloudfront_function" "spa_routing" {
+  name    = "${local.name}-spa-routing"
+  runtime = "cloudfront-js-2.0"
+  comment = "Client-side routes get index.html; files are served as themselves"
+  code    = file("${path.module}/spa-routing.js")
+  publish = true
+}
+
 # Suppressed: AWS-0010, access logging -- the request log that matters is the backend's own, in
 # CloudWatch, and CloudFront's standard logs would be another bucket. AWS-0011, WAF -- out of
 # scope by the plan, at $5 a month plus per rule before any traffic.
@@ -236,6 +249,11 @@ resource "aws_cloudfront_distribution" "this" {
     cached_methods         = ["GET", "HEAD"]
     cache_policy_id        = data.aws_cloudfront_cache_policy.caching_optimized.id
     compress               = true
+
+    function_association {
+      event_type   = "viewer-request"
+      function_arn = aws_cloudfront_function.spa_routing.arn
+    }
   }
 
   dynamic "ordered_cache_behavior" {
