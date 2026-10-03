@@ -198,7 +198,9 @@ locals {
 # Deep links: any path whose last segment has no dot gets the app's index.html. Only on the
 # default behaviour, so /api/* errors stay the backend's own -- CloudFront's custom error
 # responses, the usual way, apply to every origin and would have turned them into the app.
-# The code and why are in spa-routing.js, and spa-routing.test.mjs pins it (Tofu CI runs it).
+# While the environment is down it also answers /api/* with a 503, since those requests then
+# reach the default behaviour. The code and why are in spa-routing.js, and spa-routing.test.mjs
+# pins it (Tofu CI runs it).
 # Free at this traffic: the first two million invocations a month cost nothing.
 resource "aws_cloudfront_function" "spa_routing" {
   name    = "${local.name}-spa-routing"
