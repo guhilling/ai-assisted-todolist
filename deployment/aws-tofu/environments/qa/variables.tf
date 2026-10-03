@@ -51,3 +51,8 @@ variable "hostname" {
   description = "The environment's public name, under the cloud.hilling.de zone."
   type        = string
 }
+
+variable "google_client_id" {
+  description = "The Google OAuth client id; empty keeps sign-in off. The secret is not here -- see sign-in.tf."
+  type        = string
+}

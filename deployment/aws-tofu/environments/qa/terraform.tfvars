@@ -13,3 +13,6 @@ private_subnet_cidrs = ["10.20.128.0/20", "10.20.144.0/20"]
 log_retention_days = 30
 
 hostname = "todolist-qa.cloud.hilling.de"
+
+# Created by hand in the Google console; not a secret. The client secret is in Secrets Manager.
+google_client_id = "284066835041-jfetldf4tlh0hei4c54rdch0c0jn8qdk.apps.googleusercontent.com"

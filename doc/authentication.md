@@ -54,7 +54,7 @@ simultaneously.
 
 | Profile | Issuer | Credentials |
 | --- | --- | --- |
-| `prod`, `qa` | `https://accounts.google.com` | `TODO_OIDC_GOOGLE_CLIENT_ID` / `_SECRET` from the environment |
+| `prod`, `qa` | `https://accounts.google.com` | `TODO_OIDC_GOOGLE_CLIENT_ID` / `_SECRET` from the environment — in AWS, the id from `terraform.tfvars` and the secret from Secrets Manager (`doc/deployment.md`) |
 | `dev`, `test` | Keycloak, started by Dev Services | `todolist-backend` / `todolist-secret`, checked in as throwaway values |
 
 Dev and test leave `quarkus.oidc.auth-server-url` unset on purpose — that absence is what

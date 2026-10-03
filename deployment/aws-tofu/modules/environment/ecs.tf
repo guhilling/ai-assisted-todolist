@@ -75,6 +75,13 @@ data "aws_iam_policy_document" "task_execution" {
     resources = ["${aws_cloudwatch_log_group.ecs.arn}:*"]
   }
 
+  # The Google client secret, for the backend service (sign-in.tf). One secret, named.
+  statement {
+    sid       = "ReadTheGoogleClientSecret"
+    actions   = ["secretsmanager:GetSecretValue"]
+    resources = [aws_secretsmanager_secret.google_client_secret.arn]
+  }
+
   # The secret's name is random per instance (rds!db-<uuid>) and changes with every restore, so
   # it is matched by the tag RDS puts on it instead: the ARN of the instance it belongs to, which
   # is fixed by the instance's name. That is exactly this environment's master secret and no

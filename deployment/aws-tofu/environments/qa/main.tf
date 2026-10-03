@@ -64,6 +64,7 @@ module "environment" {
   db_restore_snapshot  = var.db_restore_snapshot
   log_retention_days   = var.log_retention_days
   hostname             = var.hostname
+  google_client_id     = var.google_client_id
 }
 
 output "vpc_id" {
