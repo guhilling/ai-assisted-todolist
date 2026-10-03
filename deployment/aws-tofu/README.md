@@ -123,10 +123,28 @@ each other.
 
 **A plain `tofu apply` while an environment is up takes it down.** `running` defaults to `false`
 and is never in `terraform.tfvars`, so an administrator's apply of foundation changes plans to
-destroy everything billable unless it says otherwise. While the environment is up, either pass
-`-var running=true`, which on its own creates an *empty* database if there is none, since only
-`env.sh up` passes the snapshot to restore, or apply just the resource that changed with
-`-target=…`. When in doubt, `./env.sh status <env>` first.
+destroy everything billable unless it says otherwise. While the environment is up — or half up,
+after an `env.sh up` that failed — apply with what `env.sh up` would pass:
+`-var running=true -var db_restore_snapshot=<the newest final snapshot>`. `running=true` alone
+creates an *empty* database if there is none. **Not `-target=…`**: it pulls in everything the
+target depends on, and the lifecycle policy depends on the distribution, which depends on the VPC
+origin — so a targeted apply of "just the policy" planned the teardown all the same. When in
+doubt, `./env.sh status <env>` first.
+
+**IAM changes take a while to reach every region.** AWS applies a policy change *eventually*: in
+one region it is in effect at once, in another it can take seconds to minutes. It happened
+here: an admin apply granted the lifecycle role `cloudfront:Describe*` and
+`secretsmanager:GetResourcePolicy`, and the very next `env.sh up` passed the CloudFront call —
+evaluated in us-east-1 — and was refused the Secrets Manager one in eu-central-1, with an
+`AccessDenied` naming exactly the action just granted. So:
+
+- After an apply that changes the lifecycle role, the deploy role or the task roles, **wait a
+  minute** before using them.
+- An `AccessDenied` for an action the policy **does** grant is this, not a missing permission.
+  Tell the two apart with the simulator, which evaluates the live policy:
+  `aws iam simulate-principal-policy --policy-source-arn <role arn> --action-names <action>
+  --resource-arns <resource arn>`. `allowed` means wait and run again; `implicitDeny` means the
+  policy really lacks it. `env.sh` prints this hint when a plan fails with `AccessDenied`.
 
 **Apply is a human's job.** There is deliberately no credential that can run it — see *Who may
 deploy* below — so this is run from a profile with the privileges to create infrastructure.

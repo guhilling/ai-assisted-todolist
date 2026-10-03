@@ -318,6 +318,23 @@ up by URL, so they cannot plan until it exists:
 
 NOTE
             fi
+            # IAM is eventually consistent: right after an apply that granted the lifecycle role
+            # something, one region can still refuse it. Say how to tell that from a real gap.
+            if grep -q -E "AccessDenied|not authorized to perform" "$plan_log"; then
+                cat >&2 <<NOTE
+
+AccessDenied. If the role's policy was changed by an apply in the last few minutes, this is
+probably IAM still propagating the change to this region -- wait a minute and run again.
+To tell that from a permission that is really missing, ask the simulator about the live policy:
+
+  aws iam simulate-principal-policy --policy-source-arn <role arn from the error> \\
+    --action-names <action from the error> --resource-arns <resource from the error>
+
+"allowed" means wait and retry; "implicitDeny" means the policy lacks it (lifecycle.tf).
+See README.md, "IAM changes take a while to reach every region".
+
+NOTE
+            fi
             exit 1
         fi
 
