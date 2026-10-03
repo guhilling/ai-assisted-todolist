@@ -94,6 +94,19 @@ jobs:
           npm run test:coverage
           npm run build
 
+      - name: Package the frontend build
+        # The built SPA is a release artifact, synced into an environment's site bucket by
+        # deploy-frontend.yml -- built once here and never rebuilt at deploy time, which is what
+        # makes rolling back the frontend "deploy the previous release" (doc/deployment.md).
+        # The archive holds the contents of dist/, not the directory.
+        run: tar -czf "todo-frontend-${{ steps.version.outputs.version }}.tar.gz" -C frontend/dist .
+
+      - name: Upload the frontend build
+        uses: actions/upload-artifact@v7
+        with:
+          name: frontend-build
+          path: todo-frontend-${{ steps.version.outputs.version }}.tar.gz
+
   publish:
     name: Publish ${{ matrix.name }} image
     needs: gate
@@ -172,6 +185,12 @@ jobs:
           name: api-contract
           path: api-contract
 
+      - name: Download the frontend build
+        uses: actions/download-artifact@v8
+        with:
+          name: frontend-build
+          path: frontend-build
+
       - name: Create the release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -196,6 +215,11 @@ jobs:
           api-contract/openapi.yaml
           api-contract/openapi.json
           api-contract/schema/*.schema.json
+
+      - name: Attach the frontend build to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "$GITHUB_REF_NAME" frontend-build/todo-frontend-*.tar.gz
 
       - name: Publish the new version on Pages
         env:

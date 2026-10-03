@@ -1157,3 +1157,13 @@ rule ECS moves between them, a five-minute bake with both versions running, and 
 breaker for a deployment whose tasks never become healthy. Provider 5.x has no
 `deployment_configuration` for it; the upgrade was its own pull request (#111), and a plan of
 every root showed no change from it. *Rejected: CodeDeploy*, which the plan had already ruled out.
+
+**The frontend's deep links are a CloudFront Function, and a release needs no invalidation.** A
+path whose last segment has no dot is a client-side route and gets `index.html`; anything else is
+a file and is served as itself. *Rejected: CloudFront custom error responses* (403/404 →
+`/index.html`), the common recipe, because they are distribution-wide: an API 404 would have come
+back as the app with a 200. `index.html` is uploaded with `no-cache` instead of being invalidated,
+so the deploy role still needs no `cloudfront:CreateInvalidation`, and the hashed assets are never
+deleted, so a rollback is only the previous release's `index.html`. *Decided by Gunnar:* the
+frontend half of the deploy workflow came forward (#119) rather than uploading by hand, because
+the release mechanism needed testing anyway.

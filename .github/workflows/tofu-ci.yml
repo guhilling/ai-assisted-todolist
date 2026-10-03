@@ -70,6 +70,12 @@ jobs:
         with:
           args: config --skip-check-update --exit-code 1 --tf-vars deployment/aws-tofu/trivy.tfvars deployment/aws-tofu
 
+      - name: Test the SPA routing function
+        # The CloudFront Function decides which paths are the app and which are files; getting it
+        # wrong either breaks deep links or serves the app with a 200 for a missing asset. Node's
+        # built-in runner, so there is nothing to install.
+        run: node --test modules/environment/spa-routing.test.mjs
+
       - name: Lint the shell script
         # shellcheck ships on the GitHub-hosted Ubuntu images. env.sh is the one place here where
         # a quoting mistake would be discovered by destroying the wrong thing.

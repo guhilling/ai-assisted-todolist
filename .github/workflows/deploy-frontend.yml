@@ -1,0 +1,100 @@
+name: Deploy frontend
+
+# Puts a release's frontend build into an environment's site bucket, where CloudFront serves it.
+#
+# Started by hand, with a release tag: the build is the one release.yml attached to that
+# release, never a fresh one, so rolling back the frontend is running this again with the previous
+# tag. It is the frontend half of the deploy workflow the plan describes, brought forward so a
+# release can be tested end to end (#119); the backend half follows with the deploy story.
+#
+# The AWS identity is the environment's deploy role, assumed through GitHub's OIDC token, so no
+# key is stored anywhere. The role trusts only a job running in the GitHub environment of the
+# same name, which is why the job declares `environment:` -- for prod, that environment's
+# protection rule is the approval gate.
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Where to deploy
+        type: choice
+        options: [qa, prod]
+        default: qa
+      version:
+        description: Release tag to deploy, e.g. v0.1.0
+        type: string
+        required: true
+
+permissions:
+  contents: read
+  # For the OIDC token the deploy role is assumed with.
+  id-token: write
+
+concurrency:
+  # One deployment per environment at a time; a second waits rather than interleaving uploads.
+  group: deploy-frontend-${{ inputs.environment }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-26.04
+    environment: ${{ inputs.environment }}
+    env:
+      VERSION: ${{ inputs.version }}
+      BUCKET: todolist-${{ inputs.environment }}-site
+    steps:
+      - name: Refuse anything but a release tag
+        # The input reaches a shell and a download; only the shape release.yml publishes gets in.
+        run: |
+          if [[ ! "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]]; then
+            echo "::error::'$VERSION' is not a release tag like v1.2.3"
+            exit 1
+          fi
+
+      - name: Download the release's frontend build
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download "$VERSION" --repo "$GITHUB_REPOSITORY" \
+            --pattern "todo-frontend-${VERSION#v}.tar.gz" --dir release
+          mkdir site
+          tar -xzf "release/todo-frontend-${VERSION#v}.tar.gz" -C site
+          ls -la site
+
+      - uses: aws-actions/configure-aws-credentials@v6
+        with:
+          # The deploy role's ARN is not a secret: what protects it is its trust policy, which
+          # names this repository and this GitHub environment.
+          role-to-assume: arn:aws:iam::808706946095:role/todolist-${{ inputs.environment }}-deploy
+          aws-region: eu-central-1
+
+      # Three passes, in this order, so that no viewer ever gets an index.html pointing at an
+      # asset that is not there yet.
+      #
+      # 1. The hashed assets, cached for a year: a changed file has a new name. Old ones are not
+      #    deleted, so a browser still holding the previous index.html keeps working -- and so
+      #    does a rollback. At a few hundred kilobytes a release, that costs nothing.
+      # 2. Everything else except index.html, cached briefly, and deleting what the release no
+      #    longer has. `--delete` only applies to the paths this pass includes.
+      # 3. index.html last, with no-cache: CloudFront then keeps it for its one-second minimum,
+      #    so a new release is visible at once without an invalidation.
+      - name: Upload the hashed assets
+        run: >
+          aws s3 sync site/assets "s3://$BUCKET/assets"
+          --cache-control "public, max-age=31536000, immutable"
+
+      - name: Upload the remaining files
+        run: >
+          aws s3 sync site "s3://$BUCKET"
+          --exclude "assets/*" --exclude index.html --delete
+          --cache-control "public, max-age=300"
+
+      - name: Upload index.html
+        run: >
+          aws s3 cp site/index.html "s3://$BUCKET/index.html"
+          --cache-control "no-cache"
+
+      - name: Say what was deployed
+        run: |
+          echo "### Frontend $VERSION deployed to ${{ inputs.environment }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "https://${{ inputs.environment == 'prod' && 'todolist' || format('todolist-{0}', inputs.environment) }}.cloud.hilling.de/" >> "$GITHUB_STEP_SUMMARY"
