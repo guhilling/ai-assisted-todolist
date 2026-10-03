@@ -374,7 +374,24 @@ resource "aws_ecs_task_definition" "backend" {
       { name = "QUARKUS_DATASOURCE_USERNAME", value = local.db_app_user },
       { name = "TODO_DATASOURCE_CREDENTIALS_PROVIDER", value = "rds-iam" },
       { name = "AWS_REGION", value = local.region },
+
+      # Sign-in with Google (sign-in.tf), on only where a client id is configured.
+      { name = "TODO_AUTH_ENABLED", value = tostring(local.sign_in_enabled) },
+      { name = "TODO_OIDC_GOOGLE_CLIENT_ID", value = var.google_client_id },
+
+      # Behind CloudFront and the load balancer, which talks to the task over plain HTTP. The
+      # backend builds the OIDC callback address from the request, so it must believe the load
+      # balancer's X-Forwarded-Proto -- otherwise it asks Google to return to http://, which
+      # Google refuses. Believed only from inside the VPC; nothing else can reach the task anyway.
+      # SignInBehindProxyTest pins this with the same keys.
+      { name = "QUARKUS_HTTP_PROXY_PROXY_ADDRESS_FORWARDING", value = "true" },
+      { name = "QUARKUS_HTTP_PROXY_ALLOW_X_FORWARDED", value = "true" },
+      { name = "QUARKUS_HTTP_PROXY_TRUSTED_PROXIES", value = var.vpc_cidr },
     ]
+
+    secrets = local.sign_in_enabled ? [
+      { name = "TODO_OIDC_GOOGLE_CLIENT_SECRET", valueFrom = aws_secretsmanager_secret.google_client_secret.arn },
+    ] : []
 
     logConfiguration = local.ecs_log_configuration
   }])

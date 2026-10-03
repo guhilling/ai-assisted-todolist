@@ -149,3 +149,13 @@ variable "dns_zone" {
   type        = string
   default     = "cloud.hilling.de"
 }
+
+variable "google_client_id" {
+  description = <<-EOT
+    The Google OAuth client this environment signs in with, from the Google console. Not a
+    secret -- it is part of every sign-in redirect -- so it is in terraform.tfvars; the client
+    secret is in Secrets Manager (sign-in.tf). Empty means sign-in stays off in this environment.
+  EOT
+  type        = string
+  default     = ""
+}
