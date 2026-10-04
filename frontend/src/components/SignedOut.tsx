@@ -31,7 +31,7 @@ function SignedOut({ providers, apiBaseUrl }: Readonly<SignedOutProps>) {
 
   return (
     <div className="signed-out">
-      <h1 className="signed-out-title">Tasks</h1>
+      <h1 className="signed-out-title">TaskFest</h1>
       <p className="signed-out-copy">Your own list, private to whoever signs in.</p>
 
       {available.length === 0 ? (

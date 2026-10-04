@@ -83,6 +83,10 @@ OpenTofu cannot create the backend it is about to use, so the bucket is made by 
 the first `init`. Both environments share it; their state files are separated by key, not by
 bucket. There is no lock table — the S3 backend takes its lock from the bucket.
 
+The bucket keeps the application's old name, `todolist-tofu-state`, for historical reasons. A
+bucket cannot be renamed, and moving the state to a new one buys nothing: nobody but OpenTofu ever
+sees the name.
+
 ```sh
 aws s3api create-bucket \
   --bucket todolist-tofu-state \

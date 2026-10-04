@@ -7,15 +7,15 @@
   </a>
 </p>
 
-# ai-assisted-todolist
+# TaskFest
 
 [![Backend CI](https://github.com/guhilling/ai-assisted-todolist/actions/workflows/backend-ci.yml/badge.svg?branch=main)](https://github.com/guhilling/ai-assisted-todolist/actions/workflows/backend-ci.yml)
 [![Frontend CI](https://github.com/guhilling/ai-assisted-todolist/actions/workflows/frontend-ci.yml/badge.svg?branch=main)](https://github.com/guhilling/ai-assisted-todolist/actions/workflows/frontend-ci.yml)
 [![CodeQL](https://github.com/guhilling/ai-assisted-todolist/actions/workflows/codeql.yml/badge.svg?branch=main)](https://github.com/guhilling/ai-assisted-todolist/actions/workflows/codeql.yml)
 [![Quality gate](https://sonarcloud.io/api/project_badges/measure?project=guhilling_ai-assisted-todolist&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=guhilling_ai-assisted-todolist)
 
-A browser-based todo list: tasks with due dates, importance and workflow state, private to
-whoever signed in. Quarkus backend, React + TypeScript frontend, PostgreSQL persistence,
+TaskFest is a browser-based task list: tasks with due dates, importance and workflow state,
+private to whoever signed in. Quarkus backend, React + TypeScript frontend, PostgreSQL persistence,
 OpenID Connect sign-in.
 
 📖 **[The documentation and the API reference are published at
@@ -23,7 +23,9 @@ guhilling.github.io/ai-assisted-todolist](https://guhilling.github.io/ai-assiste
 everything under `doc/` rendered, plus the OpenAPI contract for `main` and for every release.
 
 The todo list is not really the point — this repository exists to build up experience with
-AI-assisted software development. See [doc/purpose.md](doc/purpose.md).
+AI-assisted software development. See [doc/purpose.md](doc/purpose.md). That is also why the
+repository keeps its original name, `ai-assisted-todolist`, for historical reasons: it names the
+experiment, and the application inside it is TaskFest.
 
 ## How the application fits together
 

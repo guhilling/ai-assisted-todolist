@@ -43,7 +43,7 @@ class UserInfoVerifiedSessionTest {
         @Override
         public Map<String, String> getConfigOverrides() {
             return Map.of(
-                "todo.auth.enabled", "true",
+                "taskfest.auth.enabled", "true",
                 "quarkus.oidc.token.verify-access-token-with-user-info", "true",
                 "quarkus.oidc.authentication.user-info-required", "true");
         }

@@ -163,6 +163,13 @@ beforeEach(() => {
 })
 
 describe('signed out', () => {
+  it('carries the product name', async () => {
+    globalThis.fetch = mockApi({ providers: { enabled: true, providers: [GOOGLE] } }) as unknown as typeof fetch
+    render(<App />)
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'TaskFest' })).toBeInTheDocument()
+  })
+
   it('offers the configured provider and a link to the project, and no board', async () => {
     globalThis.fetch = mockApi({ providers: { enabled: true, providers: [GOOGLE] } }) as unknown as typeof fetch
     render(<App />)
@@ -232,6 +239,12 @@ describe('signed out', () => {
 })
 
 describe('signed in', () => {
+  it('carries the product name', async () => {
+    await renderSignedIn(mockApi({ me: ALICE }))
+
+    expect(screen.getByRole('heading', { level: 1, name: 'TaskFest' })).toBeInTheDocument()
+  })
+
   it('shows who is signed in and a way out', async () => {
     await renderSignedIn(mockApi({ me: ALICE }))
 

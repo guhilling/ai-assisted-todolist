@@ -1,6 +1,6 @@
 # Terms of service
 
-These terms apply to the task list at `todolist-qa.cloud.hilling.de` and
+These terms apply to TaskFest, the task list at `todolist-qa.cloud.hilling.de` and
 `todolist.cloud.hilling.de` (“the application”), operated by Gunnar Hilling (see the
 [privacy policy](privacy.md) for contact details).
 

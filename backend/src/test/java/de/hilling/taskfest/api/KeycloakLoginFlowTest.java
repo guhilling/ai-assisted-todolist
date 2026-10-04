@@ -57,7 +57,7 @@ class KeycloakLoginFlowTest {
         // Hitting /login while a session already exists is the one way to reach the method
         // body: on a first visit the security layer intercepts the request and starts the
         // authorization code flow long before the resource is called. What it proves is that
-        // todo.post-login-redirect-uri is where the browser ends up.
+        // taskfest.post-login-redirect-uri is where the browser ends up.
         gunnar.authenticated()
             .redirects().follow(false)
             .when().get("/api/auth/login")
@@ -146,7 +146,7 @@ class KeycloakLoginFlowTest {
 
         @Override
         public Map<String, String> getConfigOverrides() {
-            return Map.of("todo.auth.enabled", "true");
+            return Map.of("taskfest.auth.enabled", "true");
         }
     }
 }

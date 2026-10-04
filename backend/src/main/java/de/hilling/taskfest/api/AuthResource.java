@@ -73,7 +73,7 @@ public class AuthResource {
     @Context
     HttpHeaders httpHeaders;
 
-    @ConfigProperty(name = "todo.post-login-redirect-uri", defaultValue = "/")
+    @ConfigProperty(name = "taskfest.post-login-redirect-uri", defaultValue = "/")
     String postLoginRedirectUri;
 
     @GET

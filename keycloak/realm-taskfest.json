@@ -1,5 +1,5 @@
 {
-  "realm": "todolist",
+  "realm": "taskfest",
   "enabled": true,
   "sslRequired": "none",
   "registrationAllowed": false,
@@ -9,13 +9,13 @@
   "ssoSessionIdleTimeout": 1800,
   "clients": [
     {
-      "clientId": "todolist-backend",
+      "clientId": "taskfest-backend",
       "name": "Todo list backend",
       "description": "Confidential client used by the Quarkus BFF for the authorization code flow.",
       "enabled": true,
       "protocol": "openid-connect",
       "publicClient": false,
-      "secret": "todolist-secret",
+      "secret": "taskfest-secret",
       "standardFlowEnabled": true,
       "implicitFlowEnabled": false,
       "directAccessGrantsEnabled": true,

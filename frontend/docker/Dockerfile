@@ -10,6 +10,6 @@ RUN npm run build
 # Red Hat's hardened Apache image: non-root on 8080, and no shell in it at all, so anything
 # the runtime needs has to be COPYed in rather than assembled with RUN.
 FROM registry.access.redhat.com/hi/httpd:2
-COPY docker/httpd.conf /etc/httpd/conf.d/todolist.conf
+COPY docker/httpd.conf /etc/httpd/conf.d/taskfest.conf
 COPY --from=build /app/dist /var/www/html
 EXPOSE 8080

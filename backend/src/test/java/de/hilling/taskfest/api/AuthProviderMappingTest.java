@@ -105,11 +105,11 @@ class AuthProviderMappingTest {
         return new StubProvider(label, Optional.of(clientId), Optional.of(clientSecret), Optional.of("https://issuer"));
     }
 
-    /** Stands in for the {@code todo.auth} config tree without a Quarkus container to bind it. */
+    /** Stands in for the {@code taskfest.auth} config tree without a Quarkus container to bind it. */
     private record StubConfig(boolean enabled, Map<String, ProviderConfig> providers) implements AuthProvidersConfig {
     }
 
-    /** Stands in for one {@code todo.auth.providers.*} entry. */
+    /** Stands in for one {@code taskfest.auth.providers.*} entry. */
     private record StubProvider(
         String label,
         Optional<String> clientId,

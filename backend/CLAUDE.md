@@ -56,9 +56,9 @@ Don't write backend production code without a test driving it first.
   run from 10 mutants to 21. Add a new plain test to `targetTests` at the same time, or it is
   written but never used.
 - **A `TODO:` comment fails Checkstyle.** To-dos are GitHub issues, not comments (#121). The
-  `TodoComment` check matches the marker `TODO:` only, so the domain word — `TaskState.TODO`,
-  the `TODO_…` environment variables — is untouched. It also replaces Sonar's S1135, which cannot
-  be narrowed and is switched off in `sonar-project.properties`.
+  `TodoComment` check matches the marker `TODO:` only, so the domain word `TaskState.TODO` is
+  untouched. It also replaces Sonar's S1135, which cannot be narrowed and is switched off in
+  `sonar-project.properties`.
 - **`java.lang.System` fails Checkstyle in production code** (#128, the `noSystemCalls`
   check). Configuration comes through MicroProfile Config, logging through SLF4J, time through
   `java.time`, and the process belongs to Quarkus; a `System` call bypasses one of those where a
