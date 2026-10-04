@@ -13,13 +13,18 @@
   --border: #e2e6ea;
   --text: #1a1f24;
   --text-muted: #5b6672;
-  --accent: #1a73e8;
+  /* hilling.it's palette: its heading blue is the accent, because the brand green fails
+     contrast on white (2.6:1) and so cannot carry a control or text. The green appears as
+     decoration (--brand), and as --brand-strong (5.1:1) wherever it must be read. */
+  --accent: #0367a5;
   --accent-contrast: #ffffff;
+  --brand: #7fae1c;
+  --brand-strong: #4d7a0a;
   --danger: #c5221f;
   --importance-low: #9aa5b1;
-  --importance-medium: #1a73e8;
+  --importance-medium: #0367a5;
   --importance-high: #c5221f;
-  --radius: 10px;
+  --radius: 6px;
 
   /* Spacing: a strict 4px grid, named by how many steps it is. Every padding, margin
      and gap in this file comes from here -- see doc/decisions/frontend.md for why. */
@@ -41,7 +46,10 @@
 
   color: var(--text);
   background: var(--bg);
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  /* Quicksand, as on hilling.it, self-hosted so the board makes no request to Google. Its
+     regular weight is thin at body size, hence 500. */
+  font-family: 'Quicksand Variable', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-weight: 500;
   /* This is what 1rem means, not an entry in the type scale above. */
   font-size: 16px;
   line-height: 1.5;
@@ -56,11 +64,13 @@
     --border: #2c343c;
     --text: #e6eaee;
     --text-muted: #9aa5b1;
-    --accent: #8ab4f8;
+    --accent: #5ba3d9;
     --accent-contrast: #14181c;
+    --brand: #9fd04a;
+    --brand-strong: #9fd04a;
     --danger: #f28b82;
     --importance-low: #6b7681;
-    --importance-medium: #8ab4f8;
+    --importance-medium: #5ba3d9;
     --importance-high: #f28b82;
   }
 }
@@ -106,6 +116,11 @@ button {
 
 /* ---------- shell ---------- */
 
+/* A thin band of the brand green along the top of the page, as hilling.it has. */
+html {
+  border-top: 4px solid var(--brand);
+}
+
 .app {
   max-width: 640px;
   margin: 0 auto;
@@ -124,8 +139,9 @@ button {
 
 .app-title {
   margin: 0;
+  color: var(--accent);
   font-size: var(--font-title);
-  font-weight: 600;
+  font-weight: 700;
   letter-spacing: -0.01em;
 }
 
@@ -249,8 +265,9 @@ button {
 
 .signed-out-title {
   margin: 0;
+  color: var(--accent);
   font-size: var(--font-display);
-  font-weight: 600;
+  font-weight: 700;
   letter-spacing: -0.02em;
 }
 
@@ -432,7 +449,7 @@ button {
   /* Not spacing: an optical nudge that sits the 20px box on the first line of text.
      A scale step in either direction visibly misaligns it. */
   margin: 2px 0 0;
-  accent-color: var(--accent);
+  accent-color: var(--brand-strong);
   cursor: pointer;
 }
 
