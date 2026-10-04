@@ -59,6 +59,15 @@ Don't write backend production code without a test driving it first.
   `TodoComment` check matches the marker `TODO:` only, so the domain word — `TaskState.TODO`,
   the `TODO_…` environment variables — is untouched. It also replaces Sonar's S1135, which cannot
   be narrowed and is switched off in `sonar-project.properties`.
+- **`java.lang.System` fails Checkstyle in production code** (#128, the `noSystemCalls`
+  check). Configuration comes through MicroProfile Config, logging through SLF4J, time through
+  `java.time`, and the process belongs to Quarkus; a `System` call bypasses one of those where a
+  test cannot reach it. The plugin does not scan `src/test`, so a test may still time something
+  with `System.nanoTime()`.
+- **`.mvn/jvm.config` holds `--enable-native-access=ALL-UNNAMED`** for Maven's own JVM, not the
+  application's. Without it every build starts with "A restricted method in java.lang.System has
+  been called": Maven's console library Jansi loads a native library, which JDK 25 warns about.
+  The file cannot carry a comment in Maven 3, hence this note.
 - Whatever can be checked automatically (tests, coverage, style) must run in backend CI
   (`backend-ci.yml`) so violations fail the build, not just get caught by convention. The
   mutation score is the deliberate exception, on the grounds above.
