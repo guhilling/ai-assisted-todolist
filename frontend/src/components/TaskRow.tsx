@@ -1,13 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { Task, TaskState } from '../api'
 import { describeDueDate, daysBetween } from '../dates'
-
-/** What each importance reads as. Rendered for screen readers; sighted users get the dot. */
-const importanceLabels: Record<Task['importance'], string> = {
-  LOW: 'Low',
-  MEDIUM: 'Medium',
-  HIGH: 'High',
-}
+import { importanceLabels } from '../importance'
+import TaskEditor, { type TaskEdit } from './TaskEditor'
 
 type TaskRowProps = {
   task: Task
@@ -15,6 +10,11 @@ type TaskRowProps = {
   onToggleDone: (task: Task) => void
   onSetState: (task: Task, state: TaskState) => void
   onDelete: (task: Task) => void
+  /**
+   * Saves an edit and says whether it went, so the row knows whether to close its editor.
+   * Left out, the row offers no editing -- which is how the completed section stays read-only.
+   */
+  onEdit?: (task: Task, changes: TaskEdit) => Promise<boolean>
 }
 
 /**
@@ -25,13 +25,42 @@ type TaskRowProps = {
  * name carries the description, because a board of identically-named checkboxes is unusable
  * to anyone not looking at it.
  */
-function TaskRow({ task, today, onToggleDone, onSetState, onDelete }: Readonly<TaskRowProps>) {
+function TaskRow({ task, today, onToggleDone, onSetState, onDelete, onEdit }: Readonly<TaskRowProps>) {
   const done = task.state === 'DONE'
   const overdue = !done && daysBetween(today, task.dueDate) < 0
   const inputId = `task-${task.id}`
   const menuId = `task-menu-${task.id}`
   const summaryId = `task-menu-summary-${task.id}`
   const [menuOpen, setMenuOpen] = useState(false)
+  const [editing, setEditing] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const returnFocus = useRef(false)
+  const editable = onEdit !== undefined && !done
+
+  /**
+   * Leaving the editor puts focus back on the menu button it was opened from. Without this it
+   * falls to the page body when the form unmounts, and a keyboard user starts over at the top.
+   */
+  useEffect(() => {
+    if (!editing && returnFocus.current) {
+      returnFocus.current = false
+      document.getElementById(summaryId)?.focus()
+    }
+  }, [editing, summaryId])
+
+  const closeEditor = () => {
+    returnFocus.current = true
+    setEditing(false)
+  }
+
+  const save = async (changes: TaskEdit) => {
+    setSaving(true)
+    const saved = (await onEdit?.(task, changes)) ?? false
+    setSaving(false)
+    if (saved) {
+      closeEditor()
+    }
+  }
 
   /**
    * A native `<details>` has no notion of dismissal: it stays open until something closes it,
@@ -69,6 +98,14 @@ function TaskRow({ task, today, onToggleDone, onSetState, onDelete }: Readonly<T
       document.removeEventListener('keydown', closeOnEscape)
     }
   }, [menuOpen, menuId, summaryId])
+
+  if (editing) {
+    return (
+      <li className="task-row task-row--editing">
+        <TaskEditor task={task} saving={saving} onSave={(changes) => void save(changes)} onCancel={closeEditor} />
+      </li>
+    )
+  }
 
   return (
     <li className={`task-row${done ? ' task-row--done' : ''}`}>
@@ -114,6 +151,17 @@ function TaskRow({ task, today, onToggleDone, onSetState, onDelete }: Readonly<T
           ⋯
         </summary>
         <div className="task-menu-items">
+          {editable ? (
+            <button
+              type="button"
+              onClick={() => {
+                setMenuOpen(false)
+                setEditing(true)
+              }}
+            >
+              Edit
+            </button>
+          ) : null}
           {task.state === 'WORKING' ? (
             <button
               type="button"

@@ -1079,3 +1079,126 @@ describe('an expired session', () => {
     expect(screen.queryByText('Unable to update task.')).not.toBeInTheDocument()
   })
 })
+
+describe('editing a task', () => {
+  /** Opens a row's editor from its menu, as a user must. */
+  function startEditing(description: string) {
+    fireEvent.click(openMenu(description).getByRole('button', { name: /^edit$/i }))
+    return within(screen.getByRole('form', { name: `Edit "${description}"` }))
+  }
+
+  it('saves a new description, due date and importance from the row menu', async () => {
+    const fetchMock = mockApi({
+      me: ALICE,
+      tasks: [task({ id: 4, description: 'Renew the pasport' })],
+      put: {
+        status: 200,
+        body: task({ id: 4, description: 'Renew the passport', dueDate: isoIn(5), importance: 'HIGH' }),
+      },
+    })
+    await renderSignedIn(fetchMock)
+
+    const editor = startEditing('Renew the pasport')
+    fireEvent.change(editor.getByLabelText('Description'), { target: { value: 'Renew the passport' } })
+    fireEvent.change(editor.getByLabelText('Due date'), { target: { value: isoIn(5) } })
+    fireEvent.change(editor.getByLabelText('Importance'), { target: { value: 'HIGH' } })
+    fireEvent.click(editor.getByRole('button', { name: /save/i }))
+
+    await waitFor(() => expect(screen.getByLabelText('Mark "Renew the passport" as done')).toBeInTheDocument())
+    const put = fetchMock.mock.calls.find(([, init]) => init?.method === 'PUT')
+    expect(String(put?.[0])).toMatch(/\/api\/tasks\/4$/)
+    expect(bodyOf(fetchMock, 'PUT')).toEqual({
+      description: 'Renew the passport',
+      dueDate: isoIn(5),
+      importance: 'HIGH',
+      state: 'TODO',
+    })
+    expect(screen.queryByRole('form', { name: /^edit/i })).not.toBeInTheDocument()
+  })
+
+  it('starts with the task as it is, and the caret in the description', async () => {
+    await renderSignedIn(mockApi({ me: ALICE, tasks: [task({ id: 5, description: 'Water the plants', importance: 'LOW' })] }))
+
+    const editor = startEditing('Water the plants')
+
+    expect(editor.getByLabelText('Description')).toHaveValue('Water the plants')
+    expect(editor.getByLabelText('Due date')).toHaveValue(isoIn(1))
+    expect(editor.getByLabelText('Importance')).toHaveValue('LOW')
+    expect(editor.getByLabelText('Description')).toHaveFocus()
+  })
+
+  it('discards the changes on Cancel and on Escape, without asking the server', async () => {
+    const fetchMock = mockApi({ me: ALICE, tasks: [task({ id: 6, description: 'Call the bank' })] })
+    await renderSignedIn(fetchMock)
+
+    let editor = startEditing('Call the bank')
+    fireEvent.change(editor.getByLabelText('Description'), { target: { value: 'Something else' } })
+    fireEvent.click(editor.getByRole('button', { name: /cancel/i }))
+    expect(screen.getByLabelText('Mark "Call the bank" as done')).toBeInTheDocument()
+
+    editor = startEditing('Call the bank')
+    fireEvent.change(editor.getByLabelText('Description'), { target: { value: 'Something else' } })
+    fireEvent.keyDown(editor.getByLabelText('Description'), { key: 'Escape' })
+    expect(screen.getByLabelText('Mark "Call the bank" as done')).toBeInTheDocument()
+
+    expect(fetchMock.mock.calls.some(([, init]) => init?.method === 'PUT')).toBe(false)
+  })
+
+  it('will not save an empty description', async () => {
+    await renderSignedIn(mockApi({ me: ALICE, tasks: [task({ id: 7, description: 'Book the train' })] }))
+
+    const editor = startEditing('Book the train')
+    fireEvent.change(editor.getByLabelText('Description'), { target: { value: '   ' } })
+
+    expect(editor.getByRole('button', { name: /save/i })).toBeDisabled()
+  })
+
+  it('ignores Enter on an empty description too', async () => {
+    const fetchMock = mockApi({ me: ALICE, tasks: [task({ id: 11, description: 'Book the hotel' })] })
+    await renderSignedIn(fetchMock)
+
+    startEditing('Book the hotel')
+    fireEvent.change(screen.getByLabelText('Description'), { target: { value: '' } })
+    fireEvent.submit(screen.getByRole('form', { name: 'Edit "Book the hotel"' }))
+
+    expect(screen.getByRole('form', { name: 'Edit "Book the hotel"' })).toBeInTheDocument()
+    expect(fetchMock.mock.calls.some(([, init]) => init?.method === 'PUT')).toBe(false)
+  })
+
+  it('keeps an overdue date, which only a new task may not have', async () => {
+    const fetchMock = mockApi({
+      me: ALICE,
+      tasks: [task({ id: 8, description: 'File the taxes', dueDate: isoIn(-3) })],
+      put: { status: 200, body: task({ id: 8, description: 'File the 2025 taxes', dueDate: isoIn(-3) }) },
+    })
+    await renderSignedIn(fetchMock)
+
+    const editor = startEditing('File the taxes')
+    expect(editor.getByLabelText('Due date')).not.toHaveAttribute('min')
+    fireEvent.change(editor.getByLabelText('Description'), { target: { value: 'File the 2025 taxes' } })
+    fireEvent.click(editor.getByRole('button', { name: /save/i }))
+
+    await waitFor(() => expect(screen.getByLabelText('Mark "File the 2025 taxes" as done')).toBeInTheDocument())
+    expect(bodyOf(fetchMock, 'PUT')).toMatchObject({ dueDate: isoIn(-3) })
+  })
+
+  it('keeps the editor and what was typed when the save fails', async () => {
+    await renderSignedIn(
+      mockApi({ me: ALICE, tasks: [task({ id: 9, description: 'Fix the bike' })], put: { status: 500 } }),
+    )
+
+    const editor = startEditing('Fix the bike')
+    fireEvent.change(editor.getByLabelText('Description'), { target: { value: 'Fix the bike brakes' } })
+    fireEvent.click(editor.getByRole('button', { name: /save/i }))
+
+    await waitFor(() => expect(screen.getByText('Unable to update task.')).toBeInTheDocument())
+    expect(screen.getByRole('form', { name: 'Edit "Fix the bike"' })).toBeInTheDocument()
+    expect(screen.getByLabelText('Description')).toHaveValue('Fix the bike brakes')
+  })
+
+  it('offers no editing for a completed task', async () => {
+    await renderSignedIn(mockApi({ me: ALICE, tasks: [task({ id: 10, description: 'Paid the rent', state: 'DONE' })] }))
+
+    expect(openMenu('Paid the rent').queryByRole('button', { name: /^edit$/i })).not.toBeInTheDocument()
+  })
+})

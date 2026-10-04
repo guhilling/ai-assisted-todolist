@@ -43,6 +43,7 @@ DDD, and project context all still apply here).
 - `api.ts` holds the wire: the types the backend speaks, the URLs, and every `fetch`. It is the
   only place that knows a request shape.
 - `dates.ts` holds due-date arithmetic and the words the board puts on screen.
+- `importance.ts` holds the importance levels and their words, for the row and both forms.
 - `App.tsx` holds state and composition, and nothing else.
 - `components/` holds the pieces. They take callbacks and data; none of them fetches.
 - This split replaced a single 413-line `App.tsx`. Its own header comment had named the API

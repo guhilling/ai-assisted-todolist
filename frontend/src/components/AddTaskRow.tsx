@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { TaskImportance, TaskInput } from '../api'
 import { addDays, quickDates } from '../dates'
-
-const importanceOptions: TaskImportance[] = ['LOW', 'MEDIUM', 'HIGH']
+import { importanceLabels, importanceLevels } from '../importance'
 
 type AddTaskRowProps = {
   today: string
@@ -150,9 +149,9 @@ function AddTaskRow({ today, saving, onAdd }: Readonly<AddTaskRowProps>) {
         <label className="add-field">
           <span>Importance</span>
           <select value={importance} onChange={(event) => setImportance(event.target.value as TaskImportance)}>
-            {importanceOptions.map((option) => (
-              <option key={option} value={option}>
-                {option.charAt(0) + option.slice(1).toLowerCase()}
+            {importanceLevels.map((level) => (
+              <option key={level} value={level}>
+                {importanceLabels[level]}
               </option>
             ))}
           </select>
