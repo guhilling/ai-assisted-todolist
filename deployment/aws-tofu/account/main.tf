@@ -157,7 +157,7 @@ resource "aws_iam_group_policy" "read_only_guard" {
 }
 
 # The documentation site under the project's own name: a CNAME to GitHub Pages, which serves the
-# site there once the repository's Pages settings name the same host (doc/deployment.md). One per
+# site there once the repository's Pages settings name the same host (doc/deployment/names-and-certificates.md). One per
 # account, like everything here, because there is one site, not one per environment.
 #
 # Google's OAuth consent screen needs it: the application home page, privacy policy and terms of

@@ -5,7 +5,7 @@
     "Renovate reports 'Automerge: At any time (no schedule defined)' regardless of it.",
     "Renovate can also be told to run directly from the Mend dashboard, so activity",
     "outside this window is expected and is not a sign of a broken schedule.",
-    "Do not remove this as setup debris. See doc/decisions.md."
+    "Do not remove this as setup debris. See doc/decisions/build-and-dependencies.md."
   ],
   "extends": [
     "config:recommended",

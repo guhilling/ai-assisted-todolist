@@ -4,7 +4,7 @@
 # id is in terraform.tfvars (`google_client_id`), because it is not a secret: it travels in every
 # sign-in redirect. The client secret is. OpenTofu creates the secret *without* a value, and the
 # value is put in by a person with `aws secretsmanager put-secret-value`, so it never passes
-# through this repository or OpenTofu state. doc/deployment.md has the command.
+# through this repository or OpenTofu state. doc/deployment/names-and-certificates.md has the command.
 #
 # Unlike the RDS master secret it does not rotate by itself, so ECS injecting it at task start is
 # fine. Changing it means putting a new value and starting new tasks.

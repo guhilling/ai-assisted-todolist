@@ -5,7 +5,7 @@
 # ECS task role below, which may connect as one database user and nothing else; the token it
 # signs per connection is checked by RDS against IAM. The master password exists only for
 # bootstrapping and administration, is generated and kept by RDS in Secrets Manager, and never
-# reaches the running service -- see doc/deployment.md, "The database".
+# reaches the running service -- see doc/deployment/database.md.
 
 locals {
   # Per environment, so that the IAM grant can name the user rather than the instance: an

@@ -9,11 +9,11 @@ truth; the root `README.md` is a short entry point that links here.
 | [architecture.md](architecture.md) | The pieces, how a request travels through them, and how they are deployed |
 | [domain-model.md](domain-model.md) | Ubiquitous language, the Task aggregate, and where each invariant is enforced |
 | [authentication.md](authentication.md) | The backend-for-frontend OIDC design, Google in production, Keycloak locally |
-| [local-development.md](local-development.md) | How to get everything running on your machine, and how to test it |
-| [testing.md](testing.md) | The test layers, what each is for, and how to run them |
+| [local-development/](local-development/index.md) | How to get everything running on your machine, and how to test it |
+| [testing/](testing/index.md) | The test layers, what each is for, and how to run them |
+| [deployment/](deployment/index.md) | The AWS environments: what runs where, who may change it, and what it costs |
 | [releasing.md](releasing.md) | How a release is cut, what it checks, and what it publishes |
-| [deployment.md](deployment.md) | The planned AWS shape: what runs where, who may change it, and what it costs |
-| [decisions.md](decisions.md) | Decisions taken, why, and what was rejected |
+| [decisions/](decisions/index.md) | Decisions taken, why, and what was rejected, by topic |
 | [privacy.md](privacy.md) | The application's privacy policy: what is stored, why, for how long, and who else sees it |
 | [terms.md](terms.md) | The application's terms of service |
 

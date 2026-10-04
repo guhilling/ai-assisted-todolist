@@ -97,7 +97,7 @@ jobs:
       - name: Package the frontend build
         # The built SPA is a release artifact, synced into an environment's site bucket by
         # deploy-frontend.yml -- built once here and never rebuilt at deploy time, which is what
-        # makes rolling back the frontend "deploy the previous release" (doc/deployment.md).
+        # makes rolling back the frontend "deploy the previous release" (doc/deployment/deploying.md).
         # The archive holds the contents of dist/, not the directory.
         run: tar -czf "todo-frontend-${{ steps.version.outputs.version }}.tar.gz" -C frontend/dist .
 

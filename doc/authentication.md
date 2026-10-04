@@ -54,7 +54,7 @@ simultaneously.
 
 | Profile | Issuer | Credentials |
 | --- | --- | --- |
-| `prod`, `qa` | `https://accounts.google.com` | `TODO_OIDC_GOOGLE_CLIENT_ID` / `_SECRET` from the environment — in AWS, the id from `terraform.tfvars` and the secret from Secrets Manager (`doc/deployment.md`) |
+| `prod`, `qa` | `https://accounts.google.com` | `TODO_OIDC_GOOGLE_CLIENT_ID` / `_SECRET` from the environment — in AWS, the id from `terraform.tfvars` and the secret from Secrets Manager ([deployment/names-and-certificates.md](deployment/names-and-certificates.md)) |
 | `dev`, `test` | Keycloak, started by Dev Services | `todolist-backend` / `todolist-secret`, checked in as throwaway values |
 
 Dev and test leave `quarkus.oidc.auth-server-url` unset on purpose — that absence is what
@@ -80,7 +80,7 @@ null `loginUrl` — but the frontend **hides** it rather than showing it disable
 production deployment shows no Google button at all until its secrets are supplied, and says
 sign-in is not configured. The endpoint reports it anyway so that a caller can tell a
 provider that exists but is unconfigured from one that was never declared; see
-`doc/decisions.md`, "The board is the front page".
+[decisions/frontend.md](decisions/frontend.md#the-board-is-the-front-page-the-project-description-is-a-link).
 
 ## Local accounts
 
@@ -129,7 +129,7 @@ The backend makes the request rather than the browser, so that "if an image is a
 actually answered — `?d=404` is what makes Gravatar say no instead of inventing a picture.
 **This does not make the browser's request go away**: the page still loads the image from
 gravatar.com, so a third party still sees the reader's address and a hash of their email. What
-the server-side check buys is a truthful answer, not privacy. `doc/decisions.md` records that
+the server-side check buys is a truthful answer, not privacy. [decisions/authentication.md](decisions/authentication.md) records that
 rather than leaving it implied.
 
 Two things stop it becoming a liability on the sign-in path. The result is **cached** by
@@ -172,4 +172,4 @@ able to sign in.
   tasks.
 - `e2e/tests/login.spec.ts` — the same journey in a real browser through httpd.
 
-See [testing.md](testing.md).
+See [testing.md](testing/index.md).

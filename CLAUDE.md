@@ -50,6 +50,10 @@ slows things down.
   the same change as the behaviour it describes, never as a follow-up — the
   README had already drifted into documenting endpoints and task states that no
   longer existed.
+- **Long topics are chapters**: `doc/<chapter>/index.md` plus one page per sub-chapter, ordered by
+  the chapter's index. A reference anywhere in the repository names the exact page it means
+  (`doc/deployment/database.md`, not a section of a long file), and
+  `.github/scripts/check-doc-references.py` fails CI when one names a page that does not exist.
 - **The API contract is generated and drift-gated, never written twice.** The backend's
   OpenAPI document and the per-type JSON Schemas under `doc/api/` come from
   `doc/api/generate.py`; the frontend's wire types and response validators under
@@ -72,7 +76,8 @@ slows things down.
   either environment** — they look the OIDC provider up by URL and cannot plan until it exists.
 - **Infrastructure is applied by a human, never by CI.** The deploy identities are OIDC roles
   scoped to redeploying the application; there is deliberately no credential anywhere that can
-  run `tofu apply`. `doc/decisions.md` explains why that is a guarantee rather than a policy.
+  run `tofu apply`. `doc/decisions/deployment-and-aws.md` explains why that is a guarantee
+  rather than a policy.
 - Never commit secrets (API keys, OIDC client secrets, real credentials,
   etc.). Only local, testing-only placeholder values belong in the repo
   (e.g. `.env.example`-style files or dev/test configuration); real secrets
@@ -95,7 +100,7 @@ slows things down.
   expected, because it can be run directly from the Mend dashboard, so never
   remove it as leftover setup debris.
 - The project is licensed **Apache-2.0** (`LICENSE`, verbatim). There are
-  deliberately no per-file license headers — see `doc/decisions.md`.
+  deliberately no per-file license headers — see `doc/decisions/build-and-dependencies.md`.
 
 ## Issues
 

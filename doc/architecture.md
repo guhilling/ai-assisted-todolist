@@ -96,7 +96,7 @@ field the spec left optional would be a field the frontend accepted as missing.
 ## Deployment
 
 Locally and in the end-to-end stack, httpd serves the built SPA and reverse-proxies `/api`, which
-is what makes the application same-origin. [deployment.md](deployment.md) plans the AWS shape,
+is what makes the application same-origin. [deployment.md](deployment/index.md) plans the AWS shape,
 where that job moves to a CloudFront distribution with two origins — S3 for the SPA, the load
 balancer for `/api` — precisely so the same-origin arrangement the OIDC flow depends on survives.
 Nothing in it is built yet.
@@ -150,8 +150,8 @@ The frontend image is a two-stage Dockerfile at `frontend/docker/Dockerfile`: bu
 Node, serve with httpd.
 
 `deployment/` holds everything that deploys the app. `deployment/docker/` has the Compose
-stacks that wire the pieces together — [local-development.md](local-development.md)
+stacks that wire the pieces together — [local-development.md](local-development/index.md)
 describes both — and `deployment/aws-tofu/` has the AWS infrastructure, written in
-OpenTofu; [deployment.md](deployment.md) is the plan it implements. Nothing about the
+OpenTofu; [deployment.md](deployment/index.md) is the plan it implements. Nothing about the
 application assumes AWS: it is a stateless container reading its configuration from the
 environment, plus a PostgreSQL it connects to by URL.

@@ -165,7 +165,7 @@ public class AuthResource {
      * {@link io.github.guhilling.todo.model.User} is keyed by and what ownership is decided on.
      * The name and picture are not identity: they are how the signed-in person is shown their
      * own session, read from the token on each request and stored nowhere. That is deliberate,
-     * and it is why adding them needed no migration; see {@code doc/decisions.md}.</p>
+     * and it is why adding them needed no migration; see {@code doc/decisions/authentication.md}.</p>
      *
      * <p>Both may be null. A provider need not supply either, and the frontend is expected to
      * fall back rather than assume.</p>
@@ -179,7 +179,7 @@ public class AuthResource {
      *
      * <p>{@code @Email} is runtime validation only: SmallRye puts nothing in the schema for it,
      * which is why {@code format} says so separately. The lengths are the published bounds from
-     * {@code doc/decisions.md}.</p>
+     * {@code doc/decisions/domain-and-backend.md}.</p>
      *
      * @param pictureUrl the provider's picture, or a Gravatar for the address, or null for neither
      */

@@ -1,31 +1,20 @@
 name: Consistency
 
-# Checks that nothing here contradicts anything else here. The first two jobs guard the same class
-# of problem: a fact stated in more than one place, where the copies drift silently and the first
-# evidence is something unrelated going wrong much later. The third tests the scripts under
+# Checks that nothing here contradicts anything else here. Most jobs guard the same class of
+# problem: a fact stated in more than one place, where the copies drift silently and the first
+# evidence is something unrelated going wrong much later. One tests the scripts under
 # .github/scripts that make decisions rather than comparisons.
 #
 # None needs more than Python's standard library.
+#
+# No path filter, unlike the other workflows: a reference to doc/ can sit in any file -- a Javadoc,
+# a TypeScript comment, OpenTofu -- so any change can break one, and every job here takes seconds.
 
 on:
   pull_request:
-    paths:
-      - 'doc/**'
-      - 'deployment/docker/**'
-      - 'backend/src/main/resources/application.properties'
-      - 'deployment/aws-tofu/modules/**'
-      - '.github/scripts/**'
-      - '.github/workflows/docs-ci.yml'
   push:
     branches:
       - main
-    paths:
-      - 'doc/**'
-      - 'deployment/docker/**'
-      - 'backend/src/main/resources/application.properties'
-      - 'deployment/aws-tofu/modules/**'
-      - '.github/scripts/**'
-      - '.github/workflows/docs-ci.yml'
 
 permissions:
   contents: read
@@ -70,3 +59,14 @@ jobs:
         # sonar-gate-issue.py decides between opening, commenting on and closing an issue; a
         # wrong decision is silence or duplicates, and nothing else would notice either.
         run: python3 -m unittest discover -s .github/scripts -p 'test_*.py' -v
+
+  doc-references:
+    name: Documentation references
+    runs-on: ubuntu-26.04
+    steps:
+      - uses: actions/checkout@v7
+      - name: Every doc/ path named anywhere exists
+        # The site build catches a dead link between pages; this catches the rest -- a code
+        # comment or a CLAUDE.md naming a page that moved. Splitting the long documents into
+        # chapters moved 47 such references at once.
+        run: python3 .github/scripts/check-doc-references.py

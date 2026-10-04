@@ -1,0 +1,59 @@
+# Backend
+
+```bash
+cd backend
+./mvnw verify          # tests, JaCoCo coverage, and Checkstyle
+./mvnw test            # tests only
+./mvnw checkstyle:check
+```
+
+Dev Services starts PostgreSQL and Keycloak automatically, so a container engine has to be
+running. Fifty-two tests across ten classes:
+
+- **`AuthProviderMappingTest`** — the only test here that does not boot Quarkus. Provider
+  availability is a decision about configuration, so feeding `AuthProvidersConfig` directly
+  covers every combination of enabled/credentials/issuer in milliseconds, where a
+  `@QuarkusTest` can only ever exercise the one combination its profile declares.
+- **`TaskTest`** — the description length constraint, and that Hibernate populates and
+  maintains the audit timestamps. Needs a real database precisely because that is engine
+  behaviour.
+- **`UserServiceTest`** — create-on-first-sight, across two separate transactions, because
+  that is how production calls it.
+- **`TaskResourceTest`** — the REST contract with identity faked by `@TestSecurity` /
+  `@OidcSecurity`. Fast, and able to switch identity freely; proves nothing about sign-in.
+  Covers all four verbs, the ownership 404s, due-date ordering, and every shape the
+  validation constraints reject.
+- **`AuthProviderResourceTest`** — with authentication off, no provider is offered as usable.
+- **`AuthResourceTest`** — what `/api/auth/me` tells the browser when the provider supplied a
+  name, a picture, both or neither. Faked claims are the point: a real login could only ever
+  exercise whatever the identity provider happens to put in its token.
+- **`GravatarUrlTest`** and **`GravatarServiceTest`** — the address derived from an email, and
+  the probe that decides whether a picture is there. The second runs against a local
+  `HttpServer` rather than gravatar.com, so it can exercise 200, 404, a server that never
+  answers and an interrupted lookup without depending on the internet.
+- **`KeycloakLoginFlowTest`** — the real authorization code flow (see below).
+- **`MetricsResourceTest`** — `/q/metrics` is actually exposed, since Micrometer
+  contributes it through configuration that nothing else would notice breaking.
+
+## The real sign-in test
+
+`KeycloakLoginFlowTest`, with its helper `support/KeycloakLoginFlow`, is the one that
+exercises the path production uses: it follows the redirect to Keycloak, scrapes the login
+form's action URL, posts credentials, follows the callback, and then uses the API with the
+session cookie that results. It also signs both local accounts in and proves neither sees
+the other's tasks.
+
+Two details in the helper exist because of real failures, and should not be "tidied away":
+
+- **`urlEncodingEnabled(false)`.** The authorize URL is already percent-encoded; letting
+  RestAssured encode it again produces a `redirect_uri` Keycloak rejects outright.
+- **A hand-rolled cookie jar.** RestAssured's `CookieFilter` did not carry Keycloak's
+  cookies across the redirects, which surfaced as "Restart login cookie not found".
+
+## `TaskResourceIT`
+
+Runs against the packaged artifact rather than in-JVM, and is skipped by default —
+`pom.xml` sets `skipITs`, and the `native` profile turns it back on. It is thin on purpose:
+`@TestSecurity` does not work outside `@QuarkusTest`, so it can only make
+security-agnostic checks.
+

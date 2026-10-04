@@ -108,7 +108,7 @@ locals {
 #
 # The only place the master credentials are ever used, and the only task that receives them:
 # ECS injects them from the RDS-managed secret when the task starts, so a rotation since the last
-# run does not matter. The long-running service never has them -- see doc/deployment.md.
+# run does not matter. The long-running service never has them -- see doc/deployment/database.md.
 #
 # psql verifies the server against the region's RDS CA bundle, passed in as a variable because
 # the postgres image does not carry it, and written to a file because libpq wants a path. The
@@ -349,7 +349,7 @@ resource "aws_lb_listener_rule" "production" {
 
 # The long-running backend. Same image and the same IAM database login as `migrate`, but it
 # serves instead of exiting, and it never migrates: the schema changes only through the migrate
-# task, so that a deployment with a migration can take the downtime it needs (doc/deployment.md).
+# task, so that a deployment with a migration can take the downtime it needs (doc/deployment/deploying.md).
 resource "aws_ecs_task_definition" "backend" {
   count = var.running ? 1 : 0
 

@@ -74,7 +74,7 @@ resource "aws_vpc_security_group_ingress_rule" "tasks_from_alb" {
 
 # Outbound is open because the task legitimately needs the internet: the image registry, the
 # identity provider token endpoint, and Gravatar. Narrowing it would mean a NAT gateway or VPC
-# endpoints, which doc/decisions.md rejected on cost for a demo.
+# endpoints, which doc/decisions/deployment-and-aws.md rejected on cost for a demo.
 #
 # ip_protocol "-1" means every protocol, and the ports must then be left unset rather than set
 # to 0 -- the provider rejects a port range on an all-protocols rule.

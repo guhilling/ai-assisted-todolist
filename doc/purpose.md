@@ -43,5 +43,5 @@ repository root and in `backend/` and `frontend/`:
 
 No user registration, no password handling, no roles or permissions beyond ownership, no
 multi-tenancy, and nothing deployed to AWS yet. The target is chosen and planned in
-[deployment.md](deployment.md), and `deployment/aws-tofu/` has begun to implement it, but
+[deployment.md](deployment/index.md), and `deployment/aws-tofu/` has begun to implement it, but
 no environment has been created.
