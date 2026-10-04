@@ -4,7 +4,7 @@ Two ways to run the whole thing. Pick by what you are doing:
 
 | | Dev mode | Container stack |
 | --- | --- | --- |
-| **Use it for** | Working on the app | Checking the deployment shape |
+| **Use it for** | Working on the app | Checking the container images |
 | **Starts** | Quarkus dev mode + Vite, with PostgreSQL and Keycloak in containers | Everything in containers |
 | **Sign-in** | Works out of the box, local accounts | Off, unless you supply Google credentials |
 | **Live reload** | Yes, both sides | No |
@@ -12,6 +12,11 @@ Two ways to run the whole thing. Pick by what you are doing:
 
 **Dev mode is the default answer.** It is the only one of the two where you can sign in
 without external credentials.
+
+**Neither is the shape of AWS.** In AWS there is no httpd: the frontend comes from an S3 bucket
+through CloudFront, which also routes `/api/*` to the backend and gives deep links their
+`index.html`. The container stack checks the images and how they run together; what only AWS
+does is checked in qa itself — see [the deployment chapter](../deployment/index.md).
 
 ## Prerequisites
 
