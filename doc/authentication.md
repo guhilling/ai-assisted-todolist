@@ -31,6 +31,27 @@ form.
 security layer intercepts the unauthenticated request and starts the flow before the
 method body is ever reached. The body only runs on the way back, to redirect to the app.
 
+## How long a session lasts
+
+Google's ID token is valid for an hour. The backend asks Google for **offline access**
+(`access_type=offline`, in `prod` and `qa`), so the session also holds a refresh token, and once
+the ID token has expired Quarkus renews it silently on the next request
+(`quarkus.oidc.token.refresh-expired`). The session cookie lives **eight hours** beyond the
+token's expiry (`quarkus.oidc.authentication.session-age-extension`), and every renewal moves
+that on — so a session ends after eight hours **without a request**, not an hour after signing
+in. Keycloak, locally, issues refresh tokens without being asked.
+
+When a session has ended, the frontend notices on whichever request comes first — a 401, or the
+499 Quarkus answers a script that asked not to be redirected — and shows "Your session has
+expired" above the sign-in options instead of an error message (`SessionExpiredError` in
+`api.ts`). Signing in again is a full page navigation, so anything typed but not saved is lost;
+the notice at least says why.
+
+Google issues a refresh token only when access is granted with offline access included. An
+account that had signed in before this was asked for may keep getting sessions that end after an
+hour until it grants access again: removing the app under *Third-party apps with account access*
+in the Google account and signing in once more does that.
+
 ## Sign-out
 
 `/api/auth/logout` expires the session cookies by hand and redirects. Note the plural:

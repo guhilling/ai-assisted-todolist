@@ -192,6 +192,17 @@ button {
   background: color-mix(in srgb, var(--danger) 8%, transparent);
 }
 
+/* An ended session is information, not a failure: the same shape as the error banner, in the
+   accent colour, above the sign-in options it points to. */
+.session-notice {
+  margin: var(--space-4) 0 0;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  color: var(--text);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
 /* ---------- buttons ---------- */
 
 .button-primary {

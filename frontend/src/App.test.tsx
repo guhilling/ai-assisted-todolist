@@ -21,10 +21,16 @@ function isoIn(offset: number) {
   return addDays(TODAY, offset)
 }
 
-/** A 200 carrying `value`, or a 401 for the sentinel `'error'`. */
+/**
+ * A 200 carrying `value`; a 401 for the sentinel `'error'`, which on a signed-in request now
+ * means the session has gone; a 500 for `'server-error'`, a failure on the server's side.
+ */
 function respond(value: unknown, status = 200) {
   if (value === 'error') {
     return Promise.resolve(new Response(null, { status: 401 }))
+  }
+  if (value === 'server-error') {
+    return Promise.resolve(new Response(null, { status: 500 }))
   }
   if (value === null) {
     return Promise.resolve(new Response(null, { status }))
@@ -305,7 +311,7 @@ describe('signed in', () => {
   })
 
   it('reports a failure to load the board', async () => {
-    await renderSignedIn(mockApi({ me: ALICE, tasks: 'error' }))
+    await renderSignedIn(mockApi({ me: ALICE, tasks: 'server-error' }))
 
     await waitFor(() =>
       expect(screen.getByText('Unable to load tasks from the backend.')).toBeInTheDocument(),
@@ -1020,5 +1026,43 @@ describe('removing tasks', () => {
 
     await waitFor(() => expect(screen.getByText('Completed (2)')).toBeInTheDocument())
     expect(fetchMock.mock.calls.filter(([, init]) => init?.method === 'POST')).toHaveLength(2)
+  })
+})
+
+/**
+ * A session can end while the board is open -- Google's sign-in lasts an hour unless renewed --
+ * and every later request then comes back 401, or 499 for a script that asked not to be
+ * redirected. That is "signed out", not a failure: the board says so and offers the way back in,
+ * rather than showing an error message about the request that happened to notice.
+ */
+describe('an expired session', () => {
+  it('shows a notice and the way back in when loading the board finds it gone', async () => {
+    globalThis.fetch = mockApi({
+      me: ALICE,
+      providers: { enabled: true, providers: [GOOGLE] },
+      tasks: 'error',
+    }) as unknown as typeof fetch
+    render(<App />)
+
+    await waitFor(() => expect(screen.getByText(/your session has expired/i)).toBeInTheDocument())
+    expect(screen.getByRole('link', { name: /continue with google/i })).toHaveAttribute('href', '/api/auth/login')
+    expect(screen.queryByRole('button', { name: /add a task/i })).not.toBeInTheDocument()
+    expect(screen.queryByText('Unable to load tasks from the backend.')).not.toBeInTheDocument()
+  })
+
+  it('shows the notice when a change finds the session gone, not an error about the change', async () => {
+    const fetchMock = mockApi({
+      me: ALICE,
+      providers: { enabled: true, providers: [GOOGLE] },
+      tasks: [task({ id: 7, description: 'Late night' })],
+      put: { status: 499 },
+    })
+    await renderSignedIn(fetchMock)
+
+    fireEvent.click(screen.getByLabelText('Mark "Late night" as done'))
+
+    await waitFor(() => expect(screen.getByText(/your session has expired/i)).toBeInTheDocument())
+    expect(screen.getByRole('link', { name: /continue with google/i })).toBeInTheDocument()
+    expect(screen.queryByText('Unable to update task.')).not.toBeInTheDocument()
   })
 })

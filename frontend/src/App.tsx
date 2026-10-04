@@ -16,6 +16,7 @@ import {
   postTask,
   putTask,
   restoreTask,
+  SessionExpiredError,
   toErrorMessage,
   type AuthProvidersResponse,
   type CurrentUser,
@@ -45,6 +46,7 @@ function App() {
   const [providers, setProviders] = useState<AuthProvidersResponse>({ enabled: false, providers: [] })
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [sessionExpired, setSessionExpired] = useState(false)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [deleted, setDeleted] = useState<Task[] | null>(null)
@@ -99,7 +101,7 @@ function App() {
 
         setTasks(await fetchTasks())
       } catch (loadError) {
-        setError(toErrorMessage(loadError, 'Unexpected error while loading data.'))
+        reportFailure(loadError, 'Unexpected error while loading data.')
       } finally {
         setLoading(false)
       }
@@ -108,6 +110,20 @@ function App() {
     void loadProviders()
     void loadSession()
   }, [])
+
+  /**
+   * Reports a failed request. A session that has ended is not a failure of the request that
+   * noticed it, so it signs the board out and says why, instead of showing an error message.
+   */
+  const reportFailure = (failure: unknown, fallback: string) => {
+    if (failure instanceof SessionExpiredError) {
+      setError(null)
+      setSessionExpired(true)
+      setCurrentUser(null)
+      return
+    }
+    setError(toErrorMessage(failure, fallback))
+  }
 
   const replaceTask = (updated: Task) =>
     setTasks((current) => current.map((task) => (task.id === updated.id ? updated : task)))
@@ -128,7 +144,7 @@ function App() {
       replaceTask(await putTask({ ...task, state: nextState }))
     } catch (updateError) {
       replaceTask(previous)
-      setError(toErrorMessage(updateError, 'Unexpected error while updating data.'))
+      reportFailure(updateError, 'Unexpected error while updating data.')
     }
   }
 
@@ -150,7 +166,7 @@ function App() {
       return true
     } catch (deleteError) {
       setTasks((current) => [...current, task])
-      setError(toErrorMessage(deleteError, 'Unexpected error while deleting data.'))
+      reportFailure(deleteError, 'Unexpected error while deleting data.')
       return false
     }
   }
@@ -186,7 +202,7 @@ function App() {
       const restored = await Promise.all(tasksToRestore.map((task) => restoreTask(task, today)))
       setTasks((current) => [...current, ...restored])
     } catch (restoreError) {
-      setError(toErrorMessage(restoreError, 'Unexpected error while restoring data.'))
+      reportFailure(restoreError, 'Unexpected error while restoring data.')
     }
   }
 
@@ -200,7 +216,7 @@ function App() {
       setTasks((current) => [...current, created])
       return true
     } catch (saveError) {
-      setError(toErrorMessage(saveError, 'Unexpected error while saving data.'))
+      reportFailure(saveError, 'Unexpected error while saving data.')
       return false
     } finally {
       setSaving(false)
@@ -213,6 +229,11 @@ function App() {
         {error ? (
           <p className="error-banner" role="status" aria-live="polite">
             {error}
+          </p>
+        ) : null}
+        {sessionExpired ? (
+          <p className="session-notice" role="status" aria-live="polite">
+            Your session has expired. Sign in again to carry on.
           </p>
         ) : null}
         <SignedOut providers={providers} apiBaseUrl={apiBaseUrl} />
