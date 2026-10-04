@@ -49,15 +49,16 @@ So CloudFront takes both roles:
 | `/*` | S3 (private, OAC) | cached; 403/404 rewritten to `/index.html` with status 200 |
 | `/api/*` | ALB | **caching disabled**; `Host`, `Authorization` and cookies forwarded |
 
-The error-response rule replaces httpd's `FallbackResource /index.html`, which is what makes a
-deep link work. The cache rule on `/api/*` is what stops a logged-in user's response being
-served to someone else — the failure mode worth being most careful about.
+A CloudFront Function on the default behaviour replaces httpd's `FallbackResource /index.html`,
+which is what makes a deep link work — not CloudFront's custom error responses, which would have
+rewritten `/api/*` errors too ([deploying.md](deploying.md)). The cache rule on `/api/*` is what
+stops a logged-in user's response being served to someone else — the failure mode worth being
+most careful about.
 
 The frontend container image is no longer deployed anywhere. It stays in `deployment/docker/`
-for local
-work, which means **the Compose stack is no longer the same shape as production**; the
-[local-development](../local-development/index.md) claim that it is "the stack for checking the deployment shape" needs
-qualifying when this is built.
+for local work, which means **the Compose stack is not the shape of production**, and
+[local-development](../local-development/index.md) says so: it checks the images, and what only
+AWS does is checked in qa.
 
 
 ## Why there is a load balancer at all
