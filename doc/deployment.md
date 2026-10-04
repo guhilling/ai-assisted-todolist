@@ -522,31 +522,47 @@ Named, because "best practices are applied" plans nothing:
 
 ## Cost
 
-**These are estimates from published US East rates in September 2026, not a quote**, and
-`eu-central-1` differs. They are here for shape and for setting alert thresholds; the plan does
-not pretend to a precision it cannot have without a live account.
+**Measured, not estimated**, from qa's bill in Cost Explorer for 1–4 October 2026 (#117). qa ran
+for only a few hours in that window, so the figures below are the **hourly rates actually billed
+in eu-central-1**, multiplied out; they hold however long an environment runs. Prices are net —
+the invoice adds VAT (19 % in Germany), which Cost Explorer shows as a separate *Tax* line.
 
-One environment, running continuously:
+One environment, **while up**:
 
-| | Estimate/month | Note |
-| --- | --- | --- |
-| ALB | ~$20 | Fixed, whether or not anyone uses it, while the environment is up. Unavoidable while blue/green is demonstrated. eu-central-1 estimate |
-| Fargate 0.5 vCPU / 1 GB | ~$20 | One task, x86. eu-central-1 estimate |
-| RDS `db.t4g.micro` single-AZ | ~$13 | Plus ~$3 for 20 GB gp3. Seven days of backups and Performance Insights are within the free allowances. An estimate until qa has run for a month |
-| S3 + CloudFront | ~$1 | At demo traffic |
-| CloudWatch, Secrets Manager | ~$2 | |
-| Route 53 | $0 | The zone already exists; alias queries are not charged |
-| **NAT gateway** | **~$33 — avoided** | Would have been the largest line item |
-| **Total** | **~$50** | ~$83 with a NAT gateway |
+| | Billed rate | Per day | Per month, if never shut down |
+| --- | --- | --- | --- |
+| ALB | $0.027/h | $0.65 | $19.70, plus load-balancer capacity units, ~$0 at demo traffic |
+| Fargate, 0.5 vCPU / 1 GB, x86 | $0.0284/h | $0.68 | $20.70 |
+| RDS `db.t4g.micro`, single-AZ | $0.0191/h | $0.46 | $13.90 |
+| RDS storage, 20 GB gp3 | $0.135/GB-month | $0.09 | $2.70 |
+| **Public IPv4 address** of the task | $0.005/h | $0.12 | $3.65 |
+| CloudFront, S3, CloudWatch, DNS queries | | | cents at demo traffic |
+| **Total** | **~$0.083/h** | **~$2.00** | **~$61** |
 
-**Both environments up at once** is therefore about $100 a month, which is the number the total
-budget alarm is really guarding against.
+Two things the earlier estimate (~$50) missed: **public IPv4 addresses are billed**, since 2024,
+at $0.005 an hour each — the price of running the task in a public subnet instead of paying for
+a NAT gateway, and still the far cheaper side of that trade — and Frankfurt's prices are a little
+above the US East rates the estimate used. Seven days of backups and Performance Insights stayed
+within their free allowances, as expected.
 
-**Idle, after `tofu destroy`:** a few cents of snapshot and S3 storage. This is the point of
-making QA disposable, and it is worth more than any per-resource tuning.
+**While down** — what `env.sh down` leaves: about **$1 a month**. The Route 53 zone ($0.50, which
+exists for other reasons anyway), the Google client secret ($0.40), and cents for the final
+snapshots, the site and flow-log buckets and the logs.
+
+That is the whole cost model: **qa costs about $2 for each day it is up, and close to nothing
+otherwise.** A day of demos is $2; forgetting it for a month is $61, which is what the budget alarm
+is for. **Both environments up at once** would be about $120 a month.
+
+**Avoided: a NAT gateway**, at about $33 a month per environment — still the largest line item
+this design does not have.
+
+**Attribution:** Cost Explorer can only split these figures by environment once the `env` and
+`project` tags are **activated as cost allocation tags** in the Billing console (free). Until
+then it shows the account by service, which is why the figures above are per service. Activating
+them only affects costs from then on.
 
 Proposed budget alarms, for sign-off: **QA $25**, **prod $40**, **total $75**, alerting at 80% of
-forecast and again at 100% of actual. They are set below the running-continuously estimate on
+forecast and again at 100% of actual. They are set below the running-continuously cost on
 purpose — an environment left up is exactly what the alarm is for.
 
 ## Deliberately not in this plan
