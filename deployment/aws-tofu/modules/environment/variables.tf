@@ -168,3 +168,12 @@ variable "blue_green_bake_minutes" {
   EOT
   type        = number
 }
+
+variable "deregistration_delay_seconds" {
+  description = <<-EOT
+    How long a target leaving the load balancer keeps its connections open to finish, which every
+    blue/green rollout waits on at the end. Seconds in qa, where nobody is mid-request during a
+    deploy; longer in prod.
+  EOT
+  type        = number
+}

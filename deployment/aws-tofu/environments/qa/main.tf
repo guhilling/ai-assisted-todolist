@@ -66,7 +66,8 @@ module "environment" {
   hostname             = var.hostname
   google_client_id     = var.google_client_id
 
-  blue_green_bake_minutes = var.blue_green_bake_minutes
+  blue_green_bake_minutes      = var.blue_green_bake_minutes
+  deregistration_delay_seconds = var.deregistration_delay_seconds
 }
 
 output "vpc_id" {

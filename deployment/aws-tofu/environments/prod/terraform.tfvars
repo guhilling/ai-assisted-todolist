@@ -19,3 +19,6 @@ google_client_id = ""
 
 # Both versions run this long after a blue/green switch, for an instant rollback.
 blue_green_bake_minutes = 5
+
+# A rollout's last phase waits this long for connections to the old task to finish.
+deregistration_delay_seconds = 30

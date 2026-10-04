@@ -236,13 +236,17 @@ resource "aws_lb_target_group" "blue" {
   protocol    = "HTTP"
   port        = var.backend_port
 
-  # Short, because a demo deploy waits on it: the default is five minutes.
-  deregistration_delay = 30
+  # How long a target leaving the group keeps its open connections: the last phase of every
+  # blue/green rollout waits on it. Per environment -- seconds in qa, where nobody is mid-request
+  # during a deploy; longer in prod. AWS's default is five minutes.
+  deregistration_delay = var.deregistration_delay_seconds
 
   health_check {
-    path                = "/q/health/ready"
-    matcher             = "200"
-    interval            = 15
+    path    = "/q/health/ready"
+    matcher = "200"
+    # Every 10 s rather than 15: a new task becomes eligible for traffic sooner. Free -- the
+    # load balancer does not charge for health checks, and the backend logs no request lines.
+    interval            = 10
     healthy_threshold   = 2
     unhealthy_threshold = 3
   }
@@ -261,13 +265,17 @@ resource "aws_lb_target_group" "green" {
   protocol    = "HTTP"
   port        = var.backend_port
 
-  # Short, because a demo deploy waits on it: the default is five minutes.
-  deregistration_delay = 30
+  # How long a target leaving the group keeps its open connections: the last phase of every
+  # blue/green rollout waits on it. Per environment -- seconds in qa, where nobody is mid-request
+  # during a deploy; longer in prod. AWS's default is five minutes.
+  deregistration_delay = var.deregistration_delay_seconds
 
   health_check {
-    path                = "/q/health/ready"
-    matcher             = "200"
-    interval            = 15
+    path    = "/q/health/ready"
+    matcher = "200"
+    # Every 10 s rather than 15: a new task becomes eligible for traffic sooner. Free -- the
+    # load balancer does not charge for health checks, and the backend logs no request lines.
+    interval            = 10
     healthy_threshold   = 2
     unhealthy_threshold = 3
   }
