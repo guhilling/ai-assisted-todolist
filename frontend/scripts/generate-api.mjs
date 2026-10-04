@@ -26,6 +26,7 @@
  */
 import Ajv2020 from 'ajv/dist/2020.js';
 import standaloneCode from 'ajv/dist/standalone/index.js';
+import { createRequire } from 'node:module';
 import { mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -153,6 +154,43 @@ function writeTypes(schemas) {
     );
 }
 
+/**
+ * Replaces each `require("ajv/dist/runtime/…").default` in Ajv's standalone output with the
+ * helper's own source.
+ *
+ * Ajv emits those calls even with `esm: true`, and a `require` in a file under `src/` is a
+ * `ReferenceError` in the browser: Vite's dev server serves the file as it is, so the board
+ * stayed blank under `npm run dev` while the production build -- which converts CommonJS --
+ * worked. Inlining rather than importing also keeps ajv out of the runtime altogether, and
+ * avoids the default-export interop that differs between the dev server, Rollup and Vitest.
+ *
+ * Only a self-contained function can be inlined. A helper that requires something itself
+ * would carry the problem along, so that fails here rather than in a browser.
+ */
+function inlineAjvRuntime(code) {
+    const require = createRequire(import.meta.url);
+    const helpers = new Map();
+    const replaced = code.replace(
+        /require\(["'](ajv\/dist\/runtime\/[\w/]+)["']\)\.default/g,
+        (_call, module) => {
+            if (!helpers.has(module)) {
+                const helper = require(module).default;
+                const source = typeof helper === 'function' ? helper.toString() : '';
+                if (!source.startsWith('function') || /\brequire\(/.test(source)) {
+                    fail(`${module} is not a self-contained function, so it cannot be inlined into the validators.`);
+                }
+                helpers.set(module, { name: `ajvRuntime${helpers.size}`, source });
+            }
+            return helpers.get(module).name;
+        },
+    );
+    const preamble = [...helpers.values()]
+        .map(({ name, source }) => `const ${name} = ${source};`)
+        .join('\n');
+    // After "use strict", which has to stay the first statement to mean anything.
+    return replaced.replace(/^"use strict";/, `"use strict";${preamble ? `\n${preamble}\n` : ''}`);
+}
+
 function writeValidators(schemas) {
     const ajv = new Ajv2020({ schemas: [...schemas.values()], code: { source: true, esm: true } });
     ajv.addFormat('date', DATE);
@@ -162,24 +200,24 @@ function writeValidators(schemas) {
     // range is checked where it matters, in api.ts, on the value about to address a task.
     ajv.addFormat('int64', true);
 
-    const code = standaloneCode(
+    let code = standaloneCode(
         ajv,
         Object.fromEntries(VALIDATED.map((name) => [`validate${name}`, `${name}.schema.json`])),
     );
+
+    code = inlineAjvRuntime(code);
 
     const needed = [...new Set(
         [...code.matchAll(/(?:^|[^.\w])(?:require\(|import\s[^;]*?from\s)["']([^"']+)["']/g)]
             .map((match) => match[1]),
     )];
-    // Ajv's own helpers are allowed: a keyword like `maxLength` compiles to a call into
-    // ajv/dist/runtime, which Vite resolves and bundles at build time, so ajv stays a
-    // devDependency and nothing new is installed to run the app. Anything else is a package
+    // Ajv's own helpers have been inlined above, so nothing should be left. Anything that is
+    // left is a package
     // the browser would need, and is refused -- that is what this check is for. Adding
     // `format: date` or `email` through ajv-formats would land here, which is why both are
     // registered above as regular expressions instead.
-    const shipped = needed.filter((module) => !module.startsWith('ajv/dist/runtime/'));
-    if (shipped.length > 0) {
-        fail(`the compiled validators want ${shipped.join(', ')} at runtime, which would make it a shipped dependency rather than a build-time one. Narrow what is validated, or decide to take the dependency deliberately.`);
+    if (needed.length > 0) {
+        fail(`the compiled validators want ${needed.join(', ')} at runtime, which would make it a shipped dependency rather than a build-time one. Narrow what is validated, or decide to take the dependency deliberately.`);
     }
 
     writeFileSync(
