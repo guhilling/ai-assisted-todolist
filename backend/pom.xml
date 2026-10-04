@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
-    <groupId>io.github.guhilling.todo</groupId>
+    <groupId>de.hilling.taskfest</groupId>
     <artifactId>backend</artifactId>
     <version>${revision}</version>
 
@@ -280,7 +280,7 @@
                          there is no threshold, this informs rather than enforces: it only works if
                          somebody reads the report. -->
                     <targetClasses>
-                        <param>io.github.guhilling.todo.*</param>
+                        <param>de.hilling.taskfest.*</param>
                     </targetClasses>
                     <!-- An allowlist, not a pattern: only tests that do not boot Quarkus.
                          PIT gives every mutant a fresh minion JVM, so a @QuarkusTest in scope
@@ -297,10 +297,10 @@
                          that swept in a new @QuarkusTest would silently make every run minutes
                          slower, or break it outright. -->
                     <targetTests>
-                        <param>io.github.guhilling.todo.api.AuthProviderMappingTest</param>
-                        <param>io.github.guhilling.todo.service.GravatarUrlTest</param>
-                        <param>io.github.guhilling.todo.service.GravatarServiceTest</param>
-                        <param>io.github.guhilling.todo.datasource.RdsIamCredentialsProviderTest</param>
+                        <param>de.hilling.taskfest.api.AuthProviderMappingTest</param>
+                        <param>de.hilling.taskfest.service.GravatarUrlTest</param>
+                        <param>de.hilling.taskfest.service.GravatarServiceTest</param>
+                        <param>de.hilling.taskfest.datasource.RdsIamCredentialsProviderTest</param>
                     </targetTests>
                     <!-- The classes no allowlisted test reaches, excluded so the score reflects
                          what was actually measured rather than being diluted by code PIT could
@@ -309,12 +309,12 @@
                          line, for instance, adds eight NO_COVERAGE mutants and takes the reported
                          score from 100% to 56%. -->
                     <excludedClasses>
-                        <param>io.github.guhilling.todo.api.AuthResource*</param>
-                        <param>io.github.guhilling.todo.api.TaskResource*</param>
-                        <param>io.github.guhilling.todo.model.*</param>
+                        <param>de.hilling.taskfest.api.AuthResource*</param>
+                        <param>de.hilling.taskfest.api.TaskResource*</param>
+                        <param>de.hilling.taskfest.model.*</param>
                         <!-- Narrowed from service.* when the Gravatar classes earned plain unit
                              tests; UserService still has none that avoids booting Quarkus. -->
-                        <param>io.github.guhilling.todo.service.UserService*</param>
+                        <param>de.hilling.taskfest.service.UserService*</param>
                         <!-- SmallRye generates the config mapping implementation; it is not ours
                              to test and its mutants are unkillable by construction. -->
                         <param>*$$CMImpl</param>
