@@ -56,3 +56,8 @@ variable "google_client_id" {
   description = "The Google OAuth client id; empty keeps sign-in off. The secret is not here -- see sign-in.tf."
   type        = string
 }
+
+variable "blue_green_bake_minutes" {
+  description = "How long both versions run after a blue/green switch, for an instant rollback."
+  type        = number
+}

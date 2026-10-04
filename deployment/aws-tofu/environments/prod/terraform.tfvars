@@ -16,3 +16,6 @@ hostname = "todolist.cloud.hilling.de"
 
 # No Google client for prod yet, so sign-in stays off there.
 google_client_id = ""
+
+# Both versions run this long after a blue/green switch, for an instant rollback.
+blue_green_bake_minutes = 5
