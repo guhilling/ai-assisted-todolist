@@ -29,7 +29,7 @@ the console when wanted.
 nothing else. On every new connection `RdsIamCredentialsProvider` signs a token from the task
 role's credentials, valid for 15 minutes; RDS checks it against IAM. Nothing secret is configured,
 injected or rotated, and the counterpart on EKS would be a service account. The backend switches
-it on with `TODO_DATASOURCE_CREDENTIALS_PROVIDER=rds-iam`; without it, as in the Compose stacks,
+it on with `TASKFEST_DATASOURCE_CREDENTIALS_PROVIDER=rds-iam`; without it, as in the Compose stacks,
 the password is used as before. Migrations run as the same user.
 
 **The master password is RDS's, and is for bootstrapping only.** `manage_master_user_password`

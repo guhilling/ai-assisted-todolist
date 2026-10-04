@@ -1,6 +1,6 @@
 # Documentation
 
-Project-level documentation for `ai-assisted-todolist`. This folder is the source of
+Project-level documentation for TaskFest, in the `ai-assisted-todolist` repository. This folder is the source of
 truth; the root `README.md` is a short entry point that links here.
 
 | Document | What it covers |

@@ -16,7 +16,7 @@ docker compose -f deployment/docker/docker-compose.yml up --build
 - postgres: `localhost:5432` (`todolist` / `todolist` / `todolist`)
 
 To point this stack at real Google credentials, copy `.env.example` to `.env`, fill it in
-and set `QUARKUS_OIDC_ENABLED=true` and `TODO_AUTH_ENABLED=true`. `.env` is git-ignored and
+and set `QUARKUS_OIDC_ENABLED=true` and `TASKFEST_AUTH_ENABLED=true`. `.env` is git-ignored and
 must stay that way.
 
 Tear down with `docker compose -f deployment/docker/docker-compose.yml down`, or `down -v` to discard

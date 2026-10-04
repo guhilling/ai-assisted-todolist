@@ -197,7 +197,7 @@ resource "aws_ecs_task_definition" "migrate" {
         value = "jdbc:postgresql://${local.db_address}:${local.db_port}/${local.db_name}?sslmode=verify-full&sslrootcert=/opt/rds/global-bundle.pem"
       },
       { name = "QUARKUS_DATASOURCE_USERNAME", value = local.db_app_user },
-      { name = "TODO_DATASOURCE_CREDENTIALS_PROVIDER", value = "rds-iam" },
+      { name = "TASKFEST_DATASOURCE_CREDENTIALS_PROVIDER", value = "rds-iam" },
       { name = "AWS_REGION", value = local.region },
     ]
 
@@ -380,12 +380,12 @@ resource "aws_ecs_task_definition" "backend" {
         value = "jdbc:postgresql://${local.db_address}:${local.db_port}/${local.db_name}?sslmode=verify-full&sslrootcert=/opt/rds/global-bundle.pem"
       },
       { name = "QUARKUS_DATASOURCE_USERNAME", value = local.db_app_user },
-      { name = "TODO_DATASOURCE_CREDENTIALS_PROVIDER", value = "rds-iam" },
+      { name = "TASKFEST_DATASOURCE_CREDENTIALS_PROVIDER", value = "rds-iam" },
       { name = "AWS_REGION", value = local.region },
 
       # Sign-in with Google (sign-in.tf), on only where a client id is configured.
-      { name = "TODO_AUTH_ENABLED", value = tostring(local.sign_in_enabled) },
-      { name = "TODO_OIDC_GOOGLE_CLIENT_ID", value = var.google_client_id },
+      { name = "TASKFEST_AUTH_ENABLED", value = tostring(local.sign_in_enabled) },
+      { name = "TASKFEST_OIDC_GOOGLE_CLIENT_ID", value = var.google_client_id },
 
       # Behind CloudFront and the load balancer, which talks to the task over plain HTTP. The
       # backend builds the OIDC callback address from the request, so it must believe the load
@@ -398,7 +398,7 @@ resource "aws_ecs_task_definition" "backend" {
     ]
 
     secrets = local.sign_in_enabled ? [
-      { name = "TODO_OIDC_GOOGLE_CLIENT_SECRET", valueFrom = aws_secretsmanager_secret.google_client_secret.arn },
+      { name = "TASKFEST_OIDC_GOOGLE_CLIENT_SECRET", valueFrom = aws_secretsmanager_secret.google_client_secret.arn },
     ] : []
 
     logConfiguration = local.ecs_log_configuration

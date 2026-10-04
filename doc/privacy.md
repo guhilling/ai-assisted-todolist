@@ -1,6 +1,6 @@
 # Privacy policy
 
-This policy covers the task list at `todolist-qa.cloud.hilling.de` and `todolist.cloud.hilling.de`
+This policy covers TaskFest, the task list at `todolist-qa.cloud.hilling.de` and `todolist.cloud.hilling.de`
 (“the application”), and this documentation site. It describes what the application actually
 does, and changes in the same change as the behaviour it describes.
 

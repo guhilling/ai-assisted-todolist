@@ -47,9 +47,9 @@ public class GravatarService {
 
     @Inject
     public GravatarService(
-        @ConfigProperty(name = "todo.gravatar.enabled", defaultValue = "true") boolean enabled,
-        @ConfigProperty(name = "todo.gravatar.timeout", defaultValue = "PT2S") Duration timeout,
-        @ConfigProperty(name = "todo.gravatar.base-url", defaultValue = GravatarUrl.DEFAULT_BASE) String baseUrl) {
+        @ConfigProperty(name = "taskfest.gravatar.enabled", defaultValue = "true") boolean enabled,
+        @ConfigProperty(name = "taskfest.gravatar.timeout", defaultValue = "PT2S") Duration timeout,
+        @ConfigProperty(name = "taskfest.gravatar.base-url", defaultValue = GravatarUrl.DEFAULT_BASE) String baseUrl) {
         this.enabled = enabled;
         this.timeout = timeout;
         this.baseUrl = baseUrl;

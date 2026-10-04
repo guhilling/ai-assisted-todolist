@@ -244,7 +244,7 @@ function App() {
   return (
     <main className="app">
       <header className="app-header">
-        <h1 className="app-title">Tasks</h1>
+        <h1 className="app-title">TaskFest</h1>
         <div className="app-identity">
           <UserAvatar email={currentUser.email} name={currentUser.name} pictureUrl={currentUser.pictureUrl} />
           <span className="app-email">{currentUser.name ?? currentUser.email}</span>

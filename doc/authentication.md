@@ -19,7 +19,7 @@ and because a browser session is simply less machinery for an app with one origi
 3. Backend  302 → provider /authorize?...redirect_uri=<origin>/api/auth/callback
 4. Provider shows its login form; user authenticates
 5. Provider 302 → <origin>/api/auth/callback?code=...&state=...
-6. Backend  exchanges the code, sets q_session, 302 → todo.post-login-redirect-uri
+6. Backend  exchanges the code, sets q_session, 302 → taskfest.post-login-redirect-uri
 7. Browser  GET /api/auth/me                 → { "email": "..." }
 ```
 
@@ -75,8 +75,8 @@ simultaneously.
 
 | Profile | Issuer | Credentials |
 | --- | --- | --- |
-| `prod`, `qa` | `https://accounts.google.com` | `TODO_OIDC_GOOGLE_CLIENT_ID` / `_SECRET` from the environment — in AWS, the id from `terraform.tfvars` and the secret from Secrets Manager ([deployment/names-and-certificates.md](deployment/names-and-certificates.md)) |
-| `dev`, `test` | Keycloak, started by Dev Services | `todolist-backend` / `todolist-secret`, checked in as throwaway values |
+| `prod`, `qa` | `https://accounts.google.com` | `TASKFEST_OIDC_GOOGLE_CLIENT_ID` / `_SECRET` from the environment — in AWS, the id from `terraform.tfvars` and the secret from Secrets Manager ([deployment/names-and-certificates.md](deployment/names-and-certificates.md)) |
+| `dev`, `test` | Keycloak, started by Dev Services | `taskfest-backend` / `taskfest-secret`, checked in as throwaway values |
 
 Dev and test leave `quarkus.oidc.auth-server-url` unset on purpose — that absence is what
 makes Keycloak Dev Services start a container and fill it in.
@@ -93,7 +93,7 @@ boolean available = authProvidersConfig.enabled()
 ```
 
 No provider name appears in the code, on either side. Adding one is a configuration change:
-a `todo.auth.providers.<id>.*` block appears and a sign-in button appears with it. In
+a `taskfest.auth.providers.<id>.*` block appears and a sign-in button appears with it. In
 production only `google` is declared; dev and test add `keycloak`.
 
 A declared provider without credentials is **still reported**, with `available: false` and a
@@ -105,7 +105,7 @@ provider that exists but is unconfigured from one that was never declared; see
 
 ## Local accounts
 
-`keycloak/realm-todolist.json` is imported by both Dev Services and the end-to-end stack,
+`keycloak/realm-taskfest.json` is imported by both Dev Services and the end-to-end stack,
 so the same realm backs local runs and CI:
 
 | Account | Password | Email |
@@ -159,7 +159,7 @@ request on every page load. And **failure is not an error**: a slow or unreachab
 yields no picture and sign-in carries on. Nobody should be locked out of their tasks because
 an avatar service is having a bad day.
 
-`todo.gravatar.enabled=false` switches it off entirely, which is what the test profile does so
+`taskfest.gravatar.enabled=false` switches it off entirely, which is what the test profile does so
 that no `@QuarkusTest` reaches the internet.
 
 ## Configuration that is load-bearing

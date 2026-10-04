@@ -4,7 +4,7 @@ Guidance for Claude Code when working in this repository.
 
 ## About this project
 
-This is `ai-assisted-todolist`: a browser-based todo list app (Quarkus backend,
+This is `ai-assisted-todolist`, home of **TaskFest**: a browser-based task list app (Quarkus backend,
 React + TypeScript frontend, PostgreSQL persistence). It is primarily a **demo
 project** — its main purpose is to build up experience with AI-assisted
 software development, not to ship production software. Favor clarity and

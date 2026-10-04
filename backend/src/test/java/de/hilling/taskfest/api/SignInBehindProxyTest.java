@@ -51,7 +51,7 @@ class SignInBehindProxyTest {
         @Override
         public Map<String, String> getConfigOverrides() {
             return Map.of(
-                "todo.auth.enabled", "true",
+                "taskfest.auth.enabled", "true",
                 "quarkus.http.proxy.proxy-address-forwarding", "true",
                 "quarkus.http.proxy.allow-x-forwarded", "true",
                 // In AWS this is the VPC: only the load balancer can reach the task at all, and

@@ -397,7 +397,7 @@ paths:
       security:
       - SecurityScheme: []
 info:
-  title: ai-assisted-todolist API
+  title: TaskFest API
   version: 1.0.0-SNAPSHOT
   description: The task board's REST surface. Every response schema here is published
     as JSON Schema and checked at runtime by the frontend.

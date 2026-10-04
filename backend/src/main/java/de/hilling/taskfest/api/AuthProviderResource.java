@@ -22,7 +22,7 @@ import org.eclipse.microprofile.openapi.annotations.tags.Tag;
  * <p>A provider is advertised as usable purely because configuration gave it credentials,
  * never because its name is known to this class. That is what lets the same code offer
  * Google in production and the local Keycloak in dev and test: the profile decides which
- * {@code todo.auth.providers.*} entries exist.</p>
+ * {@code taskfest.auth.providers.*} entries exist.</p>
  *
  * <p>An entry without a client id or secret is still reported, with {@code available} false
  * and a null {@code loginUrl}. Reporting it rather than omitting it is what lets the caller
@@ -94,14 +94,14 @@ public class AuthProviderResource {
     }
 
     /**
-     * Binds the {@code todo.auth} configuration tree, which is the only thing that decides
+     * Binds the {@code taskfest.auth} configuration tree, which is the only thing that decides
      * which providers exist and whether sign-in is offered at all.
      *
      * <p>Keying the providers by map entry rather than by fixed properties means a new
      * provider is a configuration change, not a code change, and a profile can add or
      * remove one without this class knowing its name.</p>
      */
-    @ConfigMapping(prefix = "todo.auth")
+    @ConfigMapping(prefix = "taskfest.auth")
     public interface AuthProvidersConfig {
         boolean enabled();
         Map<String, ProviderConfig> providers();
@@ -112,7 +112,7 @@ public class AuthProviderResource {
      *
      * <p>The credentials are optional because a provider may legitimately be declared with
      * none — that is how production ships a declared Google provider that is not yet offered,
-     * until the deployment supplies {@code TODO_OIDC_GOOGLE_CLIENT_ID} and its secret.</p>
+     * until the deployment supplies {@code TASKFEST_OIDC_GOOGLE_CLIENT_ID} and its secret.</p>
      */
     public interface ProviderConfig {
         String label();
