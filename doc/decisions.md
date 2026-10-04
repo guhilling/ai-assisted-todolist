@@ -1153,7 +1153,7 @@ instead of the origin's domain name — so no second name for the load balancer 
 certificates validate through the same DNS record.
 
 **ECS-native blue/green, which needed AWS provider 6.** Two target groups, a production listener
-rule ECS moves between them, a five-minute bake with both versions running, and the circuit
+rule ECS moves between them, a bake with both versions running (two minutes in qa, five in prod), and the circuit
 breaker for a deployment whose tasks never become healthy. Provider 5.x has no
 `deployment_configuration` for it; the upgrade was its own pull request (#111), and a plan of
 every root showed no change from it. *Rejected: CodeDeploy*, which the plan had already ruled out.

@@ -418,12 +418,13 @@ resource "aws_ecs_service" "backend" {
     assign_public_ip = true
   }
 
-  # Five minutes of both versions running after traffic has moved, so that a bad release can be
-  # rolled back by moving it straight back. The circuit breaker rolls back a deployment whose
-  # tasks never become healthy.
+  # Both versions keep running for the bake time after traffic has moved, so that a bad release
+  # can be rolled back by moving it straight back -- per environment, because qa is redeployed
+  # often and waited on, while prod is where a quick way back matters. The circuit breaker rolls
+  # back a deployment whose tasks never become healthy.
   deployment_configuration {
     strategy             = "BLUE_GREEN"
-    bake_time_in_minutes = 5
+    bake_time_in_minutes = var.blue_green_bake_minutes
   }
 
   deployment_circuit_breaker {

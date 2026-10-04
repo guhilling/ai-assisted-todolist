@@ -159,3 +159,12 @@ variable "google_client_id" {
   type        = string
   default     = ""
 }
+
+variable "blue_green_bake_minutes" {
+  description = <<-EOT
+    How long both versions keep running after a blue/green deployment has moved the traffic, so
+    a bad release can be rolled back by moving it straight back. Short in qa, where deployments
+    are frequent and someone is waiting on each; longer in prod.
+  EOT
+  type        = number
+}

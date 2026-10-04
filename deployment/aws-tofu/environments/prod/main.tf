@@ -65,6 +65,8 @@ module "environment" {
   log_retention_days   = var.log_retention_days
   hostname             = var.hostname
   google_client_id     = var.google_client_id
+
+  blue_green_bake_minutes = var.blue_green_bake_minutes
 }
 
 output "vpc_id" {

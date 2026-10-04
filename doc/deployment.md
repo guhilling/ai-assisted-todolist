@@ -340,7 +340,8 @@ endpoints, and the reasoning is in `decisions.md`.
 Blue/green and "take the downtime" are opposites — blue/green keeps both versions live, which is
 exactly the overlap that makes a schema change unsafe. Both are wanted, so the release picks:
 
-**A release with no migration — blue/green.** ECS shifts traffic to a new task set, bakes, and
+**A release with no migration — blue/green.** ECS shifts traffic to a new task set, bakes (two
+minutes in qa, five in prod: `blue_green_bake_minutes`), and
 rolls back by shifting back. Zero downtime, and the rollback is instant because the old task set
 is still there. This is the common case.
 
