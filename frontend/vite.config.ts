@@ -10,6 +10,13 @@ import { defineConfig } from 'vite'
 export default defineConfig({
   plugins: [react()],
   server: {
+    // IPv4 explicitly. Left to itself Vite binds whatever `localhost` resolves to in Node, which
+    // can be ::1 alone -- while a browser that resolves localhost to 127.0.0.1 first then finds
+    // nothing listening and shows a blank "can't connect".
+    host: '127.0.0.1',
+    // Fail rather than drift to 5174 when 5173 is taken: the sign-in redirects and the docs
+    // name 5173, and a silently moved dev server looks exactly like one that never started.
+    strictPort: true,
     proxy: {
       '/api': {
         target: 'http://localhost:8080',

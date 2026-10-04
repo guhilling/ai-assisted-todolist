@@ -18,6 +18,13 @@ podman machine set --memory 5120 --cpus 4
 podman machine start
 ```
 
+**`npm run dev` says it is ready, but `http://localhost:5173` cannot connect.** Vite used to
+bind whatever Node resolved `localhost` to, which can be IPv6 `[::1]` alone, while the browser
+resolved `localhost` to `127.0.0.1` first and found nothing there. `vite.config.ts` now binds
+`127.0.0.1` explicitly. With `strictPort` it also refuses to start when 5173 is taken, instead of
+moving to 5174 without saying so. If it says the port is in use, an earlier dev server is still
+running: `lsof -nP -iTCP:5173 -sTCP:LISTEN` names it.
+
 **Dev mode floods the log with `IllegalAccessError: module java.base does not open
 java.lang`.** jboss-threads resets thread locals on Java 24 and later, which needs
 `java.lang` opened to the unnamed module. `backend/pom.xml` passes the flag to the JVM
