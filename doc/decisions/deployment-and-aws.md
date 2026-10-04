@@ -158,7 +158,7 @@ task would keep the old one; it would also have meant the application using the 
 *Rejected: the AWS Advanced JDBC Wrapper*, which does the same signing inside a replacement
 driver. It would have needed `db-kind=other`, an explicit Hibernate dialect, and Dev Services
 replaced, where the credentials provider leaves the PostgreSQL driver and every test untouched.
-*Decided: one database user per environment*, `todolist_<env>`, for both the application and
+*Decided: one database user per environment*, `taskfest_<env>`, for both the application and
 the migrations, and the IAM grant names that user rather than the instance — an instance's
 resource id changes with every restore, while the user travels with the snapshot.
 
@@ -235,8 +235,8 @@ secret staying secret. VPC origins remove the public address instead, at no cost
 
 ## Custom hostnames under an existing zone
 
-`todolist-qa.cloud.hilling.de` and
-`todolist.cloud.hilling.de`, as alias records to each environment's distribution. This is what
+`taskfest-qa.cloud.hilling.de` and
+`taskfest.cloud.hilling.de`, as alias records to each environment's distribution. This is what
 makes the Google OIDC redirect URIs knowable before the environments exist, which matters
 because that configuration is manual and cannot be automated here. One consequence is worth
 recording rather than rediscovering: **the ACM certificate must live in `us-east-1`**, whatever
@@ -288,7 +288,7 @@ untouched while the origin changed; it cannot.
 ## CloudFront reaches the load balancer over HTTPS with the environment's own name
 
 The ALB
-carries a regional ACM certificate for `todolist-<env>.cloud.hilling.de`, the same name as
+carries a regional ACM certificate for `taskfest-<env>.cloud.hilling.de`, the same name as
 CloudFront's own (which has to be in us-east-1). That works because `/api/*` forwards the viewer's
 `Host` header, and AWS documents that the origin certificate may then match the `Host` header
 instead of the origin's domain name — so no second name for the load balancer is needed. Both

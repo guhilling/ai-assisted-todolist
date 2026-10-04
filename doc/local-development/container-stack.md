@@ -13,7 +13,7 @@ docker compose -f deployment/docker/docker-compose.yml up --build
 
 - frontend: `http://localhost:3000`
 - backend: `http://localhost:8080`
-- postgres: `localhost:5432` (`todolist` / `todolist` / `todolist`)
+- postgres: `localhost:5432` (`taskfest` / `taskfest` / `taskfest`)
 
 To point this stack at real Google credentials, copy `.env.example` to `.env`, fill it in
 and set `QUARKUS_OIDC_ENABLED=true` and `TASKFEST_AUTH_ENABLED=true`. `.env` is git-ignored and

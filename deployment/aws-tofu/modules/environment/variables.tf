@@ -1,7 +1,7 @@
 variable "project" {
   description = "Name prefix for every resource, so one account can hold more than this."
   type        = string
-  default     = "todolist"
+  default     = "taskfest"
 }
 
 variable "environment" {

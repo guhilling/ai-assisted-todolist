@@ -11,8 +11,8 @@ services and a real account boundary over the cheapest possible demo.
 Two environments, `qa` and `prod`, in **separate AWS accounts**. Each holds the same thing:
 
 ```
-  todolist.cloud.hilling.de
-  todolist-qa.cloud.hilling.de
+  taskfest.cloud.hilling.de
+  taskfest-qa.cloud.hilling.de
             │
             ▼
        CloudFront ──── /*      ──> S3                    (the built SPA)

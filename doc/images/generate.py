@@ -207,7 +207,7 @@ def identities(p: Palette) -> str:
         label(380, rows[0] + box_h / 2 - 10, "creates", p),
 
         box(left_x, rows[1], left_w, box_h,
-            ["todolist-<env>-lifecycle", "a role gunnar assumes", "MFA required"], p),
+            ["taskfest-<env>-lifecycle", "a role gunnar assumes", "MFA required"], p),
         box(right_x, rows[1], right_w, box_h,
             ["Everything that bills",
              "RDS instance \u00b7 load balancer \u00b7 Fargate service",
@@ -227,7 +227,7 @@ def identities(p: Palette) -> str:
               anchor="start", accent=True, size=12),
 
         box(left_x, rows[2], left_w, box_h,
-            ["todolist-<env>-deploy", "GitHub Actions, via OIDC", "no stored credential"], p,
+            ["taskfest-<env>-deploy", "GitHub Actions, via OIDC", "no stored credential"], p,
             accent=True),
         box(right_x, rows[2], right_w, box_h,
             ["Redeploy only",
@@ -238,9 +238,9 @@ def identities(p: Palette) -> str:
         label(380, rows[2] + box_h / 2 - 10, "updates", p, accent=True),
 
         box(left_x, 470, left_w, 84,
-            ["todolist-monitoring", "read-only, everywhere", "a person at a console"], p),
+            ["taskfest-monitoring", "read-only, everywhere", "a person at a console"], p),
         box(right_x, 470, right_w, 84,
-            ["todolist-<env>-task-execution \u00b7 -task",
+            ["taskfest-<env>-task-execution \u00b7 -task",
              "what the container runs as \u2014 nobody assumes these",
              "pulls the image, reads the database secret, writes logs"], p),
         arrow([(725, rows[2] + box_h), (725, 470)], p),

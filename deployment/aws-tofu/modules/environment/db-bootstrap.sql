@@ -1,7 +1,7 @@
 -- Creates the application's database user, and is safe to run again.
 --
 -- Run once per environment by the db-bootstrap task, as the RDS master user, with :app_user set
--- to todolist_<env>. Every statement is idempotent: the role is created only if it is missing,
+-- to taskfest_<env>. Every statement is idempotent: the role is created only if it is missing,
 -- and repeating a GRANT that is already held is a no-op with a NOTICE. A restored database
 -- already has the user, so running this on one changes nothing.
 --

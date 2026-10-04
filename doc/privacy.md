@@ -1,6 +1,6 @@
 # Privacy policy
 
-This policy covers TaskFest, the task list at `todolist-qa.cloud.hilling.de` and `todolist.cloud.hilling.de`
+This policy covers TaskFest, the task list at `taskfest-qa.cloud.hilling.de` and `taskfest.cloud.hilling.de`
 (“the application”), and this documentation site. It describes what the application actually
 does, and changes in the same change as the behaviour it describes.
 
@@ -59,7 +59,7 @@ of any kind.
 Every request passes through Amazon Web Services' content delivery network and load balancer, and
 reaches the application's server. These record technical data such as the time, the requested
 address, your IP address, your browser's identification, and whether the request succeeded. The
-application's own log is kept for 30 days for `todolist-qa` and 90 days for `todolist`; network
+application's own log is kept for 30 days for `taskfest-qa` and 90 days for `taskfest`; network
 logs are kept for 30 days.
 
 Legal basis: Art. 6(1)(f) GDPR — the legitimate interest in running the application securely and

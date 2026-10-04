@@ -187,7 +187,7 @@ keeps running, and the bill is the first evidence.
 
 ## Who may create and destroy what bills
 
-Each environment gets `todolist-<env>-lifecycle`, a role a **person** assumes with MFA. It may
+Each environment gets `taskfest-<env>-lifecycle`, a role a **person** assumes with MFA. It may
 create and delete the database, the load balancer and the running service, and — because
 CloudFront's `/api/*` origin has to follow the load balancer — create and delete VPC origins and
 update this environment's one distribution. Nothing else: no `ec2:Create*`, no `iam:CreateRole`,
@@ -207,8 +207,8 @@ more simply, by setting up a named profile:
 
 ```ini
 # ~/.aws/config
-[profile todolist-qa-lifecycle]
-role_arn       = arn:aws:iam::<account-id>:role/todolist-qa-lifecycle
+[profile taskfest-qa-lifecycle]
+role_arn       = arn:aws:iam::<account-id>:role/taskfest-qa-lifecycle
 source_profile = default
 mfa_serial     = arn:aws:iam::<account-id>:mfa/<your-iam-user>
 region         = eu-central-1
@@ -218,7 +218,7 @@ Where each value comes from:
 
 | Field | Value |
 | --- | --- |
-| `role_arn` | `arn:aws:iam::<account-id>:role/todolist-<env>-lifecycle`. The name is the environment prefix plus `-lifecycle`, so it is predictable; `tofu -chdir=environments/qa output -raw lifecycle_role_arn` prints it once applied |
+| `role_arn` | `arn:aws:iam::<account-id>:role/taskfest-<env>-lifecycle`. The name is the environment prefix plus `-lifecycle`, so it is predictable; `tofu -chdir=environments/qa output -raw lifecycle_role_arn` prints it once applied |
 | `source_profile` | The profile holding your own long-term key — the one `aws sts get-caller-identity` answers as today. Usually `default` |
 | `mfa_serial` | `aws iam list-mfa-devices --query 'MFADevices[0].SerialNumber' --output text` |
 | `region` | The `region` in that environment's `terraform.tfvars` |
@@ -233,7 +233,7 @@ older one the script falls back to the profile name and says that MFA will not w
 Doing it by hand, if you ever want to:
 
 ```sh
-eval "$(aws configure export-credentials --profile todolist-qa-lifecycle --format env)"
+eval "$(aws configure export-credentials --profile taskfest-qa-lifecycle --format env)"
 tofu -chdir=environments/qa apply
 ```
 
@@ -247,7 +247,7 @@ profile is per environment, so `prod` gets its own with `prod` in both the profi
 role ARN.
 
 ```sh
-AWS_PROFILE=todolist-qa-lifecycle tofu -chdir=environments/qa apply
+AWS_PROFILE=taskfest-qa-lifecycle tofu -chdir=environments/qa apply
 ```
 
 The profile form is the one worth setting up: the SDK prompts for the MFA code and caches the
@@ -274,7 +274,7 @@ the snapshot is the only way back.
 
 ## Who may deploy
 
-Each environment gets an IAM **role**, `todolist-<env>-deploy`, assumed from GitHub Actions
+Each environment gets an IAM **role**, `taskfest-<env>-deploy`, assumed from GitHub Actions
 through OIDC. There is no access key anywhere: a workflow job trades a signed token describing
 itself for credentials that last minutes.
 
@@ -298,7 +298,7 @@ environment: qa          # load-bearing: the role's trust condition requires it
 steps:
   - uses: aws-actions/configure-aws-credentials@v5
     with:
-      role-to-assume: arn:aws:iam::<account>:role/todolist-qa-deploy
+      role-to-assume: arn:aws:iam::<account>:role/taskfest-qa-deploy
       aws-region: eu-central-1
 ```
 

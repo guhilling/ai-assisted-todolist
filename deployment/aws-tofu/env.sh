@@ -87,7 +87,7 @@ export_credentials_for() {
 }
 
 use_lifecycle_profile() {
-    local wanted="${AWS_PROFILE:-todolist-${ENVIRONMENT}-lifecycle}"
+    local wanted="${AWS_PROFILE:-taskfest-${ENVIRONMENT}-lifecycle}"
 
     if aws configure list-profiles 2>/dev/null | grep -qx "$wanted"; then
         # export-credentials arrived in AWS CLI 2.13. Without it, fall back to the old behaviour
@@ -197,7 +197,7 @@ run_one_off() {
         --query 'tasks[0].stoppedReason' --output text)"
 
     echo "--- last lines of its log ---"
-    aws logs get-log-events --region "$region" --log-group-name "/ecs/todolist-${ENVIRONMENT}" \
+    aws logs get-log-events --region "$region" --log-group-name "/ecs/taskfest-${ENVIRONMENT}" \
         --log-stream-name "task/${which}/${task_id}" --limit 40 \
         --query 'events[].[message]' --output text 2>/dev/null || echo "(no log stream -- it never started)"
     echo "---"
@@ -229,7 +229,7 @@ newest_final_snapshot() {
     # are exactly right here.
     # shellcheck disable=SC2016
     if ! snapshot="$(aws rds describe-db-snapshots --region "$region" \
-        --db-instance-identifier "todolist-${ENVIRONMENT}-db" --snapshot-type manual \
+        --db-instance-identifier "taskfest-${ENVIRONMENT}-db" --snapshot-type manual \
         --query 'reverse(sort_by(DBSnapshots[?Status==`available`], &SnapshotCreateTime))[0].DBSnapshotIdentifier' \
         --output text)"; then
         echo "Could not look up the database snapshots for ${ENVIRONMENT}; not planning." >&2

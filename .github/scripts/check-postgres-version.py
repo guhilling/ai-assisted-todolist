@@ -27,7 +27,7 @@ import sys
 ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
 
 # `postgres:18-alpine` and `postgres:18`, but not the host:port in a JDBC URL
-# (`jdbc:postgresql://postgres:5432/todolist`), which the lookbehind excludes by refusing a
+# (`jdbc:postgresql://postgres:5432/taskfest`), which the lookbehind excludes by refusing a
 # match preceded by a slash. The port check is the belt to that braces: a PostgreSQL major is
 # never four digits.
 PIN = re.compile(r"(?<![/\w])postgres:(\d+)(?:-[a-z0-9.]+)?")
