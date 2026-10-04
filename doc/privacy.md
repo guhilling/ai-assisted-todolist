@@ -10,8 +10,8 @@ that have been invited to it; nobody else can sign in.
 ## Who is responsible
 
 Gunnar Hilling<br>
-Sophie-Charlotte-Str. 61<br>
-49076 Osnabrueck<br>
+\*\*\*\*\*<br>
+\*\*\*\*\*<br>
 Germany
 
 Email: [demo-apps@hilling.de](mailto:demo-apps@hilling.de)
@@ -113,4 +113,4 @@ Prinzenstraße 5<br>
 This policy is part of the project's documentation and is changed in the open, in the
 repository. The date below is the date of the last change to its content.
 
-Last changed: 3 October 2026
+Last changed: 4 October 2026
