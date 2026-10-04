@@ -200,14 +200,41 @@ function toAuthProviders(data: unknown): AuthProvidersResponse {
 }
 
 /**
+ * The session ended while the app was open: the request came back 401, or 499 -- what Quarkus
+ * answers a script that asked not to be redirected to the identity provider.
+ *
+ * Its own type rather than an error message, because it is not a failure of the request that
+ * noticed it. Every later request would fail the same way; what the reader needs is to sign in
+ * again, and the app shows exactly that instead of an error about one particular change.
+ */
+export class SessionExpiredError extends Error {
+  constructor() {
+    super('Your session has expired.')
+    this.name = 'SessionExpiredError'
+  }
+}
+
+/** The statuses that mean "no session any more" on a request that had one. */
+const SESSION_GONE = new Set([401, 499])
+
+/** Throws {@link SessionExpiredError} if the response says the session is gone. */
+function ensureSession(response: Response) {
+  if (SESSION_GONE.has(response.status)) {
+    throw new SessionExpiredError()
+  }
+}
+
+/**
  * Reads a successful response, turning any non-2xx status into an error carrying a message the
- * user can actually read, and anything that is not what the contract promised into another.
+ * user can actually read, and anything that is not what the contract promised into another. A
+ * response saying the session is gone becomes a {@link SessionExpiredError} instead.
  *
  * The parser is passed in rather than the type being asserted. `as T` used to stand here, which
  * TypeScript erases: every field of every response was the right type by claim only. See
  * `doc/decisions/frontend.md`.
  */
 async function readJson<T>(response: Response, parse: (data: unknown) => T, failureMessage: string) {
+  ensureSession(response)
   if (!response.ok) {
     throw new Error(failureMessage)
   }
@@ -280,6 +307,7 @@ export async function deleteTask(task: Task) {
     credentials: 'include',
     headers: jsFetchHeaders,
   })
+  ensureSession(response)
   if (!response.ok) {
     throw new Error('Unable to delete task.')
   }
