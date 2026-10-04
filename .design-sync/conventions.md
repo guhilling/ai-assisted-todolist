@@ -42,11 +42,12 @@ piece of text needs its own size, it wants one of these four instead.
 
 - Shell: `.app`, `.app-header`, `.app-title`, `.app-identity`, `.app-email`, `.app-footer`
 - Board: `.task-section`, `.section-title`, `.section-title--overdue`, `.task-list`,
-  `.task-row`, `.task-row--done`, `.task-body`, `.task-check`, `.task-description`,
+  `.task-row`, `.task-row--done`, `.task-row--editing`, `.task-body`, `.task-check`, `.task-description`,
   `.task-meta`, `.task-chip`, `.task-importance` (+ `--low` / `--medium` / `--high`),
   `.task-due--overdue`, `.task-menu`, `.task-menu-items`, `.task-menu-danger`
 - Add row: `.add-row`, `.add-row-plus`, `.add-row-key`, `.add-form`, `.add-field`,
-  `.add-description`, `.add-controls`, `.add-actions`, `.quick-dates`
+  `.add-description`, `.add-controls`, `.add-actions`, `.quick-dates`; `TaskEditor` reuses
+  them with `.task-editor`
 - Controls: `.button-primary`, `.button-quiet`, `.text-link`, `.chip`, `.chip--active`
 - Signed out: `.signed-out`, `.signed-out-title`, `.signed-out-copy`, `.signed-out-actions`,
   `.signed-out-note`

@@ -25,6 +25,7 @@ import {
   type TaskState,
 } from './api'
 import AddTaskRow from './components/AddTaskRow'
+import type { TaskEdit } from './components/TaskEditor'
 import CompletedSection from './components/CompletedSection'
 import SignedOut, { purposeUrl } from './components/SignedOut'
 import TaskSection from './components/TaskSection'
@@ -145,6 +146,25 @@ function App() {
     } catch (updateError) {
       replaceTask(previous)
       reportFailure(updateError, 'Unexpected error while updating data.')
+    }
+  }
+
+  /**
+   * Saves an edit, waiting for the server rather than showing it first.
+   *
+   * Unlike a tick, an edit is a form someone has just filled in, so a moment's "Saving…" is
+   * expected -- and keeping the form open until the server agrees means a refused edit leaves
+   * what was typed in place to correct, instead of rolling the row back and losing it.
+   */
+  const editTask = async (task: Task, changes: TaskEdit) => {
+    setError(null)
+
+    try {
+      replaceTask(await putTask({ ...task, ...changes }))
+      return true
+    } catch (updateError) {
+      reportFailure(updateError, 'Unexpected error while updating data.')
+      return false
     }
   }
 
@@ -282,6 +302,7 @@ function App() {
               onToggleDone={toggleDone}
               onSetState={setTaskState}
               onDelete={removeTask}
+              onEdit={editTask}
             />
           ))}
 

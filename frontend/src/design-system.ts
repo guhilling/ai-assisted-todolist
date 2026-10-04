@@ -16,6 +16,8 @@ import './App.css'
 export { default as AddTaskRow } from './components/AddTaskRow'
 export { default as CompletedSection } from './components/CompletedSection'
 export { default as SignedOut, purposeUrl } from './components/SignedOut'
+export { default as TaskEditor } from './components/TaskEditor'
+export type { TaskEdit } from './components/TaskEditor'
 export { default as TaskRow } from './components/TaskRow'
 export { default as TaskSection } from './components/TaskSection'
 export { default as UndoToast } from './components/UndoToast'
@@ -24,6 +26,9 @@ export { default as UserAvatar } from './components/UserAvatar'
 /** The due-date words and arithmetic the rows render. Pure, and every function takes today. */
 export { addDays, bucketOf, daysBetween, describeDueDate, quickDates, todayIso } from './dates'
 export type { DueBucket } from './dates'
+
+/** The importance levels and the word each one reads as. */
+export { importanceLabels, importanceLevels } from './importance'
 
 /** The shapes the components take, generated from the backend's published JSON Schemas. */
 export type {

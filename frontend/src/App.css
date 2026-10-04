@@ -448,6 +448,15 @@ button {
   transition: color 120ms ease-out;
 }
 
+/* A row being edited holds the edit form instead of the checkbox, text and menu. */
+.task-row--editing {
+  display: block;
+}
+
+.task-editor {
+  margin-top: 0;
+}
+
 .task-row--done .task-description {
   color: var(--text-muted);
   text-decoration: line-through;

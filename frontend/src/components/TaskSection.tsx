@@ -1,4 +1,5 @@
 import type { Task, TaskState } from '../api'
+import type { TaskEdit } from './TaskEditor'
 import TaskRow from './TaskRow'
 
 type TaskSectionProps = {
@@ -9,6 +10,7 @@ type TaskSectionProps = {
   onToggleDone: (task: Task) => void
   onSetState: (task: Task, state: TaskState) => void
   onDelete: (task: Task) => void
+  onEdit: (task: Task, changes: TaskEdit) => Promise<boolean>
 }
 
 /**
@@ -18,7 +20,16 @@ type TaskSectionProps = {
  * answerable at a glance: the question is nearly always "what is late and what is today", and
  * a single list ordered by date makes that a reading exercise.
  */
-function TaskSection({ title, tasks, today, overdue, onToggleDone, onSetState, onDelete }: Readonly<TaskSectionProps>) {
+function TaskSection({
+  title,
+  tasks,
+  today,
+  overdue,
+  onToggleDone,
+  onSetState,
+  onDelete,
+  onEdit,
+}: Readonly<TaskSectionProps>) {
   if (tasks.length === 0) {
     return null
   }
@@ -35,6 +46,7 @@ function TaskSection({ title, tasks, today, overdue, onToggleDone, onSetState, o
             onToggleDone={onToggleDone}
             onSetState={onSetState}
             onDelete={onDelete}
+            onEdit={onEdit}
           />
         ))}
       </ul>

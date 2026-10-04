@@ -129,6 +129,40 @@ test('deletes a task for good', async ({ page }) => {
   await expect(page.locator('.task-row', { hasText: description })).toHaveCount(0)
 })
 
+test('edits a task in place and keeps the change', async ({ page }) => {
+  const stamp = Date.now()
+  const description = `Renew the pasport ${stamp}`
+  const corrected = `Renew the passport ${stamp}`
+
+  await signIn(page, users.gunnar)
+  await addTask(page, description, '2026-12-28')
+
+  const task = page.locator('.task-row', { hasText: description })
+  await task.getByLabel(`Actions for "${description}"`).click()
+  await task.getByRole('button', { name: 'Edit' }).click()
+
+  // The row is a form now, named after the task it edits; the add row has fields of the same
+  // names, so everything is addressed inside it.
+  const editor = page.getByRole('form', { name: `Edit "${description}"` })
+  await expect(editor.getByRole('textbox', { name: 'Description' })).toBeFocused()
+  await editor.getByRole('textbox', { name: 'Description' }).fill(corrected)
+  await editor.getByRole('combobox', { name: 'Importance' }).selectOption('HIGH')
+
+  const saved = page.waitForResponse(
+    (response) => response.request().method() === 'PUT' && response.url().includes('/api/tasks/'),
+  )
+  await editor.getByRole('button', { name: 'Save' }).click()
+  expect((await saved).ok()).toBe(true)
+
+  const edited = page.locator('.task-row', { hasText: corrected })
+  await expect(edited.locator('.task-importance--high')).toBeVisible()
+
+  // Saved on the server, not merely shown.
+  await page.reload()
+  await expect(page.locator('.task-row', { hasText: corrected })).toBeVisible()
+  await expect(page.locator('.task-row', { hasText: description })).toHaveCount(0)
+})
+
 test('puts a deleted task back when undo is used', async ({ page }) => {
   const description = `Deleted by mistake ${Date.now()}`
 

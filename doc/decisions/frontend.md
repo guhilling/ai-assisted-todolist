@@ -38,6 +38,26 @@ fails. A round trip is perceptible, and a checkbox that lags feels broken rather
 The rollback is what keeps it safe: a rejected change never leaves the board asserting
 something untrue.
 
+
+## Editing starts from the menu, and waits for the server
+
+**Decision** (#156). **Edit** in the row's overflow menu turns the row into a form with the same
+three fields as adding a task: description, due date and importance. Save sends them, while
+Cancel and Escape discard. Completed tasks are read-only, and reopening one is how to change it.
+
+**Why the menu, not the text.** The description is the checkbox's `<label>`, so clicking it
+already ticks the task done. Making the same click start an edit would take away the larger
+target for the common action, to serve a rare one. The menu is where rare things already go.
+
+**Why not optimistic.** A tick is one click and has to feel instant. An edit is a form someone
+has just filled in, so a moment's "Saving…" is expected. Keeping the form open until the server
+agrees means a refused edit leaves what was typed in place to correct, instead of rolling the row
+back and losing it.
+
+**Past dates stay.** Unlike adding, the editor sets no `min` on the due date, matching the
+backend's `TaskUpdateRequest`. A task that came due yesterday can have its text corrected
+without having to move its date as well.
+
 **Cost.** `WORKING` is now two clicks away and less discoverable. That is the trade, and it is
 the right way round.
 
