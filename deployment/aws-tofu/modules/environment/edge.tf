@@ -7,7 +7,7 @@
 # load balancer is destroyed on every `down`, so the distribution drops its /api/* origin and
 # behaviour then, and gains them again on `up`, around a VPC origin created in billable.tf. That
 # costs up to ~15-20 minutes on each, and is the price of a `down` that costs nothing; keeping
-# the load balancer up instead would cost ~$20 a month. See doc/decisions.md.
+# the load balancer up instead would cost ~$20 a month. See doc/decisions/deployment-and-aws.md.
 #
 # While the environment is down the distribution still answers, from the site bucket only.
 
@@ -76,11 +76,11 @@ resource "aws_acm_certificate_validation" "origin" {
 # The site bucket: private, reachable only through this distribution's origin access control.
 # It is the distribution's default origin because a distribution must have one, and this is the
 # one it keeps. A release's frontend build is synced into it by deploy-frontend.yml, with the
-# deploy role -- see doc/deployment.md.
+# deploy role -- see doc/deployment/deploying.md.
 #
 # Suppressed for the reasons the flow-log bucket gives: AWS-0089 (access logging would need
 # another bucket), AWS-0090 (versioning: a release is rolled back by syncing the previous one,
-# not by object versions -- see doc/deployment.md), AWS-0132 on the encryption below.
+# not by object versions -- see doc/deployment/deploying.md), AWS-0132 on the encryption below.
 #trivy:ignore:AWS-0089
 #trivy:ignore:AWS-0090
 resource "aws_s3_bucket" "site" {

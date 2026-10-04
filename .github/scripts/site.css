@@ -211,6 +211,8 @@ pre code { padding: 0; background: none; border: 0; white-space: pre; }
 }
 .sidebar ul { list-style: none; margin: 0 0 2rem; padding: 0; }
 .sidebar li { margin: 0; }
+/* A chapter's sub-pages, shown while one of its pages is open. */
+.sidebar ul.sidebar__chapter { margin: 0.1rem 0 0.4rem 0.9rem; padding-left: 0.6rem; border-left: 1px solid var(--border); font-size: 0.9rem; }
 .sidebar a {
   display: block;
   padding: 0.3rem 0.7rem;

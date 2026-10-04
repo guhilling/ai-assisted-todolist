@@ -41,7 +41,7 @@ public class AuthProviderResource {
     /** The name that goes on the sign-in button. */
     private static final int MAX_PROVIDER_LABEL_LENGTH = 100;
 
-    /** The practical ceiling for a URL; see {@code doc/decisions.md} for the published bounds. */
+    /** The practical ceiling for a URL; see {@code doc/decisions/domain-and-backend.md} for the published bounds. */
     private static final int MAX_URL_LENGTH = 2048;
 
     private static final String LOGIN_PATH = "/api/auth/login";

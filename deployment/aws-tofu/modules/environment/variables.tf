@@ -120,7 +120,7 @@ variable "db_restore_snapshot" {
 }
 
 variable "log_retention_days" {
-  description = "How long the ECS task logs are kept. Shorter in qa than in prod, per doc/deployment.md."
+  description = "How long the ECS task logs are kept. Shorter in qa than in prod, per doc/deployment/observability.md."
   type        = number
 }
 

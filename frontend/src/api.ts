@@ -205,7 +205,7 @@ function toAuthProviders(data: unknown): AuthProvidersResponse {
  *
  * The parser is passed in rather than the type being asserted. `as T` used to stand here, which
  * TypeScript erases: every field of every response was the right type by claim only. See
- * `doc/decisions.md`.
+ * `doc/decisions/frontend.md`.
  */
 async function readJson<T>(response: Response, parse: (data: unknown) => T, failureMessage: string) {
   if (!response.ok) {

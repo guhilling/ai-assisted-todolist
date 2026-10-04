@@ -22,7 +22,7 @@
   --radius: 10px;
 
   /* Spacing: a strict 4px grid, named by how many steps it is. Every padding, margin
-     and gap in this file comes from here -- see doc/decisions.md for why. */
+     and gap in this file comes from here -- see doc/decisions/frontend.md for why. */
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;

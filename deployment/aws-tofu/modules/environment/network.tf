@@ -8,7 +8,8 @@
 # There are private subnets all the same, for the internal load balancer. Nothing in them makes
 # an outbound call, so they need no route to the internet and cost nothing.
 #
-# See doc/deployment.md for the reasoning and doc/decisions.md for what was rejected.
+# See doc/deployment/infrastructure.md for the reasoning and doc/decisions/deployment-and-aws.md
+# for what was rejected.
 
 data "aws_availability_zones" "available" {
   state = "available"
@@ -18,7 +19,7 @@ locals {
   name = "${var.project}-${var.environment}"
 
   # Two zones because an Application Load Balancer requires two, not for availability --
-  # doc/deployment.md is explicit that HA is not a requirement here.
+  # doc/deployment/open-points.md is explicit that HA is not a requirement here.
   azs = slice(data.aws_availability_zones.available.names, 0, 2)
 }
 

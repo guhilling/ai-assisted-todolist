@@ -1,7 +1,7 @@
 # Production-shaped local stack: PostgreSQL, the Quarkus backend and the httpd-served
 # frontend, with no identity provider. Sign-in is off unless you supply Google credentials,
 # so this is the stack for checking the deployment shape, not for working on the app --
-# `./mvnw quarkus:dev` is far better for that. See doc/local-development.md.
+# `./mvnw quarkus:dev` is far better for that. See doc/local-development/dev-mode.md.
 #
 # The project name is pinned because Compose otherwise derives it from this file's directory,
 # which would rename the postgres volume to docker_postgres-data and orphan the existing one.

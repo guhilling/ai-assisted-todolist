@@ -47,8 +47,8 @@ token. One origin, so the SPA needs no CORS handling and no API base URL.
 
 Anything that can be checked by a machine is, so that a convention does not depend on
 somebody remembering it. The one deliberate exception is mutation testing, which reports
-rather than blocks — [testing.md](doc/testing.md) says why, and
-[decisions.md](doc/decisions.md) records that and every other choice with its reasoning.
+rather than blocks — [the testing chapter](doc/testing/mutation-testing.md) says why, and
+[the decisions](doc/decisions/index.md) record that and every other choice with its reasoning.
 
 Both diagrams are generated: edit `doc/images/generate.py` and re-run it rather than
 touching the SVGs, which exist in a light and a dark variant that must stay in step.
@@ -61,7 +61,7 @@ cd frontend && npm install && npm run dev
 ```
 
 Open `http://localhost:5173` and sign in as `gunnar` / `gunnar`. Nothing else to install
-and no credentials to obtain — [doc/local-development.md](doc/local-development.md) has the
+and no credentials to obtain — [doc/local-development/](doc/local-development/index.md) has the
 details, the second local account, the container stacks and the troubleshooting.
 
 ## Documentation
@@ -82,13 +82,13 @@ question, so start from the question rather than the filename.
 
 | | |
 | --- | --- |
-| [local-development.md](doc/local-development.md) | *How do I run it, and what do I do when it misbehaves?* |
-| [testing.md](doc/testing.md) | *What is tested where, and which checks can fail my build?* |
+| [local-development/](doc/local-development/index.md) | *How do I run it, and what do I do when it misbehaves?* |
+| [testing/](doc/testing/index.md) | *What is tested where, and which checks can fail my build?* |
+| [deployment/](doc/deployment/index.md) | *Where will this run on AWS, who may change it, and what does it cost?* |
 | [releasing.md](doc/releasing.md) | *How do I cut a release, and what does it publish?* |
-| [deployment.md](doc/deployment.md) | *Where will this run on AWS, who may change it, and what does it cost?* |
-| [decisions.md](doc/decisions.md) | *Why is it like this — and what was tried and rejected?* |
+| [decisions/](doc/decisions/index.md) | *Why is it like this — and what was tried and rejected?* |
 
-`decisions.md` is the one worth reading before changing anything structural: several
+`decisions/` is the one worth reading before changing anything structural: several
 settings in this repository look removable and are not, and it says which and why.
 
 Code-level documentation lives in the code, as Javadoc and TSDoc. The conventions are in

@@ -47,7 +47,7 @@ Don't write backend production code without a test driving it first.
   deliberately not a gate: three production classes of ten are in scope, so a threshold would
   police a corner of the codebase while saying nothing about the rest. It is scoped that way
   because PIT gives each mutant its own minion JVM, and a `@QuarkusTest` in scope means a
-  full boot with its own Dev Services containers per mutant. `doc/testing.md` has the
+  full boot with its own Dev Services containers per mutant. `doc/testing/mutation-testing.md` has the
   measurements, and the report lands as a CI artifact on every backend run.
 - **PIT's `excludedClasses` list is a to-do list, not configuration.** Each entry is a
   production class with no fast unit test. Deleting an entry is the reward for writing the
@@ -133,7 +133,7 @@ every response with, so an annotation here is enforced in the browser as well as
     type instead, with a comment saying why.
 - **Bound every string with `@Size`.** An unbounded string is one the board would render
   however long it arrived, and for a persisted field it is a 500 waiting for a long value. The
-  bounds are in `doc/decisions.md`; the constant lives next to the field it constrains.
+  bounds are in `doc/decisions/domain-and-backend.md`; the constant lives next to the field it constrains.
 - **Constrain responses, not only requests.** The backend validates what it is sent, but what
   makes the *frontend* safe is the schema, and the schema comes from these annotations.
 - **`@Email` is runtime-only.** SmallRye puts nothing in the schema for it, so add

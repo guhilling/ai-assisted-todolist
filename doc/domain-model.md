@@ -45,7 +45,7 @@ well as the request. It was wrong, and quietly so: Bean Validation runs on flush
 task became invalid the day after it came due, and because the update endpoint replaces the
 whole task, every overdue task turned un-editable — including the state change that marks it
 done. The rule a board actually wants is "do not *file* something in the past", which is a
-create-time rule. See `doc/decisions.md`.
+create-time rule. See [decisions/domain-and-backend.md](decisions/domain-and-backend.md).
 
 The ownership one is worth dwelling on. Ownership is part of the *query*, not a check performed
 after loading. A task belonging to someone else is therefore indistinguishable from one

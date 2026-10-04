@@ -1,8 +1,8 @@
 # AWS infrastructure
 
 The AWS environments, `qa` and `prod`, written in **OpenTofu**.
-`doc/deployment.md` is the plan this implements and holds the reasoning;
-`doc/decisions.md` records why OpenTofu and not Terraform. This file is how to run it.
+`doc/deployment/` is the plan this implements and holds the reasoning;
+`doc/decisions/deployment-and-aws.md` records why OpenTofu and not Terraform. This file is how to run it.
 
 ## OpenTofu, not Terraform
 
@@ -169,8 +169,7 @@ not for `status` — reading what the last apply recorded needs nothing but the 
 
 **`up` restores the database from the newest final snapshot** of that environment, which `down`
 leaves behind, so the data survives a cycle even though the instance does not. It says on screen
-which snapshot, or that there is none and the database starts empty. `doc/deployment.md`, *The
-database*, covers starting empty on purpose and the one-time step after the first restore.
+which snapshot, or that there is none and the database starts empty. `doc/deployment/database.md` covers starting empty on purpose and the one-time step after the first restore.
 
 `running` defaults to **false**, so a plain `tofu apply` creates a foundation and no bill.
 Bringing an environment up is the deliberate act. It is never set in `terraform.tfvars`: whether
@@ -276,7 +275,7 @@ through OIDC. There is no access key anywhere: a workflow job trades a signed to
 itself for credentials that last minutes.
 
 The role may register a task definition, point the one service at it, run the Liquibase task and
-write the site bucket. It may not create, change or delete infrastructure. `doc/decisions.md`
+write the site bucket. It may not create, change or delete infrastructure. `doc/decisions/deployment-and-aws.md`
 explains why that split is drawn there; `deploy.tf` carries the reasoning statement by statement,
 including the `iam:PassRole` condition that is what makes the rest of it safe.
 

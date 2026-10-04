@@ -22,7 +22,7 @@
  *
  * Why only the responses get validators: the backend validates what it is sent, and returns
  * 400 when it does not like it. What this application has no defence against is the other
- * direction, which is what `doc/decisions.md` records as the reason any of this exists.
+ * direction, which is what `doc/decisions/frontend.md` records as the reason any of this exists.
  */
 import Ajv2020 from 'ajv/dist/2020.js';
 import standaloneCode from 'ajv/dist/standalone/index.js';

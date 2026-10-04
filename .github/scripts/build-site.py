@@ -9,6 +9,8 @@ What it produces:
 
     index.html            the README, as the landing page
     doc/<name>.html       every file in doc/, with a sidebar linking the others
+    doc/<chapter>/        a chapter: doc/<chapter>/index.md and its sub-pages, nested in the
+                          sidebar, in the order the chapter's index.md links to them
     doc/images/           the generated diagrams the docs refer to
     api/index.html        the versions of the contract
     api/main/             the moving snapshot: doc/api as it is on main
@@ -49,6 +51,7 @@ import shutil
 import subprocess
 import sys
 import urllib.request
+from typing import NamedTuple
 
 import markdown
 
@@ -83,8 +86,13 @@ INSTRUCTIONS = [
 ]
 
 # The order the sidebar lists the documentation in, which is doc/README.md's order rather than
-# the alphabetical one: it goes from why the project exists to how a release is cut. A file that
-# is added and not listed here still appears, at the end, rather than vanishing silently.
+# the alphabetical one: it goes from why the project exists to how a release is cut, and ends with
+# the privacy policy and the terms. A file that is added and not listed here still appears, at the
+# end, rather than vanishing silently -- which is how `deployment` once ended up after the terms.
+#
+# An entry is a page (doc/<name>.md) or a chapter (doc/<name>/, with an index.md and sub-pages).
+# A chapter's sub-pages are ordered by its own index.md -- the order it links to them in -- so the
+# reading order is written down once, where a reader sees it, rather than here a second time.
 DOC_ORDER = [
     "purpose",
     "architecture",
@@ -92,6 +100,7 @@ DOC_ORDER = [
     "authentication",
     "local-development",
     "testing",
+    "deployment",
     "releasing",
     "decisions",
     "privacy",
@@ -354,6 +363,9 @@ def site_path(repo_relative: str) -> str | None:
         return repo_relative
     if repo_relative == "doc":
         return "doc/"
+    # A chapter directory, linked as a whole: its index page.
+    if repo_relative.startswith("doc/") and (REPO / repo_relative.rstrip("/") / "index.md").is_file():
+        return repo_relative.rstrip("/") + "/"
     if repo_relative.startswith("doc/") and repo_relative.endswith(".md"):
         stem = repo_relative[len("doc/"):-len(".md")]
         return "doc/index.html" if stem == "README" else f"doc/{stem}.html"
@@ -412,12 +424,38 @@ def check_links(site: pathlib.Path) -> None:
     print("every internal link resolves")
 
 
-def doc_pages() -> list[tuple[str, str]]:
-    """Every documentation page as (slug, title), in reading order rather than alphabetical."""
-    slugs = sorted(path.stem for path in DOCS.glob("*.md") if path.stem != "README")
-    ordered = [slug for slug in DOC_ORDER if slug in slugs]
-    ordered += [slug for slug in slugs if slug not in DOC_ORDER]
-    return [(slug, first_heading(DOCS / f"{slug}.md")) for slug in ordered]
+class DocPage(NamedTuple):
+    """One page of the documentation: `key` is its path under doc/ without `.md`."""
+    key: str
+    title: str
+    children: tuple["DocPage", ...] = ()
+
+
+def chapter_order(chapter: pathlib.Path) -> list[str]:
+    """A chapter's sub-pages, in the order its index.md links to them, then any it does not."""
+    stems = {path.stem for path in chapter.glob("*.md") if path.stem != "index"}
+    linked = re.findall(r"\]\(([a-z0-9-]+)\.md[#)]", (chapter / "index.md").read_text())
+    ordered = list(dict.fromkeys(stem for stem in linked if stem in stems))
+    return ordered + sorted(stems - set(ordered))
+
+
+def doc_pages() -> list[DocPage]:
+    """Every documentation page, chapters with their sub-pages, in reading order."""
+    entries = {path.stem for path in DOCS.glob("*.md") if path.stem != "README"}
+    entries |= {path.parent.name for path in DOCS.glob("*/index.md")}
+    ordered = [name for name in DOC_ORDER if name in entries]
+    ordered += sorted(entries - set(DOC_ORDER))
+    pages = []
+    for name in ordered:
+        chapter = DOCS / name
+        if (chapter / "index.md").is_file():
+            children = tuple(
+                DocPage(f"{name}/{stem}", first_heading(chapter / f"{stem}.md")) for stem in chapter_order(chapter)
+            )
+            pages.append(DocPage(f"{name}/index", first_heading(chapter / "index.md"), children))
+        else:
+            pages.append(DocPage(name, first_heading(DOCS / f"{name}.md")))
+    return pages
 
 
 def first_heading(path: pathlib.Path) -> str:
@@ -428,32 +466,42 @@ def first_heading(path: pathlib.Path) -> str:
     return path.stem
 
 
-def sidebar(pages: list[tuple[str, str]], section: str, current: str) -> str:
+def sidebar(pages: list[DocPage], section: str, current: str, depth: int) -> str:
     """
     The navigation both sections share, marking the page being read.
 
-    Links are written `../doc/...` and `../instructions/...` rather than as bare file names,
-    because the same list is rendered into two directories and has to resolve from either.
+    Links are written from the site root (`../` once per level of `depth`) because the same list
+    is rendered into pages at different depths and has to resolve from each. A chapter shows its
+    sub-pages only while one of its pages is being read, so the list stays short.
     """
-    def group(heading: str, directory: str, items: list[tuple[str, str]]) -> str:
-        links = "\n      ".join(
-            f'<li><a href="../{directory}/{slug}.html"'
-            f'{" aria-current=\"page\"" if section == directory and slug == current else ""}>'
-            f"{html.escape(title)}</a></li>"
-            for slug, title in items
-        )
-        return f"    <h2>{heading}</h2>\n    <ul>\n      {links}\n    </ul>"
+    up = "../" * depth
 
-    documentation = group("Documentation", "doc", [("index", "Overview")] + pages)
-    instructions = group(
-        "Instructions to Claude", "instructions", [(slug, label) for slug, _, label in INSTRUCTIONS]
+    def item(directory: str, key: str, title: str, children: tuple[DocPage, ...] = ()) -> str:
+        here = section == directory and key == current
+        link = (f'<a href="{up}{directory}/{key}.html"{" aria-current=\"page\"" if here else ""}>'
+                f"{html.escape(title)}</a>")
+        open_chapter = section == directory and current.split("/")[0] == key.split("/")[0]
+        if children and open_chapter:
+            nested = "".join(item(directory, child.key, child.title) for child in children)
+            return f'<li>{link}<ul class="sidebar__chapter">{nested}</ul></li>'
+        return f"<li>{link}</li>"
+
+    documentation = "\n      ".join(
+        [item("doc", "index", "Overview")] + [item("doc", p.key, p.title, p.children) for p in pages]
     )
+    instructions = "\n      ".join(item("instructions", slug, label) for slug, _, label in INSTRUCTIONS)
     return f"""  <aside class="sidebar">
-{documentation}
-{instructions}
+    <h2>Documentation</h2>
+    <ul>
+      {documentation}
+    </ul>
+    <h2>Instructions to Claude</h2>
+    <ul>
+      {instructions}
+    </ul>
     <h2>Reference</h2>
     <ul>
-      <li><a href="../api/">API contract</a></li>
+      <li><a href="{up}api/">API contract</a></li>
       <li><a href="{REPO_URL}">Source on GitHub</a></li>
     </ul>
   </aside>"""
@@ -516,22 +564,23 @@ def render_markdown(source: pathlib.Path, *, base: str, depth: int) -> str:
 
 def write_page(
     target: pathlib.Path, *, title: str, description: str, section: str, slug: str,
-    body: str, pages: list[tuple[str, str]],
+    body: str, pages: list[DocPage], depth: int = 1,
 ) -> None:
-    """One page in a sidebar-bearing section."""
+    """One page in a sidebar-bearing section, `depth` directories below the site root."""
+    target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(
         page(
             title=f"{title} · {PROJECT}",
             description=description,
-            depth=1,
+            depth=depth,
             current=section,
-            body=f'  <div class="layout">\n{sidebar(pages, section, slug)}\n'
+            body=f'  <div class="layout">\n{sidebar(pages, section, slug, depth)}\n'
             f'  <main class="prose">\n{body}\n  </main>\n  </div>',
         )
     )
 
 
-def build_docs(site: pathlib.Path, pages: list[tuple[str, str]]) -> None:
+def build_docs(site: pathlib.Path, pages: list[DocPage]) -> None:
     """Renders doc/ into doc/ on the site, each page carrying the shared sidebar."""
     out = site / "doc"
     out.mkdir(parents=True, exist_ok=True)
@@ -540,22 +589,25 @@ def build_docs(site: pathlib.Path, pages: list[tuple[str, str]]) -> None:
     for drawing in sorted(IMAGES.glob("*.svg")):
         shutil.copyfile(drawing, out / "images" / drawing.name)
 
-    sources = [("index", DOCS / "README.md")] + [(slug, DOCS / f"{slug}.md") for slug, _ in pages]
-    for slug, source in sources:
+    keys = ["index"] + [key for p in pages for key in [p.key] + [c.key for c in p.children]]
+    sources = [(key, DOCS / ("README.md" if key == "index" else f"{key}.md")) for key in keys]
+    for key, source in sources:
         title = first_heading(source)
+        depth = 1 + key.count("/")
         write_page(
-            out / f"{slug}.html",
+            out / f"{key}.html",
             title=title,
             description=f"{title} — project documentation for {PROJECT}.",
             section="doc",
-            slug=slug,
-            body=render_markdown(source, base="doc", depth=1),
+            slug=key,
+            body=render_markdown(source, base=posixpath.dirname(f"doc/{key}"), depth=depth),
             pages=pages,
+            depth=depth,
         )
     print(f"rendered {len(sources)} documentation pages")
 
 
-def build_instructions(site: pathlib.Path, pages: list[tuple[str, str]]) -> None:
+def build_instructions(site: pathlib.Path, pages: list[DocPage]) -> None:
     """
     Renders the CLAUDE.md files, which are the working agreement this repository is built under.
 

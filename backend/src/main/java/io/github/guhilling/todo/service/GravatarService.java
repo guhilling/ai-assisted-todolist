@@ -23,7 +23,7 @@ import org.jboss.logging.Logger;
  *
  * <p>It does not make the browser's request go away. The page still loads the image from
  * gravatar.com afterwards, so a third party still learns the reader's address and a hash of
- * their email. What this buys is a truthful answer, not privacy; {@code doc/decisions.md}
+ * their email. What this buys is a truthful answer, not privacy; {@code doc/decisions/authentication.md}
  * records that trade rather than leaving it implied.</p>
  *
  * <p>Two things keep it from being a liability on the sign-in path. The result is cached, or
