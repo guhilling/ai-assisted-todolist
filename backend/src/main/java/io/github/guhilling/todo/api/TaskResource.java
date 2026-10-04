@@ -26,6 +26,7 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import java.time.LocalDate;
 import java.util.List;
+import io.quarkus.oidc.IdToken;
 import org.eclipse.microprofile.jwt.JsonWebToken;
 import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.eclipse.microprofile.openapi.annotations.enums.SchemaType;
@@ -60,7 +61,13 @@ public class TaskResource {
           "state": "TODO"
         }""";
 
+    /**
+     * The ID token, deliberately: a bare {@code JsonWebToken} is the access token, which Google
+     * issues opaque, so reading claims from it failed every signed-in request in qa.
+     * {@code ClaimsComeFromTheIdTokenTest} holds every class to this.
+     */
     @Inject
+    @IdToken
     JsonWebToken jwt;
 
     @Inject

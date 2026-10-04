@@ -19,6 +19,7 @@ import jakarta.ws.rs.core.Response;
 import java.net.URI;
 import java.util.List;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
+import io.quarkus.oidc.IdToken;
 import org.eclipse.microprofile.jwt.JsonWebToken;
 import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.eclipse.microprofile.openapi.annotations.media.Content;
@@ -57,7 +58,13 @@ public class AuthResource {
 
     private static final String SESSION_COOKIE = "q_session";
 
+    /**
+     * The ID token, deliberately: a bare {@code JsonWebToken} is the access token, which Google
+     * issues opaque, so reading claims from it failed every signed-in request in qa.
+     * {@code ClaimsComeFromTheIdTokenTest} holds every class to this.
+     */
     @Inject
+    @IdToken
     JsonWebToken jwt;
 
     @Inject
