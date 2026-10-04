@@ -108,6 +108,17 @@
       <property name="ignoreSetter" value="true"/>
     </module>
     <module name="IllegalInstantiation"/>
+    <!-- No java.lang.System in production code. Configuration comes through MicroProfile
+         Config, logging through JBoss Logging, time through java.time, and the process
+         belongs to Quarkus; each System call bypasses one of those, untestably. The
+         plugin checks main sources only, so tests may still measure with System. -->
+    <module name="RegexpSinglelineJava">
+      <property name="id" value="noSystemCalls"/>
+      <property name="format" value="\bSystem\s*\.|\bjava\.lang\.System\b"/>
+      <property name="ignoreComments" value="true"/>
+      <property name="message"
+                value="No java.lang.System in production code: use Config, Logger, java.time or Quarkus instead."/>
+    </module>
     <module name="InnerAssignment"/>
     <module name="MagicNumber"/>
     <module name="MissingSwitchDefault"/>
