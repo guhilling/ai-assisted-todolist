@@ -12,6 +12,10 @@ import { defineConfig } from 'vite'
  *
  * `cssCodeSplit: false` puts every imported stylesheet into one file, which is what a
  * consumer wants to link -- the tokens and the class vocabulary in a single import.
+ *
+ * `cssFileName` pins that file's name. Vite would otherwise take it from the package name in
+ * `package.json`, so renaming the package would silently move the stylesheet out from under
+ * the `./styles.css` export, Frontend CI and `.design-sync/config.json`.
  */
 export default defineConfig({
   plugins: [react()],
@@ -26,6 +30,7 @@ export default defineConfig({
       entry: 'src/design-system.ts',
       formats: ['es'],
       fileName: () => 'index.js',
+      cssFileName: 'frontend',
     },
     rollupOptions: {
       external: ['react', 'react-dom', 'react/jsx-runtime'],

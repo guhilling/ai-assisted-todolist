@@ -1,0 +1,373 @@
+package de.hilling.taskfest.api;
+
+import de.hilling.taskfest.model.Task;
+import de.hilling.taskfest.model.TaskImportance;
+import de.hilling.taskfest.model.TaskState;
+import de.hilling.taskfest.model.User;
+import io.quarkus.narayana.jta.QuarkusTransaction;
+import io.quarkus.test.junit.QuarkusTest;
+import io.quarkus.test.security.TestSecurity;
+import io.quarkus.test.security.oidc.Claim;
+import io.quarkus.test.security.oidc.OidcSecurity;
+import io.restassured.http.ContentType;
+import java.time.LocalDate;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.stream.Stream;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
+
+import static io.restassured.RestAssured.given;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.not;
+
+/**
+ * Covers the task board's REST contract with identity faked by {@code @TestSecurity}.
+ *
+ * <p>Injecting the email claim directly keeps these tests fast and lets them assert the
+ * ownership rules from several identities without a login round trip. The price is that
+ * they prove nothing about the sign-in flow itself -- that is
+ * {@link KeycloakLoginFlowTest}'s job, which drives the same endpoints through a real
+ * authorization code exchange.</p>
+ */
+@QuarkusTest
+class TaskResourceTest {
+
+    private static final String ALICE = "alice@example.com";
+
+    @Test
+    void shouldRejectAnonymousRequests() {
+        given()
+            .header("X-Requested-With", "JavaScript")
+            .when().get("/api/tasks")
+            .then()
+            .statusCode(not(200));
+    }
+
+    @Test
+    @TestSecurity(user = ALICE)
+    @OidcSecurity(claims = { @Claim(key = "email", value = ALICE) })
+    void shouldCreateTaskOwnedByCurrentUser() {
+        String description = "Write the report " + UUID.randomUUID();
+
+        given()
+            .contentType(ContentType.JSON)
+            .body(Map.of(
+                "description", description,
+                "dueDate", LocalDate.now().plusDays(3).toString(),
+                "importance", TaskImportance.HIGH.name(),
+                "state", TaskState.TODO.name()))
+            .when().post("/api/tasks")
+            .then()
+            .statusCode(201)
+            .body("description", equalTo(description));
+
+        given()
+            .when().get("/api/tasks")
+            .then()
+            .statusCode(200)
+            .body("find { it.description == '" + description + "' }.importance", equalTo(TaskImportance.HIGH.name()));
+    }
+
+    @Test
+    @TestSecurity(user = ALICE)
+    @OidcSecurity(claims = { @Claim(key = "email", value = ALICE) })
+    void shouldNotListOtherUsersTasks() {
+        String aliceDescription = "Alice only task " + UUID.randomUUID();
+        String othersDescription = "Other user's task " + UUID.randomUUID();
+        seedTaskForOtherUser(othersDescription);
+
+        given()
+            .contentType(ContentType.JSON)
+            .body(Map.of(
+                "description", aliceDescription,
+                "dueDate", LocalDate.now().plusDays(2).toString(),
+                "importance", TaskImportance.MEDIUM.name(),
+                "state", TaskState.TODO.name()))
+            .when().post("/api/tasks")
+            .then()
+            .statusCode(201);
+
+        given()
+            .when().get("/api/tasks")
+            .then()
+            .statusCode(200)
+            .body("description", hasItem(aliceDescription))
+            .body("description", not(hasItem(othersDescription)));
+    }
+
+    @Test
+    @TestSecurity(user = ALICE)
+    @OidcSecurity(claims = { @Claim(key = "email", value = ALICE) })
+    void shouldReturn404UpdatingAnotherUsersTask() {
+        Long otherUsersTaskId = seedTaskForOtherUser("Someone else's task " + UUID.randomUUID());
+
+        given()
+            .contentType(ContentType.JSON)
+            .body(Map.of(
+                "description", "attempted takeover",
+                "dueDate", LocalDate.now().plusDays(1).toString(),
+                "importance", TaskImportance.LOW.name(),
+                "state", TaskState.DONE.name()))
+            .when().put("/api/tasks/{id}", otherUsersTaskId)
+            .then()
+            .statusCode(404);
+    }
+
+    @Test
+    @TestSecurity(user = ALICE)
+    @OidcSecurity(claims = { @Claim(key = "email", value = ALICE) })
+    void shouldDeleteOwnTask() {
+        Long taskId = createTask("Delete me " + UUID.randomUUID(), LocalDate.now().plusDays(4),
+            TaskImportance.LOW, TaskState.TODO);
+
+        given()
+            .when().delete("/api/tasks/{id}", taskId)
+            .then()
+            .statusCode(204);
+
+        given()
+            .when().get("/api/tasks")
+            .then()
+            .statusCode(200)
+            .body("id", not(hasItem(taskId.intValue())));
+    }
+
+    @Test
+    @TestSecurity(user = ALICE)
+    @OidcSecurity(claims = { @Claim(key = "email", value = ALICE) })
+    void shouldReturn404DeletingAnotherUsersTaskAndLeaveItWhereItWas() {
+        Long otherUsersTaskId = seedTaskForOtherUser("Someone else's task " + UUID.randomUUID());
+
+        given()
+            .when().delete("/api/tasks/{id}", otherUsersTaskId)
+            .then()
+            .statusCode(404);
+
+        // The status alone would also be produced by a route that does not exist. Checking the
+        // row survived is what makes this a test of ownership rather than of routing.
+        assertThat(taskCount(otherUsersTaskId), equalTo(1L));
+    }
+
+    @Test
+    @TestSecurity(user = ALICE)
+    @OidcSecurity(claims = { @Claim(key = "email", value = ALICE) })
+    void shouldUpdateOwnTask() {
+        Long taskId = createTask("Before " + UUID.randomUUID(), LocalDate.now().plusDays(4),
+            TaskImportance.LOW, TaskState.TODO);
+        String updatedDescription = "After " + UUID.randomUUID();
+
+        given()
+            .contentType(ContentType.JSON)
+            .body(Map.of(
+                "description", updatedDescription,
+                "dueDate", LocalDate.now().plusDays(6).toString(),
+                "importance", TaskImportance.HIGH.name(),
+                "state", TaskState.DONE.name()))
+            .when().put("/api/tasks/{id}", taskId)
+            .then()
+            .statusCode(200)
+            .body("id", equalTo(taskId.intValue()))
+            .body("description", equalTo(updatedDescription))
+            .body("importance", equalTo(TaskImportance.HIGH.name()))
+            .body("state", equalTo(TaskState.DONE.name()));
+
+        given()
+            .when().get("/api/tasks")
+            .then()
+            .statusCode(200)
+            .body("find { it.id == " + taskId + " }.state", equalTo(TaskState.DONE.name()));
+    }
+
+    /**
+     * A task whose due date has passed must still be completable.
+     *
+     * <p>This is the case the board is for: the whole point of ticking something off is that
+     * it is late. The due-date rule therefore applies to creating a task, not to changing
+     * one -- {@code @FutureOrPresent} on the update path made a task un-editable the day
+     * after it came due, and because the update replaces the whole task, that took the state
+     * change down with it.</p>
+     */
+    @Test
+    @TestSecurity(user = ALICE)
+    @OidcSecurity(claims = { @Claim(key = "email", value = ALICE) })
+    void shouldCompleteATaskWhoseDueDateHasPassed() {
+        String description = "Overdue " + UUID.randomUUID();
+        Long taskId = createTask(description, LocalDate.now().plusDays(3), TaskImportance.HIGH, TaskState.TODO);
+        LocalDate overdue = LocalDate.now().minusDays(2);
+        // A bulk update rather than loading and saving the entity: it goes straight to SQL,
+        // so the date can be moved into the past without any validation having a say. That
+        // is the only way to arrange the state a real board reaches simply by waiting.
+        QuarkusTransaction.requiringNew().run(() -> Task.update("dueDate = ?1 where id = ?2", overdue, taskId));
+
+        given()
+            .contentType(ContentType.JSON)
+            .body(Map.of(
+                "description", description,
+                "dueDate", overdue.toString(),
+                "importance", TaskImportance.HIGH.name(),
+                "state", TaskState.DONE.name()))
+            .when().put("/api/tasks/{id}", taskId)
+            .then()
+            .statusCode(200)
+            .body("state", equalTo(TaskState.DONE.name()))
+            .body("dueDate", equalTo(overdue.toString()));
+
+        given()
+            .when().get("/api/tasks")
+            .then()
+            .statusCode(200)
+            .body("find { it.id == " + taskId + " }.state", equalTo(TaskState.DONE.name()));
+    }
+
+    @ParameterizedTest(name = "rejects {0}")
+    @MethodSource("invalidTaskRequests")
+    @TestSecurity(user = ALICE)
+    @OidcSecurity(claims = { @Claim(key = "email", value = ALICE) })
+    void shouldRejectAnInvalidTaskRequest(String reason, String body) {
+        given()
+            .contentType(ContentType.JSON)
+            .body(body)
+            .when().post("/api/tasks")
+            .then()
+            .statusCode(400);
+    }
+
+    static Stream<Arguments> invalidTaskRequests() {
+        String tomorrow = LocalDate.now().plusDays(1).toString();
+        return Stream.of(
+            Arguments.of("a blank description", taskJson("", tomorrow, TaskImportance.MEDIUM, TaskState.TODO)),
+            Arguments.of("a description past the column length",
+                taskJson("x".repeat(Task.MAX_DESCRIPTION_LENGTH + 1), tomorrow,
+                    TaskImportance.MEDIUM, TaskState.TODO)),
+            Arguments.of("a due date in the past",
+                taskJson("Yesterday's job", LocalDate.now().minusDays(1).toString(),
+                    TaskImportance.MEDIUM, TaskState.TODO)),
+            Arguments.of("no importance", taskJson("Unrated job", tomorrow, null, TaskState.TODO)),
+            Arguments.of("no state", taskJson("Stateless job", tomorrow, TaskImportance.MEDIUM, null)));
+    }
+
+    @Test
+    @TestSecurity(user = ALICE)
+    @OidcSecurity(claims = { @Claim(key = "email", value = ALICE) })
+    void shouldNotPersistARejectedTask() {
+        String description = "Rejected " + UUID.randomUUID();
+        int tasksBefore = ownTaskCount();
+
+        given()
+            .contentType(ContentType.JSON)
+            .body(taskJson(description, LocalDate.now().minusDays(1).toString(),
+                TaskImportance.HIGH, TaskState.TODO))
+            .when().post("/api/tasks")
+            .then()
+            .statusCode(400);
+
+        given()
+            .when().get("/api/tasks")
+            .then()
+            .body("description", not(hasItem(description)));
+        assertThat(ownTaskCount(), equalTo(tasksBefore));
+    }
+
+    @Test
+    @TestSecurity(user = ALICE)
+    @OidcSecurity(claims = { @Claim(key = "email", value = ALICE) })
+    void shouldListTasksInDueDateOrder() {
+        String marker = "ordering-" + UUID.randomUUID();
+        createTask(marker + " third", LocalDate.now().plusDays(9), TaskImportance.LOW, TaskState.TODO);
+        createTask(marker + " first", LocalDate.now().plusDays(3), TaskImportance.LOW, TaskState.TODO);
+        createTask(marker + " second", LocalDate.now().plusDays(6), TaskImportance.LOW, TaskState.TODO);
+
+        List<String> ordered = given()
+            .when().get("/api/tasks")
+            .then()
+            .statusCode(200)
+            .extract().jsonPath().getList("description", String.class)
+            .stream()
+            .filter(description -> description.startsWith(marker))
+            .toList();
+
+        assertThat(ordered, equalTo(List.of(marker + " first", marker + " second", marker + " third")));
+    }
+
+    @Test
+    void shouldRejectAnonymousWrites() {
+        given()
+            .header("X-Requested-With", "JavaScript")
+            .contentType(ContentType.JSON)
+            .body(taskJson("Anonymous job", LocalDate.now().plusDays(1).toString(),
+                TaskImportance.HIGH, TaskState.TODO))
+            .when().post("/api/tasks")
+            .then()
+            .statusCode(not(201));
+
+        given()
+            .header("X-Requested-With", "JavaScript")
+            .when().delete("/api/tasks/{id}", 1)
+            .then()
+            .statusCode(not(204));
+    }
+
+    private static Long createTask(
+        String description, LocalDate dueDate, TaskImportance importance, TaskState state) {
+        return given()
+            .contentType(ContentType.JSON)
+            .body(Map.of(
+                "description", description,
+                "dueDate", dueDate.toString(),
+                "importance", importance.name(),
+                "state", state.name()))
+            .when().post("/api/tasks")
+            .then()
+            .statusCode(201)
+            .extract().jsonPath().getLong("id");
+    }
+
+    /**
+     * Builds a request body as text rather than as a map, so a null enum can be sent -- which
+     * is one of the shapes the validation constraints exist to reject.
+     *
+     * <p>The enums are still enums here, and null still means null; quoting happens in
+     * {@link #jsonValue} so no test has to spell a constant's name, or escape a quote, itself.</p>
+     */
+    private static String taskJson(String description, String dueDate, TaskImportance importance, TaskState state) {
+        return """
+            {"description":"%s","dueDate":"%s","importance":%s,"state":%s}"""
+            .formatted(description, dueDate, jsonValue(importance), jsonValue(state));
+    }
+
+    /** One enum constant as a JSON value, or the JSON null a missing one has to be sent as. */
+    private static String jsonValue(Enum<?> value) {
+        return value == null ? "null" : "\"" + value.name() + "\"";
+    }
+
+    private static int ownTaskCount() {
+        return given().when().get("/api/tasks").then().statusCode(200).extract().jsonPath().getList("$").size();
+    }
+
+    private static long taskCount(Long taskId) {
+        return QuarkusTransaction.requiringNew().call(() -> Task.count("id", taskId));
+    }
+
+    private static Long seedTaskForOtherUser(String description) {
+        return QuarkusTransaction.requiringNew().call(() -> {
+            User owner = new User();
+            owner.email = "owner-" + UUID.randomUUID() + "@example.com";
+            owner.persist();
+
+            Task task = new Task();
+            task.description = description;
+            task.dueDate = LocalDate.now().plusDays(5);
+            task.importance = TaskImportance.MEDIUM;
+            task.state = TaskState.TODO;
+            task.owner = owner;
+            task.persist();
+            return task.id;
+        });
+    }
+}
