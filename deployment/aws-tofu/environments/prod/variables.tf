@@ -61,3 +61,8 @@ variable "blue_green_bake_minutes" {
   description = "How long both versions run after a blue/green switch, for an instant rollback."
   type        = number
 }
+
+variable "deregistration_delay_seconds" {
+  description = "How long a target leaving the load balancer keeps its connections; every rollout waits on it."
+  type        = number
+}
