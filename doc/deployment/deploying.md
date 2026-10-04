@@ -25,7 +25,7 @@ The SPA deploys as `aws s3 sync` of a **release artifact**, the same way `openap
 attached to each release. Rolling the frontend back is re-syncing the previous release, which is
 why the build has to be an artifact rather than something rebuilt at deploy time.
 
-**This half exists** (#119). `release.yml` attaches `todo-frontend-<version>.tar.gz`, the built
+**This half exists** (#119). `release.yml` attaches `taskfest-frontend-<version>.tar.gz`, the built
 `dist/`, to every release, and **`deploy-frontend.yml`** — started by hand from the Actions tab
 with an environment and a tag — syncs it into that environment's site bucket as the deploy role.
 It uploads in three passes so no viewer ever sees an `index.html` naming an asset that is not

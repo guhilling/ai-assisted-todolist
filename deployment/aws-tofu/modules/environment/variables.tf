@@ -132,7 +132,7 @@ variable "backend_image" {
     the tasks pull it over their public IP.
   EOT
   type        = string
-  default     = "quay.io/ghilling/todo-backend:latest"
+  default     = "quay.io/ghilling/taskfest-backend:latest"
 }
 
 variable "hostname" {

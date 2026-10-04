@@ -50,7 +50,7 @@ services:
       retries: 40
 
   backend:
-    image: ${BACKEND_IMAGE:-quay.io/ghilling/todo-backend:latest}
+    image: ${BACKEND_IMAGE:-quay.io/ghilling/taskfest-backend:latest}
     environment:
       QUARKUS_DATASOURCE_JDBC_URL: jdbc:postgresql://postgres:5432/taskfest
       QUARKUS_DATASOURCE_USERNAME: taskfest
@@ -80,7 +80,7 @@ services:
       retries: 24
 
   frontend:
-    image: ${FRONTEND_IMAGE:-todo-frontend:e2e}
+    image: ${FRONTEND_IMAGE:-taskfest-frontend:e2e}
     depends_on:
       backend:
         condition: service_healthy
