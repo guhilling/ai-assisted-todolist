@@ -99,13 +99,13 @@ jobs:
         # deploy-frontend.yml -- built once here and never rebuilt at deploy time, which is what
         # makes rolling back the frontend "deploy the previous release" (doc/deployment/deploying.md).
         # The archive holds the contents of dist/, not the directory.
-        run: tar -czf "todo-frontend-${{ steps.version.outputs.version }}.tar.gz" -C frontend/dist .
+        run: tar -czf "taskfest-frontend-${{ steps.version.outputs.version }}.tar.gz" -C frontend/dist .
 
       - name: Upload the frontend build
         uses: actions/upload-artifact@v7
         with:
           name: frontend-build
-          path: todo-frontend-${{ steps.version.outputs.version }}.tar.gz
+          path: taskfest-frontend-${{ steps.version.outputs.version }}.tar.gz
 
   publish:
     name: Publish ${{ matrix.name }} image
@@ -165,7 +165,7 @@ jobs:
         if: matrix.name == 'frontend'
         run: >
           docker buildx build --push
-          --tag quay.io/ghilling/todo-frontend:${{ needs.gate.outputs.version }}
+          --tag quay.io/ghilling/taskfest-frontend:${{ needs.gate.outputs.version }}
           -f docker/Dockerfile .
 
   announce:
@@ -219,7 +219,7 @@ jobs:
       - name: Attach the frontend build to the release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload "$GITHUB_REF_NAME" frontend-build/todo-frontend-*.tar.gz
+        run: gh release upload "$GITHUB_REF_NAME" frontend-build/taskfest-frontend-*.tar.gz
 
       - name: Publish the new version on Pages
         env:

@@ -99,8 +99,8 @@ the backend build enforces them.
 
 ## Repository layout
 
-- `backend/` — Quarkus REST API, published as `quay.io/ghilling/todo-backend`
-- `frontend/` — React + TypeScript SPA, published as `quay.io/ghilling/todo-frontend`
+- `backend/` — Quarkus REST API, published as `quay.io/ghilling/taskfest-backend`
+- `frontend/` — React + TypeScript SPA, published as `quay.io/ghilling/taskfest-frontend`
 - `e2e/` — Playwright browser tests driving the whole stack through a real sign-in
 - `keycloak/` — realm export with the local test accounts, shared by Dev Services and CI
 - `deployment/` — everything that deploys the app: `docker/` for the Compose stacks,
@@ -158,8 +158,8 @@ git tag v1.0.0 && git push origin v1.0.0
 That is the whole procedure. No version is written down anywhere else: the backend's
 `pom.xml` carries `${revision}`, which the release build overrides from the tag, and the
 frontend package is private and never published. `release.yml` then refuses SNAPSHOT and
-pre-release dependencies, runs both suites, publishes `quay.io/ghilling/todo-backend:1.0.0`
-and `todo-frontend:1.0.0`, and opens a GitHub Release. Details, including why `latest` is
+pre-release dependencies, runs both suites, publishes `quay.io/ghilling/taskfest-backend:1.0.0`
+and `taskfest-frontend:1.0.0`, and opens a GitHub Release. Details, including why `latest` is
 not moved, are in [doc/releasing.md](doc/releasing.md).
 
 ## Dependencies

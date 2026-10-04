@@ -17,12 +17,12 @@ jobs:
         include:
           - name: backend
             context: backend
-            image: quay.io/ghilling/todo-backend
+            image: quay.io/ghilling/taskfest-backend
             build-command: ./mvnw -B package -DskipTests -Dquarkus.container-image.build=true -Dquarkus.container-image.push=true
           - name: frontend
             context: frontend
-            image: quay.io/ghilling/todo-frontend
-            build-command: docker buildx build --push --tag quay.io/ghilling/todo-frontend:latest -f docker/Dockerfile .
+            image: quay.io/ghilling/taskfest-frontend
+            build-command: docker buildx build --push --tag quay.io/ghilling/taskfest-frontend:latest -f docker/Dockerfile .
     defaults:
       run:
         working-directory: ${{ matrix.context }}

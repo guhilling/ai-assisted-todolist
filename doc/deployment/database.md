@@ -71,7 +71,7 @@ along with the data.
 instead of serving. It logs in exactly as the application will, with `verify-full` against the RDS
 bundle that `backend/src/main/jib/opt/rds/` puts in the image, so a run that exits 0 proves the
 whole path: the user exists, RDS accepts the token, and the certificate checks out. Both commands
-print the task's log and exit with its exit code. The tasks run `quay.io/ghilling/todo-backend:latest`
+print the task's log and exit with its exit code. The tasks run `quay.io/ghilling/taskfest-backend:latest`
 until the deploy change pins a release.
 
 **A restore needs its managed password re-established.** For PostgreSQL, RDS cannot turn on

@@ -29,8 +29,14 @@ trigger matches those two shapes only, so an unrelated tag does not start a rele
 | Job | What it does |
 | --- | --- |
 | `gate` | Derives the version, refuses a tag that is not on `main`, then runs the full backend `verify` and the full frontend suite at the release version, and packs the frontend build |
-| `publish` | Builds and pushes `todo-backend` and `todo-frontend` to Quay, tagged with the version |
-| `announce` | Creates the GitHub Release, with notes generated from the pull requests since the previous release, and attaches the API contract and `todo-frontend-<version>.tar.gz` — the build `deploy-frontend.yml` puts into a site bucket |
+| `publish` | Builds and pushes `taskfest-backend` and `taskfest-frontend` to Quay, tagged with the version |
+| `announce` | Creates the GitHub Release, with notes generated from the pull requests since the previous release, and attaches the API contract and `taskfest-frontend-<version>.tar.gz` — the build `deploy-frontend.yml` puts into a site bucket |
+
+**Releases up to v0.2.0 carry the old name.** Their images are `quay.io/ghilling/todo-backend`
+and `todo-frontend`, and their frontend archive is `todo-frontend-<version>.tar.gz`; everything
+after the rename to TaskFest (#128) is `taskfest-*`. The old Quay repositories stay as they are,
+and `deploy-frontend.yml` accepts either archive name, so an old release can still be deployed
+for a rollback.
 
 `gate` runs everything again rather than trusting the CI run on `main`. That is deliberate:
 `backend-ci.yml` and `frontend-ci.yml` are path-filtered, so for any given commit on `main`

@@ -5,7 +5,7 @@ have to exist first:
 
 ```bash
 cd backend && ./mvnw package -DskipTests -Dquarkus.container-image.build=true && cd ..
-cd frontend && docker build -f docker/Dockerfile -t todo-frontend:e2e . && cd ..
+cd frontend && docker build -f docker/Dockerfile -t taskfest-frontend:e2e . && cd ..
 
 docker compose -f deployment/docker/docker-compose.e2e.yml up -d --wait
 

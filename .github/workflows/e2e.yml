@@ -46,7 +46,7 @@ jobs:
 
       - name: Build the frontend image
         working-directory: frontend
-        run: docker build -f docker/Dockerfile -t todo-frontend:e2e .
+        run: docker build -f docker/Dockerfile -t taskfest-frontend:e2e .
 
       - name: Start the stack
         run: docker compose -f deployment/docker/docker-compose.e2e.yml up -d --wait

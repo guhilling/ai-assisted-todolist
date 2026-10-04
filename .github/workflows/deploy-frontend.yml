@@ -54,11 +54,21 @@ jobs:
       - name: Download the release's frontend build
         env:
           GH_TOKEN: ${{ github.token }}
+        # The asset is taskfest-frontend-<version>.tar.gz. Releases up to v0.2.0 named it
+        # todo-frontend-<version>.tar.gz, before the rename to TaskFest (#128), and must stay
+        # deployable for a rollback -- hence the pattern matching both, and the check that it
+        # found exactly one.
         run: |
           gh release download "$VERSION" --repo "$GITHUB_REPOSITORY" \
-            --pattern "todo-frontend-${VERSION#v}.tar.gz" --dir release
+            --pattern "*-frontend-${VERSION#v}.tar.gz" --dir release
+          shopt -s nullglob
+          archives=(release/*-frontend-"${VERSION#v}".tar.gz)
+          if [ "${#archives[@]}" -ne 1 ]; then
+            echo "::error::expected one frontend archive in $VERSION, found ${#archives[@]}"
+            exit 1
+          fi
           mkdir site
-          tar -xzf "release/todo-frontend-${VERSION#v}.tar.gz" -C site
+          tar -xzf "${archives[0]}" -C site
           ls -la site
 
       - uses: aws-actions/configure-aws-credentials@v6
