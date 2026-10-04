@@ -35,14 +35,16 @@
 
 * { box-sizing: border-box; }
 
-html { scroll-behavior: smooth; }
+/* 18px rather than the browser's 16: the documentation is long-form reading. Set on the root, so
+   everything sized in rem -- headings, sidebar, code, the layout widths -- grows in proportion. */
+html { scroll-behavior: smooth; font-size: 112.5%; }
 
 body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
   font-family: var(--sans);
-  font-size: 16px;
+  font-size: 1rem;
   line-height: 1.65;
   -webkit-font-smoothing: antialiased;
 }
@@ -211,8 +213,23 @@ pre code { padding: 0; background: none; border: 0; white-space: pre; }
 }
 .sidebar ul { list-style: none; margin: 0 0 2rem; padding: 0; }
 .sidebar li { margin: 0; }
-/* A chapter's sub-pages, shown while one of its pages is open. */
-.sidebar ul.sidebar__chapter { margin: 0.1rem 0 0.4rem 0.9rem; padding-left: 0.6rem; border-left: 1px solid var(--border); font-size: 0.9rem; }
+/* A chapter: marked as having sub-pages before anyone clicks it, open or closed. */
+.sidebar a.sidebar__has-pages::after { content: "\25B8"; margin-left: 0.4em; font-size: 0.95em; color: var(--muted); }
+.sidebar a.sidebar__has-pages[data-open]::after { content: "\25BE"; }
+/* Its sub-pages, shown while one of its pages is open: indented under it, smaller, and held
+   together by a line in the accent colour, so they read as part of the chapter, not as siblings. */
+.sidebar ul.sidebar__chapter {
+  margin: 0.15rem 0 0.6rem 0.55rem;
+  padding-left: 0.75rem;
+  border-left: 2px solid var(--accent-soft);
+  font-size: 0.88rem;
+}
+.sidebar ul.sidebar__chapter a { padding-top: 0.22rem; padding-bottom: 0.22rem; }
+
+/* Above a sub-page's heading: which chapter it belongs to, for when the sidebar is not in view. */
+.breadcrumb { margin: 0 0 0.6rem; font-size: 0.85rem; color: var(--muted); }
+.breadcrumb a { color: var(--muted); }
+.breadcrumb a:hover { color: var(--accent); }
 .sidebar a {
   display: block;
   padding: 0.3rem 0.7rem;
