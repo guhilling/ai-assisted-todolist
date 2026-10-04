@@ -4,8 +4,8 @@ The zone `cloud.hilling.de` already exists in Route 53.
 
 | Environment | Host |
 | --- | --- |
-| QA | `todolist-qa.cloud.hilling.de` |
-| Prod | `todolist.cloud.hilling.de` |
+| QA | `taskfest-qa.cloud.hilling.de` |
+| Prod | `taskfest.cloud.hilling.de` |
 
 Each is an A and AAAA alias record pointing at that environment's CloudFront distribution;
 alias records to CloudFront are not charged.
@@ -32,8 +32,8 @@ Fixed hostnames make these knowable now, so they can be set up once the environm
 The backend uses `quarkus.oidc.authentication.redirect-path=/api/auth/callback`, and `/api/*`
 routes through the same distribution, so the authorised redirect URIs are:
 
-- `https://todolist-qa.cloud.hilling.de/api/auth/callback`
-- `https://todolist.cloud.hilling.de/api/auth/callback`
+- `https://taskfest-qa.cloud.hilling.de/api/auth/callback`
+- `https://taskfest.cloud.hilling.de/api/auth/callback`
 
 This is manual configuration in the Google console and cannot be automated here.
 
@@ -41,12 +41,12 @@ This is manual configuration in the Google console and cannot be automated here.
 
 - **The client id** is in `terraform.tfvars` (`google_client_id`). It is not a secret — it travels
   in every sign-in redirect. Empty, as in prod for now, keeps sign-in off in that environment.
-- **The client secret** is `todolist-<env>-google-client-secret` in Secrets Manager. OpenTofu
+- **The client secret** is `taskfest-<env>-google-client-secret` in Secrets Manager. OpenTofu
   creates it **empty**; a person puts the value in, so it never passes through the repository or
   OpenTofu state:
 
   ```sh
-  aws secretsmanager put-secret-value --secret-id todolist-qa-google-client-secret \
+  aws secretsmanager put-secret-value --secret-id taskfest-qa-google-client-secret \
     --secret-string '<the client secret from the Google console>'
   ```
 
@@ -65,7 +65,7 @@ This is manual configuration in the Google console and cannot be automated here.
 
 Google's consent screen asks for an application home page, a privacy policy and terms of service,
 all under the authorised domain `hilling.de`. They are the GitHub Pages site, under
-**`https://todolist-docs.cloud.hilling.de/`**: the home page is the rendered README, and
+**`https://taskfest-docs.cloud.hilling.de/`**: the home page is the rendered README, and
 [`privacy.md`](../privacy.md) and [`terms.md`](../terms.md) are linked from the footer of every page.
 The name is a CNAME to `guhilling.github.io`, managed in the `account/` root
 (`docs_hostname`), and the repository's Pages settings name the same host, which is what makes

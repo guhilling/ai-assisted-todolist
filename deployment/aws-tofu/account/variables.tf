@@ -26,5 +26,5 @@ variable "docs_hostname" {
     github.io address is not.
   EOT
   type        = string
-  default     = "todolist-docs.cloud.hilling.de"
+  default     = "taskfest-docs.cloud.hilling.de"
 }

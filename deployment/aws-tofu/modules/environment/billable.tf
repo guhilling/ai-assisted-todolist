@@ -104,7 +104,7 @@ locals {
   }
 }
 
-# Creates todolist_<env> in the database, once. `./env.sh db-bootstrap <env>` runs it.
+# Creates taskfest_<env> in the database, once. `./env.sh db-bootstrap <env>` runs it.
 #
 # The only place the master credentials are ever used, and the only task that receives them:
 # ECS injects them from the RDS-managed secret when the task starts, so a rotation since the last

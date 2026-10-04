@@ -17,7 +17,7 @@ Stopping is not enough: a stopped RDS instance still bills storage *and AWS rest
 automatically after seven days*.
 
 **A down/up cycle keeps the data, not the instance.** `env.sh down` destroys the instance and
-leaves a final snapshot named `todolist-<env>-db-final-<timestamp>`; `env.sh up` looks up the
+leaves a final snapshot named `taskfest-<env>-db-final-<timestamp>`; `env.sh up` looks up the
 newest one and passes it as `db_restore_snapshot`, so the new instance starts from it. With no
 snapshot it starts empty, and it says which on screen. To start empty on purpose, or from an
 older snapshot, run the plan by hand with `-var db_restore_snapshot=…` (or `=null`). Snapshots
@@ -25,7 +25,7 @@ are never deleted automatically; at this size each is cents a month, and old one
 the console when wanted.
 
 **The application logs in with IAM, not a password.** The ECS task role
-(`todolist-<env>-task`) may `rds-db:connect` as one database user, `todolist_<env>`, and
+(`taskfest-<env>-task`) may `rds-db:connect` as one database user, `taskfest_<env>`, and
 nothing else. On every new connection `RdsIamCredentialsProvider` signs a token from the task
 role's credentials, valid for 15 minutes; RDS checks it against IAM. Nothing secret is configured,
 injected or rotated, and the counterpart on EKS would be a service account. The backend switches
@@ -38,14 +38,14 @@ state. Injecting it into the running service was rejected for exactly that rotat
 secret once, at task start, so a long-running task would keep the old password and fail on its
 next connection after a rotation.
 
-**Creating the database user is one command, once per environment.** `todolist_<env>` does not
+**Creating the database user is one command, once per environment.** `taskfest_<env>` does not
 exist until the master user creates it, and nothing outside the VPC can reach the database to do
 that, so it is a one-off ECS task:
 
 ```sh
 ./env.sh up qa             # the database, and the two task definitions that point at it
-./env.sh db-bootstrap qa   # creates todolist_qa: CREATE ROLE, GRANT rds_iam, schema grants
-./env.sh migrate qa        # Liquibase, logged in as todolist_qa with an IAM token
+./env.sh db-bootstrap qa   # creates taskfest_qa: CREATE ROLE, GRANT rds_iam, schema grants
+./env.sh migrate qa        # Liquibase, logged in as taskfest_qa with an IAM token
 ```
 
 `db-bootstrap` runs `psql` from the official PostgreSQL image (pulled from ECR Public's mirror,
@@ -70,5 +70,5 @@ instance comes back with the master password from the time of the snapshot, whos
 deleted with the old instance. The AWS provider follows the restore with a `ModifyDBInstance`
 that turns managed credentials back on and creates a new secret. That is expected rather than
 verified; if the first restore shows no `db_master_secret_arn`, the fallback is
-`aws rds modify-db-instance --db-instance-identifier todolist-<env>-db --manage-master-user-password --apply-immediately`.
+`aws rds modify-db-instance --db-instance-identifier taskfest-<env>-db --manage-master-user-password --apply-immediately`.
 

@@ -41,7 +41,7 @@ jobs:
     environment: ${{ inputs.environment }}
     env:
       VERSION: ${{ inputs.version }}
-      BUCKET: todolist-${{ inputs.environment }}-site
+      BUCKET: taskfest-${{ inputs.environment }}-site
     steps:
       - name: Refuse anything but a release tag
         # The input reaches a shell and a download; only the shape release.yml publishes gets in.
@@ -65,7 +65,7 @@ jobs:
         with:
           # The deploy role's ARN is not a secret: what protects it is its trust policy, which
           # names this repository and this GitHub environment.
-          role-to-assume: arn:aws:iam::808706946095:role/todolist-${{ inputs.environment }}-deploy
+          role-to-assume: arn:aws:iam::808706946095:role/taskfest-${{ inputs.environment }}-deploy
           aws-region: eu-central-1
 
       # Three passes, in this order, so that no viewer ever gets an index.html pointing at an
@@ -97,4 +97,4 @@ jobs:
       - name: Say what was deployed
         run: |
           echo "### Frontend $VERSION deployed to ${{ inputs.environment }}" >> "$GITHUB_STEP_SUMMARY"
-          echo "https://${{ inputs.environment == 'prod' && 'todolist' || format('todolist-{0}', inputs.environment) }}.cloud.hilling.de/" >> "$GITHUB_STEP_SUMMARY"
+          echo "https://${{ inputs.environment == 'prod' && 'taskfest' || format('taskfest-{0}', inputs.environment) }}.cloud.hilling.de/" >> "$GITHUB_STEP_SUMMARY"
