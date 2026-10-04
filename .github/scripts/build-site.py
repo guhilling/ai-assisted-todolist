@@ -478,10 +478,13 @@ def sidebar(pages: list[DocPage], section: str, current: str, depth: int) -> str
 
     def item(directory: str, key: str, title: str, children: tuple[DocPage, ...] = ()) -> str:
         here = section == directory and key == current
-        link = (f'<a href="{up}{directory}/{key}.html"{" aria-current=\"page\"" if here else ""}>'
+        open_chapter = bool(children) and section == directory and current.split("/")[0] == key.split("/")[0]
+        # A chapter is marked as one (sidebar__has-pages, with an arrow) whether open or not, so a
+        # reader can tell it holds sub-pages before clicking it.
+        attributes = (' class="sidebar__has-pages"' if children else "") + (" data-open" if open_chapter else "")
+        link = (f'<a href="{up}{directory}/{key}.html"{attributes}{" aria-current=\"page\"" if here else ""}>'
                 f"{html.escape(title)}</a>")
-        open_chapter = section == directory and current.split("/")[0] == key.split("/")[0]
-        if children and open_chapter:
+        if open_chapter:
             nested = "".join(item(directory, child.key, child.title) for child in children)
             return f'<li>{link}<ul class="sidebar__chapter">{nested}</ul></li>'
         return f"<li>{link}</li>"
@@ -591,16 +594,24 @@ def build_docs(site: pathlib.Path, pages: list[DocPage]) -> None:
 
     keys = ["index"] + [key for p in pages for key in [p.key] + [c.key for c in p.children]]
     sources = [(key, DOCS / ("README.md" if key == "index" else f"{key}.md")) for key in keys]
+    chapters = {p.key.split("/")[0]: p.title for p in pages if p.children}
     for key, source in sources:
         title = first_heading(source)
         depth = 1 + key.count("/")
+        chapter, _, page_name = key.partition("/")
+        # A sub-page says which chapter it belongs to, above its heading.
+        breadcrumb = (
+            f'<nav class="breadcrumb" aria-label="Chapter"><a href="index.html">'
+            f"{html.escape(chapters[chapter])}</a> › {html.escape(title)}</nav>\n"
+            if page_name and page_name != "index" else ""
+        )
         write_page(
             out / f"{key}.html",
             title=title,
             description=f"{title} — project documentation for {PROJECT}.",
             section="doc",
             slug=key,
-            body=render_markdown(source, base=posixpath.dirname(f"doc/{key}"), depth=depth),
+            body=breadcrumb + render_markdown(source, base=posixpath.dirname(f"doc/{key}"), depth=depth),
             pages=pages,
             depth=depth,
         )
