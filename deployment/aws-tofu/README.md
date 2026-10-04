@@ -166,6 +166,10 @@ Teardown is a **parameter**, not a `tofu destroy`. The resources that cost money
 ./env.sh migrate qa        # run the Liquibase migrations
 ```
 
+On a brand-new environment the first `up` fails at the service, because the database user does
+not exist yet: run `db-bootstrap` and `migrate`, then `up` again.
+[The database page](../../doc/deployment/database.md) explains why.
+
 `env.sh` shows the plan and waits for an answer on every run, and applies the **saved plan file**
 rather than re-evaluating, so what is applied is exactly what was displayed. `--yes` skips the
 prompt, for a workflow. It defaults to the lifecycle profile for `up` and `down`, and deliberately

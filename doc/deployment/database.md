@@ -46,7 +46,17 @@ that, so it is a one-off ECS task:
 ./env.sh up qa             # the database, and the two task definitions that point at it
 ./env.sh db-bootstrap qa   # creates taskfest_qa: CREATE ROLE, GRANT rds_iam, schema grants
 ./env.sh migrate qa        # Liquibase, logged in as taskfest_qa with an IAM token
+./env.sh up qa             # again, on a brand-new environment only -- see below
 ```
+
+**On a brand-new environment the first `up` fails, and that is expected.** It creates the
+database, then waits for the service, whose backend cannot log in as a user that does not exist
+yet: `FATAL: password authentication failed for user "taskfest_qa"`. Because it is the service's
+first deployment, ECS has nothing to roll back to and `up` stops with *No rollback candidate was
+found*. Everything up to the service is in place by then, so `db-bootstrap` and `migrate` work,
+and the second `up` replaces the failed service and succeeds. This happened when the environments
+were rebuilt under the TaskFest name (#128); an environment restored from a snapshot already has
+its user and never sees it.
 
 `db-bootstrap` runs `psql` from the official PostgreSQL image (pulled from ECR Public's mirror,
 which has no Docker Hub rate limit) with the SQL in `modules/environment/db-bootstrap.sql`. It is
