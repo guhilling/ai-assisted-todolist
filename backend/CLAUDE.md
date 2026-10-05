@@ -10,7 +10,7 @@ project context all still apply here).
   services, mappers) should be covered by plain, fast unit tests that don't
   boot Quarkus.
 - **Integration tests** use Quarkus's own test support
-  (`@QuarkusTest` / `@QuarkusIntegrationTest`, Dev Services) rather than
+  (`@QuarkusTest`, Dev Services) rather than
   hand-rolled test infrastructure. Use them where a real container context or
   the real database matters:
   - REST endpoint behavior end-to-end.
@@ -20,6 +20,9 @@ project context all still apply here).
 - Keep the two kinds separate and proportioned: many unit tests, a smaller
   set of integration tests for the seams that actually need a running
   Quarkus context or database.
+- **The packaged artifact is tested end to end, not by `@QuarkusIntegrationTest`.**
+  The Playwright suite runs the built image on every pull request;
+  `doc/testing/index.md` says why (#69).
 
 ## TDD
 
