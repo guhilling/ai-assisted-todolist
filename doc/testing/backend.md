@@ -7,8 +7,14 @@ cd backend
 ./mvnw checkstyle:check
 ```
 
-Dev Services starts PostgreSQL and Keycloak automatically, so a container engine has to be
-running. Fifty-two tests across ten classes:
+Dev Services starts PostgreSQL automatically, and Keycloak **only for the tests that sign in**,
+so a container engine has to be running. Keycloak follows `taskfest.auth.enabled`: the plain
+`test` profile has sign-in off and neither starts Keycloak nor enables the OIDC tenant, while
+`KeycloakLoginFlowTest` and `SignInBehindProxyTest` switch sign-in on in their profiles and get
+one. Each Keycloak start costs about 25 s, and every test profile restarts Quarkus with its
+Dev Services, so this halved backend CI (#134). A new test that needs a real sign-in turns
+`taskfest.auth.enabled` on in its profile; one that only needs a user uses `@TestSecurity`, which
+needs no Keycloak at all. Fifty-two tests across ten classes:
 
 - **`AuthProviderMappingTest`** — the only test here that does not boot Quarkus. Provider
   availability is a decision about configuration, so feeding `AuthProvidersConfig` directly
