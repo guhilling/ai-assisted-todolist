@@ -114,11 +114,15 @@ slows things down.
   becomes a question and the run stops there, which is right — but most decisions do not need
   Gunnar, and saying so is what lets a story be finished in one go.
 - Anything that is not a story — a bug, a question, a note to self — uses the blank form.
-- **Every open issue carries one priority label**: `priority: 1 now` (next up, at most two or
-  three), `priority: 2 next` (after that, roughly in order) or `priority: 3 later` (wanted, not
-  soon). A new issue gets one when it is opened — Gunnar's call if it is not obvious, so ask.
-  "Work on the next issue" means the highest priority first. Renovate's Dependency Dashboard
-  (#22) is the one exception.
+- **Every open issue carries a priority, in two places kept in step**: a label —
+  `priority: 1 now` (next up, at most two or three), `priority: 2 next` (after that) or
+  `priority: 3 later` (wanted, not soon) — and the same value in the *Priority* field of the
+  [TaskFest project](https://github.com/users/guhilling/projects/2), whose table is grouped by
+  it and ordered by hand within each group. The label is what an issue list shows and filters
+  on; the project is the one place with a real order. A new issue gets both when it is opened
+  (`gh project item-add 2 --owner guhilling --url …`, then `item-edit --field Priority`) —
+  Gunnar's call if the priority is not obvious, so ask. "Work on the next issue" means the top
+  of the project's first group. Renovate's Dependency Dashboard (#22) is the one exception.
 
 ## Development methodology
 
