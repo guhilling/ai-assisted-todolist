@@ -21,8 +21,8 @@ does is checked in qa itself — see [the deployment chapter](../deployment/inde
 ## Prerequisites
 
 - **A container engine** — Docker Desktop or Podman. Quarkus Dev Services needs a reachable
-  socket; with Podman, `DOCKER_HOST` must point at the machine's socket (see
-  [Troubleshooting](troubleshooting.md)).
+  socket. With Podman, start the machine and leave `DOCKER_HOST` unset: `podman-mac-helper`
+  provides `/var/run/docker.sock` (see [Troubleshooting](troubleshooting.md)).
 - **JDK 25, Temurin.** `java -version` should report 25. Maven comes from the wrapper.
 - **Node 22** and npm, for the frontend.
 
