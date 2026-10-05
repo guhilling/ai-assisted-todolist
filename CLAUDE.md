@@ -114,6 +114,11 @@ slows things down.
   becomes a question and the run stops there, which is right — but most decisions do not need
   Gunnar, and saying so is what lets a story be finished in one go.
 - Anything that is not a story — a bug, a question, a note to self — uses the blank form.
+- **Every open issue carries one priority label**: `priority: 1 now` (next up, at most two or
+  three), `priority: 2 next` (after that, roughly in order) or `priority: 3 later` (wanted, not
+  soon). A new issue gets one when it is opened — Gunnar's call if it is not obvious, so ask.
+  "Work on the next issue" means the highest priority first. Renovate's Dependency Dashboard
+  (#22) is the one exception.
 
 ## Development methodology
 
