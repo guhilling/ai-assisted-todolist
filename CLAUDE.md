@@ -38,6 +38,11 @@ slows things down.
 - Every change reaches `main` through a pull request; the `main-branch`
   ruleset enforces it and rejects direct pushes. No approving review is
   required, so you can merge your own pull request once CI is green.
+- **A pull request that finishes an issue gets `/code-review high` before it merges** — any PR
+  whose description says `Closes #…`. Fix what it finds, or say in the PR why a finding does
+  not apply, and note the review's outcome in the PR. Docs-only changes, Renovate updates and
+  follow-up fixes without an issue do not need one. For a particularly critical change Gunnar
+  may run `/code-review ultra` himself; Claude cannot start that one.
 - Delete a branch once its pull request is merged — locally and on `origin` —
   unless told otherwise. Because pull requests are squash-merged, a merged
   branch does not show up in `git branch --merged main`, so stale branches are
