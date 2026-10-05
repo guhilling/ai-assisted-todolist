@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { TaskImportance, TaskInput } from '../api'
 import { addDays, quickDates } from '../dates'
 import { importanceLabels, importanceLevels } from '../importance'
+import DueDateField from './DueDateField'
 
 type AddTaskRowProps = {
   today: string
@@ -135,17 +136,8 @@ function AddTaskRow({ today, saving, onAdd }: Readonly<AddTaskRowProps>) {
       </div>
 
       <div className="add-controls">
-        <label className="add-field">
-          <span>Due date</span>
-          <input
-            required
-            type="date"
-            /* Matches the backend, which refuses a new task dated in the past. */
-            min={today}
-            value={dueDate}
-            onChange={(event) => setDueDate(event.target.value)}
-          />
-        </label>
+        {/* min matches the backend, which refuses a new task dated in the past. */}
+        <DueDateField value={dueDate} min={today} onChange={setDueDate} />
         <label className="add-field">
           <span>Importance</span>
           <select value={importance} onChange={(event) => setImportance(event.target.value as TaskImportance)}>

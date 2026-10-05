@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Task, TaskImportance } from '../api'
 import { importanceLabels, importanceLevels } from '../importance'
+import DueDateField from './DueDateField'
 
 /** What editing may change. The state has its own controls: the checkbox and the row menu. */
 export type TaskEdit = Pick<Task, 'description' | 'dueDate' | 'importance'>
@@ -57,10 +58,7 @@ function TaskEditor({ task, saving, onSave, onCancel }: Readonly<TaskEditorProps
       />
 
       <div className="add-controls">
-        <label className="add-field">
-          <span>Due date</span>
-          <input required type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} />
-        </label>
+        <DueDateField value={dueDate} onChange={setDueDate} />
         <label className="add-field">
           <span>Importance</span>
           <select value={importance} onChange={(event) => setImportance(event.target.value as TaskImportance)}>

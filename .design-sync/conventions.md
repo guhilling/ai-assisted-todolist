@@ -48,6 +48,7 @@ piece of text needs its own size, it wants one of these four instead.
 - Add row: `.add-row`, `.add-row-plus`, `.add-row-key`, `.add-form`, `.add-field`,
   `.add-description`, `.add-controls`, `.add-actions`, `.quick-dates`; `TaskEditor` reuses
   them with `.task-editor`
+- Due date: `.date-field`, `.date-field-row`, `.date-field-toggle`, `.date-field-popover`
 - Controls: `.button-primary`, `.button-quiet`, `.text-link`, `.chip`, `.chip--active`
 - Signed out: `.signed-out`, `.signed-out-title`, `.signed-out-copy`, `.signed-out-actions`,
   `.signed-out-note`
