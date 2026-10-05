@@ -313,3 +313,21 @@ so the deploy role still needs no `cloudfront:CreateInvalidation`, and the hashe
 deleted, so a rollback is only the previous release's `index.html`. *Decided by Gunnar:* the
 frontend half of the deploy workflow came forward (#119) rather than uploading by hand, because
 the release mechanism needed testing anyway.
+
+## Image vulnerabilities come from Amazon Inspector, through ECR's pull-through cache
+
+ECS pulls the backend image from ECR, which caches it from Quay on first use. Amazon Inspector
+scans what lands there, continuously, and a daily workflow turns fixable HIGH and CRITICAL
+findings in recently used images into one GitHub issue (#162,
+[image scanning](../deployment/image-scanning.md)). *Decided by Gunnar*, partly as a
+demonstration of the AWS-native route.
+
+*Rejected: a scheduled Trivy scan in CI.* It would have cost nothing and reused a tool the repository
+already has, and was the recommendation. It scans a tag rather than what ECS runs, though, and
+it shows nothing in AWS. *Rejected: Quay's own scanning and notifications.* Its results are
+available through Quay's public API, so access was not the issue, but its notifications cannot
+leave out vulnerabilities without a fix. That is most of what the base image reports, so every
+mail would have been noise. Inspector adds what neither has: rescans when a CVE is published,
+the link between an image and the ECS tasks that ran it, and a filter on whether a fix exists.
+*Cost:* under a dollar a month (doc/deployment/cost.md). The notification is a GitHub issue
+rather than email, like the SonarCloud gate's.

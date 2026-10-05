@@ -105,5 +105,6 @@ Also checked and not chosen:
 | [How an environment is torn down](teardown.md) | The `running` switch, and CloudFront's `/api/*` origin |
 | [The database](database.md) | RDS, IAM sign-in, snapshots and restores |
 | [Observability](observability.md) | Logs, metrics, alarms |
+| [Image scanning](image-scanning.md) | Amazon Inspector on the running images, and the issue it raises |
 | [Cost](cost.md) | What an environment costs, measured |
 | [Open points](open-points.md) | What is deliberately left out, and what is still to be verified |

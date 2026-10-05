@@ -1,0 +1,39 @@
+name: Image findings
+
+# Amazon Inspector scans the backend images ECS pulls through ECR (#162). Once a day this turns
+# what it found into one GitHub issue: fixable HIGH or CRITICAL vulnerabilities in an image ECS
+# ran in the last 30 days. image-findings-issue.py has the policy; doc/deployment/image-scanning.md
+# the whole picture.
+
+on:
+  schedule:
+    # Daily, early, on the default branch -- which is the only ref the findings role trusts.
+    - cron: '17 5 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  # image-findings-issue.py opens, updates and closes the issue.
+  issues: write
+  # The OIDC token traded for the read-only findings role.
+  id-token: write
+
+concurrency:
+  group: image-findings
+  cancel-in-progress: false
+
+jobs:
+  findings:
+    runs-on: ubuntu-26.04
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: arn:aws:iam::808706946095:role/taskfest-image-findings
+          aws-region: eu-central-1
+
+      - name: Bring the image findings issue up to date
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 .github/scripts/image-findings-issue.py

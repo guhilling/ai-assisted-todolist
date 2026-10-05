@@ -31,6 +31,10 @@ That is the whole cost model: **qa costs about $2 for each day it is up, and clo
 otherwise.** A day of demos is $2; forgetting it for a month is $61, which is what the budget alarm
 is for. **Both environments up at once** would be about $120 a month.
 
+**Image scanning**, whether the environment is up or not: Amazon Inspector at $0.09 per image's
+first scan and $0.01 per rescan, plus ECR storage for at most five cached images, about 1 GB at
+$0.10 per GB-month — **under $1 a month** ([image scanning](image-scanning.md)).
+
 **Avoided: a NAT gateway**, at about $33 a month per environment — still the largest line item
 this design does not have.
 

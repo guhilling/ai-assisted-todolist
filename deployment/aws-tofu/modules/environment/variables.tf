@@ -126,13 +126,14 @@ variable "log_retention_days" {
 
 variable "backend_image" {
   description = <<-EOT
-    The backend image the one-off tasks run. Quay's `latest`, which main publishes, until the
-    deploy change pins a release: from then on the deploy role registers a task definition per
-    release, and this only seeds the first one. Public, so no registry credentials are needed --
-    the tasks pull it over their public IP.
+    The backend image the service and the one-off tasks run, when it should be something other
+    than the default. Left null, it is Quay's `latest` -- which main publishes -- pulled through
+    this account's ECR cache, so that Amazon Inspector scans exactly what ECS runs (#162). Until
+    the deploy change pins a release, this seeds every task definition; from then on only the
+    first one.
   EOT
   type        = string
-  default     = "quay.io/ghilling/taskfest-backend:latest"
+  default     = null
 }
 
 variable "hostname" {
