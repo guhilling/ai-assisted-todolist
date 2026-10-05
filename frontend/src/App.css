@@ -13,13 +13,18 @@
   --border: #e2e6ea;
   --text: #1a1f24;
   --text-muted: #5b6672;
-  --accent: #1a73e8;
+  /* hilling.it's palette: its heading blue is the accent, because the brand green fails
+     contrast on white (2.6:1) and so cannot carry a control or text. The green appears as
+     decoration (--brand), and as --brand-strong (5.1:1) wherever it must be read. */
+  --accent: #0367a5;
   --accent-contrast: #ffffff;
+  --brand: #7fae1c;
+  --brand-strong: #4d7a0a;
   --danger: #c5221f;
   --importance-low: #9aa5b1;
-  --importance-medium: #1a73e8;
+  --importance-medium: #0367a5;
   --importance-high: #c5221f;
-  --radius: 10px;
+  --radius: 6px;
 
   /* Spacing: a strict 4px grid, named by how many steps it is. Every padding, margin
      and gap in this file comes from here -- see doc/decisions/frontend.md for why. */
@@ -38,13 +43,17 @@
   --font-body: 1rem;
   --font-small: 0.875rem;
 
+  /* Quicksand, as on hilling.it, for the title and the headings only; running text keeps the
+     system face, which reads better at body size. Self-hosted, so no request goes to Google. */
+  --font-heading: 'Quicksand Variable', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+
 
   color: var(--text);
   background: var(--bg);
   font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   /* This is what 1rem means, not an entry in the type scale above. */
   font-size: 16px;
-  line-height: 1.5;
+  line-height: 1.4;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -56,11 +65,13 @@
     --border: #2c343c;
     --text: #e6eaee;
     --text-muted: #9aa5b1;
-    --accent: #8ab4f8;
+    --accent: #5ba3d9;
     --accent-contrast: #14181c;
+    --brand: #9fd04a;
+    --brand-strong: #9fd04a;
     --danger: #f28b82;
     --importance-low: #6b7681;
-    --importance-medium: #8ab4f8;
+    --importance-medium: #5ba3d9;
     --importance-high: #f28b82;
   }
 }
@@ -106,10 +117,15 @@ button {
 
 /* ---------- shell ---------- */
 
+/* A thin band of the brand green along the top of the page, as hilling.it has. */
+html {
+  border-top: 4px solid var(--brand);
+}
+
 .app {
   max-width: 640px;
   margin: 0 auto;
-  padding: var(--space-6) var(--space-4) var(--space-16);
+  padding: var(--space-4) var(--space-4) var(--space-16);
 }
 
 .app-header {
@@ -118,14 +134,16 @@ button {
   justify-content: space-between;
   gap: var(--space-4);
   flex-wrap: wrap;
-  padding-bottom: var(--space-4);
+  padding-bottom: var(--space-3);
   border-bottom: 1px solid var(--border);
 }
 
 .app-title {
   margin: 0;
+  color: var(--accent);
+  font-family: var(--font-heading);
   font-size: var(--font-title);
-  font-weight: 600;
+  font-weight: 700;
   letter-spacing: -0.01em;
 }
 
@@ -249,8 +267,10 @@ button {
 
 .signed-out-title {
   margin: 0;
+  color: var(--accent);
+  font-family: var(--font-heading);
   font-size: var(--font-display);
-  font-weight: 600;
+  font-weight: 700;
   letter-spacing: -0.02em;
 }
 
@@ -277,7 +297,7 @@ button {
   align-items: center;
   gap: var(--space-3);
   width: 100%;
-  min-height: 52px;
+  min-height: 44px;
   margin-top: var(--space-2);
   padding: 0 var(--space-2);
   border: none;
@@ -380,8 +400,90 @@ button {
   min-height: 44px;
   padding: 0 var(--space-2);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius);
   background: var(--surface);
+}
+
+/* ---------- due date field: a typed date plus a calendar popover ---------- */
+
+.date-field {
+  position: relative;
+}
+
+/* The field and its calendar button read as one control: the button sits flush on the right. */
+.date-field-row {
+  display: flex;
+}
+
+.date-field-row input {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+/* The browser's own calendar would be a second, different picker next to ours. */
+.date-field-row input::-webkit-calendar-picker-indicator {
+  display: none;
+}
+
+.date-field-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  min-height: 44px;
+  border: 1px solid var(--border);
+  border-left: none;
+  border-radius: 0 var(--radius) var(--radius) 0;
+  background: var(--surface);
+  color: var(--accent);
+}
+
+.date-field-toggle:hover,
+.date-field-toggle[aria-expanded='true'] {
+  background: var(--surface-raised);
+}
+
+.date-field-popover {
+  position: absolute;
+  z-index: 10;
+  top: calc(100% + var(--space-1));
+  left: 0;
+}
+
+.date-field-loading {
+  margin: 0;
+  padding: var(--space-3);
+}
+
+/* react-day-picker, themed through its own variables. The extra class outranks the library's
+   stylesheet, which arrives later, with the lazily loaded calendar. */
+.date-field .rdp-root {
+  --rdp-accent-color: var(--accent);
+  --rdp-accent-background-color: var(--surface-raised);
+  --rdp-today-color: var(--brand-strong);
+  --rdp-day-height: 36px;
+  --rdp-day-width: 36px;
+  --rdp-day_button-height: 34px;
+  --rdp-day_button-width: 34px;
+  --rdp-day_button-border-radius: var(--radius);
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 12%);
+  font-size: var(--font-small);
+}
+
+/* The picked day filled with the accent rather than only ringed, so it stands out from today. */
+.date-field .rdp-selected .rdp-day_button {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-contrast);
+}
+
+.date-field .rdp-caption_label {
+  font-family: var(--font-heading);
 }
 
 .add-actions {
@@ -393,11 +495,12 @@ button {
 /* ---------- sections ---------- */
 
 .task-section {
-  margin-top: var(--space-6);
+  margin-top: var(--space-4);
 }
 
 .section-title {
   margin: 0 0 var(--space-1);
+  font-family: var(--font-heading);
   font-size: var(--font-small);
   font-weight: 600;
   text-transform: uppercase;
@@ -421,7 +524,7 @@ button {
   display: flex;
   align-items: flex-start;
   gap: var(--space-3);
-  padding: var(--space-3) var(--space-1);
+  padding: var(--space-2) var(--space-1);
   border-bottom: 1px solid var(--border);
 }
 
@@ -432,7 +535,7 @@ button {
   /* Not spacing: an optical nudge that sits the 20px box on the first line of text.
      A scale step in either direction visibly misaligns it. */
   margin: 2px 0 0;
-  accent-color: var(--accent);
+  accent-color: var(--brand-strong);
   cursor: pointer;
 }
 
@@ -589,7 +692,7 @@ button {
 /* ---------- completed ---------- */
 
 .completed-section {
-  margin-top: var(--space-6);
+  margin-top: var(--space-4);
 }
 
 .completed-section > summary {

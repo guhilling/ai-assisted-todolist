@@ -1202,3 +1202,73 @@ describe('editing a task', () => {
     expect(openMenu('Paid the rent').queryByRole('button', { name: /^edit$/i })).not.toBeInTheDocument()
   })
 })
+
+describe('picking a due date from the calendar', () => {
+  /** The ISO date of `day` in the month that `iso` falls in. */
+  function dayOfMonth(iso: string, day: number) {
+    return `${iso.slice(0, 8)}${String(day).padStart(2, '0')}`
+  }
+
+  it('opens from the date field and sets the day picked', async () => {
+    await renderSignedIn(mockApi({ me: ALICE, tasks: [task({ id: 12, description: 'Plan the trip', dueDate: isoIn(1) })] }))
+    fireEvent.click(openMenu('Plan the trip').getByRole('button', { name: /^edit$/i }))
+    const editor = within(screen.getByRole('form', { name: 'Edit "Plan the trip"' }))
+
+    expect(screen.queryByRole('grid')).not.toBeInTheDocument()
+    fireEvent.click(editor.getByRole('button', { name: /choose the due date from a calendar/i }))
+    const calendar = await screen.findByRole('grid')
+    fireEvent.click(within(calendar).getByText('15'))
+
+    await waitFor(() => expect(screen.queryByRole('grid')).not.toBeInTheDocument())
+    expect(editor.getByLabelText('Due date')).toHaveValue(dayOfMonth(isoIn(1), 15))
+    expect(editor.getByRole('button', { name: /choose the due date from a calendar/i })).toHaveFocus()
+  })
+
+  it('closes on Escape without leaving the form or changing the date', async () => {
+    await renderSignedIn(mockApi({ me: ALICE, tasks: [task({ id: 13, description: 'Book a table', dueDate: isoIn(2) })] }))
+    fireEvent.click(openMenu('Book a table').getByRole('button', { name: /^edit$/i }))
+    const editor = within(screen.getByRole('form', { name: 'Edit "Book a table"' }))
+
+    fireEvent.click(editor.getByRole('button', { name: /choose the due date from a calendar/i }))
+    const calendar = await screen.findByRole('grid')
+    fireEvent.keyDown(calendar, { key: 'Escape' })
+
+    await waitFor(() => expect(screen.queryByRole('grid')).not.toBeInTheDocument())
+    expect(screen.getByRole('form', { name: 'Edit "Book a table"' })).toBeInTheDocument()
+    expect(editor.getByLabelText('Due date')).toHaveValue(isoIn(2))
+  })
+
+  it('closes on a click outside it', async () => {
+    await renderSignedIn(mockApi({ me: ALICE }))
+    startAdding('Something new')
+
+    fireEvent.click(screen.getByRole('button', { name: /choose the due date from a calendar/i }))
+    await screen.findByRole('grid')
+    fireEvent.click(document.body)
+
+    await waitFor(() => expect(screen.queryByRole('grid')).not.toBeInTheDocument())
+  })
+
+  it('offers no day before today when adding, as the backend refuses one', async () => {
+    await renderSignedIn(mockApi({ me: ALICE }))
+    startAdding('Something new')
+
+    fireEvent.click(screen.getByRole('button', { name: /choose the due date from a calendar/i }))
+    const calendar = await screen.findByRole('grid')
+
+    const yesterday = within(calendar).queryByRole('button', { name: new RegExp(dayLabel(isoIn(-1))) })
+    // Yesterday is only on screen when it falls in the month shown, which starts at tomorrow.
+    if (yesterday) {
+      expect(yesterday).toBeDisabled()
+    }
+    expect(within(calendar).getByRole('button', { name: new RegExp(dayLabel(isoIn(1))) })).toBeEnabled()
+  })
+})
+
+/** The words react-day-picker puts in a day's label, e.g. "October 6th, 2026". */
+function dayLabel(iso: string) {
+  const [year, month, day] = iso.split('-').map(Number)
+  const monthName = new Date(year, month - 1, day).toLocaleString('en-US', { month: 'long' })
+  const suffix = day % 10 === 1 && day !== 11 ? 'st' : day % 10 === 2 && day !== 12 ? 'nd' : day % 10 === 3 && day !== 13 ? 'rd' : 'th'
+  return `${monthName} ${day}${suffix}, ${year}`
+}

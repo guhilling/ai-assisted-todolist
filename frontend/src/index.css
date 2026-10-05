@@ -1,3 +1,7 @@
+/* The self-hosted Quicksand variable font: one file per script, of which a browser fetches only
+   the subsets the page actually uses -- Latin, here. */
+@import '@fontsource-variable/quicksand';
+
 html {
   color-scheme: light dark;
 }

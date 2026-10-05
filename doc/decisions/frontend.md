@@ -39,6 +39,31 @@ The rollback is what keeps it safe: a rejected change never leaves the board ass
 something untrue.
 
 
+## The look follows hilling.it, and the calendar loads on demand
+
+**Decision** (#139). The palette and the heading face come from hilling.it. Its heading blue
+`#0367a5` is the accent, its green `#7fae1c` is a band along the top and, darkened to `#4d7a0a`,
+the done tick. Quicksand sets the title and the section headings, and running text stays in the
+system face. The layout is a step more compact than before, still on the 4px grid, with 44px
+kept as the size of anything tapped. Due dates are picked from react-day-picker, in a popover
+beside the date field.
+
+**Why blue and not green.** The brand green is 2.6:1 against white, below the 3:1 a control
+needs and far below the 4.5:1 text needs, so it cannot carry a button, a link or a label. The
+blue is 6.0:1. Using green where it can only decorate keeps the brand without failing contrast.
+
+**Why Quicksand only for headings.** It is a rounded display face. At body size its regular
+weight is thin, and a heavier weight to compensate makes long task lists tiring to read.
+
+**Why self-hosted.** Loading the face from Google Fonts would send every visitor's address to
+Google, which the privacy policy would then have to say. `@fontsource-variable/quicksand` ships
+one 28 kB file for every weight, from the same origin.
+
+**Why the calendar is lazy.** react-day-picker is about 20 kB gzipped against a 75 kB board, and
+the board's speed was an explicit requirement. Loaded on first use, it costs the first page load
+nothing. The native date field stays alongside, so typing a date keeps working.
+
+
 ## Editing starts from the menu, and waits for the server
 
 **Decision** (#156). **Edit** in the row's overflow menu turns the row into a form with the same
