@@ -1,13 +1,25 @@
 # Troubleshooting
 
 **Dev Services does nothing, or Maven reports no container runtime.** Quarkus needs a
-Docker-compatible socket. With Podman on macOS, start the machine and export the socket it
-prints:
+Docker-compatible socket. With Podman on macOS, start the machine, and leave `DOCKER_HOST`
+unset:
 
 ```bash
 podman machine start
-export DOCKER_HOST="unix://$(podman machine inspect --format '{{.ConnectionInfo.PodmanSocket.Path}}')"
+unset DOCKER_HOST
 ```
+
+Podman's installer sets up `podman-mac-helper`, which makes `/var/run/docker.sock` on the Mac
+point at the machine, and the machine has a `/var/run/docker.sock` of its own. Testcontainers
+uses that path by default, and it is the right one because the path is the same on both sides.
+
+**Every Dev Services test fails with `Container startup failed for image
+testcontainers/ryuk`.** `DOCKER_HOST` points at the machine's socket under `/var/folders/…`.
+Testcontainers mounts that same path into its Ryuk clean-up container, but the path exists only
+on the Mac, not inside the VM, so Ryuk never reports that it has started. `unset DOCKER_HOST`
+fixes it. Earlier versions of this page recommended exactly that export; if it is in your
+shell profile, take it out. If `/var/run/docker.sock` is missing on the Mac, run
+`sudo podman-mac-helper install` and restart the machine.
 
 **The Keycloak container starts and is immediately killed (exit 137).** It has run out of
 memory — the default Podman machine is too small for it. Give the machine more:
