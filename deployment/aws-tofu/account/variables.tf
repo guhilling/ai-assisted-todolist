@@ -28,3 +28,13 @@ variable "docs_hostname" {
   type        = string
   default     = "taskfest-docs.cloud.hilling.de"
 }
+
+variable "github_oidc_repository" {
+  description = <<-EOT
+    The repository whose main branch may assume the image findings role, as GitHub writes it into
+    the OIDC token's `sub` claim after `repo:` -- the immutable owner@id/name@id form. The same
+    value as the environment module's variable of this name, which explains the form.
+  EOT
+  type        = string
+  default     = "guhilling@2537533/ai-assisted-todolist@1383592232"
+}

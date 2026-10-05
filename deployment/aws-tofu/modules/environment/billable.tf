@@ -186,7 +186,7 @@ resource "aws_ecs_task_definition" "migrate" {
 
   container_definitions = jsonencode([{
     name      = "migrate"
-    image     = var.backend_image
+    image     = local.backend_image
     essential = true
 
     environment = [
@@ -368,7 +368,7 @@ resource "aws_ecs_task_definition" "backend" {
 
   container_definitions = jsonencode([{
     name      = "backend"
-    image     = var.backend_image
+    image     = local.backend_image
     essential = true
 
     portMappings = [{ containerPort = var.backend_port, protocol = "tcp" }]

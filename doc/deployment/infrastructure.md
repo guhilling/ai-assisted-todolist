@@ -19,7 +19,9 @@ environments/prod/       the same root, different values
 account/                 the things there is one of per AWS account
 ```
 
-`account/` holds the GitHub OIDC provider and the monitoring user. Its permissions come from a
+`account/` holds the GitHub OIDC provider, the monitoring user, and the image scanning: ECR's
+pull-through cache for quay.io, Amazon Inspector, and the read-only role the findings workflow
+uses ([image scanning](image-scanning.md)). Its permissions come from a
 `read-only` group: `ReadOnlyAccess`, everything **denied without MFA** except registering a
 device, and the state bucket's objects denied even with it. `ReadOnlyAccess` reads every bucket,
 so without the MFA rule a leaked access key would have read prod's state. From the CLI the user

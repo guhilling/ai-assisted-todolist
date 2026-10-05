@@ -81,3 +81,4 @@ Decisions with consequences, why they were taken, and what was rejected. Newest 
 - [CloudFront reaches the load balancer over HTTPS with the environment's own name](deployment-and-aws.md#cloudfront-reaches-the-load-balancer-over-https-with-the-environments-own-name)
 - [ECS-native blue/green, which needed AWS provider 6](deployment-and-aws.md#ecs-native-bluegreen-which-needed-aws-provider-6)
 - [The frontend's deep links are a CloudFront Function, and a release needs no invalidation](deployment-and-aws.md#the-frontends-deep-links-are-a-cloudfront-function-and-a-release-needs-no-invalidation)
+- [Image vulnerabilities come from Amazon Inspector, through ECR's pull-through cache](deployment-and-aws.md#image-vulnerabilities-come-from-amazon-inspector-through-ecrs-pull-through-cache)

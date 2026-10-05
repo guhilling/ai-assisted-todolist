@@ -57,6 +57,13 @@ data "aws_iam_policy_document" "task_execution_trust" {
   }
 }
 
+locals {
+  # Where ECR's pull-through cache keeps Quay's images: quay.io/ghilling/x is quay/ghilling/x here.
+  image_repository_prefix = "quay/ghilling/${var.project}-"
+  ecr_registry            = "${local.account}.dkr.ecr.${local.region}.amazonaws.com"
+  backend_image           = coalesce(var.backend_image, "${local.ecr_registry}/${local.image_repository_prefix}backend:latest")
+}
+
 resource "aws_iam_role" "task_execution" {
   name               = local.task_execution_role
   description        = "Lets ECS start ${var.environment} tasks: their logs, and the master secret for the bootstrap task."
@@ -66,6 +73,28 @@ resource "aws_iam_role" "task_execution" {
 }
 
 data "aws_iam_policy_document" "task_execution" {
+  # Pulling the backend image through ECR's quay.io cache (account/image-scanning.tf). The token
+  # call has no resource to scope to. The rest is the cache's own repositories for this project's
+  # images, and the first pull of an image also creates the repository and imports the image
+  # from Quay, which is what CreateRepository and BatchImportUpstreamImage are for.
+  statement {
+    sid       = "LogInToEcr"
+    actions   = ["ecr:GetAuthorizationToken"]
+    resources = ["*"]
+  }
+
+  statement {
+    sid = "PullTheBackendImageThroughTheQuayCache"
+    actions = [
+      "ecr:BatchCheckLayerAvailability",
+      "ecr:BatchGetImage",
+      "ecr:GetDownloadUrlForLayer",
+      "ecr:CreateRepository",
+      "ecr:BatchImportUpstreamImage",
+    ]
+    resources = ["arn:aws:ecr:${local.region}:${local.account}:repository/${local.image_repository_prefix}*"]
+  }
+
   statement {
     sid = "WriteThisEnvironmentsTaskLogs"
     actions = [
