@@ -34,10 +34,12 @@ jobs:
           cache: maven
       - name: Check code style
         run: ./mvnw -B checkstyle:check
-      - name: Run tests and enforce coverage
+      - name: Run tests, enforce coverage and build the container image
         # verify runs the tests, packages the artifact, and fails the build if JaCoCo
-        # coverage drops below the minimum in pom.xml.
-        run: ./mvnw -B verify
+        # coverage drops below the minimum in pom.xml. The image is built in the same run,
+        # from the package verify has just made: a second `package` used to rebuild it all
+        # for the image alone, about 19 s of every backend run (#134).
+        run: ./mvnw -B verify -Dquarkus.container-image.build=true
       - name: Check the committed API contract is current
         working-directory: .
         # verify has just written target/openapi. Regenerating and diffing is what keeps
@@ -62,5 +64,3 @@ jobs:
           name: pit-report
           path: backend/target/pit-reports
           retention-days: 7
-      - name: Build backend container image
-        run: ./mvnw -B package -DskipTests -Dquarkus.container-image.build=true
