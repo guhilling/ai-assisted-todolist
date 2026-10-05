@@ -49,11 +49,3 @@ Two details in the helper exist because of real failures, and should not be "tid
   RestAssured encode it again produces a `redirect_uri` Keycloak rejects outright.
 - **A hand-rolled cookie jar.** RestAssured's `CookieFilter` did not carry Keycloak's
   cookies across the redirects, which surfaced as "Restart login cookie not found".
-
-## `TaskResourceIT`
-
-Runs against the packaged artifact rather than in-JVM, and is skipped by default —
-`pom.xml` sets `skipITs`, and the `native` profile turns it back on. It is thin on purpose:
-`@TestSecurity` does not work outside `@QuarkusTest`, so it can only make
-security-agnostic checks.
-

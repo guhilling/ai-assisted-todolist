@@ -17,7 +17,6 @@
         <quarkus.platform.group-id>io.quarkus.platform</quarkus.platform.group-id>
         <quarkus.platform.version>3.39.5</quarkus.platform.version>
         <awssdk.version>2.55.11</awssdk.version>
-        <skipITs>true</skipITs>
         <surefire-plugin.version>3.6.0</surefire-plugin.version>
         <checkstyle-plugin.version>3.6.0</checkstyle-plugin.version>
         <enforcer-plugin.version>3.6.3</enforcer-plugin.version>
@@ -182,8 +181,8 @@
                 <configuration>
                     <!-- jboss-threads resets thread locals on Java 24+, which needs java.lang
                          opened to the unnamed module. Without it, dev mode throws
-                         IllegalAccessError on every request-handling thread. Surefire and
-                         failsafe below pass the same flag for the JVMs they fork.
+                         IllegalAccessError on every request-handling thread. Surefire below
+                         passes the same flag for the JVMs it forks.
                          The plugin's own openJavaLang option would be the obvious way to ask
                          for this, but in 3.25.2 it emits a doubled '=' and the forked JVM
                          refuses to boot, so the flag is spelled out here instead. -->
@@ -195,7 +194,6 @@
                             <goal>build</goal>
                             <goal>generate-code</goal>
                             <goal>generate-code-tests</goal>
-                            <goal>native-image-agent</goal>
                         </goals>
                     </execution>
                 </executions>
@@ -215,26 +213,6 @@
                          @{argLine} keeps the JaCoCo agent that prepare-agent put there. -->
                     <argLine>@{argLine} --add-opens java.base/java.lang=ALL-UNNAMED</argLine>
                     <systemPropertyVariables>
-                        <java.util.logging.manager>org.jboss.logmanager.LogManager</java.util.logging.manager>
-                        <maven.home>${maven.home}</maven.home>
-                    </systemPropertyVariables>
-                </configuration>
-            </plugin>
-            <plugin>
-                <artifactId>maven-failsafe-plugin</artifactId>
-                <version>${surefire-plugin.version}</version>
-                <executions>
-                    <execution>
-                        <goals>
-                            <goal>integration-test</goal>
-                            <goal>verify</goal>
-                        </goals>
-                    </execution>
-                </executions>
-                <configuration>
-                    <argLine>--add-opens java.base/java.lang=ALL-UNNAMED</argLine>
-                    <systemPropertyVariables>
-                        <native.image.path>${project.build.directory}/${project.build.finalName}-runner</native.image.path>
                         <java.util.logging.manager>org.jboss.logmanager.LogManager</java.util.logging.manager>
                         <maven.home>${maven.home}</maven.home>
                     </systemPropertyVariables>
@@ -462,18 +440,6 @@
                     </plugin>
                 </plugins>
             </build>
-        </profile>
-        <profile>
-            <id>native</id>
-            <activation>
-                <property>
-                    <name>native</name>
-                </property>
-            </activation>
-            <properties>
-                <skipITs>false</skipITs>
-                <quarkus.native.enabled>true</quarkus.native.enabled>
-            </properties>
         </profile>
     </profiles>
 </project>

@@ -8,7 +8,6 @@ about what exists and how to run it.
 | Layer | Where | Boots | Runs in |
 | --- | --- | --- | --- |
 | Backend unit / integration | `backend/src/test/**` | Quarkus + real PostgreSQL + Keycloak via Dev Services | `backend-ci.yml`, `sonarcloud.yml` |
-| Packaged smoke test | `TaskResourceIT` | the built runner | skipped by default |
 | Frontend unit | `frontend/src/dates.test.ts` | nothing; pure functions | `frontend-ci.yml`, `sonarcloud.yml` |
 | Frontend component | `frontend/src/App.test.tsx` | jsdom, stubbed `fetch` | `frontend-ci.yml`, `sonarcloud.yml` |
 | Browser end-to-end | `e2e/tests/` | the whole containerised stack | `e2e.yml` |
@@ -17,6 +16,17 @@ The backend's split between "unit" and "integration" is not about annotations bu
 what a test needs: most of it needs a real database, because that is where the behaviour
 being checked actually lives. H2 is deliberately not used — it does not reflect
 PostgreSQL closely enough to be worth the speed.
+
+**The packaged artifact is tested by the browser suite, not by `@QuarkusIntegrationTest`**
+(#69). `e2e.yml` builds the real backend image and runs it with the `prod` profile next to
+PostgreSQL and Keycloak, on every pull request that touches backend or frontend. That is a
+stronger check of the built artifact than rerunning the `@QuarkusTest` classes against the jar
+would be: most of them depend on `@TestSecurity`, Hibernate statistics or injected beans, which
+only exist in-JVM, and each extra Quarkus start is time backend CI does not have (#134). The
+one `@QuarkusIntegrationTest` there was never ran — it was enabled only by a `native` profile
+nothing built — and was removed with it. If native images ever come back, they bring their own
+integration job. **Nothing runs only after merging**: a failure found on `main` has already
+landed.
 
 
 ## In this chapter
