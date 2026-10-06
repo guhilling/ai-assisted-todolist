@@ -193,21 +193,27 @@ every response with, so an annotation here is enforced in the browser as well as
 
 ## Container image
 
-- **Jib builds the image onto `eclipse-temurin:25.0.4.1_1-jre-ubi10-minimal`**, set
-  by `quarkus.jib.base-jvm-image` in `application.properties`. No Dockerfile, no
+- **Jib builds the image onto `quay.io/ghilling/jre-runtime`**, set by
+  `quarkus.jib.base-jvm-image` in `application.properties`. No Dockerfile under `backend/`, no
   daemon-side build.
-- **Temurin on a Red Hat base, pinned to an exact build.** The JRE is the same
-  Temurin the project compiles and tests with, so there is one Java version to
-  keep straight; the base under it is UBI. The tag does not float, because
-  `25-jre-ubi10-minimal` moves and two builds of one commit could then sit on
-  different bases. Renovate moves the pin through a custom regex manager in
-  `.github/renovate.json` — no built-in manager reads a Quarkus properties file,
-  and a pom property would not have helped, since the Maven manager updates
-  dependency versions rather than container references.
+- **jre-runtime is ours: Temurin's full JRE on UBI 10 micro** (#66), built from
+  `deployment/jre-runtime/Containerfile` and published by `publish-jre-runtime.yml`. The JRE is
+  the same Temurin the project compiles and tests with; the base under it has 24 OS packages
+  instead of the 152 of Temurin's UBI minimal image, which is where nearly every scanner finding
+  came from. `doc/decisions/containers-and-local-stack.md` has the measurements.
+- **Pinned to a dated tag and its digest** (`25.0.4.1_1-20261006@sha256:…`), so two builds of
+  one commit sit on the same base and a re-pushed tag changes nothing. Renovate moves the pin
+  through a custom regex manager in `.github/renovate.json` (a regex versioning orders the
+  `<temurin>-<date>` tags, and leaves the undated moving tags `25` and `25.0.4.1_1` alone) — no built-in manager reads a Quarkus properties file — and moves the
+  Containerfile's own bases through its Dockerfile manager. A base update is therefore two steps:
+  Renovate bumps the Containerfile, its merge publishes a new jre-runtime, Renovate bumps this pin.
+- **Nothing in the container can use `grep`, `curl` or a package manager.** UBI micro has bash
+  and coreutils only; `e2e/backend-healthcheck.sh` matches the status line in bash for that
+  reason.
 - **The pin is load-bearing — never drop it.** Jib's default base ships JDK 21
   while this code is compiled for 25, so on the default the container exits
   immediately and silently on class file version 69. When
-  `maven.compiler.release` moves, move this tag in the same change.
+  `maven.compiler.release` moves, move the jre-runtime Containerfile and then this pin.
 - **`src/main/jib/` is copied into the image as-is.** It holds the RDS CA bundle at
   `opt/rds/global-bundle.pem`, which the AWS JDBC URL names as `sslrootcert` so that
   `sslmode=verify-full` can check the server. It is AWS's public bundle, downloaded from

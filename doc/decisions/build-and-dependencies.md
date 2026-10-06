@@ -2,8 +2,10 @@
 
 ## Jib with a pinned Java 25 base image
 
-**Decision.** The backend image is built by Jib onto a pinned
-`eclipse-temurin:25.0.4.1_1-jre-ubi10-minimal`. All four Dockerfiles Quarkus generated under
+**Decision.** The backend image is built by Jib onto a pinned Java 25 base image — since #66 our
+own `jre-runtime`, Temurin's JRE on UBI micro
+([containers-and-local-stack.md](containers-and-local-stack.md#the-backend-runs-on-our-own-jre-runtime-temurins-jre-on-ubi-micro)),
+before that `eclipse-temurin:25.0.4.1_1-jre-ubi10-minimal`, which the history below is about. All four Dockerfiles Quarkus generated under
 `backend/src/main/docker/` have been deleted, along with `backend/.dockerignore`; the
 directory no longer exists.
 
@@ -38,9 +40,10 @@ does not move.
 **How a pin that nobody edits stays current.** Renovate, through a custom regex manager in
 `.github/renovate.json`. No built-in manager reads the value: it lives in a Quarkus properties
 file, and moving it into `pom.xml` would not have helped, because the Maven manager updates
-dependency versions rather than container references. The manager was checked against the real
-file rather than assumed — it resolves `eclipse-temurin` and the tag, with the `docker`
-datasource.
+dependency versions rather than container references. Since the move to `jre-runtime` (#66) the
+manager captures the tag *and* the digest, and orders the `<temurin>-<date>` tags with a regex
+versioning that ignores the undated moving tags; it was checked against the real file — it
+resolves `quay.io/ghilling/jre-runtime`, the tag and the digest, with the `docker` datasource.
 
 
 ## sun_checks with documented relaxations
