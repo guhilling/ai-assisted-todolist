@@ -60,7 +60,7 @@ jobs:
         # What the backend relies on: the JRE runs, and the image really is UBI micro -- no
         # package manager slipped back in with a base change.
         run: |
-          docker buildx build --load -t jre-runtime:check .
+          docker buildx build -f Containerfile --load -t jre-runtime:check .
           docker run --rm jre-runtime:check java -version
           docker run --rm jre-runtime:check bash -c '! command -v microdnf && ! command -v dnf'
 
@@ -75,7 +75,7 @@ jobs:
       - name: Publish for amd64 and arm64
         if: github.event_name != 'pull_request'
         run: |
-          docker buildx build --platform linux/amd64,linux/arm64 --push \
+          docker buildx build -f Containerfile --platform linux/amd64,linux/arm64 --push \
             --metadata-file metadata.json \
             -t quay.io/ghilling/jre-runtime:${{ steps.tags.outputs.dated }} \
             -t quay.io/ghilling/jre-runtime:${{ steps.tags.outputs.temurin }} \
