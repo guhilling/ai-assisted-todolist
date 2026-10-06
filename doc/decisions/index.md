@@ -59,6 +59,7 @@ Decisions with consequences, why they were taken, and what was rejected. Newest 
 - [Compose files under `deployment/docker/`](containers-and-local-stack.md#compose-files-under-deploymentdocker)
 - [Compose probes live in scripts, not inline](containers-and-local-stack.md#compose-probes-live-in-scripts-not-inline)
 - [The frontend is served by Red Hat's hardened httpd](containers-and-local-stack.md#the-frontend-is-served-by-red-hats-hardened-httpd)
+- [The backend runs on our own jre-runtime: Temurin's JRE on UBI micro](containers-and-local-stack.md#the-backend-runs-on-our-own-jre-runtime-temurins-jre-on-ubi-micro)
 
 ## [Deployment on AWS](deployment-and-aws.md)
 

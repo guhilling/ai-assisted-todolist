@@ -69,3 +69,39 @@ confirms `ProxyPass` is matched before the fallback.
 `3` appears. Pinning it by digest would make it as reproducible as the backend's base, at the
 price of a pull request every time the image is rebuilt upstream; that is a separate decision
 and has not been taken.
+
+## The backend runs on our own jre-runtime: Temurin's JRE on UBI micro
+
+**Decision** (#66, Gunnar). The backend image is built by Jib onto `quay.io/ghilling/jre-runtime`,
+an image of our own: the full Eclipse Temurin JRE copied onto Red Hat **UBI 10 micro**. It is
+built from `deployment/jre-runtime/Containerfile` by `publish-jre-runtime.yml`, for amd64 and
+arm64, and is named generically because it is meant to be reused in other projects.
+
+**Why.** Scanners reported a "CVE flood" for the backend, nearly all of it in the base image's OS
+packages. Temurin's UBI image is UBI *minimal* with about 130 packages a JVM never uses —
+binutils, systemd, dbus, curl, wget, gnupg, microdnf, fonts — 152 in all; UBI micro has 24. The
+JRE needs only glibc from the OS and brings its own CA certificates and zlib. Quay's scanner
+counted 32 High findings in the old base, all without a fix and none relevant to a Java service
+(`mount` with `user` fstab entries, `nsenter`, OpenSSL's QUIC stack); with UBI micro the packages
+behind them are simply not there. The compressed base also drops from 136 to 70 MB, which every
+`env.sh up` and every deployment pulls.
+
+**Measured before deciding**, on 2026-10-06: Temurin on Ubuntu, Alpine, Red Hat's
+`ubi10/openjdk-25-runtime`, distroless Java 25 and Chainguard's JRE, plus two prototypes. A
+prototype on UBI micro passed the whole Playwright suite against the `prod` profile.
+
+**Rejected:**
+- *A `jlink`'ed JRE* (prototyped, passed too): only 11 MB smaller to pull, because the JRE's own
+  compression already does what gzip would, for a module list that would break at runtime,
+  silently, whenever a dependency started needing another module. Possible later, nothing else
+  would have to change.
+- *A native image*: ruled out in the issue for its build times and restrictions in CI/CD.
+- *Distroless* moves the noise to Debian's unfixed findings; *Alpine* swaps glibc for musl;
+  *Chainguard*'s free tier only has `latest`, which the pinning rule in `backend/CLAUDE.md` forbids;
+  *Red Hat's openjdk runtime* is UBI minimal again.
+- *A Dockerfile build of the backend instead of Jib with a base of our own*: it would reverse "no
+  Dockerfiles under `backend/`", which was deliberate.
+
+**Consequence.** UBI micro has bash and coreutils but no package manager, no `grep` and no `curl`:
+anything that runs inside the container — a health check script, a debugging session — has to make
+do with those.
