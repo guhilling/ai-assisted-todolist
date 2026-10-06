@@ -61,10 +61,13 @@ Renovate, then a release.
   image pushed directly alike. Nothing was misconfigured; it was still initialising. Later
   images are scanned within minutes.
 - **"In use" is not live.** Inspector learns which images ECS runs on a periodic refresh, not
-  when a task starts, and the workflow only reports images with an in-use date in the last 30
-  days. On 2026-10-06 qa ran the image for hours without Inspector recording it. That is why the
-  workflow also counts the image's arrival in ECR, which is known immediately: a deployment's
-  findings reach the issue on the next run, whether or not Inspector has caught up.
+  when a task starts. On 2026-10-06 qa ran the image for hours without Inspector recording it.
+  That is why the workflow counts the image's arrival in ECR as well as the in-use date, since
+  the arrival is known immediately: a deployment's findings reach the issue on the next run,
+  whether or not Inspector has caught up. The price is that an image pulled but barely run — a
+  rolled-back deploy, a debugging pull, the digest `latest` has just moved away from — also
+  stays in scope for 30 days, and so may keep the issue open after a fix has shipped until it
+  ages out or the cache's lifecycle rule (newest five) expires it.
 
 ## Cost
 

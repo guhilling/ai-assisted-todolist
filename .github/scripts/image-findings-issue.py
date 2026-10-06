@@ -17,13 +17,15 @@ script asks for the findings worth a person's attention and keeps one issue in s
 - no findings, nothing open      -> nothing
 
 "Worth attention" is narrow on purpose: HIGH or CRITICAL, a fixed version exists, and ECS used
-the image in the last 30 days -- by Inspector's in-use record, or because the image arrived in ECR
-in that time. The second is needed because Inspector refreshes in-use data only now and then, so
-a freshly deployed image could go unreported for a day, or for good if the environment is down
-again by then. Through the pull-through cache an image arrives exactly when ECS first pulls it,
-so its arrival date is a first use that is known at once. Most of what Inspector reports for the backend is in the
-base image's OS packages with no fix released yet, and an issue about those would be noise
-nobody can act on.
+the image in the last 30 days -- by Inspector's in-use record, or because the image arrived in
+ECR in that time. The second is needed because Inspector refreshes in-use data only now and then,
+so a freshly deployed image could go unreported for a day, or for good if the environment is
+down again by then. Through the pull-through cache an image arrives exactly when ECS first pulls
+it, so its arrival date is a first use that is known at once. The price: an image pulled but
+never run for long -- a rolled-back deploy, a debugging pull, the digest `latest` just moved
+away from -- stays in scope for its 30 days too. Most of what Inspector reports for the backend
+is in the base image's OS packages with no fix released yet, and an issue about those would be
+noise nobody can act on.
 
 The issue carries the label below, and its body ends in a hidden list of what it reported, which
 is how the next run finds it and tells new findings from known ones. Needs GH_TOKEN (issues:
@@ -40,7 +42,7 @@ import sys
 import time
 
 LABEL = "image-vulnerability"
-TITLE = "Fixable HIGH or CRITICAL vulnerabilities in a running image"
+TITLE = "Fixable HIGH or CRITICAL vulnerabilities in a recently used image"
 REPOSITORY_PREFIX = "quay/"
 IN_USE_DAYS = 30
 SEVERITY_ORDER = {"CRITICAL": 0, "HIGH": 1}
