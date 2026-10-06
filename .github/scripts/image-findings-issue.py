@@ -10,19 +10,19 @@ ECS pulls the images through ECR's pull-through cache, and Inspector scans every
 holds -- again whenever a new CVE is published, not only when the image arrives (#162). This
 script asks for the findings worth a person's attention and keeps one issue in step with them:
 
-- findings, no open issue        -> open one, listing them -- except findings in the last issue a
-                                    person closed, which count as looked at (see below)
+- findings, no open issue        -> open one, listing them
 - findings, issue open           -> rewrite its list; comment only on findings not listed before,
                                     so a notification means something new
 - no findings, issue open        -> close it
 - no findings, nothing open      -> nothing
 
-**Closing the issue by hand acknowledges what it lists.** A person closes it once the findings are
-dealt with -- fixed, accepted, or judged irrelevant, which a real triage has to decide anyway. Those
-findings are then not raised again; a finding that was not listed opens a new issue with just
-that one. When the script closes the issue itself because the findings are gone, it clears the
-list first, so the closing acknowledges nothing and a finding that comes back -- a rollback to an
-old image -- is reported again. doc/deployment/image-scanning.md has the workflow.
+**Accepted findings are left out, on every run.** A person who decides a finding can stay --
+accepted, or irrelevant to this service -- closes the issue as *not planned*. Every finding an
+issue closed that way lists is acknowledged from then on, across all such issues, and never
+listed again; reopening the issue withdraws it. Closing as *completed* means fixed and
+acknowledges nothing, so a finding that comes back -- a rollback, a downgrade -- is reported
+again; the script closes issues that way itself, as the previous version did too.
+doc/deployment/image-scanning.md has the triage.
 
 "Worth attention" is narrow on purpose: HIGH or CRITICAL, a fixed version exists, and ECS used
 the image in the last 30 days -- by Inspector's in-use record, or because the image arrived in
@@ -150,21 +150,25 @@ def table(listed):
     return "\n".join(lines)
 
 
+def acknowledged_by(closed_issues):
+    """Every finding key listed by an issue a person closed as not planned: the accepted ones."""
+    keys = set()
+    for issue in closed_issues:
+        if issue.get("stateReason") == "NOT_PLANNED":
+            keys |= reported(issue.get("body"))
+    return keys
+
+
 def decide(found, open_issue, run_url, acknowledged=frozenset()):
     """The whole policy, as a pure function of the findings, the open issue if any, and the
-    finding keys a person acknowledged by closing the last issue."""
-    listed = rows(found)
+    finding keys accepted by closing an issue as not planned."""
+    listed = [r for r in rows(found) if r.key not in acknowledged]
     if not listed:
         if open_issue is None:
             return Action("none")
         return Action("close", open_issue["number"],
-                      body=KNOWN.sub("<!-- reported:  -->", open_issue.get("body") or ""),
-                      comment=f"No fixable HIGH or CRITICAL findings remain in recently used images "
-                              f"({run_url}). Closing.")
-    if open_issue is None:
-        listed = [r for r in listed if r.key not in acknowledged]
-        if not listed:
-            return Action("none")
+                      comment=f"No unaccepted fixable HIGH or CRITICAL findings remain in recently "
+                              f"used images ({run_url}). Closing as completed.")
 
     body = (
         f"Amazon Inspector reports fixable HIGH or CRITICAL vulnerabilities in backend images that "
@@ -173,8 +177,9 @@ def decide(found, open_issue, run_url, acknowledged=frozenset()):
         f"*Fixed in*, through Renovate as usual, and releasing. Run: {run_url}\n\n"
         f"This issue is kept up to date by `image-findings-issue.py` (#162). It is rewritten "
         f"every six hours, gets a comment only when a new finding appears, and closes itself once none "
-        f"are left. **Close it by hand once the findings are dealt with** -- fixed, accepted or judged "
-        f"irrelevant; the same findings are then not raised again, and a new one opens a new issue.\n\n<!-- reported: {' '.join(r.key for r in listed)} -->"
+        f"are left. **To accept a finding** -- not exploitable here, or a fix that can wait -- close "
+        f"this issue as *not planned* with a comment why: everything it lists is then never raised "
+        f"again. Closing as *completed* means fixed, and a finding that comes back is reported again.\n\n<!-- reported: {' '.join(r.key for r in listed)} -->"
     )
     if open_issue is None:
         return Action("create", body=body)
@@ -205,31 +210,39 @@ def find_open_issue():
     return found[0] if found else None
 
 
-def last_acknowledged():
-    """The findings listed by the most recent closed issue, which a person closed by hand -- the
-    script empties the list of any issue it closes itself."""
+def acknowledged():
+    """The accepted finding keys, from every closed issue with this label."""
     closed = json.loads(gh("issue", "list", "--label", LABEL, "--state", "closed",
-                           "--json", "body", "--limit", "1"))
-    return reported(closed[0]["body"]) if closed else set()
+                           "--json", "body,stateReason", "--limit", "500"))
+    return acknowledged_by(closed)
+
+
+def still_open(number):
+    """Whether the issue is still open right now -- a person may have closed it during the run."""
+    return json.loads(gh("issue", "view", str(number), "--json", "state"))["state"] == "OPEN"
 
 
 def main():
     run_url = (f"{os.environ['GITHUB_SERVER_URL']}/{os.environ['GITHUB_REPOSITORY']}"
                f"/actions/runs/{os.environ['GITHUB_RUN_ID']}")
-    action = decide(list_findings(), find_open_issue(), run_url, acknowledged=last_acknowledged())
+    action = decide(list_findings(), find_open_issue(), run_url, acknowledged=acknowledged())
 
     if action.kind == "create":
         gh("label", "create", LABEL, "--force", "--color", "B60205",
            "--description", "Amazon Inspector found a fixable vulnerability in a running image")
         print(gh("issue", "create", "--label", LABEL, "--title", TITLE, "--body", action.body))
     elif action.kind == "update":
+        # Without this, findings that appeared during the run would be written into an issue a
+        # person had just closed -- as not planned, they would then count as accepted unseen.
+        if not still_open(action.issue):
+            print(f"#{action.issue} was closed during this run; leaving it, the next run decides again.")
+            return 0
         gh("issue", "edit", str(action.issue), "--body", action.body)
         if action.comment:
             gh("issue", "comment", str(action.issue), "--body", action.comment)
         print(f"Updated #{action.issue}" + (" and commented on the new findings" if action.comment else ""))
     elif action.kind == "close":
-        gh("issue", "edit", str(action.issue), "--body", action.body)
-        gh("issue", "close", str(action.issue), "--comment", action.comment)
+        gh("issue", "close", str(action.issue), "--reason", "completed", "--comment", action.comment)
         print(f"Closed #{action.issue}")
     else:
         print("No unacknowledged fixable HIGH or CRITICAL findings, no open issue: nothing to do.")

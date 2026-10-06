@@ -88,28 +88,42 @@ class DecideTest(unittest.TestCase):
 
 
 class AcknowledgedTest(unittest.TestCase):
-    """Closing the issue by hand means the findings were looked at, so they are not raised again."""
+    """Findings in an issue closed as *not planned* were accepted, and are not raised again."""
 
-    def body_listing(self, *found):
-        return findings.decide(list(found), None, **CONTEXT).body
+    def keys(self, *found):
+        return findings.reported(findings.decide(list(found), None, **CONTEXT).body)
 
-    def test_findings_in_an_issue_closed_by_hand_open_nothing(self):
-        action = findings.decide([A], open_issue=None, acknowledged=findings.reported(self.body_listing(A)),
-                                 **CONTEXT)
+    def test_accepted_findings_open_nothing(self):
+        action = findings.decide([A], open_issue=None, acknowledged=self.keys(A), **CONTEXT)
         self.assertEqual(action.kind, "none")
 
-    def test_a_new_finding_after_that_opens_an_issue_listing_only_it(self):
-        action = findings.decide([A, B], open_issue=None,
-                                 acknowledged=findings.reported(self.body_listing(A)), **CONTEXT)
+    def test_a_new_finding_opens_an_issue_listing_only_it(self):
+        action = findings.decide([A, B], open_issue=None, acknowledged=self.keys(A), **CONTEXT)
         self.assertEqual(action.kind, "create")
         self.assertIn("CVE-2026-0002", action.body)
         self.assertNotIn("CVE-2026-0001", action.body)
 
-    def test_closing_it_ourselves_acknowledges_nothing(self):
-        open_issue = {"number": 7, "body": self.body_listing(A)}
-        action = findings.decide([], open_issue=open_issue, **CONTEXT)
+    def test_accepted_findings_stay_out_of_an_open_issue_on_later_runs(self):
+        open_issue = {"number": 8, "body": findings.decide([B], None, **CONTEXT).body}
+        action = findings.decide([A, B], open_issue=open_issue, acknowledged=self.keys(A), **CONTEXT)
+        self.assertEqual(action.kind, "update")
+        self.assertNotIn("CVE-2026-0001", action.body)
+        self.assertEqual(action.comment, "")
+
+    def test_an_open_issue_left_with_only_accepted_findings_is_closed(self):
+        open_issue = {"number": 8, "body": findings.decide([A], None, **CONTEXT).body}
+        action = findings.decide([A], open_issue=open_issue, acknowledged=self.keys(A), **CONTEXT)
         self.assertEqual(action.kind, "close")
-        self.assertEqual(findings.reported(action.body), set())
+
+    def test_only_issues_closed_as_not_planned_acknowledge_anything(self):
+        accepted = {"stateReason": "NOT_PLANNED", "body": findings.decide([A], None, **CONTEXT).body}
+        fixed = {"stateReason": "COMPLETED", "body": findings.decide([B], None, **CONTEXT).body}
+        self.assertEqual(findings.acknowledged_by([accepted, fixed]), self.keys(A))
+
+    def test_acknowledgements_add_up_across_issues(self):
+        first = {"stateReason": "NOT_PLANNED", "body": findings.decide([A], None, **CONTEXT).body}
+        second = {"stateReason": "NOT_PLANNED", "body": findings.decide([B], None, **CONTEXT).body}
+        self.assertEqual(findings.acknowledged_by([first, second]), self.keys(A) | self.keys(B))
 
 
 class FilterTest(unittest.TestCase):

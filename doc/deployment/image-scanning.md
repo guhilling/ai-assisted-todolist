@@ -56,24 +56,25 @@ only when a finding appears that was not listed before — so a notification mea
 
 A finding is a question for a person, not a task the pipeline can finish by itself: whether the
 vulnerable code is even reachable, whether a fix can wait for the regular update, whether the
-risk is acceptable. So the issue is triaged like any other, and **closed by hand** when that is
-done:
+risk is acceptable. So the issue is triaged like any other:
 
 1. **Give it a priority** — label and project field, like every issue. Fixable HIGH findings in
    the running image are normally `priority: 1 now`.
 2. **Look at each finding.** The usual outcome is that the fix arrives as a dependency or base
-   image update through Renovate (Jackson, for example, comes with the Quarkus platform); then
-   it is released and deployed. If the fix cannot wait for that, pull the update forward.
-3. **Close the issue** once every listed finding is fixed, accepted or judged irrelevant, with a
-   comment saying which. Closing it **acknowledges exactly the findings it lists**: the workflow
-   does not raise those again. A finding that was not on the list opens a new issue, with just
-   that finding.
-4. **If you do nothing,** the workflow closes the issue itself as soon as no listed finding is left
-   in a recently used image. That closing acknowledges nothing — the script clears the list
-   first — so a finding that comes back, after a rollback to an older image, is reported again.
+   image update through Renovate (Jackson, for example, comes with the Quarkus platform), and is
+   then released and deployed. If it cannot wait for that, pull the update forward.
+3. **Close it, with the reason that is true**, and a comment saying why:
+   - **Close as completed** once the findings are *fixed*. That acknowledges nothing: if one
+     comes back — a rollback, a downgrade — it is reported again. Usually unnecessary, because
+     the workflow closes the issue as completed by itself once no listed finding is left.
+   - **Close as not planned** to *accept* the findings — not exploitable in this service, or a
+     fix deliberately deferred. Every finding the issue lists is then acknowledged and never
+     listed again, in this issue or a later one; acknowledgements from all such issues add up.
+     A finding that was not on the list still opens a new issue, with just that finding.
 
-An acknowledged finding stays acknowledged until a newer issue is closed. To have one reported
-again, reopen the issue that listed it.
+To withdraw an acceptance, reopen the issue that listed the finding. While an issue is open, the
+workflow keeps its table current; if you close it during a run, the run leaves it alone and the
+next one decides afresh.
 
 ## Two delays worth knowing
 
