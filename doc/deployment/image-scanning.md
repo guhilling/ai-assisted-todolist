@@ -39,8 +39,11 @@ findings that are:
 - **HIGH or CRITICAL**,
 - **fixable**: a version with the fix exists,
 - in an image **ECS used in the last 30 days**: by Inspector's in-use record, *or* because the
-  image arrived in ECR in that time — through the cache that is when ECS first pulled it. The
-  second is what reports a new deployment straight away; see the delays below.
+  image arrived in ECR in that time and **still carries a tag** — through the cache, arriving is
+  when ECS first pulled it. The second is what reports a new deployment straight away; see the
+  delays below. An untagged digest is one a tag has moved away from, superseded by a newer
+  `latest` or release, so it drops out as soon as the fix is pulled — unless Inspector sees ECS
+  still running it.
 
 The filter is narrow because the backend's base image carries many findings without a fix. When
 this was set up, 32 of the 36 HIGH findings for `taskfest-backend:0.3.0` were in Red Hat packages

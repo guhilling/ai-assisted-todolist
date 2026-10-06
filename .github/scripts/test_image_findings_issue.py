@@ -214,6 +214,17 @@ class QueriesTest(unittest.TestCase):
         for criteria in (in_use, arrived):
             self.assertEqual(criteria["fixAvailable"], [{"comparison": "EQUALS", "value": "YES"}])
 
+    def test_an_untagged_image_counts_only_when_ecs_was_seen_using_it(self):
+        superseded = dict(finding("CVE-2026-0003", tags=()), findingArn="arn:finding/3")
+        current = dict(finding("CVE-2026-0004", tags=("latest",)), findingArn="arn:finding/4")
+        merged = findings.merge_results(in_use=[], arrived=[superseded, current])
+        self.assertEqual([f["findingArn"] for f in merged], ["arn:finding/4"])
+
+    def test_an_untagged_image_ecs_runs_still_counts(self):
+        running = dict(finding("CVE-2026-0003", tags=()), findingArn="arn:finding/3")
+        merged = findings.merge_results(in_use=[running], arrived=[running])
+        self.assertEqual([f["findingArn"] for f in merged], ["arn:finding/3"])
+
     def test_a_finding_both_queries_return_is_reported_once(self):
         first = dict(finding("CVE-2026-0001"), findingArn="arn:finding/1")
         second = dict(finding("CVE-2026-0002"), findingArn="arn:finding/2")
