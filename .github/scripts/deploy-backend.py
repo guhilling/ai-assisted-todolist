@@ -20,6 +20,9 @@ What it does, in order:
 4. Registers a task definition that differs from the running one in the image only, points the
    service at it, and waits until that deployment's rollout completes -- bake included -- or fails.
 
+With --print-image it deploys nothing and prints the image `env.sh up` starts the backend as:
+what the environment runs if it is up, otherwise the release given (startup_choice).
+
 Needs AWS credentials and AWS_REGION, git history with tags, and GITHUB_STEP_SUMMARY (optional).
 """
 
@@ -86,16 +89,35 @@ def decide(service_active, migrations_differ):
 
 
 def rollout_state(services, task_definition_arn):
-    """IN_PROGRESS, COMPLETED or FAILED for the deployment of this task definition.
-
-    A deployment that is no longer listed was rolled back: ECS replaces it with one for the
-    previous task definition, so its absence is a failure, not a success.
-    """
+    """The rolloutState of this task definition's deployment, or MISSING when none is listed."""
     for service in services.get("services", []):
         for deployment in service.get("deployments", []):
             if deployment.get("taskDefinition") == task_definition_arn:
                 return deployment.get("rolloutState", "IN_PROGRESS")
-    return "FAILED"
+    return "MISSING"
+
+
+def next_state(state, seen):
+    """What a polled state means. A deployment not listed yet is waited for -- describe-services
+    is eventually consistent -- but one that vanished after it was seen was rolled back: ECS
+    replaces it with one for the previous task definition."""
+    if state == "MISSING":
+        return "FAILED" if seen else "IN_PROGRESS"
+    return state
+
+
+def startup_choice(service_active, running_image, version):
+    """What `env.sh up` starts the backend as: ("keep", image), ("release", version) or ("error", why).
+
+    An environment that is already up keeps what it runs. Releases reach it through this script,
+    past the migration check; if `up` moved the task definitions tofu owns -- `migrate` among
+    them -- to a newer release, a release that check stopped could reach the database anyway.
+    """
+    if service_active:
+        return ("keep", running_image)
+    if not version:
+        return ("error", "name the release to start, e.g. ./env.sh up prod v1.2.3")
+    return ("release", version)
 
 
 def aws(*args):
@@ -134,11 +156,31 @@ def summary(text):
             out.write(text + "\n")
 
 
+def print_startup_image(args, region, account, active, running_image):
+    """env.sh up's half: print the image to start, or explain on stderr and fail."""
+    kind, value = startup_choice(bool(active), running_image, args.version)
+    if kind == "error":
+        print(f"{args.environment} is down, so there is nothing to keep: {value}", file=sys.stderr)
+        return 1
+    if kind == "keep":
+        if args.version:
+            print(f"{args.environment} is up, so it keeps what it runs; {args.version} is deployed "
+                  f"with deploy-backend.yml, not with up.", file=sys.stderr)
+        print(value)
+        return 0
+    print(image_reference(account, region, value, release_digest(value)))
+    return 0
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--environment", required=True)
-    parser.add_argument("--version", required=True)
+    parser.add_argument("--version")
+    parser.add_argument("--print-image", action="store_true",
+                        help="print the image `env.sh up` starts the backend as, and deploy nothing")
     args = parser.parse_args()
+    if not args.print_image and not args.version:
+        parser.error("--version is required to deploy")
 
     region = os.environ["AWS_REGION"]
     cluster, service = f"{PROJECT}-{args.environment}", f"{PROJECT}-{args.environment}-backend"
@@ -152,6 +194,8 @@ def main():
         running = aws("ecs", "describe-task-definition", "--task-definition",
                       active[0]["taskDefinition"])["taskDefinition"]
         running_image = running["containerDefinitions"][0]["image"]
+    if args.print_image:
+        return print_startup_image(args, region, account, active, running_image)
     running_version = (version_of(running_image) if running_image else None) or previous_release(args.version)
 
     action = decide(bool(active), active and changelog_differs(running_version, args.version))
@@ -170,16 +214,26 @@ def main():
         "--task-definition", registered["taskDefinitionArn"])
     print(f"Rolling out {registered['taskDefinitionArn']} -- waiting for it to complete, bake included")
     deadline = time.monotonic() + ROLLOUT_TIMEOUT_SECONDS
-    state = "IN_PROGRESS"
+    state, seen = "IN_PROGRESS", False
     while state == "IN_PROGRESS" and time.monotonic() < deadline:
         time.sleep(15)
-        state = rollout_state(aws("ecs", "describe-services", "--cluster", cluster, "--services", service),
-                              registered["taskDefinitionArn"])
-        print(f"  {state}")
+        try:
+            polled = rollout_state(aws("ecs", "describe-services", "--cluster", cluster, "--services", service),
+                                   registered["taskDefinitionArn"])
+        except subprocess.CalledProcessError as error:
+            # Throttling or a network blip; the rollout goes on regardless, so keep watching it.
+            print(f"  describe-services failed, retrying: {error.stderr.strip()}")
+            continue
+        seen = seen or polled != "MISSING"
+        state = next_state(polled, seen)
+        print(f"  {polled}")
+    if state == "IN_PROGRESS":
+        summary(f"::error::{args.version} to {args.environment}: the rollout is still in progress after "
+                f"30 minutes and may yet complete -- check the service before deploying anything else.")
+        return 1
     if state != "COMPLETED":
-        summary(f"::error::{args.version} not deployed to {args.environment}: the rollout ended "
-                f"{state}{' after 30 minutes' if state == 'IN_PROGRESS' else ''}; "
-                f"ECS keeps or restores {running_version}.")
+        summary(f"::error::{args.version} not deployed to {args.environment}: the rollout {state}, "
+                f"and ECS restores {running_version}.")
         return 1
     summary(f"**{args.version} deployed to {args.environment}** (was {running_version}), "
             f"`{image}`, task definition revision {registered['revision']}.")

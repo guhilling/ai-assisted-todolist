@@ -130,9 +130,10 @@ variable "backend_image" {
     newest release -- or the one named -- by version and digest, pulled through this account's ECR
     cache so that Amazon Inspector scans exactly what ECS runs (#162). After that,
     deploy-backend.yml registers the service's revisions itself, which the service's
-    ignore_changes keeps tofu out of. Left null, as in a plain plan, it is Quay's `latest`, which
-    the cache may serve stale -- the reason env.sh never leaves it null. Like `running`, it is
-    deliberately not in terraform.tfvars.
+    ignore_changes keeps tofu out of. It has no `latest` fallback: the cache can serve that a day
+    stale, so a plan while `running` is true fails without it -- a precondition on the task
+    definitions -- rather than quietly starting it. Like `running`, it is deliberately not in
+    terraform.tfvars.
   EOT
   type        = string
   default     = null

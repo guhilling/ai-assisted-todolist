@@ -13,7 +13,7 @@
 # not a second, differently-timed evaluation.
 #
 #   ./env.sh up qa          create the database, load balancer and service, on the newest release
-#   ./env.sh up qa v1.2.3   the same, on that release
+#   ./env.sh up prod v1.2.3 the same, on that release; prod always needs one named
 #   ./env.sh down qa        destroy them; the VPC, subnets and IAM stay
 #   ./env.sh status qa      what the last apply recorded
 #   ./env.sh up qa --yes    skip the confirmation, for a workflow
@@ -218,37 +218,37 @@ run_one_off() {
     fi
 }
 
-# The backend image `up` starts: a release by version and digest, through the account's ECR cache.
+# The backend image `up` starts, by version and digest through the account's ECR cache -- never
+# `latest`, which the cache can serve a day stale (#181).
 #
-# Never `latest`. The cache serves a tag it has seen before from its own copy and refreshes it at
-# most once a day, so `latest` could bring back yesterday's image (#181); a digest cannot be stale.
-# Without a release named on the command line it is the newest final release -- the tag every
-# release has already deployed to qa -- read from the remote, so a clone that has not fetched in a
-# while does not start an old one. The reference has the shape deploy-backend.py writes, so an
-# environment brought up and one deployed to are indistinguishable.
+# deploy-backend.py decides and builds the reference, so an environment brought up and one
+# deployed to name their image the same way: one that is already up keeps what it runs, since
+# releases reach it through deploy-backend.yml and its migration check; one that is down starts the
+# release named on the command line or, for qa only, the newest final release on origin -- which
+# release.yml has already deployed to qa. prod starts only a release someone names.
+#
+# Every step is checked by hand: this runs inside $(...), where bash 3.2 ignores `set -e`.
 release_image() {
-    local release="$1" region account digest
+    local release="$1" region image
 
-    if [[ -z "$release" ]]; then
-        release="$(git -C "$HERE" ls-remote --tags --refs origin 'v*' | sed 's#.*refs/tags/##' \
-            | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -1)"
-        if [[ -z "$release" ]]; then
+    if [[ -z "$release" && "$ENVIRONMENT" == "qa" ]]; then
+        if ! release="$(git -C "$HERE" ls-remote --tags --refs origin 'v*' | sed 's#.*refs/tags/##' \
+            | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -1)" || [[ -z "$release" ]]; then
             echo "Could not find a release tag on origin; name one: ./env.sh up ${ENVIRONMENT} v1.2.3" >&2
-            exit 1
+            return 1
         fi
     fi
 
-    # Quay's API needs no login for a public repository. A tag that is not there -- not released
-    # yet, or from before the rename to TaskFest (v0.2.0 and older) -- stops the run here.
-    if ! digest="$(curl -fsS "https://quay.io/api/v1/repository/ghilling/taskfest-backend/tag/?specificTag=${release#v}&onlyActiveTags=true" \
-        | python3 -c 'import json, sys; print(json.load(sys.stdin)["tags"][0]["manifest_digest"])')"; then
-        echo "taskfest-backend:${release#v} is not on Quay; not planning." >&2
-        exit 1
+    if ! region="$(tfvars_region)" || [[ -z "$region" ]]; then
+        echo "No region in ${ROOT}/terraform.tfvars; not planning." >&2
+        return 1
     fi
-
-    region="$(tfvars_region)"
-    account="$(aws sts get-caller-identity --query Account --output text)"
-    echo "${account}.dkr.ecr.${region}.amazonaws.com/quay/ghilling/taskfest-backend:${release#v}@${digest}"
+    if ! image="$(AWS_REGION="$region" python3 "${HERE}/../../.github/scripts/deploy-backend.py" \
+        --environment "$ENVIRONMENT" --print-image ${release:+--version "$release"})" || [[ -z "$image" ]]; then
+        echo "Could not determine the backend image; not planning." >&2
+        return 1
+    fi
+    echo "$image"
 }
 
 # The newest final snapshot of this environment's database, or nothing if there is none.
@@ -329,7 +329,9 @@ case "$COMMAND" in
         # passes neither: nothing it keeps runs an image, and there is nothing to restore into.
         up_args=()
         if [[ "$COMMAND" == "up" ]]; then
-            image="$(release_image "$RELEASE")"
+            if ! image="$(release_image "$RELEASE")"; then
+                exit 1
+            fi
             echo "The backend starts as ${image}."
             up_args=(-var "backend_image=${image}")
 

@@ -54,8 +54,8 @@ environment and a tag — which is also the rollback, with the previous tag — 
    only, points the service at it and waits until that deployment's rollout has completed, bake
    included — up to 30 minutes, where ECS's own waiter would give up after ten.
 
-**Every release goes to qa by itself.** `release.yml` ends by calling both workflows for qa with
-its own tag: the backend first, then the frontend once the backend job has succeeded. So a release
+**Every release goes to qa by itself** — every final one: a pre-release (`v1.2.3-rc.1`) is
+deployed by hand when wanted. `release.yml` ends by calling both workflows for qa with its own tag: the backend first, then the frontend once the backend job has succeeded. So a release
 stopped for its migration does not put its frontend in front of the old API either, while a qa
 that is down still gets the frontend — the site bucket outlives `down`. **prod is never deployed
 automatically**: both workflows are started by hand for it, from the Actions tab, and wait at the

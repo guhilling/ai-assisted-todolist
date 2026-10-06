@@ -113,8 +113,7 @@ data "aws_iam_policy_document" "task_execution_trust" {
 locals {
   # Where ECR's pull-through cache keeps Quay's images: quay.io/ghilling/x is quay/ghilling/x here.
   image_repository_prefix = "quay/ghilling/${var.project}-"
-  ecr_registry            = "${local.account}.dkr.ecr.${local.region}.amazonaws.com"
-  backend_image           = coalesce(var.backend_image, "${local.ecr_registry}/${local.image_repository_prefix}backend:latest")
+  backend_image           = var.backend_image
 }
 
 resource "aws_iam_role" "task_execution" {
