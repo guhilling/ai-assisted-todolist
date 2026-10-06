@@ -126,11 +126,13 @@ variable "log_retention_days" {
 
 variable "backend_image" {
   description = <<-EOT
-    The backend image the service and the one-off tasks run, when it should be something other
-    than the default. Left null, it is Quay's `latest` -- which main publishes -- pulled through
-    this account's ECR cache, so that Amazon Inspector scans exactly what ECS runs (#162). Until
-    the deploy change pins a release, this seeds every task definition; from then on only the
-    first one.
+    The backend image the service and the one-off tasks start as. `env.sh up` sets it to the
+    newest release -- or the one named -- by version and digest, pulled through this account's ECR
+    cache so that Amazon Inspector scans exactly what ECS runs (#162). After that,
+    deploy-backend.yml registers the service's revisions itself, which the service's
+    ignore_changes keeps tofu out of. Left null, as in a plain plan, it is Quay's `latest`, which
+    the cache may serve stale -- the reason env.sh never leaves it null. Like `running`, it is
+    deliberately not in terraform.tfvars.
   EOT
   type        = string
   default     = null

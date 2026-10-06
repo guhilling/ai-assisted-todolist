@@ -42,6 +42,12 @@ variable "db_restore_snapshot" {
   default     = null
 }
 
+variable "backend_image" {
+  description = "The release the backend runs, by version and digest. Passed by env.sh up, never in terraform.tfvars."
+  type        = string
+  default     = null
+}
+
 variable "log_retention_days" {
   description = "How long the ECS task logs are kept."
   type        = number

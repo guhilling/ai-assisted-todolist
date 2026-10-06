@@ -62,6 +62,7 @@ module "environment" {
   private_subnet_cidrs = var.private_subnet_cidrs
   running              = var.running
   db_restore_snapshot  = var.db_restore_snapshot
+  backend_image        = var.backend_image
   log_retention_days   = var.log_retention_days
   hostname             = var.hostname
   google_client_id     = var.google_client_id

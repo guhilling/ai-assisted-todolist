@@ -12,7 +12,8 @@
 # by muscle memory. What is applied is the saved plan file, so it is exactly what was shown and
 # not a second, differently-timed evaluation.
 #
-#   ./env.sh up qa          create the database, load balancer and service
+#   ./env.sh up qa          create the database, load balancer and service, on the newest release
+#   ./env.sh up qa v1.2.3   the same, on that release
 #   ./env.sh down qa        destroy them; the VPC, subnets and IAM stay
 #   ./env.sh status qa      what the last apply recorded
 #   ./env.sh up qa --yes    skip the confirmation, for a workflow
@@ -25,7 +26,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly HERE
 
 usage() {
-    sed -n '3,20p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+    sed -n '3,21p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
     exit "${1:-1}"
 }
 
@@ -41,9 +42,14 @@ readonly ENVIRONMENT="$2"
 shift 2
 
 ASSUME_YES="no"
+RELEASE=""
 for argument in "$@"; do
     case "$argument" in
         --yes|-y) ASSUME_YES="yes" ;;
+        v[0-9]*.[0-9]*.[0-9]*)
+            [[ "$COMMAND" == "up" && -z "$RELEASE" ]] || usage
+            RELEASE="$argument"
+            ;;
         *) echo "Unknown option: $argument" >&2; usage ;;
     esac
 done
@@ -212,6 +218,39 @@ run_one_off() {
     fi
 }
 
+# The backend image `up` starts: a release by version and digest, through the account's ECR cache.
+#
+# Never `latest`. The cache serves a tag it has seen before from its own copy and refreshes it at
+# most once a day, so `latest` could bring back yesterday's image (#181); a digest cannot be stale.
+# Without a release named on the command line it is the newest final release -- the tag every
+# release has already deployed to qa -- read from the remote, so a clone that has not fetched in a
+# while does not start an old one. The reference has the shape deploy-backend.py writes, so an
+# environment brought up and one deployed to are indistinguishable.
+release_image() {
+    local release="$1" region account digest
+
+    if [[ -z "$release" ]]; then
+        release="$(git -C "$HERE" ls-remote --tags --refs origin 'v*' | sed 's#.*refs/tags/##' \
+            | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -1)"
+        if [[ -z "$release" ]]; then
+            echo "Could not find a release tag on origin; name one: ./env.sh up ${ENVIRONMENT} v1.2.3" >&2
+            exit 1
+        fi
+    fi
+
+    # Quay's API needs no login for a public repository. A tag that is not there -- not released
+    # yet, or from before the rename to TaskFest (v0.2.0 and older) -- stops the run here.
+    if ! digest="$(curl -fsS "https://quay.io/api/v1/repository/ghilling/taskfest-backend/tag/?specificTag=${release#v}&onlyActiveTags=true" \
+        | python3 -c 'import json, sys; print(json.load(sys.stdin)["tags"][0]["manifest_digest"])')"; then
+        echo "taskfest-backend:${release#v} is not on Quay; not planning." >&2
+        exit 1
+    fi
+
+    region="$(tfvars_region)"
+    account="$(aws sts get-caller-identity --query Account --output text)"
+    echo "${account}.dkr.ecr.${region}.amazonaws.com/quay/ghilling/taskfest-backend:${release#v}@${digest}"
+}
+
 # The newest final snapshot of this environment's database, or nothing if there is none.
 #
 # Teardown destroys the database and leaves a final snapshot; this is the other half, so that a
@@ -283,14 +322,21 @@ case "$COMMAND" in
         use_lifecycle_profile
         run_tofu init -input=false >/dev/null
 
-        # Only read when the database is created, so passing it to an environment that is already
-        # up changes nothing. `down` does not look: there is nothing to restore into.
-        restore_args=()
+        # What `up` adds: the release the backend starts as, and the snapshot to restore. The
+        # snapshot is only read when the database is created, so passing it to an environment that
+        # is already up changes nothing; a newer release there re-registers the task definitions
+        # tofu owns, which the service ignores -- deploying is deploy-backend.yml's job. `down`
+        # passes neither: nothing it keeps runs an image, and there is nothing to restore into.
+        up_args=()
         if [[ "$COMMAND" == "up" ]]; then
+            image="$(release_image "$RELEASE")"
+            echo "The backend starts as ${image}."
+            up_args=(-var "backend_image=${image}")
+
             snapshot="$(newest_final_snapshot)"
             if [[ -n "$snapshot" ]]; then
                 echo "A newly created database is restored from ${snapshot}."
-                restore_args=(-var "db_restore_snapshot=${snapshot}")
+                up_args+=(-var "db_restore_snapshot=${snapshot}")
             else
                 echo "No final snapshot of the ${ENVIRONMENT} database exists; a new one starts empty."
             fi
@@ -304,9 +350,9 @@ case "$COMMAND" in
         plan_log="$(mktemp -t "tofu-${ENVIRONMENT}-log")"
         trap 'rm -f "$plan_file" "$plan_log"' EXIT
 
-        # The odd expansion is for macOS's bash 3.2, where "${restore_args[@]}" on an empty array
+        # The odd expansion is for macOS's bash 3.2, where "${up_args[@]}" on an empty array
         # is an unbound-variable error under `set -u`.
-        if ! run_tofu plan -input=false -var "running=${running}" ${restore_args[@]+"${restore_args[@]}"} \
+        if ! run_tofu plan -input=false -var "running=${running}" ${up_args[@]+"${up_args[@]}"} \
             -out="$plan_file" 2>&1 | tee "$plan_log"; then
             if grep -q "openid_connect_provider" "$plan_log"; then
                 cat >&2 <<NOTE
