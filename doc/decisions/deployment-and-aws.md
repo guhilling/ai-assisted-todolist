@@ -317,7 +317,7 @@ the release mechanism needed testing anyway.
 ## Image vulnerabilities come from Amazon Inspector, through ECR's pull-through cache
 
 ECS pulls the backend image from ECR, which caches it from Quay on first use. Amazon Inspector
-scans what lands there, continuously, and a daily workflow turns fixable HIGH and CRITICAL
+scans what lands there, continuously, and a workflow every six hours turns fixable HIGH and CRITICAL
 findings in recently used images into one GitHub issue (#162,
 [image scanning](../deployment/image-scanning.md)). *Decided by Gunnar*, partly as a
 demonstration of the AWS-native route.

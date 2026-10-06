@@ -2,7 +2,7 @@
 """
 Turns Amazon Inspector's findings on the running backend images into at most one GitHub issue.
 
-Run daily by image-findings.yml, with credentials for the read-only findings role:
+Run every six hours by image-findings.yml, with credentials for the read-only findings role:
 
     python3 .github/scripts/image-findings-issue.py
 
@@ -121,7 +121,7 @@ def decide(found, open_issue, run_url):
         f"Most of these are fixed by moving a dependency or the base image to the version in "
         f"*Fixed in*, through Renovate as usual, and releasing. Run: {run_url}\n\n"
         f"This issue is kept up to date by `image-findings-issue.py` (#162). It is rewritten "
-        f"daily, gets a comment only when a new finding appears, and closes itself once none are "
+        f"every six hours, gets a comment only when a new finding appears, and closes itself once none are "
         f"left.\n\n<!-- reported: {' '.join(r.key for r in listed)} -->"
     )
     if open_issue is None:

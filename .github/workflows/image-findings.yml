@@ -1,14 +1,16 @@
 name: Image findings
 
-# Amazon Inspector scans the backend images ECS pulls through ECR (#162). Once a day this turns
+# Amazon Inspector scans the backend images ECS pulls through ECR (#162). Every six hours this turns
 # what it found into one GitHub issue: fixable HIGH or CRITICAL vulnerabilities in an image ECS
 # ran in the last 30 days. image-findings-issue.py has the policy; doc/deployment/image-scanning.md
 # the whole picture.
 
 on:
   schedule:
-    # Daily, early, on the default branch -- which is the only ref the findings role trusts.
-    - cron: '17 5 * * *'
+    # Every six hours, on the default branch -- which is the only ref the findings role trusts.
+    # Reading findings is free and a run takes seconds; more often would only add a mail per
+    # failed run during a GitHub outage, for findings that arrive half a day sooner at best.
+    - cron: '17 */6 * * *'
   workflow_dispatch:
 
 permissions:
