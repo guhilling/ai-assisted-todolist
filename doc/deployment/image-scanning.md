@@ -50,8 +50,49 @@ console under *Findings → By container image*.
 
 `image-findings-issue.py` keeps **one** issue: it opens it, rewrites its table on every run, comments
 only when a finding appears that was not listed before — so a notification means something new
-— and closes it when none are left. The usual fix is a dependency or base-image update through
-Renovate, then a release.
+— and closes it when none are left.
+
+## Handling the issue
+
+A finding is a question for a person, not a task the pipeline can finish by itself: whether the
+vulnerable code is even reachable, whether a fix can wait for the regular update, whether the
+risk is acceptable. So the issue is triaged like any other:
+
+1. **Give it a priority** — label and project field, like every issue. Fixable HIGH findings in
+   the running image are normally `priority: 1 now`.
+2. **Look at each finding.** The usual outcome is that the fix arrives as a dependency or base
+   image update through Renovate (Jackson, for example, comes with the Quarkus platform), and is
+   then released and deployed. If it cannot wait for that, pull the update forward.
+3. **Close it, with the reason that is true**, and a comment saying why:
+   - **Close as completed** once the findings are *fixed*. That acknowledges nothing: if one
+     comes back — a rollback, a downgrade — it is reported again. Usually unnecessary, because
+     the workflow closes the issue as completed by itself once no listed finding is left.
+   - **Close as not planned** to *accept* the findings — not exploitable in this service, or a
+     fix deliberately deferred. Every finding the issue lists is then acknowledged and never
+     listed again, in this issue or a later one; acknowledgements from all such issues add up.
+     A finding that was not on the list still opens a new issue, with just that finding.
+
+New findings issues get `priority: 1 now` from the workflow itself. The project entry comes from
+the project's *Auto-add* workflow, since the findings workflow's token cannot write to a user
+project. If an open issue is left with nothing but findings accepted elsewhere, the workflow
+closes it as *not planned*, not as completed — they are accepted, not fixed.
+
+To withdraw an acceptance, reopen the issue that listed the finding. While an issue is open, the
+workflow keeps its table current; if you close it during a run, the run leaves it alone and the
+next one decides afresh.
+
+**What the mechanism does not do,** deliberately, because closing by hand is the triage:
+
+- **"Not planned" accepts everything the issue lists**, including findings a run added just
+  before you closed it — read the "New since the last report" comments first.
+- **An acceptance is per CVE and package**, whatever the version, the image or a later re-rating.
+  A finding you accepted as HIGH stays accepted if it is re-rated CRITICAL; reopen the issue if
+  that matters.
+- **Reopening withdraws an acceptance only while no other findings issue is open**, and only if no
+  other not-planned issue lists the same finding: the workflow maintains the newest open issue,
+  and accepted keys add up across issues.
+- **A close that lands in the second between the workflow's check and its edit** can still put a
+  just-appeared finding into a not-planned issue. The check narrows that window; it cannot close it.
 
 ## Two delays worth knowing
 
