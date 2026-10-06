@@ -90,3 +90,28 @@ class DecideTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class RolloutTest(unittest.TestCase):
+    """Waiting is reading the new deployment's rolloutState, not ECS's ten-minute stable waiter."""
+
+    NEW = "arn:aws:ecs:eu-central-1:1:task-definition/taskfest-qa-backend:5"
+    OLD = RUNNING["taskDefinitionArn"]
+
+    def services(self, *deployments):
+        return {"services": [{"deployments": [
+            {"taskDefinition": arn, "rolloutState": state} for arn, state in deployments]}]}
+
+    def test_the_rollout_is_in_progress_while_traffic_shifts_or_bakes(self):
+        state = deploy.rollout_state(self.services((self.NEW, "IN_PROGRESS"), (self.OLD, "COMPLETED")), self.NEW)
+        self.assertEqual("IN_PROGRESS", state)
+
+    def test_it_is_done_when_the_new_deployment_completes(self):
+        self.assertEqual("COMPLETED", deploy.rollout_state(self.services((self.NEW, "COMPLETED")), self.NEW))
+
+    def test_a_failed_rollout_is_reported(self):
+        self.assertEqual("FAILED", deploy.rollout_state(self.services((self.NEW, "FAILED")), self.NEW))
+
+    def test_a_deployment_that_vanished_was_rolled_back(self):
+        # ECS replaces a rolled-back deployment with one for the previous task definition.
+        self.assertEqual("FAILED", deploy.rollout_state(self.services((self.OLD, "IN_PROGRESS")), self.NEW))

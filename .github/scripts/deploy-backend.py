@@ -18,7 +18,7 @@ What it does, in order:
    must not have; that release needs the downtime path in doc/deployment/deploying.md. The
    running version is read from its image tag; if it is `latest`, the previous release counts.
 4. Registers a task definition that differs from the running one in the image only, points the
-   service at it, and waits until ECS reports the service stable -- bake included -- or fails.
+   service at it, and waits until that deployment's rollout completes -- bake included -- or fails.
 
 Needs AWS credentials and AWS_REGION, git history with tags, and GITHUB_STEP_SUMMARY (optional).
 """
@@ -31,6 +31,7 @@ import os
 import re
 import subprocess
 import sys
+import time
 import urllib.request
 
 PROJECT = "taskfest"
@@ -39,6 +40,9 @@ CHANGELOG_DIR = "backend/src/main/resources/db"
 # Fields DescribeTaskDefinition returns that RegisterTaskDefinition refuses or sets itself.
 READ_ONLY_FIELDS = ("taskDefinitionArn", "revision", "status", "registeredAt", "registeredBy",
                     "deregisteredAt", "compatibilities", "requiresAttributes")
+# How long a rollout may take, bake included: prod bakes five minutes, and the traffic shifts and
+# health checks around it take a few more. `aws ecs wait services-stable` gives up after ten.
+ROLLOUT_TIMEOUT_SECONDS = 30 * 60
 TAG = re.compile(r":(\d+\.\d+\.\d+(?:[-.][0-9A-Za-z.]+)?)(?:@sha256:[0-9a-f]{64})?$")
 
 
@@ -79,6 +83,19 @@ def decide(service_active, migrations_differ):
                               "not roll out under live traffic; use the downtime path "
                               "(doc/deployment/deploying.md)")
     return Action("deploy")
+
+
+def rollout_state(services, task_definition_arn):
+    """IN_PROGRESS, COMPLETED or FAILED for the deployment of this task definition.
+
+    A deployment that is no longer listed was rolled back: ECS replaces it with one for the
+    previous task definition, so its absence is a failure, not a success.
+    """
+    for service in services.get("services", []):
+        for deployment in service.get("deployments", []):
+            if deployment.get("taskDefinition") == task_definition_arn:
+                return deployment.get("rolloutState", "IN_PROGRESS")
+    return "FAILED"
 
 
 def aws(*args):
@@ -151,9 +168,19 @@ def main():
                      json.dumps(next_task_definition(running, image)))["taskDefinition"]
     aws("ecs", "update-service", "--cluster", cluster, "--service", service,
         "--task-definition", registered["taskDefinitionArn"])
-    print(f"Rolling out {registered['taskDefinitionArn']} -- waiting for the service to settle")
-    subprocess.run(["aws", "ecs", "wait", "services-stable", "--cluster", cluster, "--services", service],
-                   check=True)
+    print(f"Rolling out {registered['taskDefinitionArn']} -- waiting for it to complete, bake included")
+    deadline = time.monotonic() + ROLLOUT_TIMEOUT_SECONDS
+    state = "IN_PROGRESS"
+    while state == "IN_PROGRESS" and time.monotonic() < deadline:
+        time.sleep(15)
+        state = rollout_state(aws("ecs", "describe-services", "--cluster", cluster, "--services", service),
+                              registered["taskDefinitionArn"])
+        print(f"  {state}")
+    if state != "COMPLETED":
+        summary(f"::error::{args.version} not deployed to {args.environment}: the rollout ended "
+                f"{state}{' after 30 minutes' if state == 'IN_PROGRESS' else ''}; "
+                f"ECS keeps or restores {running_version}.")
+        return 1
     summary(f"**{args.version} deployed to {args.environment}** (was {running_version}), "
             f"`{image}`, task definition revision {registered['revision']}.")
     return 0

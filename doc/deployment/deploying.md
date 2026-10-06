@@ -51,7 +51,8 @@ environment and a tag — which is also the rollback, with the previous tag — 
    image-label design above describes, done in git instead — the downtime path itself is still
    to come.
 4. Otherwise it registers a task definition that differs from the running one in the image
-   only, points the service at it and waits until ECS reports it stable, bake included.
+   only, points the service at it and waits until that deployment's rollout has completed, bake
+   included — up to 30 minutes, where ECS's own waiter would give up after ten.
 
 **Every release goes to qa by itself.** `release.yml` ends by calling both workflows for qa with
 its own tag: the backend first, then the frontend once the backend job has succeeded. So a release
