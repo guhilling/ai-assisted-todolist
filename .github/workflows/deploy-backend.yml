@@ -72,3 +72,14 @@ jobs:
             exit 1
           fi
           python3 .github/scripts/deploy-backend.py --environment "$ENVIRONMENT" --version "$VERSION"
+
+  # Checks the environment once the new backend is serving (#142) -- only when this was started
+  # by hand, such as a rollback. In a release, deploy-frontend.yml runs next and checks then, with
+  # both halves in place; github.event_name is the caller's event there, never workflow_dispatch.
+  live-test:
+    name: Live tests
+    needs: deploy
+    if: inputs.environment == 'qa' && github.event_name == 'workflow_dispatch'
+    uses: ./.github/workflows/live-tests.yml
+    with:
+      environment: ${{ inputs.environment }}

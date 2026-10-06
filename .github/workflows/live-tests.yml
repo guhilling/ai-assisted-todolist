@@ -1,0 +1,62 @@
+name: Live tests
+
+# Checks a deployed environment from the outside, through CloudFront, as a visitor would (#141).
+#
+# Runs after every deploy to qa -- called by deploy-frontend.yml, which is the last step of a
+# release, and by deploy-backend.yml when that was started by hand -- and by hand from the
+# Actions tab. While the environment is down the API checks skip with the reason and the
+# frontend checks still run; e2e/live/backend-state.ts decides, and the run summary says which.
+#
+# Nothing here signs in, so the job needs no AWS role and no secret. A failure fails the run that
+# deployed, visibly; it rolls nothing back -- that stays a person's decision.
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Which environment to check
+        type: choice
+        # prod has no live tests yet (#141, out of scope).
+        options: [qa]
+        default: qa
+  workflow_call:
+    inputs:
+      environment:
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    name: Smoke-test ${{ inputs.environment }}
+    runs-on: ubuntu-26.04
+    env:
+      LIVE_BASE_URL: https://${{ inputs.environment == 'prod' && 'taskfest' || format('taskfest-{0}', inputs.environment) }}.cloud.hilling.de
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: e2e/package-lock.json
+
+      - name: Install Playwright
+        working-directory: e2e
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+
+      - name: Run the live checks
+        working-directory: e2e
+        run: npm run test:live
+
+      - name: Upload the Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report-live
+          path: e2e/playwright-report-live
+          retention-days: 7

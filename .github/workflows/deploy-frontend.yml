@@ -116,3 +116,13 @@ jobs:
         run: |
           echo "### Frontend $VERSION deployed to ${{ inputs.environment }}" >> "$GITHUB_STEP_SUMMARY"
           echo "https://${{ inputs.environment == 'prod' && 'taskfest' || format('taskfest-{0}', inputs.environment) }}.cloud.hilling.de/" >> "$GITHUB_STEP_SUMMARY"
+
+  # Checks the environment from the outside once the new frontend is in place (#142). qa only:
+  # prod has no live tests yet.
+  live-test:
+    name: Live tests
+    needs: deploy
+    if: inputs.environment == 'qa'
+    uses: ./.github/workflows/live-tests.yml
+    with:
+      environment: ${{ inputs.environment }}
