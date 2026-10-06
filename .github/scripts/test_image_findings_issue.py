@@ -99,5 +99,24 @@ class FilterTest(unittest.TestCase):
                          [{"startInclusive": 1_000_000_000 - 30 * 86400, "endInclusive": 1_000_000_000}])
 
 
+class QueriesTest(unittest.TestCase):
+
+    def test_asks_both_for_images_ecs_used_and_for_images_that_arrived_recently(self):
+        in_use, arrived = findings.queries(now=1_000_000_000, days=30)
+        window = [{"startInclusive": 1_000_000_000 - 30 * 86400, "endInclusive": 1_000_000_000}]
+        self.assertEqual(in_use["ecrImageLastInUseAt"], window)
+        self.assertNotIn("ecrImagePushedAt", in_use)
+        self.assertEqual(arrived["ecrImagePushedAt"], window)
+        self.assertNotIn("ecrImageLastInUseAt", arrived)
+        for criteria in (in_use, arrived):
+            self.assertEqual(criteria["fixAvailable"], [{"comparison": "EQUALS", "value": "YES"}])
+
+    def test_a_finding_both_queries_return_is_reported_once(self):
+        first = dict(finding("CVE-2026-0001"), findingArn="arn:finding/1")
+        second = dict(finding("CVE-2026-0002"), findingArn="arn:finding/2")
+        merged = findings.merge([first, second], [dict(first)])
+        self.assertEqual([f["findingArn"] for f in merged], ["arn:finding/1", "arn:finding/2"])
+
+
 if __name__ == "__main__":
     unittest.main()

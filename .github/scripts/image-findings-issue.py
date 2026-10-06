@@ -16,10 +16,16 @@ script asks for the findings worth a person's attention and keeps one issue in s
 - no findings, issue open        -> close it
 - no findings, nothing open      -> nothing
 
-"Worth attention" is narrow on purpose: HIGH or CRITICAL, a fixed version exists, and the image
-was used by ECS in the last 30 days. Most of what Inspector reports for the backend is in the
-base image's OS packages with no fix released yet, and an issue about those would be noise
-nobody can act on.
+"Worth attention" is narrow on purpose: HIGH or CRITICAL, a fixed version exists, and ECS used
+the image in the last 30 days -- by Inspector's in-use record, or because the image arrived in
+ECR in that time. The second is needed because Inspector refreshes in-use data only now and then,
+so a freshly deployed image could go unreported for a day, or for good if the environment is
+down again by then. Through the pull-through cache an image arrives exactly when ECS first pulls
+it, so its arrival date is a first use that is known at once. The price: an image pulled but
+never run for long -- a rolled-back deploy, a debugging pull, the digest `latest` just moved
+away from -- stays in scope for its 30 days too. Most of what Inspector reports for the backend
+is in the base image's OS packages with no fix released yet, and an issue about those would be
+noise nobody can act on.
 
 The issue carries the label below, and its body ends in a hidden list of what it reported, which
 is how the next run finds it and tells new findings from known ones. Needs GH_TOKEN (issues:
@@ -36,7 +42,7 @@ import sys
 import time
 
 LABEL = "image-vulnerability"
-TITLE = "Fixable HIGH or CRITICAL vulnerabilities in a running image"
+TITLE = "Fixable HIGH or CRITICAL vulnerabilities in a recently used image"
 REPOSITORY_PREFIX = "quay/"
 IN_USE_DAYS = 30
 SEVERITY_ORDER = {"CRITICAL": 0, "HIGH": 1}
@@ -52,8 +58,12 @@ class Action:
     comment: str = ""
 
 
-def filter_criteria(now, days=IN_USE_DAYS):
-    """The Inspector filter for findings worth an issue, as list-findings takes it."""
+def filter_criteria(now, days=IN_USE_DAYS, window="ecrImageLastInUseAt"):
+    """The Inspector filter for findings worth an issue, as list-findings takes it.
+
+    `window` names the date that has to fall in the last `days`: when ECS last used the image,
+    or when it arrived in ECR (`ecrImagePushedAt`).
+    """
     equals = lambda value: {"comparison": "EQUALS", "value": value}
     return {
         "findingStatus": [equals("ACTIVE")],
@@ -61,8 +71,28 @@ def filter_criteria(now, days=IN_USE_DAYS):
         "severity": [equals("HIGH"), equals("CRITICAL")],
         "fixAvailable": [equals("YES")],
         "ecrImageRepositoryName": [{"comparison": "PREFIX", "value": REPOSITORY_PREFIX}],
-        "ecrImageLastInUseAt": [{"startInclusive": now - days * 86400, "endInclusive": now}],
+        window: [{"startInclusive": now - days * 86400, "endInclusive": now}],
     }
+
+
+def queries(now, days=IN_USE_DAYS):
+    """The two filters whose results together are the findings worth an issue.
+
+    Inspector's filter fields are combined with AND, so "used recently OR arrived recently" is two
+    queries, merged afterwards.
+    """
+    return [filter_criteria(now, days), filter_criteria(now, days, window="ecrImagePushedAt")]
+
+
+def merge(*results):
+    """The findings of several queries, each once, in the order first seen."""
+    seen, merged = set(), []
+    for found in results:
+        for f in found:
+            if f["findingArn"] not in seen:
+                seen.add(f["findingArn"])
+                merged.append(f)
+    return merged
 
 
 @dataclasses.dataclass
@@ -117,7 +147,7 @@ def decide(found, open_issue, run_url):
 
     body = (
         f"Amazon Inspector reports fixable HIGH or CRITICAL vulnerabilities in backend images that "
-        f"ECS ran in the last {IN_USE_DAYS} days.\n\n{table(listed)}\n\n"
+        f"ECS used in the last {IN_USE_DAYS} days.\n\n{table(listed)}\n\n"
         f"Most of these are fixed by moving a dependency or the base image to the version in "
         f"*Fixed in*, through Renovate as usual, and releasing. Run: {run_url}\n\n"
         f"This issue is kept up to date by `image-findings-issue.py` (#162). It is rewritten "
@@ -135,10 +165,13 @@ def decide(found, open_issue, run_url):
 
 
 def list_findings():
-    criteria = json.dumps(filter_criteria(int(time.time())))
-    output = subprocess.run(["aws", "inspector2", "list-findings", "--filter-criteria", criteria,
-                             "--output", "json"], check=True, capture_output=True, text=True).stdout
-    return json.loads(output).get("findings", [])
+    def query(criteria):
+        output = subprocess.run(["aws", "inspector2", "list-findings", "--filter-criteria",
+                                 json.dumps(criteria), "--output", "json"],
+                                check=True, capture_output=True, text=True).stdout
+        return json.loads(output).get("findings", [])
+
+    return merge(*(query(criteria) for criteria in queries(int(time.time()))))
 
 
 def gh(*args):

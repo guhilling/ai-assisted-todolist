@@ -2,8 +2,8 @@ name: Image findings
 
 # Amazon Inspector scans the backend images ECS pulls through ECR (#162). Every six hours this turns
 # what it found into one GitHub issue: fixable HIGH or CRITICAL vulnerabilities in an image ECS
-# ran in the last 30 days. image-findings-issue.py has the policy; doc/deployment/image-scanning.md
-# the whole picture.
+# used in the last 30 days, by Inspector's in-use record or by its arrival in ECR's cache.
+# image-findings-issue.py has the policy; doc/deployment/image-scanning.md the whole picture.
 
 on:
   schedule:

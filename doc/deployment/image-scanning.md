@@ -38,7 +38,9 @@ findings that are:
 
 - **HIGH or CRITICAL**,
 - **fixable**: a version with the fix exists,
-- in an image **ECS ran in the last 30 days**, so qa being down for a week loses nothing.
+- in an image **ECS used in the last 30 days**: by Inspector's in-use record, *or* because the
+  image arrived in ECR in that time — through the cache that is when ECS first pulled it. The
+  second is what reports a new deployment straight away; see the delays below.
 
 The filter is narrow because the backend's base image carries many findings without a fix. When
 this was set up, 32 of the 36 HIGH findings for `taskfest-backend:0.3.0` were in Red Hat packages
@@ -59,10 +61,13 @@ Renovate, then a release.
   image pushed directly alike. Nothing was misconfigured; it was still initialising. Later
   images are scanned within minutes.
 - **"In use" is not live.** Inspector learns which images ECS runs on a periodic refresh, not
-  when a task starts, and the workflow only reports images with an in-use date in the last 30
-  days. A finding in a freshly deployed image therefore reaches the issue once Inspector has
-  seen the running task — which needs the environment up at that moment — and then stays in
-  scope for 30 days.
+  when a task starts. On 2026-10-06 qa ran the image for hours without Inspector recording it.
+  That is why the workflow counts the image's arrival in ECR as well as the in-use date, since
+  the arrival is known immediately: a deployment's findings reach the issue on the next run,
+  whether or not Inspector has caught up. The price is that an image pulled but barely run — a
+  rolled-back deploy, a debugging pull, the digest `latest` has just moved away from — also
+  stays in scope for 30 days, and so may keep the issue open after a fix has shipped until it
+  ages out or the cache's lifecycle rule (newest five) expires it.
 
 ## Cost
 
