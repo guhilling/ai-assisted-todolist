@@ -1,0 +1,30 @@
+# jre-runtime: Temurin's full JRE on Red Hat UBI 10 micro (#66).
+#
+# A base image for JVM applications, published as quay.io/ghilling/jre-runtime and meant to be
+# reused beyond this project. The backend's Jib build runs on it.
+#
+# Why not Temurin's own UBI image: that is UBI *minimal* plus ~130 packages a JVM never touches
+# (binutils, systemd, dbus, curl, wget, gnupg, microdnf, fonts), 152 OS packages in all, and
+# those are where nearly every scanner finding came from. UBI micro has 24. The JRE needs only
+# glibc from the OS -- java, libjvm, libjava, libnet and libjli link nothing else -- and brings
+# its own CA certificates and zlib; the X11, ALSA and freetype libraries it lists are AWT's, which
+# a headless service never loads. doc/decisions/containers-and-local-stack.md has the measurements.
+#
+# Both stages are pinned to a tag and the digest of its multi-arch index, so a rebuild is the
+# same image; Renovate's Dockerfile manager moves them. UBI micro has no package manager, no
+# grep and no curl -- anything that runs inside the container has to make do with bash and
+# coreutils.
+
+FROM docker.io/library/eclipse-temurin:25.0.4.1_1-jre-ubi10-minimal@sha256:e961af01f4a1a3ec3ca71a3063739a33da943cf71734a8a747856d9385846544 AS jre
+
+FROM registry.access.redhat.com/ubi10/ubi-micro:10.2-1787684489@sha256:37fadb004c6bea628fcdd81376c8fb77bd8d9fd432d90503af4d9e76b1ff7191
+
+LABEL org.opencontainers.image.title="jre-runtime" \
+      org.opencontainers.image.description="Eclipse Temurin JRE on Red Hat UBI 10 micro" \
+      org.opencontainers.image.source="https://github.com/guhilling/ai-assisted-todolist/tree/main/deployment/jre-runtime"
+
+ENV JAVA_HOME=/opt/java/openjdk \
+    PATH=/opt/java/openjdk/bin:/usr/bin:/bin \
+    LANG=C.UTF-8
+
+COPY --from=jre /opt/java/openjdk /opt/java/openjdk
