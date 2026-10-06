@@ -129,7 +129,9 @@ each other.
 and is never in `terraform.tfvars`, so an administrator's apply of foundation changes plans to
 destroy everything billable unless it says otherwise. While the environment is up — or half up,
 after an `env.sh up` that failed — apply with what `env.sh up` would pass:
-`-var running=true -var db_restore_snapshot=<the newest final snapshot>`. `running=true` alone
+`-var running=true -var db_restore_snapshot=<the newest final snapshot> -var backend_image=<the
+image env.sh prints>`. Without the image the plan fails on a precondition rather than falling back
+to a `latest` the cache may serve a day stale. `running=true` alone
 creates an *empty* database if there is none. **Not `-target=…`**: it pulls in everything the
 target depends on, and the lifecycle policy depends on the distribution, which depends on the VPC
 origin — so a targeted apply of "just the policy" planned the teardown all the same. When in
@@ -160,6 +162,7 @@ Teardown is a **parameter**, not a `tofu destroy`. The resources that cost money
 
 ```sh
 ./env.sh up qa       # create the database, load balancer and service; ~25-35 minutes
+./env.sh up prod v1.2.3 # the same in prod, which always needs the release named
 ./env.sh down qa     # destroy them; VPC, subnets, security groups and IAM stay
 ./env.sh status qa   # what the last apply recorded
 ./env.sh db-bootstrap qa   # once per environment: create the database user
@@ -174,6 +177,20 @@ not exist yet: run `db-bootstrap` and `migrate`, then `up` again.
 rather than re-evaluating, so what is applied is exactly what was displayed. `--yes` skips the
 prompt, for a workflow. It defaults to the lifecycle profile for `up` and `down`, and deliberately
 not for `status` — reading what the last apply recorded needs nothing but the state bucket.
+
+**`up` starts a release, never `latest`**, pinned to its digest on Quay and pulled through the
+ECR cache (`taskfest-backend:<version>@sha256:…`); `deploy-backend.py --print-image` makes the
+choice, so `up` and a deployment name an image the same way:
+
+- **An environment that is down** starts the release named on the command line. For qa the default
+  is the newest final `vX.Y.Z` tag on origin, which `release.yml` has already deployed there;
+  **prod has no default** — `up prod` without a release stops, so it never starts something
+  nobody chose for prod. Releases up to v0.2.0 are not on `taskfest-backend` and cannot be started.
+- **An environment that is up keeps the release it runs**, whatever is named. Releases reach a
+  running environment through `deploy-backend.yml` only — [Deploying](../../doc/deployment/deploying.md) —
+  because that is where a release that changes the database is stopped; if `up` moved the
+  `migrate` task definition to it, `./env.sh migrate` could apply that release's schema under
+  the old backend.
 
 **`up` restores the database from the newest final snapshot** of that environment, which `down`
 leaves behind, so the data survives a cycle even though the instance does not. It says on screen

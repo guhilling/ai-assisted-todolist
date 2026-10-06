@@ -88,5 +88,59 @@ class DecideTest(unittest.TestCase):
         self.assertEqual(deploy.decide(service_active=True, migrations_differ=False).kind, "deploy")
 
 
+class RolloutTest(unittest.TestCase):
+    """Waiting is reading the new deployment's rolloutState, not ECS's ten-minute stable waiter."""
+
+    NEW = "arn:aws:ecs:eu-central-1:1:task-definition/taskfest-qa-backend:5"
+    OLD = RUNNING["taskDefinitionArn"]
+
+    def services(self, *deployments):
+        return {"services": [{"deployments": [
+            {"taskDefinition": arn, "rolloutState": state} for arn, state in deployments]}]}
+
+    def test_the_rollout_is_in_progress_while_traffic_shifts_or_bakes(self):
+        state = deploy.rollout_state(self.services((self.NEW, "IN_PROGRESS"), (self.OLD, "COMPLETED")), self.NEW)
+        self.assertEqual("IN_PROGRESS", state)
+
+    def test_it_is_done_when_the_new_deployment_completes(self):
+        self.assertEqual("COMPLETED", deploy.rollout_state(self.services((self.NEW, "COMPLETED")), self.NEW))
+
+    def test_a_failed_rollout_is_reported(self):
+        self.assertEqual("FAILED", deploy.rollout_state(self.services((self.NEW, "FAILED")), self.NEW))
+
+    def test_a_deployment_not_listed_is_missing(self):
+        self.assertEqual("MISSING", deploy.rollout_state(self.services((self.OLD, "IN_PROGRESS")), self.NEW))
+
+    def test_a_deployment_not_listed_yet_is_waited_for(self):
+        # describe-services is eventually consistent: right after update-service it may not show.
+        self.assertEqual("IN_PROGRESS", deploy.next_state("MISSING", seen=False))
+
+    def test_a_deployment_that_vanished_after_being_seen_was_rolled_back(self):
+        # ECS replaces a rolled-back deployment with one for the previous task definition.
+        self.assertEqual("FAILED", deploy.next_state("MISSING", seen=True))
+
+    def test_a_listed_deployment_reports_its_own_state(self):
+        self.assertEqual("COMPLETED", deploy.next_state("COMPLETED", seen=True))
+
+
+class StartupImageTest(unittest.TestCase):
+    """What `env.sh up` starts: never a release past what the running environment has."""
+
+    RUNNING_IMAGE = RUNNING["containerDefinitions"][0]["image"]
+
+    def test_an_environment_that_is_up_keeps_the_release_it_runs(self):
+        # Deploying to it is deploy-backend.py's job, with the migration check; up must not let
+        # `migrate` reach a release that check stopped.
+        choice = deploy.startup_choice(True, self.RUNNING_IMAGE, "v0.5.0")
+        self.assertEqual(("keep", self.RUNNING_IMAGE), choice)
+
+    def test_an_environment_that_is_down_starts_the_named_release(self):
+        self.assertEqual(("release", "v0.5.0"), deploy.startup_choice(False, None, "v0.5.0"))
+
+    def test_an_environment_that_is_down_needs_a_release_named(self):
+        kind, _ = deploy.startup_choice(False, None, None)
+        self.assertEqual("error", kind)
+
+
 if __name__ == "__main__":
     unittest.main()

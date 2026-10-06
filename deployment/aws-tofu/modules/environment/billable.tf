@@ -205,6 +205,15 @@ resource "aws_ecs_task_definition" "migrate" {
   }])
 
   tags = { Name = local.migrate_family }
+
+  lifecycle {
+    # env.sh up always passes the release; a plan without it would start whatever `latest` the
+    # ECR cache holds, possibly a day old. Fail loudly instead -- see variables.tf.
+    precondition {
+      condition     = var.backend_image != null
+      error_message = "backend_image is required while the environment is up: run ./env.sh up, or pass -var backend_image=<the image env.sh up prints>."
+    }
+  }
 }
 
 # The internal load balancer: no public address, in the private subnets, reachable only through
@@ -405,6 +414,15 @@ resource "aws_ecs_task_definition" "backend" {
   }])
 
   tags = { Name = local.service_name }
+
+  lifecycle {
+    # env.sh up always passes the release; a plan without it would start whatever `latest` the
+    # ECR cache holds, possibly a day old. Fail loudly instead -- see variables.tf.
+    precondition {
+      condition     = var.backend_image != null
+      error_message = "backend_image is required while the environment is up: run ./env.sh up, or pass -var backend_image=<the image env.sh up prints>."
+    }
+  }
 }
 
 resource "aws_ecs_service" "backend" {

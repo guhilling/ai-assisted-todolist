@@ -26,8 +26,8 @@ attached to each release. Rolling the frontend back is re-syncing the previous r
 why the build has to be an artifact rather than something rebuilt at deploy time.
 
 **This half exists** (#119). `release.yml` attaches `taskfest-frontend-<version>.tar.gz`, the built
-`dist/`, to every release, and **`deploy-frontend.yml`** — started by hand from the Actions tab
-with an environment and a tag — syncs it into that environment's site bucket as the deploy role.
+`dist/`, to every release, and **`deploy-frontend.yml`**, given an environment and a tag,
+syncs it into that environment's site bucket as the deploy role.
 It uploads in three passes so no viewer ever sees an `index.html` naming an asset that is not
 there yet: the hashed `assets/` first, cached for a year and never deleted (a browser holding the
 old page keeps working, and so does a rollback); then the remaining files, cached five minutes;
@@ -51,7 +51,16 @@ environment and a tag — which is also the rollback, with the previous tag — 
    image-label design above describes, done in git instead — the downtime path itself is still
    to come.
 4. Otherwise it registers a task definition that differs from the running one in the image
-   only, points the service at it and waits until ECS reports it stable, bake included.
+   only, points the service at it and waits until that deployment's rollout has completed, bake
+   included — up to 30 minutes, where ECS's own waiter would give up after ten.
+
+**Every release goes to qa by itself** — every final one: a pre-release (`v1.2.3-rc.1`) is
+deployed by hand when wanted. `release.yml` ends by calling both workflows for qa with its own tag: the backend first, then the frontend once the backend job has succeeded. So a release
+stopped for its migration does not put its frontend in front of the old API either, while a qa
+that is down still gets the frontend — the site bucket outlives `down`. **prod is never deployed
+automatically**: both workflows are started by hand for it, from the Actions tab, and wait at the
+`prod` environment's approval gate. The same manual start deploys any release to qa again, or
+rolls it back.
 
 **Deep links** are a CloudFront Function on the default behaviour (`spa-routing.js`): a path whose
 last segment has no dot gets `index.html`, and a path that names a file is passed through, so a
