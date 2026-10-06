@@ -26,8 +26,17 @@ on:
         description: Release tag to deploy, e.g. v0.4.0
         type: string
         required: true
+      live_test:
+        description: Run the live tests afterwards (qa only)
+        type: boolean
+        default: true
   workflow_call:
     inputs:
+      # release.yml leaves this off: deploy-frontend.yml runs next and checks then, with both
+      # halves in place.
+      live_test:
+        type: boolean
+        default: false
       environment:
         type: string
         required: true
@@ -72,3 +81,13 @@ jobs:
             exit 1
           fi
           python3 .github/scripts/deploy-backend.py --environment "$ENVIRONMENT" --version "$VERSION"
+
+  # Checks the environment once the new backend is serving (#142), when asked to: by default when
+  # started by hand, such as a rollback, and not from release.yml (see the live_test input).
+  live-test:
+    name: Live tests
+    needs: deploy
+    if: inputs.environment == 'qa' && inputs.live_test
+    uses: ./.github/workflows/live-tests.yml
+    with:
+      environment: ${{ inputs.environment }}

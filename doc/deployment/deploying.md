@@ -60,7 +60,8 @@ stopped for its migration does not put its frontend in front of the old API eith
 that is down still gets the frontend — the site bucket outlives `down`. **prod is never deployed
 automatically**: both workflows are started by hand for it, from the Actions tab, and wait at the
 `prod` environment's approval gate. The same manual start deploys any release to qa again, or
-rolls it back.
+rolls it back. **After every deploy to qa the [live checks](../testing/live.md) run** against the
+environment itself; a failure fails the deploying run, and rolls nothing back.
 
 **Deep links** are a CloudFront Function on the default behaviour (`spa-routing.js`): a path whose
 last segment has no dot gets `index.html`, and a path that names a file is passed through, so a

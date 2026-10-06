@@ -11,6 +11,7 @@ about what exists and how to run it.
 | Frontend unit | `frontend/src/dates.test.ts` | nothing; pure functions | `frontend-ci.yml`, `sonarcloud.yml` |
 | Frontend component | `frontend/src/App.test.tsx` | jsdom, stubbed `fetch` | `frontend-ci.yml`, `sonarcloud.yml` |
 | Browser end-to-end | `e2e/tests/` | the whole containerised stack | `e2e.yml` |
+| Live | `e2e/live/` | nothing: checks a deployed environment through CloudFront | `live-tests.yml`, after each deploy to qa |
 
 The backend's split between "unit" and "integration" is not about annotations but about
 what a test needs: most of it needs a real database, because that is where the behaviour
@@ -36,6 +37,7 @@ landed.
 | [Backend](backend.md) | Unit and Quarkus tests, Dev Services, the real sign-in |
 | [Frontend](frontend.md) | Unit and component tests with Vitest |
 | [Browser end-to-end](browser-end-to-end.md) | The Playwright suite against the container stack |
+| [Live tests](live.md) | Checks of a deployed environment, after every deploy to qa |
 | [Coverage](coverage.md) | How coverage is measured, and the gate |
 | [Mutation testing](mutation-testing.md) | PIT, its scope, and why it reports without blocking |
 | [Continuous integration](continuous-integration.md) | Which workflow runs what, and when |
