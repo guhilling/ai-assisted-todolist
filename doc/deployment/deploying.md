@@ -34,6 +34,25 @@ old page keeps working, and so does a rollback); then the remaining files, cache
 `index.html` last with `no-cache`, which under CloudFront's `CachingOptimized` policy means it is
 held for its one-second minimum — so a release is visible at once and no invalidation is needed.
 
+**The backend half exists too** (#181): **`deploy-backend.yml`**, started by hand with an
+environment and a tag — which is also the rollback, with the previous tag — runs
+`.github/scripts/deploy-backend.py` as the deploy role:
+
+1. It resolves the release's image digest on Quay, and the task pulls
+   `quay/ghilling/taskfest-backend:<version>@<digest>` through the account's ECR cache. Never
+   `latest`: the cache can hand out a stale copy of a tag it has served before, which on
+   2026-10-06 took two deployments to get past; a version it has not seen, pinned by digest,
+   cannot be stale.
+2. An environment that is **down** is skipped, with a note in the run summary and no failure.
+3. A release whose **database changelog** (`backend/src/main/resources/db`) differs from the
+   running version's is **stopped**, failing, before any traffic moves: that is the release the
+   downtime path is for, and blue/green must not roll it out. The running version is read from
+   its image tag; when that is `latest`, the previous release counts. This is the check the
+   image-label design above describes, done in git instead — the downtime path itself is still
+   to come.
+4. Otherwise it registers a task definition that differs from the running one in the image
+   only, points the service at it and waits until ECS reports it stable, bake included.
+
 **Deep links** are a CloudFront Function on the default behaviour (`spa-routing.js`): a path whose
 last segment has no dot gets `index.html`, and a path that names a file is passed through, so a
 missing asset is still the bucket's 403. It replaces httpd's `FallbackResource`. CloudFront's

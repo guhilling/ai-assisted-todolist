@@ -1,0 +1,74 @@
+name: Deploy backend
+
+# Rolls a release's backend image out to an environment, blue/green, by version and digest (#181).
+#
+# Started by hand with an environment and a release tag -- which is also how a backend is rolled
+# back: run it with the previous tag -- or called by release.yml for qa after every release.
+# deploy-backend.py does the work and its docstring has the details; in short: an environment that
+# is down is skipped without failing, a release that changes the database migrations is stopped
+# with a failure before any traffic moves, and anything else gets a task definition that differs
+# from the running one in the image only.
+#
+# The AWS identity is the environment's deploy role, assumed through GitHub's OIDC token, so no
+# key is stored anywhere. The role trusts only a job running in the GitHub environment of the
+# same name, which is why the job declares `environment:` -- for prod, that environment's
+# protection rule is the approval gate.
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Where to deploy
+        type: choice
+        options: [qa, prod]
+        required: true
+      version:
+        description: Release tag to deploy, e.g. v0.4.0
+        type: string
+        required: true
+  workflow_call:
+    inputs:
+      environment:
+        type: string
+        required: true
+      version:
+        type: string
+        required: true
+
+permissions:
+  contents: read
+  # For the OIDC token the deploy role is assumed with.
+  id-token: write
+
+concurrency:
+  # One backend rollout per environment at a time; a second waits rather than racing the first.
+  group: deploy-backend-${{ inputs.environment }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-26.04
+    environment: ${{ inputs.environment }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # The release tags, to compare the changelog with the version that is running.
+          fetch-depth: 0
+
+      - uses: aws-actions/configure-aws-credentials@v6
+        with:
+          # The deploy role's ARN is not a secret: what protects it is its trust policy, which
+          # names this repository and this GitHub environment.
+          role-to-assume: arn:aws:iam::808706946095:role/taskfest-${{ inputs.environment }}-deploy
+          aws-region: eu-central-1
+
+      - name: Roll the release out
+        env:
+          ENVIRONMENT: ${{ inputs.environment }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          if [[ ! "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]]; then
+            echo "::error::'$VERSION' is not a release tag like v1.2.3"
+            exit 1
+          fi
+          python3 .github/scripts/deploy-backend.py --environment "$ENVIRONMENT" --version "$VERSION"
