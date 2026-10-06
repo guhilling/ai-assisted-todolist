@@ -293,6 +293,7 @@
                         <param>de.hilling.taskfest.service.GravatarUrlTest</param>
                         <param>de.hilling.taskfest.service.GravatarServiceTest</param>
                         <param>de.hilling.taskfest.datasource.RdsIamCredentialsProviderTest</param>
+                        <param>de.hilling.taskfest.logging.SignInLogTest</param>
                     </targetTests>
                     <!-- The classes no allowlisted test reaches, excluded so the score reflects
                          what was actually measured rather than being diluted by code PIT could
@@ -307,6 +308,9 @@
                         <!-- Narrowed from service.* when the Gravatar classes earned plain unit
                              tests; UserService still has none that avoids booting Quarkus. -->
                         <param>de.hilling.taskfest.service.UserService*</param>
+                        <!-- A REST filter: what it does depends on the request and response context, so
+                             RequestLogTest drives it in-JVM, and a mutant per Quarkus boot is out of reach. -->
+                        <param>de.hilling.taskfest.logging.RequestLog*</param>
                         <!-- SmallRye generates the config mapping implementation; it is not ours
                              to test and its mutants are unkillable by construction. -->
                         <param>*$$CMImpl</param>

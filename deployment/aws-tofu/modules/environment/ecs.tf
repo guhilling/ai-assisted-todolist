@@ -31,6 +31,58 @@ resource "aws_cloudwatch_log_group" "ecs" {
   tags = { Name = "/ecs/${local.name}" }
 }
 
+# Saved CloudWatch Logs Insights queries over the backend's JSON logs (#122). Free to keep; a
+# run costs $0.005 per GB scanned, which for this log group is a fraction of a cent. The
+# fields they use -- mdc.requestId, mdc.status, mdc.durationMs, mdc.user, mdc.event -- come from
+# backend/src/main/java/de/hilling/taskfest/logging/, and doc/deployment/observability.md says
+# what each answers. The name's prefix becomes a folder in the console. Pick the time range
+# there; a query cannot carry one.
+locals {
+  log_queries = {
+    "Failures" = <<-EOT
+      fields @timestamp, level, loggerName, message, mdc.status, mdc.path, mdc.requestId
+      | filter level in ["ERROR", "WARN"] or mdc.status like /^5/
+      | sort @timestamp desc
+      | limit 200
+    EOT
+
+    "Slow requests" = <<-EOT
+      filter loggerName = "de.hilling.taskfest.access"
+      | fields @timestamp, mdc.method, mdc.path, mdc.status, mdc.durationMs * 1 as durationMs, mdc.requestId
+      | sort durationMs desc
+      | limit 50
+    EOT
+
+    "Start-up and migration" = <<-EOT
+      fields @timestamp, level, loggerName, message
+      | filter loggerName in ["io.quarkus", "io.quarkus.runtime.Application"] or loggerName like /^liquibase/
+      | sort @timestamp desc
+      | limit 200
+    EOT
+
+    "Sign-ins" = <<-EOT
+      filter loggerName = "de.hilling.taskfest.auth"
+      | fields @timestamp, mdc.event, mdc.user
+      | sort @timestamp desc
+      | limit 200
+    EOT
+
+    "One request (paste its requestId)" = <<-EOT
+      filter mdc.requestId = "PASTE-THE-REQUEST-ID"
+      | fields @timestamp, level, loggerName, message
+      | sort @timestamp asc
+    EOT
+  }
+}
+
+resource "aws_cloudwatch_query_definition" "backend" {
+  for_each = local.log_queries
+
+  name            = "${local.name}/${each.key}"
+  log_group_names = [aws_cloudwatch_log_group.ecs.name]
+  query_string    = trimspace(each.value)
+}
+
 # The role ECS uses to start a task: write its log stream, and, for the bootstrap task only,
 # fetch the master credentials it injects. It is not what the container runs as -- that is the
 # task role in database.tf -- and the application never sees these permissions.
