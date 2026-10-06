@@ -16,6 +16,7 @@
         <quarkus.platform.artifact-id>quarkus-bom</quarkus.platform.artifact-id>
         <quarkus.platform.group-id>io.quarkus.platform</quarkus.platform.group-id>
         <quarkus.platform.version>3.39.5</quarkus.platform.version>
+        <jackson.version>2.22.3</jackson.version>
         <awssdk.version>2.55.11</awssdk.version>
         <surefire-plugin.version>3.6.0</surefire-plugin.version>
         <checkstyle-plugin.version>3.6.0</checkstyle-plugin.version>
@@ -34,6 +35,19 @@
 
     <dependencyManagement>
         <dependencies>
+            <dependency>
+                <!-- A deliberate override, ahead of the Quarkus BOM because the first import of a
+                     managed artifact wins. Quarkus 3.39.5 pins Jackson 2.22.2, which Amazon
+                     Inspector reports with four fixable HIGH vulnerabilities (#178), and no Quarkus
+                     release brings 2.22.3 yet. Gunnar asked for the fix now rather than waiting for
+                     Renovate. Remove this once quarkus.platform.version manages 2.22.3 or later
+                     itself - Renovate keeps the version current until then. -->
+                <groupId>com.fasterxml.jackson</groupId>
+                <artifactId>jackson-bom</artifactId>
+                <version>${jackson.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
             <dependency>
                 <groupId>${quarkus.platform.group-id}</groupId>
                 <artifactId>${quarkus.platform.artifact-id}</artifactId>
