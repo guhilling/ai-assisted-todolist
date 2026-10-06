@@ -293,6 +293,8 @@
                         <param>de.hilling.taskfest.service.GravatarUrlTest</param>
                         <param>de.hilling.taskfest.service.GravatarServiceTest</param>
                         <param>de.hilling.taskfest.datasource.RdsIamCredentialsProviderTest</param>
+                        <param>de.hilling.taskfest.logging.SignInLogTest</param>
+                        <param>de.hilling.taskfest.logging.RequestLogFieldsTest</param>
                     </targetTests>
                     <!-- The classes no allowlisted test reaches, excluded so the score reflects
                          what was actually measured rather than being diluted by code PIT could

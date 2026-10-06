@@ -3,7 +3,7 @@
 Named, because "best practices are applied" plans nothing:
 
 - **Logs.** The Quarkus JSON log to CloudWatch Logs, one group per environment, 30-day retention
-  in QA and 90 in prod. The backend already logs structured output.
+  in QA and 90 in prod. What they contain and how to query them is below.
 - **Metrics.** `/q/metrics` is already exposed and already tested (`MetricsResourceTest`).
   Scraped into CloudWatch by the ECS agent's Prometheus support, so the dashboards use what the
   application already publishes rather than something invented for AWS.
@@ -18,3 +18,54 @@ Named, because "best practices are applied" plans nothing:
   commercial shape has more than one service, this is where it goes.
 - **Alerting to** an SNS topic per environment with Gunnar's email subscribed.
 
+
+## The backend's logs: what is in them, and how to ask them
+
+Log group `/ecs/taskfest-<env>`, one JSON object per line. Every line carries Quarkus' fields
+(`timestamp`, `level`, `loggerName`, `message`, `threadName`, `hostName`, …) and an `mdc`
+object with whatever the line adds. Reviewed against real qa traffic in #122, which found the
+logs nearly empty rather than noisy: before it, nothing about requests or sign-ins was logged.
+
+| Line | Logger | `mdc` fields |
+| --- | --- | --- |
+| **One per HTTP request** (except `/q/*`) | `de.hilling.taskfest.access` | `requestId`, `method`, `path`, `status`, `durationMs`, `user` (absent when anonymous) |
+| **Sign-in** | `de.hilling.taskfest.auth` | `event` (`signed-in`), `user` |
+| **Anything else during a request** | its own | `requestId` |
+| **Start-up, migration** | `io.quarkus`, `io.quarkus.runtime.Application`, `liquibase.*` | — |
+
+- **Every request, including the ones no REST resource sees.** The line is written by a handler
+  at the very front of the HTTP router, ahead of security, once the response has ended — so a
+  session OIDC turns away with a 401, a sign-in redirect, the callback and an unknown path each
+  get one, with the status the client saw.
+- **`requestId`** is the `Root` of the load balancer's `X-Amzn-Trace-Id`, and a fresh UUID where
+  there is none (locally) or where the header does not look like the load balancer's — a client
+  could send anything. Neither the ALB nor CloudFront has access logging enabled, so for now the
+  id ties together this log only. It is in the MDC from the start of the request, so lines
+  logged while the request is handled carry it too.
+- **The health checks are not logged:** the handler leaves `/q/*` alone, which keeps the load
+  balancer's checks, every few seconds per task, out of the log and out of the bill.
+- **Sign-in** comes from Quarkus OIDC's security event: the authorization code flow's redirects
+  never reach a REST resource. **Sign-out** is the application's own `/api/auth/logout`, which has
+  no such event; its access line, which names the user, is the record, and the *Sign-ins* query
+  shows both.
+- **Liquibase's summary** is logged as JSON only (`LIQUIBASE_SHOW_SUMMARY_OUTPUT=log`, set in the
+  image, so wherever it migrates); it used to appear a second time as plain text.
+
+**Personal data:** the only one is **`user`, the OpenID Connect `sub`** — a pseudonymous id the
+identity provider assigns, which says nothing about the person without the provider's records.
+Email addresses, names, tokens and cookies are never logged; `RequestLog` and `SignInLog` (in
+`backend/src/main/java/de/hilling/taskfest/logging/`) say so where the lines are written, and
+their tests pin it. Retention is the log group's: 30 days in qa, 90 in prod.
+
+**Saved queries.** CloudWatch → *Logs Insights* → *Queries*, in the folder `taskfest-<env>`;
+defined in `deployment/aws-tofu/modules/environment/ecs.tf`. Choose the time range in the
+console — a saved query cannot carry one. Each run costs $0.005 per GB scanned: for this log
+group, a fraction of a cent.
+
+| Query | Answers |
+| --- | --- |
+| *Failures* | What failed — `FATAL`, `ERROR` and `WARN` lines (and their java.util.logging spellings), and every request answered with a 5xx |
+| *Slow requests* | Which requests took longest, slowest first |
+| *Start-up and migration* | Whether the last deployment or migration started cleanly — `started in …` or `Failed to start application`, and Liquibase's steps |
+| *Sign-ins* | Who signed in and out, by `sub` |
+| *One request* | Every line of one request: paste its `requestId` from any of the others |
