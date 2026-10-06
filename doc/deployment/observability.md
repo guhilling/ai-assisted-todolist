@@ -69,3 +69,18 @@ group, a fraction of a cent.
 | *Start-up and migration* | Whether the last deployment or migration started cleanly — `started in …` or `Failed to start application`, and Liquibase's steps |
 | *Sign-ins* | Who signed in and out, by `sub` |
 | *One request* | Every line of one request: paste its `requestId` from any of the others |
+
+**Two timestamps, and why that is fine.** An event's `@timestamp` — the one the console's time
+range and every query's time window use — is set by ECS's `awslogs` log driver when it reads the
+line from the container, not taken from the line's own JSON `timestamp`. The driver cannot do
+otherwise: it has no option to parse a time out of the line (`awslogs-datetime-format` only marks
+where a multi-line event starts). The two differ by milliseconds, since the driver reads each line
+as Quarkus writes it, so a query that needs the application's own time sorts or displays it —
+`fields timestamp | sort timestamp desc` — and leaves the window on `@timestamp`.
+
+**FireLens is the option if that ever stops being true** — logs buffered, or arriving late. It
+replaces the `awslogs` driver with Fluent Bit as a sidecar container in each task (AWS's own image,
+`aws-for-fluent-bit`), whose JSON parser takes the event time from the line (`Time_Key timestamp`)
+before shipping it to CloudWatch. The price is a second container in every task definition, its
+CPU and memory out of the task's share, and a Fluent Bit configuration to maintain. Considered in
+October 2026 and not taken: nothing here buffers its logs.
