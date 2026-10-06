@@ -11,6 +11,7 @@ Run with:  python3 -m unittest discover -s .github/scripts -p 'test_*.py'
 import importlib.util
 import pathlib
 import unittest
+from unittest import mock
 
 _spec = importlib.util.spec_from_file_location(
     "image_findings_issue", pathlib.Path(__file__).with_name("image-findings-issue.py"))
@@ -124,6 +125,69 @@ class AcknowledgedTest(unittest.TestCase):
         first = {"stateReason": "NOT_PLANNED", "body": findings.decide([A], None, **CONTEXT).body}
         second = {"stateReason": "NOT_PLANNED", "body": findings.decide([B], None, **CONTEXT).body}
         self.assertEqual(findings.acknowledged_by([first, second]), self.keys(A) | self.keys(B))
+
+
+class AcceptedLeftoverTest(unittest.TestCase):
+
+    def test_an_open_issue_left_with_only_accepted_findings_closes_as_not_planned(self):
+        open_issue = {"number": 8, "body": findings.decide([A], None, **CONTEXT).body}
+        accepted = findings.reported(open_issue["body"])
+        action = findings.decide([A], open_issue=open_issue, acknowledged=accepted, **CONTEXT)
+        self.assertEqual(action.kind, "close")
+        self.assertEqual(action.reason, "not planned")
+
+    def test_an_issue_whose_findings_are_gone_closes_as_completed(self):
+        open_issue = {"number": 8, "body": findings.decide([A], None, **CONTEXT).body}
+        action = findings.decide([], open_issue=open_issue, **CONTEXT)
+        self.assertEqual(action.reason, "completed")
+
+
+class MainTest(unittest.TestCase):
+    """What main() does with gh, with gh and Inspector stubbed out."""
+
+    def run_main(self, found, open_issue, still_open=True, accepted=frozenset()):
+        calls = []
+
+        def gh(*args):
+            calls.append(args)
+            if args[:2] == ("issue", "view"):
+                return '{"state": "%s"}' % ("OPEN" if still_open else "CLOSED")
+            return ""
+
+        env = {"GITHUB_SERVER_URL": "https://github.com", "GITHUB_REPOSITORY": "o/r", "GITHUB_RUN_ID": "1"}
+        with mock.patch.dict("os.environ", env), \
+                mock.patch.object(findings, "gh", gh), \
+                mock.patch.object(findings, "list_findings", return_value=found), \
+                mock.patch.object(findings, "find_open_issue", return_value=open_issue), \
+                mock.patch.object(findings, "accepted_keys", return_value=set(accepted)):
+            findings.main()
+        return calls
+
+    def test_a_new_issue_gets_its_priority(self):
+        calls = self.run_main([A], None)
+        create = next(c for c in calls if c[:2] == ("issue", "create"))
+        self.assertIn("priority: 1 now", create)
+
+    def test_closing_names_the_reason(self):
+        open_issue = {"number": 7, "body": findings.decide([A], None, **CONTEXT).body}
+        calls = self.run_main([], open_issue)
+        close = next(c for c in calls if c[:2] == ("issue", "close"))
+        self.assertEqual(close[close.index("--reason") + 1], "completed")
+
+    def test_an_issue_closed_during_the_run_is_left_alone(self):
+        open_issue = {"number": 7, "body": findings.decide([A], None, **CONTEXT).body}
+        calls = self.run_main([A, B], open_issue, still_open=False)
+        self.assertFalse(any(c[:2] == ("issue", "edit") for c in calls))
+        self.assertFalse(any(c[:2] == ("issue", "comment") for c in calls))
+
+    def test_accepted_findings_are_not_fetched_when_there_are_no_findings(self):
+        with mock.patch.object(findings, "gh", return_value="[]") as gh, \
+                mock.patch.dict("os.environ", {"GITHUB_SERVER_URL": "s", "GITHUB_REPOSITORY": "r",
+                                               "GITHUB_RUN_ID": "1"}), \
+                mock.patch.object(findings, "list_findings", return_value=[]), \
+                mock.patch.object(findings, "find_open_issue", return_value=None):
+            findings.main()
+        self.assertFalse(any("--search" in call.args for call in gh.call_args_list))
 
 
 class FilterTest(unittest.TestCase):

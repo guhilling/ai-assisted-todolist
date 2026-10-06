@@ -72,9 +72,27 @@ risk is acceptable. So the issue is triaged like any other:
      listed again, in this issue or a later one; acknowledgements from all such issues add up.
      A finding that was not on the list still opens a new issue, with just that finding.
 
+New findings issues get `priority: 1 now` from the workflow itself. The project entry comes from
+the project's *Auto-add* workflow, since the findings workflow's token cannot write to a user
+project. If an open issue is left with nothing but findings accepted elsewhere, the workflow
+closes it as *not planned*, not as completed — they are accepted, not fixed.
+
 To withdraw an acceptance, reopen the issue that listed the finding. While an issue is open, the
 workflow keeps its table current; if you close it during a run, the run leaves it alone and the
 next one decides afresh.
+
+**What the mechanism does not do,** deliberately, because closing by hand is the triage:
+
+- **"Not planned" accepts everything the issue lists**, including findings a run added just
+  before you closed it — read the "New since the last report" comments first.
+- **An acceptance is per CVE and package**, whatever the version, the image or a later re-rating.
+  A finding you accepted as HIGH stays accepted if it is re-rated CRITICAL; reopen the issue if
+  that matters.
+- **Reopening withdraws an acceptance only while no other findings issue is open**, and only if no
+  other not-planned issue lists the same finding: the workflow maintains the newest open issue,
+  and accepted keys add up across issues.
+- **A close that lands in the second between the workflow's check and its edit** can still put a
+  just-appeared finding into a not-planned issue. The check narrows that window; it cannot close it.
 
 ## Two delays worth knowing
 

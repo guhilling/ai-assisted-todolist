@@ -64,6 +64,7 @@ class Action:
     issue: int | None = None
     body: str = ""
     comment: str = ""
+    reason: str = ""
 
 
 def reported(body):
@@ -162,13 +163,19 @@ def acknowledged_by(closed_issues):
 def decide(found, open_issue, run_url, acknowledged=frozenset()):
     """The whole policy, as a pure function of the findings, the open issue if any, and the
     finding keys accepted by closing an issue as not planned."""
-    listed = [r for r in rows(found) if r.key not in acknowledged]
+    present = rows(found)
+    listed = [r for r in present if r.key not in acknowledged]
     if not listed:
         if open_issue is None:
             return Action("none")
-        return Action("close", open_issue["number"],
-                      comment=f"No unaccepted fixable HIGH or CRITICAL findings remain in recently "
-                              f"used images ({run_url}). Closing as completed.")
+        if present:
+            # What is left has been accepted elsewhere: not fixed, so not "completed".
+            return Action("close", open_issue["number"], reason="not planned",
+                          comment=f"Every finding still present has been accepted in another issue "
+                                  f"closed as not planned ({run_url}). Closing as not planned.")
+        return Action("close", open_issue["number"], reason="completed",
+                      comment=f"No fixable HIGH or CRITICAL findings remain in recently used images "
+                              f"({run_url}). Closing as completed.")
 
     body = (
         f"Amazon Inspector reports fixable HIGH or CRITICAL vulnerabilities in backend images that "
@@ -210,10 +217,15 @@ def find_open_issue():
     return found[0] if found else None
 
 
-def acknowledged():
-    """The accepted finding keys, from every closed issue with this label."""
+def accepted_keys():
+    """The accepted finding keys: from every issue with this label closed as not planned.
+
+    Searched for by that reason, so the answer does not depend on how many issues have been
+    closed as completed over the years.
+    """
     closed = json.loads(gh("issue", "list", "--label", LABEL, "--state", "closed",
-                           "--json", "body,stateReason", "--limit", "500"))
+                           "--search", 'reason:"not planned"',
+                           "--json", "body,stateReason", "--limit", "1000"))
     return acknowledged_by(closed)
 
 
@@ -225,12 +237,19 @@ def still_open(number):
 def main():
     run_url = (f"{os.environ['GITHUB_SERVER_URL']}/{os.environ['GITHUB_REPOSITORY']}"
                f"/actions/runs/{os.environ['GITHUB_RUN_ID']}")
-    action = decide(list_findings(), find_open_issue(), run_url, acknowledged=acknowledged())
+    found = list_findings()
+    # Only worth a GitHub query when there is something it could filter.
+    accepted = accepted_keys() if found else set()
+    action = decide(found, find_open_issue(), run_url, acknowledged=accepted)
 
     if action.kind == "create":
         gh("label", "create", LABEL, "--force", "--color", "B60205",
            "--description", "Amazon Inspector found a fixable vulnerability in a running image")
-        print(gh("issue", "create", "--label", LABEL, "--title", TITLE, "--body", action.body))
+        # Every issue carries a priority (CLAUDE.md); fixable HIGH findings in a running image are
+        # "now". Adding it to the TaskFest project needs a token with project scope, which this
+        # workflow's does not have -- the project's own auto-add workflow does that.
+        print(gh("issue", "create", "--label", LABEL, "--label", "priority: 1 now",
+                 "--title", TITLE, "--body", action.body))
     elif action.kind == "update":
         # Without this, findings that appeared during the run would be written into an issue a
         # person had just closed -- as not planned, they would then count as accepted unseen.
@@ -242,7 +261,7 @@ def main():
             gh("issue", "comment", str(action.issue), "--body", action.comment)
         print(f"Updated #{action.issue}" + (" and commented on the new findings" if action.comment else ""))
     elif action.kind == "close":
-        gh("issue", "close", str(action.issue), "--reason", "completed", "--comment", action.comment)
+        gh("issue", "close", str(action.issue), "--reason", action.reason, "--comment", action.comment)
         print(f"Closed #{action.issue}")
     else:
         print("No unacknowledged fixable HIGH or CRITICAL findings, no open issue: nothing to do.")
