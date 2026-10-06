@@ -2,8 +2,10 @@
 
 ## Jib with a pinned Java 25 base image
 
-**Decision.** The backend image is built by Jib onto a pinned
-`eclipse-temurin:25.0.4.1_1-jre-ubi10-minimal`. All four Dockerfiles Quarkus generated under
+**Decision.** The backend image is built by Jib onto a pinned Java 25 base image — since #66 our
+own `jre-runtime`, Temurin's JRE on UBI micro
+([containers-and-local-stack.md](containers-and-local-stack.md#the-backend-runs-on-our-own-jre-runtime-temurins-jre-on-ubi-micro)),
+before that `eclipse-temurin:25.0.4.1_1-jre-ubi10-minimal`, which the history below is about. All four Dockerfiles Quarkus generated under
 `backend/src/main/docker/` have been deleted, along with `backend/.dockerignore`; the
 directory no longer exists.
 

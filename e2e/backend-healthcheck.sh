@@ -7,11 +7,13 @@
 # `bash -c exec` -- a no-op that always succeeded, so `up --wait` returned while the backend
 # was still booting and Playwright met a 502.
 #
-# The image ships no curl, wget or nc, so the request goes over bash's /dev/tcp. Asking for
-# the provider list proves the application is serving rather than merely that the port is
+# The image is UBI micro (deployment/jre-runtime): no curl, wget or nc, and no grep either, so
+# the request goes over bash's /dev/tcp and the status line is matched by bash itself. Asking
+# for the provider list proves the application is serving rather than merely that the port is
 # open, and it needs no session.
 set -euo pipefail
 
 exec 3<>/dev/tcp/127.0.0.1/8080
 printf 'GET /api/auth/providers HTTP/1.1\r\nHost: localhost:8080\r\nConnection: close\r\n\r\n' >&3
-head -n 1 <&3 | grep -q '200'
+read -r status <&3
+[[ $status == *" 200 "* ]]
