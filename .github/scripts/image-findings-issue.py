@@ -99,6 +99,20 @@ def queries(now, days=IN_USE_DAYS):
     return [filter_criteria(now, days), filter_criteria(now, days, window="ecrImagePushedAt")]
 
 
+def merge_results(in_use, arrived):
+    """The findings worth reporting, from the in-use query and the arrived-recently query.
+
+    An image that only arrived recently counts while it still carries a tag. Through the
+    pull-through cache an untagged digest is one a tag has moved away from -- superseded by a
+    newer `latest` or release -- and keeping it in scope for its 30 days held an issue open long
+    after the fix was deployed (#178). It still counts while Inspector sees ECS running it, which
+    is what the in-use query is for.
+    """
+    tagged = [f for f in arrived
+              if f["resources"][0]["details"]["awsEcrContainerImage"].get("imageTags")]
+    return merge(in_use, tagged)
+
+
 def merge(*results):
     """The findings of several queries, each once, in the order first seen."""
     seen, merged = set(), []
@@ -204,7 +218,8 @@ def list_findings():
                                 check=True, capture_output=True, text=True).stdout
         return json.loads(output).get("findings", [])
 
-    return merge(*(query(criteria) for criteria in queries(int(time.time()))))
+    in_use, arrived = (query(criteria) for criteria in queries(int(time.time())))
+    return merge_results(in_use, arrived)
 
 
 def gh(*args):
