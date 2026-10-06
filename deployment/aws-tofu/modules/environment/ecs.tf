@@ -33,7 +33,8 @@ resource "aws_cloudwatch_log_group" "ecs" {
 
 # Saved CloudWatch Logs Insights queries over the backend's JSON logs (#122). Free to keep; a
 # run costs $0.005 per GB scanned, which for this log group is a fraction of a cent. The
-# fields they use -- mdc.requestId, mdc.status, mdc.durationMs, mdc.user, mdc.event -- come from
+# fields they use -- mdc.requestId, mdc.status, mdc.durationMs, mdc.user, mdc.event -- and the
+# logger names come from
 # backend/src/main/java/de/hilling/taskfest/logging/, and doc/deployment/observability.md says
 # what each answers. The name's prefix becomes a folder in the console. Pick the time range
 # there; a query cannot carry one.
@@ -41,7 +42,7 @@ locals {
   log_queries = {
     "Failures" = <<-EOT
       fields @timestamp, level, loggerName, message, mdc.status, mdc.path, mdc.requestId
-      | filter level in ["ERROR", "WARN"] or mdc.status like /^5/
+      | filter level in ["FATAL", "ERROR", "WARN", "SEVERE", "WARNING"] or mdc.status like /^5/
       | sort @timestamp desc
       | limit 200
     EOT
@@ -61,8 +62,8 @@ locals {
     EOT
 
     "Sign-ins" = <<-EOT
-      filter loggerName = "de.hilling.taskfest.auth"
-      | fields @timestamp, mdc.event, mdc.user
+      filter loggerName = "de.hilling.taskfest.auth" or (loggerName = "de.hilling.taskfest.access" and mdc.path = "/api/auth/logout")
+      | fields @timestamp, coalesce(mdc.event, "signed-out") as event, mdc.user
       | sort @timestamp desc
       | limit 200
     EOT

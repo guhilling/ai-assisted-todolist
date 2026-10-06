@@ -13,7 +13,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Pins down which sign-in events become a log line, and what that line carries: the event and
  * the user's pseudonymous subject, never the email address (#122). A plain test of the decision,
- * without Quarkus -- the observer that logs it is a one-liner around this.
+ * without Quarkus -- the observer that logs it is a one-liner around this. Sign-out is not an OIDC
+ * event here: the app's own {@code /api/auth/logout} does it, and its access line records it.
  */
 class SignInLogTest {
 
@@ -36,18 +37,17 @@ class SignInLogTest {
     }
 
     @Test
-    void shouldDescribeASignOut() {
-        assertEquals("signed-out",
-            SignInLog.fields(event(SecurityEvent.Type.OIDC_LOGOUT_RP_INITIATED, "sub-1")).orElseThrow().get("event"));
-    }
-
-    @Test
     void shouldIgnoreASignInWithoutAnIdentity() {
         assertTrue(SignInLog.fields(new SecurityEvent(SecurityEvent.Type.OIDC_LOGIN, Map.of())).isEmpty());
     }
 
     @Test
+    void shouldNameAnUnknownUserRatherThanFailTheSignIn() {
+        assertEquals("unknown", SignInLog.fields(event(SecurityEvent.Type.OIDC_LOGIN, null)).orElseThrow().get("user"));
+    }
+
+    @Test
     void shouldIgnoreTheOtherEvents() {
-        assertTrue(SignInLog.fields(event(SecurityEvent.Type.OIDC_SESSION_REFRESHED, "sub-1")).isEmpty());
+        assertTrue(SignInLog.fields(event(SecurityEvent.Type.OIDC_LOGOUT_RP_INITIATED, "sub-1")).isEmpty());
     }
 }

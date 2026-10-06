@@ -28,21 +28,28 @@ logs nearly empty rather than noisy: before it, nothing about requests or sign-i
 
 | Line | Logger | `mdc` fields |
 | --- | --- | --- |
-| **One per API request** | `de.hilling.taskfest.access` | `requestId`, `method`, `path`, `status`, `durationMs`, `user` (absent when anonymous) |
-| **Sign-in / sign-out** | `de.hilling.taskfest.auth` | `event` (`signed-in`, `signed-out`), `user` |
+| **One per HTTP request** (except `/q/*`) | `de.hilling.taskfest.access` | `requestId`, `method`, `path`, `status`, `durationMs`, `user` (absent when anonymous) |
+| **Sign-in** | `de.hilling.taskfest.auth` | `event` (`signed-in`), `user` |
 | **Anything else during a request** | its own | `requestId` |
 | **Start-up, migration** | `io.quarkus`, `io.quarkus.runtime.Application`, `liquibase.*` | — |
 
-- **`requestId`** is the load balancer's `X-Amzn-Trace-Id` — the same id the ALB logs — and a
-  fresh UUID where there is none, as locally. It is set for the whole request, so one id finds
-  every line a request caused.
-- **The health checks are not logged.** `/q/health` and `/q/metrics` are not REST resources and
-  never reach the request filter; filtering at the source keeps the load balancer's checks, every
-  few seconds per task, out of the log and out of the bill.
-- **Sign-in and sign-out** come from Quarkus OIDC's security events: the redirects of the
-  authorization code flow never reach a REST resource, so nothing else could see them.
-- **Liquibase's summary** is logged as JSON only (`LIQUIBASE_SHOW_SUMMARY_OUTPUT=log` on the
-  `migrate` task); it used to appear a second time as plain text.
+- **Every request, including the ones no REST resource sees.** The line is written by a handler
+  at the very front of the HTTP router, ahead of security, once the response has ended — so a
+  session OIDC turns away with a 401, a sign-in redirect, the callback and an unknown path each
+  get one, with the status the client saw.
+- **`requestId`** is the `Root` of the load balancer's `X-Amzn-Trace-Id`, and a fresh UUID where
+  there is none (locally) or where the header does not look like the load balancer's — a client
+  could send anything. Neither the ALB nor CloudFront has access logging enabled, so for now the
+  id ties together this log only. It is in the MDC from the start of the request, so lines
+  logged while the request is handled carry it too.
+- **The health checks are not logged:** the handler leaves `/q/*` alone, which keeps the load
+  balancer's checks, every few seconds per task, out of the log and out of the bill.
+- **Sign-in** comes from Quarkus OIDC's security event: the authorization code flow's redirects
+  never reach a REST resource. **Sign-out** is the application's own `/api/auth/logout`, which has
+  no such event; its access line, which names the user, is the record, and the *Sign-ins* query
+  shows both.
+- **Liquibase's summary** is logged as JSON only (`LIQUIBASE_SHOW_SUMMARY_OUTPUT=log`, set in the
+  image, so wherever it migrates); it used to appear a second time as plain text.
 
 **Personal data:** the only one is **`user`, the OpenID Connect `sub`** — a pseudonymous id the
 identity provider assigns, which says nothing about the person without the provider's records.
@@ -57,7 +64,7 @@ group, a fraction of a cent.
 
 | Query | Answers |
 | --- | --- |
-| *Failures* | What failed — `ERROR` and `WARN` lines, and every request answered with a 5xx |
+| *Failures* | What failed — `FATAL`, `ERROR` and `WARN` lines (and their java.util.logging spellings), and every request answered with a 5xx |
 | *Slow requests* | Which requests took longest, slowest first |
 | *Start-up and migration* | Whether the last deployment or migration started cleanly — `started in …` or `Failed to start application`, and Liquibase's steps |
 | *Sign-ins* | Who signed in and out, by `sub` |

@@ -1,85 +1,111 @@
 package de.hilling.taskfest.logging;
 
 import io.quarkus.security.identity.SecurityIdentity;
-import jakarta.inject.Inject;
-import jakarta.ws.rs.container.ContainerRequestContext;
-import jakarta.ws.rs.container.ContainerResponseContext;
+import io.quarkus.vertx.http.runtime.RouteConstants;
+import io.quarkus.vertx.http.runtime.security.QuarkusHttpUser;
+import io.vertx.ext.web.Router;
+import io.vertx.ext.web.RoutingContext;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.event.Observes;
 import java.security.Principal;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.List;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.eclipse.microprofile.jwt.JsonWebToken;
-import org.jboss.resteasy.reactive.server.ServerRequestFilter;
-import org.jboss.resteasy.reactive.server.ServerResponseFilter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 
 /**
- * Writes one structured line per API request, so CloudWatch Logs Insights can answer what failed
+ * Writes one structured line per HTTP request, so CloudWatch Logs Insights can answer what failed
  * and what was slow (#122).
+ *
+ * <p>It sits at the very front of the HTTP router, ahead of the security handlers, rather than
+ * among the REST filters: Quarkus OIDC answers some requests itself -- an expired session with a
+ * 401, the sign-in redirects, the callback -- and those never reach a REST resource. Here every
+ * request gets its line once the response has ended, with the status the client actually saw.
+ * Only {@code /q/*} is left out, so the load balancer's health checks stay out of the log.</p>
  *
  * <p>The fields go into the MDC rather than the message, because the JSON log format writes the
  * MDC as an object of its own: a query filters on {@code mdc.status} instead of parsing text. The
- * request id is set when the request arrives and stays for its whole length, so every other line
- * the request causes carries it too. It is the load balancer's {@code X-Amzn-Trace-Id} where there
- * is one -- the same id CloudFront and the ALB log -- and a fresh UUID locally.</p>
- *
- * <p>The user is the token's {@code sub}, a pseudonymous id, and never the email address:
- * {@code doc/deployment/observability.md} lists what personal data the logs hold. The health and
- * metrics endpoints under {@code /q} are not REST resources and never reach these filters, which
- * is what keeps the load balancer's checks out of the log.</p>
+ * request id is the {@code Root} of the load balancer's {@code X-Amzn-Trace-Id} where there is
+ * one, and a fresh UUID otherwise -- a header that does not look like the load balancer's is not
+ * trusted, since a client could send anything. The user is the token's {@code sub}, a
+ * pseudonymous id, never the email address; {@code doc/deployment/observability.md} lists what
+ * personal data the logs hold.</p>
  */
+@ApplicationScoped
 public class RequestLog {
 
     /** The logger the access lines go to, so they can be filtered, silenced or captured on their own. */
     public static final String LOGGER = "de.hilling.taskfest.access";
 
-    static final String REQUEST_ID_HEADER = "X-Amzn-Trace-Id";
+    /** The header the load balancer puts its trace id in. */
+    public static final String REQUEST_ID_HEADER = "X-Amzn-Trace-Id";
 
-    private static final String STARTED = RequestLog.class.getName() + ".started";
-    private static final List<String> FIELDS = List.of("method", "path", "status", "durationMs", "user");
+    private static final Pattern TRACE_ROOT = Pattern.compile("Root=1-[0-9a-f]{8}-[0-9a-f]{24}");
+    /** Longer than any header the load balancer sends; anything longer is not searched at all. */
+    private static final int MAX_TRACE_HEADER = 512;
     private static final Logger LOG = LoggerFactory.getLogger(LOGGER);
 
-    @Inject
-    SecurityIdentity identity;
-
-    /** Notes when the request arrived, and puts its id in the MDC for everything logged during it. */
-    @ServerRequestFilter(preMatching = true)
-    public void start(ContainerRequestContext request) {
-        request.setProperty(STARTED, Instant.now());
-        String id = request.getHeaderString(REQUEST_ID_HEADER);
-        MDC.put("requestId", id == null || id.isBlank() ? UUID.randomUUID().toString() : id);
+    void register(@Observes Router router) {
+        router.route().order(RouteConstants.ROUTE_ORDER_ACCESS_LOG_HANDLER).handler(this::handle);
     }
 
-    /** Writes the access line once the response is known, then clears the MDC for the next request. */
-    @ServerResponseFilter
-    public void finish(ContainerRequestContext request, ContainerResponseContext response) {
-        try {
-            Instant started = (Instant) request.getProperty(STARTED);
-            long millis = started == null ? -1 : Duration.between(started, Instant.now()).toMillis();
-            String method = request.getMethod();
-            String path = request.getUriInfo().getRequestUri().getRawPath();
-            MDC.put("method", method);
-            MDC.put("path", path);
-            MDC.put("status", String.valueOf(response.getStatus()));
-            MDC.put("durationMs", String.valueOf(millis));
-            if (!identity.isAnonymous()) {
-                MDC.put("user", subject(identity.getPrincipal()));
+    void handle(RoutingContext context) {
+        String path = context.request().path();
+        if (path.startsWith("/q/")) {
+            context.next();
+            return;
+        }
+        Instant started = Instant.now();
+        String requestId = requestId(context.request().getHeader(REQUEST_ID_HEADER));
+        MDC.put("requestId", requestId);
+        context.addEndHandler(ended -> write(context, path, requestId, started));
+        context.next();
+    }
+
+    private static void write(RoutingContext context, String path, String requestId, Instant started) {
+        Map<String, String> fields = new LinkedHashMap<>();
+        fields.put("requestId", requestId);
+        fields.put("method", context.request().method().name());
+        fields.put("path", path);
+        fields.put("status", String.valueOf(context.response().getStatusCode()));
+        fields.put("durationMs", String.valueOf(Duration.between(started, Instant.now()).toMillis()));
+        if (context.user() instanceof QuarkusHttpUser user) {
+            SecurityIdentity identity = user.getSecurityIdentity();
+            if (identity != null && !identity.isAnonymous()) {
+                fields.put("user", subject(identity.getPrincipal()));
             }
-            LOG.info("{} {} {} {} ms", method, path, response.getStatus(), millis);
+        }
+        fields.forEach(MDC::put);
+        try {
+            LOG.info("{} {} {} {} ms", fields.get("method"), path, fields.get("status"), fields.get("durationMs"));
         } finally {
-            FIELDS.forEach(MDC::remove);
-            MDC.remove("requestId");
+            fields.keySet().forEach(MDC::remove);
         }
     }
 
-    /** The pseudonymous id of a user: the token's {@code sub} where there is a token, else the name. */
+    /** The load balancer's trace root from the header, or a fresh UUID if there is no such thing in it. */
+    static String requestId(String header) {
+        if (header != null && header.length() <= MAX_TRACE_HEADER) {
+            Matcher root = TRACE_ROOT.matcher(header);
+            if (root.find()) {
+                return root.group();
+            }
+        }
+        return UUID.randomUUID().toString();
+    }
+
+    /** The pseudonymous id of a user: the token's {@code sub}, else the principal's name, else "unknown". */
     static String subject(Principal principal) {
         if (principal instanceof JsonWebToken token && token.getSubject() != null) {
             return token.getSubject();
         }
-        return principal.getName();
+        return principal == null || principal.getName() == null ? "unknown" : principal.getName();
     }
 }

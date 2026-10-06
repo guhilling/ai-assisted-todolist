@@ -192,9 +192,6 @@ resource "aws_ecs_task_definition" "migrate" {
     environment = [
       { name = "QUARKUS_INIT_AND_EXIT", value = "true" },
       { name = "QUARKUS_LIQUIBASE_MIGRATE_AT_START", value = "true" },
-      # Liquibase prints its update summary to stdout as plain text as well as logging it; "log"
-      # keeps only the logged copy, so the migration's output is JSON like everything else (#122).
-      { name = "LIQUIBASE_SHOW_SUMMARY_OUTPUT", value = "log" },
       {
         name  = "QUARKUS_DATASOURCE_JDBC_URL"
         value = "jdbc:postgresql://${local.db_address}:${local.db_port}/${local.db_name}?sslmode=verify-full&sslrootcert=/opt/rds/global-bundle.pem"
