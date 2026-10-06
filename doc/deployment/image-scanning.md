@@ -1,6 +1,6 @@
 # Image scanning
 
-Amazon Inspector scans the backend image ECS runs, and a daily workflow turns what it finds into
+Amazon Inspector scans the backend image ECS runs, and a workflow every six hours turns what it finds into
 a GitHub issue (#162). Nobody has to look at a console; an issue appears when there is something
 to do, and closes itself once there is not.
 
@@ -15,7 +15,7 @@ ECS task ──pull──> ECR  <account>.dkr.ecr.eu-central-1.amazonaws.com/qua
                     │
                     └── Amazon Inspector: scans on arrival, rescans whenever a CVE is published
                                   │
-                                  ▼  daily, image-findings.yml
+                                  ▼  every 6 h, image-findings.yml
                         GitHub issue, label `image-vulnerability`
 ```
 
@@ -32,7 +32,7 @@ ECS task ──pull──> ECR  <account>.dkr.ecr.eu-central-1.amazonaws.com/qua
 
 ## What reaches the issue
 
-`.github/workflows/image-findings.yml` runs daily on `main`, as the read-only role
+`.github/workflows/image-findings.yml` runs every six hours on `main`, as the read-only role
 `taskfest-image-findings`, which may call `inspector2:ListFindings` and nothing else. It asks for
 findings that are:
 
@@ -46,10 +46,23 @@ with no fixed version yet, and only Jackson's were actionable. An issue about th
 teach everyone to ignore it. All findings, including the unfixable ones, are in the Inspector
 console under *Findings → By container image*.
 
-`image-findings-issue.py` keeps **one** issue: it opens it, rewrites its table daily, comments
+`image-findings-issue.py` keeps **one** issue: it opens it, rewrites its table on every run, comments
 only when a finding appears that was not listed before — so a notification means something new
 — and closes it when none are left. The usual fix is a dependency or base-image update through
 Renovate, then a release.
+
+## Two delays worth knowing
+
+- **Right after Inspector is switched on, it takes hours before it scans anything.** On
+  2026-10-05 it noticed every new image within a second (`DescribeImages` in CloudTrail), yet
+  listed none in its coverage until the next morning — through the pull-through cache and for an
+  image pushed directly alike. Nothing was misconfigured; it was still initialising. Later
+  images are scanned within minutes.
+- **"In use" is not live.** Inspector learns which images ECS runs on a periodic refresh, not
+  when a task starts, and the workflow only reports images with an in-use date in the last 30
+  days. A finding in a freshly deployed image therefore reaches the issue once Inspector has
+  seen the running task — which needs the environment up at that moment — and then stays in
+  scope for 30 days.
 
 ## Cost
 
