@@ -2,10 +2,9 @@ name: Deploy frontend
 
 # Puts a release's frontend build into an environment's site bucket, where CloudFront serves it.
 #
-# Started by hand, with a release tag: the build is the one release.yml attached to that
-# release, never a fresh one, so rolling back the frontend is running this again with the previous
-# tag. It is the frontend half of the deploy workflow the plan describes, brought forward so a
-# release can be tested end to end (#119); the backend half follows with the deploy story.
+# Started with a release tag -- by release.yml for qa, after deploy-backend.yml, or by hand for
+# any environment. The build is the one release.yml attached to that release, never a fresh one,
+# so rolling back the frontend is running this again with the previous tag.
 #
 # The AWS identity is the environment's deploy role, assumed through GitHub's OIDC token, so no
 # key is stored anywhere. The role trusts only a job running in the GitHub environment of the
@@ -22,6 +21,15 @@ on:
         default: qa
       version:
         description: Release tag to deploy, e.g. v0.1.0
+        type: string
+        required: true
+  # How release.yml deploys every release to qa.
+  workflow_call:
+    inputs:
+      environment:
+        type: string
+        required: true
+      version:
         type: string
         required: true
 

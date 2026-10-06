@@ -230,3 +230,29 @@ jobs:
         # keeps every deployment coming from main, and the tag is already in history by now, so
         # build-api-site.py picks the new version up.
         run: gh workflow run pages.yml --ref main
+
+  # Every release goes to qa; prod only ever by hand, through its protected environment. The
+  # backend first: a release it stops -- one that changes the database changelog -- then does
+  # not put its frontend in front of the old API either. When qa is down the backend is skipped
+  # without failing and the frontend is still uploaded, since the site bucket outlives `down`.
+  deploy-backend-qa:
+    name: Deploy backend to qa
+    needs: announce
+    permissions:
+      contents: read
+      id-token: write
+    uses: ./.github/workflows/deploy-backend.yml
+    with:
+      environment: qa
+      version: ${{ github.ref_name }}
+
+  deploy-frontend-qa:
+    name: Deploy frontend to qa
+    needs: deploy-backend-qa
+    permissions:
+      contents: read
+      id-token: write
+    uses: ./.github/workflows/deploy-frontend.yml
+    with:
+      environment: qa
+      version: ${{ github.ref_name }}
