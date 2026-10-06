@@ -40,9 +40,10 @@ does not move.
 **How a pin that nobody edits stays current.** Renovate, through a custom regex manager in
 `.github/renovate.json`. No built-in manager reads the value: it lives in a Quarkus properties
 file, and moving it into `pom.xml` would not have helped, because the Maven manager updates
-dependency versions rather than container references. The manager was checked against the real
-file rather than assumed — it resolves `eclipse-temurin` and the tag, with the `docker`
-datasource.
+dependency versions rather than container references. Since the move to `jre-runtime` (#66) the
+manager captures the tag *and* the digest, and orders the `<temurin>-<date>` tags with a regex
+versioning that ignores the undated moving tags; it was checked against the real file — it
+resolves `quay.io/ghilling/jre-runtime`, the tag and the digest, with the `docker` datasource.
 
 
 ## sun_checks with documented relaxations

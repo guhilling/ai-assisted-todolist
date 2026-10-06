@@ -18,10 +18,10 @@
   "customManagers": [
     {
       "customType": "regex",
-      "description": "The Jib base image, pinned by tag and digest. Loose versioning compares jre-runtime's <temurin>-<yyyymmdd> tags number by number, so a newer Temurin build or a newer date wins. It lives in a Quarkus properties file, which no built-in manager reads: the Maven manager updates dependency versions, not a container reference, so moving it into pom.xml would not have helped either.",
+      "description": "The Jib base image, pinned by tag and digest. The regex versioning reads jre-runtime's dated tags (<temurin>-<yyyymmdd[hhmm]>): Temurin's major.minor.patch first, then the publish date, which also orders a Temurin respin (25.0.5.1 after 25.0.5) and its own build number correctly. The moving tags (25, 25.0.4.1_1) carry no date, do not match, and so are never offered -- loose versioning ranked the bare 25 highest and would have automerged the pin onto a floating tag. It lives in a Quarkus properties file, which no built-in manager reads: the Maven manager updates dependency versions, not a container reference, so moving it into pom.xml would not have helped either.",
       "managerFilePatterns": ["/^backend/src/main/resources/application\\.properties$/"],
       "matchStrings": ["quarkus\\.jib\\.base-jvm-image=(?<depName>[^:\\s]+):(?<currentValue>[^@\\s]+)@(?<currentDigest>sha256:[0-9a-f]+)"],
-      "versioningTemplate": "loose",
+      "versioningTemplate": "regex:^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(?:\\.\\d+)?_\\d+-(?<build>\\d{8,12})$",
       "datasourceTemplate": "docker"
     },
     {

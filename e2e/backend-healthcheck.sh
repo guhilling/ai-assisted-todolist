@@ -11,9 +11,9 @@
 # the request goes over bash's /dev/tcp and the status line is matched by bash itself. Asking
 # for the provider list proves the application is serving rather than merely that the port is
 # open, and it needs no session.
-set -euo pipefail
+set -eu
 
 exec 3<>/dev/tcp/127.0.0.1/8080
 printf 'GET /api/auth/providers HTTP/1.1\r\nHost: localhost:8080\r\nConnection: close\r\n\r\n' >&3
 read -r status <&3
-[[ $status == *" 200 "* ]]
+[[ $status =~ ^HTTP/[0-9.]+\ 200([^0-9]|$) ]]

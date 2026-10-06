@@ -203,8 +203,8 @@ every response with, so an annotation here is enforced in the browser as well as
   came from. `doc/decisions/containers-and-local-stack.md` has the measurements.
 - **Pinned to a dated tag and its digest** (`25.0.4.1_1-20261006@sha256:…`), so two builds of
   one commit sit on the same base and a re-pushed tag changes nothing. Renovate moves the pin
-  through a custom regex manager in `.github/renovate.json` (loose versioning orders the
-  `<temurin>-<date>` tags) — no built-in manager reads a Quarkus properties file — and moves the
+  through a custom regex manager in `.github/renovate.json` (a regex versioning orders the
+  `<temurin>-<date>` tags, and leaves the undated moving tags `25` and `25.0.4.1_1` alone) — no built-in manager reads a Quarkus properties file — and moves the
   Containerfile's own bases through its Dockerfile manager. A base update is therefore two steps:
   Renovate bumps the Containerfile, its merge publishes a new jre-runtime, Renovate bumps this pin.
 - **Nothing in the container can use `grep`, `curl` or a package manager.** UBI micro has bash

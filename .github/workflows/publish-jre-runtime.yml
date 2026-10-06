@@ -3,7 +3,7 @@ name: Publish jre-runtime
 # Builds the jre-runtime base image from deployment/jre-runtime/Containerfile (#66). On a pull
 # request it only builds and checks it; on main it publishes it, for amd64 and arm64, as
 #
-#   quay.io/ghilling/jre-runtime:<temurin>-<yyyymmdd>   the tag the backend's Jib build pins
+#   quay.io/ghilling/jre-runtime:<temurin>-<yyyymmddhhmm>   the tag the backend's Jib build pins
 #   quay.io/ghilling/jre-runtime:<temurin>              the newest build of that Temurin release
 #   quay.io/ghilling/jre-runtime:<major>                the newest build of that Java major
 #
@@ -43,7 +43,9 @@ jobs:
       - name: Work out the tags
         id: tags
         # The Temurin release comes from the Containerfile itself, so the tag cannot disagree with
-        # what is inside. The date makes each rebuild of that release a tag of its own.
+        # what is inside. Date *and* time make every publish a tag of its own: with the date alone a
+        # second publish on one day re-pointed the tag, left the digest the backend pins untagged,
+        # and Quay garbage-collects untagged manifests.
         run: |
           temurin=$(sed -n 's|^FROM .*eclipse-temurin:\([^@]*\)-jre-.*|\1|p' Containerfile)
           if [ -z "$temurin" ]; then
@@ -53,7 +55,7 @@ jobs:
           {
             echo "temurin=$temurin"
             echo "major=${temurin%%.*}"
-            echo "dated=$temurin-$(date -u +%Y%m%d)"
+            echo "dated=$temurin-$(date -u +%Y%m%d%H%M)"
           } >> "$GITHUB_OUTPUT"
 
       - name: Build for this runner, and check it
