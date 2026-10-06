@@ -10,11 +10,19 @@ ECS pulls the images through ECR's pull-through cache, and Inspector scans every
 holds -- again whenever a new CVE is published, not only when the image arrives (#162). This
 script asks for the findings worth a person's attention and keeps one issue in step with them:
 
-- findings, no open issue        -> open one, listing them
+- findings, no open issue        -> open one, listing them -- except findings in the last issue a
+                                    person closed, which count as looked at (see below)
 - findings, issue open           -> rewrite its list; comment only on findings not listed before,
                                     so a notification means something new
 - no findings, issue open        -> close it
 - no findings, nothing open      -> nothing
+
+**Closing the issue by hand acknowledges what it lists.** A person closes it once the findings are
+dealt with -- fixed, accepted, or judged irrelevant, which a real triage has to decide anyway. Those
+findings are then not raised again; a finding that was not listed opens a new issue with just
+that one. When the script closes the issue itself because the findings are gone, it clears the
+list first, so the closing acknowledges nothing and a finding that comes back -- a rollback to an
+old image -- is reported again. doc/deployment/image-scanning.md has the workflow.
 
 "Worth attention" is narrow on purpose: HIGH or CRITICAL, a fixed version exists, and ECS used
 the image in the last 30 days -- by Inspector's in-use record, or because the image arrived in
@@ -56,6 +64,12 @@ class Action:
     issue: int | None = None
     body: str = ""
     comment: str = ""
+
+
+def reported(body):
+    """The finding keys an issue body lists in its hidden marker; empty if it lists none."""
+    match = KNOWN.search(body or "")
+    return set(match.group(1).split()) if match else set()
 
 
 def filter_criteria(now, days=IN_USE_DAYS, window="ecrImageLastInUseAt"):
@@ -136,14 +150,21 @@ def table(listed):
     return "\n".join(lines)
 
 
-def decide(found, open_issue, run_url):
-    """The whole policy, as a pure function of the findings and the open issue, if any."""
+def decide(found, open_issue, run_url, acknowledged=frozenset()):
+    """The whole policy, as a pure function of the findings, the open issue if any, and the
+    finding keys a person acknowledged by closing the last issue."""
     listed = rows(found)
     if not listed:
         if open_issue is None:
             return Action("none")
         return Action("close", open_issue["number"],
-                      body=f"No fixable HIGH or CRITICAL findings remain in running images ({run_url}). Closing.")
+                      body=KNOWN.sub("<!-- reported:  -->", open_issue.get("body") or ""),
+                      comment=f"No fixable HIGH or CRITICAL findings remain in recently used images "
+                              f"({run_url}). Closing.")
+    if open_issue is None:
+        listed = [r for r in listed if r.key not in acknowledged]
+        if not listed:
+            return Action("none")
 
     body = (
         f"Amazon Inspector reports fixable HIGH or CRITICAL vulnerabilities in backend images that "
@@ -151,14 +172,14 @@ def decide(found, open_issue, run_url):
         f"Most of these are fixed by moving a dependency or the base image to the version in "
         f"*Fixed in*, through Renovate as usual, and releasing. Run: {run_url}\n\n"
         f"This issue is kept up to date by `image-findings-issue.py` (#162). It is rewritten "
-        f"every six hours, gets a comment only when a new finding appears, and closes itself once none are "
-        f"left.\n\n<!-- reported: {' '.join(r.key for r in listed)} -->"
+        f"every six hours, gets a comment only when a new finding appears, and closes itself once none "
+        f"are left. **Close it by hand once the findings are dealt with** -- fixed, accepted or judged "
+        f"irrelevant; the same findings are then not raised again, and a new one opens a new issue.\n\n<!-- reported: {' '.join(r.key for r in listed)} -->"
     )
     if open_issue is None:
         return Action("create", body=body)
 
-    match = KNOWN.search(open_issue.get("body") or "")
-    known = set(match.group(1).split()) if match else set()
+    known = reported(open_issue.get("body"))
     new = [r for r in listed if r.key not in known]
     comment = f"New since the last report:\n\n{table(new)}" if new else ""
     return Action("update", open_issue["number"], body=body, comment=comment)
@@ -184,10 +205,18 @@ def find_open_issue():
     return found[0] if found else None
 
 
+def last_acknowledged():
+    """The findings listed by the most recent closed issue, which a person closed by hand -- the
+    script empties the list of any issue it closes itself."""
+    closed = json.loads(gh("issue", "list", "--label", LABEL, "--state", "closed",
+                           "--json", "body", "--limit", "1"))
+    return reported(closed[0]["body"]) if closed else set()
+
+
 def main():
     run_url = (f"{os.environ['GITHUB_SERVER_URL']}/{os.environ['GITHUB_REPOSITORY']}"
                f"/actions/runs/{os.environ['GITHUB_RUN_ID']}")
-    action = decide(list_findings(), find_open_issue(), run_url)
+    action = decide(list_findings(), find_open_issue(), run_url, acknowledged=last_acknowledged())
 
     if action.kind == "create":
         gh("label", "create", LABEL, "--force", "--color", "B60205",
@@ -199,10 +228,11 @@ def main():
             gh("issue", "comment", str(action.issue), "--body", action.comment)
         print(f"Updated #{action.issue}" + (" and commented on the new findings" if action.comment else ""))
     elif action.kind == "close":
-        gh("issue", "close", str(action.issue), "--comment", action.body)
+        gh("issue", "edit", str(action.issue), "--body", action.body)
+        gh("issue", "close", str(action.issue), "--comment", action.comment)
         print(f"Closed #{action.issue}")
     else:
-        print("No fixable HIGH or CRITICAL findings in running images, no open issue: nothing to do.")
+        print("No unacknowledged fixable HIGH or CRITICAL findings, no open issue: nothing to do.")
     return 0
 
 

@@ -87,6 +87,31 @@ class DecideTest(unittest.TestCase):
         self.assertIn("taskfest-backend:latest", body)
 
 
+class AcknowledgedTest(unittest.TestCase):
+    """Closing the issue by hand means the findings were looked at, so they are not raised again."""
+
+    def body_listing(self, *found):
+        return findings.decide(list(found), None, **CONTEXT).body
+
+    def test_findings_in_an_issue_closed_by_hand_open_nothing(self):
+        action = findings.decide([A], open_issue=None, acknowledged=findings.reported(self.body_listing(A)),
+                                 **CONTEXT)
+        self.assertEqual(action.kind, "none")
+
+    def test_a_new_finding_after_that_opens_an_issue_listing_only_it(self):
+        action = findings.decide([A, B], open_issue=None,
+                                 acknowledged=findings.reported(self.body_listing(A)), **CONTEXT)
+        self.assertEqual(action.kind, "create")
+        self.assertIn("CVE-2026-0002", action.body)
+        self.assertNotIn("CVE-2026-0001", action.body)
+
+    def test_closing_it_ourselves_acknowledges_nothing(self):
+        open_issue = {"number": 7, "body": self.body_listing(A)}
+        action = findings.decide([], open_issue=open_issue, **CONTEXT)
+        self.assertEqual(action.kind, "close")
+        self.assertEqual(findings.reported(action.body), set())
+
+
 class FilterTest(unittest.TestCase):
 
     def test_asks_only_for_fixable_high_and_critical_in_recently_used_cached_images(self):

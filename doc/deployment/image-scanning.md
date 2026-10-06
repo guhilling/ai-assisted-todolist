@@ -50,8 +50,30 @@ console under *Findings → By container image*.
 
 `image-findings-issue.py` keeps **one** issue: it opens it, rewrites its table on every run, comments
 only when a finding appears that was not listed before — so a notification means something new
-— and closes it when none are left. The usual fix is a dependency or base-image update through
-Renovate, then a release.
+— and closes it when none are left.
+
+## Handling the issue
+
+A finding is a question for a person, not a task the pipeline can finish by itself: whether the
+vulnerable code is even reachable, whether a fix can wait for the regular update, whether the
+risk is acceptable. So the issue is triaged like any other, and **closed by hand** when that is
+done:
+
+1. **Give it a priority** — label and project field, like every issue. Fixable HIGH findings in
+   the running image are normally `priority: 1 now`.
+2. **Look at each finding.** The usual outcome is that the fix arrives as a dependency or base
+   image update through Renovate (Jackson, for example, comes with the Quarkus platform); then
+   it is released and deployed. If the fix cannot wait for that, pull the update forward.
+3. **Close the issue** once every listed finding is fixed, accepted or judged irrelevant, with a
+   comment saying which. Closing it **acknowledges exactly the findings it lists**: the workflow
+   does not raise those again. A finding that was not on the list opens a new issue, with just
+   that finding.
+4. **If you do nothing,** the workflow closes the issue itself as soon as no listed finding is left
+   in a recently used image. That closing acknowledges nothing — the script clears the list
+   first — so a finding that comes back, after a rollback to an older image, is reported again.
+
+An acknowledged finding stays acknowledged until a newer issue is closed. To have one reported
+again, reopen the issue that listed it.
 
 ## Two delays worth knowing
 
