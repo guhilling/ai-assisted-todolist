@@ -43,9 +43,12 @@ environment, which is worth a red run rather than a quiet green one.
 `live-tests.yml`, for qa only — prod has no live tests yet:
 
 - **After every deploy to qa.** `deploy-frontend.yml` calls it once the new frontend is in place,
-  which in a release is the last step, so both halves are new. `deploy-backend.yml` calls it only
-  when started by hand — a rollback, say — since in a release the frontend deploy follows anyway.
+  which in a release is the last step, so both halves are new. `deploy-backend.yml` calls it when
+  started by hand — a rollback, say — unless *Run the live tests afterwards* is unticked; not from
+  a release, where the frontend deploy follows anyway.
 - **By hand**, from the Actions tab.
+- **On every pull request touching `e2e/`**, `e2e.yml` only *collects* them (`--list`), so a
+  syntax or import error fails the pull request rather than the next deploy.
 
 A failure fails the deploying run visibly. It rolls nothing back; whether to is a person's
 decision. On failure the Playwright report is uploaded as an artifact.

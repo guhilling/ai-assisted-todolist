@@ -33,7 +33,9 @@ jobs:
     name: Smoke-test ${{ inputs.environment }}
     runs-on: ubuntu-26.04
     env:
-      LIVE_BASE_URL: https://${{ inputs.environment == 'prod' && 'taskfest' || format('taskfest-{0}', inputs.environment) }}.cloud.hilling.de
+      # qa is the only environment with live tests; prod's name has no suffix, and gets its
+      # mapping when it gets live tests.
+      LIVE_BASE_URL: https://taskfest-${{ inputs.environment }}.cloud.hilling.de
     steps:
       - uses: actions/checkout@v7
 

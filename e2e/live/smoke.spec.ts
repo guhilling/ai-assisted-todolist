@@ -28,7 +28,8 @@ test.describe('the frontend', () => {
   test('answers a missing asset with a 403, not the app', async ({ request }) => {
     const response = await request.get('/assets/does-not-exist.js')
     expect(response.status()).toBe(403)
-    expect(response.headers()['content-type']).not.toContain('text/html')
+    // CloudFront's error may carry no content type at all, which is fine; the app's would.
+    expect(response.headers()['content-type'] ?? '').not.toContain('text/html')
   })
 
   test('serves index.html uncached and the hashed assets as immutable', async ({ request }) => {
@@ -68,10 +69,14 @@ test.describe('the API through CloudFront', () => {
   })
 
   test('does not cache /api/*', async ({ request }) => {
-    // Twice, so a cache that stored the first answer would have to say Hit on the second.
-    await request.get('/api/auth/providers')
-    const second = await request.get('/api/auth/providers')
-    expect(second.headers()['x-cache']).toBe('Miss from cloudfront')
+    // Several times, so a cache that stored an earlier answer would have to say Hit on a later
+    // one even if a request or two lands on another edge host; and no Age, which CloudFront
+    // adds to every answer it serves from its cache.
+    for (let attempt = 0; attempt < 4; attempt++) {
+      const response = await request.get('/api/auth/providers')
+      expect(response.headers()['x-cache']).toBe('Miss from cloudfront')
+      expect(response.headers()['age']).toBeUndefined()
+    }
   })
 
   test('sends sign-in to Google with this environment as the https return address', async ({ page, request, baseURL }) => {
@@ -87,6 +92,6 @@ test.describe('the API through CloudFront', () => {
     expect(location.origin).toBe('https://accounts.google.com')
     // The regression from #119: behind the load balancer the backend once asked Google to come
     // back to http://, which Google refuses.
-    expect(location.searchParams.get('redirect_uri')).toBe(`${baseURL}/api/auth/callback`)
+    expect(location.searchParams.get('redirect_uri')).toBe(new URL('/api/auth/callback', baseURL).href)
   })
 })
