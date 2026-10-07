@@ -89,6 +89,9 @@ jobs:
 
       - name: Verify the frontend
         working-directory: frontend
+        env:
+          # The footer shows it; the build is the release artifact, so it is the release's.
+          VITE_TASKFEST_VERSION: ${{ steps.version.outputs.version }}
         run: |
           npm run lint
           npm run test:coverage
@@ -166,6 +169,7 @@ jobs:
         run: >
           docker buildx build --push
           --tag quay.io/ghilling/taskfest-frontend:${{ needs.gate.outputs.version }}
+          --build-arg VITE_TASKFEST_VERSION=${{ needs.gate.outputs.version }}
           -f docker/Dockerfile .
 
   announce:

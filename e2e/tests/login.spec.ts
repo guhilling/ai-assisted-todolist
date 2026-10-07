@@ -50,7 +50,7 @@ test.skip(() => process.env.LIVE_BACKEND_DOWN === '1', 'the environment is down'
  */
 async function signIn(page: Page, user: Account) {
   await page.goto('/')
-  await expect(page.getByRole('link', { name: /about this project/i })).toBeVisible()
+  await expect(page.getByRole('link', { name: /^about/i })).toBeVisible()
   await signInAs(page, identity, user)
 
   // The header shows the display name, not the email: proof that the profile scope survived a

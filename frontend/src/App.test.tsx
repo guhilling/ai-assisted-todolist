@@ -177,7 +177,7 @@ describe('signed out', () => {
     await waitFor(() =>
       expect(screen.getByRole('link', { name: /sign in with google/i })).toHaveAttribute('href', '/api/auth/login'),
     )
-    expect(screen.getByRole('link', { name: /about this project/i })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /^about/i })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /add a task/i })).not.toBeInTheDocument()
   })
 
@@ -318,7 +318,7 @@ describe('paused', () => {
     globalThis.fetch = pausedEnvironment('QA')
     render(<App />)
 
-    await waitFor(() => expect(screen.getByRole('link', { name: /about this project/i })).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByRole('link', { name: /^about/i })).toBeInTheDocument())
   })
 
   it('does not mistake any other 503 for a pause', async () => {
@@ -372,6 +372,31 @@ describe('legal footer', () => {
     await renderSignedIn(mockApi({ me: ALICE, tasks: [] }))
 
     await expectTheLegalFooter()
+  })
+})
+
+describe('version in the footer', () => {
+  it('names the release the page was built from', async () => {
+    vi.stubEnv('VITE_TASKFEST_VERSION', '0.7.2')
+    globalThis.fetch = mockApi({ providers: { enabled: true, providers: [GOOGLE] } }) as unknown as typeof fetch
+    render(<App />)
+
+    expect(await screen.findByText('Version 0.7.2')).toBeInTheDocument()
+    vi.unstubAllEnvs()
+  })
+
+  it('says so when it is no release at all', async () => {
+    globalThis.fetch = mockApi({ providers: { enabled: true, providers: [GOOGLE] } }) as unknown as typeof fetch
+    render(<App />)
+
+    expect(await screen.findByText('Development build')).toBeInTheDocument()
+  })
+
+  it('links the project as just "About"', async () => {
+    globalThis.fetch = mockApi({ providers: { enabled: true, providers: [GOOGLE] } }) as unknown as typeof fetch
+    render(<App />)
+
+    expect(await screen.findByRole('link', { name: 'About ↗' })).toBeInTheDocument()
   })
 })
 
