@@ -42,8 +42,12 @@ DDD, and project context all still apply here).
 
 - `api.ts` holds the wire: the types the backend speaks, the URLs, and every `fetch`. It is the
   only place that knows a request shape.
-- `dates.ts` holds due-date arithmetic and the words the board puts on screen.
-- `importance.ts` holds the importance levels and their words, for the row and both forms.
+- `dates.ts` holds due-date arithmetic, and words a due date with the words and locale it is
+  given -- the current language's, from the catalogue.
+- `importance.ts` holds the importance levels, in the order the pickers offer them; their words
+  are in the catalogue (`importanceLabels` is its English entry, for the design system).
+- `i18n/` holds the languages (#203): the catalogue (`messages.ts`), how the language is chosen
+  (`language.ts`), the provider and `useI18n()`, and how a failure is worded (`failures.ts`).
 - `App.tsx` holds state and composition, and nothing else.
 - `components/` holds the pieces. They take callbacks and data; none of them fetches.
 - This split replaced a single 413-line `App.tsx`. Its own header comment had named the API
@@ -53,15 +57,21 @@ DDD, and project context all still apply here).
 
 - **No user-visible text is written in a component.** Every label, button, notice, accessible
   name and due-date word comes from the message catalogue in `src/i18n/messages.ts` (#203),
-  through `useI18n()`. English is the source and defines the shape; German is typed as that
+  through `useI18n()`. The one exception is Google's official button: its image and alt are
+  Google's English (D3 on #203), marked `lang="en"` so screen readers pronounce them as English. English is the source and defines the shape; German is typed as that
   shape, so a missing translation is a compile error. A text that depends on a value is a function
   in the catalogue, so word order stays the language's own.
 - **The English texts are the ones the tests address the UI by.** Change one only together with
   the tests that use it, and with Gunnar's OK for an existing test.
-- **`messages.test.ts` fails on an entry nothing uses**, so a text that is no longer shown is
-  deleted rather than translated forever.
-- **Errors from `api.ts` carry a key** (`RequestError`); the banner says the catalogue's text for
-  it, translated when it renders. Their own `message` stays English, for consoles and tests.
+- **`messages.test.ts` fails on an entry nothing uses**, by its full path (`addRow.cancel`), so a
+  text that is no longer shown is deleted rather than translated forever. A group looked up by a
+  computed key is typed as a `Record` over a type the code owns, so the compiler checks its keys.
+- **`api.ts` speaks no visitor's language.** It names a failure by key -- `RequestError` by what
+  the request was doing, `ContractBreachError` by which answer broke the contract and how -- and
+  keeps an English `message` of its own for consoles and tests. `i18n/failures.ts` words it from
+  the catalogue when the banner renders, so switching language translates a banner already shown.
+  Any other error shows its own message on an English page only; elsewhere the translated
+  fallback for what was being done.
 - Dates go through `dates.ts` with the language's words and locale; never call `toLocale…` on a
   date in a component.
 

@@ -316,9 +316,12 @@ runtime dependency, an extraction step and a key format, for features (ICU messa
 lazy-loaded catalogues) nothing here needs yet. If a third language or a translation tool arrives,
 that is the moment to revisit.
 
-**Why errors carry keys.** The wire layer stays language-free: `api.ts` names a failure
-(`RequestError` with a key), and the board says it in the visitor's language when it renders -- so
-switching language translates a banner already on screen.
+**Why errors carry keys.** The wire layer stays language-free: `api.ts` imports no catalogue. It
+names a failure -- a request by what it was doing, a broken contract by which answer and how -- and
+keeps an English message of its own for consoles and tests; `i18n/failures.ts` words it from the
+catalogue when the banner renders, so switching language translates a banner already on screen. An
+error nobody named (the browser's "Failed to fetch", a JSON parser's complaint) speaks English or
+the browser's language, so it is shown as it is on an English page only.
 
 **What stays English (for now).** Google's sign-in button: its official assets exist in English
 only (D3). Provider labels: they are backend configuration, so "TaskFest test account" stays

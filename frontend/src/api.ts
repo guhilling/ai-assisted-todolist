@@ -22,7 +22,6 @@ import {
   validateCurrentUserResponse,
   validateTaskResponse,
 } from './generated/validators'
-import { en, type Messages } from './i18n/messages'
 
 /**
  * Where a task stands in the workflow, and how much it matters.
@@ -121,51 +120,73 @@ function taskUrl(id: Task['id']) {
   return `${tasksBaseUrl}/${encodeURIComponent(id)}`
 }
 
-/** The failures this module names, so the banner can say them in the visitor's language (#203). */
-export type RequestErrorKey = keyof Messages['errors']
-
 /**
- * A failure of a request this module made, named by a key into the message catalogue.
+ * What a failed request was doing, so the board can say it in the visitor's language (#203).
  *
- * Its own message stays English -- what a developer reads in a console or a test -- and the banner
- * shows the catalogue's text for the key in whatever language the app speaks.
+ * This module speaks no visitor's language -- the wire layer stays language-free -- so it names a
+ * failure by key and keeps an English message of its own, for consoles and tests. The board
+ * words the key from its message catalogue (`i18n/failures.ts`).
  */
+export type RequestErrorKey = 'loadTasks' | 'createTask' | 'updateTask' | 'deleteTask' | 'unaddressable'
+
+/** This module's own English, for a console or a test; the banner says the catalogue's text. */
+const requestErrorMessages: Record<RequestErrorKey, string> = {
+  loadTasks: 'Unable to load tasks from the backend.',
+  createTask: 'Unable to create task.',
+  updateTask: 'Unable to update task.',
+  deleteTask: 'Unable to delete task.',
+  unaddressable: 'That task could not be addressed.',
+}
+
+/** A request that failed, named by what it was doing. */
 export class RequestError extends Error {
   readonly key: RequestErrorKey
 
-  constructor(key: RequestErrorKey, message: string = en.errors[key]) {
-    super(message)
+  constructor(key: RequestErrorKey) {
+    super(requestErrorMessages[key])
     this.name = 'RequestError'
     this.key = key
   }
 }
 
-/**
- * Unwraps a thrown value into something displayable, since a `catch` binding is `unknown`.
- *
- * A failure this module named is said in the given language (#203); any other `Error` by its own
- * message; anything else by the fallback.
- */
-export function toErrorMessage(cause: unknown, fallback: string, errors: Messages['errors'] = en.errors) {
-  if (cause instanceof RequestError) {
-    return errors[cause.key]
-  }
-  return cause instanceof Error ? cause.message : fallback
+/** Which answer broke the contract. */
+export type ContractSubject = 'task' | 'taskList' | 'signedInUser' | 'signInOptions'
+
+/** How it broke it, where checked by hand. */
+export type ContractDetail = 'idNotInteger' | 'notArray'
+
+const contractSubjects: Record<ContractSubject, string> = {
+  task: 'a task',
+  taskList: 'a task list',
+  signedInUser: 'a signed-in user',
+  signInOptions: 'the sign-in options',
+}
+
+const contractDetails: Record<ContractDetail, string> = {
+  idNotInteger: 'its id is not an exact integer',
+  notArray: 'it is not an array',
 }
 
 /**
  * The error a response that contradicts the published contract fails with.
  *
- * It reaches the board's error banner through `toErrorMessage`, so it is written to be read by
- * a person. `detail` is given for the two things checked here by hand and omitted for a schema
- * failure: Ajv's `errors` would name the offending field, but reading it means a fallback for
- * the case where it is null, and Ajv never leaves it null after saying no. An unreachable
- * branch is a worse thing to carry than a shorter sentence, and devtools still has the
- * response.
+ * It names which answer broke the contract and, for the two things checked here by hand, how --
+ * as keys, which the board words in the visitor's language. `detail` is omitted for a schema
+ * failure: Ajv's `errors` would name the offending field, but reading it means a fallback for the
+ * case where it is null, and Ajv never leaves it null after saying no. An unreachable branch is a
+ * worse thing to carry than a shorter sentence, and devtools still has the response.
  */
-function contractBreach(what: string, detail?: string) {
-  const because = detail ? `: ${detail}` : ''
-  return new RequestError('unexpectedAnswer', `The backend sent ${what} that does not match its own API contract${because}.`)
+export class ContractBreachError extends Error {
+  readonly subject: ContractSubject
+  readonly detail: ContractDetail | undefined
+
+  constructor(subject: ContractSubject, detail?: ContractDetail) {
+    const because = detail ? `: ${contractDetails[detail]}` : ''
+    super(`The backend sent ${contractSubjects[subject]} that does not match its own API contract${because}.`)
+    this.name = 'ContractBreachError'
+    this.subject = subject
+    this.detail = detail
+  }
 }
 
 /**
@@ -179,11 +200,11 @@ function contractBreach(what: string, detail?: string) {
  */
 function toTask(data: unknown): Task {
   if (!validateTaskResponse(data)) {
-    throw contractBreach('a task')
+    throw new ContractBreachError('task')
   }
   const id = Number(data.id)
   if (!Number.isSafeInteger(id)) {
-    throw contractBreach('a task', 'its id is not an exact integer')
+    throw new ContractBreachError('task', 'idNotInteger')
   }
   return {
     id,
@@ -197,7 +218,7 @@ function toTask(data: unknown): Task {
 /** Turns a checked response into the task list. Each task is checked in its own right. */
 function toTasks(data: unknown): Task[] {
   if (!Array.isArray(data)) {
-    throw contractBreach('a task list', 'it is not an array')
+    throw new ContractBreachError('taskList', 'notArray')
   }
   return data.map(toTask)
 }
@@ -205,7 +226,7 @@ function toTasks(data: unknown): Task[] {
 /** Turns a checked response into the signed-in user, with absent and null collapsed into null. */
 function toCurrentUser(data: unknown): CurrentUser {
   if (!validateCurrentUserResponse(data)) {
-    throw contractBreach('a signed-in user')
+    throw new ContractBreachError('signedInUser')
   }
   return { email: data.email, name: data.name ?? null, pictureUrl: data.pictureUrl ?? null }
 }
@@ -213,7 +234,7 @@ function toCurrentUser(data: unknown): CurrentUser {
 /** Turns a checked response into the sign-in options. */
 function toAuthProviders(data: unknown): AuthProvidersResponse {
   if (!validateAuthProvidersResponse(data)) {
-    throw contractBreach('the sign-in options')
+    throw new ContractBreachError('signInOptions')
   }
   return {
     enabled: data.enabled,

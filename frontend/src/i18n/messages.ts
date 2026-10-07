@@ -9,22 +9,22 @@
  * The English texts are the ones the app has always shown, word for word: the tests and the
  * browser suites address the UI by them.
  */
+import type { ContractDetail, ContractSubject, RequestErrorKey, TaskImportance } from '../api'
+import type { DueBucket } from '../dates'
 import type { Language } from './language'
-
-/** The importance levels' words, keyed like the generated `TaskImportance`. */
-type ImportanceWords = { LOW: string; MEDIUM: string; HIGH: string }
 
 export const en = {
   app: {
     signOut: 'Sign out',
   },
+  /** A board section's title, by the bucket it holds; typed by `DueBucket`, so none is missing. */
   sections: {
     overdue: 'Overdue',
     today: 'Today',
     tomorrow: 'Tomorrow',
     thisWeek: 'This week',
     later: 'Later',
-  },
+  } as Record<DueBucket, string>,
   board: {
     loading: 'Loading tasks…',
     empty: 'Nothing here yet. Add your first task.',
@@ -38,14 +38,28 @@ export const en = {
     restoring: 'Unexpected error while restoring data.',
     saving: 'Unexpected error while saving data.',
   },
-  /** The failures `api.ts` names by key (`RequestError`). */
+  /** The failures `api.ts` names by key (`RequestError`), typed by its keys. */
   errors: {
     loadTasks: 'Unable to load tasks from the backend.',
     createTask: 'Unable to create task.',
     updateTask: 'Unable to update task.',
     deleteTask: 'Unable to delete task.',
     unaddressable: 'That task could not be addressed.',
-    unexpectedAnswer: 'The backend sent an answer that does not match its own API contract.',
+  } as Record<RequestErrorKey, string>,
+  /** An answer that broke the API contract (`ContractBreachError`): which one, and how. */
+  contract: {
+    message: (subject: string, detail?: string) =>
+      `The backend sent ${subject} that does not match its own API contract${detail ? `: ${detail}` : ''}.`,
+    subjects: {
+      task: 'a task',
+      taskList: 'a task list',
+      signedInUser: 'a signed-in user',
+      signInOptions: 'the sign-in options',
+    } as Record<ContractSubject, string>,
+    details: {
+      idNotInteger: 'its id is not an exact integer',
+      notArray: 'it is not an array',
+    } as Record<ContractDetail, string>,
   },
   addRow: {
     open: 'Add a task',
@@ -70,7 +84,7 @@ export const en = {
   },
   importance: {
     label: 'Importance',
-    levels: { LOW: 'Low', MEDIUM: 'Medium', HIGH: 'High' } as ImportanceWords,
+    levels: { LOW: 'Low', MEDIUM: 'Medium', HIGH: 'High' } as Record<TaskImportance, string>,
   },
   row: {
     markDone: (description: string) => `Mark "${description}" as done`,
@@ -150,7 +164,20 @@ export const de: Messages = {
     updateTask: 'Die Aufgabe konnte nicht geändert werden.',
     deleteTask: 'Die Aufgabe konnte nicht gelöscht werden.',
     unaddressable: 'Diese Aufgabe lässt sich nicht ansprechen.',
-    unexpectedAnswer: 'Das Backend hat eine Antwort geschickt, die nicht zu seinem eigenen API-Vertrag passt.',
+  },
+  contract: {
+    message: (subject: string, detail?: string) =>
+      `Die Antwort des Backends (${subject}) passt nicht zu seinem eigenen API-Vertrag${detail ? `: ${detail}` : ''}.`,
+    subjects: {
+      task: 'eine Aufgabe',
+      taskList: 'eine Aufgabenliste',
+      signedInUser: 'die angemeldete Person',
+      signInOptions: 'die Anmeldeoptionen',
+    },
+    details: {
+      idNotInteger: 'ihre ID ist keine exakte Ganzzahl',
+      notArray: 'sie ist keine Liste',
+    },
   },
   addRow: {
     open: 'Aufgabe hinzufügen',

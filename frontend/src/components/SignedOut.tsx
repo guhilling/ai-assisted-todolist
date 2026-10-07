@@ -60,7 +60,9 @@ function SignedOut({ providers, apiBaseUrl }: Readonly<SignedOutProps>) {
               // The PNGs, not the SVGs: Google's SVGs draw the G through a <foreignObject>, which
               // Safari renders as a blur. srcSet picks the sharp one for the screen.
               return (
-                <a className="sign-in-google" key={provider.id} href={href}>
+                // lang="en": the image and its alt are Google's English, whatever the page speaks (D3 on
+                // #203), and a screen reader should pronounce them as English.
+                <a className="sign-in-google" key={provider.id} href={href} lang="en">
                   <picture>
                     <source
                       srcSet={`${googleDark} 1x, ${googleDark2x} 2x, ${googleDark3x} 3x`}

@@ -7,14 +7,15 @@ export type I18n = {
   language: Language
   messages: Messages
   locale: string
-  setLanguage: (language: Language) => void
+  /** Absent outside an `I18nProvider`, where there is nothing to switch -- and so no switch. */
+  setLanguage?: (language: Language) => void
 }
 
 /**
  * English, with nothing to switch: what a component sees outside an `I18nProvider` -- in the
  * design system's bundle, say -- so it renders rather than failing for want of a provider.
  */
-const english: I18n = { language: 'en', messages: catalogues.en, locale: localeOf('en'), setLanguage: () => {} }
+const english: I18n = { language: 'en', messages: catalogues.en, locale: localeOf('en') }
 
 /** Carries the current language to every component; `I18nProvider` sets it. */
 export const I18nContext = createContext<I18n>(english)

@@ -19,7 +19,6 @@ import {
   putTask,
   restoreTask,
   SessionExpiredError,
-  toErrorMessage,
   type AuthProvidersResponse,
   type CurrentUser,
   type Task,
@@ -37,6 +36,7 @@ import UserAvatar from './components/UserAvatar'
 import UndoToast from './components/UndoToast'
 import { bucketOf, todayIso, type DueBucket } from './dates'
 import { useI18n } from './i18n/context'
+import { describeFailure } from './i18n/failures'
 import type { Messages } from './i18n/messages'
 import { I18nProvider } from './i18n/I18nProvider'
 
@@ -63,7 +63,7 @@ function App() {
 
 /** Everything the app shows: the signed-out and paused pages, and the board. */
 function Board() {
-  const { messages } = useI18n()
+  const { language, messages } = useI18n()
   const [tasks, setTasks] = useState<Task[]>([])
   const [providers, setProviders] = useState<AuthProvidersResponse>({ enabled: false, providers: [] })
   // While the environment is down, the name it gives itself, or null; undefined while it is up.
@@ -276,7 +276,7 @@ function Board() {
       <main className="app">
         {error ? (
           <p className="error-banner" role="status" aria-live="polite">
-            {toErrorMessage(error.cause, messages.failures[error.fallback], messages.errors)}
+            {describeFailure(error.cause, messages.failures[error.fallback], messages, language)}
           </p>
         ) : null}
         {sessionExpired ? (
@@ -309,7 +309,7 @@ function Board() {
 
       {error ? (
         <p className="error-banner" role="status" aria-live="polite">
-          {toErrorMessage(error.cause, messages.failures[error.fallback], messages.errors)}
+          {describeFailure(error.cause, messages.failures[error.fallback], messages, language)}
         </p>
       ) : null}
 

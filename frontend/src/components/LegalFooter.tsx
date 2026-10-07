@@ -47,13 +47,21 @@ function LegalFooter() {
       </span>
       <span>{versionLabel(messages)}</span>
       {/* Every other language, each named in itself and marked as such for screen readers. */}
-      {languages
-        .filter((other) => other !== language)
-        .map((other) => (
-          <button key={other} type="button" className="text-link legal-footer-language" lang={other} onClick={() => setLanguage(other)}>
-            {languageNames[other]}
-          </button>
-        ))}
+      {/* Only where the language can be changed: outside an I18nProvider there is no switch. */}
+      {setLanguage &&
+        languages
+          .filter((other) => other !== language)
+          .map((other) => (
+            <button
+              key={other}
+              type="button"
+              className="text-link legal-footer-language"
+              lang={other}
+              onClick={() => setLanguage(other)}
+            >
+              {languageNames[other]}
+            </button>
+          ))}
     </footer>
   )
 }

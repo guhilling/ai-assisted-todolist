@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest'
-import { chooseLanguage, localeOf } from './language'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { chooseLanguage, initialLanguage, localeOf, rememberLanguage, rememberedLanguage } from './language'
 
 describe('the language the app speaks', () => {
   it('is the one the visitor chose last, whatever the browser prefers', () => {
@@ -27,3 +27,40 @@ describe('the language the app speaks', () => {
     expect(localeOf('de')).toBe('de-DE')
   })
 })
+
+describe('the language at the start of a visit', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    localStorage.removeItem('taskfest.language')
+  })
+
+  it("falls back to the browser's one language when it lists none", () => {
+    // Some WebViews and hardened browsers report an empty list, but still a language.
+    vi.stubGlobal('navigator', { languages: [], language: 'de-DE' })
+
+    expect(initialLanguage()).toBe('de')
+  })
+
+  it('prefers the remembered choice', () => {
+    localStorage.setItem('taskfest.language', 'de')
+    vi.stubGlobal('navigator', { languages: ['en-US'], language: 'en-US' })
+
+    expect(initialLanguage()).toBe('de')
+  })
+
+  it('carries on without storage, which a private window may refuse', () => {
+    const refusing = {
+      getItem: () => {
+        throw new Error('SecurityError')
+      },
+      setItem: () => {
+        throw new Error('SecurityError')
+      },
+    }
+    vi.stubGlobal('localStorage', refusing)
+
+    expect(rememberedLanguage()).toBeNull()
+    expect(() => rememberLanguage('de')).not.toThrow()
+  })
+})
+

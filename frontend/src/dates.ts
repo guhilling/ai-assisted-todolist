@@ -8,6 +8,7 @@
  * from `yyyy-mm-dd` shifts the day backwards west of UTC.
  */
 
+import { localeOf } from './i18n/language'
 import { en, type Messages } from './i18n/messages'
 
 /** Which group of the board a task belongs to, derived from its due date alone. */
@@ -24,7 +25,7 @@ export type QuickDate = {
  * same string on a German laptop, a US CI runner and in jsdom. Since #203 the caller passes the
  * locale of the language the app speaks; this is the default, English's.
  */
-const DISPLAY_LOCALE = 'en-GB'
+const DISPLAY_LOCALE = localeOf('en')
 
 /** The words a due date is described with, in the language the app speaks: `i18n/messages.ts`. */
 export type DateWords = Messages['dates']
