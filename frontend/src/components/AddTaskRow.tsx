@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import type { TaskImportance, TaskInput } from '../api'
 import { addDays, quickDates } from '../dates'
-import { importanceLabels, importanceLevels } from '../importance'
+import { importanceLevels } from '../importance'
 import DueDateField from './DueDateField'
+import { useI18n } from '../i18n/context'
 
 type AddTaskRowProps = {
   today: string
@@ -19,6 +20,7 @@ type AddTaskRowProps = {
  * needs no date interaction at all.
  */
 function AddTaskRow({ today, saving, onAdd }: Readonly<AddTaskRowProps>) {
+  const { messages } = useI18n()
   const [open, setOpen] = useState(false)
   const [description, setDescription] = useState('')
   const [dueDate, setDueDate] = useState(addDays(today, 1))
@@ -91,7 +93,7 @@ function AddTaskRow({ today, saving, onAdd }: Readonly<AddTaskRowProps>) {
         <span className="add-row-plus" aria-hidden="true">
           +
         </span>
-        Add a task
+        {messages.addRow.open}
         <kbd className="add-row-key" aria-hidden="true">
           n
         </kbd>
@@ -115,14 +117,14 @@ function AddTaskRow({ today, saving, onAdd }: Readonly<AddTaskRowProps>) {
       <input
         ref={descriptionRef}
         className="add-description"
-        aria-label="What needs doing"
-        placeholder="What needs doing?"
+        aria-label={messages.addRow.description}
+        placeholder={messages.addRow.placeholder}
         value={description}
         onChange={(event) => setDescription(event.target.value)}
       />
 
-      <div className="quick-dates" role="group" aria-label="Due date shortcuts">
-        {quickDates(today).map((quick) => (
+      <div className="quick-dates" role="group" aria-label={messages.addRow.shortcuts}>
+        {quickDates(today, messages.dates).map((quick) => (
           <button
             key={quick.label}
             type="button"
@@ -139,21 +141,21 @@ function AddTaskRow({ today, saving, onAdd }: Readonly<AddTaskRowProps>) {
         {/* min matches the backend, which refuses a new task dated in the past. */}
         <DueDateField value={dueDate} min={today} onChange={setDueDate} />
         <label className="add-field">
-          <span>Importance</span>
+          <span>{messages.importance.label}</span>
           <select value={importance} onChange={(event) => setImportance(event.target.value as TaskImportance)}>
             {importanceLevels.map((level) => (
               <option key={level} value={level}>
-                {importanceLabels[level]}
+                {messages.importance.levels[level]}
               </option>
             ))}
           </select>
         </label>
         <div className="add-actions">
           <button type="button" className="button-quiet" onClick={collapse}>
-            Cancel
+            {messages.addRow.cancel}
           </button>
           <button type="submit" className="button-primary" disabled={saving || description.trim() === ''}>
-            {saving ? 'Adding…' : 'Add'}
+            {saving ? messages.addRow.adding : messages.addRow.add}
           </button>
         </div>
       </div>

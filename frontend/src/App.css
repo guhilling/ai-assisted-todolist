@@ -339,6 +339,16 @@ html {
   user-select: all;
 }
 
+/* The switch to another language: a button, since it changes the page rather than leaving it, but
+   looking like the links beside it. */
+.legal-footer-language {
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  cursor: pointer;
+}
+
 /* ---------- paused ---------- */
 
 /* The environment is down on purpose. The panda carries its own light badge, so it reads on

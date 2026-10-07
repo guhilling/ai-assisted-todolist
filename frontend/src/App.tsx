@@ -36,23 +36,42 @@ import TaskSection from './components/TaskSection'
 import UserAvatar from './components/UserAvatar'
 import UndoToast from './components/UndoToast'
 import { bucketOf, todayIso, type DueBucket } from './dates'
+import { useI18n } from './i18n/context'
+import type { Messages } from './i18n/messages'
+import { I18nProvider } from './i18n/I18nProvider'
 
-/** The dated sections, in the order they appear. `Completed` is handled separately. */
-const sections: { bucket: DueBucket; title: string; overdue?: boolean }[] = [
-  { bucket: 'overdue', title: 'Overdue', overdue: true },
-  { bucket: 'today', title: 'Today' },
-  { bucket: 'tomorrow', title: 'Tomorrow' },
-  { bucket: 'thisWeek', title: 'This week' },
-  { bucket: 'later', title: 'Later' },
+/**
+ * The dated sections, in the order they appear. `Completed` is handled separately. A section's
+ * title is its bucket's word in the catalogue (#203).
+ */
+const sections: { bucket: DueBucket; overdue?: boolean }[] = [
+  { bucket: 'overdue', overdue: true },
+  { bucket: 'today' },
+  { bucket: 'tomorrow' },
+  { bucket: 'thisWeek' },
+  { bucket: 'later' },
 ]
 
+/** The app, speaking the visitor's language to everything in it (#203). */
 function App() {
+  return (
+    <I18nProvider>
+      <Board />
+    </I18nProvider>
+  )
+}
+
+/** Everything the app shows: the signed-out and paused pages, and the board. */
+function Board() {
+  const { messages } = useI18n()
   const [tasks, setTasks] = useState<Task[]>([])
   const [providers, setProviders] = useState<AuthProvidersResponse>({ enabled: false, providers: [] })
   // While the environment is down, the name it gives itself, or null; undefined while it is up.
   const [paused, setPaused] = useState<{ environmentName: string | null } | undefined>(undefined)
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  // What failed, not yet put into words: the banner says it in whatever language is spoken when it
+  // renders, so switching language translates a banner already on screen too.
+  const [error, setError] = useState<{ cause: unknown; fallback: keyof Messages['failures'] } | null>(null)
   const [sessionExpired, setSessionExpired] = useState(false)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -111,7 +130,7 @@ function App() {
 
         setTasks(await fetchTasks())
       } catch (loadError) {
-        reportFailure(loadError, 'Unexpected error while loading data.')
+        reportFailure(loadError, 'loading')
       } finally {
         setLoading(false)
       }
@@ -125,14 +144,14 @@ function App() {
    * Reports a failed request. A session that has ended is not a failure of the request that
    * noticed it, so it signs the board out and says why, instead of showing an error message.
    */
-  const reportFailure = (failure: unknown, fallback: string) => {
+  const reportFailure = (failure: unknown, fallback: keyof Messages['failures']) => {
     if (failure instanceof SessionExpiredError) {
       setError(null)
       setSessionExpired(true)
       setCurrentUser(null)
       return
     }
-    setError(toErrorMessage(failure, fallback))
+    setError({ cause: failure, fallback })
   }
 
   const replaceTask = (updated: Task) =>
@@ -154,7 +173,7 @@ function App() {
       replaceTask(await putTask({ ...task, state: nextState }))
     } catch (updateError) {
       replaceTask(previous)
-      reportFailure(updateError, 'Unexpected error while updating data.')
+      reportFailure(updateError, 'updating')
     }
   }
 
@@ -172,7 +191,7 @@ function App() {
       replaceTask(await putTask({ ...task, ...changes }))
       return true
     } catch (updateError) {
-      reportFailure(updateError, 'Unexpected error while updating data.')
+      reportFailure(updateError, 'updating')
       return false
     }
   }
@@ -195,7 +214,7 @@ function App() {
       return true
     } catch (deleteError) {
       setTasks((current) => [...current, task])
-      reportFailure(deleteError, 'Unexpected error while deleting data.')
+      reportFailure(deleteError, 'deleting')
       return false
     }
   }
@@ -231,7 +250,7 @@ function App() {
       const restored = await Promise.all(tasksToRestore.map((task) => restoreTask(task, today)))
       setTasks((current) => [...current, ...restored])
     } catch (restoreError) {
-      reportFailure(restoreError, 'Unexpected error while restoring data.')
+      reportFailure(restoreError, 'restoring')
     }
   }
 
@@ -245,7 +264,7 @@ function App() {
       setTasks((current) => [...current, created])
       return true
     } catch (saveError) {
-      reportFailure(saveError, 'Unexpected error while saving data.')
+      reportFailure(saveError, 'saving')
       return false
     } finally {
       setSaving(false)
@@ -257,12 +276,12 @@ function App() {
       <main className="app">
         {error ? (
           <p className="error-banner" role="status" aria-live="polite">
-            {error}
+            {toErrorMessage(error.cause, messages.failures[error.fallback], messages.errors)}
           </p>
         ) : null}
         {sessionExpired ? (
           <p className="session-notice" role="status" aria-live="polite">
-            Your session has expired. Sign in again to carry on.
+            {messages.board.sessionExpired}
           </p>
         ) : null}
         {paused ? (
@@ -283,14 +302,14 @@ function App() {
           <UserAvatar email={currentUser.email} name={currentUser.name} pictureUrl={currentUser.pictureUrl} />
           <span className="app-email">{currentUser.name ?? currentUser.email}</span>
           <a className="text-link" href={authLogoutUrl}>
-            Sign out
+            {messages.app.signOut}
           </a>
         </div>
       </header>
 
       {error ? (
         <p className="error-banner" role="status" aria-live="polite">
-          {error}
+          {toErrorMessage(error.cause, messages.failures[error.fallback], messages.errors)}
         </p>
       ) : null}
 
@@ -301,7 +320,7 @@ function App() {
         * driven tests, answering instantly, could never show.
         */}
       {loading ? (
-        <p className="board-note">Loading tasks…</p>
+        <p className="board-note">{messages.board.loading}</p>
       ) : (
         <>
           <AddTaskRow today={today} saving={saving} onAdd={addTask} />
@@ -309,7 +328,7 @@ function App() {
           {sections.map((section) => (
             <TaskSection
               key={section.bucket}
-              title={section.title}
+              title={messages.sections[section.bucket]}
               overdue={section.overdue}
               today={today}
               tasks={openTasks.filter((task) => bucketOf(task.dueDate, today) === section.bucket)}
@@ -329,7 +348,7 @@ function App() {
             onClear={clearCompleted}
           />
 
-          {tasks.length === 0 ? <p className="board-note">Nothing here yet. Add your first task.</p> : null}
+          {tasks.length === 0 ? <p className="board-note">{messages.board.empty}</p> : null}
         </>
       )}
 

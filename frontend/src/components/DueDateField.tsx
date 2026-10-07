@@ -1,4 +1,5 @@
 import { Suspense, lazy, useEffect, useId, useRef, useState } from 'react'
+import { useI18n } from '../i18n/context'
 
 const CalendarPanel = lazy(() => import('./CalendarPanel'))
 
@@ -19,6 +20,7 @@ type DueDateFieldProps = {
  * button. It is loaded on first use, so the board does not pay for it until it is wanted.
  */
 function DueDateField({ value, onChange, min }: Readonly<DueDateFieldProps>) {
+  const { messages } = useI18n()
   const inputId = useId()
   const calendarId = useId()
   const [open, setOpen] = useState(false)
@@ -56,7 +58,7 @@ function DueDateField({ value, onChange, min }: Readonly<DueDateFieldProps>) {
 
   return (
     <div className="add-field date-field" ref={fieldRef}>
-      <label htmlFor={inputId}>Due date</label>
+      <label htmlFor={inputId}>{messages.dueDate.label}</label>
       <div className="date-field-row">
         <input
           id={inputId}
@@ -70,7 +72,7 @@ function DueDateField({ value, onChange, min }: Readonly<DueDateFieldProps>) {
           ref={toggleRef}
           type="button"
           className="date-field-toggle"
-          aria-label="Choose the due date from a calendar"
+          aria-label={messages.dueDate.calendar}
           aria-expanded={open}
           aria-controls={open ? calendarId : undefined}
           onClick={() => setOpen((current) => !current)}
@@ -83,7 +85,7 @@ function DueDateField({ value, onChange, min }: Readonly<DueDateFieldProps>) {
       </div>
       {open ? (
         <div className="date-field-popover" id={calendarId}>
-          <Suspense fallback={<p className="date-field-loading">Loading calendar…</p>}>
+          <Suspense fallback={<p className="date-field-loading">{messages.dueDate.loadingCalendar}</p>}>
             <CalendarPanel
               value={value}
               min={min}

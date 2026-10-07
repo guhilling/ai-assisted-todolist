@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { useI18n } from '../i18n/context'
 
 /** How long the offer stands. Long enough to notice, short enough not to sit in the way. */
 const DISMISS_AFTER_MS = 8000
@@ -20,6 +21,7 @@ type UndoToastProps = {
  * countdown.
  */
 function UndoToast({ count, onUndo, onDismiss }: Readonly<UndoToastProps>) {
+  const { messages } = useI18n()
   useEffect(() => {
     const timer = setTimeout(onDismiss, DISMISS_AFTER_MS)
     return () => clearTimeout(timer)
@@ -27,11 +29,11 @@ function UndoToast({ count, onUndo, onDismiss }: Readonly<UndoToastProps>) {
 
   return (
     <div className="undo-toast" role="status" aria-live="polite">
-      <span>{count === 1 ? 'Task deleted' : `${count} tasks deleted`}</span>
+      <span>{messages.undo.deleted(count)}</span>
       <button type="button" className="undo-action" onClick={onUndo}>
-        Undo
+        {messages.undo.undo}
       </button>
-      <button type="button" className="undo-dismiss" aria-label="Dismiss" onClick={onDismiss}>
+      <button type="button" className="undo-dismiss" aria-label={messages.undo.dismiss} onClick={onDismiss}>
         ×
       </button>
     </div>

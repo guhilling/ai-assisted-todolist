@@ -22,6 +22,7 @@ import {
   validateCurrentUserResponse,
   validateTaskResponse,
 } from './generated/validators'
+import { en, type Messages } from './i18n/messages'
 
 /**
  * Where a task stands in the workflow, and how much it matters.
@@ -110,7 +111,7 @@ const jsonHeaders = { ...jsFetchHeaders, 'Content-Type': 'application/json' }
  */
 function taskUrl(id: Task['id']) {
   if (!Number.isSafeInteger(id)) {
-    throw new Error('That task could not be addressed.')
+    throw new RequestError('unaddressable')
   }
   // Past the guard the id is an integer and could be interpolated as it stands. The encoding is
   // kept because a path segment should be encoded on principle rather than because this
@@ -120,8 +121,35 @@ function taskUrl(id: Task['id']) {
   return `${tasksBaseUrl}/${encodeURIComponent(id)}`
 }
 
-/** Unwraps a thrown value into something displayable, since a `catch` binding is `unknown`. */
-export function toErrorMessage(cause: unknown, fallback: string) {
+/** The failures this module names, so the banner can say them in the visitor's language (#203). */
+export type RequestErrorKey = keyof Messages['errors']
+
+/**
+ * A failure of a request this module made, named by a key into the message catalogue.
+ *
+ * Its own message stays English -- what a developer reads in a console or a test -- and the banner
+ * shows the catalogue's text for the key in whatever language the app speaks.
+ */
+export class RequestError extends Error {
+  readonly key: RequestErrorKey
+
+  constructor(key: RequestErrorKey, message: string = en.errors[key]) {
+    super(message)
+    this.name = 'RequestError'
+    this.key = key
+  }
+}
+
+/**
+ * Unwraps a thrown value into something displayable, since a `catch` binding is `unknown`.
+ *
+ * A failure this module named is said in the given language (#203); any other `Error` by its own
+ * message; anything else by the fallback.
+ */
+export function toErrorMessage(cause: unknown, fallback: string, errors: Messages['errors'] = en.errors) {
+  if (cause instanceof RequestError) {
+    return errors[cause.key]
+  }
   return cause instanceof Error ? cause.message : fallback
 }
 
@@ -137,7 +165,7 @@ export function toErrorMessage(cause: unknown, fallback: string) {
  */
 function contractBreach(what: string, detail?: string) {
   const because = detail ? `: ${detail}` : ''
-  return new Error(`The backend sent ${what} that does not match its own API contract${because}.`)
+  return new RequestError('unexpectedAnswer', `The backend sent ${what} that does not match its own API contract${because}.`)
 }
 
 /**
@@ -233,10 +261,10 @@ function ensureSession(response: Response) {
  * TypeScript erases: every field of every response was the right type by claim only. See
  * `doc/decisions/frontend.md`.
  */
-async function readJson<T>(response: Response, parse: (data: unknown) => T, failureMessage: string) {
+async function readJson<T>(response: Response, parse: (data: unknown) => T, failure: RequestErrorKey) {
   ensureSession(response)
   if (!response.ok) {
-    throw new Error(failureMessage)
+    throw new RequestError(failure)
   }
   return parse(await response.json())
 }
@@ -311,7 +339,7 @@ export async function fetchEnvironmentName(): Promise<string | null> {
 /** Loads the signed-in user's tasks. Only ever their own -- the backend scopes the query. */
 export async function fetchTasks() {
   const response = await fetch(tasksBaseUrl, { credentials: 'include', headers: jsFetchHeaders })
-  return readJson(response, toTasks, 'Unable to load tasks from the backend.')
+  return readJson(response, toTasks, 'loadTasks')
 }
 
 /** Creates a task and returns it as the backend stored it, including its generated id. */
@@ -322,7 +350,7 @@ export async function postTask(input: TaskInput) {
     headers: jsonHeaders,
     body: JSON.stringify(input),
   })
-  return readJson(response, toTask, 'Unable to create task.')
+  return readJson(response, toTask, 'createTask')
 }
 
 /**
@@ -344,7 +372,7 @@ export async function putTask(task: Task) {
       state: task.state,
     }),
   })
-  return readJson(response, toTask, 'Unable to update task.')
+  return readJson(response, toTask, 'updateTask')
 }
 
 /** Removes a task for good. The backend answers 204, so there is nothing to parse. */
@@ -356,7 +384,7 @@ export async function deleteTask(task: Task) {
   })
   ensureSession(response)
   if (!response.ok) {
-    throw new Error('Unable to delete task.')
+    throw new RequestError('deleteTask')
   }
 }
 
