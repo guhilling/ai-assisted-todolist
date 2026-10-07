@@ -272,3 +272,25 @@ anything, including the layout the design agent writes around these components.
 `npm run check:conventions` already validates every name it lists, so the new tokens are covered
 by the existing guard without changing it.
 
+
+## Sign-in buttons follow Google's branding rules, and every provider looks alike
+
+**Decision (#190).** The sign-in buttons stand one under another. Google's is Google's official
+button, used as it comes from its branding assets — light or dark with the page — and every other
+provider's button copies its neutral style: white with a grey outline (dark in a dark theme), 40px
+high, *Sign in with …* beside an icon. The icon follows the provider's issuer (`providerIcons.ts`):
+Google's own button for `accounts.google.com`, the TaskFest mark for a Cognito pool — qa's test
+accounts — and a plain key otherwise.
+
+**Why Google's button as it comes.** Google's rules allow its "G" only inside a complete button, in
+its light, dark or neutral theme — never the app's blue — set in Google's font, and at least as
+prominent as any other provider's. The asset has the text outlined, so no font is needed, and it
+reads *Sign in with Google*; the other buttons say *Sign in with …* to match.
+
+**Why not other providers' logos.** None has one meant for this: AWS's icons are licensed for
+architecture diagrams, and the Cognito pool appears to users as "TaskFest test account" anyway.
+
+**Why by issuer, not by id.** No provider is named in the frontend, as before; Google's rules belong
+to Google as the identity provider, which the issuer says. A configurable `icon` per provider would
+have done it too, at the price of an API change and a changed existing test.
+

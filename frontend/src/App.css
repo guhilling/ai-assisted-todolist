@@ -286,8 +286,46 @@ html {
 
 .signed-out-actions {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
+  align-items: flex-start;
   gap: var(--space-3);
+}
+
+/* Google's official button, used as it comes: the image is the whole button. */
+.sign-in-google {
+  display: block;
+  line-height: 0;
+  border-radius: 20px;
+}
+
+/* Every other provider, in the style of Google's: its neutral light and dark themes, 40px high,
+   so no button outranks another. The colours are Google's, deliberately not the app's tokens. */
+.sign-in-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  height: 40px;
+  padding: 0 16px 0 12px;
+  border: 1px solid #747775;
+  border-radius: 20px;
+  background: #ffffff;
+  color: #1f1f1f;
+  font-size: 14px;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+/* The icon keeps its size when a long label is squeezed on a narrow screen. */
+.sign-in-icon {
+  flex: none;
+}
+
+@media (prefers-color-scheme: dark) {
+  .sign-in-button {
+    border-color: #8e918f;
+    background: #131314;
+    color: #e3e3e3;
+  }
 }
 
 /* ---------- paused ---------- */

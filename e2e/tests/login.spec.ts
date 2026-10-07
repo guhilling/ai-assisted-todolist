@@ -25,7 +25,7 @@ const users = {
  */
 async function signIn(page: Page, user: (typeof users)[keyof typeof users]) {
   await page.goto('/')
-  const signInLink = page.getByRole('link', { name: /continue with keycloak/i })
+  const signInLink = page.getByRole('link', { name: /sign in with keycloak/i })
   await expect(signInLink).toBeVisible()
   await expect(page.getByRole('link', { name: /about this project/i })).toBeVisible()
 
@@ -103,7 +103,7 @@ test('signs a local account in through Keycloak and manages its tasks', async ({
   await expect(afterReload.getByRole('checkbox')).toBeChecked()
 
   await page.getByRole('link', { name: /sign out/i }).click()
-  await expect(page.getByRole('link', { name: /continue with keycloak/i })).toBeVisible()
+  await expect(page.getByRole('link', { name: /sign in with keycloak/i })).toBeVisible()
 })
 
 test('deletes a task for good', async ({ page }) => {

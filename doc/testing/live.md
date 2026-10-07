@@ -25,7 +25,7 @@ It has two parts, of which the first exists:
 | API | `/api/auth/providers` answers and offers Google | the `/api/*` behaviour or the VPC origin broken |
 | | `/api/tasks` refuses without a session: 499 for a script, a redirect to Google for a navigation | authentication switched off, or the app's HTML returned for an API path |
 | | `/api/*` is a `Miss` on a repeated request | caching on the API, which would serve one user's answer to another |
-| | *Continue with Google* ends at Google with `redirect_uri=https://<host>/api/auth/callback` | the http/https return-address regression (#119) |
+| | *Sign in with Google* ends at Google with `redirect_uri=https://<host>/api/auth/callback` | the http/https return-address regression (#119) |
 
 The last one goes up to Google's door and not through it: following the button is checked,
 signing in at Google is not, because Google forbids automating that.

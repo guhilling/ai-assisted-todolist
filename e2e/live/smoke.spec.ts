@@ -100,7 +100,7 @@ test.describe('the API through CloudFront', () => {
     // Up to Google's door and no further: following the button is checked, signing in at Google
     // is not -- Google forbids automating it (#141).
     await page.goto('/')
-    const signIn = page.getByRole('link', { name: /continue with google/i })
+    const signIn = page.getByRole('link', { name: /sign in with google/i })
     await expect(signIn).toBeVisible()
 
     const response = await request.get((await signIn.getAttribute('href'))!, { maxRedirects: 0 })

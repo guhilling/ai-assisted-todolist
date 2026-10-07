@@ -78,7 +78,7 @@ with (#141, #190). Unlike the Google client, all of it is code (`test-sign-in.tf
   sets a fresh random password before signing in (#144).
 - **The backend** declares the provider for the `prod` profile it runs in AWS, switched off; the
   task definition switches it on where the pool exists (`TASKFEST_OIDC_COGNITO_*`). Its button
-  reads *Continue with TaskFest test account*.
+  reads *Sign in with TaskFest test account*, with the TaskFest mark.
 
 ## The documentation site's own name
 

@@ -35,7 +35,7 @@ whole app — including sign-in — stays on port 5173.
 
 ## 3. Sign in
 
-The landing page shows a single **"Continue with Keycloak"** button. Use either account:
+The landing page shows a single **"Sign in with Keycloak"** button. Use either account:
 
 | Account | Password | Email |
 | --- | --- | --- |

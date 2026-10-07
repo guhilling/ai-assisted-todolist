@@ -175,7 +175,7 @@ describe('signed out', () => {
     render(<App />)
 
     await waitFor(() =>
-      expect(screen.getByRole('link', { name: /continue with google/i })).toHaveAttribute('href', '/api/auth/login'),
+      expect(screen.getByRole('link', { name: /sign in with google/i })).toHaveAttribute('href', '/api/auth/login'),
     )
     expect(screen.getByRole('link', { name: /about this project/i })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /add a task/i })).not.toBeInTheDocument()
@@ -187,7 +187,7 @@ describe('signed out', () => {
     }) as unknown as typeof fetch
     render(<App />)
 
-    await waitFor(() => expect(screen.getByRole('link', { name: /continue with google/i })).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByRole('link', { name: /sign in with google/i })).toBeInTheDocument())
     expect(screen.queryByText(/keycloak/i)).not.toBeInTheDocument()
   })
 
@@ -234,7 +234,7 @@ describe('signed out', () => {
     }) as unknown as typeof fetch
     render(<App />)
 
-    await waitFor(() => expect(screen.getByRole('link', { name: /continue with google/i })).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByRole('link', { name: /sign in with google/i })).toBeInTheDocument())
   })
 })
 
@@ -258,6 +258,37 @@ function pausedEnvironment(name?: string) {
   }) as unknown as typeof fetch
 }
 
+const COGNITO = {
+  id: 'cognito',
+  label: 'TaskFest test account',
+  available: true,
+  loginUrl: '/api/auth/login/cognito',
+  issuer: 'https://cognito-idp.eu-central-1.amazonaws.com/eu-central-1_pool',
+}
+
+describe('sign-in buttons', () => {
+  it("offers Google through Google's own button, light and dark", async () => {
+    globalThis.fetch = mockApi({ providers: { enabled: true, providers: [GOOGLE] } }) as unknown as typeof fetch
+    render(<App />)
+
+    const google = await screen.findByRole('link', { name: 'Sign in with Google' })
+    expect(google).toHaveAttribute('href', '/api/auth/login')
+    // The official asset as it comes: the image is the whole button, and its alt text is its name.
+    expect(within(google).getByRole('img', { name: 'Sign in with Google' })).toBeInTheDocument()
+    expect(google.querySelector('source[media="(prefers-color-scheme: dark)"]')).not.toBeNull()
+  })
+
+  it('offers every other provider with its label and an icon that says nothing twice', async () => {
+    globalThis.fetch = mockApi({ providers: { enabled: true, providers: [COGNITO, GOOGLE] } }) as unknown as typeof fetch
+    render(<App />)
+
+    const testAccount = await screen.findByRole('link', { name: 'Sign in with TaskFest test account' })
+    expect(testAccount).toHaveAttribute('href', '/api/auth/login/cognito')
+    // Decorative: the label already says which provider it is.
+    expect(testAccount.querySelector('img')).toHaveAttribute('alt', '')
+  })
+})
+
 describe('paused', () => {
   it('says which environment is paused while its backend is not running', async () => {
     globalThis.fetch = pausedEnvironment('QA')
@@ -266,7 +297,7 @@ describe('paused', () => {
     await waitFor(() => expect(screen.getByText('Environment QA is paused at the moment.')).toBeInTheDocument())
     expect(screen.getByRole('img', { name: /panda/i })).toBeInTheDocument()
     expect(screen.queryByText('Sign-in is not configured for this deployment.')).not.toBeInTheDocument()
-    expect(screen.queryByRole('link', { name: /continue with/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /sign in with/i })).not.toBeInTheDocument()
   })
 
   it('still says it is paused when the deployment does not name itself', async () => {
@@ -426,7 +457,7 @@ describe('signed in', () => {
     render(<App />)
 
     await waitFor(() => expect(screen.getByText('Network is down.')).toBeInTheDocument())
-    expect(screen.getByRole('link', { name: /continue with google/i })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /sign in with google/i })).toBeInTheDocument()
   })
 })
 
@@ -1127,7 +1158,7 @@ describe('an expired session', () => {
     render(<App />)
 
     await waitFor(() => expect(screen.getByText(/your session has expired/i)).toBeInTheDocument())
-    expect(screen.getByRole('link', { name: /continue with google/i })).toHaveAttribute('href', '/api/auth/login')
+    expect(screen.getByRole('link', { name: /sign in with google/i })).toHaveAttribute('href', '/api/auth/login')
     expect(screen.queryByRole('button', { name: /add a task/i })).not.toBeInTheDocument()
     expect(screen.queryByText('Unable to load tasks from the backend.')).not.toBeInTheDocument()
   })
@@ -1144,7 +1175,7 @@ describe('an expired session', () => {
     fireEvent.click(screen.getByLabelText('Mark "Late night" as done'))
 
     await waitFor(() => expect(screen.getByText(/your session has expired/i)).toBeInTheDocument())
-    expect(screen.getByRole('link', { name: /continue with google/i })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /sign in with google/i })).toBeInTheDocument()
     expect(screen.queryByText('Unable to update task.')).not.toBeInTheDocument()
   })
 })
