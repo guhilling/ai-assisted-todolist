@@ -32,6 +32,19 @@ test.describe('the frontend', () => {
     expect(response.headers()['content-type'] ?? '').not.toContain('text/html')
   })
 
+  test('links the imprint and the privacy policy, and both answer', async ({ page, request }) => {
+    // Required one click from every page (#193); nothing else would notice the privacy policy moving
+    // on the docs site, or the imprint going away.
+    await page.goto('/')
+    for (const name of ['Imprint', 'Privacy']) {
+      const href = await page.getByRole('link', { name, exact: true }).getAttribute('href')
+      expect(href, `the ${name} link`).toMatch(/^https:\/\//)
+      const response = await request.get(href!)
+      expect(response.status(), `${name}: ${href}`).toBe(200)
+    }
+    await expect(page.getByText('demo-apps[at]hilling.de')).toBeVisible()
+  })
+
   test('serves index.html uncached and the hashed assets as immutable', async ({ request }) => {
     const index = await request.get('/')
     // no-cache is what makes a new release visible at once without an invalidation.

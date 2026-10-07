@@ -1,5 +1,4 @@
 import panda from '../assets/paused-panda.svg'
-import { purposeUrl } from './SignedOut'
 
 type PausedProps = {
   /** The deployment's name for its environment, such as "QA"; null when it gives none. */
@@ -19,10 +18,6 @@ function Paused({ environmentName }: Readonly<PausedProps>) {
       <p className="paused-message">
         {environmentName ? `Environment ${environmentName}` : 'This environment'} is paused at the moment.
       </p>
-
-      <a className="text-link" href={purposeUrl} target="_blank" rel="noreferrer">
-        About this project ↗
-      </a>
     </div>
   )
 }

@@ -226,6 +226,12 @@ REFERENCE_BAR_STYLE = """<style>
 </style>"""
 
 
+# The operator's imprint and the contact, on every page (#193). The address is written with [at] and
+# never as a mailto link, against harvesters.
+IMPRINT_URL = "https://www.hilling.it/impressum/"
+CONTACT = "demo-apps[at]hilling.de"
+
+
 def reference_bar(up: str) -> str:
     """The one piece of the site that the API reference carries: a way back out of it."""
     return (
@@ -236,7 +242,10 @@ def reference_bar(up: str) -> str:
         f'<a href="openapi.json">openapi.json</a>'
         f'<a href="{up}doc/">Docs</a>'
         f'<a href="{up}api/">All versions</a>'
-        f'<a href="{REPO_URL}">GitHub</a></span>'
+        f'<a href="{REPO_URL}">GitHub</a>'
+        # The legal links, here too: a page without the site footer still needs them one click away.
+        f'<a href="{IMPRINT_URL}">Imprint</a>'
+        f'<a href="{up}doc/privacy.html">Privacy policy</a></span>'
         f"</div>"
     )
 
@@ -310,8 +319,10 @@ def footer(depth: int) -> str:
     <span>Apache-2.0</span>
     <a href="{REPO_URL}">Source on GitHub</a>
     <a href="{up}api/">API contract</a>
+    <a href="{IMPRINT_URL}">Imprint</a>
     <a href="{up}doc/privacy.html">Privacy policy</a>
     <a href="{up}doc/terms.html">Terms of service</a>
+    <span>Contact: {CONTACT}</span>
     <span>Built from <code>main</code>; every page here is generated.</span>
   </footer>"""
 

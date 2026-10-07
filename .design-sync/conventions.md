@@ -40,7 +40,7 @@ piece of text needs its own size, it wants one of these four instead.
 
 **Class families** (the real names — use these, don't invent):
 
-- Shell: `.app`, `.app-header`, `.app-title`, `.app-identity`, `.app-email`, `.app-footer`
+- Shell: `.app`, `.app-header`, `.app-title`, `.app-identity`, `.app-email`
 - Board: `.task-section`, `.section-title`, `.section-title--overdue`, `.task-list`,
   `.task-row`, `.task-row--done`, `.task-row--editing`, `.task-body`, `.task-check`, `.task-description`,
   `.task-meta`, `.task-chip`, `.task-importance` (+ `--low` / `--medium` / `--high`),
@@ -53,6 +53,7 @@ piece of text needs its own size, it wants one of these four instead.
 - Signed out: `.signed-out`, `.signed-out-title`, `.signed-out-copy`, `.signed-out-actions`,
   `.signed-out-note`; the sign-in buttons `.sign-in-google` (Google's official button image, used
   as it comes) and `.sign-in-button` with `.sign-in-icon` for every other provider
+- Footer, at the bottom of every view (`LegalFooter`: about the project, imprint, privacy, contact): `.legal-footer`, `.legal-footer-contact`
 - Paused (the environment is down): `.paused-panda`, `.paused-message`; `Paused` reuses
   `.signed-out` and `.signed-out-title`
 - Other: `.completed-section`, `.completed-actions`, `.undo-toast`, `.undo-action`,

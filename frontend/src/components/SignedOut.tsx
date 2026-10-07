@@ -69,10 +69,6 @@ function SignedOut({ providers, apiBaseUrl }: Readonly<SignedOutProps>) {
           })}
         </div>
       )}
-
-      <a className="text-link" href={purposeUrl} target="_blank" rel="noreferrer">
-        About this project ↗
-      </a>
     </div>
   )
 }
