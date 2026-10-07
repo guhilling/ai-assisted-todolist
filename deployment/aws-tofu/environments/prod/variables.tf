@@ -48,6 +48,12 @@ variable "backend_image" {
   default     = null
 }
 
+variable "test_sign_in" {
+  description = "Whether this environment has the Cognito test accounts its live tests sign in with."
+  type        = bool
+  default     = false
+}
+
 variable "log_retention_days" {
   description = "How long the ECS task logs are kept."
   type        = number

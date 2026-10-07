@@ -99,8 +99,13 @@ public class SignInProviders {
     private static Map<String, List<String>> tenantPaths(AuthProvidersConfig providers, Config config) {
         Map<String, List<String>> paths = new TreeMap<>();
         for (String id : providers.providers().keySet()) {
-            config.getOptionalValues("quarkus.oidc." + id + ".tenant-paths", String.class)
-                .ifPresent(found -> paths.put(id, found));
+            // A tenant switched off -- prod's test accounts, say -- is no provider of its own.
+            boolean enabled = config.getOptionalValue("quarkus.oidc." + id + ".tenant-enabled", Boolean.class)
+                .orElse(true);
+            if (enabled) {
+                config.getOptionalValues("quarkus.oidc." + id + ".tenant-paths", String.class)
+                    .ifPresent(found -> paths.put(id, found));
+            }
         }
         return paths;
     }

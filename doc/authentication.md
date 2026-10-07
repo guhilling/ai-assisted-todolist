@@ -77,6 +77,7 @@ sign in with (#190), since Google forbids automating its own sign-in.
 | Profile | Issuer | Credentials |
 | --- | --- | --- |
 | `prod`, `qa` | `https://accounts.google.com` | `TASKFEST_OIDC_GOOGLE_CLIENT_ID` / `_SECRET` from the environment — in AWS, the id from `terraform.tfvars` and the secret from Secrets Manager ([deployment/names-and-certificates.md](deployment/names-and-certificates.md)) |
+| qa only, beside Google: `cognito` | the test accounts' Cognito pool | `TASKFEST_OIDC_COGNITO_*` from the task definition, the secret from SSM; declared for the `prod` profile and switched off unless the task definition switches it on ([deployment/names-and-certificates.md](deployment/names-and-certificates.md)) |
 | `dev`, `test` | Keycloak, started by Dev Services | `taskfest-backend` / `taskfest-secret`, checked in as throwaway values |
 
 Dev and test leave `quarkus.oidc.auth-server-url` unset on purpose — that absence is what

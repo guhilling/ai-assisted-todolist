@@ -164,6 +164,16 @@ variable "google_client_id" {
   default     = ""
 }
 
+variable "test_sign_in" {
+  description = <<-EOT
+    Whether this environment has the test accounts its live tests sign in with: a Cognito user pool
+    beside Google, offered as a second sign-in provider (test-sign-in.tf, #190). qa only -- prod
+    signs in with Google alone.
+  EOT
+  type        = bool
+  default     = false
+}
+
 variable "blue_green_bake_minutes" {
   description = <<-EOT
     How long both versions keep running after a blue/green deployment has moved the traffic, so

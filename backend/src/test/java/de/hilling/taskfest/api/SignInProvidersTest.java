@@ -104,6 +104,24 @@ class SignInProvidersTest {
     }
 
     @Test
+    void shouldNotTreatADisabledTenantAsANamedProvider() {
+        // prod declares the test accounts' tenant switched off: its path is a 404, not a sign-in.
+        Config config = new SmallRyeConfigBuilder()
+            .withSources(new PropertiesConfigSource(Map.of(
+                "quarkus.oidc.cognito.tenant-paths", "/api/auth/login/cognito,/api/auth/callback/cognito",
+                "quarkus.oidc.cognito.tenant-enabled", "false"), "test", 100))
+            .build();
+
+        Map<String, ProviderConfig> declared = new LinkedHashMap<>();
+        declared.put("google", provider(Optional.of("secret")));
+        declared.put("cognito", provider(Optional.empty()));
+        SignInProviders providers = new SignInProviders(new StubConfig(true, declared), config);
+
+        assertFalse(providers.isNamedTenant("cognito"));
+        assertEquals(Optional.empty(), providers.loginPath("cognito"));
+    }
+
+    @Test
     void shouldRefuseToStartWithTwoMainProviders() {
         SignInProviders providers = SignInProviders.of(available("google", "cognito"), Map.of());
 

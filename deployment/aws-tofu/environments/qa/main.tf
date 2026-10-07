@@ -66,6 +66,7 @@ module "environment" {
   log_retention_days   = var.log_retention_days
   hostname             = var.hostname
   google_client_id     = var.google_client_id
+  test_sign_in         = var.test_sign_in
 
   blue_green_bake_minutes      = var.blue_green_bake_minutes
   deregistration_delay_seconds = var.deregistration_delay_seconds
@@ -144,4 +145,9 @@ output "migrate_task_family" {
 output "url" {
   description = "Where this environment answers, through CloudFront."
   value       = module.environment.url
+}
+
+output "test_accounts_user_pool_id" {
+  description = "The Cognito pool of the test accounts the live tests sign in with, or null where there is none."
+  value       = module.environment.test_accounts_user_pool_id
 }
