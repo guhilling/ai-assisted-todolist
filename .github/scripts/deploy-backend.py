@@ -17,8 +17,11 @@ What it does, in order:
    is running. Blue/green keeps both versions live, which is exactly the overlap a schema change
    must not have; that release needs the downtime path in doc/deployment/deploying.md. The
    running version is read from its image tag; if it is `latest`, the previous release counts.
-4. Registers a task definition that differs from the running one in the image only, points the
-   service at it, and waits until that deployment's rollout completes -- bake included -- or fails.
+4. Registers a task definition that differs in the image only from the configuration last applied
+   -- the newest active revision this deploy role did not register, usually tofu's (#189) -- points
+   the service at it, and waits until that deployment's rollout completes -- bake included -- or
+   fails. Redeploying the running version keeps its exact image, which is how a configuration
+   change is rolled out without a release.
 
 With --print-image it deploys nothing and prints the image `env.sh up` starts the backend as:
 what the environment runs if it is up, otherwise the release given (startup_choice).
@@ -68,13 +71,60 @@ def version_of(image):
     return f"v{match.group(1)}" if match else None
 
 
-def next_task_definition(running, image):
-    """The registration input for a new revision: the running one with only the image changed."""
-    new = copy.deepcopy(running)
+def next_task_definition(base, image):
+    """The registration input for a new revision: `base` -- the configuration to carry -- with only
+    the image changed."""
+    new = copy.deepcopy(base)
     for field in READ_ONLY_FIELDS:
         new.pop(field, None)
     new["containerDefinitions"][0]["image"] = image
     return new
+
+
+def applied_revision(describe, running, deploy_role, limit=100):
+    """The revision whose configuration a deploy carries: the one last applied (#189).
+
+    The service ignores task_definition in tofu, so an apply that changes the backend's
+    configuration -- a variable, a secret, CPU -- registers a revision the service does not run,
+    and copying the *running* revision would throw that change away with the next deploy. So the
+    configuration comes from the newest active revision this environment's deploy role did not
+    register: whatever tofu, or a person, applied last. A deploy's own revisions are copies and say
+    nothing new, and going by `registeredBy` rather than by the highest number means an apply that
+    lands while a deploy is under way is still found afterwards, not buried under the deploy's copy.
+
+    Falls back to the running revision when no applied one is active, or the family cannot be read.
+
+    describe: returns a task definition for a family or `family:revision`, raising if it cannot.
+    """
+    family = running["family"]
+    try:
+        newest = describe(family)
+    except Exception:  # noqa: BLE001 -- any failure to read the family means: keep what runs
+        return running
+    for number in range(newest["revision"], max(newest["revision"] - limit, 0), -1):
+        try:
+            candidate = newest if number == newest["revision"] else describe(f"{family}:{number}")
+        except Exception:  # noqa: BLE001 -- a revision deleted for good is simply not a candidate
+            continue
+        if candidate.get("status") == "ACTIVE" and not registered_by_role(candidate, deploy_role):
+            return candidate
+    return running
+
+
+def registered_by_role(task_definition, role):
+    """Whether a revision was registered by a session of this IAM role."""
+    return f":assumed-role/{role}/" in task_definition.get("registeredBy", "")
+
+
+def image_to_deploy(running_image, version, resolve):
+    """The image to deploy: the running one, exactly, when redeploying its version; else resolved.
+
+    Redeploying the running version is how a configuration change is rolled out (#189), and it
+    must change nothing but the configuration -- not even a digest a re-pushed tag would move.
+    """
+    if running_image and version_of(running_image) == version:
+        return running_image
+    return resolve()
 
 
 def decide(service_active, migrations_differ):
@@ -207,9 +257,15 @@ def main():
                 f"Changelog compared with {running_version}.")
         return 1
 
-    image = image_reference(account, region, args.version, release_digest(args.version))
+    image = image_to_deploy(running_image, args.version,
+                            lambda: image_reference(account, region, args.version, release_digest(args.version)))
+    base = applied_revision(
+        lambda name: aws("ecs", "describe-task-definition", "--task-definition", name)["taskDefinition"],
+        running, f"{PROJECT}-{args.environment}-deploy")
+    carried = (f" Configuration from revision {base['revision']}, applied since revision "
+               f"{running['revision']} was deployed." if base["revision"] > running["revision"] else "")
     registered = aws("ecs", "register-task-definition", "--cli-input-json",
-                     json.dumps(next_task_definition(running, image)))["taskDefinition"]
+                     json.dumps(next_task_definition(base, image)))["taskDefinition"]
     aws("ecs", "update-service", "--cluster", cluster, "--service", service,
         "--task-definition", registered["taskDefinitionArn"])
     print(f"Rolling out {registered['taskDefinitionArn']} -- waiting for it to complete, bake included")
@@ -236,7 +292,7 @@ def main():
                 f"and ECS restores {running_version}.")
         return 1
     summary(f"**{args.version} deployed to {args.environment}** (was {running_version}), "
-            f"`{image}`, task definition revision {registered['revision']}.")
+            f"`{image}`, task definition revision {registered['revision']}.{carried}")
     return 0
 
 
