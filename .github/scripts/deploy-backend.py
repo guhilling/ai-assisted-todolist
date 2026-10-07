@@ -17,8 +17,10 @@ What it does, in order:
    is running. Blue/green keeps both versions live, which is exactly the overlap a schema change
    must not have; that release needs the downtime path in doc/deployment/deploying.md. The
    running version is read from its image tag; if it is `latest`, the previous release counts.
-4. Registers a task definition that differs from the running one in the image only, points the
-   service at it, and waits until that deployment's rollout completes -- bake included -- or fails.
+4. Registers a task definition that differs from the family's newest revision in the image only --
+   the running one, unless an admin apply has registered a newer configuration since (#189) --
+   points the service at it, and waits until that deployment's rollout completes -- bake
+   included -- or fails.
 
 With --print-image it deploys nothing and prints the image `env.sh up` starts the backend as:
 what the environment runs if it is up, otherwise the release given (startup_choice).
@@ -75,6 +77,18 @@ def next_task_definition(running, image):
         new.pop(field, None)
     new["containerDefinitions"][0]["image"] = image
     return new
+
+
+def revision_to_copy(running, newest_in_family):
+    """The revision a deploy copies, with only the image changed: the family's newest (#189).
+
+    The service ignores task_definition in tofu, so an admin apply that changes the backend's
+    configuration -- a new environment variable, a secret, CPU -- registers a new revision the
+    service does not run. Copying the *running* revision would throw that change away with the
+    next deploy; copying the family's newest carries it over. Never a revision older than the
+    running one, should a describe by family answer with a stale view.
+    """
+    return newest_in_family if newest_in_family["revision"] > running["revision"] else running
 
 
 def decide(service_active, migrations_differ):
@@ -208,8 +222,13 @@ def main():
         return 1
 
     image = image_reference(account, region, args.version, release_digest(args.version))
+    newest = aws("ecs", "describe-task-definition", "--task-definition", running["family"])["taskDefinition"]
+    base = revision_to_copy(running, newest)
+    if base is not running:
+        print(f"Carrying over the configuration of revision {base['revision']}, newer than the running "
+              f"{running['revision']}: an applied change that had not been deployed yet")
     registered = aws("ecs", "register-task-definition", "--cli-input-json",
-                     json.dumps(next_task_definition(running, image)))["taskDefinition"]
+                     json.dumps(next_task_definition(base, image)))["taskDefinition"]
     aws("ecs", "update-service", "--cluster", cluster, "--service", service,
         "--task-definition", registered["taskDefinitionArn"])
     print(f"Rolling out {registered['taskDefinitionArn']} -- waiting for it to complete, bake included")

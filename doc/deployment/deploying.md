@@ -53,9 +53,19 @@ environment and a tag — which is also the rollback, with the previous tag — 
    its image tag; when that is `latest`, the previous release counts. This is the check the
    image-label design above describes, done in git instead — the downtime path itself is still
    to come.
-4. Otherwise it registers a task definition that differs from the running one in the image
-   only, points the service at it and waits until that deployment's rollout has completed, bake
-   included — up to 30 minutes, where ECS's own waiter would give up after ten.
+4. Otherwise it registers a task definition that differs from the **family's newest revision** in
+   the image only, points the service at it and waits until that deployment's rollout has
+   completed, bake included — up to 30 minutes, where ECS's own waiter would give up after ten.
+   The newest revision is usually the running one; after an admin apply that changed the backend's
+   configuration it is the one that apply registered (#189).
+
+**Rolling out a configuration change.** The service ignores `task_definition` in tofu, so an apply
+that changes the backend's environment, secrets, CPU or memory registers a new revision and leaves
+the service running the old one — on purpose: applies are a person's, deploys the workflow's. The
+next deploy picks the change up, because it copies the family's newest revision rather than the
+running one; until #189 it copied the running one and silently dropped the change. To roll a
+change out without a release, run `deploy-backend.yml` with the version that is running: the same
+image, the new configuration, blue/green as usual.
 
 **Every release goes to qa by itself** — every final one: a pre-release (`v1.2.3-rc.1`) is
 deployed by hand when wanted. `release.yml` ends by calling both workflows for qa with its own tag: the backend first, then the frontend once the backend job has succeeded. So a release

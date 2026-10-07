@@ -74,6 +74,31 @@ class TaskDefinitionTest(unittest.TestCase):
         self.assertTrue(RUNNING["containerDefinitions"][0]["image"].endswith("b" * 64))
 
 
+class RevisionToCopyTest(unittest.TestCase):
+    """Which revision a deploy copies: the family's newest, so an applied configuration change survives (#189)."""
+
+    APPLIED = {**RUNNING, "taskDefinitionArn": RUNNING["taskDefinitionArn"].replace(":4", ":6"), "revision": 6,
+               "containerDefinitions": [{**RUNNING["containerDefinitions"][0],
+                                         "environment": [{"name": "A", "value": "1"}, {"name": "NEW", "value": "2"}]}]}
+
+    def test_a_newer_revision_in_the_family_is_copied_instead_of_the_running_one(self):
+        # An admin apply registered revision 6 with a new variable; the service still runs 4.
+        self.assertIs(self.APPLIED, deploy.revision_to_copy(RUNNING, self.APPLIED))
+
+    def test_the_running_revision_is_copied_when_it_is_the_newest(self):
+        self.assertIs(RUNNING, deploy.revision_to_copy(RUNNING, RUNNING))
+
+    def test_an_older_answer_for_the_family_does_not_win(self):
+        # describe-task-definition by family is eventually consistent; never step backwards.
+        older = {**RUNNING, "revision": 3}
+        self.assertIs(RUNNING, deploy.revision_to_copy(RUNNING, older))
+
+    def test_the_applied_configuration_reaches_the_new_revision(self):
+        new = deploy.next_task_definition(deploy.revision_to_copy(RUNNING, self.APPLIED), "new-image")
+        self.assertIn({"name": "NEW", "value": "2"}, new["containerDefinitions"][0]["environment"])
+        self.assertEqual("new-image", new["containerDefinitions"][0]["image"])
+
+
 class DecideTest(unittest.TestCase):
 
     def test_an_environment_that_is_down_is_skipped(self):

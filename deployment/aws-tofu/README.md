@@ -131,7 +131,10 @@ destroy everything billable unless it says otherwise. While the environment is u
 after an `env.sh up` that failed — apply with what `env.sh up` would pass:
 `-var running=true -var db_restore_snapshot=<the newest final snapshot> -var backend_image=<the
 image env.sh prints>`. Without the image the plan fails on a precondition rather than falling back
-to a `latest` the cache may serve a day stale. `running=true` alone
+to a `latest` the cache may serve a day stale. **An apply that changes the backend's task
+definition does not reach the running service** — the service ignores `task_definition`; run
+`deploy-backend.yml` with the running version afterwards, which copies the newest revision
+([deploying.md](../../doc/deployment/deploying.md)). `running=true` alone
 creates an *empty* database if there is none. **Not `-target=…`**: it pulls in everything the
 target depends on, and the lifecycle policy depends on the distribution, which depends on the VPC
 origin — so a targeted apply of "just the policy" planned the teardown all the same. When in
