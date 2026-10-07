@@ -1,6 +1,7 @@
 package de.hilling.taskfest.api;
 
 import io.smallrye.config.ConfigMapping;
+import jakarta.inject.Inject;
 import jakarta.validation.constraints.Size;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
@@ -9,6 +10,8 @@ import jakarta.ws.rs.core.MediaType;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Function;
+import org.eclipse.microprofile.config.Config;
 import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.eclipse.microprofile.openapi.annotations.media.Content;
 import org.eclipse.microprofile.openapi.annotations.media.ExampleObject;
@@ -48,8 +51,32 @@ public class AuthProviderResource {
 
     private final AuthProvidersConfig authProvidersConfig;
 
+    /** A provider's own sign-in path, for a provider that is a named OIDC tenant; empty for the main one. */
+    private final Function<String, Optional<String>> namedTenantPath;
+
+    /**
+     * A resource whose every provider signs in at {@code /api/auth/login}: one provider, the
+     * deployment's main tenant -- which is all a deployment had before #143.
+     */
     public AuthProviderResource(AuthProvidersConfig authProvidersConfig) {
+        this(authProvidersConfig, id -> Optional.empty());
+    }
+
+    /**
+     * The resource as deployed. A provider that is also a named OIDC tenant signs in at that
+     * tenant's {@code tenant-paths}, read from the tenant's own configuration so the path is
+     * written down once.
+     */
+    @Inject
+    public AuthProviderResource(AuthProvidersConfig authProvidersConfig, Config config) {
+        this(authProvidersConfig, id -> config.getOptionalValues("quarkus.oidc." + id + ".tenant-paths", String.class)
+            .flatMap(paths -> paths.stream().findFirst()));
+    }
+
+    private AuthProviderResource(AuthProvidersConfig authProvidersConfig,
+                                 Function<String, Optional<String>> namedTenantPath) {
         this.authProvidersConfig = authProvidersConfig;
+        this.namedTenantPath = namedTenantPath;
     }
 
     @GET
@@ -82,7 +109,7 @@ public class AuthProviderResource {
                     entry.getKey(),
                     entry.getValue().label(),
                     available,
-                    available ? LOGIN_PATH : null,
+                    available ? namedTenantPath.apply(entry.getKey()).orElse(LOGIN_PATH) : null,
                     entry.getValue().issuer().orElse(""));
             })
             .toList();

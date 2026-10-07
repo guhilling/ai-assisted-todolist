@@ -28,8 +28,8 @@ logs nearly empty rather than noisy: before it, nothing about requests or sign-i
 
 | Line | Logger | `mdc` fields |
 | --- | --- | --- |
-| **One per HTTP request** (except `/q/*`) | `de.hilling.taskfest.access` | `requestId`, `method`, `path`, `status`, `durationMs`, `user` (absent when anonymous) |
-| **Sign-in** | `de.hilling.taskfest.auth` | `event` (`signed-in`), `user` |
+| **One per HTTP request** (except `/q/*`) | `de.hilling.taskfest.access` | `requestId`, `method`, `path`, `status`, `durationMs`, `user` and `provider` (both absent when anonymous) |
+| **Sign-in** | `de.hilling.taskfest.auth` | `event` (`signed-in`), `user`, `provider` |
 | **Anything else during a request** | its own | `requestId` |
 | **Start-up, migration** | `io.quarkus`, `io.quarkus.runtime.Application`, `liquibase.*` | — |
 
@@ -50,6 +50,10 @@ logs nearly empty rather than noisy: before it, nothing about requests or sign-i
   shows both.
 - **Liquibase's summary** is logged as JSON only (`LIQUIBASE_SHOW_SUMMARY_OUTPUT=log`, set in the
   image, so wherever it migrates); it used to appear a second time as plain text.
+
+**`provider`** is the provider that signed the user in: `default` for the deployment's main one
+(Google in qa and prod), otherwise its id, such as `cognito` (#143). A `sub` is unique only within
+its provider, so `user` alone is ambiguous once there is more than one.
 
 **Personal data:** the only one is **`user`, the OpenID Connect `sub`** — a pseudonymous id the
 identity provider assigns, which says nothing about the person without the provider's records.

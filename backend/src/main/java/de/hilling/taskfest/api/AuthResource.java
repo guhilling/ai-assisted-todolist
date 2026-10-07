@@ -10,6 +10,7 @@ import jakarta.validation.constraints.Size;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
+import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.Cookie;
 import jakarta.ws.rs.core.HttpHeaders;
@@ -56,6 +57,9 @@ public class AuthResource {
      */
     private static final int MAX_URL_LENGTH = 2048;
 
+    /** A provider's configuration key; the same bound {@code AuthProviderResource} publishes. */
+    private static final int MAX_PROVIDER_ID_LENGTH = 64;
+
     private static final String SESSION_COOKIE = "q_session";
 
     /**
@@ -84,6 +88,29 @@ public class AuthResource {
             + "by the OIDC authorization code flow before this method ever runs.")
     @APIResponse(responseCode = "303", description = "Sign-in succeeded; redirects to the post-login URI.")
     public Response login() {
+        return Response.seeOther(URI.create(postLoginRedirectUri)).build();
+    }
+
+    /**
+     * Starts or completes sign-in with one particular provider, when a deployment has more than
+     * one (#143).
+     *
+     * <p>Each additional provider is a named OIDC tenant whose {@code tenant-paths} is this path
+     * with its id, which is how the security layer knows whom to send the browser to. As with
+     * {@link #login()}, the body only runs once there is a session: it sends the browser back to
+     * the app.</p>
+     *
+     * @param provider the provider's id, such as {@code cognito}; resolved by the tenant's path,
+     *     so the body never needs it
+     */
+    @GET
+    @Path("/login/{provider}")
+    @Authenticated
+    @Operation(summary = "Start or complete sign-in with one provider",
+        description = "For every provider but the deployment's main one, which uses /api/auth/login. The "
+            + "provider list names each provider's path.")
+    @APIResponse(responseCode = "303", description = "Sign-in succeeded; redirects to the post-login URI.")
+    public Response loginWith(@PathParam("provider") @Size(max = MAX_PROVIDER_ID_LENGTH) String provider) {
         return Response.seeOther(URI.create(postLoginRedirectUri)).build();
     }
 

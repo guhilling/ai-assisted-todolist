@@ -3,6 +3,7 @@ package de.hilling.taskfest.logging;
 import io.quarkus.oidc.SecurityEvent;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
 import org.slf4j.Logger;
@@ -14,8 +15,9 @@ import org.slf4j.MDC;
  *
  * <p>Quarkus OIDC fires a {@link SecurityEvent} at the end of the authorization code flow; nothing
  * else in the application sees that moment, since the redirects never reach a REST resource. The
- * line carries the user's pseudonymous {@code sub} -- never the email address, which is the
- * decision {@code doc/deployment/observability.md} records. Signing out is the application's own
+ * line carries the user's pseudonymous {@code sub} and the provider that issued it -- never the
+ * email address, which is the decision {@code doc/deployment/observability.md} records. Signing
+ * out is the application's own
  * {@code /api/auth/logout}, not an OIDC logout, so it has no event; {@link RequestLog}'s line for
  * that request, which names the user, is the record of it.</p>
  *
@@ -50,7 +52,10 @@ public class SignInLog {
         if (event.getEventType() != SecurityEvent.Type.OIDC_LOGIN || event.getSecurityIdentity() == null) {
             return Optional.empty();
         }
-        return Optional.of(Map.of("event", "signed-in",
-            "user", RequestLog.subject(event.getSecurityIdentity().getPrincipal())));
+        Map<String, String> fields = new LinkedHashMap<>();
+        fields.put("event", "signed-in");
+        fields.put("user", RequestLog.subject(event.getSecurityIdentity().getPrincipal()));
+        RequestLog.provider(event.getSecurityIdentity()).ifPresent(provider -> fields.put("provider", provider));
+        return Optional.of(fields);
     }
 }

@@ -69,9 +69,10 @@ the second account in as the first.
 
 ## Which provider, where
 
-`quarkus.oidc.*` configures exactly one tenant, pointed at a different issuer per profile.
-There is no Quarkus multi-tenancy, because Google and Keycloak never need to be live
-simultaneously.
+Every deployment has a **main provider**: Quarkus' default tenant, `quarkus.oidc.*`, pointed at a
+different issuer per profile, which signs in at `/api/auth/login`. A deployment may have **further
+providers** beside it (#143) — qa gets a Cognito pool with test accounts that automated tests can
+sign in with (#190), since Google forbids automating its own sign-in.
 
 | Profile | Issuer | Credentials |
 | --- | --- | --- |
@@ -80,6 +81,60 @@ simultaneously.
 
 Dev and test leave `quarkus.oidc.auth-server-url` unset on purpose — that absence is what
 makes Keycloak Dev Services start a container and fill it in.
+
+### Further providers
+
+Each further provider is a **named Quarkus OIDC tenant** plus its entry in the provider list —
+configuration, no code:
+
+```properties
+# the tenant: issuer, client, and the path that starts its sign-in
+quarkus.oidc.<id>.auth-server-url=…
+quarkus.oidc.<id>.client-id=…
+quarkus.oidc.<id>.credentials.secret=…
+quarkus.oidc.<id>.tenant-paths=/api/auth/login/<id>
+# what every provider shares with the main one -- a named tenant inherits nothing
+quarkus.oidc.<id>.application-type=web-app
+quarkus.oidc.<id>.authentication.redirect-path=/api/auth/callback
+quarkus.oidc.<id>.authentication.restore-path-after-redirect=true
+quarkus.oidc.<id>.authentication.scopes=email,profile
+quarkus.oidc.<id>.authentication.cookie-same-site=lax
+quarkus.oidc.<id>.authentication.java-script-auto-redirect=false
+quarkus.oidc.<id>.authentication.session-age-extension=PT8H
+quarkus.oidc.<id>.token-state-manager.strategy=keep-all-tokens
+quarkus.oidc.<id>.token.refresh-expired=true
+# the button
+taskfest.auth.providers.<id>.label=…
+taskfest.auth.providers.<id>.client-id=…
+taskfest.auth.providers.<id>.client-secret=…
+```
+
+- **Sign-in starts at the tenant's `tenant-paths`**, `/api/auth/login/<id>`, and the provider list
+  reports exactly that path as the provider's `loginUrl`, so it is written down once. The main
+  provider keeps `/api/auth/login`.
+- **Every provider comes back to the one `/api/auth/callback`**; Quarkus knows which tenant from
+  its own state cookie (`q_auth_<id>`).
+- **The session is per provider:** a tenant's session lives in `q_session_<id>`, encrypted with
+  that tenant's secret, and Quarkus resolves each request to the tenant whose session it carries.
+  One provider's session presented under another's cookie name is refused, not read.
+- **Sign-out ends all of them**, since it already expires every cookie starting with `q_session`.
+- **The shared settings are repeated per tenant, deliberately.** Quarkus' named tenants inherit
+  nothing from the default one. Copying the default tenant's configuration at runtime would need
+  Quarkus-internal API; ten lines of configuration do not.
+
+`MultiProviderSignInTest` proves all of this against a second Keycloak realm
+(`backend/src/test/resources/realm-other.json`), declared in `TwoSignInProviders` exactly as above.
+
+### Every provider must vouch for the email
+
+The email is the identity: with more than one provider, the same address from either means the
+same person. So **a sign-in is refused unless the provider says the address is verified**
+(`email_verified` in the ID token) — otherwise a provider that hands out unchecked addresses could
+sign someone in as another person's account. `VerifiedEmail` enforces it for every tenant;
+Quarkus' own `token.required-claims` cannot, because it compares strings and the claim is a
+boolean at Google and Keycloak (Cognito has sent the string `"true"`, which is accepted too).
+Adding a provider therefore means trusting it with that claim — see
+[decisions/authentication.md](decisions/authentication.md).
 
 ## The provider list
 
@@ -93,8 +148,9 @@ boolean available = authProvidersConfig.enabled()
 ```
 
 No provider name appears in the code, on either side. Adding one is a configuration change:
-a `taskfest.auth.providers.<id>.*` block appears and a sign-in button appears with it. In
-production only `google` is declared; dev and test add `keycloak`.
+a `taskfest.auth.providers.<id>.*` block appears and a sign-in button appears with it — for a
+provider beside the main one, together with its tenant (above). In production only `google` is
+declared; dev and test add `keycloak`.
 
 A declared provider without credentials is **still reported**, with `available: false` and a
 null `loginUrl` — but the frontend **hides** it rather than showing it disabled, so a fresh
@@ -187,6 +243,9 @@ able to sign in.
 
 - `AuthProviderResourceTest` — with authentication off, no provider is ever offered as
   clickable.
+- `MultiProviderSignInTest` — two providers at once: sign-in through each, the session kept per
+  provider and refused under another's name, sign-out of both, and an unverified address refused.
+  `ProviderInLogsTest` checks the log lines name the provider; `VerifiedEmailTest` the claim values.
 - `KeycloakLoginFlowTest` — the real authorization code flow against Dev Services Keycloak:
   follow the redirect, post the Keycloak login form, land on the callback, then use the API
   with the resulting session. It also proves two real accounts cannot see each other's

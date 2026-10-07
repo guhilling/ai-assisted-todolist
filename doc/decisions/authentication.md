@@ -13,13 +13,45 @@ and a cookie session is less machinery for a single-origin app.
 the `Host` header. See [authentication.md](../authentication.md).
 
 
-## One OIDC tenant, switched per profile
+## A main provider per profile, and named tenants beside it
 
-**Decision.** A single `quarkus.oidc.*` tenant pointed at Google in production and at a
-local Keycloak in dev and test, rather than Quarkus OIDC multi-tenancy.
+**Decision (#143, reversing the earlier "one OIDC tenant").** The default `quarkus.oidc.*` tenant
+stays the main provider — Google in production and qa, Keycloak in dev and test — at
+`/api/auth/login`. Further providers are named tenants at `/api/auth/login/<id>`, declared purely
+in configuration.
 
-**Why.** The two never need to be live at the same time, and multi-tenancy would add
-configuration surface for no gain.
+**Why it was one tenant.** Google and Keycloak never needed to be live at once, and multi-tenancy
+would have added configuration surface for no gain.
+
+**Why it no longer is.** Live tests against qa need accounts a machine can sign in with, and Google
+forbids automating its sign-in; qa therefore needs Google *and* a provider with test accounts at
+the same time (#141, #190). Gunnar's decision: generic from the start, so a third provider is
+configuration again.
+
+**Why the main provider keeps its path.** Symmetric paths for every provider would have changed
+five existing tests and every frontend fixture for no behaviour anyone sees (D3 on #141).
+
+**Why the shared settings are repeated per tenant.** Named tenants inherit nothing from the default
+one. A resolver that copied the default's configuration at runtime would avoid the repetition, but
+only through Quarkus-internal API (`io.quarkus.oidc.runtime.OidcConfig`) and with custom code on
+the sign-in path; the repetition is ten lines, listed in [authentication.md](../authentication.md).
+
+
+## The email stays the identity, and every provider must verify it
+
+**Decision (D1 on #141).** With several providers, the same email from any of them is the same
+`User`; no `(issuer, subject)` identity, no migration. A sign-in is refused unless the provider's
+ID token says `email_verified` (`VerifiedEmail`).
+
+**Why.** The alternative — identity per provider — needs a migration and a backfill of existing
+Google users whose `sub` is known only at their next sign-in, and that backfill would match by
+email anyway: the same trust, once more.
+
+**Cost, and it is a real one.** Adding a provider means trusting it to assert *any* email address.
+A provider that can be made to vouch for an address it does not control can sign someone in as
+that person. That is why the claim is required, why qa's test accounts use `@example.com`
+addresses that no Google account can have, and why a new provider is a decision, not just a
+configuration change.
 
 
 ## Provider availability comes from configuration

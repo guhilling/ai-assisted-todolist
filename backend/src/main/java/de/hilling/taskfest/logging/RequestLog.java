@@ -1,5 +1,6 @@
 package de.hilling.taskfest.logging;
 
+import io.quarkus.oidc.runtime.OidcUtils;
 import io.quarkus.security.identity.SecurityIdentity;
 import io.quarkus.vertx.http.runtime.RouteConstants;
 import io.quarkus.vertx.http.runtime.security.QuarkusHttpUser;
@@ -12,6 +13,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -80,6 +82,7 @@ public class RequestLog {
             SecurityIdentity identity = user.getSecurityIdentity();
             if (identity != null && !identity.isAnonymous()) {
                 fields.put("user", subject(identity.getPrincipal()));
+                provider(identity).ifPresent(provider -> fields.put("provider", provider));
             }
         }
         fields.forEach(MDC::put);
@@ -99,6 +102,19 @@ public class RequestLog {
             }
         }
         return UUID.randomUUID().toString();
+    }
+
+    /**
+     * Which provider signed the user in: the OIDC tenant Quarkus recorded on the identity, with
+     * the deployment's main one as {@code default} (#143). A user's {@code sub} is unique only
+     * within its provider, so a line names both. Empty for an identity no provider issued.
+     */
+    static Optional<String> provider(SecurityIdentity identity) {
+        Object tenant = identity.getAttribute(OidcUtils.TENANT_ID_ATTRIBUTE);
+        if (!(tenant instanceof String id)) {
+            return Optional.empty();
+        }
+        return Optional.of(OidcUtils.DEFAULT_TENANT_ID.equals(id) ? "default" : id);
     }
 
     /** The pseudonymous id of a user: the token's {@code sub}, else the principal's name, else "unknown". */

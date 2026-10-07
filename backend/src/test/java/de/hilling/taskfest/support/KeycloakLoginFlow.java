@@ -35,8 +35,20 @@ public final class KeycloakLoginFlow {
      * @param password the user's password
      */
     public void signIn(String username, String password) {
+        signIn("/api/auth/login", username, password);
+    }
+
+    /**
+     * Signs the given user in through one particular provider's sign-in path, such as
+     * {@code /api/auth/login/other} for a second provider (#143).
+     *
+     * @param loginPath the application path that starts that provider's sign-in
+     * @param username the Keycloak username
+     * @param password the user's password
+     */
+    public void signIn(String loginPath, String username, String password) {
         String authorizeUrl = location(
-            send(unauthenticated().when().get("/api/auth/login")),
+            send(unauthenticated().when().get(loginPath)),
             "the application did not redirect to the OIDC provider");
 
         Response loginPage = send(unauthenticated().when().get(authorizeUrl));
@@ -84,6 +96,16 @@ public final class KeycloakLoginFlow {
     /**
      * @return the names of the session cookies the jar currently holds, chunked or not
      */
+    /**
+     * @return the session cookies the jar holds, by name -- a copy, so a test can replay one
+     *     under another name to prove a session cannot cross from one provider to another
+     */
+    public Map<String, String> sessionCookies() {
+        Map<String, String> sessions = new HashMap<>();
+        sessionCookieNames().forEach(name -> sessions.put(name, cookieJar.get(name)));
+        return sessions;
+    }
+
     public List<String> sessionCookieNames() {
         return cookieJar.keySet().stream()
             .filter(name -> name.equals("q_session") || name.startsWith("q_session_"))
