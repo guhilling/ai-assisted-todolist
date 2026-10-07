@@ -1,39 +1,57 @@
 /**
- * End-to-end coverage of the path no other test reaches: a real browser signing in through
- * Keycloak and then using the board.
+ * End-to-end coverage of the path no other test reaches: a real browser signing in and then using
+ * the board.
  *
- * Runs against the containerised stack from deployment/docker/docker-compose.e2e.yml, so it exercises
- * the same httpd proxying and OIDC redirects a deployment would.
+ * Runs against the containerised stack from deployment/docker/docker-compose.e2e.yml with the local
+ * Keycloak accounts, so it exercises the same httpd proxying and OIDC redirects a deployment would --
+ * and, unchanged, against qa with its Cognito test accounts (#144): support/identity.ts holds
+ * everything that differs. Against an environment that is down, it skips.
  *
  * Each account gets its own `browser.newContext()`. Signing out of the app only expires the
- * backend session cookie -- Keycloak's own SSO session survives it -- so reusing a context
+ * backend session cookie -- the provider's own session survives it -- so reusing a context
  * would silently sign the second user in as the first.
  */
 import { expect, test, type Locator, type Page } from '@playwright/test'
+import { currentIdentity, signInAs, type Account } from '../support/identity'
 
-const users = {
-  gunnar: { username: 'gunnar', password: 'gunnar', email: 'jboss.gunnar@hilling.de', name: 'Gunnar Hilling', initials: 'GH' },
-  lasse: { username: 'lasse', password: 'lasse', email: 'lasse@example.com', name: 'Lasse Hilling', initials: 'LH' },
-}
+const identity = currentIdentity()
 
 /**
- * Signs in through Keycloak.
- *
- * The landing page offers exactly one button, because the frontend shows only providers the
- * backend reports as usable and this stack configures Keycloak alone. Google is declared with
- * no credentials and so is not offered at all.
+ * A due date this many days from today, as the date field takes it. Never a fixed date: the backend
+ * refuses one in the past, so a fixed date fails every run once it has gone by -- and these
+ * scenarios now run after every deploy to qa.
  */
-async function signIn(page: Page, user: (typeof users)[keyof typeof users]) {
+function inDays(days: number) {
+  const date = new Date()
+  date.setUTCDate(date.getUTCDate() + days)
+  return date.toISOString().slice(0, 10)
+}
+
+/** How the board words a due date a week or more away: frontend/src/dates.ts, `describeDueDate`. */
+function shownAs(iso: string) {
+  const sameYear = iso.slice(0, 4) === new Date().toISOString().slice(0, 4)
+  return new Date(`${iso}T00:00:00Z`).toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    timeZone: 'UTC',
+    ...(sameYear ? {} : { year: 'numeric' }),
+  })
+}
+
+// Set by e2e/live/backend-state.ts for a live run; never set against the Compose stack.
+test.skip(() => process.env.LIVE_BACKEND_DOWN === '1', 'the environment is down')
+
+/**
+ * Signs in through the identity's provider.
+ *
+ * Against the Compose stack the landing page offers exactly one button, because the frontend shows
+ * only providers the backend reports as usable and that stack configures Keycloak alone; in qa it
+ * offers Google beside the test accounts, and this clicks the latter.
+ */
+async function signIn(page: Page, user: Account) {
   await page.goto('/')
-  const signInLink = page.getByRole('link', { name: /sign in with keycloak/i })
-  await expect(signInLink).toBeVisible()
   await expect(page.getByRole('link', { name: /about this project/i })).toBeVisible()
-
-  await signInLink.click()
-
-  await page.locator('#username').fill(user.username)
-  await page.locator('#password').fill(user.password)
-  await page.locator('#kc-login').click()
+  await signInAs(page, identity, user)
 
   // The header shows the display name, not the email: proof that the profile scope survived a
   // real authorization code flow and that the name claim reached the browser.
@@ -71,17 +89,18 @@ async function completedRow(page: Page, description: string): Promise<Locator> {
   return section.locator('.task-row', { hasText: description })
 }
 
-test('signs a local account in through Keycloak and manages its tasks', async ({ page }) => {
-  const description = `Ship the Keycloak setup ${Date.now()}`
+test('signs an account in and manages its tasks', async ({ page }) => {
+  const description = `Ship the sign-in setup ${Date.now()}`
 
-  await signIn(page, users.gunnar)
-  await addTask(page, description, '2026-12-31', 'HIGH')
+  await signIn(page, identity.primary)
+  const due = inDays(60)
+  await addTask(page, description, due, 'HIGH')
 
   const task = page.locator('.task-row', { hasText: description })
   await expect(task).toBeVisible()
   // Importance is a dot now, not a word, so assert the cue rather than visible text.
   await expect(task.locator('.task-importance--high')).toBeVisible()
-  await expect(task.getByText('31 Dec')).toBeVisible()
+  await expect(task.getByText(shownAs(due))).toBeVisible()
 
   // The headline interaction: one click finishes the task. The tick is optimistic, so the
   // save has to be waited for explicitly -- the UI says "done" before the server agrees, and
@@ -103,14 +122,14 @@ test('signs a local account in through Keycloak and manages its tasks', async ({
   await expect(afterReload.getByRole('checkbox')).toBeChecked()
 
   await page.getByRole('link', { name: /sign out/i }).click()
-  await expect(page.getByRole('link', { name: /sign in with keycloak/i })).toBeVisible()
+  await expect(page.getByRole('link', { name: identity.button })).toBeVisible()
 })
 
 test('deletes a task for good', async ({ page }) => {
   const description = `Throwaway ${Date.now()}`
 
-  await signIn(page, users.gunnar)
-  await addTask(page, description, '2026-12-30')
+  await signIn(page, identity.primary)
+  await addTask(page, description, inDays(59))
 
   const task = page.locator('.task-row', { hasText: description })
   await expect(task).toBeVisible()
@@ -134,8 +153,8 @@ test('edits a task in place and keeps the change', async ({ page }) => {
   const description = `Renew the pasport ${stamp}`
   const corrected = `Renew the passport ${stamp}`
 
-  await signIn(page, users.gunnar)
-  await addTask(page, description, '2026-12-28')
+  await signIn(page, identity.primary)
+  await addTask(page, description, inDays(57))
 
   const task = page.locator('.task-row', { hasText: description })
   await task.getByLabel(`Actions for "${description}"`).click()
@@ -166,8 +185,8 @@ test('edits a task in place and keeps the change', async ({ page }) => {
 test('puts a deleted task back when undo is used', async ({ page }) => {
   const description = `Deleted by mistake ${Date.now()}`
 
-  await signIn(page, users.gunnar)
-  await addTask(page, description, '2026-12-29')
+  await signIn(page, identity.primary)
+  await addTask(page, description, inDays(58))
 
   const task = page.locator('.task-row', { hasText: description })
   await expect(task).toBeVisible()
@@ -194,24 +213,55 @@ test('puts a deleted task back when undo is used', async ({ page }) => {
   await expect(page.locator('.task-row', { hasText: description })).toBeVisible()
 })
 
-test('keeps the two local accounts from seeing each other tasks', async ({ browser }) => {
-  const description = `Only for gunnar ${Date.now()}`
+test('keeps the two accounts from seeing each other tasks', async ({ browser }) => {
+  const description = `Only for the first account ${Date.now()}`
 
-  // Signing out only clears the application's own session cookie -- Keycloak keeps its SSO
+  // Signing out only clears the application's own session cookie -- the provider keeps its own
   // session, so a second user needs a browser context of its own rather than a sign-out.
-  const gunnarContext = await browser.newContext()
-  const gunnarPage = await gunnarContext.newPage()
-  await signIn(gunnarPage, users.gunnar)
-  await addTask(gunnarPage, description, '2026-11-30')
-  await expect(gunnarPage.locator('.task-row', { hasText: description })).toBeVisible()
-  await gunnarContext.close()
+  const firstContext = await browser.newContext()
+  const firstPage = await firstContext.newPage()
+  await signIn(firstPage, identity.primary)
+  await addTask(firstPage, description, inDays(54))
+  await expect(firstPage.locator('.task-row', { hasText: description })).toBeVisible()
+  await firstContext.close()
 
-  const lasseContext = await browser.newContext()
-  const lassePage = await lasseContext.newPage()
-  await signIn(lassePage, users.lasse)
+  const secondContext = await browser.newContext()
+  const secondPage = await secondContext.newPage()
+  await signIn(secondPage, identity.secondary)
   // Deterministic: example.com is reserved, so this address can never acquire a Gravatar, which
-  // makes it the one account whose initials fallback is safe to assert in CI.
-  await expect(lassePage.locator('.user-avatar--initials')).toHaveText(users.lasse.initials)
-  await expect(lassePage.locator('.task-row', { hasText: description })).toHaveCount(0)
-  await lasseContext.close()
+  // makes it the account whose initials fallback is safe to assert -- locally and in qa alike.
+  await expect(secondPage.locator('.user-avatar--initials')).toHaveText(identity.secondary.initials)
+  await expect(secondPage.locator('.task-row', { hasText: description })).toHaveCount(0)
+  await secondContext.close()
 })
+
+test('serves each account its own task list, never from a cache', async ({ browser }) => {
+  // Only CloudFront says whether it served an answer from its cache, and only a live run -- one
+  // against a deployed environment, LIVE_BASE_URL -- goes through it; the Compose stack has none.
+  test.skip(!process.env.LIVE_BASE_URL, 'only a deployed environment sits behind CloudFront')
+  const description = `Not for the second account ${Date.now()}`
+  const tasksOf = async (page: Page) => {
+    const response = await page.request.get('/api/tasks', { headers: { 'X-Requested-With': 'JavaScript' } })
+    expect(response.status()).toBe(200)
+    expect(response.headers()['x-cache']).toBe('Miss from cloudfront')
+    return response.text()
+  }
+
+  const firstContext = await browser.newContext()
+  const firstPage = await firstContext.newPage()
+  await signIn(firstPage, identity.primary)
+  await addTask(firstPage, description, inDays(53))
+  await expect(firstPage.locator('.task-row', { hasText: description })).toBeVisible()
+  expect(await tasksOf(firstPage)).toContain(description)
+
+  // The same URL, straight after, for someone else: a cache keyed on the URL alone would hand the
+  // first account's list over here.
+  const secondContext = await browser.newContext()
+  const secondPage = await secondContext.newPage()
+  await signIn(secondPage, identity.secondary)
+  expect(await tasksOf(secondPage)).not.toContain(description)
+
+  await firstContext.close()
+  await secondContext.close()
+})
+

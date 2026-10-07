@@ -30,3 +30,12 @@ Two things in here exist because of failures that only a real stack produces:
   `DELETE` response before reloading. It passed against a warm backend, where the request
   takes milliseconds, and failed against a cold one.
 
+## The identity fixture
+
+`e2e/support/identity.ts` decides who the scenarios sign in as: the local Keycloak accounts
+`gunnar` and `lasse` by default, or — with `E2E_IDENTITY=cognito` — qa's test accounts, with the
+passwords the live-test job has just set (#144). It holds everything that differs between the two:
+the sign-in button, how to fill in the provider's login page, and the two accounts. The scenarios in
+`tests/login.spec.ts` are the same for both; the one that checks CloudFront's cache skips against
+the Compose stack, which has none. See [Live tests](live.md).
+

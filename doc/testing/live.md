@@ -4,12 +4,12 @@ The other layers test the code. This one tests a **deployed environment** from t
 through CloudFront, the way a visitor reaches it — the part of qa that, until now, was checked by
 hand after each change, and where things fail that cannot fail anywhere else (#141).
 
-It has two parts, of which the first exists:
+It has two parts:
 
 | Part | What it needs | Issue |
 | --- | --- | --- |
 | **Smoke checks** — everything that can be checked without signing in | nothing: no account, no AWS role, no secret | #142 |
-| **The signed-in suite** — tasks, two users kept apart, sign-out | the Cognito test accounts | #144, after #143 and #190 |
+| **The signed-in scenarios** — tasks, two users kept apart and never served from a cache, sign-out | qa's Cognito test accounts, with a password set per run | #144 |
 
 ## What the smoke checks check
 
@@ -40,9 +40,35 @@ that is not an answer — a 502, a timeout — is a failure, not a skip.
 **No retries.** A live check that passes on the second attempt has found something flaky in the
 environment, which is worth a red run rather than a quiet green one.
 
+## The signed-in scenarios
+
+The same scenarios the Compose suite runs (`e2e/tests/login.spec.ts`), with
+`e2e/playwright.live-signed-in.config.ts`, signed in as qa's Cognito test accounts
+(`taskfest-test-one@example.com`, `taskfest-test-two@example.com`, #190) instead of the local
+Keycloak ones. `e2e/support/identity.ts` is the only place the two differ: the button, how to fill
+in the provider's login page — Cognito's classic hosted UI carries its form twice, so only the
+visible one is addressed — and the accounts. One scenario runs in qa only: both accounts ask for
+`/api/tasks` straight after each other, and each must get a `Miss from cloudfront` and its own list
+(#120's check, automated).
+
+- **Passwords are set per run and stored nowhere** (D2 on #141). The job assumes
+  `taskfest-qa-live-test`, which may set the accounts' passwords and find the pool by name, nothing
+  else. It trusts only jobs in the GitHub environment `qa-live-test` — not `qa`, which the deploy
+  role trusts: this job runs npm and a browser, and must not be able to assume the deploy role. It
+  sets a fresh random password on each account and runs the scenarios in the same step,
+  so the passwords exist in that step's environment only, masked in the log.
+- **Test data stays contained.** Before and after a run, `e2e/live/test-accounts.ts` signs in as
+  each account and deletes all of its tasks. The accounts are used for nothing else, so that is
+  safe — and a run aborted half-way is cleaned up by the next one.
+- **While the environment is down, the job does not start**: the smoke job reports the backend's
+  state, and there is nothing to sign in to.
+- **One run at a time** (a concurrency group per environment): two would reset each other's
+  passwords and clear each other's tasks.
+
 ## When it runs
 
-`live-tests.yml`, for qa only — prod has no live tests yet:
+`live-tests.yml`, for qa only — prod has no live tests yet; the smoke checks first, then, if they
+passed, the signed-in scenarios:
 
 - **After every deploy to qa.** `deploy-frontend.yml` calls it once the new frontend is in place,
   which in a release is the last step, so both halves are new. `deploy-backend.yml` calls it when
@@ -65,6 +91,8 @@ LIVE_BASE_URL=https://example.test npm run test:live  # anywhere
 
 ## What it costs
 
-Nothing beyond a minute or two of GitHub Actions per deploy: no AWS calls, no accounts. The
+A few minutes of GitHub Actions per deploy. The smoke checks make no AWS calls; the signed-in
+scenarios make two `AdminSetUserPassword` calls and one `ListUserPools`, which Cognito does not
+bill, and two monthly active users are far inside its free tier. The
 checks are only meaningful while qa is **up** (about $2 a day, [cost](../deployment/cost.md));
 they never bring it up.

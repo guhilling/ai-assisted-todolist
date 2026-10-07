@@ -26,6 +26,7 @@ e2e/node_modules/
 e2e/test-results/
 e2e/playwright-report/
 e2e/playwright-report-live/
+e2e/playwright-report-live-signed-in/
 
 # Design-system sync (claude.ai/design)
 .ds-sync/

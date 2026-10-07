@@ -32,6 +32,10 @@ export default async function backendState(config: FullConfig) {
   }
 
   process.env.LIVE_BACKEND_DOWN = state === 'down' ? '1' : ''
+  // For the workflow: the signed-in job does not start while the environment is down.
+  if (process.env.GITHUB_OUTPUT) {
+    appendFileSync(process.env.GITHUB_OUTPUT, `backend=${state}\n`)
+  }
   summary({
     up: `**${baseURL} is up** -- all checks ran.`,
     down: `**${baseURL} is down** -- the API checks are skipped, the frontend checks ran.`,

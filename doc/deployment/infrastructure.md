@@ -57,7 +57,7 @@ Per environment, identical unless noted:
 | ACM certificate in **us-east-1** | CloudFront accepts certificates from that region only |
 | Route 53 alias records | In the same account as everything else; free to query |
 | ECS cluster, one Fargate service | The Quarkus backend, 0.5 vCPU / 1 GB |
-| **qa only:** Cognito user pool `taskfest-qa-test-accounts`, its app client and prefix domain, two accounts, the client secret in SSM | The test accounts the live tests sign in with (`test-sign-in.tf`, #190); foundation, so they survive `down`. Switched by `test_sign_in` in `terraform.tfvars` |
+| **qa only:** Cognito user pool `taskfest-qa-test-accounts`, its app client and prefix domain, two accounts, the client secret in SSM | The test accounts the live tests sign in with (`test-sign-in.tf`, #190); foundation, so they survive `down`. Switched by `test_sign_in` in `terraform.tfvars`; with them the role `taskfest-qa-live-test`, which may only set the accounts' passwords for a live-test run (#144) |
 | ECS cluster, and two one-off tasks | `migrate` (the backend image with `quarkus.init-and-exit`) and `db-bootstrap` (`psql`, once per environment); see *The database* |
 | RDS PostgreSQL, single-AZ, `db.t4g.micro` | HA is explicitly not required |
 | Secrets Manager | The RDS-managed master password, for bootstrapping and administration only, and the Google client secret. The application has no database password at all |

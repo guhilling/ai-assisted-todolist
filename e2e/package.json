@@ -7,7 +7,8 @@
   "scripts": {
     "test": "playwright test",
     "report": "playwright show-report",
-    "test:live": "playwright test -c playwright.live.config.ts"
+    "test:live": "playwright test -c playwright.live.config.ts",
+    "test:live-signed-in": "playwright test -c playwright.live-signed-in.config.ts"
   },
   "devDependencies": {
     "@playwright/test": "^1.56.0"
