@@ -153,3 +153,42 @@ resource "aws_ssm_parameter" "test_client_secret" {
 
   tags = { Name = local.test_client_secret_ssm }
 }
+
+# The identity the live-test job signs the test accounts in with (#144): it sets a fresh random
+# password on each account at the start of a run, which is how no password is ever stored (D2 on
+# #141). That and finding the pool by name is all it may do. Trusted like the deploy role -- this
+# repository, and only a job running in this environment's GitHub environment.
+resource "aws_iam_role" "live_test" {
+  count = local.test_sign_in
+
+  name               = "${local.name}-live-test"
+  description        = "Sets the ${var.environment} test accounts' passwords for a live-test run. Nothing else."
+  assume_role_policy = data.aws_iam_policy_document.deploy_trust.json
+
+  tags = { Name = "${local.name}-live-test" }
+}
+
+data "aws_iam_policy_document" "live_test" {
+  count = local.test_sign_in
+
+  statement {
+    sid       = "SetTheTestAccountsPasswords"
+    actions   = ["cognito-idp:AdminSetUserPassword"]
+    resources = [aws_cognito_user_pool.test_accounts[0].arn]
+  }
+
+  # Lists pool names and ids, no users and no secrets; it cannot be scoped to one pool.
+  statement {
+    sid       = "FindThePoolByName"
+    actions   = ["cognito-idp:ListUserPools"]
+    resources = ["*"]
+  }
+}
+
+resource "aws_iam_role_policy" "live_test" {
+  count = local.test_sign_in
+
+  name   = "${local.name}-live-test"
+  role   = aws_iam_role.live_test[0].id
+  policy = data.aws_iam_policy_document.live_test[0].json
+}

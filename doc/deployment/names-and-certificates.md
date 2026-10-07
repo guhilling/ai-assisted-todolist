@@ -75,7 +75,8 @@ with (#141, #190). Unlike the Google client, all of it is code (`test-sign-in.tf
   ([the decision](../decisions/deployment-and-aws.md)); ECS injects it from the SSM parameter
   `/taskfest/qa/cognito-client-secret`.
 - **No password is stored anywhere.** The accounts are created without one; the live-test run
-  sets a fresh random password before signing in (#144).
+  sets a fresh random password before signing in, as the role `taskfest-qa-live-test`, which may
+  do nothing else (#144).
 - **The backend** declares the provider for the `prod` profile it runs in AWS, switched off; the
   task definition switches it on where the pool exists (`TASKFEST_OIDC_COGNITO_*`). Its button
   reads *Sign in with TaskFest test account*, with the TaskFest mark.

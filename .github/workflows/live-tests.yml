@@ -7,8 +7,12 @@ name: Live tests
 # Actions tab. While the environment is down the API checks skip with the reason and the
 # frontend checks still run; e2e/live/backend-state.ts decides, and the run summary says which.
 #
-# Nothing here signs in, so the job needs no AWS role and no secret. A failure fails the run that
-# deployed, visibly; it rolls nothing back -- that stays a person's decision.
+# Two jobs. The smoke checks sign nobody in and need no AWS role and no secret. The signed-in
+# scenarios (#144) run after them as the environment's test accounts: their job assumes the
+# environment's live-test role, which may do one thing -- set the accounts' passwords -- and sets a
+# fresh random one per account for this run, kept in that step's environment and nowhere else.
+# A failure fails the run that deployed, visibly; it rolls nothing back -- that stays a person's
+# decision.
 
 on:
   workflow_dispatch:
@@ -62,3 +66,65 @@ jobs:
           name: playwright-report-live
           path: e2e/playwright-report-live
           retention-days: 7
+
+  signed-in:
+    name: Signed-in scenarios on ${{ inputs.environment }}
+    needs: smoke
+    runs-on: ubuntu-26.04
+    # The live-test role trusts only a job in the environment of the same name.
+    environment: ${{ inputs.environment }}
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      LIVE_BASE_URL: https://taskfest-${{ inputs.environment }}.cloud.hilling.de
+      ENVIRONMENT: ${{ inputs.environment }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: e2e/package-lock.json
+
+      - name: Install Playwright
+        working-directory: e2e
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+
+      - uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: arn:aws:iam::808706946095:role/taskfest-${{ inputs.environment }}-live-test
+          aws-region: eu-central-1
+
+      - name: Set this run's passwords and run the scenarios
+        working-directory: e2e
+        # One step, so the passwords live in its environment only: never written to a file, never
+        # logged (masked), gone when it ends. The next run sets new ones.
+        run: |
+          pool=$(aws cognito-idp list-user-pools --max-results 60 \
+            --query "UserPools[?Name=='taskfest-${ENVIRONMENT}-test-accounts'].Id | [0]" --output text)
+          if [ -z "$pool" ] || [ "$pool" = "None" ]; then
+            echo "::error::taskfest-${ENVIRONMENT} has no test accounts pool"
+            exit 1
+          fi
+          for which in one two; do
+            # 32 hex digits plus the classes the pool's policy asks for: 36 characters.
+            password="$(openssl rand -hex 16)Aa1x"
+            echo "::add-mask::$password"
+            aws cognito-idp admin-set-user-password --user-pool-id "$pool" \
+              --username "taskfest-test-${which}@example.com" --password "$password" --permanent
+            export "E2E_PASSWORD_$(echo "$which" | tr '[:lower:]' '[:upper:]')=$password"
+          done
+          E2E_IDENTITY=cognito npm run test:live-signed-in
+
+      - name: Upload the Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report-live-signed-in
+          path: e2e/playwright-report-live-signed-in
+          retention-days: 7
+
