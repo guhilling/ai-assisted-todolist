@@ -1,6 +1,8 @@
 package de.hilling.taskfest.support;
 
 import io.quarkus.test.junit.QuarkusTestProfile;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -16,29 +18,44 @@ public class TwoSignInProviders implements QuarkusTestProfile {
     /** Where the second provider's sign-in starts: its tenant's {@code tenant-paths}. */
     public static final String OTHER_LOGIN = "/api/auth/login/other";
 
+    /** Where the second provider sends the browser back: a callback of its own. */
+    public static final String OTHER_CALLBACK = "/api/auth/callback/other";
+
+    /**
+     * The settings every provider shares with the main one. A named tenant inherits nothing, so
+     * each is set for it as a reference to the main tenant's value -- the block
+     * {@code doc/authentication.md} gives for a new provider.
+     */
+    public static final List<String> SHARED_SETTINGS = List.of(
+        "application-type",
+        "authentication.restore-path-after-redirect",
+        "authentication.scopes",
+        "authentication.cookie-same-site",
+        "authentication.cookie-force-secure",
+        "authentication.java-script-auto-redirect",
+        "authentication.session-age-extension",
+        "token-state-manager.strategy",
+        "token.refresh-expired");
+
     @Override
     public Map<String, String> getConfigOverrides() {
-        return Map.ofEntries(
-            Map.entry("taskfest.auth.enabled", "true"),
+        Map<String, String> overrides = new HashMap<>(Map.of(
+            "taskfest.auth.enabled", "true",
             // Dev Services imports both realms into the one Keycloak it starts.
-            Map.entry("quarkus.keycloak.devservices.realm-path",
-                "../keycloak/realm-taskfest.json,src/test/resources/realm-other.json"),
-            Map.entry("quarkus.oidc.other.auth-server-url", "${keycloak.url}/realms/other"),
-            Map.entry("quarkus.oidc.other.client-id", "taskfest-backend-other"),
-            Map.entry("quarkus.oidc.other.credentials.secret", "other-secret"),
-            Map.entry("quarkus.oidc.other.tenant-paths", OTHER_LOGIN),
-            // What every provider shares with the main one; a named tenant inherits nothing.
-            Map.entry("quarkus.oidc.other.application-type", "web-app"),
-            Map.entry("quarkus.oidc.other.authentication.redirect-path", "/api/auth/callback"),
-            Map.entry("quarkus.oidc.other.authentication.restore-path-after-redirect", "true"),
-            Map.entry("quarkus.oidc.other.authentication.scopes", "email,profile"),
-            Map.entry("quarkus.oidc.other.authentication.cookie-same-site", "lax"),
-            Map.entry("quarkus.oidc.other.authentication.java-script-auto-redirect", "false"),
-            Map.entry("quarkus.oidc.other.authentication.session-age-extension", "PT8H"),
-            Map.entry("quarkus.oidc.other.token-state-manager.strategy", "keep-all-tokens"),
-            Map.entry("quarkus.oidc.other.token.refresh-expired", "true"),
-            Map.entry("taskfest.auth.providers.other.label", "Other"),
-            Map.entry("taskfest.auth.providers.other.client-id", "taskfest-backend-other"),
-            Map.entry("taskfest.auth.providers.other.client-secret", "other-secret"));
+            "quarkus.keycloak.devservices.realm-path",
+            "../keycloak/realm-taskfest.json,src/test/resources/realm-other.json",
+            "quarkus.oidc.other.auth-server-url", "${keycloak.url}/realms/other",
+            "quarkus.oidc.other.client-id", "taskfest-backend-other",
+            "quarkus.oidc.other.credentials.secret", "other-secret",
+            // Its own callback, so the path alone says which provider answers: a shared one was
+            // resolved by whichever provider's cookie Quarkus happened to look at first.
+            "quarkus.oidc.other.tenant-paths", OTHER_LOGIN + "," + OTHER_CALLBACK,
+            "quarkus.oidc.other.authentication.redirect-path", OTHER_CALLBACK,
+            "taskfest.auth.providers.other.label", "Other",
+            "taskfest.auth.providers.other.client-id", "taskfest-backend-other",
+            "taskfest.auth.providers.other.client-secret", "other-secret"));
+        SHARED_SETTINGS.forEach(setting ->
+            overrides.put("quarkus.oidc.other." + setting, "${quarkus.oidc." + setting + "}"));
+        return overrides;
     }
 }

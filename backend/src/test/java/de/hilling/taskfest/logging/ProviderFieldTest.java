@@ -1,5 +1,6 @@
 package de.hilling.taskfest.logging;
 
+import de.hilling.taskfest.api.SignInProviders;
 import io.quarkus.oidc.SecurityEvent;
 import io.quarkus.security.runtime.QuarkusSecurityIdentity;
 import java.util.Optional;
@@ -15,33 +16,29 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 class ProviderFieldTest {
 
     @Test
-    void shouldNameANamedTenantByItsId() {
-        assertEquals(Optional.of("cognito"), RequestLog.provider(identityOf("cognito")));
-    }
-
-    @Test
-    void shouldCallTheMainTenantDefault() {
-        assertEquals(Optional.of("default"), RequestLog.provider(identityOf("Default")));
+    void shouldReadTheTenantQuarkusRecordedOnTheIdentity() {
+        assertEquals(Optional.of("cognito"), RequestLog.tenantOf(identityOf("cognito")));
     }
 
     @Test
     void shouldLeaveTheFieldOutWhenNoProviderIssuedTheIdentity() {
         QuarkusSecurityIdentity faked = QuarkusSecurityIdentity.builder().setPrincipal(() -> "alice").build();
 
-        assertEquals(Optional.empty(), RequestLog.provider(faked));
+        assertEquals(Optional.empty(), RequestLog.tenantOf(faked));
     }
 
     @Test
     void shouldPutTheProviderOnTheSignInLine() {
-        SecurityEvent signIn = new SecurityEvent(SecurityEvent.Type.OIDC_LOGIN, identityOf("cognito"));
+        SecurityEvent signIn = new SecurityEvent(SecurityEvent.Type.OIDC_LOGIN, identityOf(SignInProviders.DEFAULT_TENANT));
 
-        assertEquals("cognito", SignInLog.fields(signIn).orElseThrow().get("provider"));
+        assertEquals("google", SignInLog.fields(signIn, tenant -> SignInProviders.DEFAULT_TENANT.equals(tenant) ? "google" : tenant)
+            .orElseThrow().get("provider"));
     }
 
     private static QuarkusSecurityIdentity identityOf(String tenant) {
         return QuarkusSecurityIdentity.builder()
             .setPrincipal(() -> "sub-1")
-            .addAttribute("tenant-id", tenant)
+            .addAttribute(SignInProviders.tenantAttribute(), tenant)
             .build();
     }
 }

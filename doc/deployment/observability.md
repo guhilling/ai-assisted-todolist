@@ -51,8 +51,8 @@ logs nearly empty rather than noisy: before it, nothing about requests or sign-i
 - **Liquibase's summary** is logged as JSON only (`LIQUIBASE_SHOW_SUMMARY_OUTPUT=log`, set in the
   image, so wherever it migrates); it used to appear a second time as plain text.
 
-**`provider`** is the provider that signed the user in: `default` for the deployment's main one
-(Google in qa and prod), otherwise its id, such as `cognito` (#143). A `sub` is unique only within
+**`provider`** is the provider that signed the user in, by the id the provider list knows it by:
+`google` in qa and prod, `keycloak` locally, `cognito` for qa's test accounts (#143). A `sub` is unique only within
 its provider, so `user` alone is ambiguous once there is more than one.
 
 **Personal data:** the only one is **`user`, the OpenID Connect `sub`** — a pseudonymous id the

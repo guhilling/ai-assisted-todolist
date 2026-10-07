@@ -94,11 +94,35 @@ public final class KeycloakLoginFlow {
     }
 
     /**
-     * @return the names of the session cookies the jar currently holds, chunked or not
+     * Starts a sign-in and abandons it at the provider's login page, keeping the state cookie the
+     * application set -- what a browser holds after someone clicked a provider and went back.
+     *
+     * @param loginPath the application path that starts that provider's sign-in
      */
+    public void startSignIn(String loginPath) {
+        location(send(unauthenticated().when().get(loginPath)),
+            "the application did not redirect to the OIDC provider");
+    }
+
     /**
-     * @return the session cookies the jar holds, by name -- a copy, so a test can replay one
-     *     under another name to prove a session cannot cross from one provider to another
+     * Requests an application path the way a browser would, applying every cookie it sets or
+     * expires -- for instance the path Quarkus returns the browser to once a sign-in completes,
+     * which {@link #signIn} itself does not follow.
+     *
+     * @param path the application path
+     * @return the response
+     */
+    public Response visit(String path) {
+        Response response = send(unauthenticated().when().get(path));
+        response.getDetailedCookies().asList().stream()
+            .filter(cookie -> cookie.getMaxAge() == 0)
+            .forEach(cookie -> cookieJar.remove(cookie.getName()));
+        return response;
+    }
+
+    /**
+     * @return the session cookies the jar holds, by name -- a copy, so a test can replay them
+     *     under another provider's names to prove a session cannot cross from one to another
      */
     public Map<String, String> sessionCookies() {
         Map<String, String> sessions = new HashMap<>();
@@ -106,6 +130,9 @@ public final class KeycloakLoginFlow {
         return sessions;
     }
 
+    /**
+     * @return the names of the session cookies the jar currently holds, chunked or not
+     */
     public List<String> sessionCookieNames() {
         return cookieJar.keySet().stream()
             .filter(name -> name.equals("q_session") || name.startsWith("q_session_"))

@@ -34,7 +34,15 @@ five existing tests and every frontend fixture for no behaviour anyone sees (D3 
 **Why the shared settings are repeated per tenant.** Named tenants inherit nothing from the default
 one. A resolver that copied the default's configuration at runtime would avoid the repetition, but
 only through Quarkus-internal API (`io.quarkus.oidc.runtime.OidcConfig`) and with custom code on
-the sign-in path; the repetition is ten lines, listed in [authentication.md](../authentication.md).
+the sign-in path. Instead each shared setting is a `${…}` reference to the main tenant's value, so
+it cannot drift, and a test compares them; the block is in [authentication.md](../authentication.md).
+The code review of #143 found what a missing one costs: without `cookie-force-secure`, a second
+provider's session cookies would have gone out without `Secure` in qa and prod.
+
+**Why every provider has its own callback.** With one shared callback, Quarkus picked the provider
+from whichever state or session cookie it read first, so an abandoned sign-in with one provider
+could make another's fail. The path decides now, and a completed sign-in clears the other
+providers' sessions and state cookies, so a browser is never two people at once.
 
 
 ## The email stays the identity, and every provider must verify it

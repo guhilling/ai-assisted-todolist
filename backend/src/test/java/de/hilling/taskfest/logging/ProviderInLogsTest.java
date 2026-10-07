@@ -4,10 +4,12 @@ import de.hilling.taskfest.support.KeycloakLoginFlow;
 import de.hilling.taskfest.support.TwoSignInProviders;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.junit.TestProfile;
+import java.math.BigInteger;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.logging.Handler;
 import java.util.logging.LogRecord;
@@ -67,18 +69,25 @@ class ProviderInLogsTest {
     void shouldNameTheSecondProviderOnTheSignInAndAccessLines() throws InterruptedException {
         KeycloakLoginFlow ola = new KeycloakLoginFlow();
         ola.signIn(TwoSignInProviders.OTHER_LOGIN, "ola", "ola");
-        ola.authenticated().header("X-Requested-With", "JavaScript").when().get("/api/auth/me");
+        // A trace id of its own, so the access line found is this request's and not a straggler
+        // from an earlier test in the same Quarkus instance.
+        String root = "1-" + "%08x".formatted(new Random().nextInt()) + "-" + "%024x".formatted(new BigInteger(96, new Random()));
+        ola.authenticated()
+            .header("X-Requested-With", "JavaScript")
+            .header(RequestLog.REQUEST_ID_HEADER, "Root=" + root)
+            .when().get("/api/auth/me");
 
         assertEquals("other", line(fields -> "signed-in".equals(fields.get("event"))).get("provider"));
-        assertEquals("other", line(fields -> "/api/auth/me".equals(fields.get("path"))).get("provider"));
+        assertEquals("other", line(fields -> ("Root=" + root).equals(fields.get("requestId"))).get("provider"));
     }
 
     @Test
-    void shouldNameTheMainProviderAsDefault() throws InterruptedException {
+    void shouldNameTheMainProviderByItsId() throws InterruptedException {
+        // The id the provider list knows it by, not Quarkus' name for its default tenant.
         KeycloakLoginFlow gunnar = new KeycloakLoginFlow();
         gunnar.signIn("gunnar", "gunnar");
 
-        assertEquals("default", line(fields -> "signed-in".equals(fields.get("event"))).get("provider"));
+        assertEquals("keycloak", line(fields -> "signed-in".equals(fields.get("event"))).get("provider"));
     }
 
     /** The first captured line matching, once it has been written: access lines come after the response. */

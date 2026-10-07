@@ -4,7 +4,10 @@ import de.hilling.taskfest.support.KeycloakLoginFlow;
 import de.hilling.taskfest.support.TwoSignInProviders;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.junit.TestProfile;
+import java.util.HashMap;
 import java.util.Map;
+import org.eclipse.microprofile.config.Config;
+import org.eclipse.microprofile.config.ConfigProvider;
 import org.junit.jupiter.api.Test;
 
 import static io.restassured.RestAssured.given;
@@ -12,7 +15,9 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.everyItem;
 import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -88,12 +93,13 @@ class MultiProviderSignInTest {
         KeycloakLoginFlow ola = new KeycloakLoginFlow();
         ola.signIn(OTHER_LOGIN, "ola", "ola");
 
-        // The second provider's session, presented under the default provider's cookie name. A
-        // session is encrypted with its own tenant's secret, so the default tenant must not be
-        // able to read it -- and must not mistake it for a session of its own.
-        Map<String, String> renamed = Map.of("q_session", ola.sessionCookies().entrySet().stream()
-            .filter(cookie -> cookie.getKey().startsWith("q_session_other"))
-            .findFirst().orElseThrow().getValue());
+        // The second provider's whole session -- every chunk, so the value is complete -- presented
+        // under the main provider's cookie names. A session is encrypted with its own tenant's
+        // secret, so the main tenant must not be able to read it, and must not mistake it for one
+        // of its own.
+        Map<String, String> renamed = new HashMap<>();
+        ola.sessionCookies().forEach((name, value) -> renamed.put(name.replace("q_session_other", "q_session"), value));
+        assertThat(renamed.keySet(), hasItem(startsWith("q_session")));
 
         given()
             .cookies(renamed)
@@ -105,14 +111,78 @@ class MultiProviderSignInTest {
     }
 
     @Test
-    void shouldEndBothSessionsOnSignOut() {
-        KeycloakLoginFlow both = new KeycloakLoginFlow();
-        both.signIn("gunnar", "gunnar");
-        both.signIn(OTHER_LOGIN, "ola", "ola");
+    void shouldEndTheSecondProvidersSessionOnSignOut() {
+        KeycloakLoginFlow ola = new KeycloakLoginFlow();
+        ola.signIn(OTHER_LOGIN, "ola", "ola");
 
-        both.signOut();
+        ola.signOut();
 
-        assertThat(both.sessionCookieNames(), empty());
+        assertThat(ola.sessionCookieNames(), empty());
+    }
+
+    @Test
+    void shouldKeepOneProviderSignedInAtATime() {
+        // A browser holding two providers' sessions would be one person or the other depending on
+        // which cookie Quarkus looked at first. Signing in with one provider ends the other's.
+        KeycloakLoginFlow browser = new KeycloakLoginFlow();
+        browser.signIn("gunnar", "gunnar");
+        browser.signIn(OTHER_LOGIN, "ola", "ola");
+        // Where Quarkus sends the browser once the sign-in has completed: back to the path that
+        // started it, whose body hands over to the app.
+        browser.visit(OTHER_LOGIN);
+
+        assertThat(browser.sessionCookieNames(), everyItem(startsWith("q_session_other")));
+        assertThat(emailOf(browser), equalTo("ola@example.org"));
+
+        browser.signIn("gunnar", "gunnar");
+        browser.visit("/api/auth/login");
+
+        assertThat(browser.sessionCookieNames(), everyItem(not(startsWith("q_session_other"))));
+        assertThat(emailOf(browser), equalTo("jboss.gunnar@hilling.de"));
+    }
+
+    @Test
+    void shouldSignInThroughTheSecondProviderAfterAnAbandonedSignInWithTheFirst() {
+        // Someone clicked the main provider, went back, and chose the other one: the main
+        // provider's state cookie is still there when the other provider's callback arrives.
+        KeycloakLoginFlow browser = new KeycloakLoginFlow();
+        browser.startSignIn("/api/auth/login");
+
+        browser.signIn(OTHER_LOGIN, "ola", "ola");
+        browser.visit(OTHER_LOGIN);
+
+        assertThat(emailOf(browser), equalTo("ola@example.org"));
+    }
+
+    @Test
+    void shouldRefuseAnUnknownProviderBeforeSigningAnyoneIn() {
+        // Without this, an id that names no provider would fall through to the main provider's
+        // sign-in: a stale link would sign someone in through a provider they did not choose.
+        given()
+            .redirects().follow(false)
+            .when().get("/api/auth/login/no-such-provider")
+            .then()
+            .statusCode(404);
+    }
+
+    @Test
+    void shouldShareEverySettingWithTheMainProvider() {
+        // A named tenant inherits nothing, so each shared setting is repeated for it; a forgotten
+        // one fails silently -- cookie-force-secure, say, and the session travels without Secure.
+        Config config = ConfigProvider.getConfig();
+        for (String setting : TwoSignInProviders.SHARED_SETTINGS) {
+            assertThat(setting, config.getOptionalValue("quarkus.oidc.other." + setting, String.class),
+                equalTo(config.getOptionalValue("quarkus.oidc." + setting, String.class)));
+        }
+    }
+
+    private static String emailOf(KeycloakLoginFlow browser) {
+        return browser.authenticated()
+            .header("X-Requested-With", "JavaScript")
+            .when().get("/api/auth/me")
+            .then()
+            .statusCode(200)
+            .extract().path("email");
     }
 
     @Test

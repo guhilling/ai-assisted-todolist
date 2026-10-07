@@ -11,7 +11,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
-import org.eclipse.microprofile.config.Config;
 import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.eclipse.microprofile.openapi.annotations.media.Content;
 import org.eclipse.microprofile.openapi.annotations.media.ExampleObject;
@@ -39,15 +38,13 @@ import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 public class AuthProviderResource {
 
     /** A provider's configuration key, such as {@code google}. Ours to choose, and short. */
-    private static final int MAX_PROVIDER_ID_LENGTH = 64;
+    static final int MAX_PROVIDER_ID_LENGTH = 64;
 
     /** The name that goes on the sign-in button. */
     private static final int MAX_PROVIDER_LABEL_LENGTH = 100;
 
     /** The practical ceiling for a URL; see {@code doc/decisions/domain-and-backend.md} for the published bounds. */
     private static final int MAX_URL_LENGTH = 2048;
-
-    private static final String LOGIN_PATH = "/api/auth/login";
 
     private final AuthProvidersConfig authProvidersConfig;
 
@@ -63,14 +60,13 @@ public class AuthProviderResource {
     }
 
     /**
-     * The resource as deployed. A provider that is also a named OIDC tenant signs in at that
-     * tenant's {@code tenant-paths}, read from the tenant's own configuration so the path is
-     * written down once.
+     * The resource as deployed. A provider that is a named OIDC tenant signs in at that tenant's
+     * own path, which {@link SignInProviders} reads from its {@code tenant-paths} -- so the path
+     * is written down once.
      */
     @Inject
-    public AuthProviderResource(AuthProvidersConfig authProvidersConfig, Config config) {
-        this(authProvidersConfig, id -> config.getOptionalValues("quarkus.oidc." + id + ".tenant-paths", String.class)
-            .flatMap(paths -> paths.stream().findFirst()));
+    public AuthProviderResource(AuthProvidersConfig authProvidersConfig, SignInProviders signInProviders) {
+        this(authProvidersConfig, signInProviders::loginPath);
     }
 
     private AuthProviderResource(AuthProvidersConfig authProvidersConfig,
@@ -102,18 +98,24 @@ public class AuthProviderResource {
         List<AuthProviderResponse> providers = authProvidersConfig.providers().entrySet().stream()
             .sorted(Map.Entry.comparingByKey())
             .map(entry -> {
-                boolean available = authProvidersConfig.enabled()
-                    && isPresent(entry.getValue().clientId())
-                    && isPresent(entry.getValue().clientSecret());
+                boolean available = isAvailable(authProvidersConfig.enabled(), entry.getValue());
                 return new AuthProviderResponse(
                     entry.getKey(),
                     entry.getValue().label(),
                     available,
-                    available ? namedTenantPath.apply(entry.getKey()).orElse(LOGIN_PATH) : null,
+                    available ? namedTenantPath.apply(entry.getKey()).orElse(SignInProviders.MAIN_LOGIN_PATH) : null,
                     entry.getValue().issuer().orElse(""));
             })
             .toList();
         return new AuthProvidersResponse(authProvidersConfig.enabled(), providers);
+    }
+
+    /**
+     * Whether a provider can be offered: sign-in is on, and configuration gave it a client id and
+     * secret. The one rule, shared with {@link SignInProviders}.
+     */
+    static boolean isAvailable(boolean enabled, ProviderConfig provider) {
+        return enabled && isPresent(provider.clientId()) && isPresent(provider.clientSecret());
     }
 
     private static boolean isPresent(Optional<String> value) {

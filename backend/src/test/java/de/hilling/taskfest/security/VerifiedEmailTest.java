@@ -5,6 +5,7 @@ import io.quarkus.security.identity.SecurityIdentity;
 import io.quarkus.security.runtime.QuarkusSecurityIdentity;
 import java.util.Map;
 import java.util.Set;
+import org.eclipse.microprofile.jwt.Claims;
 import org.eclipse.microprofile.jwt.JsonWebToken;
 import org.junit.jupiter.api.Test;
 
@@ -22,6 +23,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * real sign-in, which is why the rule lives here.</p>
  */
 class VerifiedEmailTest {
+
+    private static final String EMAIL_VERIFIED = Claims.email_verified.name();
 
     @Test
     void shouldAcceptTheBooleanTrue() {
@@ -54,14 +57,14 @@ class VerifiedEmailTest {
 
     @Test
     void shouldLetAVerifiedIdentityThrough() {
-        SecurityIdentity identity = identityWith(Map.of("email_verified", true));
+        SecurityIdentity identity = identityWith(Map.of(EMAIL_VERIFIED, true));
 
         assertSame(identity, augmented(identity));
     }
 
     @Test
     void shouldRefuseAnIdentityWhoseAddressIsNotVerified() {
-        SecurityIdentity identity = identityWith(Map.of("email_verified", false));
+        SecurityIdentity identity = identityWith(Map.of(EMAIL_VERIFIED, false));
 
         assertThrows(AuthenticationFailedException.class, () -> augmented(identity));
     }
