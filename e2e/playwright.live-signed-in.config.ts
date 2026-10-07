@@ -1,5 +1,11 @@
 import { defineConfig, devices } from '@playwright/test'
 
+// The only identity a deployed environment has; set here, so a run without it does not go looking
+// for a Keycloak button on qa.
+process.env.E2E_IDENTITY ??= 'cognito'
+// And a live run, which is what tells the scenarios that CloudFront is in front of them.
+process.env.LIVE_BASE_URL ??= 'https://taskfest-qa.cloud.hilling.de'
+
 /**
  * The signed-in scenarios (tests/login.spec.ts) against a deployed environment, with its test
  * accounts (#144).
@@ -23,7 +29,7 @@ export default defineConfig({
   reporter: process.env.CI ? [['html', { open: 'never', outputFolder: 'playwright-report-live-signed-in' }], ['list']] : 'list',
   timeout: 60_000,
   use: {
-    baseURL: process.env.LIVE_BASE_URL ?? 'https://taskfest-qa.cloud.hilling.de',
+    baseURL: process.env.LIVE_BASE_URL,
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
   },

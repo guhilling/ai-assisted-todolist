@@ -4,7 +4,7 @@ The other layers test the code. This one tests a **deployed environment** from t
 through CloudFront, the way a visitor reaches it — the part of qa that, until now, was checked by
 hand after each change, and where things fail that cannot fail anywhere else (#141).
 
-It has two parts, of which the first exists:
+It has two parts:
 
 | Part | What it needs | Issue |
 | --- | --- | --- |
@@ -53,12 +53,17 @@ visible one is addressed — and the accounts. One scenario runs in qa only: bot
 
 - **Passwords are set per run and stored nowhere** (D2 on #141). The job assumes
   `taskfest-qa-live-test`, which may set the accounts' passwords and find the pool by name, nothing
-  else; it sets a fresh random password on each account and runs the scenarios in the same step,
+  else. It trusts only jobs in the GitHub environment `qa-live-test` — not `qa`, which the deploy
+  role trusts: this job runs npm and a browser, and must not be able to assume the deploy role. It
+  sets a fresh random password on each account and runs the scenarios in the same step,
   so the passwords exist in that step's environment only, masked in the log.
 - **Test data stays contained.** Before and after a run, `e2e/live/test-accounts.ts` signs in as
   each account and deletes all of its tasks. The accounts are used for nothing else, so that is
   safe — and a run aborted half-way is cleaned up by the next one.
-- **While the environment is down, everything skips**, as the API smoke checks do.
+- **While the environment is down, the job does not start**: the smoke job reports the backend's
+  state, and there is nothing to sign in to.
+- **One run at a time** (a concurrency group per environment): two would reset each other's
+  passwords and clear each other's tasks.
 
 ## When it runs
 

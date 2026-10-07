@@ -36,6 +36,8 @@ jobs:
   smoke:
     name: Smoke-test ${{ inputs.environment }}
     runs-on: ubuntu-26.04
+    outputs:
+      backend: ${{ steps.smoke.outputs.backend }}
     env:
       # qa is the only environment with live tests; prod's name has no suffix, and gets its
       # mapping when it gets live tests.
@@ -56,6 +58,7 @@ jobs:
           npx playwright install --with-deps chromium
 
       - name: Run the live checks
+        id: smoke
         working-directory: e2e
         run: npm run test:live
 
@@ -70,9 +73,16 @@ jobs:
   signed-in:
     name: Signed-in scenarios on ${{ inputs.environment }}
     needs: smoke
+    # Nothing to sign in to while the environment is down; the smoke job found out already.
+    if: needs.smoke.outputs.backend != 'down'
     runs-on: ubuntu-26.04
-    # The live-test role trusts only a job in the environment of the same name.
-    environment: ${{ inputs.environment }}
+    # Its own GitHub environment, which only the live-test role trusts: this job runs npm and a
+    # browser, and in the deploy role's environment its token would have been good for that role too.
+    environment: ${{ inputs.environment }}-live-test
+    # Two runs at once would reset each other's passwords and clear each other's tasks.
+    concurrency:
+      group: live-tests-signed-in-${{ inputs.environment }}
+      cancel-in-progress: false
     permissions:
       contents: read
       id-token: write

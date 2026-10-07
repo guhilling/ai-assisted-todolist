@@ -156,14 +156,42 @@ resource "aws_ssm_parameter" "test_client_secret" {
 
 # The identity the live-test job signs the test accounts in with (#144): it sets a fresh random
 # password on each account at the start of a run, which is how no password is ever stored (D2 on
-# #141). That and finding the pool by name is all it may do. Trusted like the deploy role -- this
-# repository, and only a job running in this environment's GitHub environment.
+# #141). That and finding the pool by name is all it may do.
+#
+# Trusted only by a job in the GitHub environment `<env>-live-test`, not the environment the deploy
+# role trusts: the live-test job runs npm and a browser, and with the deploy role's environment its
+# token would have been good for the deploy role too.
+data "aws_iam_policy_document" "live_test_trust" {
+  count = local.test_sign_in
+
+  statement {
+    actions = ["sts:AssumeRoleWithWebIdentity"]
+
+    principals {
+      type        = "Federated"
+      identifiers = [data.aws_iam_openid_connect_provider.github.arn]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "token.actions.githubusercontent.com:aud"
+      values   = ["sts.amazonaws.com"]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "token.actions.githubusercontent.com:sub"
+      values   = ["repo:${var.github_oidc_repository}:environment:${var.environment}-live-test"]
+    }
+  }
+}
+
 resource "aws_iam_role" "live_test" {
   count = local.test_sign_in
 
   name               = "${local.name}-live-test"
   description        = "Sets the ${var.environment} test accounts' passwords for a live-test run. Nothing else."
-  assume_role_policy = data.aws_iam_policy_document.deploy_trust.json
+  assume_role_policy = data.aws_iam_policy_document.live_test_trust[0].json
 
   tags = { Name = "${local.name}-live-test" }
 }

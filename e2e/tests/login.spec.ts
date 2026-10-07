@@ -12,10 +12,31 @@
  * would silently sign the second user in as the first.
  */
 import { expect, test, type Locator, type Page } from '@playwright/test'
-import { currentIdentity, type Account } from '../support/identity'
+import { currentIdentity, signInAs, type Account } from '../support/identity'
 
 const identity = currentIdentity()
-const users = { primary: identity.primary, secondary: identity.secondary }
+
+/**
+ * A due date this many days from today, as the date field takes it. Never a fixed date: the backend
+ * refuses one in the past, so a fixed date fails every run once it has gone by -- and these
+ * scenarios now run after every deploy to qa.
+ */
+function inDays(days: number) {
+  const date = new Date()
+  date.setUTCDate(date.getUTCDate() + days)
+  return date.toISOString().slice(0, 10)
+}
+
+/** How the board words a due date a week or more away: frontend/src/dates.ts, `describeDueDate`. */
+function shownAs(iso: string) {
+  const sameYear = iso.slice(0, 4) === new Date().toISOString().slice(0, 4)
+  return new Date(`${iso}T00:00:00Z`).toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    timeZone: 'UTC',
+    ...(sameYear ? {} : { year: 'numeric' }),
+  })
+}
 
 // Set by e2e/live/backend-state.ts for a live run; never set against the Compose stack.
 test.skip(() => process.env.LIVE_BACKEND_DOWN === '1', 'the environment is down')
@@ -29,13 +50,8 @@ test.skip(() => process.env.LIVE_BACKEND_DOWN === '1', 'the environment is down'
  */
 async function signIn(page: Page, user: Account) {
   await page.goto('/')
-  const signInLink = page.getByRole('link', { name: identity.button })
-  await expect(signInLink).toBeVisible()
   await expect(page.getByRole('link', { name: /about this project/i })).toBeVisible()
-
-  await signInLink.click()
-
-  await identity.fillLoginForm(page, user)
+  await signInAs(page, identity, user)
 
   // The header shows the display name, not the email: proof that the profile scope survived a
   // real authorization code flow and that the name claim reached the browser.
@@ -76,14 +92,15 @@ async function completedRow(page: Page, description: string): Promise<Locator> {
 test('signs an account in and manages its tasks', async ({ page }) => {
   const description = `Ship the sign-in setup ${Date.now()}`
 
-  await signIn(page, users.primary)
-  await addTask(page, description, '2026-12-31', 'HIGH')
+  await signIn(page, identity.primary)
+  const due = inDays(60)
+  await addTask(page, description, due, 'HIGH')
 
   const task = page.locator('.task-row', { hasText: description })
   await expect(task).toBeVisible()
   // Importance is a dot now, not a word, so assert the cue rather than visible text.
   await expect(task.locator('.task-importance--high')).toBeVisible()
-  await expect(task.getByText('31 Dec')).toBeVisible()
+  await expect(task.getByText(shownAs(due))).toBeVisible()
 
   // The headline interaction: one click finishes the task. The tick is optimistic, so the
   // save has to be waited for explicitly -- the UI says "done" before the server agrees, and
@@ -111,8 +128,8 @@ test('signs an account in and manages its tasks', async ({ page }) => {
 test('deletes a task for good', async ({ page }) => {
   const description = `Throwaway ${Date.now()}`
 
-  await signIn(page, users.primary)
-  await addTask(page, description, '2026-12-30')
+  await signIn(page, identity.primary)
+  await addTask(page, description, inDays(59))
 
   const task = page.locator('.task-row', { hasText: description })
   await expect(task).toBeVisible()
@@ -136,8 +153,8 @@ test('edits a task in place and keeps the change', async ({ page }) => {
   const description = `Renew the pasport ${stamp}`
   const corrected = `Renew the passport ${stamp}`
 
-  await signIn(page, users.primary)
-  await addTask(page, description, '2026-12-28')
+  await signIn(page, identity.primary)
+  await addTask(page, description, inDays(57))
 
   const task = page.locator('.task-row', { hasText: description })
   await task.getByLabel(`Actions for "${description}"`).click()
@@ -168,8 +185,8 @@ test('edits a task in place and keeps the change', async ({ page }) => {
 test('puts a deleted task back when undo is used', async ({ page }) => {
   const description = `Deleted by mistake ${Date.now()}`
 
-  await signIn(page, users.primary)
-  await addTask(page, description, '2026-12-29')
+  await signIn(page, identity.primary)
+  await addTask(page, description, inDays(58))
 
   const task = page.locator('.task-row', { hasText: description })
   await expect(task).toBeVisible()
@@ -203,24 +220,25 @@ test('keeps the two accounts from seeing each other tasks', async ({ browser }) 
   // session, so a second user needs a browser context of its own rather than a sign-out.
   const firstContext = await browser.newContext()
   const firstPage = await firstContext.newPage()
-  await signIn(firstPage, users.primary)
-  await addTask(firstPage, description, '2026-11-30')
+  await signIn(firstPage, identity.primary)
+  await addTask(firstPage, description, inDays(54))
   await expect(firstPage.locator('.task-row', { hasText: description })).toBeVisible()
   await firstContext.close()
 
   const secondContext = await browser.newContext()
   const secondPage = await secondContext.newPage()
-  await signIn(secondPage, users.secondary)
+  await signIn(secondPage, identity.secondary)
   // Deterministic: example.com is reserved, so this address can never acquire a Gravatar, which
   // makes it the account whose initials fallback is safe to assert -- locally and in qa alike.
-  await expect(secondPage.locator('.user-avatar--initials')).toHaveText(users.secondary.initials)
+  await expect(secondPage.locator('.user-avatar--initials')).toHaveText(identity.secondary.initials)
   await expect(secondPage.locator('.task-row', { hasText: description })).toHaveCount(0)
   await secondContext.close()
 })
 
 test('serves each account its own task list, never from a cache', async ({ browser }) => {
-  // Only CloudFront says whether it served an answer from its cache; the Compose stack has none.
-  test.skip(identity.id !== 'cognito', 'only a deployed environment sits behind CloudFront')
+  // Only CloudFront says whether it served an answer from its cache, and only a live run -- one
+  // against a deployed environment, LIVE_BASE_URL -- goes through it; the Compose stack has none.
+  test.skip(!process.env.LIVE_BASE_URL, 'only a deployed environment sits behind CloudFront')
   const description = `Not for the second account ${Date.now()}`
   const tasksOf = async (page: Page) => {
     const response = await page.request.get('/api/tasks', { headers: { 'X-Requested-With': 'JavaScript' } })
@@ -231,8 +249,8 @@ test('serves each account its own task list, never from a cache', async ({ brows
 
   const firstContext = await browser.newContext()
   const firstPage = await firstContext.newPage()
-  await signIn(firstPage, users.primary)
-  await addTask(firstPage, description, '2026-11-29')
+  await signIn(firstPage, identity.primary)
+  await addTask(firstPage, description, inDays(53))
   await expect(firstPage.locator('.task-row', { hasText: description })).toBeVisible()
   expect(await tasksOf(firstPage)).toContain(description)
 
@@ -240,7 +258,7 @@ test('serves each account its own task list, never from a cache', async ({ brows
   // first account's list over here.
   const secondContext = await browser.newContext()
   const secondPage = await secondContext.newPage()
-  await signIn(secondPage, users.secondary)
+  await signIn(secondPage, identity.secondary)
   expect(await tasksOf(secondPage)).not.toContain(description)
 
   await firstContext.close()

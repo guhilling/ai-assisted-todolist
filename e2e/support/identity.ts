@@ -6,7 +6,7 @@
  * between the two lives here: the button to click, how to fill in the provider's login page, and
  * the two accounts. The scenarios themselves (tests/login.spec.ts) are not copied.
  */
-import { type Page } from '@playwright/test'
+import { expect, type Page } from '@playwright/test'
 
 /** One account the scenarios sign in with. */
 export type Account = {
@@ -59,7 +59,10 @@ function passwordFrom(variable: string) {
 function cognito(): Identity {
   const account = (which: 'one' | 'two', variable: string): Account => ({
     username: `taskfest-test-${which}@example.com`,
-    password: passwordFrom(variable),
+    // Read when a sign-in needs it, not when the scenarios are collected: listing them needs none.
+    get password() {
+      return passwordFrom(variable)
+    },
     email: `taskfest-test-${which}@example.com`,
     name: `Test Account ${which === 'one' ? 'One' : 'Two'}`,
     initials: 'TA',
@@ -75,6 +78,19 @@ function cognito(): Identity {
     primary: account('one', 'E2E_PASSWORD_ONE'),
     secondary: account('two', 'E2E_PASSWORD_TWO'),
   }
+}
+
+/**
+ * Signs an account in from the landing page and waits for the board: the one sign-in sequence,
+ * shared by the scenarios and the live run's clean-up so the two cannot drift apart.
+ */
+export async function signInAs(page: Page, identity: Identity, account: Account) {
+  await page.goto('/')
+  const signInLink = page.getByRole('link', { name: identity.button })
+  await expect(signInLink).toBeVisible()
+  await signInLink.click()
+  await identity.fillLoginForm(page, account)
+  await expect(page.getByRole('button', { name: 'Add a task' })).toBeVisible({ timeout: 30_000 })
 }
 
 /** The identity this run signs in with: Keycloak unless `E2E_IDENTITY=cognito`. */
