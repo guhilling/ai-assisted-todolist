@@ -90,12 +90,14 @@ jobs:
       - name: Verify the frontend
         working-directory: frontend
         env:
-          # The footer shows it; the build is the release artifact, so it is the release's.
-          VITE_TASKFEST_VERSION: ${{ steps.version.outputs.version }}
+          VERSION: ${{ steps.version.outputs.version }}
+        # The version goes to the build alone: the footer shows it, and the build is the release
+        # artifact. Set for the whole step it reached the tests too, and the one that checks a
+        # build without it says "Development build" failed the v0.7.2 release.
         run: |
           npm run lint
           npm run test:coverage
-          npm run build
+          VITE_TASKFEST_VERSION="$VERSION" npm run build
 
       - name: Package the frontend build
         # The built SPA is a release artifact, synced into an environment's site bucket by
