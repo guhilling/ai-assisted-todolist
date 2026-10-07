@@ -1,8 +1,9 @@
 # Terms of service
 
 These terms apply to TaskFest, the task list at `taskfest-qa.cloud.hilling.de` and
-`taskfest.cloud.hilling.de` (“the application”), operated by Gunnar Hilling (see the
-[privacy policy](privacy.md) for contact details).
+`taskfest.cloud.hilling.de` (“the application”), operated by Hilling IT GmbH (see its
+[imprint](https://www.hilling.it/impressum/), and the [privacy policy](privacy.md) for how to reach
+the operator about the application).
 
 ## What the application is
 

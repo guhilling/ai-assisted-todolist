@@ -338,6 +338,43 @@ describe('paused', () => {
   })
 })
 
+/** The legal links every view carries (#193): the operator's imprint, the privacy policy, a contact. */
+async function expectTheLegalFooter() {
+  const imprint = await screen.findByRole('link', { name: 'Imprint' })
+  expect(imprint).toHaveAttribute('href', 'https://www.hilling.it/impressum/')
+  expect(screen.getByRole('link', { name: 'Privacy' })).toHaveAttribute(
+    'href',
+    'https://taskfest-docs.cloud.hilling.de/doc/privacy.html',
+  )
+  expect(screen.getByText('demo-apps[at]hilling.de')).toBeInTheDocument()
+  // Written out against address harvesters: never as a plain address, and never as a mailto link.
+  expect(document.body.innerHTML).not.toContain('demo-apps@hilling.de')
+  expect(document.querySelector('a[href^="mailto:"]')).toBeNull()
+}
+
+describe('legal footer', () => {
+  it('is on the signed-out page', async () => {
+    globalThis.fetch = mockApi({ providers: { enabled: true, providers: [GOOGLE] } }) as unknown as typeof fetch
+    render(<App />)
+
+    await expectTheLegalFooter()
+  })
+
+  it('is on the paused page', async () => {
+    globalThis.fetch = pausedEnvironment('QA')
+    render(<App />)
+
+    await screen.findByText('Environment QA is paused at the moment.')
+    await expectTheLegalFooter()
+  })
+
+  it('is on the board', async () => {
+    await renderSignedIn(mockApi({ me: ALICE, tasks: [] }))
+
+    await expectTheLegalFooter()
+  })
+})
+
 describe('signed in', () => {
   it('carries the product name', async () => {
     await renderSignedIn(mockApi({ me: ALICE }))

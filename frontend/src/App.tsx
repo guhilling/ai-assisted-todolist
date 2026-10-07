@@ -29,6 +29,7 @@ import {
 import AddTaskRow from './components/AddTaskRow'
 import type { TaskEdit } from './components/TaskEditor'
 import CompletedSection from './components/CompletedSection'
+import LegalFooter from './components/LegalFooter'
 import Paused from './components/Paused'
 import SignedOut, { purposeUrl } from './components/SignedOut'
 import TaskSection from './components/TaskSection'
@@ -269,6 +270,7 @@ function App() {
         ) : (
           <SignedOut providers={providers} apiBaseUrl={apiBaseUrl} />
         )}
+        <LegalFooter />
       </main>
     )
   }
@@ -344,6 +346,7 @@ function App() {
           onDismiss={dismissUndo}
         />
       ) : null}
+      <LegalFooter />
     </main>
   )
 }
