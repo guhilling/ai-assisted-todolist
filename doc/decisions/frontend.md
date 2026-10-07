@@ -284,8 +284,13 @@ accounts — and a plain key otherwise.
 
 **Why Google's button as it comes.** Google's rules allow its "G" only inside a complete button, in
 its light, dark or neutral theme — never the app's blue — set in Google's font, and at least as
-prominent as any other provider's. The asset has the text outlined, so no font is needed, and it
+prominent as any other provider's. The asset has the text drawn in, so no font is needed, and it
 reads *Sign in with Google*; the other buttons say *Sign in with …* to match.
+
+**Why the PNGs and not the SVGs.** Google's SVG buttons are design-tool exports that draw the "G"
+through a `<foreignObject>` with a CSS gradient and blur filters; Safari renders that as a blurred
+smear. The PNGs from the same package — @1x to @3x, chosen by `srcset` — look the same everywhere,
+and all six together weigh about 47 KB.
 
 **Why not other providers' logos.** None has one meant for this: AWS's icons are licensed for
 architecture diagrams, and the Cognito pool appears to users as "TaskFest test account" anyway.

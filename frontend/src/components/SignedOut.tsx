@@ -1,6 +1,10 @@
 import type { AuthProvidersResponse } from '../api'
-import googleDark from '../assets/google-sign-in-dark.svg'
-import googleLight from '../assets/google-sign-in-light.svg'
+import googleDark from '../assets/google-sign-in-dark.png'
+import googleDark2x from '../assets/google-sign-in-dark@2x.png'
+import googleDark3x from '../assets/google-sign-in-dark@3x.png'
+import googleLight from '../assets/google-sign-in-light.png'
+import googleLight2x from '../assets/google-sign-in-light@2x.png'
+import googleLight3x from '../assets/google-sign-in-light@3x.png'
 import key from '../assets/key.svg'
 import taskfestMark from '../assets/taskfest-mark.svg'
 import { iconFor } from '../providerIcons'
@@ -51,11 +55,22 @@ function SignedOut({ providers, apiBaseUrl }: Readonly<SignedOutProps>) {
             if (icon === 'google') {
               // Google's official button as it comes -- its rules allow the "G" only inside it, in
               // Google's own light or dark theme, with Google's font -- so the image is the button.
+              // The PNGs, not the SVGs: Google's SVGs draw the G through a <foreignObject>, which
+              // Safari renders as a blur. srcSet picks the sharp one for the screen.
               return (
                 <a className="sign-in-google" key={provider.id} href={href}>
                   <picture>
-                    <source srcSet={googleDark} media="(prefers-color-scheme: dark)" />
-                    <img src={googleLight} alt="Sign in with Google" width={180} height={40} />
+                    <source
+                      srcSet={`${googleDark} 1x, ${googleDark2x} 2x, ${googleDark3x} 3x`}
+                      media="(prefers-color-scheme: dark)"
+                    />
+                    <img
+                      src={googleLight}
+                      srcSet={`${googleLight} 1x, ${googleLight2x} 2x, ${googleLight3x} 3x`}
+                      alt="Sign in with Google"
+                      width={180}
+                      height={40}
+                    />
                   </picture>
                 </a>
               )
