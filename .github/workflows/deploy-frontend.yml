@@ -102,10 +102,23 @@ jobs:
           --cache-control "public, max-age=31536000, immutable"
 
       - name: Upload the remaining files
+        # environment.json is excluded as well, which also keeps --delete away from it: it is not
+        # part of the build, and is written below.
         run: >
           aws s3 sync site "s3://$BUCKET"
-          --exclude "assets/*" --exclude index.html --delete
+          --exclude "assets/*" --exclude index.html --exclude environment.json --delete
           --cache-control "public, max-age=300"
+
+      # The environment's name, for the page that says it is paused while it is down. The build is
+      # the same in every environment, so the deploy is what knows where it is. Uncached, like
+      # index.html, and before it, so a page never asks for a name that is not there yet.
+      - name: Upload environment.json
+        env:
+          DISPLAY_NAME: ${{ inputs.environment == 'prod' && 'Prod' || 'QA' }}
+        run: |
+          printf '{"name":"%s"}\n' "$DISPLAY_NAME" > environment.json
+          aws s3 cp environment.json "s3://$BUCKET/environment.json" \
+            --content-type application/json --cache-control "no-cache"
 
       - name: Upload index.html
         run: >

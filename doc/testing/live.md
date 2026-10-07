@@ -21,6 +21,7 @@ It has two parts, of which the first exists:
 | | a deep link is the app with a 200 | the SPA routing function gone (#110) |
 | | a missing asset is a 403, not the app | routing that answers *everything* with `index.html` |
 | | `index.html` is `no-cache`, hashed assets `immutable` | a deploy that broke `deploy-frontend.yml`'s three passes |
+| While down | the page says *Environment QA is paused at the moment.*, named by `/environment.json` | the paused page lost, or the deploy no longer writing the name |
 | API | `/api/auth/providers` answers and offers Google | the `/api/*` behaviour or the VPC origin broken |
 | | `/api/tasks` refuses without a session: 499 for a script, a redirect to Google for a navigation | authentication switched off, or the app's HTML returned for an API path |
 | | `/api/*` is a `Miss` on a repeated request | caching on the API, which would serve one user's answer to another |
@@ -31,8 +32,9 @@ signing in at Google is not, because Google forbids automating that.
 
 **While the environment is down**, CloudFront answers every `/api` request with a 503 and *The
 backend is not running in this environment.* `e2e/live/backend-state.ts` asks once, before the
-checks: the API checks then **skip** with that message, and the frontend checks **still run**,
-because the site outlives `down`. The run summary says which of the two it was. Anything else
+checks: the API checks then **skip** with that message, the frontend checks **still run**,
+because the site outlives `down`, and the paused page is checked — which in turn skips while the
+environment is up. The run summary says which of the two it was. Anything else
 that is not an answer — a 502, a timeout — is a failure, not a skip.
 
 **No retries.** A live check that passes on the second attempt has found something flaky in the

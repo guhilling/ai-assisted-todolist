@@ -12,7 +12,12 @@ deletes the VPC origin, and `up` creates a new one and adds the behaviour back. 
 origin takes up to 15 minutes and a distribution change several more, so `up` and `down` each take
 **roughly 25–35 minutes**. That is the price of a `down` that costs nothing; keeping the load
 balancer up instead would have cost about $20 a month while nobody was using the environment.
-While down, the distribution still answers, from the site bucket alone.
+While down, the distribution still answers, from the site bucket alone. Every `/api` request gets
+CloudFront's own 503, *The backend is not running in this environment.*, and the app recognises
+exactly that answer: instead of a sign-in that cannot work, a visitor sees **"Environment QA is
+paused at the moment."** with a panda chewing bamboo. The name comes from `/environment.json`,
+which `deploy-frontend.yml` writes next to the build ([deploying.md](deploying.md)); any other
+503 — a load balancer with no healthy task — is an outage, and is not dressed up as a pause.
 
 ```sh
 deployment/aws-tofu/env.sh up qa       # create what bills

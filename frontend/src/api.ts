@@ -253,12 +253,59 @@ export async function fetchCurrentUser() {
 }
 
 /**
+ * What CloudFront answers every /api request with while an environment is down: its own 503,
+ * with exactly this text (spa-routing.js in the AWS module). The site is still served, so the
+ * app can say so instead of offering a sign-in that cannot work.
+ */
+const pausedMessage = 'The backend is not running in this environment.'
+
+/**
+ * The environment's backend is switched off -- paused, not broken. Only CloudFront's own answer
+ * counts: a load balancer with no healthy task answers 503 as well, and that is an outage.
+ */
+export class BackendPausedError extends Error {
+  constructor() {
+    super('This environment is paused.')
+    this.name = 'BackendPausedError'
+  }
+}
+
+/**
  * Loads the sign-in options. Returns null on failure so the app can still render its
- * signed-out view instead of breaking outright.
+ * signed-out view instead of breaking outright, and throws `BackendPausedError` while the
+ * environment is down.
  */
 export async function fetchAuthProviders() {
   const response = await fetch(authProvidersUrl)
+  if (response.status === 503 && (await response.text()).trim() === pausedMessage) {
+    throw new BackendPausedError()
+  }
   return response.ok ? toAuthProviders(await response.json()) : null
+}
+
+/** Longer than any environment's name, short enough that a bad file cannot fill the page. */
+const MAX_ENVIRONMENT_NAME_LENGTH = 40
+
+/**
+ * The deployment's own name for its environment, such as "QA", or null when it gives none.
+ *
+ * deploy-frontend.yml writes `/environment.json` into the site next to the release's build, so
+ * one build serves every environment and still knows where it is. It belongs to the site, not
+ * the API, so it is fetched from the page's own origin. Absent locally, and anything malformed
+ * counts as absent: a name is a nicety on the paused page, never worth an error.
+ */
+export async function fetchEnvironmentName(): Promise<string | null> {
+  try {
+    const response = await fetch('/environment.json')
+    if (!response.ok) {
+      return null
+    }
+    const data: unknown = await response.json()
+    const name = typeof data === 'object' && data !== null ? (data as { name?: unknown }).name : undefined
+    return typeof name === 'string' && name.length > 0 && name.length <= MAX_ENVIRONMENT_NAME_LENGTH ? name : null
+  } catch {
+    return null
+  }
 }
 
 /** Loads the signed-in user's tasks. Only ever their own -- the backend scopes the query. */

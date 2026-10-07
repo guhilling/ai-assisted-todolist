@@ -52,6 +52,8 @@ piece of text needs its own size, it wants one of these four instead.
 - Controls: `.button-primary`, `.button-quiet`, `.text-link`, `.chip`, `.chip--active`
 - Signed out: `.signed-out`, `.signed-out-title`, `.signed-out-copy`, `.signed-out-actions`,
   `.signed-out-note`
+- Paused (the environment is down): `.paused-panda`, `.paused-message`; `Paused` reuses
+  `.signed-out` and `.signed-out-title`
 - Other: `.completed-section`, `.completed-actions`, `.undo-toast`, `.undo-action`,
   `.undo-dismiss`, `.user-avatar`, `.user-avatar--initials`, `.error-banner`, `.board-note`,
   `.visually-hidden`
