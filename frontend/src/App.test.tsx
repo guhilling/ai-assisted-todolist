@@ -238,6 +238,75 @@ describe('signed out', () => {
   })
 })
 
+/**
+ * What CloudFront answers every /api request with while an environment is down: its own 503,
+ * with this text (spa-routing.js in the AWS module). The site itself is still served.
+ */
+const PAUSED = () => Promise.resolve(new Response('The backend is not running in this environment.\n', { status: 503 }))
+
+/** A stub for a paused environment, naming itself through `/environment.json` when `name` is given. */
+function pausedEnvironment(name?: string) {
+  return vi.fn((input: RequestInfo | URL) => {
+    const url = String(input)
+    if (url.includes('/api/')) {
+      return PAUSED()
+    }
+    if (url.endsWith('/environment.json') && name !== undefined) {
+      return respond({ name })
+    }
+    return Promise.resolve(new Response(null, { status: 404 }))
+  }) as unknown as typeof fetch
+}
+
+describe('paused', () => {
+  it('says which environment is paused while its backend is not running', async () => {
+    globalThis.fetch = pausedEnvironment('QA')
+    render(<App />)
+
+    await waitFor(() => expect(screen.getByText('Environment QA is paused at the moment.')).toBeInTheDocument())
+    expect(screen.getByRole('img', { name: /panda/i })).toBeInTheDocument()
+    expect(screen.queryByText('Sign-in is not configured for this deployment.')).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /continue with/i })).not.toBeInTheDocument()
+  })
+
+  it('still says it is paused when the deployment does not name itself', async () => {
+    globalThis.fetch = pausedEnvironment()
+    render(<App />)
+
+    await waitFor(() => expect(screen.getByText('This environment is paused at the moment.')).toBeInTheDocument())
+  })
+
+  it('ignores an environment name that is not a short string', async () => {
+    globalThis.fetch = pausedEnvironment('x'.repeat(200))
+    render(<App />)
+
+    await waitFor(() => expect(screen.getByText('This environment is paused at the moment.')).toBeInTheDocument())
+  })
+
+  it('keeps a link to the project', async () => {
+    globalThis.fetch = pausedEnvironment('QA')
+    render(<App />)
+
+    await waitFor(() => expect(screen.getByRole('link', { name: /about this project/i })).toBeInTheDocument())
+  })
+
+  it('does not mistake any other 503 for a pause', async () => {
+    // A load balancer with no healthy task answers 503 too, but that is an outage, not a pause.
+    globalThis.fetch = vi.fn((input: RequestInfo | URL) => {
+      if (String(input).includes('/api/')) {
+        return Promise.resolve(new Response('<html>503 Service Temporarily Unavailable</html>', { status: 503 }))
+      }
+      return Promise.resolve(new Response(null, { status: 404 }))
+    }) as unknown as typeof fetch
+    render(<App />)
+
+    await waitFor(() =>
+      expect(screen.getByText('Sign-in is not configured for this deployment.')).toBeInTheDocument(),
+    )
+    expect(screen.queryByText(/is paused at the moment/)).not.toBeInTheDocument()
+  })
+})
+
 describe('signed in', () => {
   it('carries the product name', async () => {
     await renderSignedIn(mockApi({ me: ALICE }))

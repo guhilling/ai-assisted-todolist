@@ -33,6 +33,9 @@ there yet: the hashed `assets/` first, cached for a year and never deleted (a br
 old page keeps working, and so does a rollback); then the remaining files, cached five minutes;
 `index.html` last with `no-cache`, which under CloudFront's `CachingOptimized` policy means it is
 held for its one-second minimum — so a release is visible at once and no invalidation is needed.
+Just before it goes **`environment.json`** (`{"name":"QA"}`, also `no-cache`): the build is the
+same in every environment, so the deploy is what tells the page where it is, for the page shown
+while the environment is paused ([teardown.md](teardown.md)).
 
 **The backend half exists too** (#181): **`deploy-backend.yml`**, started by hand with an
 environment and a tag — which is also the rollback, with the previous tag — runs

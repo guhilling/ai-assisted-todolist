@@ -290,6 +290,23 @@ html {
   gap: var(--space-3);
 }
 
+/* ---------- paused ---------- */
+
+/* The environment is down on purpose. The panda carries its own light badge, so it reads on
+   either theme without a variant. */
+.paused-panda {
+  width: min(240px, 70vw);
+  height: auto;
+}
+
+.paused-message {
+  margin: 0;
+  color: var(--text);
+  font-family: var(--font-heading);
+  font-size: var(--font-title);
+  font-weight: 600;
+}
+
 /* ---------- add row ---------- */
 
 .add-row {

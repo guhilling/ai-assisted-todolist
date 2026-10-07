@@ -45,6 +45,23 @@ test.describe('the frontend', () => {
   })
 })
 
+test.describe('while the environment is down', () => {
+  test.skip(() => process.env.LIVE_BACKEND_DOWN !== '1', 'the environment is up')
+
+  test('says the environment is paused, by name', async ({ page, request }) => {
+    // deploy-frontend.yml writes the name next to the build; the page shows it instead of a
+    // sign-in that cannot work.
+    const environment = await request.get('/environment.json')
+    expect(environment.status()).toBe(200)
+    const { name } = await environment.json()
+    expect(name).toBeTruthy()
+
+    await page.goto('/')
+    await expect(page.getByText(`Environment ${name} is paused at the moment.`)).toBeVisible()
+    await expect(page.getByRole('img', { name: /panda/i })).toBeVisible()
+  })
+})
+
 test.describe('the API through CloudFront', () => {
   test.skip(() => process.env.LIVE_BACKEND_DOWN === '1', DOWN_MESSAGE)
 

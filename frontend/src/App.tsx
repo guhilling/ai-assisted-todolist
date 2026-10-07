@@ -10,7 +10,9 @@ import {
   apiBaseUrl,
   authLogoutUrl,
   deleteTask,
+  BackendPausedError,
   fetchAuthProviders,
+  fetchEnvironmentName,
   fetchCurrentUser,
   fetchTasks,
   postTask,
@@ -27,6 +29,7 @@ import {
 import AddTaskRow from './components/AddTaskRow'
 import type { TaskEdit } from './components/TaskEditor'
 import CompletedSection from './components/CompletedSection'
+import Paused from './components/Paused'
 import SignedOut, { purposeUrl } from './components/SignedOut'
 import TaskSection from './components/TaskSection'
 import UserAvatar from './components/UserAvatar'
@@ -45,6 +48,8 @@ const sections: { bucket: DueBucket; title: string; overdue?: boolean }[] = [
 function App() {
   const [tasks, setTasks] = useState<Task[]>([])
   const [providers, setProviders] = useState<AuthProvidersResponse>({ enabled: false, providers: [] })
+  // While the environment is down, the name it gives itself, or null; undefined while it is up.
+  const [paused, setPaused] = useState<{ environmentName: string | null } | undefined>(undefined)
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [sessionExpired, setSessionExpired] = useState(false)
@@ -86,8 +91,11 @@ function App() {
         if (authProviders) {
           setProviders(authProviders)
         }
-      } catch {
-        // Nothing else depends on this; the page falls back to saying sign-in is unconfigured.
+      } catch (failure) {
+        if (failure instanceof BackendPausedError) {
+          setPaused({ environmentName: await fetchEnvironmentName() })
+        }
+        // Anything else: nothing depends on this, and the page says sign-in is unconfigured.
       }
     }
 
@@ -256,7 +264,11 @@ function App() {
             Your session has expired. Sign in again to carry on.
           </p>
         ) : null}
-        <SignedOut providers={providers} apiBaseUrl={apiBaseUrl} />
+        {paused ? (
+          <Paused environmentName={paused.environmentName} />
+        ) : (
+          <SignedOut providers={providers} apiBaseUrl={apiBaseUrl} />
+        )}
       </main>
     )
   }
