@@ -10,6 +10,7 @@ import jakarta.validation.constraints.Size;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
+import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.Cookie;
 import jakarta.ws.rs.core.HttpHeaders;
@@ -18,6 +19,7 @@ import jakarta.ws.rs.core.NewCookie;
 import jakarta.ws.rs.core.Response;
 import java.net.URI;
 import java.util.List;
+import java.util.function.Predicate;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import io.quarkus.oidc.IdToken;
 import org.eclipse.microprofile.jwt.JsonWebToken;
@@ -59,6 +61,13 @@ public class AuthResource {
     private static final String SESSION_COOKIE = "q_session";
 
     /**
+     * Quarkus OIDC's state cookie, {@code q_auth} or {@code q_auth_<tenant>}, set while a sign-in
+     * is under way. One left behind by an abandoned sign-in decides which provider answers later
+     * requests, so a completed sign-in clears them all.
+     */
+    private static final String STATE_COOKIE = "q_auth";
+
+    /**
      * The ID token, deliberately: a bare {@code JsonWebToken} is the access token, which Google
      * issues opaque, so reading claims from it failed every signed-in request in qa.
      * {@code ClaimsComeFromTheIdTokenTest} holds every class to this.
@@ -84,7 +93,58 @@ public class AuthResource {
             + "by the OIDC authorization code flow before this method ever runs.")
     @APIResponse(responseCode = "303", description = "Sign-in succeeded; redirects to the post-login URI.")
     public Response login() {
-        return Response.seeOther(URI.create(postLoginRedirectUri)).build();
+        return signedInWith(SESSION_COOKIE);
+    }
+
+    /**
+     * Starts or completes sign-in with one particular provider, when a deployment has more than
+     * one (#143).
+     *
+     * <p>Each additional provider is a named OIDC tenant whose {@code tenant-paths} is this path
+     * with its id, which is how the security layer knows whom to send the browser to. As with
+     * {@link #login()}, the body only runs once there is a session: it sends the browser back to
+     * the app.</p>
+     *
+     * @param provider the provider's id, such as {@code cognito}; resolved by the tenant's path,
+     *     so the body never needs it
+     */
+    @GET
+    @Path("/login/{provider}")
+    @Authenticated
+    @Operation(summary = "Start or complete sign-in with one provider",
+        description = "For every provider but the deployment's main one, which uses /api/auth/login. The "
+            + "provider list names each provider's path.")
+    @APIResponse(responseCode = "303", description = "Sign-in succeeded; redirects to the post-login URI.")
+    public Response loginWith(
+        @PathParam("provider") @Size(max = AuthProviderResource.MAX_PROVIDER_ID_LENGTH) String provider) {
+        return signedInWith(SESSION_COOKIE + "_" + provider);
+    }
+
+    /**
+     * Back to the app, signed in with one provider only: every other provider's session cookies
+     * are expired on the way.
+     *
+     * <p>A browser holding two providers' sessions would be one person or the other, depending on
+     * which cookie Quarkus looked at first (#143). This runs once the sign-in has completed --
+     * Quarkus returns the browser to the path that started it -- so the new session is in place
+     * when the old one goes.</p>
+     *
+     * @param session the name of the session cookie the provider just signed in with
+     */
+    private Response signedInWith(String session) {
+        Response.ResponseBuilder response = Response.seeOther(URI.create(postLoginRedirectUri));
+        for (NewCookie expired : expiredSessionCookies(name -> !belongsTo(name, session))) {
+            response.cookie(expired);
+        }
+        httpHeaders.getCookies().keySet().stream()
+            .filter(name -> name.equals(STATE_COOKIE) || name.startsWith(STATE_COOKIE + "_"))
+            .forEach(name -> response.cookie(new NewCookie.Builder(name).path("/").maxAge(0).build()));
+        return response.build();
+    }
+
+    /** Whether a cookie is that session or one of its chunks ({@code <session>_chunk_N}). */
+    private static boolean belongsTo(String cookie, String session) {
+        return cookie.equals(session) || cookie.startsWith(session + "_chunk_");
     }
 
     /**
@@ -109,16 +169,17 @@ public class AuthResource {
     @APIResponse(responseCode = "303", description = "Signed out; redirects to the post-login URI.")
     public Response logout() {
         Response.ResponseBuilder response = Response.seeOther(URI.create(postLoginRedirectUri));
-        for (NewCookie expired : expiredSessionCookies()) {
+        for (NewCookie expired : expiredSessionCookies(name -> true)) {
             response.cookie(expired);
         }
         return response.build();
     }
 
-    private List<NewCookie> expiredSessionCookies() {
+    private List<NewCookie> expiredSessionCookies(Predicate<String> which) {
         return httpHeaders.getCookies().values().stream()
             .map(Cookie::getName)
             .filter(AuthResource::isSessionCookie)
+            .filter(which)
             .map(name -> new NewCookie.Builder(name).path("/").maxAge(0).build())
             .toList();
     }

@@ -11,9 +11,11 @@ cd backend
 open target/pit-reports/index.html                # which mutants survived, line by line
 ```
 
-Currently **21 mutants, all killed**. Every kill names the test that caught it, so the
-report doubles as evidence that the plain unit tests are doing real work rather than merely
-executing lines.
+Currently **92 mutants, 74 killed** (October 2026, #143). The rest are code only `@QuarkusTest`s
+reach: 15 without coverage in `RequestLog.handle`/`write` and `SignInLog.log` (the Vert.x handler
+and CDI observer from #122), 2 in `SignInProviders`' Vert.x handler that answers an unknown
+provider with a 404 (#143) — and one surviving boundary in `RequestLog.requestId`. Every kill names the test that caught it, so the report doubles as
+evidence that the plain unit tests are doing real work rather than merely executing lines.
 
 **This one reports; it does not block.** Unlike the coverage gates there is no threshold,
 because three production classes of ten are in scope: a gate there would police a corner of

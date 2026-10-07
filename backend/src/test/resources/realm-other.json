@@ -1,0 +1,77 @@
+{
+  "realm": "other",
+  "enabled": true,
+  "sslRequired": "none",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "accessTokenLifespan": 1800,
+  "ssoSessionIdleTimeout": 1800,
+  "clients": [
+    {
+      "clientId": "taskfest-backend-other",
+      "name": "TaskFest backend (second provider)",
+      "description": "The second sign-in provider in MultiProviderSignInTest; stands in for qa's Cognito pool.",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "secret": "other-secret",
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": true,
+      "serviceAccountsEnabled": false,
+      "redirectUris": [
+        "http://localhost:8081/*"
+      ],
+      "webOrigins": [
+        "http://localhost:8081"
+      ],
+      "defaultClientScopes": [
+        "web-origins",
+        "acr",
+        "profile",
+        "roles",
+        "email",
+        "basic"
+      ],
+      "optionalClientScopes": [
+        "address",
+        "phone",
+        "offline_access",
+        "microprofile-jwt"
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "ola",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "ola@example.org",
+      "firstName": "Ola",
+      "lastName": "Other",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "ola",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "unverified",
+      "enabled": true,
+      "emailVerified": false,
+      "email": "unverified@example.org",
+      "firstName": "Una",
+      "lastName": "Verified",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "unverified",
+          "temporary": false
+        }
+      ]
+    }
+  ]
+}

@@ -207,6 +207,29 @@ paths:
           description: Not Allowed
       security:
       - SecurityScheme: []
+  /api/auth/login/{provider}:
+    get:
+      summary: Start or complete sign-in with one provider
+      description: "For every provider but the deployment's main one, which uses /api/auth/login.\
+        \ The provider list names each provider's path."
+      tags:
+      - Authentication
+      parameters:
+      - name: provider
+        in: path
+        required: true
+        schema:
+          type: string
+          maxLength: 64
+      responses:
+        "303":
+          description: Sign-in succeeded; redirects to the post-login URI.
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+      - SecurityScheme: []
   /api/auth/logout:
     get:
       summary: End the local session

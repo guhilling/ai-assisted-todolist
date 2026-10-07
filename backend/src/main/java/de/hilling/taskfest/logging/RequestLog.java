@@ -1,5 +1,6 @@
 package de.hilling.taskfest.logging;
 
+import de.hilling.taskfest.api.SignInProviders;
 import io.quarkus.security.identity.SecurityIdentity;
 import io.quarkus.vertx.http.runtime.RouteConstants;
 import io.quarkus.vertx.http.runtime.security.QuarkusHttpUser;
@@ -7,11 +8,13 @@ import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
+import jakarta.inject.Inject;
 import java.security.Principal;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -41,6 +44,13 @@ import org.slf4j.MDC;
 @ApplicationScoped
 public class RequestLog {
 
+    private final SignInProviders signInProviders;
+
+    @Inject
+    RequestLog(SignInProviders signInProviders) {
+        this.signInProviders = signInProviders;
+    }
+
     /** The logger the access lines go to, so they can be filtered, silenced or captured on their own. */
     public static final String LOGGER = "de.hilling.taskfest.access";
 
@@ -69,7 +79,7 @@ public class RequestLog {
         context.next();
     }
 
-    private static void write(RoutingContext context, String path, String requestId, Instant started) {
+    private void write(RoutingContext context, String path, String requestId, Instant started) {
         Map<String, String> fields = new LinkedHashMap<>();
         fields.put("requestId", requestId);
         fields.put("method", context.request().method().name());
@@ -80,6 +90,8 @@ public class RequestLog {
             SecurityIdentity identity = user.getSecurityIdentity();
             if (identity != null && !identity.isAnonymous()) {
                 fields.put("user", subject(identity.getPrincipal()));
+                tenantOf(identity).map(signInProviders::providerOfTenant)
+                    .ifPresent(provider -> fields.put("provider", provider));
             }
         }
         fields.forEach(MDC::put);
@@ -99,6 +111,16 @@ public class RequestLog {
             }
         }
         return UUID.randomUUID().toString();
+    }
+
+    /**
+     * The OIDC tenant Quarkus recorded on the identity, which {@link SignInProviders} turns into the
+     * provider's id (#143). A user's {@code sub} is unique only within its provider, so a line
+     * names both. Empty for an identity no provider issued.
+     */
+    static Optional<String> tenantOf(SecurityIdentity identity) {
+        return identity.getAttribute(SignInProviders.tenantAttribute()) instanceof String tenant
+            ? Optional.of(tenant) : Optional.empty();
     }
 
     /** The pseudonymous id of a user: the token's {@code sub}, else the principal's name, else "unknown". */
