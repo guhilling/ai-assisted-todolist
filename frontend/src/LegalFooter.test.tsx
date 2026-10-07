@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
-import LegalFooter from './LegalFooter'
+import LegalFooter from './components/LegalFooter'
 
 describe('the footer outside the app', () => {
   it('speaks English and offers no language it cannot switch to', () => {
