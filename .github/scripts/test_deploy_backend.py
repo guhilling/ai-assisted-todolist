@@ -2,7 +2,8 @@
 Pins down the decisions deploy-backend.py makes, without AWS, Quay or git (#181).
 
 Deploying is: find the release's image by digest, decide whether this environment can take it
-blue/green, and register a task definition that differs from the running one in the image only.
+blue/green, and register a task definition that differs in the image only from the configuration
+last applied -- which is the running one unless an apply has registered a newer one (#189).
 Getting any of those wrong deploys the wrong thing, or rolls a schema change out under live
 traffic -- the one case blue/green must not handle.
 
@@ -74,29 +75,77 @@ class TaskDefinitionTest(unittest.TestCase):
         self.assertTrue(RUNNING["containerDefinitions"][0]["image"].endswith("b" * 64))
 
 
-class RevisionToCopyTest(unittest.TestCase):
-    """Which revision a deploy copies: the family's newest, so an applied configuration change survives (#189)."""
+def revision(number, registered_by, status="ACTIVE", variables=(("A", "1"),)):
+    """A backend task definition as describe-task-definition returns it."""
+    return {**RUNNING, "taskDefinitionArn": f"arn:aws:ecs:eu-central-1:1:task-definition/taskfest-qa-backend:{number}",
+            "revision": number, "status": status, "registeredBy": registered_by,
+            "containerDefinitions": [{**RUNNING["containerDefinitions"][0],
+                                      "environment": [{"name": n, "value": v} for n, v in variables]}]}
 
-    APPLIED = {**RUNNING, "taskDefinitionArn": RUNNING["taskDefinitionArn"].replace(":4", ":6"), "revision": 6,
-               "containerDefinitions": [{**RUNNING["containerDefinitions"][0],
-                                         "environment": [{"name": "A", "value": "1"}, {"name": "NEW", "value": "2"}]}]}
 
-    def test_a_newer_revision_in_the_family_is_copied_instead_of_the_running_one(self):
-        # An admin apply registered revision 6 with a new variable; the service still runs 4.
-        self.assertIs(self.APPLIED, deploy.revision_to_copy(RUNNING, self.APPLIED))
+DEPLOY = "arn:aws:sts::1:assumed-role/taskfest-qa-deploy/GitHubActions"
+ADMIN = "arn:aws:sts::1:assumed-role/taskfest-qa-lifecycle/gunnar"
 
-    def test_the_running_revision_is_copied_when_it_is_the_newest(self):
-        self.assertIs(RUNNING, deploy.revision_to_copy(RUNNING, RUNNING))
 
-    def test_an_older_answer_for_the_family_does_not_win(self):
-        # describe-task-definition by family is eventually consistent; never step backwards.
-        older = {**RUNNING, "revision": 3}
-        self.assertIs(RUNNING, deploy.revision_to_copy(RUNNING, older))
+class AppliedRevisionTest(unittest.TestCase):
+    """Which revision's configuration a deploy carries: the one last applied, not a deploy's copy (#189)."""
+
+    def describe(self, *revisions):
+        by_name = {f"taskfest-qa-backend:{r['revision']}": r for r in revisions}
+        newest = max((r for r in revisions if r["status"] == "ACTIVE"), key=lambda r: r["revision"])
+        by_name["taskfest-qa-backend"] = newest
+        return lambda name: by_name[name]
+
+    def test_an_applied_revision_newer_than_the_running_one_is_carried(self):
+        running = revision(5, DEPLOY)
+        applied = revision(6, ADMIN, variables=(("A", "1"), ("NEW", "2")))
+        self.assertIs(applied, deploy.applied_revision(self.describe(running, applied), running, "taskfest-qa-deploy"))
+
+    def test_an_apply_during_a_deploy_is_not_buried_by_the_deploys_copy(self):
+        # Running 6; an apply registers 7 while a deploy, which read 6, registers 8 as a copy of it.
+        running = revision(8, DEPLOY)
+        applied = revision(7, ADMIN, variables=(("A", "1"), ("NEW", "2")))
+        older = revision(6, DEPLOY)
+        self.assertIs(applied, deploy.applied_revision(self.describe(older, applied, running), running,
+                                                       "taskfest-qa-deploy"))
+
+    def test_with_only_deploys_copies_left_the_running_one_is_carried(self):
+        # After down and up's own revision was replaced, say: nothing applied is active.
+        running = revision(9, DEPLOY)
+        self.assertIs(running, deploy.applied_revision(self.describe(revision(8, DEPLOY), running), running,
+                                                       "taskfest-qa-deploy"))
+
+    def test_an_inactive_applied_revision_does_not_count(self):
+        running = revision(5, DEPLOY)
+        self.assertIs(running, deploy.applied_revision(
+            self.describe(revision(4, ADMIN, status="INACTIVE"), running), running, "taskfest-qa-deploy"))
+
+    def test_a_family_with_nothing_active_falls_back_to_the_running_revision(self):
+        running = revision(5, ADMIN, status="INACTIVE")
+
+        def nothing_active(name):
+            raise LookupError(name)
+        self.assertIs(running, deploy.applied_revision(nothing_active, running, "taskfest-qa-deploy"))
 
     def test_the_applied_configuration_reaches_the_new_revision(self):
-        new = deploy.next_task_definition(deploy.revision_to_copy(RUNNING, self.APPLIED), "new-image")
+        running = revision(5, DEPLOY)
+        applied = revision(6, ADMIN, variables=(("A", "1"), ("NEW", "2")))
+        base = deploy.applied_revision(self.describe(running, applied), running, "taskfest-qa-deploy")
+        new = deploy.next_task_definition(base, "new-image")
         self.assertIn({"name": "NEW", "value": "2"}, new["containerDefinitions"][0]["environment"])
         self.assertEqual("new-image", new["containerDefinitions"][0]["image"])
+
+
+class RedeployImageTest(unittest.TestCase):
+    """Redeploying the running version keeps its exact image: a configuration rollout changes nothing else."""
+
+    def test_the_running_version_keeps_its_image(self):
+        running_image = RUNNING["containerDefinitions"][0]["image"]
+        self.assertEqual(running_image, deploy.image_to_deploy(running_image, "v0.4.0", lambda: "resolved"))
+
+    def test_another_version_is_resolved_on_quay(self):
+        running_image = RUNNING["containerDefinitions"][0]["image"]
+        self.assertEqual("resolved", deploy.image_to_deploy(running_image, "v0.5.0", lambda: "resolved"))
 
 
 class DecideTest(unittest.TestCase):

@@ -53,19 +53,28 @@ environment and a tag — which is also the rollback, with the previous tag — 
    its image tag; when that is `latest`, the previous release counts. This is the check the
    image-label design above describes, done in git instead — the downtime path itself is still
    to come.
-4. Otherwise it registers a task definition that differs from the **family's newest revision** in
-   the image only, points the service at it and waits until that deployment's rollout has
-   completed, bake included — up to 30 minutes, where ECS's own waiter would give up after ten.
-   The newest revision is usually the running one; after an admin apply that changed the backend's
-   configuration it is the one that apply registered (#189).
+4. Otherwise it registers a task definition that differs in the image only from the
+   **configuration last applied** — the newest active revision the deploy role did not register
+   itself, usually tofu's (#189) — points the service at it and waits until that deployment's
+   rollout has completed, bake included — up to 30 minutes, where ECS's own waiter would give up
+   after ten.
 
 **Rolling out a configuration change.** The service ignores `task_definition` in tofu, so an apply
 that changes the backend's environment, secrets, CPU or memory registers a new revision and leaves
 the service running the old one — on purpose: applies are a person's, deploys the workflow's. The
-next deploy picks the change up, because it copies the family's newest revision rather than the
-running one; until #189 it copied the running one and silently dropped the change. To roll a
-change out without a release, run `deploy-backend.yml` with the version that is running: the same
-image, the new configuration, blue/green as usual.
+next deploy picks the change up, because it copies the configuration last applied — found by who
+registered each revision (`registeredBy`), not by the highest number, so an apply that lands while
+a deploy runs is not buried under the deploy's copy. Until #189 a deploy copied the running
+revision and silently dropped the change. To roll a change out without a release, run
+`deploy-backend.yml` with the version that is running: it keeps that exact image and changes only
+the configuration, blue/green as usual; the run summary says which revision's configuration it
+carried.
+
+**Configuration and releases are separate, and a rollback does not undo a configuration.** Every
+deploy — a release, a configuration rollout, a rollback to the previous tag — runs with the
+configuration last applied. A bad configuration is undone the way it was made: apply the previous
+one, then deploy. An old release that cannot run with a newer configuration (a variable it reads
+was renamed, say) needs the old configuration applied before it is rolled back to.
 
 **Every release goes to qa by itself** — every final one: a pre-release (`v1.2.3-rc.1`) is
 deployed by hand when wanted. `release.yml` ends by calling both workflows for qa with its own tag: the backend first, then the frontend once the backend job has succeeded. So a release
