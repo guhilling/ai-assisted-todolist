@@ -331,3 +331,28 @@ mail would have been noise. Inspector adds what neither has: rescans when a CVE 
 the link between an image and the ECS tasks that ran it, and a filter on whether a fix exists.
 *Cost:* under a dollar a month (doc/deployment/cost.md). The notification is a GitHub issue
 rather than email, like the SonarCloud gate's.
+
+
+## qa's test accounts are a Cognito pool, and its client secret is in OpenTofu state
+
+**Decision (#190, D2 and D4 on #141).** qa's live tests sign in with two accounts in a Cognito user
+pool, a second provider beside Google. The accounts have no stored password — the live-test run
+sets one per run. The app client's secret, which Cognito generates, is accepted in OpenTofu state
+and handed to ECS through an SSM SecureString.
+
+**Why Cognito.** Google forbids automating its sign-in, so a test needs a provider whose login page
+a machine may fill in. Cognito is managed, in the same account, and free at two users (Lite plan).
+
+**Why no stored password.** A password set at the start of each run and kept in memory cannot leak
+from a store or go stale, and costs nothing; Secrets Manager would have cost $0.40 a month and a
+role that reads it.
+
+**Why the client secret in state is acceptable.** Unlike Google's, it cannot be kept out: the
+client resource holds it whatever is done. The state bucket is encrypted and readable only by
+administrators and the environment's own roles, and the secret signs nobody in without an
+account's password, which exists only during a test run. The Google secret stays out of state as
+before.
+
+**Why SSM rather than Secrets Manager for it.** A standard SecureString parameter is free, and
+needs no rotation either; Secrets Manager's features buy nothing here.
+

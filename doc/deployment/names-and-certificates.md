@@ -61,6 +61,25 @@ This is manual configuration in the Google console and cannot be automated here.
 - **Who may sign in** is decided in the Google console: with the app in *Testing*, only the Google
   accounts listed as test users can.
 
+## The test accounts' Cognito pool (qa)
+
+qa has a second sign-in provider beside Google: a Cognito user pool with two test accounts,
+`taskfest-test-one@example.com` and `taskfest-test-two@example.com`, which the live tests sign in
+with (#141, #190). Unlike the Google client, all of it is code (`test-sign-in.tf`):
+
+- **The pool** admits no sign-ups and has no MFA: the accounts are the only ones there will ever
+  be, and a machine signs them in. Its hosted login page is Cognito's prefix domain,
+  `taskfest-qa.auth.eu-central-1.amazoncognito.com` — no certificate, no DNS.
+- **The app client** is confidential and returns to `https://taskfest-qa.cloud.hilling.de/api/auth/callback/cognito`,
+  the provider's own callback (#143). Cognito generates its secret, so it is in OpenTofu state
+  ([the decision](../decisions/deployment-and-aws.md)); ECS injects it from the SSM parameter
+  `/taskfest/qa/cognito-client-secret`.
+- **No password is stored anywhere.** The accounts are created without one; the live-test run
+  sets a fresh random password before signing in (#144).
+- **The backend** declares the provider for the `prod` profile it runs in AWS, switched off; the
+  task definition switches it on where the pool exists (`TASKFEST_OIDC_COGNITO_*`). Its button
+  reads *Continue with TaskFest test account*.
+
 ## The documentation site's own name
 
 Google's consent screen asks for an application home page, a privacy policy and terms of service,

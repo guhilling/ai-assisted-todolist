@@ -17,6 +17,9 @@ hostname = "taskfest.cloud.hilling.de"
 # No Google client for prod yet, so sign-in stays off there.
 google_client_id = ""
 
+# No test accounts in prod: it signs in with Google alone.
+test_sign_in = false
+
 # Both versions run this long after a blue/green switch, for an instant rollback.
 blue_green_bake_minutes = 5
 

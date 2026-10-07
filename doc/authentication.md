@@ -77,6 +77,7 @@ sign in with (#190), since Google forbids automating its own sign-in.
 | Profile | Issuer | Credentials |
 | --- | --- | --- |
 | `prod`, `qa` | `https://accounts.google.com` | `TASKFEST_OIDC_GOOGLE_CLIENT_ID` / `_SECRET` from the environment — in AWS, the id from `terraform.tfvars` and the secret from Secrets Manager ([deployment/names-and-certificates.md](deployment/names-and-certificates.md)) |
+| `prod`, switched on in qa only: the `cognito` tenant, beside Google | the test accounts' Cognito pool | `TASKFEST_OIDC_COGNITO_*` from the task definition, the secret from SSM. The deployed image runs the `prod` profile in qa and prod alike; the tenant is switched off unless the task definition switches it on, which it does only in qa ([deployment/names-and-certificates.md](deployment/names-and-certificates.md)) |
 | `dev`, `test` | Keycloak, started by Dev Services | `taskfest-backend` / `taskfest-secret`, checked in as throwaway values |
 
 Dev and test leave `quarkus.oidc.auth-server-url` unset on purpose — that absence is what
@@ -160,8 +161,11 @@ boolean available = authProvidersConfig.enabled()
 
 No provider name appears in the code, on either side. Adding one is a configuration change:
 a `taskfest.auth.providers.<id>.*` block appears and a sign-in button appears with it — for a
-provider beside the main one, together with its tenant (above). In production only `google` is
-declared; dev and test add `keycloak`.
+provider beside the main one, together with its tenant (above). Dev and test declare `keycloak`;
+the deployed image declares `google`, and `cognito` switched off unless qa's task definition
+switches it on. **A provider whose tenant is switched off is not part of the deployment at all**:
+it is left out of the list, can never be the main provider, and its path is a 404 — so prod's list
+holds Google alone.
 
 A declared provider without credentials is **still reported**, with `available: false` and a
 null `loginUrl` — but the frontend **hides** it rather than showing it disabled, so a fresh

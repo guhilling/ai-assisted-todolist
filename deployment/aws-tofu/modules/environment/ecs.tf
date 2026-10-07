@@ -163,6 +163,18 @@ data "aws_iam_policy_document" "task_execution" {
     resources = [aws_secretsmanager_secret.google_client_secret.arn]
   }
 
+  # The Cognito app client's secret, where the test accounts exist (test-sign-in.tf). The
+  # parameter uses the AWS-managed aws/ssm key, whose key policy lets the account's principals
+  # decrypt through Systems Manager; no KMS statement is needed here.
+  dynamic "statement" {
+    for_each = var.test_sign_in ? [1] : []
+    content {
+      sid       = "ReadTheCognitoClientSecret"
+      actions   = ["ssm:GetParameters"]
+      resources = [aws_ssm_parameter.test_client_secret[0].arn]
+    }
+  }
+
   # The secret's name is random per instance (rds!db-<uuid>) and changes with every restore, so
   # it is matched by the tag RDS puts on it instead: the ARN of the instance it belongs to, which
   # is fixed by the instance's name. That is exactly this environment's master secret and no

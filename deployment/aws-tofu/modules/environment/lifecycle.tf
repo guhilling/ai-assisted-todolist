@@ -138,6 +138,41 @@ data "aws_iam_policy_document" "lifecycle" {
     resources = ["*"]
   }
 
+  # Where the test accounts exist (test-sign-in.tf), reading them, so a refresh can see them:
+  # this environment's pool and its one parameter, nothing else -- prod's role, which has no pool,
+  # gets none of it. DescribeUserPoolClient and GetParameter return the client's secret, which is in
+  # this environment's state anyway (D4 on #141).
+  dynamic "statement" {
+    for_each = var.test_sign_in ? [1] : []
+    content {
+      sid = "ReadThisEnvironmentsTestAccounts"
+      actions = [
+        "cognito-idp:Describe*",
+        "cognito-idp:Get*",
+        "cognito-idp:List*",
+        "cognito-idp:AdminGetUser",
+        "ssm:GetParameter",
+        "ssm:GetParameters",
+        "ssm:ListTagsForResource",
+      ]
+      resources = [
+        aws_cognito_user_pool.test_accounts[0].arn,
+        aws_ssm_parameter.test_client_secret[0].arn,
+      ]
+    }
+  }
+
+  # The two reads a refresh needs that cannot be scoped to a resource: a domain is looked up by its
+  # name, and DescribeParameters lists. Neither returns a secret.
+  dynamic "statement" {
+    for_each = var.test_sign_in ? [1] : []
+    content {
+      sid       = "ReadTestAccountsDomainAndParameterListWhichCannotBeScoped"
+      actions   = ["cognito-idp:DescribeUserPoolDomain", "ssm:DescribeParameters"]
+      resources = ["*"]
+    }
+  }
+
   # Bucket-level reads for this environment's own buckets, so a refresh can see their
   # configuration. Bucket-level only: no object actions, which is what keeps the statement below
   # the only way this role reaches an object.

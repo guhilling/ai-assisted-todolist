@@ -382,7 +382,7 @@ resource "aws_ecs_task_definition" "backend" {
 
     portMappings = [{ containerPort = var.backend_port, protocol = "tcp" }]
 
-    environment = [
+    environment = concat([
       { name = "QUARKUS_LIQUIBASE_MIGRATE_AT_START", value = "false" },
       {
         name  = "QUARKUS_DATASOURCE_JDBC_URL"
@@ -404,11 +404,19 @@ resource "aws_ecs_task_definition" "backend" {
       { name = "QUARKUS_HTTP_PROXY_PROXY_ADDRESS_FORWARDING", value = "true" },
       { name = "QUARKUS_HTTP_PROXY_ALLOW_X_FORWARDED", value = "true" },
       { name = "QUARKUS_HTTP_PROXY_TRUSTED_PROXIES", value = var.vpc_cidr },
-    ]
+      ], var.test_sign_in ? [
+      # The test accounts' provider (test-sign-in.tf), declared in application.properties and
+      # switched on here, where the pool exists.
+      { name = "TASKFEST_OIDC_COGNITO_ENABLED", value = "true" },
+      { name = "TASKFEST_OIDC_COGNITO_ISSUER", value = "https://${aws_cognito_user_pool.test_accounts[0].endpoint}" },
+      { name = "TASKFEST_OIDC_COGNITO_CLIENT_ID", value = aws_cognito_user_pool_client.backend[0].id },
+    ] : [])
 
-    secrets = local.sign_in_enabled ? [
+    secrets = concat(local.sign_in_enabled ? [
       { name = "TASKFEST_OIDC_GOOGLE_CLIENT_SECRET", valueFrom = aws_secretsmanager_secret.google_client_secret.arn },
-    ] : []
+      ] : [], var.test_sign_in ? [
+      { name = "TASKFEST_OIDC_COGNITO_CLIENT_SECRET", valueFrom = aws_ssm_parameter.test_client_secret[0].arn },
+    ] : [])
 
     logConfiguration = local.ecs_log_configuration
   }])

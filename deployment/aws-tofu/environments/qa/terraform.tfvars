@@ -17,6 +17,9 @@ hostname = "taskfest-qa.cloud.hilling.de"
 # Created by hand in the Google console; not a secret. The client secret is in Secrets Manager.
 google_client_id = "284066835041-jfetldf4tlh0hei4c54rdch0c0jn8qdk.apps.googleusercontent.com"
 
+# The Cognito test accounts the live tests sign in with (#190). qa only.
+test_sign_in = true
+
 # Both versions run this long after a blue/green switch, for an instant rollback.
 blue_green_bake_minutes = 2
 

@@ -92,3 +92,8 @@ output "distribution_id" {
   description = "The CloudFront distribution, which outlives every up and down."
   value       = aws_cloudfront_distribution.this.id
 }
+
+output "test_accounts_user_pool_id" {
+  description = "The Cognito pool of the test accounts the live tests sign in with (#190), or null where there is none."
+  value       = one(aws_cognito_user_pool.test_accounts[*].id)
+}
