@@ -5,7 +5,9 @@ This policy covers TaskFest, the task list at `taskfest-qa.cloud.hilling.de` and
 does, and changes in the same change as the behaviour it describes.
 
 The application is a non-commercial demonstration project of Hilling IT GmbH. It is open to Google
-accounts that have been invited to it; nobody else can sign in.
+accounts that have been invited to it; nobody else can sign in — except, in qa only, two test
+accounts (`taskfest-test-one@example.com`, `taskfest-test-two@example.com`) which automated tests
+sign in with. They belong to no person and hold only what those tests create and delete again.
 
 ## Who is responsible
 
@@ -111,4 +113,4 @@ Prinzenstraße 5<br>
 This policy is part of the project's documentation and is changed in the open, in the
 repository. The date below is the date of the last change to its content.
 
-Last changed: 4 October 2026
+Last changed: 7 October 2026

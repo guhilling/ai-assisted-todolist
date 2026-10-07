@@ -179,13 +179,6 @@ html {
   color: var(--text-muted);
 }
 
-.app-footer {
-  margin-top: var(--space-8);
-  padding-top: var(--space-4);
-  border-top: 1px solid var(--border);
-  font-size: var(--font-small);
-}
-
 .text-link {
   color: var(--accent);
   text-decoration: none;

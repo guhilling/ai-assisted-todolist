@@ -52,4 +52,4 @@ These terms may change; the current version is always the one on this page. Germ
 If you are a consumer living elsewhere, the mandatory consumer protection of the country you live
 in is not affected.
 
-Last changed: 3 October 2026
+Last changed: 7 October 2026

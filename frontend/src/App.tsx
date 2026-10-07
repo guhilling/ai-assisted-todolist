@@ -31,7 +31,7 @@ import type { TaskEdit } from './components/TaskEditor'
 import CompletedSection from './components/CompletedSection'
 import LegalFooter from './components/LegalFooter'
 import Paused from './components/Paused'
-import SignedOut, { purposeUrl } from './components/SignedOut'
+import SignedOut from './components/SignedOut'
 import TaskSection from './components/TaskSection'
 import UserAvatar from './components/UserAvatar'
 import UndoToast from './components/UndoToast'
@@ -333,11 +333,6 @@ function App() {
         </>
       )}
 
-      <footer className="app-footer">
-        <a className="text-link" href={purposeUrl} target="_blank" rel="noreferrer">
-          About this project ↗
-        </a>
-      </footer>
 
       {deleted ? (
         <UndoToast
