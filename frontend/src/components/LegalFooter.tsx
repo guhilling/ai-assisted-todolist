@@ -7,8 +7,17 @@ export const imprintUrl = 'https://www.hilling.it/impressum/'
 export const privacyUrl = 'https://taskfest-docs.cloud.hilling.de/doc/privacy.html'
 
 /**
+ * The release this page was built from, or that it is none: the release build sets
+ * `VITE_TASKFEST_VERSION` from the tag (release.yml); every other build leaves it unset.
+ */
+function versionLabel() {
+  const version = import.meta.env.VITE_TASKFEST_VERSION
+  return version ? `Version ${version}` : 'Development build'
+}
+
+/**
  * The links at the bottom of every view: what this project is, and the legal ones -- the imprint,
- * the privacy policy, and a contact.
+ * the privacy policy, and a contact -- and which version is running.
  *
  * German law asks a public site to name its provider within one click from every page (§ 5 DDG,
  * § 18 MStV), so this sits on the signed-out page, the paused page and the board alike. The
@@ -19,7 +28,7 @@ function LegalFooter() {
   return (
     <footer className="legal-footer">
       <a className="text-link" href={purposeUrl} target="_blank" rel="noreferrer">
-        About this project ↗
+        About ↗
       </a>
       <a className="text-link" href={imprintUrl} target="_blank" rel="noreferrer">
         Imprint
@@ -30,6 +39,7 @@ function LegalFooter() {
       <span>
         Contact: <span className="legal-footer-contact">demo-apps[at]hilling.de</span>
       </span>
+      <span>{versionLabel()}</span>
     </footer>
   )
 }

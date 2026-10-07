@@ -28,7 +28,7 @@ trigger matches those two shapes only, so an unrelated tag does not start a rele
 
 | Job | What it does |
 | --- | --- |
-| `gate` | Derives the version, refuses a tag that is not on `main`, then runs the full backend `verify` and the full frontend suite at the release version, and packs the frontend build |
+| `gate` | Derives the version, refuses a tag that is not on `main`, then runs the full backend `verify` and the full frontend suite at the release version, and packs the frontend build — built with `VITE_TASKFEST_VERSION` from the tag, which the page's footer shows (a build that is no release says *Development build*) |
 | `publish` | Builds and pushes `taskfest-backend` and `taskfest-frontend` to Quay, tagged with the version |
 | `announce` | Creates the GitHub Release, with notes generated from the pull requests since the previous release, and attaches the API contract and `taskfest-frontend-<version>.tar.gz` — the build `deploy-frontend.yml` puts into a site bucket |
 | `deploy-backend-qa`, `deploy-frontend-qa` | Deploy a final release — not a pre-release — to qa, backend first, through `deploy-backend.yml` and `deploy-frontend.yml` — see [Deploying](deployment/deploying.md). A qa that is down is skipped without failing the release; a release that changes the database changelog stops there with a failure, since the downtime path it needs is not built yet. prod is always deployed by hand |
