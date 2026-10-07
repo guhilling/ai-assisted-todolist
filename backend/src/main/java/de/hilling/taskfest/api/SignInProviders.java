@@ -12,7 +12,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.TreeMap;
+import java.util.TreeSet;
 import org.eclipse.microprofile.config.Config;
 
 /**
@@ -53,14 +55,19 @@ public class SignInProviders {
 
     private final Optional<String> mainProvider;
 
+    /** Providers whose tenant is switched off: not part of this deployment at all. */
+    private final Set<String> switchedOff;
+
     private final List<String> problems;
 
     @Inject
     SignInProviders(AuthProvidersConfig providers, Config config) {
-        this(providers, tenantPaths(providers, config));
+        this(providers, tenantPaths(providers, config), switchedOff(providers, config));
     }
 
-    private SignInProviders(AuthProvidersConfig providers, Map<String, List<String>> tenantPaths) {
+    private SignInProviders(AuthProvidersConfig providers, Map<String, List<String>> tenantPaths,
+                            Set<String> switchedOff) {
+        this.switchedOff = Set.copyOf(switchedOff);
         Map<String, String> named = new TreeMap<>();
         tenantPaths.forEach((id, paths) -> paths.stream()
             .filter(path -> path.startsWith(NAMED_LOGIN_PREFIX))
@@ -71,6 +78,7 @@ public class SignInProviders {
         List<String> mainCandidates = providers.providers().entrySet().stream()
             .filter(entry -> AuthProviderResource.isAvailable(providers.enabled(), entry.getValue()))
             .map(Map.Entry::getKey)
+            .filter(id -> !switchedOff.contains(id))
             .filter(id -> !named.containsKey(id))
             .sorted()
             .toList();
@@ -93,16 +101,28 @@ public class SignInProviders {
      * @return the providers
      */
     static SignInProviders of(AuthProvidersConfig providers, Map<String, List<String>> tenantPaths) {
-        return new SignInProviders(providers, tenantPaths);
+        return new SignInProviders(providers, tenantPaths, Set.of());
+    }
+
+    private static Set<String> switchedOff(AuthProvidersConfig providers, Config config) {
+        Set<String> off = new TreeSet<>();
+        for (String id : providers.providers().keySet()) {
+            if (!isTenantEnabled(id, config)) {
+                off.add(id);
+            }
+        }
+        return off;
+    }
+
+    private static boolean isTenantEnabled(String id, Config config) {
+        return config.getOptionalValue("quarkus.oidc." + id + ".tenant-enabled", Boolean.class).orElse(true);
     }
 
     private static Map<String, List<String>> tenantPaths(AuthProvidersConfig providers, Config config) {
         Map<String, List<String>> paths = new TreeMap<>();
         for (String id : providers.providers().keySet()) {
             // A tenant switched off -- prod's test accounts, say -- is no provider of its own.
-            boolean enabled = config.getOptionalValue("quarkus.oidc." + id + ".tenant-enabled", Boolean.class)
-                .orElse(true);
-            if (enabled) {
+            if (isTenantEnabled(id, config)) {
                 config.getOptionalValues("quarkus.oidc." + id + ".tenant-paths", String.class)
                     .ifPresent(found -> paths.put(id, found));
             }
@@ -134,6 +154,18 @@ public class SignInProviders {
      */
     public String providerOfTenant(String tenantId) {
         return DEFAULT_TENANT.equals(tenantId) ? mainProvider.orElse(NO_MAIN_PROVIDER) : tenantId;
+    }
+
+    /**
+     * Whether a provider's tenant is switched off -- declared, but not part of this deployment, like
+     * prod's test accounts (#190). Such a provider is left out of the provider list altogether and
+     * can never be the main one, whatever credentials it has.
+     *
+     * @param id a provider's id
+     * @return whether it is switched off
+     */
+    public boolean isSwitchedOff(String id) {
+        return switchedOff.contains(id);
     }
 
     /**

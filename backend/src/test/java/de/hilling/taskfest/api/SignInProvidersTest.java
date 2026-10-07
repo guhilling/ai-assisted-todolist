@@ -122,6 +122,34 @@ class SignInProvidersTest {
     }
 
     @Test
+    void shouldNeverMakeASwitchedOffTenantTheMainProvider() {
+        // Its credentials set but the tenant switched off: it is not part of this deployment, so
+        // it must neither become the main provider nor make two of them.
+        SignInProviders providers = new SignInProviders(available("google", "cognito"), switchedOffCognito());
+
+        assertTrue(providers.isSwitchedOff("cognito"));
+        assertEquals(List.of(), providers.problems());
+        assertEquals("google", providers.providerOfTenant(SignInProviders.DEFAULT_TENANT));
+    }
+
+    @Test
+    void shouldLeaveASwitchedOffProviderOutOfTheList() {
+        AuthProviderResource resource = new AuthProviderResource(available("google", "cognito"),
+            new SignInProviders(available("google", "cognito"), switchedOffCognito()));
+
+        assertEquals(List.of("google"), resource.providers().providers().stream()
+            .map(AuthProviderResource.AuthProviderResponse::id).toList());
+    }
+
+    private static Config switchedOffCognito() {
+        return new SmallRyeConfigBuilder()
+            .withSources(new PropertiesConfigSource(Map.of(
+                "quarkus.oidc.cognito.tenant-paths", "/api/auth/login/cognito,/api/auth/callback/cognito",
+                "quarkus.oidc.cognito.tenant-enabled", "false"), "test", 100))
+            .build();
+    }
+
+    @Test
     void shouldRefuseToStartWithTwoMainProviders() {
         SignInProviders providers = SignInProviders.of(available("google", "cognito"), Map.of());
 

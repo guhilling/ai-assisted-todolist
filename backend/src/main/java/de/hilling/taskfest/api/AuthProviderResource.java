@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.eclipse.microprofile.openapi.annotations.media.Content;
 import org.eclipse.microprofile.openapi.annotations.media.ExampleObject;
@@ -51,12 +52,15 @@ public class AuthProviderResource {
     /** A provider's own sign-in path, for a provider that is a named OIDC tenant; empty for the main one. */
     private final Function<String, Optional<String>> namedTenantPath;
 
+    /** Whether a provider is switched off, and so not part of this deployment's list at all. */
+    private final Predicate<String> switchedOff;
+
     /**
      * A resource whose every provider signs in at {@code /api/auth/login}: one provider, the
      * deployment's main tenant -- which is all a deployment had before #143.
      */
     public AuthProviderResource(AuthProvidersConfig authProvidersConfig) {
-        this(authProvidersConfig, id -> Optional.empty());
+        this(authProvidersConfig, id -> Optional.empty(), id -> false);
     }
 
     /**
@@ -66,13 +70,15 @@ public class AuthProviderResource {
      */
     @Inject
     public AuthProviderResource(AuthProvidersConfig authProvidersConfig, SignInProviders signInProviders) {
-        this(authProvidersConfig, signInProviders::loginPath);
+        this(authProvidersConfig, signInProviders::loginPath, signInProviders::isSwitchedOff);
     }
 
     private AuthProviderResource(AuthProvidersConfig authProvidersConfig,
-                                 Function<String, Optional<String>> namedTenantPath) {
+                                 Function<String, Optional<String>> namedTenantPath,
+                                 Predicate<String> switchedOff) {
         this.authProvidersConfig = authProvidersConfig;
         this.namedTenantPath = namedTenantPath;
+        this.switchedOff = switchedOff;
     }
 
     @GET
@@ -97,6 +103,7 @@ public class AuthProviderResource {
     public AuthProvidersResponse providers() {
         List<AuthProviderResponse> providers = authProvidersConfig.providers().entrySet().stream()
             .sorted(Map.Entry.comparingByKey())
+            .filter(entry -> !switchedOff.test(entry.getKey()))
             .map(entry -> {
                 boolean available = isAvailable(authProvidersConfig.enabled(), entry.getValue());
                 return new AuthProviderResponse(

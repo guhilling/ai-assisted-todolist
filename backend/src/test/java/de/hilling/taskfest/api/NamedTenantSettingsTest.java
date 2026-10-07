@@ -32,7 +32,7 @@ class NamedTenantSettingsTest {
 
     @Test
     void shouldGiveEveryNamedTenantEverySharedSetting() throws IOException {
-        String properties = Files.readString(Path.of("src/main/resources/application.properties"));
+        String properties = properties();
         List<String> missing = new ArrayList<>();
         for (String tenant : tenants(properties)) {
             for (String setting : TwoSignInProviders.SHARED_SETTINGS) {
@@ -47,9 +47,13 @@ class NamedTenantSettingsTest {
     }
 
     @Test
-    void shouldFindTheTestAccountsTenant() {
+    void shouldFindTheTestAccountsTenant() throws IOException {
         // Without a tenant to check, the test above would pass vacuously.
-        assertTrue(tenantsInTheFile().contains("%prod.quarkus.oidc.cognito"));
+        assertTrue(tenants(properties()).contains("%prod.quarkus.oidc.cognito"));
+    }
+
+    private static String properties() throws IOException {
+        return Files.readString(Path.of("src/main/resources/application.properties"));
     }
 
     /** The prefixes of the named tenants, such as {@code %prod.quarkus.oidc.cognito}. */
@@ -60,13 +64,5 @@ class NamedTenantSettingsTest {
             tenants.add((matcher.group(1) == null ? "" : matcher.group(1)) + "quarkus.oidc." + matcher.group(2));
         }
         return tenants;
-    }
-
-    private static Set<String> tenantsInTheFile() {
-        try {
-            return tenants(Files.readString(Path.of("src/main/resources/application.properties")));
-        } catch (IOException e) {
-            throw new AssertionError(e);
-        }
     }
 }

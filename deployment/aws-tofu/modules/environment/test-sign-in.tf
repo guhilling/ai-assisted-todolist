@@ -103,8 +103,9 @@ resource "aws_cognito_user_pool_client" "backend" {
   explicit_auth_flows = ["ALLOW_REFRESH_TOKEN_AUTH", "ALLOW_USER_SRP_AUTH"]
   read_attributes     = ["email", "email_verified", "name"]
 
-  # The backend renews the ID token with the refresh token (doc/authentication.md), so a session
-  # lasts as long as Google's does: an hour per token, renewed for up to eight hours idle.
+  # The backend renews the hour-long ID token with the refresh token (doc/authentication.md). Unlike
+  # Google's, Cognito's refresh tokens do not roll, so a test-account session ends a day after
+  # sign-in however active it is -- longer than any test run, which is all these accounts are for.
   id_token_validity      = 1
   access_token_validity  = 1
   refresh_token_validity = 1
