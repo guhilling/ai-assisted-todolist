@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 500"
-     width="1000" height="500" role="img" aria-label="The browser talks only to httpd, which serves the app and proxies /api to the Quarkus backend. The backend is the OIDC client: it exchanges the code with the identity provider itself and returns an encrypted session cookie, so the browser never holds a token. Files attached to tasks go straight between the browser and S3 through presigned links the backend signs, so their content never passes through it."
+     width="1000" height="500" role="img" aria-label="The browser talks only to CloudFront, which serves the app from S3 and passes /api to the Quarkus backend. The backend is the OIDC client: it exchanges the code with the identity provider, Google, itself and returns an encrypted session cookie, so the browser never holds a token. The database is PostgreSQL on RDS. Files attached to tasks go straight between the browser and S3 through presigned links the backend signs, so their content never passes through it."
      font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif">
   <defs>
     <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7"
@@ -12,22 +12,22 @@
     </marker>
   </defs>
   <rect width="1000" height="500" fill="#14181c"/>
-  <rect x="30" y="190" width="150" height="72" rx="10" fill="#1e242a" stroke="#39424b" stroke-width="1.5"/>
+  <rect x="30" y="190" width="150" height="72" rx="10" fill="#1f2b3d" stroke="#8ab4f8" stroke-width="1.5"/>
   <text x="105.0" y="221.5" text-anchor="middle" font-size="13" font-weight="600" fill="#e6eaee">Browser</text>
   <text x="105.0" y="240.5" text-anchor="middle" font-size="11.5" font-weight="400" fill="#9aa5b1">the SPA</text>
-  <rect x="270" y="190" width="170" height="72" rx="10" fill="#1e242a" stroke="#39424b" stroke-width="1.5"/>
-  <text x="355.0" y="221.5" text-anchor="middle" font-size="13" font-weight="600" fill="#e6eaee">httpd</text>
+  <rect x="270" y="190" width="170" height="72" rx="10" fill="#3a2a17" stroke="#f6ad55" stroke-width="1.5"/>
+  <text x="355.0" y="221.5" text-anchor="middle" font-size="13" font-weight="600" fill="#e6eaee">CloudFront</text>
   <text x="355.0" y="240.5" text-anchor="middle" font-size="11.5" font-weight="400" fill="#9aa5b1">static files + /api</text>
   <rect x="530" y="190" width="190" height="72" rx="10" fill="#1f2b3d" stroke="#8ab4f8" stroke-width="1.5"/>
   <text x="625.0" y="221.5" text-anchor="middle" font-size="13" font-weight="600" fill="#e6eaee">Quarkus backend</text>
   <text x="625.0" y="240.5" text-anchor="middle" font-size="11.5" font-weight="400" fill="#9aa5b1">the OIDC client</text>
-  <rect x="810" y="190" width="160" height="72" rx="10" fill="#1e242a" stroke="#39424b" stroke-width="1.5"/>
+  <rect x="810" y="190" width="160" height="72" rx="10" fill="#3a2a17" stroke="#f6ad55" stroke-width="1.5"/>
   <text x="890.0" y="221.5" text-anchor="middle" font-size="13" font-weight="600" fill="#e6eaee">PostgreSQL</text>
-  <text x="890.0" y="240.5" text-anchor="middle" font-size="11.5" font-weight="400" fill="#9aa5b1">Liquibase schema</text>
-  <rect x="530" y="40" width="190" height="64" rx="10" fill="#1e242a" stroke="#39424b" stroke-width="1.5"/>
+  <text x="890.0" y="240.5" text-anchor="middle" font-size="11.5" font-weight="400" fill="#9aa5b1">RDS · Liquibase</text>
+  <rect x="530" y="40" width="190" height="64" rx="10" fill="#1c3326" stroke="#81c995" stroke-width="1.5"/>
   <text x="625.0" y="67.5" text-anchor="middle" font-size="13" font-weight="600" fill="#e6eaee">Identity provider</text>
-  <text x="625.0" y="86.5" text-anchor="middle" font-size="11.5" font-weight="400" fill="#9aa5b1">Keycloak · Google</text>
-  <rect x="810" y="400" width="160" height="72" rx="10" fill="#1e242a" stroke="#39424b" stroke-width="1.5"/>
+  <text x="625.0" y="86.5" text-anchor="middle" font-size="11.5" font-weight="400" fill="#9aa5b1">Google</text>
+  <rect x="810" y="400" width="160" height="72" rx="10" fill="#3a2a17" stroke="#f6ad55" stroke-width="1.5"/>
   <text x="890.0" y="431.5" text-anchor="middle" font-size="13" font-weight="600" fill="#e6eaee">Object storage</text>
   <text x="890.0" y="450.5" text-anchor="middle" font-size="11.5" font-weight="400" fill="#9aa5b1">S3 · attachments</text>
   <polyline points="180,226 270,226" fill="none" stroke="#9aa5b1" stroke-width="1.6" marker-end="url(#arrow)"/>

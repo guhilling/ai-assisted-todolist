@@ -26,7 +26,8 @@ HERE = pathlib.Path(__file__).parent
 
 @dataclass(frozen=True)
 class Palette:
-    """One colour scheme. `accent` is reserved for the single claim each diagram makes."""
+    """One colour scheme. `accent` is reserved for the single claim each diagram makes; `aws` and
+    `external` mark, in the architecture, what runs as an AWS service and what is someone else's."""
 
     name: str
     bg: str
@@ -36,6 +37,10 @@ class Palette:
     muted: str
     accent: str
     accent_soft: str
+    aws: str
+    aws_soft: str
+    external: str
+    external_soft: str
 
 
 LIGHT = Palette(
@@ -47,6 +52,10 @@ LIGHT = Palette(
     muted="#5b6672",
     accent="#1a73e8",
     accent_soft="#e8f0fe",
+    aws="#e8913a",
+    aws_soft="#fff1e3",
+    external="#34a853",
+    external_soft="#e6f4ea",
 )
 
 DARK = Palette(
@@ -58,6 +67,10 @@ DARK = Palette(
     muted="#9aa5b1",
     accent="#8ab4f8",
     accent_soft="#1f2b3d",
+    aws="#f6ad55",
+    aws_soft="#3a2a17",
+    external="#81c995",
+    external_soft="#1c3326",
 )
 
 FONT = (
@@ -70,10 +83,13 @@ def esc(text: str) -> str:
     return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
-def box(x, y, w, h, lines, p: Palette, *, accent=False, dashed=False, radius=10):
-    """A labelled rectangle. `lines` is a list; the first is the name, the rest are detail."""
+def box(x, y, w, h, lines, p: Palette, *, accent=False, tint=None, dashed=False, radius=10):
+    """A labelled rectangle. `lines` is a list; the first is the name, the rest are detail.
+    `tint` colours it as one of a kind: "aws" or "external"."""
     fill = p.accent_soft if accent else p.surface
     stroke = p.accent if accent else p.border
+    if tint:
+        fill, stroke = getattr(p, f"{tint}_soft"), getattr(p, tint)
     dash = ' stroke-dasharray="5 4"' if dashed else ""
     out = [
         f'<rect x="{x}" y="{y}" width="{w}" height="{h}" rx="{radius}" '
@@ -150,12 +166,13 @@ def architecture(p: Palette) -> str:
     bottom = row_y + box_h
 
     parts = [
-        box(30, row_y, 150, box_h, ["Browser", "the SPA"], p),
-        box(270, row_y, 170, box_h, ["httpd", "static files + /api"], p),
+        # Ours in blue, AWS services in orange, someone else's in green.
+        box(30, row_y, 150, box_h, ["Browser", "the SPA"], p, accent=True),
+        box(270, row_y, 170, box_h, ["CloudFront", "static files + /api"], p, tint="aws"),
         box(530, row_y, 190, box_h, ["Quarkus backend", "the OIDC client"], p, accent=True),
-        box(810, row_y, 160, box_h, ["PostgreSQL", "Liquibase schema"], p),
-        box(530, 40, 190, 64, ["Identity provider", "Keycloak \u00b7 Google"], p),
-        box(810, 400, 160, 72, ["Object storage", "S3 \u00b7 attachments"], p),
+        box(810, row_y, 160, box_h, ["PostgreSQL", "RDS \u00b7 Liquibase"], p, tint="aws"),
+        box(530, 40, 190, 64, ["Identity provider", "Google"], p, tint="external"),
+        box(810, 400, 160, 72, ["Object storage", "S3 \u00b7 attachments"], p, tint="aws"),
 
         # The straight left-to-right path. Gaps are 90px so the labels sit clear of the boxes.
         arrow([(180, 226), (270, 226)], p),
@@ -189,10 +206,10 @@ def architecture(p: Palette) -> str:
         label(380, 476, "file content never passes through the backend", p, accent=True, size=12),
     ]
     aria = (
-        "The browser talks only to httpd, which serves the app and proxies /api to the "
-        "Quarkus backend. The backend is the OIDC client: it exchanges the code with the "
-        "identity provider itself and returns an encrypted session cookie, so the browser "
-        "never holds a token. Files attached to tasks go straight between the browser and S3 "
+        "The browser talks only to CloudFront, which serves the app from S3 and passes /api to "
+        "the Quarkus backend. The backend is the OIDC client: it exchanges the code with the "
+        "identity provider, Google, itself and returns an encrypted session cookie, so the browser "
+        "never holds a token. The database is PostgreSQL on RDS. Files attached to tasks go straight between the browser and S3 "
         "through presigned links the backend signs, so their content never passes through it."
     )
     return document(w, h, "\n  ".join(parts), p, aria)
