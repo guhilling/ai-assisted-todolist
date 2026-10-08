@@ -6,7 +6,8 @@
     "id",
     "fileName",
     "contentType",
-    "sizeBytes"
+    "sizeBytes",
+    "thumbnail"
   ],
   "properties": {
     "id": {
@@ -35,6 +36,12 @@
       "format": "int64",
       "examples": [
         48213
+      ]
+    },
+    "thumbnail": {
+      "type": "boolean",
+      "examples": [
+        false
       ]
     }
   }

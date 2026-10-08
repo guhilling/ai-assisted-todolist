@@ -7,5 +7,6 @@
 
     <include file="db/changes/001-baseline.xml" relativeToChangelogFile="false"/>
     <include file="db/changes/002-attachments.xml" relativeToChangelogFile="false"/>
+    <include file="db/changes/003-attachment-thumbnail.xml" relativeToChangelogFile="false"/>
 
 </databaseChangeLog>

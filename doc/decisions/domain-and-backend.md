@@ -239,6 +239,31 @@ re-attaches at most as many as a task may hold, whatever it names.
 **Rejected: malware scanning (D4).** The files are only ever opened by the person who uploaded
 them, so a scan would protect someone from their own file.
 
+**A row shows an image by a thumbnail the browser made (#236, Gunnar's decision).** A photo of
+several megabytes was scaled to a 64 px box on every board load. Now the browser, which has the
+file anyway, draws a JPEG of it at 128 px on its shorter side while uploading, announces its size
+with the file, and PUTs it next to the file through a second link, signed like the first for exactly
+that size and `image/jpeg`. Confirming looks for it; `Attachment.thumbnail` says whether it came,
+and `GET …/thumbnail-link` opens it. It lives under the file's key plus `.thumbnail`, so it needs no
+row and goes wherever the file goes: removed, swept and counted as referenced by the orphan
+clean-up with it. It is optional at every step -- not offered, over 64 KB
+(`taskfest.attachments.max-thumbnail-bytes`), a PDF, or never arrived -- and the row then shows the
+file. It does not count towards the limits: it is a few kilobytes, and its file already counts.
+*Rejected: scaling in the backend*, which would have downloaded every photo from S3 again and
+decoded up to 10 MB on a 1 GB task, with an image library for WebP besides. *Rejected: a Lambda on
+the upload event*, the most moving parts -- a function to package, IAM, an event notification, an
+apply -- for the same result. Images uploaded before #236 have none, and show the file.
+
+**A link is handed out again while it is fresh (#236).** A browser caches a file by its URL, and a
+newly signed link is a new URL each time, so every board load downloaded every preview again. Links
+now work for an hour (`download-link-lifetime`), and `ReusedLinks` hands out the same one while at
+least half of that is left. The answer carries `Cache-Control: private, max-age` up to that moment,
+so the browser does not even ask again, and storage answers the GET with a `Cache-Control` of its
+own (`response-cache-control`, signed into the link), so the file stays in the browser's cache. Each
+backend task keeps its own links; with two, a browser may see two URLs for a file, which costs one
+fetch. The price is that a link that leaks works for an hour rather than five minutes, to someone
+who could only have got it from the owner's browser.
+
 
 ## Deleting an account leaves a record outside the database
 

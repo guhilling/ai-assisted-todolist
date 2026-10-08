@@ -14,6 +14,7 @@
 | **Attachment** | A file on a task: a PDF or an image. Its content lives in object storage, its name, type and size here. |
 | **Pending** | An attachment announced but not yet confirmed: its upload link is handed out, the file may or may not have arrived. Never listed. |
 | **Available** | An attachment whose file has arrived as announced. The only kind the board lists and opens. |
+| **Thumbnail** | A small JPEG of an image attachment, made by the browser when the image is uploaded; what the board shows on the row. Part of its attachment, not a thing of its own. |
 | **Detached** | An attachment whose task was deleted, kept for the undo window in case the deletion is undone. |
 | **Account deletion** | A user deleting their own account: every task, every attachment and the user go at once, with no undo. |
 | **Deletion record** | What an account deletion leaves behind: a hash of the email and the time, kept outside the database so a restored backup cannot bring the account back. |

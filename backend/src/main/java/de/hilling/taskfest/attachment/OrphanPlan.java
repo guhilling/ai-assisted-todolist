@@ -5,12 +5,14 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * What one run of the orphan clean-up (#208) will do, decided from a bucket listing and the
  * attachment rows alone -- no S3, no database -- so the decision has a plain unit test.
  *
- * <p>An object no attachment refers to is an orphan, and goes once it is older than the margin.
+ * <p>An object no attachment refers to -- neither as its file nor as its thumbnail (#236) -- is an
+ * orphan, and goes once it is older than the margin.
  * One guard stands between an unversioned bucket and a database that does not describe it: a
  * database holding no attachments at all deletes nothing, because that is an environment brought
  * up empty, not one whose every file is an orphan. Every orphan is counted, whatever its age and
@@ -58,7 +60,11 @@ public record OrphanPlan(List<String> deletions, Hold hold, int orphans, int ale
      */
     public static OrphanPlan of(List<AttachmentStore.StoredObject> objects, List<Row> rows, Instant now,
                                 Duration margin, Duration alertAfter) {
-        Set<String> referenced = rows.stream().map(Row::objectKey).collect(Collectors.toSet());
+        // A row refers to its file and to the thumbnail it may have (#236); a missing thumbnail is
+        // no missing object, since most attachments have none.
+        Set<String> referenced = rows.stream()
+            .flatMap(row -> Stream.of(row.objectKey(), Attachment.thumbnailKey(row.objectKey())))
+            .collect(Collectors.toSet());
         Set<String> listedKeys = objects.stream().map(AttachmentStore.StoredObject::key).collect(Collectors.toSet());
         List<Long> missing = rows.stream()
             .filter(row -> row.state() == AttachmentState.AVAILABLE && !listedKeys.contains(row.objectKey()))

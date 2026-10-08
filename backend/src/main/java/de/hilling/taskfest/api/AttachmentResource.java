@@ -9,6 +9,7 @@ import de.hilling.taskfest.model.User;
 import de.hilling.taskfest.service.UserService;
 import io.quarkus.oidc.IdToken;
 import io.quarkus.security.Authenticated;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import jakarta.inject.Inject;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -23,6 +24,7 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.WebApplicationException;
+import jakarta.ws.rs.core.CacheControl;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import java.time.Instant;
@@ -40,8 +42,10 @@ import org.eclipse.microprofile.openapi.annotations.tags.Tag;
  *
  * <p>Uploading is three steps: announce the file (name, type, size) and get a link that accepts
  * exactly that file; PUT the file to the link; confirm. Opening a file is asking for a link that
- * works for a few minutes. Every attachment is its task's owner's alone: someone else's task or
- * attachment is answered like a missing one.</p>
+ * works for a while, the same one again while it is fresh, so the browser can keep the file
+ * (#236). An image may bring a preview thumbnail the browser made, uploaded through a second link.
+ * Every attachment is its task's owner's alone: someone else's task or attachment is answered like
+ * a missing one.</p>
  */
 @Path("/api/tasks/{taskId}/attachments")
 @Authenticated
@@ -93,12 +97,15 @@ public class AttachmentResource {
         User owner = currentUser();
         Task task = TaskResource.ownedTaskOrNotFound(taskId, owner);
         try {
-            AttachmentService.Announced announced =
-                attachments.announce(owner, task, request.fileName(), request.contentType(), request.sizeBytes());
+            AttachmentService.Announced announced = attachments.announce(owner, task, request.fileName(),
+                request.contentType(), request.sizeBytes(), request.thumbnailSizeBytes());
             AttachmentStore.UploadLink upload = announced.upload();
+            ThumbnailUploadResponse thumbnailUpload = announced.thumbnailUpload()
+                .map(link -> new ThumbnailUploadResponse(link.url(), link.headers()))
+                .orElse(null);
             return Response.status(Response.Status.CREATED)
                 .entity(new UploadResponse(toResponse(announced.attachment()), upload.url(), upload.headers(),
-                    upload.expiresAt()))
+                    upload.expiresAt(), thumbnailUpload))
                 .build();
         } catch (AttachmentService.Refused refused) {
             throw refusal(refused);
@@ -130,19 +137,46 @@ public class AttachmentResource {
 
     @GET
     @Path("/{id}/link")
-    @Operation(summary = "A link to open the file", description = "Works for a few minutes, for the owner's "
-        + "browser to fetch the file straight from storage.")
+    @Operation(summary = "A link to open the file", description = "For the owner's browser to fetch the file "
+        + "straight from storage. The same link is handed out again while it is fresh, and the answer may be "
+        + "kept for as long as that, so the browser's cache keeps the file.")
     @APIResponse(responseCode = "200", description = "The link and until when it works.",
         content = @Content(mediaType = MediaType.APPLICATION_JSON,
             schema = @Schema(implementation = LinkResponse.class)))
     @APIResponse(responseCode = "404", description = "No such available attachment on a task the caller owns.")
-    public LinkResponse link(@PathParam("taskId") Long taskId, @PathParam("id") Long id) {
+    public Response link(@PathParam("taskId") Long taskId, @PathParam("id") Long id) {
+        return linkResponse(attachments.link(availableAttachment(taskId, id)));
+    }
+
+    @GET
+    @Path("/{id}/thumbnail-link")
+    @Operation(summary = "A link to the preview thumbnail", description = "Like the file's link, for the small "
+        + "preview an image's row shows (#236).")
+    @APIResponse(responseCode = "200", description = "The link and until when it works.",
+        content = @Content(mediaType = MediaType.APPLICATION_JSON,
+            schema = @Schema(implementation = LinkResponse.class)))
+    @APIResponse(responseCode = "404", description = "No such available attachment with a thumbnail on a task "
+        + "the caller owns.")
+    public Response thumbnailLink(@PathParam("taskId") Long taskId, @PathParam("id") Long id) {
+        return attachments.thumbnailLink(availableAttachment(taskId, id))
+            .map(this::linkResponse)
+            .orElseThrow(() -> new WebApplicationException(Response.Status.NOT_FOUND));
+    }
+
+    private Attachment availableAttachment(Long taskId, Long id) {
         Attachment attachment = ownedAttachment(taskId, id);
         if (attachment.state != AttachmentState.AVAILABLE) {
             throw new WebApplicationException(Response.Status.NOT_FOUND);
         }
-        AttachmentStore.DownloadLink link = attachments.link(attachment);
-        return new LinkResponse(link.url(), link.expiresAt());
+        return attachment;
+    }
+
+    /** The link, and how long the browser may keep this answer: as long as the same link is handed out. */
+    private Response linkResponse(AttachmentStore.DownloadLink link) {
+        CacheControl keep = new CacheControl();
+        keep.setPrivate(true);
+        keep.setMaxAge((int) attachments.keepFor(link).toSeconds());
+        return Response.ok(new LinkResponse(link.url(), link.expiresAt())).cacheControl(keep).build();
     }
 
     @DELETE
@@ -174,7 +208,7 @@ public class AttachmentResource {
 
     static AttachmentResponse toResponse(Attachment attachment) {
         return new AttachmentResponse(attachment.id, attachment.fileName, attachment.kind.contentType(),
-            attachment.sizeBytes);
+            attachment.sizeBytes, attachment.thumbnail);
     }
 
     /**
@@ -186,11 +220,14 @@ public class AttachmentResource {
      *     type a browser reports for an extension it does not know included, is refused as
      *     {@code UNSUPPORTED_TYPE} rather than rejected as malformed
      * @param sizeBytes its size, at most the configured limit (D1)
+     * @param thumbnailSizeBytes the size of the JPEG preview thumbnail the browser made of an image
+     *     (#236), or absent for none; one that does not fit is not offered a link, not refused
      */
     public record AnnounceRequest(
         @NotBlank @Size(max = MAX_ANNOUNCED_FILE_NAME_LENGTH) @Schema(example = "Rechnung.pdf") String fileName,
         @NotNull @Size(max = MAX_CONTENT_TYPE_LENGTH) @Schema(example = "application/pdf") String contentType,
-        @NotNull @Min(1) @Schema(example = "48213") Long sizeBytes
+        @NotNull @Min(1) @Schema(example = "48213") Long sizeBytes,
+        @Min(1) @Schema(example = "6120", nullable = true) Long thumbnailSizeBytes
     ) {
     }
 
@@ -201,12 +238,14 @@ public class AttachmentResource {
      * @param fileName the name it is listed and opened under
      * @param contentType its media type
      * @param sizeBytes its size in bytes
+     * @param thumbnail whether it has a preview thumbnail, which its row then shows (#236)
      */
     public record AttachmentResponse(
         @NotNull @Schema(example = "7") Long id,
         @NotNull @Size(max = Attachment.MAX_FILE_NAME_LENGTH) @Schema(example = "Rechnung.pdf") String fileName,
         @NotNull @Size(max = MAX_CONTENT_TYPE_LENGTH) @Schema(example = "application/pdf") String contentType,
-        @NotNull @Schema(example = "48213") Long sizeBytes
+        @NotNull @Schema(example = "48213") Long sizeBytes,
+        @NotNull @Schema(example = "false") Boolean thumbnail
     ) {
     }
 
@@ -216,13 +255,30 @@ public class AttachmentResource {
      * @param attachment the attachment, pending until confirmed
      * @param url where to PUT the file
      * @param headers the headers the PUT must carry, exactly; the browser adds Content-Length itself
-     * @param expiresAt until when the link works
+     * @param expiresAt until when the link works, and the thumbnail's too
+     * @param thumbnailUpload where to PUT the preview thumbnail, before confirming; left out when none
+     *     was offered or it does not fit. Left out rather than null: a nullable reference becomes an
+     *     {@code anyOf} in the schema, which the frontend's generator does not take, and absent says
+     *     the same thing
      */
     public record UploadResponse(
         @NotNull AttachmentResponse attachment,
         @NotNull @Size(max = MAX_URL_LENGTH) String url,
         @NotNull Map<String, String> headers,
-        @NotNull Instant expiresAt
+        @NotNull Instant expiresAt,
+        @JsonInclude(JsonInclude.Include.NON_NULL) ThumbnailUploadResponse thumbnailUpload
+    ) {
+    }
+
+    /**
+     * How to upload an image's preview thumbnail (#236): a link signed for exactly its size, as a JPEG.
+     *
+     * @param url where to PUT the thumbnail
+     * @param headers the headers the PUT must carry, exactly
+     */
+    public record ThumbnailUploadResponse(
+        @NotNull @Size(max = MAX_URL_LENGTH) String url,
+        @NotNull Map<String, String> headers
     ) {
     }
 

@@ -34,6 +34,9 @@ public class Attachment extends PanacheEntityBase {
     /** The longest file name kept; longer ones are cut. */
     public static final int MAX_FILE_NAME_LENGTH = 255;
 
+    /** What a thumbnail's key adds to its file's: no slash, so the orphan clean-up sees it (#236). */
+    private static final String THUMBNAIL_SUFFIX = ".thumbnail";
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     public Long id;
@@ -73,4 +76,19 @@ public class Attachment extends PanacheEntityBase {
     /** When its task was deleted; the sweep deletes it once the undo window has passed. */
     @Column(name = "detached_at")
     public Instant detachedAt;
+
+    /** Whether a preview thumbnail arrived with it (#236), under {@link #thumbnailKey(String)}. */
+    @Column(nullable = false)
+    public boolean thumbnail;
+
+    /**
+     * Where a file's preview thumbnail is kept, if it has one: next to it, so it needs no row of
+     * its own and goes wherever the file goes.
+     *
+     * @param objectKey the file's key
+     * @return the thumbnail's key
+     */
+    public static String thumbnailKey(String objectKey) {
+        return objectKey + THUMBNAIL_SUFFIX;
+    }
 }

@@ -63,11 +63,11 @@ public class AttachmentStore {
      * upload of any other length or type, which is what enforces the size limit on the content
      * itself rather than on what the browser said.
      */
-    public UploadLink uploadLink(String key, AttachmentKind kind, long sizeBytes, Duration lifetime) {
+    public UploadLink uploadLink(String key, String contentType, long sizeBytes, Duration lifetime) {
         PresignedPutObjectRequest signed = presigner.presignPutObject(request -> request
             .signatureDuration(lifetime)
             .putObjectRequest(put -> put.bucket(bucket).key(key)
-                .contentType(kind.contentType())
+                .contentType(contentType)
                 .contentLength(sizeBytes)));
         // The browser sends Host and Content-Length itself, and may not set them; everything else
         // that was signed it has to send exactly.
@@ -82,14 +82,17 @@ public class AttachmentStore {
 
     /**
      * A link the browser opens the file with, inline -- images and PDFs show in the browser (D2) --
-     * under its original name.
+     * under its original name. Storage answers it with a {@code Cache-Control} for as long as the
+     * link works (#236): what is under a key never changes, so the browser may keep it for as long
+     * as it asks by this URL.
      */
-    public DownloadLink downloadLink(String key, AttachmentKind kind, String fileName, Duration lifetime) {
+    public DownloadLink downloadLink(String key, String contentType, String fileName, Duration lifetime) {
         String encoded = URLEncoder.encode(fileName, StandardCharsets.UTF_8).replace("+", "%20");
         PresignedGetObjectRequest signed = presigner.presignGetObject(request -> request
             .signatureDuration(lifetime)
             .getObjectRequest(get -> get.bucket(bucket).key(key)
-                .responseContentType(kind.contentType())
+                .responseContentType(contentType)
+                .responseCacheControl("private, max-age=" + lifetime.toSeconds())
                 .responseContentDisposition("inline; filename*=UTF-8''" + encoded)));
         return new DownloadLink(signed.url().toString(), signed.expiration());
     }

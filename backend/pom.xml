@@ -329,6 +329,7 @@
                         <param>de.hilling.taskfest.security.VerifiedEmailTest</param>
                         <param>de.hilling.taskfest.attachment.AttachmentPolicyTest</param>
                         <param>de.hilling.taskfest.attachment.OrphanPlanTest</param>
+                        <param>de.hilling.taskfest.attachment.ReusedLinksTest</param>
                         <param>de.hilling.taskfest.account.DeletionRecordsHashTest</param>
                         <param>de.hilling.taskfest.account.DeletionPruningTest</param>
                         <param>de.hilling.taskfest.account.RdsRestorePointsTest</param>

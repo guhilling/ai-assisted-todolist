@@ -50,3 +50,7 @@ opened file. Against the Compose stack S3 is LocalStack with signature checks on
 environment's real bucket. A headless browser downloads a PDF instead of showing it, so the link is
 taken from the new tab's request and fetched by the test.
 
+`tests/thumbnails.spec.ts` (#236) attaches a 1600 x 1200 photo and checks that the row shows a
+128 px thumbnail of it, which only a real browser's canvas can make, and that opening it still
+opens the photo.
+

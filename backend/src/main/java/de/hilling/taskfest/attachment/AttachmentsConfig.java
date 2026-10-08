@@ -25,8 +25,17 @@ public interface AttachmentsConfig {
     /** How long an upload link works: long enough for 10 MB on a slow line. */
     Duration uploadLinkLifetime();
 
-    /** How long a download link works; the browser fetches it straight away. */
+    /**
+     * How long a download link works. Handed out again while half of it is left, so the browser's
+     * cache can keep a file by its URL (#236); a link that leaks therefore works for this long.
+     */
     Duration downloadLinkLifetime();
+
+    /**
+     * The largest preview thumbnail accepted (#236). The browser makes it, a JPEG of a few
+     * kilobytes; one announced larger is not offered an upload link, and the row shows the file.
+     */
+    long maxThumbnailBytes();
 
     /**
      * How long a deleted task's attachments are kept for undo (D3). Far beyond the board's eight
