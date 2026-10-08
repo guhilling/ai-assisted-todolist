@@ -116,7 +116,7 @@ All endpoints require a session except `/api/auth/providers`.
 
 | Method | Path | |
 | --- | --- | --- |
-| `GET` | `/api/tasks` | the caller's tasks, by due date |
+| `GET` | `/api/tasks` | the caller's tasks, by due date, then importance (high first) |
 | `POST` | `/api/tasks` | create |
 | `PUT` | `/api/tasks/{id}` | replace |
 | `DELETE` | `/api/tasks/{id}` | delete |

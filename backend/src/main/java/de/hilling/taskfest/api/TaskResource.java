@@ -91,6 +91,8 @@ public class TaskResource {
             examples = @ExampleObject(name = "tasks", value = "[" + EXAMPLE_TASK + "]")))
     public List<TaskResponse> list() {
         User owner = currentUser();
+        // importance is a native enum, which sorts by its declared order, least important first
+        // (TaskImportance says so): descending puts what matters most first within a day (#217).
         List<Task> tasks = Task.<Task>find("owner = ?1 order by dueDate asc, importance desc, id asc", owner).list();
         // One query for every task's attachments, so the count of statements stays constant.
         Map<Long, List<Attachment>> attached = attachments.availableOf(tasks);
