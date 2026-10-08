@@ -72,8 +72,10 @@ logs nearly empty rather than noisy: before it, nothing about requests or sign-i
   never reach a REST resource. **Sign-out** is the application's own `/api/auth/logout`, which has
   no such event; its access line, which names the user, is the record, and the *Sign-ins* query
   shows both.
-- **Liquibase's summary** is logged as JSON only (`LIQUIBASE_SHOW_SUMMARY_OUTPUT=log`, set in the
-  image, so wherever it migrates); it used to appear a second time as plain text.
+- **Liquibase's summary** is logged as JSON only (`LIQUIBASE_COMMAND_SHOW_SUMMARY_OUTPUT=log`, set
+  in the image, so wherever it migrates); it used to appear a second time as plain text. The
+  summary is an argument of Liquibase's `update` command, hence the `COMMAND_` infix: the shorter
+  name used before had no effect and only made Liquibase warn about an invalid variable.
 
 **`provider`** is the provider that signed the user in, by the id the provider list knows it by:
 `google` in qa and prod, `keycloak` locally, `cognito` for qa's test accounts (#143). A `sub` is unique only within
