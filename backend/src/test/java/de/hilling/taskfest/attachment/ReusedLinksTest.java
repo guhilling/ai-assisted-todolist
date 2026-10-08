@@ -74,6 +74,29 @@ class ReusedLinksTest {
     }
 
     @Test
+    void shouldNeitherReuseNorLetTheBrowserKeepALinkWhoseCredentialsExpireSoon() {
+        // A presigned URL dies with the session that signed it (#236 review): one signed ten minutes
+        // before the task role's credentials rotate says so in its expiry, and is signed anew.
+        ReusedLinks links = new ReusedLinks(LIFETIME);
+        var soon = links.get("key", NOW, () -> new AttachmentStore.DownloadLink("https://short", NOW.plus(Duration.ofMinutes(10))));
+
+        assertEquals(Duration.ZERO, links.keepFor(soon, NOW));
+        assertNotEquals(soon, links.get("key", NOW, () -> sign(NOW)));
+    }
+
+    @Test
+    void shouldNotScanOnEveryRequestWhileManyLinksAreStillFresh() {
+        // Tidying that frees nothing raises the mark, so a busy backend does not scan per request.
+        ReusedLinks links = new ReusedLinks(LIFETIME);
+        for (int i = 0; i <= 1000; i++) {
+            links.get("fresh-" + i, NOW, () -> sign(NOW));
+        }
+        links.get("one-more", NOW, () -> sign(NOW));
+
+        assertEquals(2002, links.tidyAbove());
+    }
+
+    @Test
     void shouldClearOutExpiredLinksOnceThereAreMany() {
         // A backend runs for weeks; links for files long removed must not pile up.
         ReusedLinks links = new ReusedLinks(LIFETIME);

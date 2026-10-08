@@ -9,7 +9,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
+import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
+import software.amazon.awssdk.auth.credentials.AwsCredentials;
+import software.amazon.awssdk.auth.credentials.AwsSessionCredentials;
+import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.core.sync.RequestBody;
+import software.amazon.awssdk.identity.spi.AwsCredentialsIdentity;
+import software.amazon.awssdk.identity.spi.AwsSessionCredentialsIdentity;
+import software.amazon.awssdk.identity.spi.IdentityProvider;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
 import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
@@ -33,10 +40,14 @@ public class AttachmentStore {
     private final S3Presigner presigner;
     private final String bucket;
 
+    /** The client's own credentials, which the download links are signed with explicitly. */
+    private final IdentityProvider<? extends AwsCredentialsIdentity> credentials;
+
     AttachmentStore(S3Client s3, S3Presigner presigner, AttachmentsConfig config) {
         this.s3 = s3;
         this.presigner = presigner;
         this.bucket = config.bucket();
+        this.credentials = s3.serviceClientConfiguration().credentialsProvider();
     }
 
     /**
@@ -88,13 +99,36 @@ public class AttachmentStore {
      */
     public DownloadLink downloadLink(String key, String contentType, String fileName, Duration lifetime) {
         String encoded = URLEncoder.encode(fileName, StandardCharsets.UTF_8).replace("+", "%20");
+        // Signed with credentials resolved here, so their expiry is known: a presigned URL stops
+        // working when the session that signed it ends, and on ECS that is the task role's, which
+        // rotates. The link then says so, and is neither handed out again nor cached past it.
+        AwsCredentialsIdentity identity = credentials.resolveIdentity().join();
         PresignedGetObjectRequest signed = presigner.presignGetObject(request -> request
             .signatureDuration(lifetime)
             .getObjectRequest(get -> get.bucket(bucket).key(key)
                 .responseContentType(contentType)
                 .responseCacheControl("private, max-age=" + lifetime.toSeconds())
-                .responseContentDisposition("inline; filename*=UTF-8''" + encoded)));
-        return new DownloadLink(signed.url().toString(), signed.expiration());
+                .responseContentDisposition("inline; filename*=UTF-8''" + encoded)
+                .overrideConfiguration(override -> override.credentialsProvider(
+                    StaticCredentialsProvider.create(asCredentials(identity))))));
+        return new DownloadLink(signed.url().toString(), worksUntil(signed.expiration(), identity.expirationTime()));
+    }
+
+    /** The resolved identity as the credentials type a request override takes, session token included. */
+    private static AwsCredentials asCredentials(AwsCredentialsIdentity identity) {
+        if (identity instanceof AwsCredentials credentials) {
+            return credentials;
+        }
+        if (identity instanceof AwsSessionCredentialsIdentity session) {
+            return AwsSessionCredentials.create(session.accessKeyId(), session.secretAccessKey(),
+                session.sessionToken());
+        }
+        return AwsBasicCredentials.create(identity.accessKeyId(), identity.secretAccessKey());
+    }
+
+    /** Until when a link works: its own expiry, or the signing credentials' when they end first. */
+    static Instant worksUntil(Instant signedUntil, Optional<Instant> credentialsExpire) {
+        return credentialsExpire.filter(end -> end.isBefore(signedUntil)).orElse(signedUntil);
     }
 
     /**

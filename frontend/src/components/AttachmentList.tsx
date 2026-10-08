@@ -103,8 +103,13 @@ function Preview({
           setSource(url)
         }
       })
-      // No preview is not worth a banner; the file still opens from the box.
-      .catch(() => undefined)
+      // No thumbnail is the file instead; no preview at all is not worth a banner, as the file
+      // still opens from the box.
+      .catch(() => {
+        if (current && thumbnail) {
+          setThumbnail(false)
+        }
+      })
     return () => {
       current = false
     }

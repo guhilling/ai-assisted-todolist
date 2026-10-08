@@ -13,11 +13,12 @@ function json(value: unknown, status = 200) {
   return Promise.resolve(new Response(value === null ? null : JSON.stringify(value), { status }))
 }
 
-function board(photo: Record<string, unknown>) {
+function board(photo: Record<string, unknown>, thumbnailLinkStatus = 200) {
   globalThis.fetch = vi.fn((input: RequestInfo | URL) => {
     const url = String(input)
     if (url.includes('/api/auth/me')) return json({ email: 'alice@example.com' })
     if (url.includes('/api/auth/providers')) return json({ enabled: true, providers: [] })
+    if (url.endsWith('/thumbnail-link') && thumbnailLinkStatus !== 200) return json(null, thumbnailLinkStatus)
     if (url.endsWith('/thumbnail-link')) return json({ url: 'https://bucket.example.com/thumbnail', expiresAt: '2099-01-01T00:00:00Z' })
     if (url.endsWith('/link')) return json({ url: 'https://bucket.example.com/file', expiresAt: '2099-01-01T00:00:00Z' })
     if (url.endsWith('/api/tasks')) {
@@ -53,5 +54,11 @@ describe('previewing an image on its row', () => {
     fireEvent.error(image)
 
     await waitFor(() => expect(screen.getByAltText('beach.jpg')).toHaveAttribute('src', 'https://bucket.example.com/file'))
+  })
+
+  it('falls back to the file when no link to the thumbnail can be had', async () => {
+    board({ thumbnail: true }, 404)
+
+    expect(await screen.findByAltText('beach.jpg')).toHaveAttribute('src', 'https://bucket.example.com/file')
   })
 })

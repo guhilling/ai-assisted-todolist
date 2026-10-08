@@ -626,13 +626,15 @@ export async function uploadAttachment(
     'uploadAttachment',
   )
 
-  await putToStorage(upload.url, upload.headers, file, onProgress)
-  if (thumbnail && upload.thumbnailUpload) {
-    // Without it the row shows the file itself, as it did before thumbnails.
-    await putToStorage(upload.thumbnailUpload.url, upload.thumbnailUpload.headers, thumbnail, () => {}).catch(
-      () => undefined,
-    )
-  }
+  // Side by side, the thumbnail's few kilobytes alongside the file; without it the row shows the
+  // file itself, as it did before thumbnails, so its failure fails nothing.
+  const thumbnailUpload = upload.thumbnailUpload
+  await Promise.all([
+    putToStorage(upload.url, upload.headers, file, onProgress),
+    thumbnail && thumbnailUpload
+      ? putToStorage(thumbnailUpload.url, thumbnailUpload.headers, thumbnail, () => {}).catch(() => undefined)
+      : undefined,
+  ])
 
   const confirmed = await fetch(`${attachmentsUrl(taskId, upload.attachment.id)}/confirm`, {
     method: 'POST',

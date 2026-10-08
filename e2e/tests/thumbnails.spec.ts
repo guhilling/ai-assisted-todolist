@@ -16,18 +16,21 @@ const identity = currentIdentity()
 // Set by e2e/live/backend-state.ts for a live run; never set against the Compose stack.
 test.skip(() => process.env.LIVE_BACKEND_DOWN === '1', 'the environment is down')
 
-/** A photo large enough to be scaled down: a canvas-drawn 1600 x 1200 PNG, made in the page. */
+/**
+ * A photo to be scaled down: an 800 x 600 PNG of noise, made in the page. Noise, because a file of
+ * 64 KB or less is shown as it is, and a smooth picture compresses below that.
+ */
 async function photo(page: import('@playwright/test').Page) {
   const dataUrl = await page.evaluate(() => {
     const canvas = document.createElement('canvas')
-    canvas.width = 1600
-    canvas.height = 1200
+    canvas.width = 800
+    canvas.height = 600
     const context = canvas.getContext('2d')!
-    const gradient = context.createLinearGradient(0, 0, 1600, 1200)
-    gradient.addColorStop(0, '#2a6')
-    gradient.addColorStop(1, '#36c')
-    context.fillStyle = gradient
-    context.fillRect(0, 0, 1600, 1200)
+    const pixels = context.createImageData(800, 600)
+    for (let i = 0; i < pixels.data.length; i++) {
+      pixels.data[i] = i % 4 === 3 ? 255 : Math.floor(Math.random() * 256)
+    }
+    context.putImageData(pixels, 0, 0)
     return canvas.toDataURL('image/png')
   })
   return Buffer.from(dataUrl.split(',')[1], 'base64')
@@ -48,7 +51,7 @@ test('shows a photo on its row by a thumbnail the browser made', async ({ page }
   await expect(editor.getByRole('button', { name: 'Remove beach.png' })).toBeVisible()
   await editor.getByRole('button', { name: 'Cancel' }).click()
 
-  // The row shows the thumbnail: scaled to 128 px on its shorter side, not the 1600 x 1200 original.
+  // The row shows the thumbnail: scaled to 128 px on its shorter side, not the 800 x 600 original.
   const preview = row.getByRole('img', { name: 'beach.png' })
   await expect.poll(() => preview.evaluate((image: HTMLImageElement) => image.naturalHeight)).toBe(128)
   expect(await preview.getAttribute('src')).toContain('.thumbnail')

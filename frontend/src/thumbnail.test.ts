@@ -22,11 +22,15 @@ describe('the size of a thumbnail', () => {
 })
 
 describe('making a thumbnail', () => {
-  const photo = new File(['x'], 'beach.jpg', { type: 'image/jpeg' })
+  // Larger than a thumbnail may be: a file that small is shown as it is.
+  const photo = new File(['x'.repeat(64 * 1024 + 1)], 'beach.jpg', { type: 'image/jpeg' })
+  const bitmap = { width: 4000, height: 1000, close: vi.fn() }
 
-  function browser(options: { written?: Blob | null; context?: boolean } = {}) {
+  function browser(options: { written?: Blob | null; context?: boolean; size?: { width: number; height: number } } = {}) {
     const context = { fillStyle: '', fillRect: vi.fn(), drawImage: vi.fn() }
-    vi.stubGlobal('createImageBitmap', vi.fn(async () => ({ width: 4000, height: 1000, close: vi.fn() })))
+    bitmap.close = vi.fn()
+    Object.assign(bitmap, options.size ?? { width: 4000, height: 1000 })
+    vi.stubGlobal('createImageBitmap', vi.fn(async () => bitmap))
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(
       (options.context === false ? null : context) as unknown as CanvasRenderingContext2D,
     )
@@ -51,6 +55,29 @@ describe('making a thumbnail', () => {
     expect(context.drawImage).toHaveBeenCalledWith(expect.anything(), 0, 0, 4000, 1000, 0, 0, 512, 128)
   })
 
+  it('turns the image the way its camera meant, as the full image is shown', async () => {
+    browser()
+
+    await makeThumbnail(photo)
+
+    expect(createImageBitmap).toHaveBeenCalledWith(photo, { imageOrientation: 'from-image' })
+  })
+
+  it('makes none for a file already small enough to show as it is', async () => {
+    // A small PNG keeps its transparency and a GIF its animation that way.
+    browser()
+
+    expect(await makeThumbnail(new File(['x'.repeat(1000)], 'icon.png', { type: 'image/png' }))).toBeNull()
+    expect(createImageBitmap).not.toHaveBeenCalled()
+  })
+
+  it('makes none for an image that would not be scaled down', async () => {
+    browser({ size: { width: 120, height: 100 } })
+
+    expect(await makeThumbnail(photo)).toBeNull()
+    expect(bitmap.close).toHaveBeenCalled()
+  })
+
   it('makes none where the browser cannot decode images for a canvas', async () => {
     expect(await makeThumbnail(photo)).toBeNull()
   })
@@ -62,10 +89,11 @@ describe('making a thumbnail', () => {
     expect(await makeThumbnail(photo)).toBeNull()
   })
 
-  it('makes none without a canvas to draw on', async () => {
+  it('makes none without a canvas to draw on, and lets go of the decoded image', async () => {
     browser({ context: false })
 
     expect(await makeThumbnail(photo)).toBeNull()
+    expect(bitmap.close).toHaveBeenCalled()
   })
 
   it('makes none when the browser writes no JPEG, or one too large', async () => {

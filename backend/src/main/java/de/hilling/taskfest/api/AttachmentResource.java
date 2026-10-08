@@ -221,13 +221,14 @@ public class AttachmentResource {
      *     {@code UNSUPPORTED_TYPE} rather than rejected as malformed
      * @param sizeBytes its size, at most the configured limit (D1)
      * @param thumbnailSizeBytes the size of the JPEG preview thumbnail the browser made of an image
-     *     (#236), or absent for none; one that does not fit is not offered a link, not refused
+     *     (#236), or absent for none; one that does not fit -- zero or less included, hence no
+     *     {@code @Min} -- is not offered a link, and the file is not refused for it
      */
     public record AnnounceRequest(
         @NotBlank @Size(max = MAX_ANNOUNCED_FILE_NAME_LENGTH) @Schema(example = "Rechnung.pdf") String fileName,
         @NotNull @Size(max = MAX_CONTENT_TYPE_LENGTH) @Schema(example = "application/pdf") String contentType,
         @NotNull @Min(1) @Schema(example = "48213") Long sizeBytes,
-        @Min(1) @Schema(example = "6120", nullable = true) Long thumbnailSizeBytes
+        @Schema(example = "6120", nullable = true) Long thumbnailSizeBytes
     ) {
     }
 

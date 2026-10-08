@@ -261,7 +261,10 @@ least half of that is left. The answer carries `Cache-Control: private, max-age`
 so the browser does not even ask again, and storage answers the GET with a `Cache-Control` of its
 own (`response-cache-control`, signed into the link), so the file stays in the browser's cache. Each
 backend task keeps its own links; with two, a browser may see two URLs for a file, which costs one
-fetch. The price is that a link that leaks works for an hour rather than five minutes, to someone
+fetch. **A presigned URL dies with the session that signed it**, whatever expiry it was signed for,
+and on ECS that is the task role's, which rotates: links are signed with credentials resolved for
+the purpose, and one whose credentials end first says so in its expiry, so it is neither handed out
+again nor cached past it. The price is that a link that leaks works for an hour rather than five minutes, to someone
 who could only have got it from the owner's browser.
 
 

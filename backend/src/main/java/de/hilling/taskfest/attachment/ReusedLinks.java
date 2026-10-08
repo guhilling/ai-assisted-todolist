@@ -18,11 +18,17 @@ import java.util.function.Supplier;
  */
 final class ReusedLinks {
 
-    /** How many links are kept before the expired ones are cleared out; far more than are in use. */
+    /** How many links are kept before the expired ones are first cleared out; far more than are in use. */
     private static final int TIDY_ABOVE = 1000;
 
     private final Map<String, AttachmentStore.DownloadLink> links = new ConcurrentHashMap<>();
     private final Duration lifetime;
+
+    /**
+     * The size at which the next clear-out happens: twice what the last one left, so one that frees
+     * little is not repeated on every request.
+     */
+    private volatile int tidyAbove = TIDY_ABOVE;
 
     /** @param lifetime how long a newly signed link works */
     ReusedLinks(Duration lifetime) {
@@ -39,8 +45,9 @@ final class ReusedLinks {
      * @return the link
      */
     AttachmentStore.DownloadLink get(String key, Instant now, Supplier<AttachmentStore.DownloadLink> sign) {
-        if (links.size() > TIDY_ABOVE) {
+        if (links.size() > tidyAbove) {
             forgetExpired(now);
+            tidyAbove = Math.max(TIDY_ABOVE, links.size() * 2);
         }
         return links.compute(key, (ignored, current) ->
             current != null && !now.isAfter(reusableUntil(current)) ? current : sign.get());
@@ -59,6 +66,11 @@ final class ReusedLinks {
     /** Drops the links that no longer work. */
     void forgetExpired(Instant now) {
         links.values().removeIf(link -> !link.expiresAt().isAfter(now));
+    }
+
+    /** @return the size at which expired links are next cleared out */
+    int tidyAbove() {
+        return tidyAbove;
     }
 
     /** @return how many links are kept */

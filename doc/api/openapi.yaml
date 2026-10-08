@@ -33,7 +33,6 @@ components:
           format: int64
           examples:
           - 6120
-          minimum: 1
     AttachmentResponse:
       type: object
       required:

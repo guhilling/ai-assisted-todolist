@@ -32,35 +32,47 @@ export function thumbnailSize(width: number, height: number) {
 }
 
 /**
- * A JPEG thumbnail of an image file, or null when this browser cannot make one or it would not be
- * small enough. Drawn on white, since a JPEG has no transparency to keep.
+ * A JPEG thumbnail of an image file, or null when it needs none -- a file small enough to show as
+ * it is, which keeps a PNG's transparency and a GIF's animation, or an image that would not be
+ * scaled down -- or when this browser cannot make one, or it would not be small enough. Drawn on
+ * white, since a JPEG has no transparency to keep, and turned as the camera meant, as the row would
+ * show the file itself.
  */
 export async function makeThumbnail(file: File): Promise<Blob | null> {
+  if (file.size <= MAX_BYTES || typeof createImageBitmap !== 'function') {
+    return null
+  }
+  let bitmap: ImageBitmap | null = null
   try {
-    if (typeof createImageBitmap !== 'function') {
+    bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' })
+    const size = thumbnailSize(bitmap.width, bitmap.height)
+    const canvas = size.width < bitmap.width ? canvasOf(size) : null
+    const context = canvas?.getContext('2d')
+    if (!canvas || !context) {
       return null
     }
-    const bitmap = await createImageBitmap(file)
-    const size = thumbnailSize(bitmap.width, bitmap.height)
     // The part of the image the thumbnail shows: all of it, or the middle of a panorama.
     const scale = Math.max(size.width / bitmap.width, size.height / bitmap.height)
     const sourceWidth = size.width / scale
     const sourceHeight = size.height / scale
-    const canvas = document.createElement('canvas')
-    canvas.width = size.width
-    canvas.height = size.height
-    const context = canvas.getContext('2d')
-    if (!context) {
-      return null
-    }
     context.fillStyle = '#fff'
     context.fillRect(0, 0, size.width, size.height)
     context.drawImage(bitmap, (bitmap.width - sourceWidth) / 2, (bitmap.height - sourceHeight) / 2, sourceWidth,
       sourceHeight, 0, 0, size.width, size.height)
-    bitmap.close()
     const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.8))
     return blob && blob.type === 'image/jpeg' && blob.size <= MAX_BYTES ? blob : null
   } catch {
     return null
+  } finally {
+    // The decoded image is the full photo, tens of megabytes: let it go whatever happened.
+    bitmap?.close()
   }
+}
+
+/** A canvas of this size to draw on. */
+function canvasOf(size: { width: number; height: number }) {
+  const canvas = document.createElement('canvas')
+  canvas.width = size.width
+  canvas.height = size.height
+  return canvas
 }

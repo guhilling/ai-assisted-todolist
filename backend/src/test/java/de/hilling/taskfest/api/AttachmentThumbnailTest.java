@@ -107,6 +107,15 @@ class AttachmentThumbnailTest {
     }
 
     @Test
+    @TestSecurity(user = "emptythumb@example.com")
+    @OidcSecurity(claims = { @Claim(key = "email", value = "emptythumb@example.com") })
+    void shouldNotRefuseTheFileForAnEmptyThumbnail() {
+        long taskId = createTask("Empty canvas");
+
+        announce(taskId, "empty.jpg", "image/jpeg", 100, 0L).statusCode(201).body("thumbnailUpload", nullValue());
+    }
+
+    @Test
     @TestSecurity(user = "plain@example.com")
     @OidcSecurity(claims = { @Claim(key = "email", value = "plain@example.com") })
     void shouldAnnounceAnImageWithoutAThumbnailAsBefore() {
