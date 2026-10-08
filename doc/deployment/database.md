@@ -24,6 +24,13 @@ older snapshot, run the plan by hand with `-var db_restore_snapshot=…` (or `=n
 are never deleted automatically; at this size each is cents a month, and old ones are removed in
 the console when wanted.
 
+**Starting empty or from an older snapshot costs attachment files.** The attachment bucket
+survives `down` and is not versioned, and the orphan clean-up deletes, after seven days, every file
+no attachment refers to ([attachments.md](attachments.md)). From an older snapshot, the files
+written since it was taken are such files. Started empty, the clean-up deletes nothing until the
+first attachment exists -- and then every file older than seven days on its next hourly run. The
+orphan alarm mails within the hour either way; put the right snapshot back before the files go.
+
 **The application logs in with IAM, not a password.** The ECS task role
 (`taskfest-<env>-task`) may `rds-db:connect` as one database user, `taskfest_<env>`, and
 nothing else. On every new connection `RdsIamCredentialsProvider` signs a token from the task

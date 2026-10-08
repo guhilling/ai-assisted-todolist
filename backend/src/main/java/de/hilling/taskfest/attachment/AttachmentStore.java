@@ -5,6 +5,7 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
@@ -20,8 +21,8 @@ import software.amazon.awssdk.services.s3.presigner.model.PresignedPutObjectRequ
  *
  * <p>The browser moves file content itself, through links signed here: an upload link that only
  * accepts exactly the announced size and type -- both are signed into it, so S3 refuses anything
- * else -- and a short-lived download link. The backend itself only asks whether an object is there
- * and deletes it.</p>
+ * else -- and a short-lived download link. The backend itself asks whether an object is there, deletes
+ * it, and lists the bucket for the orphan clean-up (#208).</p>
  */
 @ApplicationScoped
 public class AttachmentStore {
@@ -89,6 +90,22 @@ public class AttachmentStore {
                 .responseContentType(kind.contentType())
                 .responseContentDisposition("inline; filename*=UTF-8''" + encoded)));
         return new DownloadLink(signed.url().toString(), signed.expiration());
+    }
+
+    /**
+     * One object in the bucket, as a listing returns it.
+     *
+     * @param key its key
+     * @param lastModified when it was written
+     */
+    public record StoredObject(String key, Instant lastModified) {
+    }
+
+    /** Every object in the bucket, page by page; at demo sizes, a handful of requests. */
+    public List<StoredObject> list() {
+        return s3.listObjectsV2Paginator(list -> list.bucket(bucket)).contents().stream()
+            .map(object -> new StoredObject(object.key(), object.lastModified()))
+            .toList();
     }
 
     /** What S3 holds under the key, or empty when nothing is there. */

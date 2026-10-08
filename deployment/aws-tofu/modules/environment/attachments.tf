@@ -106,9 +106,11 @@ resource "aws_s3_bucket_policy" "attachments" {
   depends_on = [aws_s3_bucket_public_access_block.attachments]
 }
 
-# What the backend signs links with, and deletes with. ListBucket is not for listing: without it
-# S3 answers a HEAD on a missing object with 403 instead of 404, and "not uploaded yet" -- the
-# confirm the browser sends too early -- would become a server error.
+# What the backend signs links with, deletes with, and lists. ListBucket does two jobs: the orphan
+# clean-up (#208) lists the bucket hourly, and without it S3 answers a HEAD on a missing object with
+# 403 instead of 404, so "not uploaded yet" -- the confirm the browser sends too early -- would
+# become a server error. Narrowing it breaks both, and LocalStack, which enforces no IAM, would not
+# notice.
 data "aws_iam_policy_document" "task_attachments" {
   statement {
     sid       = "ReadWriteAndDeleteAttachments"
@@ -117,7 +119,7 @@ data "aws_iam_policy_document" "task_attachments" {
   }
 
   statement {
-    sid       = "TellAMissingAttachmentFromAForbiddenOne"
+    sid       = "ListForTheCleanUpAndTellMissingFromForbidden"
     actions   = ["s3:ListBucket"]
     resources = [aws_s3_bucket.attachments.arn]
   }

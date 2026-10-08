@@ -104,6 +104,7 @@ Also checked and not chosen:
 | [Deploying: two paths, chosen by the release](deploying.md) | Blue/green, or downtime for a migration |
 | [How an environment is torn down](teardown.md) | The `running` switch, and CloudFront's `/api/*` origin |
 | [The database](database.md) | RDS, IAM sign-in, snapshots and restores |
+| [Attachment storage](attachments.md) | The bucket, the sweeps that keep it tidy, and what they cost |
 | [Observability](observability.md) | Logs, metrics, alarms |
 | [Image scanning](image-scanning.md) | Amazon Inspector on the running images, and the issue it raises |
 | [Cost](cost.md) | What an environment costs, measured |
