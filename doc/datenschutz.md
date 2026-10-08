@@ -131,8 +131,11 @@ eine Verarbeitung, die auf berechtigten Interessen beruht (Art. 15–21 DSGVO).
 
 **Um Ihr Konto zu löschen**, wählen Sie oben auf der Übersicht *Konto löschen*. Nach einer
 Bestätigung wird Ihr Konto sofort mit allem gelöscht, was es enthält: Ihre E-Mail-Adresse, alle
-Ihre Aufgaben und alle Ihre Dateien. Danach werden Sie abgemeldet. Melden Sie sich später wieder
-an, beginnt ein neues, leeres Konto. Sie können auch an die oben genannte Adresse schreiben.
+Ihre Aufgaben und alle Ihre Dateien. Einzige Ausnahme ist eine Datei, die in diesem Moment noch
+hochgeladen wurde: Sie kann nach der Löschung ankommen und wird dann innerhalb von sieben Tagen
+gelöscht. Danach werden Sie abgemeldet, und eine auf einem anderen Gerät noch offene Sitzung
+funktioniert nicht mehr. Melden Sie sich später wieder an, beginnt ein neues, leeres Konto. Sie
+können auch an die oben genannte Adresse schreiben.
 
 **Was eine Löschung hinterlässt:** einen Vermerk, dass das Konto gelöscht wurde, damit die
 Löschung auch für eine später wiederhergestellte Datensicherung oder ein Abbild der Datenbank gilt.
@@ -140,8 +143,8 @@ Der Vermerk enthält einen SHA-256-Hashwert Ihrer E-Mail-Adresse und den Zeitpun
 sonst nichts; er liegt bei den Anhängen in Amazon S3 in der AWS-Region Frankfurt. Er enthält Ihre
 Adresse nicht, ist aber pseudonym und nicht anonym: Wer Ihre Adresse bereits kennt, kann den
 Hashwert berechnen und so sehen, dass ein Konto mit dieser Adresse gelöscht wurde. Er wird
-aufbewahrt, solange eine vor der Löschung angelegte Sicherung oder ein solches Abbild noch
-wiederhergestellt werden kann. Rechtsgrundlage: Art. 6 Abs. 1 lit. c DSGVO in Verbindung mit
+automatisch gelöscht, sobald es keine Sicherung und kein Abbild der Datenbank mehr gibt, das älter
+als die Löschung ist, da dann keines das Konto zurückbringen könnte. Rechtsgrundlage: Art. 6 Abs. 1 lit. c DSGVO in Verbindung mit
 Art. 17 DSGVO, der Pflicht zur Löschung, die eine wiederhergestellte Sicherung sonst rückgängig
 machen würde.
 

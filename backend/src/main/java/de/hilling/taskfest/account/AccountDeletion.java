@@ -4,6 +4,7 @@ import de.hilling.taskfest.attachment.Attachment;
 import de.hilling.taskfest.attachment.AttachmentService;
 import de.hilling.taskfest.model.Task;
 import de.hilling.taskfest.model.User;
+import io.quarkus.cache.CacheManager;
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.persistence.LockModeType;
@@ -16,29 +17,36 @@ import org.slf4j.LoggerFactory;
  * Deletes an account with everything it holds (#213): every task, every attachment -- record and
  * file -- and the user.
  *
- * <p>The order is what makes it safe to repeat. The deletion record is written first, so an
- * attempt that fails half way is finished by the next one, or by the replay after a restart. Then
- * each attachment goes as attachments always do, file before record. Last, in one transaction with
- * the user's row locked against a racing upload, whatever attachment records remain, the tasks,
- * and the user; a file an upload slipped in meanwhile is an orphan the clean-up of #208 removes.</p>
+ * <p>The deletion record is written last, once everything is gone: a deletion that fails half way
+ * is reported as failed, and must not be carried out later behind the user's back by the replay.
+ * Asking again finishes it. Each attachment goes as attachments always do, file before record;
+ * then, in one transaction with the user's row locked against a racing upload, whatever attachment
+ * records remain, the tasks, and the user. A file an upload was still sending can land after that,
+ * with nothing referring to it: the orphan clean-up of #208 removes it within seven days, which
+ * the privacy policy says (Gunnar's decision on #224).</p>
  */
 @ApplicationScoped
 public class AccountDeletion {
 
     private static final Logger LOG = LoggerFactory.getLogger(AccountDeletion.class);
 
+    /** The avatar cache {@code GravatarService} keys by email: a deleted address must not stay in it. */
+    private static final String AVATAR_CACHE = "gravatar-avatars";
+
     private final DeletionRecords records;
     private final AttachmentService attachments;
+    private final CacheManager caches;
 
-    AccountDeletion(DeletionRecords records, AttachmentService attachments) {
+    AccountDeletion(DeletionRecords records, AttachmentService attachments, CacheManager caches) {
         this.records = records;
         this.attachments = attachments;
+        this.caches = caches;
     }
 
-    /** Deletes the account with this email, recording when, and logs counts -- never the address. */
+    /** Deletes the account with this email, then records when; logs counts, never the address. */
     public void delete(String email) {
-        records.record(email, Instant.now());
         purge(email);
+        records.record(email, Instant.now());
     }
 
     /**
@@ -46,6 +54,7 @@ public class AccountDeletion {
      * Doing nothing for an account that does not exist is what makes a repeat harmless.
      */
     void purge(String email) {
+        caches.getCache(AVATAR_CACHE).ifPresent(cache -> cache.invalidate(email).await().indefinitely());
         User user = QuarkusTransaction.requiringNew().call(() -> User.<User>find("email", email).firstResult());
         if (user == null) {
             return;

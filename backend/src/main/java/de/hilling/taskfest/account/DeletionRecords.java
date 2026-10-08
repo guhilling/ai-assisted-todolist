@@ -46,19 +46,34 @@ public class DeletionRecords {
         store.putText(PREFIX + hash(email), deletedAt.toString());
     }
 
-    /** When the account with this email was deleted, if it ever was. */
+    /**
+     * When the account with this email was deleted, if it ever was: the time the record was
+     * written, which S3 keeps itself. The record's body says the same for a person reading it.
+     */
     public Optional<Instant> deletedAt(String email) {
-        return store.getText(PREFIX + hash(email)).map(text -> Instant.parse(text.strip()));
+        return store.head(PREFIX + hash(email)).map(head -> head.lastModified());
     }
 
-    /** Every deletion on record. */
+    /** Every deletion on record, in one listing: the times are the objects' own. */
     public List<Deletion> all() {
         return store.listUnder(PREFIX).stream()
-            .map(object -> object.key().substring(PREFIX.length()))
-            .flatMap(emailHash -> store.getText(PREFIX + emailHash)
-                .map(text -> new Deletion(emailHash, Instant.parse(text.strip())))
-                .stream())
+            .map(object -> new Deletion(object.key().substring(PREFIX.length()), object.lastModified()))
             .toList();
+    }
+
+    /** Removes a record that is no longer needed. */
+    public void remove(Deletion deletion) {
+        store.delete(PREFIX + deletion.emailHash());
+    }
+
+    /**
+     * The records no restore can make necessary again: those older than the oldest point the
+     * database could be restored to. None when that point is unknown.
+     */
+    public static List<Deletion> prunable(List<Deletion> records, Optional<Instant> oldestRestorable) {
+        return oldestRestorable
+            .map(oldest -> records.stream().filter(record -> record.deletedAt().isBefore(oldest)).toList())
+            .orElse(List.of());
     }
 
     /** The SHA-256 of the email exactly as the identity provider sent it, which is how users are keyed. */

@@ -12,14 +12,11 @@ import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
-import jakarta.ws.rs.core.Cookie;
 import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.NewCookie;
 import jakarta.ws.rs.core.Response;
 import java.net.URI;
-import java.util.List;
-import java.util.function.Predicate;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import io.quarkus.oidc.IdToken;
 import org.eclipse.microprofile.jwt.JsonWebToken;
@@ -58,7 +55,7 @@ public class AuthResource {
      */
     private static final int MAX_URL_LENGTH = 2048;
 
-    private static final String SESSION_COOKIE = "q_session";
+    private static final String SESSION_COOKIE = SessionCookies.SESSION_COOKIE;
 
     /**
      * Quarkus OIDC's state cookie, {@code q_auth} or {@code q_auth_<tenant>}, set while a sign-in
@@ -133,7 +130,7 @@ public class AuthResource {
      */
     private Response signedInWith(String session) {
         Response.ResponseBuilder response = Response.seeOther(URI.create(postLoginRedirectUri));
-        for (NewCookie expired : expiredSessionCookies(name -> !belongsTo(name, session))) {
+        for (NewCookie expired : SessionCookies.expired(httpHeaders, name -> !belongsTo(name, session))) {
             response.cookie(expired);
         }
         httpHeaders.getCookies().keySet().stream()
@@ -148,14 +145,8 @@ public class AuthResource {
     }
 
     /**
-     * Ends the local session by expiring every session cookie the browser sent.
-     *
-     * <p>Naming one cookie is not enough. Quarkus splits the session across
-     * {@code q_session_chunk_1}, {@code q_session_chunk_2} and so on once the encrypted
-     * tokens outgrow the 4 KB a single cookie holds, and whether it does that depends on how
-     * large the tokens happen to be. Expiring only {@code q_session} therefore worked or
-     * silently did nothing depending on the run, leaving people signed in after they had
-     * asked to be signed out.</p>
+     * Ends the local session by expiring every session cookie the browser sent
+     * ({@link SessionCookies} says why that means every one).
      *
      * <p>This is deliberately not an RP-initiated logout: the identity provider's own
      * session survives, so signing out here and back in again will not prompt for
@@ -169,25 +160,10 @@ public class AuthResource {
     @APIResponse(responseCode = "303", description = "Signed out; redirects to the post-login URI.")
     public Response logout() {
         Response.ResponseBuilder response = Response.seeOther(URI.create(postLoginRedirectUri));
-        for (NewCookie expired : expiredSessionCookies(name -> true)) {
+        for (NewCookie expired : SessionCookies.expired(httpHeaders, name -> true)) {
             response.cookie(expired);
         }
         return response.build();
-    }
-
-    private List<NewCookie> expiredSessionCookies(Predicate<String> which) {
-        return httpHeaders.getCookies().values().stream()
-            .map(Cookie::getName)
-            .filter(AuthResource::isSessionCookie)
-            .filter(which)
-            .map(name -> new NewCookie.Builder(name).path("/").maxAge(0).build())
-            .toList();
-    }
-
-    private static boolean isSessionCookie(String name) {
-        // The chunks are q_session_chunk_N, and a named tenant would add its own suffix, so
-        // match the prefix rather than enumerating the shapes.
-        return name.equals(SESSION_COOKIE) || name.startsWith(SESSION_COOKIE + "_");
     }
 
     @GET

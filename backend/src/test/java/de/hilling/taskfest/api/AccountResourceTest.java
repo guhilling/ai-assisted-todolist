@@ -15,14 +15,17 @@ import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.junit.TestProfile;
 import io.quarkus.test.security.TestSecurity;
 import io.quarkus.test.security.oidc.Claim;
+import io.quarkus.test.security.oidc.ClaimType;
 import io.quarkus.test.security.oidc.OidcSecurity;
 import jakarta.inject.Inject;
+import java.time.Instant;
 import java.time.LocalDate;
 import org.junit.jupiter.api.Test;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 
 import static io.restassured.RestAssured.given;
+import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -105,6 +108,44 @@ class AccountResourceTest {
         given().when().delete("/api/account").then().statusCode(204);
 
         assertEquals(0L, count(() -> User.count("email", "nothing-yet@example.com")));
+    }
+
+    @Test
+    @TestSecurity(user = "cookies@example.com")
+    @OidcSecurity(claims = { @Claim(key = "email", value = "cookies@example.com") })
+    void shouldEndTheSessionInThisBrowser() {
+        given().cookie("q_session", "x").cookie("q_session_chunk_1", "y")
+            .when().delete("/api/account")
+            .then().statusCode(204)
+            .header("Set-Cookie", containsString("q_session=;"));
+    }
+
+    @Test
+    @TestSecurity(user = "old-session@example.com")
+    @OidcSecurity(claims = {
+        @Claim(key = "email", value = "old-session@example.com"),
+        // Issued in 2001: a session from before the deletion, still held by another device.
+        @Claim(key = "iat", value = "1000000000", type = ClaimType.LONG) })
+    void shouldRefuseASessionIssuedBeforeTheDeletion() {
+        records.record("old-session@example.com", Instant.now());
+
+        given().when().get("/api/tasks").then().statusCode(401);
+
+        assertEquals(0L, count(() -> User.count("email", "old-session@example.com")));
+    }
+
+    @Test
+    @TestSecurity(user = "new-session@example.com")
+    @OidcSecurity(claims = {
+        @Claim(key = "email", value = "new-session@example.com"),
+        // Issued in 2100: a sign-in after the deletion, which starts a new, empty account.
+        @Claim(key = "iat", value = "4102444800", type = ClaimType.LONG) })
+    void shouldStartANewAccountForASignInAfterTheDeletion() {
+        records.record("new-session@example.com", Instant.now());
+
+        given().when().get("/api/tasks").then().statusCode(200);
+
+        assertEquals(1L, count(() -> User.count("email", "new-session@example.com")));
     }
 
     /** What a user holds: one task with one uploaded attachment. */

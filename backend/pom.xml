@@ -93,9 +93,11 @@
             <artifactId>quarkus-jdbc-postgresql</artifactId>
         </dependency>
         <dependency>
-            <!-- RdsUtilities, which signs the IAM database authentication token. Signing is
-                 local, so neither HTTP client is needed: no RDS API call is ever made, and the
-                 task-role credentials are fetched by the SDK's own JDK-based loader. -->
+            <!-- RdsUtilities, which signs the IAM database authentication token locally, and the
+                 RDS client that lists the database's snapshots, so account deletion records are
+                 kept exactly as long as a snapshot could bring an account back (#213). That one
+                 call goes over the url-connection-client below; the Apache and Netty clients stay
+                 excluded. -->
             <groupId>software.amazon.awssdk</groupId>
             <artifactId>rds</artifactId>
             <exclusions>
@@ -321,6 +323,8 @@
                         <param>de.hilling.taskfest.attachment.AttachmentPolicyTest</param>
                         <param>de.hilling.taskfest.attachment.OrphanPlanTest</param>
                         <param>de.hilling.taskfest.account.DeletionRecordsHashTest</param>
+                        <param>de.hilling.taskfest.account.DeletionPruningTest</param>
+                        <param>de.hilling.taskfest.account.RdsRestorePointsTest</param>
                     </targetTests>
                     <!-- The classes no allowlisted test reaches, excluded so the score reflects
                          what was actually measured rather than being diluted by code PIT could
@@ -349,6 +353,10 @@
                              S3 methods count as uncovered there. -->
                         <param>de.hilling.taskfest.account.AccountDeletion*</param>
                         <param>de.hilling.taskfest.account.DeletionReplay*</param>
+                        <param>de.hilling.taskfest.account.AccountGate*</param>
+                        <param>de.hilling.taskfest.account.AccountsConfig*</param>
+                        <param>de.hilling.taskfest.account.RestorePointsProducer*</param>
+                        <param>de.hilling.taskfest.api.SessionCookies*</param>
                         <param>de.hilling.taskfest.api.AccountResource*</param>
                         <!-- Narrowed from service.* when the Gravatar classes earned plain unit
                              tests; UserService still has none that avoids booting Quarkus. -->

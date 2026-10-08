@@ -188,6 +188,18 @@ html {
   font-size: var(--font-body);
 }
 
+/* On a phone the header wraps and the identity row starts at the left gutter, so a panel anchored
+   to its right edge would hang off the screen: there it spans the page between the gutters. */
+@media (max-width: 480px) {
+  .account-confirm {
+    position: fixed;
+    top: var(--space-16);
+    right: var(--space-4);
+    left: var(--space-4);
+    width: auto;
+  }
+}
+
 .account-confirm-title {
   margin: 0 0 var(--space-2);
   font-size: var(--font-body);

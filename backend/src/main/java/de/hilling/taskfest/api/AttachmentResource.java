@@ -6,7 +6,7 @@ import de.hilling.taskfest.attachment.AttachmentState;
 import de.hilling.taskfest.attachment.AttachmentStore;
 import de.hilling.taskfest.model.Task;
 import de.hilling.taskfest.model.User;
-import de.hilling.taskfest.service.UserService;
+import de.hilling.taskfest.account.AccountGate;
 import io.quarkus.oidc.IdToken;
 import io.quarkus.security.Authenticated;
 import jakarta.inject.Inject;
@@ -73,7 +73,7 @@ public class AttachmentResource {
     JsonWebToken jwt;
 
     @Inject
-    UserService userService;
+    AccountGate accounts;
 
     @Inject
     AttachmentService attachments;
@@ -162,7 +162,7 @@ public class AttachmentResource {
     }
 
     private User currentUser() {
-        return userService.getOrCreateByEmail(jwt.getClaim(OidcClaims.EMAIL));
+        return accounts.signedIn(jwt.getClaim(OidcClaims.EMAIL), Instant.ofEpochSecond(jwt.getIssuedAtTime()));
     }
 
     private static WebApplicationException refusal(AttachmentService.Refused refused) {

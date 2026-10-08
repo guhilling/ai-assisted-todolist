@@ -243,27 +243,45 @@ them, so a scan would protect someone from their own file.
 ## Deleting an account leaves a record outside the database
 
 **Decision.** A user deletes their own account (#213, Gunnar's decision; no admin role).
-`DELETE /api/account` acts on the caller only. It writes a deletion record first, then deletes each
-attachment, file before row, and last, in one transaction with the user's row locked, any
-remaining attachment rows, the tasks and the user. The browser then signs out.
+`DELETE /api/account` acts on the caller only. It deletes each attachment, file before row; then,
+in one transaction with the user's row locked, any remaining attachment rows, the tasks and the
+user; and **last** writes a deletion record. The response expires this browser's session cookies.
 
 **Why a record, and why outside the database.** The privacy policy promises that a deletion also
 applies to a backup restored later, and the database is restored from snapshots routinely
 (`env.sh up`, a rollback). A record kept in the database would be undone by the very restore it is
-meant to survive, so it is a small object, `deleted-accounts/<SHA-256 of the email>` holding the
-deletion time, in the environment's attachment bucket, which a restore does not touch.
-`DeletionReplay`, shortly after every start and daily, deletes again any account such a record names
--- but only one created *before* the deletion, so someone who signed up again afterwards keeps the
-new account. The attachment listing the orphan clean-up uses ignores everything under a prefix, so a
-record is never taken for an orphan.
+meant to survive, so it is a small object, `deleted-accounts/<SHA-256 of the email>`, in the
+environment's attachment bucket, which a restore does not touch; its time is the object's own.
+The attachment listing the orphan clean-up uses ignores everything under a prefix, so a record is
+never taken for an orphan.
 
-**Why this order.** Writing the record first makes the deletion finishable: an attempt that fails
-half way is completed by asking again, or by the replay after the next start. Locking the user's row
-last stops an upload racing the deletion from leaving an attachment row behind; a file such an
-upload slipped into the bucket is an orphan, and the clean-up of #208 removes it.
+**Why the record comes last.** A deletion that fails half way is reported as failed, and the user
+carries on; a record written first would have the replay finish that deletion later, taking
+whatever was added since. Written last, a failed deletion is finished by asking again.
+
+**Re-applying, before anyone can sign in.** `DeletionReplay` runs during start-up -- a restore
+always comes with one -- and daily, and deletes again any account a record names that was created
+*before* the deletion; someone who signed up again afterwards has a newer account and keeps it.
+Each record and account is handled on its own, so one failure stops nothing else.
+
+**A session that outlived the account is refused.** The session is an encrypted cookie, so the
+server cannot end one another device holds, and that device's next request would recreate the
+account -- newer than the deletion, so kept. `AccountGate` therefore answers 401 when it would
+create a user whose deletion is recorded and the request's ID token was issued before that
+deletion; signing in again issues a new token and starts a new account. Only creating a user asks,
+so the check costs one S3 request per new account.
+
+**How long a record is kept (Gunnar's decision).** Exactly as long as a snapshot or backup older
+than the deletion exists: each run deletes the records older than the oldest restorable point of
+the environment's database, from RDS's listing of its snapshots and retained backups
+(`RdsRestorePoints`). When that cannot be known -- RDS refused, listed nothing, or no instance is
+configured, as everywhere but AWS -- nothing is pruned.
+
+**A file still uploading can outlive the deletion (Gunnar's decision).** An upload link signed
+before the deletion stays valid for up to ten minutes, and a file arriving through it has no row:
+the orphan clean-up of #208 removes it within seven days. The privacy policy says so.
 
 **The hash is pseudonymous, not anonymous.** It holds no address, but anyone who knows an address
 can compute its hash and see that an account with it was deleted. That is said in the privacy
 policy. A keyed hash (HMAC) would avoid it at the price of a secret to keep and rotate; for a demo
 project the plain hash Gunnar chose is the proportionate answer.
-

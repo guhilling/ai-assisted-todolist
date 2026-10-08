@@ -56,7 +56,8 @@ past the window, and uploads that were never confirmed.
 | An attachment is a PDF, JPEG, PNG, WebP or GIF | `AttachmentKind`, checked on announce, and a native enum column |
 | An attachment is at most 10 MB, at most 2 per task, at most 5 per user | `AttachmentPolicy`, counting pending and detached ones too; the size is also signed into the upload link, so S3 refuses any other |
 | A user can delete only their own account | `DELETE /api/account` acts on the caller and takes no id |
-| A deleted account stays deleted after a restore | `DeletionReplay` deletes again, after every start, any account a deletion record names that was created before the deletion |
+| A deleted account stays deleted after a restore | `DeletionReplay` deletes again, during every start, any account a deletion record names that was created before the deletion |
+| A session cannot bring a deleted account back | `AccountGate` refuses to create a user whose deletion is recorded when the request's ID token predates it |
 | A user sees and opens only their own attachments | Every lookup in `AttachmentService.find` carries the owner and the task, and a download link is only signed for a found one |
 
 That first one used to read "a task's due date is today or later", enforced on the entity as

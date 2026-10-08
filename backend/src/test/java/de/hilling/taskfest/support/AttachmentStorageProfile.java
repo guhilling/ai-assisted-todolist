@@ -15,6 +15,7 @@ public class AttachmentStorageProfile implements QuarkusTestProfile {
         return Map.of(
             "quarkus.s3.devservices.enabled", "true",
             "quarkus.s3.devservices.buckets", "taskfest-attachments",
+            "taskfest.account.deletions-enabled", "true",
             "quarkus.aws.devservices.localstack.container-properties.S3_SKIP_SIGNATURE_VALIDATION", "0");
     }
 }

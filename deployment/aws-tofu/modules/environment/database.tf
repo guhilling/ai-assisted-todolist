@@ -75,6 +75,19 @@ data "aws_iam_policy_document" "task" {
     actions   = ["rds-db:connect"]
     resources = ["arn:aws:rds-db:${local.region}:${local.account}:dbuser:*/${local.db_app_user}"]
   }
+
+  # Account deletion records (#213) are kept while a snapshot older than the deletion exists, so the
+  # backend lists its instance's snapshots and retained backups. Metadata only, never their
+  # content. On "*" because these Describe calls do not reliably honour a resource ARN; the call
+  # names the instance, and a failure only keeps every record.
+  statement {
+    sid = "ListThisDatabasesRestorablePoints"
+    actions = [
+      "rds:DescribeDBSnapshots",
+      "rds:DescribeDBInstanceAutomatedBackups",
+    ]
+    resources = ["*"]
+  }
 }
 
 resource "aws_iam_role_policy" "task" {

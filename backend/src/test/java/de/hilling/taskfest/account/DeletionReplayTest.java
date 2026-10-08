@@ -44,7 +44,7 @@ class DeletionReplayTest {
         records.record("restored@example.com", Instant.now());
         long taskId = restoredUser("restored@example.com", Instant.now().minus(Duration.ofDays(30)));
 
-        replay.replay();
+        replay.run();
 
         assertEquals(0L, (long) QuarkusTransaction.requiringNew().call(() -> User.count("email", "restored@example.com")));
         assertEquals(0L, (long) QuarkusTransaction.requiringNew().call(() -> Task.count("id", taskId)));
@@ -52,10 +52,11 @@ class DeletionReplayTest {
 
     @Test
     void shouldKeepAnAccountCreatedAfterTheDeletion() {
-        records.record("came-back@example.com", Instant.now().minus(Duration.ofDays(2)));
-        restoredUser("came-back@example.com", Instant.now().minus(Duration.ofDays(1)));
+        // The record's time is when S3 wrote it; this account was created after that.
+        records.record("came-back@example.com", Instant.now());
+        restoredUser("came-back@example.com", Instant.now().plus(Duration.ofMinutes(1)));
 
-        replay.replay();
+        replay.run();
 
         assertEquals(1L, (long) QuarkusTransaction.requiringNew().call(() -> User.count("email", "came-back@example.com")));
     }
