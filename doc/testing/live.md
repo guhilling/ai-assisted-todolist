@@ -77,9 +77,10 @@ visible one is addressed — and the accounts. One scenario runs in qa only: bot
   frontend deploy, fetches the newest and publishes it under `videos/`. Failed runs are published
   too: a video of what went wrong is the useful one. A scenario that opens a second tab -- opening
   a PDF does -- has a video per tab, and the largest, its own page's, is the one published. Each
-  video has a poster, the busiest of four frames (ffmpeg, in the job), and plays at half speed;
-  the two scenarios that open a browser context per account are not recorded, since a context of
-  their own records only when the test asks for it. A video shows the test accounts and their
+  video has a poster, the busiest of four frames (ffmpeg, in the job), and plays at half speed.
+  The two scenarios that open a browser context per account record those through
+  `e2e/support/recording.ts`, since a context a test opens itself records only when asked; of
+  their two videos, one per account, the larger is published. A video shows the test accounts and their
   tasks, never a password: it goes into a password field as dots, and is new on every run.
 - **No traces in this run**, unlike the Compose suite. A Playwright trace records what each `fill`
   typed and the body of every request, so the sign-in would put the run's passwords -- typed, and

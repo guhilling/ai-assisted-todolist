@@ -9,11 +9,13 @@
  *
  * Each account gets its own `browser.newContext()`. Signing out of the app only expires the
  * backend session cookie -- the provider's own session survives it -- so reusing a context
- * would silently sign the second user in as the first.
+ * would silently sign the second user in as the first. Those contexts come from
+ * support/recording.ts, so a run that records video (the live one) records them too.
  */
 import { expect, test, type Locator, type Page } from '@playwright/test'
 import { addTask, inDays } from '../support/board'
 import { currentIdentity, signInAs, type Account } from '../support/identity'
+import { accountContext, closeAccountContext } from '../support/recording'
 
 const identity = currentIdentity()
 
@@ -193,21 +195,21 @@ test('keeps the two accounts from seeing each other tasks', async ({ browser }) 
 
   // Signing out only clears the application's own session cookie -- the provider keeps its own
   // session, so a second user needs a browser context of its own rather than a sign-out.
-  const firstContext = await browser.newContext()
+  const firstContext = await accountContext(browser)
   const firstPage = await firstContext.newPage()
   await signIn(firstPage, identity.primary)
   await addTask(firstPage, description, inDays(54))
   await expect(firstPage.locator('.task-row', { hasText: description })).toBeVisible()
-  await firstContext.close()
+  await closeAccountContext(firstContext)
 
-  const secondContext = await browser.newContext()
+  const secondContext = await accountContext(browser)
   const secondPage = await secondContext.newPage()
   await signIn(secondPage, identity.secondary)
   // Deterministic: example.com is reserved, so this address can never acquire a Gravatar, which
   // makes it the account whose initials fallback is safe to assert -- locally and in qa alike.
   await expect(secondPage.locator('.user-avatar--initials')).toHaveText(identity.secondary.initials)
   await expect(secondPage.locator('.task-row', { hasText: description })).toHaveCount(0)
-  await secondContext.close()
+  await closeAccountContext(secondContext)
 })
 
 test('serves each account its own task list, never from a cache', async ({ browser }) => {
@@ -222,7 +224,7 @@ test('serves each account its own task list, never from a cache', async ({ brows
     return response.text()
   }
 
-  const firstContext = await browser.newContext()
+  const firstContext = await accountContext(browser)
   const firstPage = await firstContext.newPage()
   await signIn(firstPage, identity.primary)
   await addTask(firstPage, description, inDays(53))
@@ -231,12 +233,12 @@ test('serves each account its own task list, never from a cache', async ({ brows
 
   // The same URL, straight after, for someone else: a cache keyed on the URL alone would hand the
   // first account's list over here.
-  const secondContext = await browser.newContext()
+  const secondContext = await accountContext(browser)
   const secondPage = await secondContext.newPage()
   await signIn(secondPage, identity.secondary)
   expect(await tasksOf(secondPage)).not.toContain(description)
 
-  await firstContext.close()
-  await secondContext.close()
+  await closeAccountContext(firstContext)
+  await closeAccountContext(secondContext)
 })
 
