@@ -13,8 +13,8 @@ import TaskRow from './components/TaskRow'
 import { addDays, todayIso } from './dates'
 import { de, en } from './i18n/messages'
 
-const PDF = { id: 7, fileName: 'Rechnung.pdf', contentType: 'application/pdf', sizeBytes: 48213 }
-const PHOTO = { id: 8, fileName: 'Quittung.jpg', contentType: 'image/jpeg', sizeBytes: 90000 }
+const PDF = { id: 7, fileName: 'Rechnung.pdf', contentType: 'application/pdf', sizeBytes: 48213, thumbnail: false }
+const PHOTO = { id: 8, fileName: 'Quittung.jpg', contentType: 'image/jpeg', sizeBytes: 90000, thumbnail: false }
 
 function task(overrides: Record<string, unknown> = {}) {
   return {
@@ -244,7 +244,7 @@ describe('in the editor', () => {
   })
 
   it('uploads a chosen file and lists it on the row', async () => {
-    const scan = { id: 9, fileName: 'Scan.pdf', contentType: 'application/pdf', sizeBytes: 4 }
+    const scan = { id: 9, fileName: 'Scan.pdf', contentType: 'application/pdf', sizeBytes: 4, thumbnail: false }
     await renderBoard(
       mockBackend({
         tasks: [task()],
@@ -264,7 +264,7 @@ describe('in the editor', () => {
   })
 
   it('uploads a dropped file', async () => {
-    const scan = { id: 9, fileName: 'Scan.pdf', contentType: 'application/pdf', sizeBytes: 4 }
+    const scan = { id: 9, fileName: 'Scan.pdf', contentType: 'application/pdf', sizeBytes: 4, thumbnail: false }
     await renderBoard(
       mockBackend({
         tasks: [task()],
@@ -335,7 +335,7 @@ describe('in the editor', () => {
       }
     }
     vi.stubGlobal('XMLHttpRequest', SlowXhr)
-    const scan = { id: 9, fileName: 'Scan.pdf', contentType: 'application/pdf', sizeBytes: 4 }
+    const scan = { id: 9, fileName: 'Scan.pdf', contentType: 'application/pdf', sizeBytes: 4, thumbnail: false }
     await renderBoard(
       mockBackend({
         tasks: [task()],

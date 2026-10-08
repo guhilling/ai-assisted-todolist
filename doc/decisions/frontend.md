@@ -339,6 +339,17 @@ PUT it to the presigned link that comes back, confirm it. Opening one asks for a
 and points a tab at it. The backend never sees file content; `doc/decisions/domain-and-backend.md`
 says why.
 
+**An image's thumbnail is drawn in the page (#236).** `thumbnail.ts` decodes the image with
+`createImageBitmap`, turned as its EXIF says (`imageOrientation: 'from-image'`, as `<img>` shows the
+file), draws it on a canvas at 128 px on its shorter side (cropping a panorama to its middle), on
+white since a JPEG keeps no transparency, writes a JPEG, and lets the decoded photo go whatever
+happened. A file of 64 KB or less, or an image that would not be scaled down, gets none: it is shown
+as it is, which keeps a PNG's transparency and a GIF's animation. Anything that fails -- an old
+browser, an image that will not decode, a result over 64 KB -- gives no thumbnail either, and the
+upload goes on without one; the thumbnail goes up side by side with the file. The row's `Preview`
+asks for the thumbnail's link when there is one, and for the file's when there is none, its link
+cannot be had, or it does not load.
+
 **Why `XMLHttpRequest` for the PUT.** The issue asks for progress, and `fetch` cannot report how
 much of an upload has gone. It is used for that one request only; everything else stays `fetch`.
 

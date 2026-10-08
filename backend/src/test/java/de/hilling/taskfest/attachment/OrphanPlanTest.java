@@ -108,4 +108,24 @@ class OrphanPlanTest {
 
         assertEquals(2, plan.listed());
     }
+
+    @Test
+    void shouldKeepTheThumbnailOfAnAttachmentAndDeleteAnOrphansThumbnail() {
+        // A thumbnail (#236) belongs to its attachment's row, and goes when the row has gone.
+        OrphanPlan plan = plan(
+            List.of(object("kept", Duration.ofDays(8)), object(Attachment.thumbnailKey("kept"), Duration.ofDays(8)),
+                object(Attachment.thumbnailKey("gone"), Duration.ofDays(8))),
+            List.of(row(1, "kept", AttachmentState.AVAILABLE)));
+
+        assertEquals(List.of(Attachment.thumbnailKey("gone")), plan.deletions());
+        assertEquals(1, plan.orphans());
+    }
+
+    @Test
+    void shouldNotMissAnAttachmentForWantOfAThumbnail() {
+        // Most attachments have none -- a PDF, an older image -- and that is no missing object.
+        OrphanPlan plan = plan(List.of(object("kept", Duration.ofDays(8))), List.of(row(1, "kept", AttachmentState.AVAILABLE)));
+
+        assertTrue(plan.missingObjects().isEmpty());
+    }
 }

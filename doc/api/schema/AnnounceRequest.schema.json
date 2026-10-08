@@ -30,6 +30,16 @@
         48213
       ],
       "minimum": 1
+    },
+    "thumbnailSizeBytes": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "int64",
+      "examples": [
+        6120
+      ]
     }
   }
 }

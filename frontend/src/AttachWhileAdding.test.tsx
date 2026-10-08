@@ -32,13 +32,13 @@ function backend(options: { announce?: (fileName: string) => { status: number; b
       if (answer) {
         return json(answer.body, answer.status)
       }
-      const attachment = { id: fileName.length, fileName, contentType, sizeBytes }
+      const attachment = { id: fileName.length, fileName, contentType, sizeBytes, thumbnail: false }
       return json({ attachment, url: `https://bucket.example.com/${fileName}`, headers: {}, expiresAt: '2026-10-08T10:15:30Z' }, 201)
     }
     if (url.includes('/confirm')) {
       const id = Number(url.split('/').at(-2))
       const name = id === 'scan.pdf'.length ? 'scan.pdf' : 'photo.png'
-      return json({ id, fileName: name, contentType: name.endsWith('pdf') ? 'application/pdf' : 'image/png', sizeBytes: 4 })
+      return json({ id, fileName: name, contentType: name.endsWith('pdf') ? 'application/pdf' : 'image/png', sizeBytes: 4, thumbnail: false })
     }
     if (url.endsWith('/link')) {
       return json({ url: 'https://bucket.example.com/preview', expiresAt: '2026-10-08T10:15:30Z' })
@@ -195,7 +195,7 @@ describe('attaching while adding a task', () => {
 
 describe('choosing several files in the editor', () => {
   it('refuses those beyond the room the task has, without sending them', async () => {
-    const one = { id: 5, fileName: 'first.pdf', contentType: 'application/pdf', sizeBytes: 4 }
+    const one = { id: 5, fileName: 'first.pdf', contentType: 'application/pdf', sizeBytes: 4, thumbnail: false }
     const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input)
       if (url.includes('/api/auth/me')) return json({ email: 'alice@example.com' })

@@ -19,6 +19,7 @@ import type {
   RefusalResponse,
   TaskResponse,
 } from './generated/types'
+import { makeThumbnail as makeImageThumbnail } from './thumbnail'
 import {
   validateAttachmentResponse,
   validateAuthProvidersResponse,
@@ -257,7 +258,7 @@ function toAttachment(data: AttachmentResponse, subject: ContractSubject): Attac
   if (!Number.isSafeInteger(id)) {
     throw new ContractBreachError(subject, 'idNotInteger')
   }
-  return { id, fileName: data.fileName, contentType: data.contentType, sizeBytes: data.sizeBytes }
+  return { id, fileName: data.fileName, contentType: data.contentType, sizeBytes: data.sizeBytes, thumbnail: data.thumbnail }
 }
 
 /** Turns a checked response into the task list. Each task is checked in its own right. */
@@ -551,7 +552,7 @@ async function ensureNotRefused(response: Response) {
  * The headers are the ones the link was signed for, sent exactly; the browser adds Content-Length
  * itself, and storage refuses a file of any other size.
  */
-function putToStorage(url: string, headers: Record<string, string>, file: File, onProgress: (fraction: number) => void) {
+function putToStorage(url: string, headers: Record<string, string>, file: Blob, onProgress: (fraction: number) => void) {
   return new Promise<void>((resolve, reject) => {
     const request = new XMLHttpRequest()
     request.open('PUT', url)
@@ -577,20 +578,36 @@ function putToStorage(url: string, headers: Record<string, string>, file: File, 
  * A file of a type or size the backend would refuse is refused here without a request, so a
  * 40 MB photo is not first uploaded to be told so.
  *
+ * An image brings a preview thumbnail (#236), made here and uploaded next to it before the
+ * confirmation, which is when the backend looks for it. It is optional: one that cannot be made,
+ * or does not reach storage, leaves the attachment as it would have been without.
+ *
+ * @param makeThumbnail makes the thumbnail; a parameter so a test can do without a canvas
  * @throws AttachmentRefusedError when the file is refused, here or by the backend
  * @throws RequestError when a step fails for any other reason
  */
-export async function uploadAttachment(taskId: Task['id'], file: File, onProgress: (fraction: number) => void) {
+export async function uploadAttachment(
+  taskId: Task['id'],
+  file: File,
+  onProgress: (fraction: number) => void,
+  makeThumbnail: (file: File) => Promise<Blob | null> = makeImageThumbnail,
+) {
   const refusal = checkFile(file)
   if (refusal) {
     throw new AttachmentRefusedError(refusal)
   }
 
+  const thumbnail = file.type.startsWith('image/') ? await makeThumbnail(file) : null
   const announced = await fetch(attachmentsUrl(taskId), {
     method: 'POST',
     credentials: 'include',
     headers: jsonHeaders,
-    body: JSON.stringify({ fileName: file.name, contentType: file.type, sizeBytes: file.size }),
+    body: JSON.stringify({
+      fileName: file.name,
+      contentType: file.type,
+      sizeBytes: file.size,
+      ...(thumbnail ? { thumbnailSizeBytes: thumbnail.size } : {}),
+    }),
   })
   await ensureNotRefused(announced)
   const upload = await readJson(
@@ -599,12 +616,25 @@ export async function uploadAttachment(taskId: Task['id'], file: File, onProgres
       if (!validateUploadResponse(data)) {
         throw new ContractBreachError('attachment')
       }
-      return { attachment: toAttachment(data.attachment, 'attachment'), url: data.url, headers: data.headers }
+      return {
+        attachment: toAttachment(data.attachment, 'attachment'),
+        url: data.url,
+        headers: data.headers,
+        thumbnailUpload: data.thumbnailUpload,
+      }
     },
     'uploadAttachment',
   )
 
-  await putToStorage(upload.url, upload.headers, file, onProgress)
+  // Side by side, the thumbnail's few kilobytes alongside the file; without it the row shows the
+  // file itself, as it did before thumbnails, so its failure fails nothing.
+  const thumbnailUpload = upload.thumbnailUpload
+  await Promise.all([
+    putToStorage(upload.url, upload.headers, file, onProgress),
+    thumbnail && thumbnailUpload
+      ? putToStorage(thumbnailUpload.url, thumbnailUpload.headers, thumbnail, () => {}).catch(() => undefined)
+      : undefined,
+  ])
 
   const confirmed = await fetch(`${attachmentsUrl(taskId, upload.attachment.id)}/confirm`, {
     method: 'POST',
@@ -624,9 +654,22 @@ export async function uploadAttachment(taskId: Task['id'], file: File, onProgres
   )
 }
 
-/** A link that opens the file for a few minutes, for the owner's browser only. */
+/**
+ * A link that opens the file, for the owner's browser only. The backend hands out the same link
+ * while it is fresh, and says how long this answer may be kept, so the browser's own cache answers
+ * a second ask and keeps the file by its URL (#236).
+ */
 export async function attachmentLink(taskId: Task['id'], attachmentId: Attachment['id']) {
-  const response = await fetch(`${attachmentsUrl(taskId, attachmentId)}/link`, {
+  return linkTo(taskId, attachmentId, 'link')
+}
+
+/** A link to an image's preview thumbnail (#236), like {@link attachmentLink}. */
+export async function thumbnailLink(taskId: Task['id'], attachmentId: Attachment['id']) {
+  return linkTo(taskId, attachmentId, 'thumbnail-link')
+}
+
+async function linkTo(taskId: Task['id'], attachmentId: Attachment['id'], which: 'link' | 'thumbnail-link') {
+  const response = await fetch(`${attachmentsUrl(taskId, attachmentId)}/${which}`, {
     credentials: 'include',
     headers: jsFetchHeaders,
   })

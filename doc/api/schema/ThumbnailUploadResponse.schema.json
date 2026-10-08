@@ -1,17 +1,12 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "UploadResponse.schema.json",
+  "$id": "ThumbnailUploadResponse.schema.json",
   "type": "object",
   "required": [
-    "attachment",
     "url",
-    "headers",
-    "expiresAt"
+    "headers"
   ],
   "properties": {
-    "attachment": {
-      "$ref": "AttachmentResponse.schema.json"
-    },
     "url": {
       "type": "string",
       "maxLength": 4096
@@ -21,12 +16,6 @@
       "additionalProperties": {
         "type": "string"
       }
-    },
-    "expiresAt": {
-      "$ref": "Instant.schema.json"
-    },
-    "thumbnailUpload": {
-      "$ref": "ThumbnailUploadResponse.schema.json"
     }
   }
 }

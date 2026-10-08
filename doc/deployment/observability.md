@@ -20,6 +20,31 @@ Named, because "best practices are applied" plans nothing:
   subscribed (`alerting.tf`). Built for the orphan clean-up's alarm (#208) so far; the alarms
   above notify the same topic once they exist.
 
+## Plan: how long a page takes to show (#236)
+
+Not built yet; this is the plan #236 asked for. The question is how long the board takes from the
+click to tasks and previews on screen, and where that time goes. Four steps, cheapest first, each
+useful on its own:
+
+1. **Measure in the lab, against qa, in the live run.** Playwright already signs in on qa after
+   every deploy. A spec reads the browser's own timings — Navigation Timing, Largest Contentful
+   Paint, and Resource Timing per preview, whose `transferSize` of 0 shows a cache hit — and
+   writes them to the run summary. Free, the same every time, and enough to show before and after
+   a change such as thumbnails. It says nothing about real networks or devices.
+2. **Mark the application's own moments.** `performance.mark` when the task list has arrived and
+   when the board has rendered it, so the timings name "board ready" rather than only the browser's
+   generic events. A few lines in the frontend, read by step 1 and step 3 alike.
+3. **Collect from real browsers.** The timings of step 1 and 2, sent with `navigator.sendBeacon`
+   once a page has settled: either to a small backend endpoint that logs them as a structured line —
+   CloudWatch Logs Insights then gives percentiles, at no new cost — or to CloudWatch RUM, managed,
+   at about a dollar per 100,000 events. Either way it is data about visitors, so the privacy
+   policy changes with it, and the decision is Gunnar's.
+4. **Trace the backend's part.** A `Server-Timing` header first: the browser shows it in its
+   developer tools and in Resource Timing, so steps 1 and 3 see the backend's share without a
+   tracing system. OpenTelemetry (`quarkus-opentelemetry`) to X-Ray, with the browser's requests
+   carrying `traceparent`, only once there is more than one service to follow a request through —
+   as the bullet on traces above says.
+
 ## Alerting: the address, and the one-time setup
 
 The address the alerts go to is **not in the repository**. It lives in an SSM parameter,

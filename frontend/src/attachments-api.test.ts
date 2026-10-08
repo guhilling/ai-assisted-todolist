@@ -9,6 +9,7 @@ import {
   ContractBreachError,
   attachmentLink,
   fetchTasks,
+  thumbnailLink,
   removeAttachment,
   RequestError,
   restoreTask,
@@ -16,7 +17,7 @@ import {
   type Task,
 } from './api'
 
-const PDF_ATTACHMENT = { id: 7, fileName: 'Rechnung.pdf', contentType: 'application/pdf', sizeBytes: 12 }
+const PDF_ATTACHMENT = { id: 7, fileName: 'Rechnung.pdf', contentType: 'application/pdf', sizeBytes: 12, thumbnail: false }
 
 const UPLOAD = {
   attachment: PDF_ATTACHMENT,
@@ -285,3 +286,83 @@ describe('a task with attachments', () => {
     expect(restored.attachments).toEqual([PDF_ATTACHMENT])
   })
 })
+
+describe('a preview thumbnail (#236)', () => {
+  const PHOTO = { id: 8, fileName: 'beach.jpg', contentType: 'image/jpeg', sizeBytes: 12, thumbnail: true }
+  const THUMBNAIL_UPLOAD = { url: 'https://bucket.example.com/key.thumbnail?sig', headers: { 'Content-Type': 'image/jpeg' } }
+  const PHOTO_UPLOAD = { ...UPLOAD, attachment: { ...PHOTO, thumbnail: false }, thumbnailUpload: THUMBNAIL_UPLOAD }
+  const small = new Blob(['tiny'], { type: 'image/jpeg' })
+
+  it('announces an image with its thumbnail, PUTs both, and only then confirms', async () => {
+    vi.stubGlobal('XMLHttpRequest', FakeXhr)
+    const calls = backend([
+      ['POST', '/api/tasks/3/attachments/8/confirm', 200, PHOTO],
+      ['POST', '/api/tasks/3/attachments', 201, PHOTO_UPLOAD],
+    ])
+    const photo = file('beach.jpg', 'image/jpeg')
+
+    await expect(uploadAttachment(3, photo, () => {}, async () => small)).resolves.toEqual(PHOTO)
+
+    expect(calls[0].body).toEqual({ fileName: 'beach.jpg', contentType: 'image/jpeg', sizeBytes: 12, thumbnailSizeBytes: 4 })
+    expect(storage.sent).toEqual([
+      { method: 'PUT', url: UPLOAD.url, headers: UPLOAD.headers, body: photo },
+      { method: 'PUT', url: THUMBNAIL_UPLOAD.url, headers: THUMBNAIL_UPLOAD.headers, body: small },
+    ])
+    expect(calls[1]).toMatchObject({ method: 'POST', url: '/api/tasks/3/attachments/8/confirm' })
+  })
+
+  it('uploads an image without one when none could be made', async () => {
+    vi.stubGlobal('XMLHttpRequest', FakeXhr)
+    const calls = backend([
+      ['POST', '/api/tasks/3/attachments/8/confirm', 200, { ...PHOTO, thumbnail: false }],
+      ['POST', '/api/tasks/3/attachments', 201, { ...UPLOAD, attachment: { ...PHOTO, thumbnail: false } }],
+    ])
+
+    await uploadAttachment(3, file('beach.jpg', 'image/jpeg'), () => {}, async () => null)
+
+    expect(calls[0].body).toEqual({ fileName: 'beach.jpg', contentType: 'image/jpeg', sizeBytes: 12 })
+    expect(storage.sent).toHaveLength(1)
+  })
+
+  it('makes none for a PDF', async () => {
+    vi.stubGlobal('XMLHttpRequest', FakeXhr)
+    backend([
+      ['POST', '/api/tasks/3/attachments/7/confirm', 200, PDF_ATTACHMENT],
+      ['POST', '/api/tasks/3/attachments', 201, UPLOAD],
+    ])
+    const make = vi.fn(async () => small)
+
+    await uploadAttachment(3, file('Rechnung.pdf', 'application/pdf'), () => {}, make)
+
+    expect(make).not.toHaveBeenCalled()
+  })
+
+  it('keeps the file when its thumbnail does not make it to storage', async () => {
+    let puts = 0
+    class ThumbnailRefused extends FakeXhr {
+      send(body: unknown) {
+        puts += 1
+        storage.status = puts === 1 ? 200 : 403
+        super.send(body)
+      }
+    }
+    vi.stubGlobal('XMLHttpRequest', ThumbnailRefused)
+    const calls = backend([
+      ['POST', '/api/tasks/3/attachments/8/confirm', 200, { ...PHOTO, thumbnail: false }],
+      ['POST', '/api/tasks/3/attachments', 201, PHOTO_UPLOAD],
+    ])
+
+    await expect(uploadAttachment(3, file('beach.jpg', 'image/jpeg'), () => {}, async () => small)).resolves.toEqual({
+      ...PHOTO,
+      thumbnail: false,
+    })
+    expect(calls[1]).toMatchObject({ url: '/api/tasks/3/attachments/8/confirm' })
+  })
+
+  it('asks for a link to the thumbnail', async () => {
+    backend([['GET', '/api/tasks/3/attachments/8/thumbnail-link', 200, { url: 'https://thumb', expiresAt: '2026-10-08T11:00:00Z' }]])
+
+    await expect(thumbnailLink(3, 8)).resolves.toBe('https://thumb')
+  })
+})
+

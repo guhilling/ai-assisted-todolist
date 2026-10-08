@@ -14,6 +14,7 @@ export type AnnounceRequest = {
     fileName: string;
     contentType: string;
     sizeBytes: number;
+    thumbnailSizeBytes?: number | null;
 };
 
 /**
@@ -26,6 +27,7 @@ export type AttachmentResponse = {
     fileName: string;
     contentType: string;
     sizeBytes: number;
+    thumbnail: boolean;
 };
 
 /**
@@ -149,6 +151,16 @@ export type TaskUpdateRequest = {
 };
 
 /**
+ * The `ThumbnailUploadResponse` the backend speaks.
+ *
+ * Generated from `doc/api/schema/ThumbnailUploadResponse.schema.json`. Do not edit.
+ */
+export type ThumbnailUploadResponse = {
+    url: string;
+    headers: Record<string, string>;
+};
+
+/**
  * The `UploadResponse` the backend speaks.
  *
  * Generated from `doc/api/schema/UploadResponse.schema.json`. Do not edit.
@@ -158,6 +170,7 @@ export type UploadResponse = {
     url: string;
     headers: Record<string, string>;
     expiresAt: Instant;
+    thumbnailUpload?: ThumbnailUploadResponse;
 };
 
 /**

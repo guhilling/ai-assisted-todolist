@@ -9,6 +9,7 @@ import './App.css'
 import {
   AttachmentRefusedError,
   attachmentLink,
+  thumbnailLink,
   apiBaseUrl,
   authLogoutUrl,
   deleteTask,
@@ -66,7 +67,8 @@ const sections: { bucket: DueBucket; overdue?: boolean }[] = [
  * A link that shows a file. Here rather than in the board, so it is one function for the app's
  * lifetime and a preview asks for its link once, not on every render of the board.
  */
-const linkToAttachment = (taskId: Task['id'], attachmentId: Attachment['id']) => attachmentLink(taskId, attachmentId)
+const linkToAttachment = (taskId: Task['id'], attachmentId: Attachment['id'], thumbnail: boolean) =>
+  thumbnail ? thumbnailLink(taskId, attachmentId) : attachmentLink(taskId, attachmentId)
 
 /** The app, speaking the visitor's language to everything in it (#203). */
 function App() {

@@ -32,6 +32,16 @@
               48213
             ],
             "minimum": 1
+          },
+          "thumbnailSizeBytes": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "examples": [
+              6120
+            ]
           }
         }
       },
@@ -41,7 +51,8 @@
           "id",
           "fileName",
           "contentType",
-          "sizeBytes"
+          "sizeBytes",
+          "thumbnail"
         ],
         "properties": {
           "id": {
@@ -70,6 +81,12 @@
             "format": "int64",
             "examples": [
               48213
+            ]
+          },
+          "thumbnail": {
+            "type": "boolean",
+            "examples": [
+              false
             ]
           }
         }
@@ -385,6 +402,25 @@
           }
         }
       },
+      "ThumbnailUploadResponse": {
+        "type": "object",
+        "required": [
+          "url",
+          "headers"
+        ],
+        "properties": {
+          "url": {
+            "type": "string",
+            "maxLength": 4096
+          },
+          "headers": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
+        }
+      },
       "UploadResponse": {
         "type": "object",
         "required": [
@@ -409,6 +445,9 @@
           },
           "expiresAt": {
             "$ref": "#/components/schemas/Instant"
+          },
+          "thumbnailUpload": {
+            "$ref": "#/components/schemas/ThumbnailUploadResponse"
           }
         }
       },
@@ -1033,7 +1072,7 @@
     "/api/tasks/{taskId}/attachments/{id}/link": {
       "get": {
         "summary": "A link to open the file",
-        "description": "Works for a few minutes, for the owner's browser to fetch the file straight from storage.",
+        "description": "For the owner's browser to fetch the file straight from storage. The same link is handed out again while it is fresh, and the answer may be kept for as long as that, so the browser's cache keeps the file.",
         "tags": [
           "Attachments"
         ],
@@ -1070,6 +1109,61 @@
           },
           "404": {
             "description": "No such available attachment on a task the caller owns."
+          },
+          "401": {
+            "description": "Not Authorized"
+          },
+          "403": {
+            "description": "Not Allowed"
+          }
+        },
+        "security": [
+          {
+            "SecurityScheme": []
+          }
+        ]
+      }
+    },
+    "/api/tasks/{taskId}/attachments/{id}/thumbnail-link": {
+      "get": {
+        "summary": "A link to the preview thumbnail",
+        "description": "Like the file's link, for the small preview an image's row shows (#236).",
+        "tags": [
+          "Attachments"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "taskId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The link and until when it works.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LinkResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such available attachment with a thumbnail on a task the caller owns."
           },
           "401": {
             "description": "Not Authorized"

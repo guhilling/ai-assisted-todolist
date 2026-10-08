@@ -7,6 +7,10 @@ content straight to and from it through presigned links;
 foundation: it survives `env.sh down`, and nothing in it is versioned or backed up, so a deleted
 file is gone.
 
+An image may have a **preview thumbnail** next to it (#236), a JPEG of a few kilobytes the browser
+made, under the file's key plus `.thumbnail`. It is deleted with its file by everything below, and
+the orphan clean-up counts it as referenced while its file's row exists.
+
 ## Two sweeps keep it tidy
 
 **The attachment sweep** (`AttachmentSweep`, every minute) works from the database. It deletes

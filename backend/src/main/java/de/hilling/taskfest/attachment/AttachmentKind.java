@@ -27,6 +27,11 @@ public enum AttachmentKind {
         this.contentType = contentType;
     }
 
+    /** @return whether a row previews it as a picture, and so whether it may have a thumbnail (#236) */
+    public boolean isImage() {
+        return this != PDF;
+    }
+
     /** @return the media type the file is uploaded and served with */
     public String contentType() {
         return contentType;

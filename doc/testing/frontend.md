@@ -29,7 +29,9 @@ preview, open and remove, and the editor's choose, drop, progress and refusals; 
 announce, upload and confirm. The upload goes through `XMLHttpRequest`, the only browser API that
 reports upload progress, so both stub it next to `fetch`. Opening a file is asserted to open the
 tab *on the click* and point it at the link afterwards, because a tab opened once a request has
-come back is what popup blockers block.
+come back is what popup blockers block. `ThumbnailPreview.test.tsx` covers the row's thumbnail and
+its fallback to the file (#236), `thumbnail.test.ts` the thumbnail's size and making one against a
+stubbed canvas -- jsdom has none -- and the end of `attachments-api.test.ts` the second upload.
 
 `dates.test.ts` covers the due-date logic directly rather than through the DOM. It is the only
 pure logic in the frontend and the only place an off-by-one can hide: "Today", "Tomorrow", a
