@@ -66,7 +66,10 @@ export function rememberLanguage(language: Language) {
 /** The language for this visit: the remembered choice, else the browser's preferences. */
 export function initialLanguage(): Language {
   // Some WebViews and hardened browsers report no list at all, or an empty one, but still a language.
-  const listed = typeof navigator === 'undefined' ? [] : (navigator.languages ?? [])
-  const preferred = listed.length > 0 ? listed : typeof navigator === 'undefined' ? [] : [navigator.language]
+  if (typeof navigator === 'undefined') {
+    return chooseLanguage(rememberedLanguage(), [])
+  }
+  const listed = navigator.languages ?? []
+  const preferred = listed.length > 0 ? listed : [navigator.language]
   return chooseLanguage(rememberedLanguage(), preferred)
 }

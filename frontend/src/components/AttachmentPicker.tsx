@@ -29,22 +29,29 @@ function AttachmentPicker({ task, actions }: Readonly<AttachmentPickerProps>) {
   const attachments = task.attachments ?? []
   const full = attachments.length + uploads.length >= attachmentLimits.perTask
 
+  /** Uploads one file, with its own progress bar and, if it fails, its own message. */
+  const uploadOne = async (file: File) => {
+    nextKey.current += 1
+    const key = nextKey.current
+    setUploads((current) => [...current, { key, fileName: file.name, fraction: 0 }])
+    const outcome = await actions.upload(task, file, (fraction) =>
+      setUploads((current) => current.map((upload) => (upload.key === key ? { ...upload, fraction } : upload))),
+    )
+    setUploads((current) => current.filter((upload) => upload.key !== key))
+    if ('refusal' in outcome) {
+      setProblems((current) => [...current, messages.attachments.refusals[outcome.refusal](file.name)])
+    } else if ('failed' in outcome) {
+      setProblems((current) => [...current, messages.attachments.uploadFailed(file.name)])
+    }
+  }
+
+  /**
+   * Several files go up at once, each with its own bar. The backend serialises the limit checks
+   * per user, so a file past the task's limit is refused with its reason like any other.
+   */
   const uploadAll = async (files: File[]) => {
     setProblems([])
-    for (const file of files) {
-      nextKey.current += 1
-      const key = nextKey.current
-      setUploads((current) => [...current, { key, fileName: file.name, fraction: 0 }])
-      const outcome = await actions.upload(task, file, (fraction) =>
-        setUploads((current) => current.map((upload) => (upload.key === key ? { ...upload, fraction } : upload))),
-      )
-      setUploads((current) => current.filter((upload) => upload.key !== key))
-      if ('refusal' in outcome) {
-        setProblems((current) => [...current, messages.attachments.refusals[outcome.refusal](file.name)])
-      } else if ('failed' in outcome) {
-        setProblems((current) => [...current, messages.attachments.uploadFailed(file.name)])
-      }
-    }
+    await Promise.all(files.map(uploadOne))
   }
 
   const megabytes = attachmentLimits.maxSizeBytes / (1024 * 1024)

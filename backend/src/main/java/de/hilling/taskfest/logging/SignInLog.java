@@ -8,7 +8,7 @@ import jakarta.inject.Inject;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
-import java.util.function.Function;
+import java.util.function.UnaryOperator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
@@ -59,7 +59,7 @@ public class SignInLog {
 
     /** The fields of the line an event becomes, naming the provider by its tenant's id. */
     static Optional<Map<String, String>> fields(SecurityEvent event) {
-        return fields(event, Function.identity());
+        return fields(event, UnaryOperator.identity());
     }
 
     /**
@@ -69,7 +69,7 @@ public class SignInLog {
      * @param providerOfTenant turns the tenant on the identity into the provider's id
      * @return the fields, or empty
      */
-    static Optional<Map<String, String>> fields(SecurityEvent event, Function<String, String> providerOfTenant) {
+    static Optional<Map<String, String>> fields(SecurityEvent event, UnaryOperator<String> providerOfTenant) {
         if (event.getEventType() != SecurityEvent.Type.OIDC_LOGIN || event.getSecurityIdentity() == null) {
             return Optional.empty();
         }

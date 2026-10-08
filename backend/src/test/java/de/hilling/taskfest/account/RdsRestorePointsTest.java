@@ -62,6 +62,7 @@ class RdsRestorePointsTest {
 
             @Override
             public void close() {
+                // A fake holds no connection, so there is nothing to close.
             }
         };
     }
@@ -106,6 +107,7 @@ class RdsRestorePointsTest {
 
             @Override
             public void close() {
+                // A fake holds no connection, so there is nothing to close.
             }
         };
     }
@@ -125,6 +127,7 @@ class RdsRestorePointsTest {
 
             @Override
             public void close() {
+                // A fake holds no connection, so there is nothing to close.
             }
         };
 

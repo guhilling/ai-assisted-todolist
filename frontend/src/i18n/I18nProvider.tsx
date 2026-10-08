@@ -10,7 +10,7 @@ import { catalogues } from './messages'
  * pronounce the page in the language it is written in.
  */
 export function I18nProvider({ children }: Readonly<{ children: ReactNode }>) {
-  const [language, setLanguageState] = useState<Language>(() => initialLanguage())
+  const [language, setLanguage] = useState<Language>(() => initialLanguage())
 
   useEffect(() => {
     document.documentElement.lang = language
@@ -23,7 +23,7 @@ export function I18nProvider({ children }: Readonly<{ children: ReactNode }>) {
       locale: localeOf(language),
       setLanguage: (next) => {
         rememberLanguage(next)
-        setLanguageState(next)
+        setLanguage(next)
       },
     }),
     [language],

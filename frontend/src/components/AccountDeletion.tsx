@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useEscapeWithin } from '../escape'
 import { useI18n } from '../i18n/context'
 
 type AccountDeletionProps = {
@@ -27,6 +28,7 @@ function AccountDeletion({ email, onDelete }: Readonly<AccountDeletionProps>) {
   const [typed, setTyped] = useState('')
   const confirmed = typed.trim().toLowerCase() === email.trim().toLowerCase()
   const trigger = useRef<HTMLButtonElement>(null)
+  const dialog = useRef<HTMLElement>(null)
   const returnFocus = useRef(false)
 
   /**
@@ -46,6 +48,8 @@ function AccountDeletion({ email, onDelete }: Readonly<AccountDeletionProps>) {
     setAsking(false)
   }
 
+  useEscapeWithin(dialog, close)
+
   if (!asking) {
     return (
       <button type="button" className="account-delete" ref={trigger} onClick={() => setAsking(true)}>
@@ -60,11 +64,7 @@ function AccountDeletion({ email, onDelete }: Readonly<AccountDeletionProps>) {
       role="alertdialog"
       aria-labelledby="account-confirm-title"
       aria-describedby="account-confirm-body"
-      onKeyDown={(event) => {
-        if (event.key === 'Escape') {
-          close()
-        }
-      }}
+      ref={dialog}
     >
       <h2 id="account-confirm-title" className="account-confirm-title">
         {messages.account.title}

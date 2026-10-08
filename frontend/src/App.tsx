@@ -128,8 +128,8 @@ function Board() {
         if (authProviders) {
           setProviders(authProviders)
         }
-      } catch (failure) {
-        if (failure instanceof BackendPausedError) {
+      } catch (error_) {
+        if (error_ instanceof BackendPausedError) {
           setPaused({ environmentName: await fetchEnvironmentName() })
         }
         // Anything else: nothing depends on this, and the page says sign-in is unconfigured.
@@ -220,8 +220,8 @@ function Board() {
    * Deletes one task, putting the row back if the server refuses. Says whether it went.
    *
    * The rollback uses the updater form rather than a captured `tasks`, because clearing the
-   * completed section calls this in a loop and a captured array would be a render behind by
-   * the second iteration.
+   * completed section calls this for several tasks at once, and a captured array would be a
+   * render behind for all but the first.
    */
   const deleteOne = async (task: Task) => {
     setTasks((current) => current.filter((candidate) => candidate.id !== task.id))
@@ -245,12 +245,9 @@ function Board() {
 
   const clearCompleted = async () => {
     setError(null)
-    const gone: Task[] = []
-    for (const task of completedTasks) {
-      if (await deleteOne(task)) {
-        gone.push(task)
-      }
-    }
+    // All at once: each deletion stands on its own, and the undo offers those that went.
+    const outcomes = await Promise.all(completedTasks.map(async (task) => ((await deleteOne(task)) ? task : null)))
+    const gone = outcomes.filter((task): task is Task => task !== null)
     if (gone.length > 0) {
       setDeleted(gone)
     }

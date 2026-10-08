@@ -46,7 +46,7 @@ public class DeletionRecords {
      * Records that the account with this email is being deleted now, replacing an older record.
      * The time is the object's own; the body only says what the object is, for a person who finds it.
      */
-    public void record(String email) {
+    public void markDeleted(String email) {
         store.putText(PREFIX + hash(email), "TaskFest account deletion record (#213); the time is this object's.");
     }
 
@@ -91,8 +91,8 @@ public class DeletionRecords {
                                           Set<String> stillPresent) {
         return oldestRestorable
             .map(oldest -> records.stream()
-                .filter(record -> record.deletedAt().isBefore(oldest))
-                .filter(record -> !stillPresent.contains(record.emailHash()))
+                .filter(deletion -> deletion.deletedAt().isBefore(oldest))
+                .filter(deletion -> !stillPresent.contains(deletion.emailHash()))
                 .toList())
             .orElse(List.of());
     }

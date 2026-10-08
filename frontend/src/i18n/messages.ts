@@ -53,7 +53,7 @@ export const en = {
   /** An answer that broke the API contract (`ContractBreachError`): which one, and how. */
   contract: {
     message: (subject: string, detail?: string) =>
-      `The backend sent ${subject} that does not match its own API contract${detail ? `: ${detail}` : ''}.`,
+      `The backend sent ${subject} that does not match its own API contract` + (detail ? `: ${detail}.` : '.'),
     subjects: {
       task: 'a task',
       taskList: 'a task list',
@@ -210,7 +210,7 @@ export const de: Messages = {
   },
   contract: {
     message: (subject: string, detail?: string) =>
-      `Die Antwort des Backends (${subject}) passt nicht zu seinem eigenen API-Vertrag${detail ? `: ${detail}` : ''}.`,
+      `Die Antwort des Backends (${subject}) passt nicht zu seinem eigenen API-Vertrag` + (detail ? `: ${detail}.` : '.'),
     subjects: {
       task: 'eine Aufgabe',
       taskList: 'eine Aufgabenliste',

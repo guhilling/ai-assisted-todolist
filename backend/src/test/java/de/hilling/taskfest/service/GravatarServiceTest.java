@@ -4,6 +4,8 @@ import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.time.Duration;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.Optional;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -25,6 +27,8 @@ class GravatarServiceTest {
 
     private HttpServer server;
     private GravatarService gravatar;
+    /** Holds a request the fake server is told not to answer, until the test is over. */
+    private final CountDownLatch release = new CountDownLatch(1);
 
     @BeforeEach
     void startServer() throws IOException {
@@ -34,6 +38,7 @@ class GravatarServiceTest {
 
     @AfterEach
     void stopServer() {
+        release.countDown();
         server.stop(0);
     }
 
@@ -67,7 +72,8 @@ class GravatarServiceTest {
     void shouldGiveUpRatherThanHangWhenNothingAnswers() {
         server.createContext("/slow", exchange -> {
             try {
-                Thread.sleep(2_000);
+                // Answers only once the test is done: far past the client's 500 ms either way.
+                release.await(5, TimeUnit.SECONDS);
             } catch (InterruptedException interrupted) {
                 Thread.currentThread().interrupt();
             }

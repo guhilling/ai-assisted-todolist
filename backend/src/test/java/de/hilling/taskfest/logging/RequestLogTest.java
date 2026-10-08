@@ -7,7 +7,6 @@ import io.quarkus.test.security.oidc.OidcSecurity;
 import java.util.List;
 import java.util.Map;
 import java.time.Duration;
-import java.time.Instant;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.logging.Handler;
 import java.util.logging.LogRecord;
@@ -18,6 +17,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import static io.restassured.RestAssured.given;
+import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -68,10 +68,7 @@ class RequestLogTest {
 
     /** The one access line the request wrote, once it has been written. */
     private Map<String, String> theLine() throws InterruptedException {
-        Instant deadline = Instant.now().plus(Duration.ofSeconds(5));
-        while (records.isEmpty() && Instant.now().isBefore(deadline)) {
-            Thread.sleep(20);
-        }
+        await().atMost(Duration.ofSeconds(5)).until(() -> !records.isEmpty());
         assertEquals(1, records.size());
         return records.get(0);
     }
