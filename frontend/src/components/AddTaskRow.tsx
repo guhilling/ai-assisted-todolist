@@ -1,15 +1,33 @@
 import { useEffect, useRef, useState } from 'react'
-import type { TaskImportance, TaskInput } from '../api'
+import { attachmentLimits, checkFile, type Task, type TaskImportance, type TaskInput } from '../api'
 import { addDays, quickDates } from '../dates'
 import { importanceLevels } from '../importance'
+import type { AttachmentActions } from './AttachmentList'
+import { Problems, UploadProgress } from './AttachmentPicker'
 import DueDateField from './DueDateField'
+import FileDrop from './FileDrop'
+import { useUploads } from './useUploads'
 import { useEscapeWithin } from '../escape'
 import { useI18n } from '../i18n/context'
 
 type AddTaskRowProps = {
   today: string
   saving: boolean
-  onAdd: (input: TaskInput) => Promise<boolean>
+  /**
+   * Creates the task: the created task, or whether it went where the caller has none to give --
+   * files are uploaded only to a task it returns.
+   */
+  onAdd: (input: TaskInput) => Promise<Task | boolean>
+  /** Attaching files while adding (#216); left out, the row offers none. */
+  attachments?: AttachmentActions
+}
+
+/** What the row uploads with when it has no attachment actions: never called, since it offers no files. */
+const NO_ACTIONS: AttachmentActions = {
+  link: () => Promise.reject(new Error('no attachments here')),
+  open: () => undefined,
+  remove: () => undefined,
+  upload: () => Promise.resolve({ failed: true }),
 }
 
 /**
@@ -19,8 +37,13 @@ type AddTaskRowProps = {
  * it offers the four dates a task is almost always due on, which is the point: typing a date
  * is the slowest part of adding a task, and the default of tomorrow means the common case
  * needs no date interaction at all.
+ *
+ * Files can be attached here too (#216). They are held in the browser until Add -- checked at once
+ * for type, size and how many a task may have -- and uploaded once the task exists. A file that
+ * cannot be attached then does not undo the task: the row says which and why, and it can be
+ * attached again from the editor. The row clears once everything has gone.
  */
-function AddTaskRow({ today, saving, onAdd }: Readonly<AddTaskRowProps>) {
+function AddTaskRow({ today, saving, onAdd, attachments }: Readonly<AddTaskRowProps>) {
   const { messages } = useI18n()
   const [open, setOpen] = useState(false)
   const [description, setDescription] = useState('')
@@ -28,6 +51,9 @@ function AddTaskRow({ today, saving, onAdd }: Readonly<AddTaskRowProps>) {
   const [importance, setImportance] = useState<TaskImportance>('MEDIUM')
   const descriptionRef = useRef<HTMLInputElement>(null)
   const form = useRef<HTMLFormElement>(null)
+  const [held, setHeld] = useState<File[]>([])
+  const [sending, setSending] = useState(false)
+  const files = useUploads(attachments ?? NO_ACTIONS)
 
   useEffect(() => {
     if (open) {
@@ -69,6 +95,24 @@ function AddTaskRow({ today, saving, onAdd }: Readonly<AddTaskRowProps>) {
     setDescription('')
     setDueDate(addDays(today, 1))
     setImportance('MEDIUM')
+    setHeld([])
+  }
+
+  /** Holds what may be sent, refusing at once what could not be: its type, its size, or no room. */
+  const hold = (chosen: File[]) => {
+    files.clearProblems()
+    let room = attachmentLimits.perTask - held.length
+    const accepted: File[] = []
+    for (const file of chosen) {
+      const refusal = checkFile(file) ?? (room > 0 ? null : 'TASK_FULL')
+      if (refusal) {
+        files.addProblem(messages.attachments.refusals[refusal](file.name))
+      } else {
+        accepted.push(file)
+        room -= 1
+      }
+    }
+    setHeld((current) => [...current, ...accepted])
   }
 
   const collapse = () => {
@@ -84,11 +128,18 @@ function AddTaskRow({ today, saving, onAdd }: Readonly<AddTaskRowProps>) {
     }
     // A new task is always TODO; the board has no reason to offer a state picker before the
     // task exists, but the backend requires the field.
+    files.clearProblems()
     const saved = await onAdd({ description: description.trim(), dueDate, importance, state: 'TODO' })
-    if (saved) {
-      reset()
-      descriptionRef.current?.focus()
+    if (!saved) {
+      return
     }
+    if (typeof saved === 'object' && held.length > 0) {
+      setSending(true)
+      await files.uploadAll(saved, held)
+      setSending(false)
+    }
+    reset()
+    descriptionRef.current?.focus()
   }
 
   if (!open) {
@@ -155,11 +206,42 @@ function AddTaskRow({ today, saving, onAdd }: Readonly<AddTaskRowProps>) {
           <button type="button" className="button-quiet" onClick={collapse}>
             {messages.addRow.cancel}
           </button>
-          <button type="submit" className="button-primary" disabled={saving || description.trim() === ''}>
-            {saving ? messages.addRow.adding : messages.addRow.add}
+          <button type="submit" className="button-primary" disabled={saving || sending || description.trim() === ''}>
+            {saving || sending ? messages.addRow.adding : messages.addRow.add}
           </button>
         </div>
       </div>
+
+      {attachments ? (
+        <fieldset className="attachment-picker">
+          <legend>{messages.attachments.title}</legend>
+          {held.length > 0 ? (
+            <ul className="attachment-picker-list">
+              {held.map((file, index) => (
+                <li key={`${index}-${file.name}`}>
+                  <span className="attachment-name">{file.name}</span>
+                  <button
+                    type="button"
+                    className="attachment-remove"
+                    aria-label={messages.attachments.remove(file.name)}
+                    disabled={sending}
+                    onClick={() => setHeld((current) => current.filter((_, at) => at !== index))}
+                  >
+                    ×
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          <UploadProgress uploads={files.uploads} />
+          {held.length >= attachmentLimits.perTask ? (
+            <p className="attachment-hint">{messages.attachments.full(attachmentLimits.perTask)}</p>
+          ) : (
+            <FileDrop onFiles={hold} />
+          )}
+          <Problems problems={files.problems} />
+        </fieldset>
+      ) : null}
     </form>
   )
 }

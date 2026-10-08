@@ -21,6 +21,7 @@ export { default as AttachmentPicker } from './components/AttachmentPicker'
 export { default as CalendarPanel } from './components/CalendarPanel'
 export { default as CompletedSection } from './components/CompletedSection'
 export { default as DueDateField } from './components/DueDateField'
+export { default as FileDrop } from './components/FileDrop'
 export { default as LegalFooter } from './components/LegalFooter'
 export { imprintUrl, privacyUrl, privacyUrls } from './links'
 
