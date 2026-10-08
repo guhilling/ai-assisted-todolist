@@ -357,3 +357,10 @@ would be wrong if the two came apart.
 field. Holding it until Save would leave an object in storage that the task does not know about,
 and Cancel undoing it would mean deleting what was just sent.
 
+**Attaching while adding a task (#216) holds the files in the browser instead**, because there is
+no task to upload to yet. The add row checks each file at once -- type, size and how many a task
+may have, with the same `checkFile` the upload uses -- and uploads the held ones, in parallel, once
+the task exists. A file refused then does not undo the task: the row names it and says why, and it
+can be attached again from the editor. The editor and the add row share the drop zone (`FileDrop`)
+and the uploading with its progress and messages (`useUploads`).
+

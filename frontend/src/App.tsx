@@ -340,7 +340,7 @@ function Board() {
     }
   }
 
-  /** Returns whether the task was saved, so the add row knows whether to clear itself. */
+  /** Returns the task as created, or false, so the add row knows whether to clear itself and where its files go. */
   const addTask = async (input: TaskInput) => {
     setSaving(true)
     setError(null)
@@ -348,7 +348,7 @@ function Board() {
     try {
       const created = await postTask(input)
       setTasks((current) => [...current, created])
-      return true
+      return created
     } catch (saveError) {
       reportFailure(saveError, 'saving')
       return false
@@ -415,7 +415,7 @@ function Board() {
         <p className="board-note">{messages.board.loading}</p>
       ) : (
         <>
-          <AddTaskRow today={today} saving={saving} onAdd={addTask} />
+          <AddTaskRow today={today} saving={saving} onAdd={addTask} attachments={attachmentActions} />
 
           {sections.map((section) => (
             <TaskSection

@@ -521,6 +521,12 @@ html {
   background: var(--surface-raised);
 }
 
+/* The add row's fields, in a fieldset only so they can be disabled together while files upload
+   (#216); it adds no box of its own, so the form's layout is untouched. */
+.add-form-body {
+  display: contents;
+}
+
 .add-description {
   width: 100%;
   min-height: 44px;

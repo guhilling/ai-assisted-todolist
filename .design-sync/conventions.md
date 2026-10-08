@@ -84,7 +84,7 @@ defined there. Each component's `.prompt.md` carries its props and usage.
     </div>
   </header>
 
-  <AddTaskRow today="2026-03-16" saving={false} onAdd={async () => true} />
+  <AddTaskRow today="2026-03-16" saving={false} onAdd={async (input) => ({ ...input, id: 1 })} />
 
   <TaskSection
     title="Overdue"
