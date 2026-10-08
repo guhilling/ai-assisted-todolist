@@ -53,7 +53,10 @@ public interface AttachmentsConfig {
         /** How long after a start the first run comes, so it does not compete with startup. */
         String delay();
 
-        /** How often it runs after that. */
+        /** How often it runs after that; {@code off} where there is no bucket to clean. */
         String every();
+
+        /** The most objects one run may delete; more than that is held as a likely mistake. */
+        int maxDeletions();
     }
 }

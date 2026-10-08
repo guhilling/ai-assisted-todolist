@@ -21,8 +21,8 @@ import software.amazon.awssdk.services.s3.presigner.model.PresignedPutObjectRequ
  *
  * <p>The browser moves file content itself, through links signed here: an upload link that only
  * accepts exactly the announced size and type -- both are signed into it, so S3 refuses anything
- * else -- and a short-lived download link. The backend itself only asks whether an object is there
- * and deletes it.</p>
+ * else -- and a short-lived download link. The backend itself asks whether an object is there, deletes
+ * it, and lists the bucket for the orphan clean-up (#208).</p>
  */
 @ApplicationScoped
 public class AttachmentStore {

@@ -36,6 +36,8 @@ services:
       TASKFEST_OIDC_GOOGLE_CLIENT_SECRET: ${TASKFEST_OIDC_GOOGLE_CLIENT_SECRET:-}
       TASKFEST_AUTH_POST_LOGIN_REDIRECT_URI: ${TASKFEST_AUTH_POST_LOGIN_REDIRECT_URI:-http://localhost:3000/}
       TASKFEST_OIDC_COOKIE_SECURE: ${TASKFEST_OIDC_COOKIE_SECURE:-false}
+      # No attachment bucket in this stack, so nothing for the orphan clean-up (#208) to list.
+      TASKFEST_ATTACHMENTS_ORPHAN_SWEEP_EVERY: "off"
     depends_on:
       - postgres
     ports:

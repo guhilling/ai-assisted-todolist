@@ -54,6 +54,10 @@ class OrphanedObjectsTest {
     @Test
     void shouldDeleteAnObjectNothingRefersToOnceItIsOlderThanTheMargin() {
         String key = putObject();
+        // Life went on after the object was left behind: the database is not older than it. A
+        // minute later rather than "now", because LocalStack's clock is the container's, which
+        // can run a little ahead of this JVM's.
+        attachment(AttachmentState.AVAILABLE, Instant.now().plus(Duration.ofMinutes(1)));
 
         OrphanedObjects.Report report = orphans.sweep(Instant.now().plus(Duration.ofDays(2)));
 
@@ -105,11 +109,13 @@ class OrphanedObjectsTest {
 
     @Test
     void shouldRunAsTheSchedulerCallsIt() {
-        // The scheduler is off in tests; this is the method it would call, with the real clock.
+        // The scheduler is off in tests; this is what it calls, with the real clock. The count
+        // proves the run reached the bucket; the young object proves the clock is the real one.
         String key = putObject();
 
-        schedule.sweep();
+        OrphanedObjects.Report report = schedule.run();
 
+        assertTrue(report.listed() >= 1);
         assertTrue(store.head(key).isPresent());
     }
 
@@ -123,6 +129,10 @@ class OrphanedObjectsTest {
     }
 
     private Attachment attachment(AttachmentState state) {
+        return attachment(state, Instant.now());
+    }
+
+    private Attachment attachment(AttachmentState state, Instant createdAt) {
         return QuarkusTransaction.requiringNew().call(() -> {
             User owner = users.getOrCreateByEmail("orphans-" + UUID.randomUUID() + "@example.com");
             Task task = new Task();
@@ -140,6 +150,7 @@ class OrphanedObjectsTest {
             attachment.sizeBytes = 4L;
             attachment.objectKey = UUID.randomUUID().toString();
             attachment.state = state;
+            attachment.createdAt = createdAt;
             attachment.persist();
             return attachment;
         });

@@ -319,6 +319,7 @@
                         <param>de.hilling.taskfest.api.SignInProvidersTest</param>
                         <param>de.hilling.taskfest.security.VerifiedEmailTest</param>
                         <param>de.hilling.taskfest.attachment.AttachmentPolicyTest</param>
+                        <param>de.hilling.taskfest.attachment.OrphanPlanTest</param>
                     </targetTests>
                     <!-- The classes no allowlisted test reaches, excluded so the score reflects
                          what was actually measured rather than being diluted by code PIT could

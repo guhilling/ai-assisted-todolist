@@ -5,7 +5,8 @@ import jakarta.enterprise.context.ApplicationScoped;
 import java.time.Instant;
 
 /**
- * Runs {@link OrphanedObjects#sweep} shortly after every start and then daily (#208).
+ * Runs {@link OrphanedObjects#sweep} shortly after every start and then daily (#208); a stack with
+ * no bucket, such as the Compose ones, switches it off with {@code every=off}.
  *
  * <p>After every start, so that running it by hand needs no tool of its own: redeploying the
  * running version, which is how configuration is rolled out anyway, runs it. Two tasks overlap
@@ -25,6 +26,11 @@ public class OrphanSweep {
         delayed = "{taskfest.attachments.orphan-sweep.delay}",
         concurrentExecution = Scheduled.ConcurrentExecution.SKIP)
     void sweep() {
-        orphans.sweep(Instant.now());
+        run();
+    }
+
+    /** One run with the real clock; what the schedule calls, returning what it found. */
+    OrphanedObjects.Report run() {
+        return orphans.sweep(Instant.now());
     }
 }
