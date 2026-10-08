@@ -1,13 +1,8 @@
 import { purposeUrl } from './SignedOut'
 import { useI18n } from '../i18n/context'
 import { languageNames, languages } from '../i18n/language'
+import { imprintUrl, privacyUrls } from '../links'
 import type { Messages } from '../i18n/messages'
-
-/** The operator's imprint: Hilling IT GmbH runs TaskFest (#193). */
-export const imprintUrl = 'https://www.hilling.it/impressum/'
-
-/** The privacy policy, published with the documentation. */
-export const privacyUrl = 'https://taskfest-docs.cloud.hilling.de/doc/privacy.html'
 
 /**
  * The release this page was built from, or that it is none: the release build sets
@@ -39,7 +34,7 @@ function LegalFooter() {
       <a className="text-link" href={imprintUrl} target="_blank" rel="noreferrer">
         {messages.footer.imprint}
       </a>
-      <a className="text-link" href={privacyUrl} target="_blank" rel="noreferrer">
+      <a className="text-link" href={privacyUrls[language]} target="_blank" rel="noreferrer">
         {messages.footer.privacy}
       </a>
       <span>

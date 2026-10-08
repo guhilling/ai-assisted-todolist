@@ -417,7 +417,11 @@ describe('in German', () => {
     // Google's official button exists in English only (D3 on #203).
     expect(screen.getByRole('link', { name: 'Sign in with Google' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Impressum' })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Datenschutz' })).toBeInTheDocument()
+    // The German privacy policy, not the English one (D4 on #203).
+    expect(screen.getByRole('link', { name: 'Datenschutz' })).toHaveAttribute(
+      'href',
+      'https://taskfest-docs.cloud.hilling.de/doc/datenschutz.html',
+    )
     expect(document.documentElement.lang).toBe('de')
   })
 

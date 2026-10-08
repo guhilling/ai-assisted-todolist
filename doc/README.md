@@ -15,7 +15,9 @@ truth; the root `README.md` is a short entry point that links here.
 | [releasing.md](releasing.md) | How a release is cut, what it checks, and what it publishes |
 | [decisions/](decisions/index.md) | Decisions taken, why, and what was rejected, by topic |
 | [privacy.md](privacy.md) | The application's privacy policy: what is stored, why, for how long, and who else sees it |
+| [datenschutz.md](datenschutz.md) | Die Datenschutzerklärung auf Deutsch |
 | [terms.md](terms.md) | The application's terms of service |
+| [nutzungsbedingungen.md](nutzungsbedingungen.md) | Die Nutzungsbedingungen auf Deutsch |
 
 ## The API contract
 
