@@ -91,6 +91,9 @@ the right way round.
 
 **Decision.** Rows say `Today`, `Tomorrow`, `Yesterday`, `3 days ago`, a weekday name inside
 the week, then `31 Dec`. The board groups into Overdue / Today / Tomorrow / This week / Later.
+An open task under *Today* or *Tomorrow* leaves its date out: the heading already says it, and
+saying it twice made the rows read as noise (Gunnar). Every other section spans several days -- or,
+for completed tasks, none -- so there the row says which.
 Adding a task offers `Today`, `Tomorrow`, `In 1 week` and `In 2 weeks`, and defaults to
 tomorrow.
 
