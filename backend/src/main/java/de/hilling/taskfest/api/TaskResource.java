@@ -83,14 +83,17 @@ public class TaskResource {
     AttachmentService attachments;
 
     @GET
-    @Operation(summary = "List the caller's tasks", description = "Ordered by due date, then id.")
+    @Operation(summary = "List the caller's tasks",
+        description = "Ordered by due date, then by importance, high first, then id.")
     @APIResponse(responseCode = "200", description = "The caller's tasks.",
         content = @Content(mediaType = MediaType.APPLICATION_JSON,
             schema = @Schema(type = SchemaType.ARRAY, implementation = TaskResponse.class),
             examples = @ExampleObject(name = "tasks", value = "[" + EXAMPLE_TASK + "]")))
     public List<TaskResponse> list() {
         User owner = currentUser();
-        List<Task> tasks = Task.<Task>find("owner = ?1 order by dueDate asc, id asc", owner).list();
+        // importance is a native enum, which sorts by its declared order, least important first
+        // (TaskImportance says so): descending puts what matters most first within a day (#217).
+        List<Task> tasks = Task.<Task>find("owner = ?1 order by dueDate asc, importance desc, id asc", owner).list();
         // One query for every task's attachments, so the count of statements stays constant.
         Map<Long, List<Attachment>> attached = attachments.availableOf(tasks);
         return tasks.stream()

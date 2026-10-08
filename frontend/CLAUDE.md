@@ -45,7 +45,9 @@ DDD, and project context all still apply here).
 - `dates.ts` holds due-date arithmetic, and words a due date with the words and locale it is
   given -- the current language's, from the catalogue.
 - `importance.ts` holds the importance levels, in the order the pickers offer them; their words
-  are in the catalogue (`importanceLabels` is its English entry, for the design system).
+  are in the catalogue (`importanceLabels` is its English entry, for the design system). It also
+  holds how the board orders tasks (`compareOpen`, `compareCompleted`, #217), from an explicit
+  `importanceRank` -- never from the pickers' order, which can change for its own reasons.
 - `i18n/` holds the languages (#203): the catalogue (`messages.ts`), how the language is chosen
   (`language.ts`), the provider and `useI18n()`, and how a failure is worded (`failures.ts`).
 - `App.tsx` holds state and composition, and nothing else.

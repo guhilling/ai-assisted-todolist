@@ -44,6 +44,7 @@ import TaskSection from './components/TaskSection'
 import UserAvatar from './components/UserAvatar'
 import UndoToast from './components/UndoToast'
 import { bucketOf, todayIso, type DueBucket } from './dates'
+import { compareCompleted, compareOpen } from './importance'
 import { useI18n } from './i18n/context'
 import { describeFailure } from './i18n/failures'
 import type { Messages } from './i18n/messages'
@@ -105,12 +106,12 @@ function Board() {
     () =>
       [...tasks]
         .filter((task) => task.state !== 'DONE')
-        .sort((left, right) => left.dueDate.localeCompare(right.dueDate) || left.id - right.id),
+        .sort(compareOpen),
     [tasks],
   )
 
   const completedTasks = useMemo(
-    () => [...tasks].filter((task) => task.state === 'DONE').sort((left, right) => right.dueDate.localeCompare(left.dueDate)),
+    () => [...tasks].filter((task) => task.state === 'DONE').sort(compareCompleted),
     [tasks],
   )
 

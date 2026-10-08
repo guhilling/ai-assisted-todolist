@@ -10,7 +10,7 @@
 | **State** | Where a task stands in the workflow: `TODO`, `WORKING` or `DONE`. |
 | **Importance** | How much a task matters to its owner: `LOW`, `MEDIUM` or `HIGH`. |
 | **Due date** | The day a task is meant to be finished. Always set. |
-| **Board** | A user's tasks, as they see them: ordered by due date. |
+| **Board** | A user's tasks, as they see them: ordered by due date, and within a day by importance, high first. |
 | **Attachment** | A file on a task: a PDF or an image. Its content lives in object storage, its name, type and size here. |
 | **Pending** | An attachment announced but not yet confirmed: its upload link is handed out, the file may or may not have arrived. Never listed. |
 | **Available** | An attachment whose file has arrived as announced. The only kind the board lists and opens. |
@@ -74,8 +74,10 @@ that does not exist — both yield 404 — which leaks nothing about other users
 
 - **No state machine.** Any state may follow any other. A personal todo list gains nothing
   from forbidding `DONE` → `TODO`, and everything from letting someone correct a misclick.
-- **No effect from importance.** It sets the colour and fill of a dot on the row and nothing
-  else. Ordering is always by due date, which is what people actually plan against.
+- **Importance orders, it does not group.** Within one due date, high comes before medium before
+  low, and creation order breaks ties (#217) -- the backend's list and the board sort alike. Across
+  dates it has no effect: the due date is what people plan against, so a low task due today stays
+  above a high one due tomorrow. Otherwise importance sets the colour and fill of a dot on the row.
 - **No soft delete, no history.** A deleted task is gone. `createdAt` and `updatedAt` exist
   for operational sanity, not as a domain concept. The one exception is its attachments, which
   wait out the undo window detached, because a file once deleted from S3 cannot be brought back
