@@ -73,7 +73,7 @@ frontend deploy is also what runs the live checks afterwards (qa only), which `u
 
 `down` leaves a final snapshot, which is the backup taken immediately before the migration that
 the plan above asks for — rolling back is `down` and `up` on the previous release from the
-snapshot before it. `up` creates the backend service with **no tasks**, so nothing starts against
+snapshot before it, and that release's frontend deployed after it. `up` creates the backend service with **no tasks**, so nothing starts against
 a schema it does not expect: Hibernate's validation would stop every task, and the circuit
 breaker would fail the service's first deployment. After the apply it creates the database's
 application user if the database started empty (`db-bootstrap`, idempotent), runs `migrate` on
