@@ -6,7 +6,8 @@ import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.junit.TestProfile;
 import java.math.BigInteger;
 import java.time.Duration;
-import java.time.Instant;
+import java.util.Optional;
+import org.awaitility.core.ConditionTimeoutException;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
@@ -19,6 +20,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
@@ -93,15 +95,12 @@ class ProviderInLogsTest {
     /** The first captured line matching, once it has been written: access lines come after the response. */
     private Map<String, String> line(java.util.function.Predicate<Map<String, String>> matching)
         throws InterruptedException {
-        Instant deadline = Instant.now().plus(Duration.ofSeconds(5));
-        while (Instant.now().isBefore(deadline)) {
-            for (Map<String, String> fields : records) {
-                if (matching.test(fields)) {
-                    return fields;
-                }
-            }
-            Thread.sleep(20);
+        try {
+            return await().atMost(Duration.ofSeconds(5))
+                .until(() -> records.stream().filter(matching).findFirst(), Optional::isPresent)
+                .orElseThrow();
+        } catch (ConditionTimeoutException none) {
+            throw new AssertionError("no such line among " + records, none);
         }
-        throw new AssertionError("no such line among " + records);
     }
 }

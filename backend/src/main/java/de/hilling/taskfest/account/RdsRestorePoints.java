@@ -1,6 +1,7 @@
 package de.hilling.taskfest.account;
 
 import java.time.Instant;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Stream;
 import org.slf4j.Logger;
@@ -48,7 +49,7 @@ public class RdsRestorePoints implements RestorePoints {
                 .map(DBInstanceAutomatedBackup::restoreWindow)
                 .filter(window -> window != null && window.earliestTime() != null)
                 .map(window -> window.earliestTime());
-            return Stream.concat(snapshots, backups).filter(time -> time != null).min(Instant::compareTo);
+            return Stream.concat(snapshots, backups).filter(Objects::nonNull).min(Instant::compareTo);
         } catch (SdkException failure) {
             LOG.warn("Could not list the restorable points of {}; keeping every deletion record", instance, failure);
             return Optional.empty();

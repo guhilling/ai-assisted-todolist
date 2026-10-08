@@ -35,6 +35,9 @@ public class AccountDeletion {
 
     private static final Logger LOG = LoggerFactory.getLogger(AccountDeletion.class);
 
+    /** The attachment and task field naming who they belong to. */
+    private static final String OWNER = "owner";
+
     private final DeletionRecords records;
     private final AttachmentService attachments;
     private final CacheManager caches;
@@ -54,7 +57,7 @@ public class AccountDeletion {
             purge(email, Instant.MAX);
             return;
         }
-        records.record(email);
+        records.markDeleted(email);
         try {
             purge(email, Instant.MAX);
         } catch (RuntimeException failure) {
@@ -78,7 +81,7 @@ public class AccountDeletion {
             return;
         }
         List<Attachment> held = QuarkusTransaction.requiringNew().call(() ->
-            Attachment.<Attachment>list("owner", user));
+            Attachment.<Attachment>list(OWNER, user));
         held.forEach(attachments::remove);
 
         long tasks = QuarkusTransaction.requiringNew().call(() -> {
@@ -86,8 +89,8 @@ public class AccountDeletion {
             if (locked == null || !locked.createdAt.isBefore(createdBefore)) {
                 return 0L;
             }
-            Attachment.delete("owner", locked);
-            long deleted = Task.delete("owner", locked);
+            Attachment.delete(OWNER, locked);
+            long deleted = Task.delete(OWNER, locked);
             locked.delete();
             return deleted;
         });

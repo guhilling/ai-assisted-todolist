@@ -456,6 +456,11 @@ describe('in German', () => {
 })
 
 describe('the language switch', () => {
+  afterEach(() => {
+    localStorage.removeItem('taskfest.language')
+    document.documentElement.lang = 'en'
+  })
+
   it('translates a failure already on screen', async () => {
     globalThis.fetch = mockApi({ me: ALICE, tasks: 'server-error' }) as unknown as typeof fetch
     render(<App />)
@@ -464,11 +469,6 @@ describe('the language switch', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Deutsch' }))
 
     expect(await screen.findByText('Die Aufgaben konnten nicht vom Backend geladen werden.')).toBeInTheDocument()
-  })
-
-  afterEach(() => {
-    localStorage.removeItem('taskfest.language')
-    document.documentElement.lang = 'en'
   })
 
   it('switches to German and back, and remembers the choice', async () => {

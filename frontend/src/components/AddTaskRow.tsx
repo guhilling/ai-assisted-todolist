@@ -3,6 +3,7 @@ import type { TaskImportance, TaskInput } from '../api'
 import { addDays, quickDates } from '../dates'
 import { importanceLevels } from '../importance'
 import DueDateField from './DueDateField'
+import { useEscapeWithin } from '../escape'
 import { useI18n } from '../i18n/context'
 
 type AddTaskRowProps = {
@@ -26,6 +27,7 @@ function AddTaskRow({ today, saving, onAdd }: Readonly<AddTaskRowProps>) {
   const [dueDate, setDueDate] = useState(addDays(today, 1))
   const [importance, setImportance] = useState<TaskImportance>('MEDIUM')
   const descriptionRef = useRef<HTMLInputElement>(null)
+  const form = useRef<HTMLFormElement>(null)
 
   useEffect(() => {
     if (open) {
@@ -74,6 +76,8 @@ function AddTaskRow({ today, saving, onAdd }: Readonly<AddTaskRowProps>) {
     reset()
   }
 
+  useEscapeWithin(form, collapse)
+
   const submit = async () => {
     if (description.trim() === '') {
       return
@@ -103,15 +107,11 @@ function AddTaskRow({ today, saving, onAdd }: Readonly<AddTaskRowProps>) {
 
   return (
     <form
+      ref={form}
       className="add-form"
       onSubmit={(event) => {
         event.preventDefault()
         void submit()
-      }}
-      onKeyDown={(event) => {
-        if (event.key === 'Escape') {
-          collapse()
-        }
       }}
     >
       <input
@@ -123,7 +123,8 @@ function AddTaskRow({ today, saving, onAdd }: Readonly<AddTaskRowProps>) {
         onChange={(event) => setDescription(event.target.value)}
       />
 
-      <div className="quick-dates" role="group" aria-label={messages.addRow.shortcuts}>
+      <fieldset className="quick-dates">
+        <legend className="visually-hidden">{messages.addRow.shortcuts}</legend>
         {quickDates(today, messages.dates).map((quick) => (
           <button
             key={quick.label}
@@ -135,7 +136,7 @@ function AddTaskRow({ today, saving, onAdd }: Readonly<AddTaskRowProps>) {
             {quick.label}
           </button>
         ))}
-      </div>
+      </fieldset>
 
       <div className="add-controls">
         {/* min matches the backend, which refuses a new task dated in the past. */}

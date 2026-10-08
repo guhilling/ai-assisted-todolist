@@ -15,6 +15,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
+import java.util.stream.Collectors;
 import org.eclipse.microprofile.config.Config;
 
 /**
@@ -105,13 +106,9 @@ public class SignInProviders {
     }
 
     private static Set<String> switchedOff(AuthProvidersConfig providers, Config config) {
-        Set<String> off = new TreeSet<>();
-        for (String id : providers.providers().keySet()) {
-            if (!isTenantEnabled(id, config)) {
-                off.add(id);
-            }
-        }
-        return off;
+        return providers.providers().keySet().stream()
+            .filter(id -> !isTenantEnabled(id, config))
+            .collect(Collectors.toCollection(TreeSet::new));
     }
 
     private static boolean isTenantEnabled(String id, Config config) {

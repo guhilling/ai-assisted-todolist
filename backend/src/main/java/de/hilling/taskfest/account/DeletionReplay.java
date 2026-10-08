@@ -118,9 +118,9 @@ public class DeletionReplay {
             .collect(Collectors.toSet());
         List<DeletionRecords.Deletion> prunable =
             DeletionRecords.prunable(all, restorePoints.oldest(), stillPresent);
-        for (DeletionRecords.Deletion record : prunable) {
+        for (DeletionRecords.Deletion due : prunable) {
             try {
-                records.removeIfUnchanged(record);
+                records.removeIfUnchanged(due);
             } catch (RuntimeException failure) {
                 LOG.warn("Could not remove a deletion record; the next run tries again", failure);
             }

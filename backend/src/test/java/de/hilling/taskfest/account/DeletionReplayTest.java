@@ -48,7 +48,7 @@ class DeletionReplayTest {
 
     @Test
     void shouldDeleteAgainAnAccountARestoreBroughtBack() {
-        records.record("restored@example.com");
+        records.markDeleted("restored@example.com");
         long taskId = restoredUser("restored@example.com", Instant.now().minus(Duration.ofDays(30)));
 
         replay.run(false);
@@ -60,7 +60,7 @@ class DeletionReplayTest {
     @Test
     void shouldKeepAnAccountCreatedAfterTheDeletion() {
         // The record's time is when S3 wrote it; this account was created after that.
-        records.record("came-back@example.com");
+        records.markDeleted("came-back@example.com");
         restoredUser("came-back@example.com", Instant.now().plus(Duration.ofMinutes(1)));
 
         replay.run(false);
@@ -70,14 +70,14 @@ class DeletionReplayTest {
 
     @Test
     void shouldKeepTheRecordsOutOfTheOrphanCleanUpsListing() {
-        records.record("listed@example.com");
+        records.markDeleted("listed@example.com");
 
         assertTrue(store.list().stream().noneMatch(object -> object.key().startsWith(DeletionRecords.PREFIX)));
     }
 
     @Test
     void shouldPruneARecordNoRestoreCanNeedAnyMore() {
-        records.record("long-gone@example.com");
+        records.markDeleted("long-gone@example.com");
         // A database whose oldest snapshot is newer than the record: nothing can bring it back.
         DeletionReplay pruning = new DeletionReplay(records, deletion,
             () -> Optional.of(Instant.now().plus(Duration.ofDays(1))), config);
@@ -89,7 +89,7 @@ class DeletionReplayTest {
 
     @Test
     void shouldKeepEveryRecordWhenTheOldestSnapshotIsUnknown() {
-        records.record("kept@example.com");
+        records.markDeleted("kept@example.com");
 
         replay.scheduled();
 
@@ -98,7 +98,7 @@ class DeletionReplayTest {
 
     @Test
     void shouldTakeBackTheRecordOfADeletionThatDidNotGoThrough() {
-        records.record("changed-mind@example.com");
+        records.markDeleted("changed-mind@example.com");
 
         records.forget("changed-mind@example.com");
 

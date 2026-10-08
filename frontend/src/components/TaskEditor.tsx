@@ -4,6 +4,7 @@ import { importanceLevels } from '../importance'
 import type { AttachmentActions } from './AttachmentList'
 import AttachmentPicker from './AttachmentPicker'
 import DueDateField from './DueDateField'
+import { useEscapeWithin } from '../escape'
 import { useI18n } from '../i18n/context'
 
 /** What editing may change. The state has its own controls: the checkbox and the row menu. */
@@ -32,6 +33,9 @@ function TaskEditor({ task, saving, onSave, onCancel, attachments }: Readonly<Ta
   const [dueDate, setDueDate] = useState(task.dueDate)
   const [importance, setImportance] = useState<TaskImportance>(task.importance)
   const descriptionRef = useRef<HTMLInputElement>(null)
+  const form = useRef<HTMLFormElement>(null)
+
+  useEscapeWithin(form, onCancel)
 
   useEffect(() => {
     descriptionRef.current?.focus()
@@ -41,17 +45,13 @@ function TaskEditor({ task, saving, onSave, onCancel, attachments }: Readonly<Ta
 
   return (
     <form
+      ref={form}
       className="add-form task-editor"
       aria-label={messages.editor.label(task.description)}
       onSubmit={(event) => {
         event.preventDefault()
         if (!blank) {
           onSave({ description: description.trim(), dueDate, importance })
-        }
-      }}
-      onKeyDown={(event) => {
-        if (event.key === 'Escape') {
-          onCancel()
         }
       }}
     >

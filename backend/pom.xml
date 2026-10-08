@@ -205,6 +205,13 @@
             <artifactId>rest-assured</artifactId>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <!-- Waiting in tests for a condition rather than a fixed sleep: the log lines a request
+                 writes after its response, for instance. Versioned by the Quarkus BOM. -->
+            <groupId>org.awaitility</groupId>
+            <artifactId>awaitility</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>
