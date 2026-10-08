@@ -61,8 +61,10 @@ visible one is addressed — and the accounts. One scenario runs in qa only: bot
 - **Test data stays contained.** Before and after a run, `e2e/live/test-accounts.ts` signs in as
   each account and deletes all of its tasks. The accounts are used for nothing else, so that is
   safe — and a run aborted half-way is cleaned up by the next one. Files attached during a run
-  (#204) go with them: the attachments scenario removes its own, and deleting a task detaches any
-  left behind, which the attachment sweep deletes ten minutes later.
+  (#204) are removed first, task by task, because a deleted task's files stay for the ten-minute
+  undo window and count toward the five a user may have: two aborted runs in a row would
+  otherwise fail the next on that limit. An upload abandoned half way is not listed, and the
+  attachment sweep removes it within the hour.
 - **While the environment is down, the job does not start**: the smoke job reports the backend's
   state, and there is nothing to sign in to.
 - **One run at a time** (a concurrency group per environment): two would reset each other's

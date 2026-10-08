@@ -16,7 +16,9 @@ Here the app is on `http://localhost:3000` with sign-in enabled against Keycloak
 `http://localhost:8082`, so you can also drive it by hand with the accounts above.
 
 **S3 is LocalStack** (#204), with the bucket `taskfest-attachments` and the same CORS rule as in
-AWS, created by `e2e/localstack-init.sh`, and signature checks switched on as AWS has them. It sits
+AWS, created by `e2e/localstack-init.sh`, and signature checks switched on as AWS has them. That
+the two rules agree is checked, not hoped for: `.github/scripts/check-cors-rule.py` compares the
+methods, headers and max age with `attachments.tf` on every change. It sits
 at `http://s3.localhost:4566`, one address for both sides: the backend signs upload and download
 links for it, and the browser follows them. The browser resolves every `*.localhost` to 127.0.0.1,
 where the port is published; inside the network, `s3.localhost` is an alias of the LocalStack

@@ -9,7 +9,8 @@
  * (#144), it is the environment's real bucket. The scenario removes what it attached; if it fails
  * half way, the live run's teardown deletes the task, and the attachment sweep its files.
  */
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test } from '@playwright/test'
+import { addTask, inDays } from '../support/board'
 import { currentIdentity, signInAs } from '../support/identity'
 
 const identity = currentIdentity()
@@ -26,20 +27,6 @@ const PNG = Buffer.from(
   'base64',
 )
 
-/** Tomorrow, as the date field takes it: never a fixed date, which would fall into the past. */
-function tomorrow() {
-  const date = new Date()
-  date.setUTCDate(date.getUTCDate() + 1)
-  return date.toISOString().slice(0, 10)
-}
-
-async function addTask(page: Page, description: string) {
-  await page.getByRole('button', { name: 'Add a task' }).click()
-  await page.getByLabel('What needs doing').fill(description)
-  await page.getByRole('textbox', { name: 'Due date' }).fill(tomorrow())
-  await page.getByRole('button', { name: 'Add', exact: true }).click()
-}
-
 test('attaches a PDF and an image, opens them, and removes them', async ({ page }) => {
   await page.goto('/')
   await signInAs(page, identity, identity.primary)
@@ -47,7 +34,7 @@ test('attaches a PDF and an image, opens them, and removes them', async ({ page 
 
   // Unique per run, since qa keeps the accounts between runs.
   const description = `File the invoice ${Date.now()}`
-  await addTask(page, description)
+  await addTask(page, description, inDays(1))
   const row = page.locator('.task-row', { hasText: description })
   await expect(row).toBeVisible()
 
