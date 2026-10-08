@@ -39,7 +39,12 @@ locals {
   task_role           = "${local.name}-task"
   ecs_infrastructure  = "${local.name}-ecs-infrastructure"
 
+  # The snapshots the downtime path takes before migrating (#215), named by deploy-backend.py.
+  # A final snapshot is `-final-`, so it never matches this.
+  pre_release_snapshots = "${local.db_instance}-pre-release-*"
+
   cluster_arn     = "arn:aws:ecs:${local.region}:${local.account}:cluster/${local.cluster_name}"
+  db_instance_arn = "arn:aws:rds:${local.region}:${local.account}:db:${local.db_instance}"
   service_arn     = "arn:aws:ecs:${local.region}:${local.account}:service/${local.cluster_name}/${local.service_name}"
   site_bucket_arn = "arn:aws:s3:::${local.site_bucket}"
 }
@@ -77,6 +82,11 @@ resource "aws_iam_role" "deploy" {
   name               = "${local.name}-deploy"
   description        = "Redeploys the ${var.environment} application from GitHub Actions. Cannot change infrastructure."
   assume_role_policy = data.aws_iam_policy_document.deploy_trust.json
+
+  # Two hours, not IAM's default one: the downtime path's waits (#215) -- stop, snapshot, migrate,
+  # and a rollout with prod's bake -- may add up to more than an hour, and credentials that expire
+  # mid-start would also fail the call that leaves the service safe. deploy-backend.yml asks for it.
+  max_session_duration = 7200
 
   tags = { Name = "${local.name}-deploy" }
 }
@@ -174,6 +184,36 @@ data "aws_iam_policy_document" "deploy" {
       variable = "iam:PassedToService"
       values   = ["ecs-tasks.amazonaws.com"]
     }
+  }
+
+  # The downtime path's way back (#215): a manual snapshot of this environment's database, taken
+  # after the backend has stopped and before the migration runs. Creating one names both the
+  # instance and the new snapshot, so both are listed; the snapshot only by its pre-release name.
+  statement {
+    sid     = "SnapshotThisDatabaseBeforeMigrating"
+    actions = ["rds:CreateDBSnapshot"]
+    resources = [
+      local.db_instance_arn,
+      "arn:aws:rds:${local.region}:${local.account}:snapshot:${local.pre_release_snapshots}",
+    ]
+  }
+
+  # Watching it become available, and listing this database's snapshots to find the old ones.
+  statement {
+    sid     = "SeeThisDatabasesSnapshots"
+    actions = ["rds:DescribeDBSnapshots"]
+    resources = [
+      local.db_instance_arn,
+      "arn:aws:rds:${local.region}:${local.account}:snapshot:${local.db_instance}-*",
+    ]
+  }
+
+  # Keeping the newest three (D3 on #215). Only pre-release snapshots: a final snapshot is what
+  # `env.sh up` restores after a teardown, and this role can never delete one.
+  statement {
+    sid       = "DeleteOldPreReleaseSnapshots"
+    actions   = ["rds:DeleteDBSnapshot"]
+    resources = ["arn:aws:rds:${local.region}:${local.account}:snapshot:${local.pre_release_snapshots}"]
   }
 
   # The frontend deploy: sync a release artifact into this environment's site bucket.

@@ -5,9 +5,9 @@ name: Deploy backend
 # Started by hand with an environment and a release tag -- which is also how a backend is rolled
 # back: run it with the previous tag -- or called by release.yml for qa after every release.
 # deploy-backend.py does the work and its docstring has the details; in short: an environment that
-# is down is skipped without failing, a release that changes the database migrations is stopped
-# with a failure before any traffic moves, and anything else gets a task definition that differs
-# in the image only from the configuration last applied (#189).
+# is down is skipped without failing, a release that changes the database migrations takes the
+# downtime path -- stop, snapshot, migrate, start (#215) -- and anything else goes blue/green, with a
+# task definition that differs in the image only from the configuration last applied (#189).
 #
 # The AWS identity is the environment's deploy role, assumed through GitHub's OIDC token, so no
 # key is stored anywhere. The role trusts only a job running in the GitHub environment of the
@@ -55,7 +55,34 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # Whether the release migrates, before any approval and without credentials: its answer names the
+  # deploy job, so the prod approval says when approving means downtime. It compares with what the
+  # environment reports at its public /api/version, or with the previous release when it reports
+  # nothing; the deploy itself compares with the version actually running, and decides.
+  preview:
+    name: Migrations
+    runs-on: ubuntu-26.04
+    outputs:
+      downtime: ${{ steps.preview.outputs.downtime }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - id: preview
+        env:
+          ENVIRONMENT: ${{ inputs.environment }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          if [[ ! "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]]; then
+            echo "::error::'$VERSION' is not a release tag like v1.2.3"
+            exit 1
+          fi
+          python3 .github/scripts/deploy-backend.py --environment "$ENVIRONMENT" --version "$VERSION" --preview
+
   deploy:
+    name: ${{ needs.preview.outputs.downtime == 'true' && format('Deploy to {0} WITH DOWNTIME (database migration)', inputs.environment) || format('Deploy to {0}', inputs.environment) }}
+    needs: preview
     runs-on: ubuntu-26.04
     environment: ${{ inputs.environment }}
     steps:
@@ -70,6 +97,8 @@ jobs:
           # names this repository and this GitHub environment.
           role-to-assume: arn:aws:iam::808706946095:role/taskfest-${{ inputs.environment }}-deploy
           aws-region: eu-central-1
+          # The role's maximum: the downtime path's waits may outlast the default hour (deploy.tf).
+          role-duration-seconds: 7200
 
       - name: Roll the release out
         env:

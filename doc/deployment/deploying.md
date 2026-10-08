@@ -48,40 +48,72 @@ environment and a tag — which is also the rollback, with the previous tag — 
    cannot be stale.
 2. An environment that is **down** is skipped, with a note in the run summary and no failure.
 3. A release whose **database changelog** (`backend/src/main/resources/db`) differs from the
-   running version's is **stopped**, failing, before any traffic moves: that is the release the
-   downtime path is for, and blue/green must not roll it out. The running version is read from
-   its image tag; when that is `latest`, the previous release counts. This is the check the
-   image-label design above describes, done in git instead. The downtime path is below.
+   running version's takes the **downtime path**, below: blue/green must not roll it out. The
+   running version is read from its image tag; when that is `latest`, the previous release
+   counts. This is the check the image-label design above describes, done in git instead.
 4. Otherwise it registers a task definition that differs in the image only from the
    **configuration last applied** — the newest active revision the deploy role did not register
    itself, usually tofu's (#189) — points the service at it and waits until that deployment's
    rollout has completed, bake included — up to 30 minutes, where ECS's own waiter would give up
    after ten.
 
-**The downtime path: `down`, then `up` on the release.** A release with a migration reaches an
-environment that way and no other, with its frontend deployed after it:
+**The downtime path** (#215) is the same workflow, taking four steps instead of one, each reported
+in the run summary:
 
-```
-deployment/aws-tofu/env.sh down qa
-deployment/aws-tofu/env.sh up qa v1.2.3
-gh workflow run deploy-frontend.yml -f environment=qa -f version=v1.2.3
-```
+1. **stop** — scale the service to zero and wait until no task runs (up to ten minutes);
+2. **snapshot** — take a manual snapshot of the database, `taskfest-<env>-db-pre-release-<release>-<time>`,
+   and wait until it is available (up to 45 minutes; a demo-sized database takes a few). It is the
+   way back. Once a deploy has succeeded, the newest three per environment are kept and older ones
+   deleted ([database.md](database.md)) — not before, or retrying a failed migration three times
+   would delete the one clean snapshot the first failure named;
+3. **migrate** — register a revision of the `migrate` task with the release's image, run it in the
+   service's own network, and wait for exit 0 (up to 20 minutes);
+4. **start** — register the release's task definition as in step 4 above, point the service at it,
+   scale back to the task count it had, and wait until the rollout has completed. The circuit
+   breaker's rollback is off for this one deployment and put back afterwards: what it would roll
+   back to is the old version, on the migrated schema.
 
-The last line is not optional. `env.sh` never touches the frontend, and the site bucket outlives
-`down`, so without it the environment serves the new backend under the previous frontend. The
-frontend deploy is also what runs the live checks afterwards (qa only), which `up` does not.
+The downtime runs from the stop until the release's tasks pass their health checks and take the
+traffic: the snapshot and the migration, plus a start, usually a matter of minutes.
+**What a failure leaves depends on whether the schema has changed yet.** A failure while stopping
+or snapshotting restarts the old version, whose schema is untouched. From the migration on, the
+service stays at **zero**: the old version must not run against a migrated schema, and neither
+against a half-migrated one. The summary names the snapshot, and the way back is a restore
+([database.md](database.md)) or a fix and another deploy. A start that fails after a successful
+migration is treated the same way. A migrate task that was never placed changed nothing and
+restarts the old version; one the deploy gave up on is stopped, so it cannot overlap a restore.
+Cancelling the run is a failure of the step it interrupts. The polls retry a failed AWS call
+rather than mistaking throttling for a failed step, and the deploy role's session lasts two hours
+so the credentials outlive the longest wait.
 
-`down` leaves a final snapshot, which is the backup taken immediately before the migration that
-the plan above asks for — rolling back is `down` and `up` on the previous release from the
-snapshot before it, and that release's frontend deployed after it. `up` creates the backend service with **no tasks**, so nothing starts against
-a schema it does not expect: Hibernate's validation would stop every task, and the circuit
-breaker would fail the service's first deployment. After the apply it creates the database's
-application user if the database started empty (`db-bootstrap`, idempotent), runs `migrate` on
-the release's own image, and only then scales the service to its task count
-(`backend_task_count`) and waits until it is serving. An `up` on an environment that is already
-up does the same harmlessly: the migration runs the image already running and finds nothing to
-do, and the count is what it was — tofu ignores it once the service exists. Both take the 25–35
-minutes of [teardown.md](teardown.md), plus a minute or two for the migration.
+**A rollback across a migration is refused.** Deploying an older release whose changelog differs
+from the running one's fails before anything stops: its Liquibase would leave the newer schema as
+it is, exit 0, and the old version would start against it. The way back over a migration is the
+snapshot restore in [database.md](database.md). A rollback without a migration is an ordinary
+blue/green deploy, as before.
+
+**prod's approval says when it means downtime.** Before the approval, a job without credentials
+(`Migrations`) asks the environment which release it runs — `GET /api/version`, public, over the
+environment's own hostname — compares the release's changelog with that one, and names the deploy
+job after the answer: `Deploy to prod WITH DOWNTIME (database migration)`. Reading what runs from
+AWS would need the credentials the approval guards; the version endpoint needs none. When the
+environment says nothing — it is down, or runs a release from before the endpoint — the job
+compares with the previous release instead and says so in its summary. Either way the deploy
+itself compares with what runs, and decides.
+
+**`down` and `up` remain for what they are for:** pausing an environment, and starting one again on
+a named release ([teardown.md](teardown.md)). `up` creates the backend service with **no tasks**,
+so nothing starts against a schema it does not expect: Hibernate's validation would stop every
+task, and the circuit breaker would fail the service's first deployment. After the apply it
+creates the database's application user if the database started empty (`db-bootstrap`,
+idempotent), runs `migrate` on the release's own image, and only then scales the service to its
+task count (`backend_task_count`) and waits until it is serving. An `up` on an environment that is
+already up does the same harmlessly: the migration runs the image already running and finds
+nothing to do, and the count is what it was — tofu ignores it once the service exists. `env.sh`
+never touches the frontend; the site bucket outlives `down`, so after an `up` on a release the
+environment did not run before, deploy that release's frontend too
+(`gh workflow run deploy-frontend.yml -f environment=qa -f version=v1.2.3`), which also runs the
+live checks on qa.
 
 **Rolling out a configuration change.** The service ignores `task_definition` in tofu, so an apply
 that changes the backend's environment, secrets, CPU or memory registers a new revision and leaves
@@ -101,9 +133,9 @@ one, then deploy. An old release that cannot run with a newer configuration (a v
 was renamed, say) needs the old configuration applied before it is rolled back to.
 
 **Every release goes to qa by itself** — every final one: a pre-release (`v1.2.3-rc.1`) is
-deployed by hand when wanted. `release.yml` ends by calling both workflows for qa with its own tag: the backend first, then the frontend once the backend job has succeeded. So a release
-stopped for its migration does not put its frontend in front of the old API either, while a qa
-that is down still gets the frontend — the site bucket outlives `down`. **prod is never deployed
+deployed by hand when wanted. `release.yml` ends by calling both workflows for qa with its own tag: the backend first, then the frontend once the backend job has succeeded. So a release with a
+migration ends with its own frontend in front of it, one whose backend deploy failed does not put
+its frontend in front of the old API, and a qa that is down still gets the frontend — the site bucket outlives `down`. **prod is never deployed
 automatically**: both workflows are started by hand for it, from the Actions tab, and wait at the
 `prod` environment's approval gate. The same manual start deploys any release to qa again, or
 rolls it back. **After every deploy to qa the [live checks](../testing/live.md) run** against the

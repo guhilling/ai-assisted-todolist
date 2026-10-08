@@ -153,13 +153,38 @@ class DecideTest(unittest.TestCase):
     def test_an_environment_that_is_down_is_skipped(self):
         self.assertEqual(deploy.decide(service_active=False, migrations_differ=False).kind, "skip")
 
-    def test_a_release_with_a_migration_is_stopped_before_any_traffic_moves(self):
+    def test_a_release_with_a_migration_takes_the_downtime_path(self):
         action = deploy.decide(service_active=True, migrations_differ=True)
-        self.assertEqual(action.kind, "stop")
+        self.assertEqual(action.kind, "downtime")
         self.assertIn("migration", action.reason)
 
     def test_anything_else_is_deployed_blue_green(self):
         self.assertEqual(deploy.decide(service_active=True, migrations_differ=False).kind, "deploy")
+
+    def test_rolling_back_across_a_migration_is_refused(self):
+        # The older release's Liquibase ignores the newer changesets and exits 0, so the downtime
+        # path would start it against a schema it was not built for. The way back is a restore.
+        action = deploy.decide(service_active=True, migrations_differ=True, downgrade=True)
+        self.assertEqual(action.kind, "stop")
+        self.assertIn("snapshot", action.reason)
+
+    def test_rolling_back_without_a_migration_is_an_ordinary_deploy(self):
+        self.assertEqual(deploy.decide(service_active=True, migrations_differ=False, downgrade=True).kind, "deploy")
+
+
+class OlderTest(unittest.TestCase):
+
+    def test_an_earlier_release_is_older(self):
+        self.assertTrue(deploy.is_older("v1.2.2", "v1.2.3"))
+        self.assertTrue(deploy.is_older("v1.9.0", "v1.10.0"))
+
+    def test_the_same_or_a_later_release_is_not(self):
+        self.assertFalse(deploy.is_older("v1.2.3", "v1.2.3"))
+        self.assertFalse(deploy.is_older("v1.3.0", "v1.2.3"))
+
+    def test_a_pre_release_is_older_than_its_final_release(self):
+        self.assertTrue(deploy.is_older("v1.2.3-rc.1", "v1.2.3"))
+        self.assertFalse(deploy.is_older("v1.2.3", "v1.2.3-rc.1"))
 
 
 class RolloutTest(unittest.TestCase):
@@ -216,5 +241,112 @@ class StartupImageTest(unittest.TestCase):
         self.assertEqual("error", kind)
 
 
+
+class DowntimeTest(unittest.TestCase):
+    """The downtime path (#215): stop, snapshot, migrate, start -- and what each failure leaves."""
+
+    def test_the_steps_run_in_this_order(self):
+        self.assertEqual(deploy.DOWNTIME_STEPS, ("stop", "snapshot", "migrate", "start"))
+
+    def test_before_the_migration_a_failure_restarts_the_old_version(self):
+        # The schema is untouched until `migrate` runs, so what ran before can run again.
+        self.assertEqual(deploy.after_failure("stop"), "restart")
+        self.assertEqual(deploy.after_failure("snapshot"), "restart")
+
+    def test_a_migration_that_never_started_restarts_the_old_version(self):
+        # RunTask can refuse to place a task at all (capacity, ENIs): the schema is still untouched.
+        self.assertEqual(deploy.after_failure("migrate", migrated=False), "restart")
+
+    def test_the_start_turns_off_the_rollback_and_keeps_the_rest(self):
+        # ECS's rollback would bring the old version back against the migrated schema.
+        configuration = {"strategy": "BLUE_GREEN", "bakeTimeInMinutes": 5,
+                         "deploymentCircuitBreaker": {"enable": True, "rollback": True}}
+        self.assertEqual(deploy.without_rollback(configuration),
+                         {"strategy": "BLUE_GREEN", "bakeTimeInMinutes": 5,
+                          "deploymentCircuitBreaker": {"enable": True, "rollback": False}})
+        self.assertTrue(configuration["deploymentCircuitBreaker"]["rollback"])
+
+    def test_from_the_migration_on_a_failure_leaves_the_service_down(self):
+        # Neither version may run against a schema it was not built for, or against a half-migrated one.
+        self.assertEqual(deploy.after_failure("migrate"), "stay-down")
+        self.assertEqual(deploy.after_failure("start"), "stay-down")
+
+    def test_the_snapshot_is_named_after_the_environment_and_the_release(self):
+        self.assertEqual(deploy.snapshot_identifier("qa", "v0.11.0", "20261008-201530"),
+                         "taskfest-qa-db-pre-release-v0-11-0-20261008-201530")
+
+    def test_a_pre_release_suffix_becomes_a_valid_identifier(self):
+        # RDS allows letters, digits and single hyphens only.
+        self.assertEqual(deploy.snapshot_identifier("prod", "v1.2.0-rc.1", "20261008-201530"),
+                         "taskfest-prod-db-pre-release-v1-2-0-rc-1-20261008-201530")
+
+
+def _snapshot(name, created, status="available"):
+    return {"DBSnapshotIdentifier": name, "SnapshotCreateTime": created, "Status": status}
+
+
+class SnapshotRetentionTest(unittest.TestCase):
+    """Keep the newest three pre-release snapshots per environment (D3 on #215), and nothing else is touched."""
+
+    def test_only_the_newest_three_are_kept(self):
+        snapshots = [_snapshot(f"taskfest-qa-db-pre-release-v0-{n}-0-x", f"2026-10-0{n}T10:00:00Z") for n in range(1, 6)]
+        self.assertEqual(deploy.snapshots_to_delete(snapshots, "qa"),
+                         ["taskfest-qa-db-pre-release-v0-2-0-x", "taskfest-qa-db-pre-release-v0-1-0-x"])
+
+    def test_final_snapshots_are_never_deleted(self):
+        # They are what `env.sh up` restores after a teardown.
+        snapshots = [_snapshot(f"taskfest-qa-db-final-2026100{n}", f"2026-10-0{n}T10:00:00Z") for n in range(1, 6)]
+        self.assertEqual(deploy.snapshots_to_delete(snapshots, "qa"), [])
+
+    def test_the_other_environments_snapshots_are_not_counted(self):
+        snapshots = [_snapshot(f"taskfest-prod-db-pre-release-v0-{n}-0-x", f"2026-10-0{n}T10:00:00Z") for n in range(1, 6)]
+        self.assertEqual(deploy.snapshots_to_delete(snapshots, "qa"), [])
+
+    def test_one_still_being_created_is_neither_counted_nor_deleted(self):
+        snapshots = [_snapshot(f"taskfest-qa-db-pre-release-v0-{n}-0-x", f"2026-10-0{n}T10:00:00Z") for n in range(1, 4)]
+        snapshots.append(_snapshot("taskfest-qa-db-pre-release-v0-9-0-x", "2026-10-09T10:00:00Z", "creating"))
+        self.assertEqual(deploy.snapshots_to_delete(snapshots, "qa"), [])
+
+
+class MigrationTaskTest(unittest.TestCase):
+
+    def test_it_runs_in_the_services_network(self):
+        service = {"networkConfiguration": {"awsvpcConfiguration": {
+            "subnets": ["subnet-a", "subnet-b"], "securityGroups": ["sg-1"], "assignPublicIp": "ENABLED"}}}
+        self.assertEqual(deploy.task_network(service),
+                         {"awsvpcConfiguration": {"subnets": ["subnet-a", "subnet-b"],
+                                                  "securityGroups": ["sg-1"], "assignPublicIp": "ENABLED"}})
+
+    def test_exit_code_zero_is_success(self):
+        task = {"containers": [{"exitCode": 0}], "stoppedReason": "Essential container in task exited"}
+        self.assertEqual(deploy.task_outcome(task), (True, "exit code 0"))
+
+    def test_another_exit_code_is_a_failure(self):
+        task = {"containers": [{"exitCode": 1}], "stoppedReason": "Essential container in task exited"}
+        self.assertEqual(deploy.task_outcome(task), (False, "exit code 1"))
+
+    def test_a_container_that_never_ran_is_explained_by_the_stopped_reason(self):
+        task = {"containers": [{}], "stoppedReason": "CannotPullContainerError: not found"}
+        self.assertEqual(deploy.task_outcome(task), (False, "it never ran: CannotPullContainerError: not found"))
+
+
 if __name__ == "__main__":
     unittest.main()
+
+
+class PreviewTest(unittest.TestCase):
+    """What the approval compares with (#215): what the environment reports it runs, when it can."""
+
+    def test_the_reported_release_is_compared_with(self):
+        self.assertEqual(deploy.preview_base({"version": "0.11.0"}, "v0.12.0"), ("v0.11.0", "running"))
+
+    def test_a_pre_release_is_a_release(self):
+        self.assertEqual(deploy.preview_base({"version": "1.0.0-rc.1"}, "v0.12.0"), ("v1.0.0-rc.1", "running"))
+
+    def test_a_snapshot_build_falls_back_to_the_previous_release(self):
+        self.assertEqual(deploy.preview_base({"version": "1.0.0-SNAPSHOT"}, "v0.12.0"), ("v0.12.0", "previous"))
+
+    def test_no_answer_falls_back_to_the_previous_release(self):
+        # Down, or a release from before /api/version existed.
+        self.assertEqual(deploy.preview_base(None, "v0.12.0"), ("v0.12.0", "previous"))
+        self.assertEqual(deploy.preview_base({"unexpected": 1}, "v0.12.0"), ("v0.12.0", "previous"))

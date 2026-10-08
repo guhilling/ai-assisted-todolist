@@ -159,3 +159,12 @@ export type UploadResponse = {
     headers: Record<string, string>;
     expiresAt: Instant;
 };
+
+/**
+ * The `VersionResponse` the backend speaks.
+ *
+ * Generated from `doc/api/schema/VersionResponse.schema.json`. Do not edit.
+ */
+export type VersionResponse = {
+    version: string;
+};

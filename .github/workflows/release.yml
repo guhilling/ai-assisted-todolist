@@ -240,9 +240,11 @@ jobs:
   # Every final release goes to qa; prod only ever by hand, through its protected environment.
   # Pre-releases (v1.2.3-rc.1) are deployed by hand when wanted: `env.sh up qa` starts the newest
   # *final* release, so one deployed automatically would quietly be undone by a down/up cycle.
-  # The backend first: a release it stops -- one that changes the database changelog -- then does
-  # not put its frontend in front of the old API either. When qa is down the backend is skipped
-  # without failing and the frontend is still uploaded, since the site bucket outlives `down`.
+  # The backend first, and the frontend only once it serves: a release that changes the database
+  # changelog takes the downtime path (#215) and then gets its own frontend, so qa ends on one
+  # version; a backend deploy that fails does not put its frontend in front of the old API. When qa
+  # is down the backend is skipped without failing and the frontend is still uploaded, since the
+  # site bucket outlives `down`.
   deploy-backend-qa:
     name: Deploy backend to qa
     needs: announce

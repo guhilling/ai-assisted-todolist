@@ -299,6 +299,16 @@ components:
             type: string
         expiresAt:
           $ref: "#/components/schemas/Instant"
+    VersionResponse:
+      type: object
+      required:
+      - version
+      properties:
+        version:
+          type: string
+          examples:
+          - 0.11.0
+          maxLength: 64
   securitySchemes:
     SecurityScheme:
       type: openIdConnect
@@ -311,6 +321,8 @@ tags:
   description: "Files on a task, transferred directly between the browser and storage."
 - name: Authentication
   description: "The browser side of sign-in, sign-out, and the current session."
+- name: Deployment
+  description: "What a deployment runs, for the tooling that deploys it."
 - name: Tasks
   description: Everything a signed-in user can do to their own tasks.
 paths:
@@ -709,6 +721,24 @@ paths:
           description: Not Allowed
       security:
       - SecurityScheme: []
+  /api/version:
+    get:
+      summary: Report the running release
+      description: "The version this backend was built as, needing no authentication\
+        \ to ask."
+      tags:
+      - Deployment
+      responses:
+        "200":
+          description: The running version.
+          content:
+            application/json:
+              examples:
+                release:
+                  value:
+                    version: 0.11.0
+              schema:
+                $ref: "#/components/schemas/VersionResponse"
 info:
   title: TaskFest API
   version: 1.0.0-SNAPSHOT
