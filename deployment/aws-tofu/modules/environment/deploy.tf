@@ -198,6 +198,15 @@ data "aws_iam_policy_document" "deploy" {
     ]
   }
 
+  # The instance copies its tags to every snapshot (copy_tags_to_snapshot), and RDS checks that
+  # against the caller: without this, CreateDBSnapshot is refused, as v0.12.0's first downtime
+  # deploy was. Only on the pre-release snapshots, which is where the tags land.
+  statement {
+    sid       = "TagThePreReleaseSnapshot"
+    actions   = ["rds:AddTagsToResource"]
+    resources = ["arn:aws:rds:${local.region}:${local.account}:snapshot:${local.pre_release_snapshots}"]
+  }
+
   # Watching it become available, and listing this database's snapshots to find the old ones.
   statement {
     sid     = "SeeThisDatabasesSnapshots"

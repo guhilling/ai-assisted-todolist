@@ -46,8 +46,10 @@ database, the load balancer and the cluster.
 **The snapshot grants are the downtime path's** (#215, D1): a release with a migration is deployed
 by the workflow, stop–snapshot–migrate–start, instead of by a person running `down` and `up` for an
 hour with an MFA session. That needed `rds:CreateDBSnapshot` and `DescribeDBSnapshots` on this
-environment's instance and its snapshots, and `rds:DeleteDBSnapshot` on its *pre-release*
-snapshots only, to keep the newest three. Scaling the service and running the migration were
+environment's instance and its snapshots, `rds:AddTagsToResource` on its *pre-release* snapshots
+-- the instance copies its tags to each snapshot, and RDS checks that against the caller, which the
+first downtime deploy (v0.12.0) found -- and `rds:DeleteDBSnapshot` on its *pre-release* snapshots
+only, to keep the newest three. Scaling the service and running the migration were
 already allowed. The role still cannot delete or modify the database, restore it, or delete a
 final snapshot or touch the automated backups (seven days, point in time): a misused deploy role
 could migrate the data and delete pre-release snapshots, and those two remain the way back. Its
