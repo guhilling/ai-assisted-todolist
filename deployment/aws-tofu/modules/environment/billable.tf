@@ -433,13 +433,21 @@ resource "aws_ecs_task_definition" "backend" {
   }
 }
 
+# How many backend tasks serve once the environment is up. The service is created with none:
+# `env.sh up` migrates the database first and then scales to this, so a release is never started
+# against a schema it does not expect -- Hibernate's validation would stop every task, and the
+# circuit breaker would fail the service's very first deployment.
+locals {
+  backend_task_count = 1
+}
+
 resource "aws_ecs_service" "backend" {
   count = var.running ? 1 : 0
 
   name            = local.service_name
   cluster         = aws_ecs_cluster.this.arn
   task_definition = aws_ecs_task_definition.backend[0].arn
-  desired_count   = 1
+  desired_count   = 0
   launch_type     = "FARGATE"
 
   # Long enough for the JVM to start and the first readiness check to pass; until then a
@@ -478,17 +486,17 @@ resource "aws_ecs_service" "backend" {
     }
   }
 
-  # `env.sh up` returns once the backend is actually serving, not when ECS has merely accepted
-  # the service.
+  # With no tasks yet, steady as soon as it exists; `env.sh up` waits for the scaled service.
   wait_for_steady_state = true
 
   tags = { Name = local.service_name }
 
   # After a blue/green deployment the live target group is whichever ECS last shifted to, so the
   # one named here stops being true; the deploy story will also register task definitions this
-  # file never sees.
+  # file never sees. The task count is env.sh's once the service exists, so an apply to a running
+  # environment never scales it back to none.
   lifecycle {
-    ignore_changes = [load_balancer, task_definition]
+    ignore_changes = [load_balancer, task_definition, desired_count]
   }
 }
 

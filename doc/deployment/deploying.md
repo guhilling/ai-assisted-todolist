@@ -51,13 +51,32 @@ environment and a tag — which is also the rollback, with the previous tag — 
    running version's is **stopped**, failing, before any traffic moves: that is the release the
    downtime path is for, and blue/green must not roll it out. The running version is read from
    its image tag; when that is `latest`, the previous release counts. This is the check the
-   image-label design above describes, done in git instead — the downtime path itself is still
-   to come.
+   image-label design above describes, done in git instead. The downtime path is below.
 4. Otherwise it registers a task definition that differs in the image only from the
    **configuration last applied** — the newest active revision the deploy role did not register
    itself, usually tofu's (#189) — points the service at it and waits until that deployment's
    rollout has completed, bake included — up to 30 minutes, where ECS's own waiter would give up
    after ten.
+
+**The downtime path: `down`, then `up` on the release.** A release with a migration reaches an
+environment that way and no other:
+
+```
+./env.sh down qa
+./env.sh up qa v1.2.3
+```
+
+`down` leaves a final snapshot, which is the backup taken immediately before the migration that
+the plan above asks for — rolling back is `down` and `up` on the previous release from the
+snapshot before it. `up` creates the backend service with **no tasks**, so nothing starts against
+a schema it does not expect: Hibernate's validation would stop every task, and the circuit
+breaker would fail the service's first deployment. After the apply it creates the database's
+application user if the database started empty (`db-bootstrap`, idempotent), runs `migrate` on
+the release's own image, and only then scales the service to its task count
+(`backend_task_count`) and waits until it is serving. An `up` on an environment that is already
+up does the same harmlessly: the migration runs the image already running and finds nothing to
+do, and the count is what it was — tofu ignores it once the service exists. Both take the 25–35
+minutes of [teardown.md](teardown.md), plus a minute or two for the migration.
 
 **Rolling out a configuration change.** The service ignores `task_definition` in tofu, so an apply
 that changes the backend's environment, secrets, CPU or memory registers a new revision and leaves
