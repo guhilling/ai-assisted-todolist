@@ -97,6 +97,7 @@ describe('deleting the account', () => {
     await signedInBoard(fetchMock)
 
     fireEvent.click(screen.getByRole('button', { name: 'Delete account' }))
+    fireEvent.change(screen.getByLabelText('Type your email address to confirm'), { target: { value: 'alice@example.com' } })
     fireEvent.click(screen.getByRole('button', { name: 'Delete my account' }))
 
     await waitFor(() => expect(assign).toHaveBeenCalledWith('/api/auth/logout'))
@@ -108,10 +109,39 @@ describe('deleting the account', () => {
     await signedInBoard(backend({ signedIn: true, deleteStatus: 500 }))
 
     fireEvent.click(screen.getByRole('button', { name: 'Delete account' }))
+    fireEvent.change(screen.getByLabelText('Type your email address to confirm'), { target: { value: 'alice@example.com' } })
     fireEvent.click(screen.getByRole('button', { name: 'Delete my account' }))
 
     expect(await screen.findByText('Unable to delete your account.')).toBeInTheDocument()
     expect(assign).not.toHaveBeenCalled()
+  })
+})
+
+describe('confirming by email address', () => {
+  it('keeps the delete button disabled until the address is typed', async () => {
+    await signedInBoard(backend({ signedIn: true }))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Delete account' }))
+
+    expect(screen.getByRole('button', { name: 'Delete my account' })).toBeDisabled()
+  })
+
+  it('stays disabled for any other address', async () => {
+    await signedInBoard(backend({ signedIn: true }))
+    fireEvent.click(screen.getByRole('button', { name: 'Delete account' }))
+
+    fireEvent.change(screen.getByLabelText('Type your email address to confirm'), { target: { value: 'bob@example.com' } })
+
+    expect(screen.getByRole('button', { name: 'Delete my account' })).toBeDisabled()
+  })
+
+  it('accepts the address in any case and with spaces around it', async () => {
+    await signedInBoard(backend({ signedIn: true }))
+    fireEvent.click(screen.getByRole('button', { name: 'Delete account' }))
+
+    fireEvent.change(screen.getByLabelText('Type your email address to confirm'), { target: { value: ' Alice@Example.com ' } })
+
+    expect(screen.getByRole('button', { name: 'Delete my account' })).toBeEnabled()
   })
 })
 
