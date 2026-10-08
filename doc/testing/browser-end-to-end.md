@@ -36,6 +36,17 @@ Two things in here exist because of failures that only a real stack produces:
 `gunnar` and `lasse` by default, or — with `E2E_IDENTITY=cognito` — qa's test accounts, with the
 passwords the live-test job has just set (#144). It holds everything that differs between the two:
 the sign-in button, how to fill in the provider's login page, and the two accounts. The scenarios in
-`tests/login.spec.ts` are the same for both; the one that checks CloudFront's cache skips against
-the Compose stack, which has none. See [Live tests](live.md).
+`tests/login.spec.ts` and `tests/attachments.spec.ts` are the same for both; the one that checks
+CloudFront's cache skips against the Compose stack, which has none. See [Live tests](live.md).
+
+## Attachments
+
+`tests/attachments.spec.ts` (#204) attaches a PDF and an image in the editor, waits for the image to
+be decoded from storage, opens the PDF and compares the bytes that come back, then removes both and
+checks after a reload that they are gone. It is the one test of the browser's own path to S3, which
+the backend never sees: the PUT to a presigned link -- cross-origin, so the bucket's CORS rule must
+allow it, and with the size and type the link was signed for -- and the GETs of a preview and an
+opened file. Against the Compose stack S3 is LocalStack with signature checks on; against qa, the
+environment's real bucket. A headless browser downloads a PDF instead of showing it, so the link is
+taken from the new tab's request and fetched by the test.
 
