@@ -38,7 +38,7 @@ const keycloak: Identity = {
     await page.locator('#password').fill(account.password)
     await page.locator('#kc-login').click()
   },
-  primary: { username: 'gunnar', password: 'gunnar', email: 'jboss.gunnar@hilling.de', name: 'Gunnar Hilling', initials: 'GH' },
+  primary: { username: 'gunnar', password: 'gunnar', email: 'gunnar@example.com', name: 'Gunnar Hilling', initials: 'GH' },
   secondary: { username: 'lasse', password: 'lasse', email: 'lasse@example.com', name: 'Lasse Hilling', initials: 'LH' },
 }
 

@@ -39,7 +39,7 @@ The landing page shows a single **"Sign in with Keycloak"** button. Use either a
 
 | Account | Password | Email |
 | --- | --- | --- |
-| `gunnar` | `gunnar` | `jboss.gunnar@hilling.de` |
+| `gunnar` | `gunnar` | `gunnar@example.com` |
 | `lasse` | `lasse` | `lasse@example.com` |
 
 Each account owns its own tasks, so signing in as the other is the quickest way to see the

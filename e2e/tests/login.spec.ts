@@ -56,11 +56,9 @@ async function signIn(page: Page, user: Account) {
   // The header shows the display name, not the email: proof that the profile scope survived a
   // real authorization code flow and that the name claim reached the browser.
   await expect(page.getByText(user.name).first()).toBeVisible()
-  // Only that an avatar is there. Gunnar's address has a real Gravatar, so his is normally a
-  // picture and Lasse's is always initials -- but requiring the picture would make this suite
-  // fail whenever gravatar.com is slow or unreachable from CI, and a browser test is the wrong
-  // place to depend on a third party. The picture path is pinned down without a network in
-  // GravatarServiceTest and in the frontend's own tests.
+  // Only that an avatar is there. Every account here has a reserved example.com address, so it is
+  // initials -- and a browser test is the wrong place to depend on gravatar.com anyway. The picture
+  // path is pinned down without a network in GravatarServiceTest and in the frontend's own tests.
   await expect(page.locator('.user-avatar')).toBeVisible()
   await expect(page.getByRole('button', { name: 'Add a task' })).toBeVisible()
 }

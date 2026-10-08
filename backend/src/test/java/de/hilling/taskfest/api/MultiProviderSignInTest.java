@@ -85,7 +85,7 @@ class MultiProviderSignInTest {
             .when().get("/api/auth/me")
             .then()
             .statusCode(200)
-            .body("email", equalTo("jboss.gunnar@hilling.de"));
+            .body("email", equalTo("gunnar@example.com"));
     }
 
     @Test
@@ -138,7 +138,7 @@ class MultiProviderSignInTest {
         browser.visit("/api/auth/login");
 
         assertThat(browser.sessionCookieNames(), everyItem(not(startsWith("q_session_other"))));
-        assertThat(emailOf(browser), equalTo("jboss.gunnar@hilling.de"));
+        assertThat(emailOf(browser), equalTo("gunnar@example.com"));
     }
 
     @Test
