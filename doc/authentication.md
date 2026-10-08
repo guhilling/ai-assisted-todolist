@@ -181,7 +181,7 @@ so the same realm backs local runs and CI:
 
 | Account | Password | Email |
 | --- | --- | --- |
-| `gunnar` | `gunnar` | `jboss.gunnar@hilling.de` |
+| `gunnar` | `gunnar` | `gunnar@example.com` |
 | `lasse` | `lasse` | `lasse@example.com` |
 
 The email claim is not optional decoration — it *is* the identity, so a realm user without
