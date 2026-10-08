@@ -37,6 +37,16 @@ needs no Keycloak at all. Fifty-two tests across ten classes:
   the probe that decides whether a picture is there. The second runs against a local
   `HttpServer` rather than gravatar.com, so it can exercise 200, 404, a server that never
   answers and an interrupted lookup without depending on the internet.
+- **`AttachmentPolicyTest`** — the allowed kinds, the size and count limits, and the cleaning of
+  a file name for a `Content-Disposition` header, without booting anything.
+- **`AttachmentResourceTest`** — attachments end to end against S3 in LocalStack, under
+  `AttachmentStorageProfile` so only this class pays for that container: announce, a real PUT
+  to the presigned link, confirm, list, open, remove; the refusals; ownership; and a deleted
+  task's attachments coming back with its undo, then swept. The profile switches LocalStack's
+  signature validation **on** — it is off by default, and then S3 accepting only the signed size
+  goes untested.
+- **`AttachmentEnumColumnTest`** — the attachment kind and state columns are the database's
+  own enums, with the same labels as the Java enums.
 - **`KeycloakLoginFlowTest`** — the real authorization code flow (see below).
 - **`MetricsResourceTest`** — `/q/metrics` is actually exposed, since Micrometer
   contributes it through configuration that nothing else would notice breaking.

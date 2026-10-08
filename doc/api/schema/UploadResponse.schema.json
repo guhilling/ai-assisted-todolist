@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "UploadResponse.schema.json",
+  "type": "object",
+  "required": [
+    "attachment",
+    "url",
+    "headers",
+    "expiresAt"
+  ],
+  "properties": {
+    "attachment": {
+      "$ref": "AttachmentResponse.schema.json"
+    },
+    "url": {
+      "type": "string",
+      "maxLength": 4096
+    },
+    "headers": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "expiresAt": {
+      "$ref": "Instant.schema.json"
+    }
+  }
+}

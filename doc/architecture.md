@@ -10,6 +10,7 @@ Three deployable components and one external dependency:
 | Backend | Quarkus 3.25 REST API on Java 25, also the OIDC client | `backend/` |
 | Database | PostgreSQL 17, schema managed by Liquibase | — |
 | Identity provider | Google in production; a Keycloak container in development and tests | `keycloak/` |
+| Object storage | S3 for task attachments; LocalStack, through Quarkus Dev Services, in development and tests | — |
 
 ## How a request travels
 
@@ -28,6 +29,11 @@ plays the same role: it serves the app on `:5173` and proxies `/api` to the back
 Both proxies must preserve the original `Host` header — Vite with `changeOrigin: false`,
 httpd with `ProxyPreserveHost On`. The backend builds the OIDC `redirect_uri` from that
 header, so a rewritten host sends the browser to the wrong port after sign-in.
+
+The one exception is an attachment's content, which never passes through either: the backend
+hands out presigned links, and the browser PUTs and GETs the file straight against S3. That
+cross-origin request is what the bucket's CORS rule is for.
+[decisions/domain-and-backend.md](decisions/domain-and-backend.md) says why.
 
 `FallbackResource /index.html` is what makes a deep link work: any path that is not a real
 file is a route the app resolves, not a 404. It is scoped to the document root, and

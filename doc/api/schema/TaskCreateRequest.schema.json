@@ -37,6 +37,18 @@
         "TODO"
       ],
       "$ref": "TaskState.schema.json"
+    },
+    "attachmentIds": {
+      "type": [
+        "array",
+        "null"
+      ],
+      "items": {
+        "type": "integer",
+        "format": "int64"
+      },
+      "description": "Attachments of a task deleted moments ago, for an undo to bring back (#204); only the caller's, only within the undo window.",
+      "maxItems": 10
     }
   }
 }

@@ -189,3 +189,52 @@ was removing most of those lists, which `@NotNull` on the components already did
 production application has no use for the numbers, so
 `%test.quarkus.hibernate-orm.statistics=true` is test-only.
 
+
+
+## Attachments live in S3 and travel straight between it and the browser
+
+**Decision.** A task's files (#204) are S3 objects in a private bucket. The backend never sees
+their content: it hands out presigned links, a PUT link to upload and a GET link to open, and
+keeps the name, type, size and object key in the `attachment` table.
+
+**Why presigned links.** Streaming files through the backend would make it pay for every byte
+twice, hold ten megabytes in flight per upload, and put an object-storage proxy inside an
+application that is otherwise a few JSON endpoints. A link signed for one object and a few
+minutes is as confidential as the session that asked for it, and S3 checks it without the
+backend's involvement.
+
+**Why a PUT with the size signed, not a POST policy.** A browser POST with a policy document can
+say "at most 10 MB", which is what limiting an upload is usually built from. The AWS SDK for Java
+cannot sign POST policies at all, and a hand-written policy signer is exactly the code nobody
+should own. A presigned PUT signs `Content-Length` and `Content-Type` instead, which is stricter:
+S3 accepts exactly the announced file and nothing else, and refuses a byte more with 403. The
+browser must therefore send those headers as signed, which `UploadResponse.headers` lists.
+`AttachmentResourceTest` checks the refusal against LocalStack with signature validation
+switched on -- LocalStack skips it by default, and the test then passed for the wrong reason.
+
+**Why three steps, and the order of the halves.** S3 and the database cannot change in one
+transaction, so every operation orders its two halves to fail safely. *Announce* writes the row,
+pending, before the link exists, so no object can arrive that the database does not know about.
+*Confirm* asks S3 whether the object is there with the announced size and type. *Remove* deletes
+the object before the row, so a failure in between leaves a row pointing at nothing -- harmless,
+and what the clean-up job of #208 finds -- rather than an object nobody can find any more.
+
+**Why the limits count pending and detached attachments.** Otherwise announcing without
+uploading, or deleting a task and creating another, would be a way around them. Counting and
+inserting are serialised per user by locking the user's row, or a multi-file drop announcing in
+parallel would have each request count the same total and all of them fit. Ten megabytes,
+two per task and five per user (D1) are configuration, under `taskfest.attachments`.
+
+**Why deleting a task detaches rather than deletes (D3).** The board's undo re-creates a deleted
+task from what it still holds in the browser; for the fields that is a full restore, for a file
+in S3 it cannot be. So `TaskResource.delete` detaches the task's attachments, the undo names them
+in `attachmentIds`, and `AttachmentSweep` deletes, once a minute, what stayed detached past the
+undo window (ten minutes, comfortably beyond the toast's eight seconds) and what was announced
+and never confirmed within an hour. The foreign key is `ON DELETE SET NULL` besides, so a task
+deleted any other way can never take a row with it whose object would then be lost track of; the
+sweep deletes those rows, task gone and never detached, too. It re-checks each row under a lock
+before deleting it, so a confirm or an undo that reached it since the sweep looked wins. An undo
+re-attaches at most as many as a task may hold, whatever it names.
+
+**Rejected: malware scanning (D4).** The files are only ever opened by the person who uploaded
+them, so a scan would protect someone from their own file.

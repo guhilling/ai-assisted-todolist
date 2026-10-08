@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "LinkResponse.schema.json",
+  "type": "object",
+  "required": [
+    "url",
+    "expiresAt"
+  ],
+  "properties": {
+    "url": {
+      "type": "string",
+      "maxLength": 4096
+    },
+    "expiresAt": {
+      "$ref": "Instant.schema.json"
+    }
+  }
+}

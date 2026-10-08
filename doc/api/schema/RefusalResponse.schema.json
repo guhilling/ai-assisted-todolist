@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "RefusalResponse.schema.json",
+  "type": "object",
+  "required": [
+    "refusal"
+  ],
+  "properties": {
+    "refusal": {
+      "type": "string",
+      "examples": [
+        "TASK_FULL"
+      ],
+      "enum": [
+        "UNSUPPORTED_TYPE",
+        "EMPTY",
+        "TOO_LARGE",
+        "TASK_FULL",
+        "USER_FULL",
+        "MISMATCH"
+      ]
+    }
+  }
+}

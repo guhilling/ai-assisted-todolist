@@ -48,6 +48,7 @@ const VALIDATED = ['TaskResponse', 'CurrentUserResponse', 'AuthProvidersResponse
 const KNOWN = new Set([
     '$schema', '$id', '$ref', 'type', 'enum', 'properties', 'required', 'items',
     'format', 'examples', 'description', 'title', 'maxLength', 'pattern',
+    'minimum', 'maxItems', 'additionalProperties',
 ]);
 
 /**
@@ -119,6 +120,9 @@ function tsType(node, where) {
     } else if (type === 'array') {
         const item = tsType(node.items, `${where}/items`);
         rendered = item.includes(' | ') ? `(${item})[]` : `${item}[]`;
+    } else if (type === 'object' && node.additionalProperties && !node.properties) {
+        // A Java Map on the wire: any keys, each value of one type.
+        rendered = `Record<string, ${tsType(node.additionalProperties, `${where}/additionalProperties`)}>`;
     } else {
         fail(`${where}: unsupported type "${type}".`);
     }

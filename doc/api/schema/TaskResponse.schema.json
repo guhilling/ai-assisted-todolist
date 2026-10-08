@@ -44,6 +44,13 @@
         "TODO"
       ],
       "$ref": "TaskState.schema.json"
+    },
+    "attachments": {
+      "type": "array",
+      "items": {
+        "$ref": "AttachmentResponse.schema.json"
+      },
+      "description": "Its available attachments (#204). Always sent; optional in the schema so the board still validates a task from a backend rolled back to before attachments."
     }
   }
 }
