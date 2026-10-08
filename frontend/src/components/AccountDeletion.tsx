@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { useI18n } from '../i18n/context'
 
 type AccountDeletionProps = {
+  /** The signed-in address, which has to be typed to confirm. */
+  email: string
   /** Deletes the account and says whether it went; on success the board signs out. */
   onDelete: () => Promise<boolean>
 }
@@ -12,13 +14,18 @@ type AccountDeletionProps = {
  *
  * Unlike deleting a task, there is no undo afterwards, so the confirmation comes first and the
  * button that deletes says exactly that. It is an alert dialog in place rather than a modal: the
- * board stays readable behind it, and Cancel is the first button, which is where focus lands.
- * Cancel and Escape close it, and focus goes back to the button it was opened from.
+ * board stays readable behind it. The delete button stays disabled until the signed-in address is
+ * typed (Gunnar), so two clicks in a row can never delete an account; the field takes the focus,
+ * since typing is what comes next. Case and surrounding spaces do not matter -- they are not what
+ * makes the address someone's own. Cancel and Escape close it, and focus goes back to the button
+ * it was opened from.
  */
-function AccountDeletion({ onDelete }: Readonly<AccountDeletionProps>) {
+function AccountDeletion({ email, onDelete }: Readonly<AccountDeletionProps>) {
   const { messages } = useI18n()
   const [asking, setAsking] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [typed, setTyped] = useState('')
+  const confirmed = typed.trim().toLowerCase() === email.trim().toLowerCase()
   const trigger = useRef<HTMLButtonElement>(null)
   const returnFocus = useRef(false)
 
@@ -35,6 +42,7 @@ function AccountDeletion({ onDelete }: Readonly<AccountDeletionProps>) {
 
   const close = () => {
     returnFocus.current = true
+    setTyped('')
     setAsking(false)
   }
 
@@ -62,14 +70,25 @@ function AccountDeletion({ onDelete }: Readonly<AccountDeletionProps>) {
         {messages.account.title}
       </h2>
       <p id="account-confirm-body">{messages.account.body}</p>
+      <label className="account-confirm-field">
+        <span>{messages.account.typeEmail}</span>
+        <input
+          type="email"
+          autoComplete="off"
+          spellCheck={false}
+          autoFocus
+          value={typed}
+          onChange={(event) => setTyped(event.target.value)}
+        />
+      </label>
       <div className="account-confirm-actions">
-        <button type="button" className="button-quiet" autoFocus onClick={close}>
+        <button type="button" className="button-quiet" onClick={close}>
           {messages.account.keep}
         </button>
         <button
           type="button"
           className="button-danger"
-          disabled={deleting}
+          disabled={deleting || !confirmed}
           onClick={() => {
             setDeleting(true)
             void onDelete().then((deleted) => {

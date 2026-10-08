@@ -397,7 +397,7 @@ function Board() {
           <a className="text-link" href={authLogoutUrl}>
             {messages.app.signOut}
           </a>
-          <AccountDeletion onDelete={deleteMyAccount} />
+          <AccountDeletion email={currentUser.email} onDelete={deleteMyAccount} />
         </div>
       </header>
 
