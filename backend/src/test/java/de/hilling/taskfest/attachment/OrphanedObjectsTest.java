@@ -26,7 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * The clean-up of objects no attachment refers to (#208), against S3 in LocalStack.
  *
- * <p>S3 cannot backdate an object, so the job is handed the time it runs at: "two days from now"
+ * <p>S3 cannot backdate an object, so the job is handed the time it runs at: "eight days from now"
  * stands for an object left behind long ago. The bucket is shared with the other attachment
  * tests, so each test asserts about its own keys only.</p>
  */
@@ -54,14 +54,11 @@ class OrphanedObjectsTest {
     @Test
     void shouldDeleteAnObjectNothingRefersToOnceItIsOlderThanTheMargin() {
         String key = putObject();
-        // Life went on after the object was left behind: the database is not older than it. A
-        // minute later rather than "now", because LocalStack's clock is the container's, which
-        // can run a little ahead of this JVM's.
-        attachment(AttachmentState.AVAILABLE, Instant.now().plus(Duration.ofMinutes(1)));
 
-        OrphanedObjects.Report report = orphans.sweep(Instant.now().plus(Duration.ofDays(2)));
+        OrphanedObjects.Report report = orphans.sweep(Instant.now().plus(Duration.ofDays(8)));
 
         assertThat(report.deletedKeys(), hasItem(key));
+        assertTrue(report.orphans() >= 1);
         assertTrue(store.head(key).isEmpty());
     }
 
@@ -81,7 +78,7 @@ class OrphanedObjectsTest {
         Attachment attachment = attachment(AttachmentState.AVAILABLE);
         putObject(attachment.objectKey);
 
-        OrphanedObjects.Report report = orphans.sweep(Instant.now().plus(Duration.ofDays(2)));
+        OrphanedObjects.Report report = orphans.sweep(Instant.now().plus(Duration.ofDays(8)));
 
         assertThat(report.deletedKeys(), not(hasItem(attachment.objectKey)));
         assertTrue(store.head(attachment.objectKey).isPresent());

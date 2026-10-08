@@ -4,8 +4,10 @@ import io.quarkus.narayana.jta.QuarkusTransaction;
 import jakarta.enterprise.context.ApplicationScoped;
 import java.time.Instant;
 import java.util.List;
+import java.util.function.Consumer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 
 /**
  * Deletes objects in the attachment bucket that no attachment refers to (#208), and reports the
@@ -25,6 +27,11 @@ public class OrphanedObjects {
 
     private static final Logger LOG = LoggerFactory.getLogger(OrphanedObjects.class);
 
+    /** The run line's fields; {@code orphans} is the one the alarm's metric filter reads. */
+    static final String RUN_LISTED = "orphanSweepListed";
+    static final String RUN_ORPHANS = "orphanSweepOrphans";
+    static final String RUN_DELETED = "orphanSweepDeleted";
+
     private final AttachmentStore store;
     private final AttachmentsConfig config;
 
@@ -37,11 +44,12 @@ public class OrphanedObjects {
      * What one run found and did.
      *
      * @param listed how many objects the bucket held
+     * @param orphans how many objects no attachment refers to, of any age
      * @param deletedKeys the keys of the objects deleted; keys are random and name no file
      * @param hold why the run deleted nothing it otherwise would have, or {@code NONE}
      * @param attachmentsWithoutObject the ids of available attachments whose object is missing
      */
-    public record Report(int listed, List<String> deletedKeys, OrphanPlan.Hold hold,
+    public record Report(int listed, int orphans, List<String> deletedKeys, OrphanPlan.Hold hold,
                          List<Long> attachmentsWithoutObject) {
     }
 
@@ -52,20 +60,16 @@ public class OrphanedObjects {
     public Report sweep(Instant now) {
         List<OrphanPlan.Row> rows = QuarkusTransaction.requiringNew().call(() ->
             Attachment.<Attachment>findAll().project(OrphanPlan.Row.class).list());
-        OrphanPlan plan = OrphanPlan.of(store.list(), rows, now, config.orphanMargin(),
-            config.orphanSweep().maxDeletions());
+        OrphanPlan plan = OrphanPlan.of(store.list(), rows, now, config.orphanMargin());
 
-        List<String> deleted = plan.deletions().stream().filter(this::delete).toList();
+        List<String> deleted = deleteEach(plan.deletions(), store::delete);
         List<Long> missing = plan.missingObjects().stream().filter(this::stillMissing).toList();
 
+        logRun(plan, deleted);
         if (!deleted.isEmpty()) {
             LOG.info("Deleted {} object(s) no attachment refers to: {}", deleted.size(), deleted);
         }
-        if (plan.hold() == OrphanPlan.Hold.TOO_MANY) {
-            LOG.warn("{} object(s) qualify as orphans, more than the {} one run may delete; deleted none. "
-                + "A database restored from the wrong snapshot looks like this.", plan.orphans(),
-                config.orphanSweep().maxDeletions());
-        } else if (plan.hold() == OrphanPlan.Hold.NO_ATTACHMENTS && plan.listed() > 0) {
+        if (plan.hold() == OrphanPlan.Hold.NO_ATTACHMENTS && plan.listed() > 0) {
             LOG.warn("The database holds no attachments but the bucket holds {} object(s); deleted none.",
                 plan.listed());
         }
@@ -73,17 +77,43 @@ public class OrphanedObjects {
             LOG.warn("{} available attachment(s) have no object in storage, kept for a person to look at: {}",
                 missing.size(), missing);
         }
-        return new Report(plan.listed(), deleted, plan.hold(), missing);
+        return new Report(plan.listed(), plan.orphans(), deleted, plan.hold(), missing);
     }
 
-    private boolean delete(String key) {
+    /**
+     * One line per run with its counts as fields, every run, so the environment's alarm can watch
+     * the orphan count (more than two is Gunnar's threshold) without the backend knowing about it.
+     */
+    private static void logRun(OrphanPlan plan, List<String> deleted) {
+        MDC.put(RUN_LISTED, String.valueOf(plan.listed()));
+        MDC.put(RUN_ORPHANS, String.valueOf(plan.orphans()));
+        MDC.put(RUN_DELETED, String.valueOf(deleted.size()));
         try {
-            store.delete(key);
-            return true;
-        } catch (RuntimeException failure) {
-            LOG.warn("Could not delete orphaned object {}; the next run tries again", key, failure);
-            return false;
+            LOG.info("Orphan clean-up: {} object(s) listed, {} orphan(s), {} deleted",
+                plan.listed(), plan.orphans(), deleted.size());
+        } finally {
+            MDC.remove(RUN_LISTED);
+            MDC.remove(RUN_ORPHANS);
+            MDC.remove(RUN_DELETED);
         }
+    }
+
+    /**
+     * Deletes each key on its own, so one failure does not stop the rest; a failed one is logged
+     * and left for the next run.
+     *
+     * @return the keys that were deleted
+     */
+    static List<String> deleteEach(List<String> keys, Consumer<String> delete) {
+        return keys.stream().filter(key -> {
+            try {
+                delete.accept(key);
+                return true;
+            } catch (RuntimeException failure) {
+                LOG.warn("Could not delete orphaned object {}; the next run tries again", key, failure);
+                return false;
+            }
+        }).toList();
     }
 
     /**

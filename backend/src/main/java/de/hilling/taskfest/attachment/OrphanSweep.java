@@ -5,7 +5,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import java.time.Instant;
 
 /**
- * Runs {@link OrphanedObjects#sweep} shortly after every start and then daily (#208); a stack with
+ * Runs {@link OrphanedObjects#sweep} shortly after every start and then hourly (#208); a stack with
  * no bucket, such as the Compose ones, switches it off with {@code every=off}.
  *
  * <p>After every start, so that running it by hand needs no tool of its own: redeploying the

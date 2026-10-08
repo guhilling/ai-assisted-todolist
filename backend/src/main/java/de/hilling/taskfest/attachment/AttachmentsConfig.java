@@ -47,7 +47,7 @@ public interface AttachmentsConfig {
     /** When the orphan clean-up runs; read by {@code OrphanSweep}'s schedule. */
     OrphanSweepSchedule orphanSweep();
 
-    /** The orphan clean-up's schedule, in the scheduler's own notation ({@code 5m}, {@code 24h}). */
+    /** The orphan clean-up's schedule, in the scheduler's own notation ({@code 5m}, {@code 1h}). */
     interface OrphanSweepSchedule {
 
         /** How long after a start the first run comes, so it does not compete with startup. */
@@ -55,8 +55,5 @@ public interface AttachmentsConfig {
 
         /** How often it runs after that; {@code off} where there is no bucket to clean. */
         String every();
-
-        /** The most objects one run may delete; more than that is held as a likely mistake. */
-        int maxDeletions();
     }
 }

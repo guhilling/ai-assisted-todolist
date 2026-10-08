@@ -3,7 +3,6 @@ package de.hilling.taskfest.attachment;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -11,17 +10,16 @@ import java.util.stream.Collectors;
  * What one run of the orphan clean-up (#208) will do, decided from a bucket listing and the
  * attachment rows alone -- no S3, no database -- so the decision has a plain unit test.
  *
- * <p>Three guards stand between an unversioned bucket and a database that does not describe it.
- * A database holding no attachments at all deletes nothing: that is an environment brought up
- * empty, not one whose every file is an orphan. An object newer than the newest attachment is
- * spared: a database older than the bucket is one restored from a snapshot, and the files written
- * since are not orphans to anyone who restores the right one. And more orphans than the limit
- * deletes none of them and says so, because a mass deletion is far likelier a mistake than a
- * backlog.</p>
+ * <p>An object no attachment refers to is an orphan, and goes once it is older than the margin.
+ * One guard stands between an unversioned bucket and a database that does not describe it: a
+ * database holding no attachments at all deletes nothing, because that is an environment brought
+ * up empty, not one whose every file is an orphan. Every orphan is counted, whatever its age and
+ * whether or not the guard held, so an alert sees a database that does not match the bucket
+ * within the hour, days before anything would be deleted (#208, Gunnar's decision).</p>
  *
- * @param deletions the keys to delete, empty when a guard holds the run
- * @param hold which guard held the run, or {@link Hold#NONE}
- * @param orphans how many objects qualified as orphans before the limit was applied
+ * @param deletions the keys to delete: orphans older than the margin, none when the guard holds
+ * @param hold whether the empty-database guard held the run, or {@link Hold#NONE}
+ * @param orphans how many objects no attachment refers to, of any age
  * @param missingObjects the ids of available attachments whose object was not listed
  * @param listed how many objects the listing held
  */
@@ -32,9 +30,7 @@ public record OrphanPlan(List<String> deletions, Hold hold, int orphans, List<Lo
         /** Nothing held it. */
         NONE,
         /** The database holds no attachments, so it cannot tell an orphan from a file. */
-        NO_ATTACHMENTS,
-        /** More orphans than one run may delete. */
-        TOO_MANY
+        NO_ATTACHMENTS
     }
 
     /**
@@ -54,12 +50,11 @@ public record OrphanPlan(List<String> deletions, Hold hold, int orphans, List<Lo
      * @param objects the bucket's listing
      * @param rows every attachment
      * @param now when the run happens
-     * @param margin how old an object must be before it may go
-     * @param maxDeletions the most one run may delete
+     * @param margin how old an orphan must be before it may go
      * @return what to delete and what to report
      */
     public static OrphanPlan of(List<AttachmentStore.StoredObject> objects, List<Row> rows, Instant now,
-                                Duration margin, int maxDeletions) {
+                                Duration margin) {
         Set<String> referenced = rows.stream().map(Row::objectKey).collect(Collectors.toSet());
         Set<String> listedKeys = objects.stream().map(AttachmentStore.StoredObject::key).collect(Collectors.toSet());
         List<Long> missing = rows.stream()
@@ -67,21 +62,15 @@ public record OrphanPlan(List<String> deletions, Hold hold, int orphans, List<Lo
             .map(Row::id)
             .toList();
 
-        Optional<Instant> newest = rows.stream().map(Row::createdAt).max(Instant::compareTo);
-        Instant oldEnough = now.minus(margin);
-        List<String> orphans = objects.stream()
+        List<AttachmentStore.StoredObject> orphans = objects.stream()
             .filter(object -> !referenced.contains(object.key()))
+            .toList();
+        Instant oldEnough = now.minus(margin);
+        Hold hold = rows.isEmpty() ? Hold.NO_ATTACHMENTS : Hold.NONE;
+        List<String> deletions = hold != Hold.NONE ? List.of() : orphans.stream()
             .filter(object -> object.lastModified().isBefore(oldEnough))
-            .filter(object -> newest.map(limit -> !object.lastModified().isAfter(limit)).orElse(true))
             .map(AttachmentStore.StoredObject::key)
             .toList();
-
-        Hold hold = Hold.NONE;
-        if (newest.isEmpty()) {
-            hold = Hold.NO_ATTACHMENTS;
-        } else if (orphans.size() > maxDeletions) {
-            hold = Hold.TOO_MANY;
-        }
-        return new OrphanPlan(hold == Hold.NONE ? orphans : List.of(), hold, orphans.size(), missing, objects.size());
+        return new OrphanPlan(deletions, hold, orphans.size(), missing, objects.size());
     }
 }
