@@ -143,6 +143,40 @@ describe('attaching while adding a task', () => {
     expect(row.queryByLabelText('choose a file')).not.toBeInTheDocument()
   })
 
+  it('locks the row while the files go up, and clears its messages when it is closed', async () => {
+    let finish: () => void = () => {}
+    class SlowXhr extends FakeXhr {
+      send() {
+        finish = () => {
+          this.status = 200
+          this.onload?.()
+        }
+      }
+    }
+    vi.stubGlobal('XMLHttpRequest', SlowXhr)
+    const row = await openAddRow(backend())
+    fireEvent.change(row.getByLabelText('choose a file'), {
+      target: { files: [pdf(), new File(['<p>'], 'page.html', { type: 'text/html' })] },
+    })
+    expect(row.getByText('page.html is neither a PDF nor an image.')).toBeInTheDocument()
+
+    fireEvent.click(row.getByRole('button', { name: /^Add$/ }))
+
+    // While the file goes up, nothing in the row can change: typing or dropping would be lost.
+    await waitFor(() => expect(screen.getByLabelText('What needs doing')).toBeDisabled())
+    expect(row.getByRole('button', { name: 'Remove scan.pdf' })).toBeDisabled()
+    fireEvent.keyDown(screen.getByLabelText('What needs doing'), { key: 'Escape' })
+    expect(screen.getByLabelText('What needs doing')).toBeInTheDocument()
+
+    finish()
+    await waitFor(() => expect(screen.getByLabelText('What needs doing')).toBeEnabled())
+
+    // Closing forgets what was said about the last attempt.
+    fireEvent.click(row.getByRole('button', { name: 'Cancel' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Add a task' }))
+    expect(screen.queryByText('page.html is neither a PDF nor an image.')).not.toBeInTheDocument()
+  })
+
   it('keeps the task when a file is refused after it, and says which and why', async () => {
     const row = await openAddRow(
       backend({ announce: (fileName) => (fileName === 'photo.png' ? { status: 422, body: { refusal: 'USER_FULL' } } : undefined) }),
@@ -158,3 +192,36 @@ describe('attaching while adding a task', () => {
     await waitFor(() => expect(within(taskRow).getByRole('button', { name: 'Open scan.pdf' })).toBeInTheDocument())
   })
 })
+
+describe('choosing several files in the editor', () => {
+  it('refuses those beyond the room the task has, without sending them', async () => {
+    const one = { id: 5, fileName: 'first.pdf', contentType: 'application/pdf', sizeBytes: 4 }
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url.includes('/api/auth/me')) return json({ email: 'alice@example.com' })
+      if (url.includes('/api/auth/providers')) return json({ enabled: true, providers: [] })
+      if (url.endsWith('/link')) return json({ url: 'https://bucket.example.com/x', expiresAt: '2026-10-08T10:15:30Z' })
+      if (url.endsWith('/attachments') && init?.method === 'POST') return json({ refusal: 'TASK_FULL' }, 422)
+      if (url.endsWith('/api/tasks')) {
+        return json([{ id: 7, description: 'One left', dueDate: '2099-01-01', importance: 'LOW', state: 'TODO', attachments: [one] }])
+      }
+      return json(null, 404)
+    })
+    globalThis.fetch = fetchMock as unknown as typeof fetch
+    render(<App />)
+    const label = await screen.findByLabelText('Mark "One left" as done')
+    const taskRow = within(label.closest('li') as HTMLElement)
+    fireEvent.click(taskRow.getByLabelText('Actions for "One left"'))
+    fireEvent.click(taskRow.getByRole('button', { name: 'Edit' }))
+    const editor = within(screen.getByRole('form', { name: 'Edit "One left"' }))
+
+    fireEvent.change(editor.getByLabelText('choose a file'), { target: { files: [pdf(), png()] } })
+
+    // Room for one: the second is refused here, and only the first is announced.
+    expect(await editor.findByText('photo.png was not attached: this task already holds as many files as it can.'))
+      .toBeInTheDocument()
+    const announced = fetchMock.mock.calls.filter(([url, init]) => String(url).endsWith('/attachments') && init?.method === 'POST')
+    expect(announced).toHaveLength(1)
+  })
+})
+

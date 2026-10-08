@@ -1,7 +1,8 @@
-import { AddTaskRow } from 'frontend'
+import { AddTaskRow, type TaskInput } from 'frontend'
 
 const TODAY = '2026-03-16'
-const accept = async () => true
+/** Accepts every task, as the backend would, giving back the task as created. */
+const accept = async (input: TaskInput) => ({ ...input, id: 1 })
 
 /**
  * The row as the board shows it: collapsed to a single affordance until someone uses it.
