@@ -4,6 +4,7 @@ import io.quarkus.narayana.jta.QuarkusTransaction;
 import jakarta.enterprise.context.ApplicationScoped;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Consumer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -27,10 +28,11 @@ public class OrphanedObjects {
 
     private static final Logger LOG = LoggerFactory.getLogger(OrphanedObjects.class);
 
-    /** The run line's fields; {@code orphans} is the one the alarm's metric filter reads. */
+    /** The run line's fields, and the alert line's: the field the alarm's metric filter matches. */
     static final String RUN_LISTED = "orphanSweepListed";
     static final String RUN_ORPHANS = "orphanSweepOrphans";
     static final String RUN_DELETED = "orphanSweepDeleted";
+    static final String ALERT = "orphanSweepAlert";
 
     private final AttachmentStore store;
     private final AttachmentsConfig config;
@@ -45,11 +47,12 @@ public class OrphanedObjects {
      *
      * @param listed how many objects the bucket held
      * @param orphans how many objects no attachment refers to, of any age
+     * @param alerted whether the run raised the alert: more settled orphans than the threshold
      * @param deletedKeys the keys of the objects deleted; keys are random and name no file
      * @param hold why the run deleted nothing it otherwise would have, or {@code NONE}
      * @param attachmentsWithoutObject the ids of available attachments whose object is missing
      */
-    public record Report(int listed, int orphans, List<String> deletedKeys, OrphanPlan.Hold hold,
+    public record Report(int listed, int orphans, boolean alerted, List<String> deletedKeys, OrphanPlan.Hold hold,
                          List<Long> attachmentsWithoutObject) {
     }
 
@@ -60,12 +63,23 @@ public class OrphanedObjects {
     public Report sweep(Instant now) {
         List<OrphanPlan.Row> rows = QuarkusTransaction.requiringNew().call(() ->
             Attachment.<Attachment>findAll().project(OrphanPlan.Row.class).list());
-        OrphanPlan plan = OrphanPlan.of(store.list(), rows, now, config.orphanMargin());
+        OrphanPlan plan = OrphanPlan.of(store.list(), rows, now, config.orphanMargin(), config.pendingLifetime());
 
         List<String> deleted = deleteEach(plan.deletions(), store::delete);
-        List<Long> missing = plan.missingObjects().stream().filter(this::stillMissing).toList();
+        List<Long> missing = stillMissing(plan.missingObjects());
+        boolean alerted = plan.alertable() > config.orphanSweep().alertAbove();
 
-        logRun(plan, deleted);
+        withFields(Map.of(RUN_LISTED, String.valueOf(plan.listed()), RUN_ORPHANS, String.valueOf(plan.orphans()),
+                RUN_DELETED, String.valueOf(deleted.size())),
+            () -> LOG.info("Orphan clean-up: {} object(s) listed, {} orphan(s), {} deleted",
+                plan.listed(), plan.orphans(), deleted.size()));
+        if (alerted) {
+            withFields(Map.of(ALERT, "true"), () -> LOG.warn(
+                "{} object(s) older than an hour have no attachment referring to them; more than {}. "
+                    + "A database restored from an older snapshot, or started empty, looks like this, "
+                    + "and orphans are deleted after {}.",
+                plan.alertable(), config.orphanSweep().alertAbove(), config.orphanMargin()));
+        }
         if (!deleted.isEmpty()) {
             LOG.info("Deleted {} object(s) no attachment refers to: {}", deleted.size(), deleted);
         }
@@ -77,24 +91,16 @@ public class OrphanedObjects {
             LOG.warn("{} available attachment(s) have no object in storage, kept for a person to look at: {}",
                 missing.size(), missing);
         }
-        return new Report(plan.listed(), plan.orphans(), deleted, plan.hold(), missing);
+        return new Report(plan.listed(), plan.orphans(), alerted, deleted, plan.hold(), missing);
     }
 
-    /**
-     * One line per run with its counts as fields, every run, so the environment's alarm can watch
-     * the orphan count (more than two is Gunnar's threshold) without the backend knowing about it.
-     */
-    private static void logRun(OrphanPlan plan, List<String> deleted) {
-        MDC.put(RUN_LISTED, String.valueOf(plan.listed()));
-        MDC.put(RUN_ORPHANS, String.valueOf(plan.orphans()));
-        MDC.put(RUN_DELETED, String.valueOf(deleted.size()));
+    /** Logs with these fields on the line, and only on it, as the other structured lines do. */
+    private static void withFields(Map<String, String> fields, Runnable log) {
+        fields.forEach(MDC::put);
         try {
-            LOG.info("Orphan clean-up: {} object(s) listed, {} orphan(s), {} deleted",
-                plan.listed(), plan.orphans(), deleted.size());
+            log.run();
         } finally {
-            MDC.remove(RUN_LISTED);
-            MDC.remove(RUN_ORPHANS);
-            MDC.remove(RUN_DELETED);
+            fields.keySet().forEach(MDC::remove);
         }
     }
 
@@ -117,12 +123,18 @@ public class OrphanedObjects {
     }
 
     /**
-     * Whether an attachment is still available and still without its object, checked again: one
-     * removed while the run was listing would otherwise be reported as lost.
+     * The attachments among these that are still available and still without their object, checked
+     * again in one query: one removed while the run was listing would otherwise be reported as lost.
      */
-    private boolean stillMissing(Long id) {
-        Attachment attachment = QuarkusTransaction.requiringNew().call(() ->
-            Attachment.<Attachment>find("id = ?1 and state = ?2", id, AttachmentState.AVAILABLE).firstResult());
-        return attachment != null && store.head(attachment.objectKey).isEmpty();
+    private List<Long> stillMissing(List<Long> ids) {
+        if (ids.isEmpty()) {
+            return List.of();
+        }
+        List<Attachment> current = QuarkusTransaction.requiringNew().call(() ->
+            Attachment.<Attachment>list("id in ?1 and state = ?2", ids, AttachmentState.AVAILABLE));
+        return current.stream()
+            .filter(attachment -> store.head(attachment.objectKey).isEmpty())
+            .map(attachment -> attachment.id)
+            .toList();
     }
 }

@@ -30,6 +30,8 @@ logs nearly empty rather than noisy: before it, nothing about requests or sign-i
 | --- | --- | --- |
 | **One per HTTP request** (except `/q/*`) | `de.hilling.taskfest.access` | `requestId`, `method`, `path`, `status`, `durationMs`, `user` and `provider` (both absent when anonymous) |
 | **Sign-in** | `de.hilling.taskfest.auth` | `event` (`signed-in`), `user`, `provider` |
+| **Orphan clean-up, once a run** (hourly) | `de.hilling.taskfest.attachment.OrphanedObjects` | `orphanSweepListed`, `orphanSweepOrphans`, `orphanSweepDeleted` — counts, as strings like every `mdc` value |
+| **Orphan alert**, a `WARN` only when a run finds more settled orphans than `alert-above` (2) | `de.hilling.taskfest.attachment.OrphanedObjects` | `orphanSweepAlert` (`true`): what the alarm's metric filter matches, by string equality, since `mdc` values are never numbers ([attachments.md](attachments.md)) |
 | **Anything else during a request** | its own | `requestId` |
 | **Start-up, migration** | `io.quarkus`, `io.quarkus.runtime.Application`, `liquibase.*` | — |
 

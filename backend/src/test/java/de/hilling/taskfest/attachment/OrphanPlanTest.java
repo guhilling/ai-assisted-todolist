@@ -20,17 +20,18 @@ class OrphanPlanTest {
 
     private static final Instant NOW = Instant.parse("2026-10-10T12:00:00Z");
     private static final Duration MARGIN = Duration.ofDays(7);
+    private static final Duration ALERT_AFTER = Duration.ofHours(1);
 
     private static AttachmentStore.StoredObject object(String key, Duration age) {
         return new AttachmentStore.StoredObject(key, NOW.minus(age));
     }
 
     private static OrphanPlan.Row row(long id, String key, AttachmentState state) {
-        return new OrphanPlan.Row(id, key, state, NOW);
+        return new OrphanPlan.Row(id, key, state);
     }
 
     private static OrphanPlan plan(List<AttachmentStore.StoredObject> objects, List<OrphanPlan.Row> rows) {
-        return OrphanPlan.of(objects, rows, NOW, MARGIN);
+        return OrphanPlan.of(objects, rows, NOW, MARGIN, ALERT_AFTER);
     }
 
     @Test
@@ -53,6 +54,18 @@ class OrphanPlanTest {
 
         assertTrue(plan.deletions().isEmpty());
         assertEquals(1, plan.orphans());
+    }
+
+    @Test
+    void shouldAlertOnlyOnOrphansOlderThanAnUploadTakes() {
+        // An upload whose row was written just after the run read the rows looks like an orphan
+        // for a moment; it must not page anyone.
+        OrphanPlan plan = plan(
+            List.of(object("in-flight", Duration.ofMinutes(5)), object("stale", Duration.ofHours(2))),
+            List.of(row(1, "other", AttachmentState.AVAILABLE)));
+
+        assertEquals(2, plan.orphans());
+        assertEquals(1, plan.alertable());
     }
 
     @Test

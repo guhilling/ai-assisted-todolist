@@ -107,7 +107,7 @@ resource "aws_s3_bucket_policy" "attachments" {
 }
 
 # What the backend signs links with, deletes with, and lists. ListBucket does two jobs: the orphan
-# clean-up (#208) lists the bucket daily, and without it S3 answers a HEAD on a missing object with
+# clean-up (#208) lists the bucket hourly, and without it S3 answers a HEAD on a missing object with
 # 403 instead of 404, so "not uploaded yet" -- the confirm the browser sends too early -- would
 # become a server error. Narrowing it breaks both, and LocalStack, which enforces no IAM, would not
 # notice.

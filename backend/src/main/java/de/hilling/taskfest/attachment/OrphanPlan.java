@@ -20,10 +20,12 @@ import java.util.stream.Collectors;
  * @param deletions the keys to delete: orphans older than the margin, none when the guard holds
  * @param hold whether the empty-database guard held the run, or {@link Hold#NONE}
  * @param orphans how many objects no attachment refers to, of any age
+ * @param alertable how many of them are older than an upload takes, which is what the alert counts
  * @param missingObjects the ids of available attachments whose object was not listed
  * @param listed how many objects the listing held
  */
-public record OrphanPlan(List<String> deletions, Hold hold, int orphans, List<Long> missingObjects, int listed) {
+public record OrphanPlan(List<String> deletions, Hold hold, int orphans, int alertable, List<Long> missingObjects,
+                         int listed) {
 
     /** Why a run deleted nothing it otherwise would have. */
     public enum Hold {
@@ -39,9 +41,8 @@ public record OrphanPlan(List<String> deletions, Hold hold, int orphans, List<Lo
      * @param id the attachment's id
      * @param objectKey its object's key
      * @param state whether it is pending or available
-     * @param createdAt when it was announced
      */
-    public record Row(Long id, String objectKey, AttachmentState state, Instant createdAt) {
+    public record Row(Long id, String objectKey, AttachmentState state) {
     }
 
     /**
@@ -51,10 +52,12 @@ public record OrphanPlan(List<String> deletions, Hold hold, int orphans, List<Lo
      * @param rows every attachment
      * @param now when the run happens
      * @param margin how old an orphan must be before it may go
+     * @param alertAfter how old an orphan must be before it counts towards the alert: longer than an
+     *     upload takes, so a file whose row was written just after the rows were read never pages
      * @return what to delete and what to report
      */
     public static OrphanPlan of(List<AttachmentStore.StoredObject> objects, List<Row> rows, Instant now,
-                                Duration margin) {
+                                Duration margin, Duration alertAfter) {
         Set<String> referenced = rows.stream().map(Row::objectKey).collect(Collectors.toSet());
         Set<String> listedKeys = objects.stream().map(AttachmentStore.StoredObject::key).collect(Collectors.toSet());
         List<Long> missing = rows.stream()
@@ -65,12 +68,14 @@ public record OrphanPlan(List<String> deletions, Hold hold, int orphans, List<Lo
         List<AttachmentStore.StoredObject> orphans = objects.stream()
             .filter(object -> !referenced.contains(object.key()))
             .toList();
+        Instant settled = now.minus(alertAfter);
+        int alertable = (int) orphans.stream().filter(object -> object.lastModified().isBefore(settled)).count();
         Instant oldEnough = now.minus(margin);
         Hold hold = rows.isEmpty() ? Hold.NO_ATTACHMENTS : Hold.NONE;
         List<String> deletions = hold != Hold.NONE ? List.of() : orphans.stream()
             .filter(object -> object.lastModified().isBefore(oldEnough))
             .map(AttachmentStore.StoredObject::key)
             .toList();
-        return new OrphanPlan(deletions, hold, orphans.size(), missing, objects.size());
+        return new OrphanPlan(deletions, hold, orphans.size(), alertable, missing, objects.size());
     }
 }

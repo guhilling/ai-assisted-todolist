@@ -54,12 +54,29 @@ class OrphanedObjectsTest {
     @Test
     void shouldDeleteAnObjectNothingRefersToOnceItIsOlderThanTheMargin() {
         String key = putObject();
+        // A database that holds attachments, so the empty-database guard does not apply -- which,
+        // run on its own, this class's database would otherwise not.
+        attachment(AttachmentState.AVAILABLE);
 
         OrphanedObjects.Report report = orphans.sweep(Instant.now().plus(Duration.ofDays(8)));
 
         assertThat(report.deletedKeys(), hasItem(key));
         assertTrue(report.orphans() >= 1);
         assertTrue(store.head(key).isEmpty());
+    }
+
+    @Test
+    void shouldRaiseTheAlertWhenMoreThanTwoSettledOrphansAreFound() {
+        putObject();
+        putObject();
+        putObject();
+        attachment(AttachmentState.AVAILABLE);
+
+        // Two hours on: settled, so they count towards the alert, and far from old enough to go.
+        OrphanedObjects.Report report = orphans.sweep(Instant.now().plus(Duration.ofHours(2)));
+
+        assertTrue(report.alerted());
+        assertTrue(report.orphans() >= 3);
     }
 
     @Test
@@ -126,10 +143,6 @@ class OrphanedObjectsTest {
     }
 
     private Attachment attachment(AttachmentState state) {
-        return attachment(state, Instant.now());
-    }
-
-    private Attachment attachment(AttachmentState state, Instant createdAt) {
         return QuarkusTransaction.requiringNew().call(() -> {
             User owner = users.getOrCreateByEmail("orphans-" + UUID.randomUUID() + "@example.com");
             Task task = new Task();
@@ -147,7 +160,6 @@ class OrphanedObjectsTest {
             attachment.sizeBytes = 4L;
             attachment.objectKey = UUID.randomUUID().toString();
             attachment.state = state;
-            attachment.createdAt = createdAt;
             attachment.persist();
             return attachment;
         });

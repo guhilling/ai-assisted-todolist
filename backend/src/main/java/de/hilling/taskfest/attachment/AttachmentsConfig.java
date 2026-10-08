@@ -55,5 +55,11 @@ public interface AttachmentsConfig {
 
         /** How often it runs after that; {@code off} where there is no bucket to clean. */
         String every();
+
+        /**
+         * How many settled orphans a run may find before it raises the alert line the
+         * environment's alarm watches; Gunnar's threshold is two.
+         */
+        int alertAbove();
     }
 }
