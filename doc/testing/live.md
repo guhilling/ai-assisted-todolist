@@ -69,6 +69,15 @@ visible one is addressed — and the accounts. One scenario runs in qa only: bot
   state, and there is nothing to sign in to.
 - **One run at a time** (a concurrency group per environment): two would reset each other's
   passwords and clear each other's tasks.
+- **Every scenario is recorded, and the newest run's videos are published**:
+  [the newest live run](https://guhilling.github.io/ai-assisted-todolist/videos/), one video per
+  scenario with its outcome, the release it ran against and a link to the run. The job names each
+  video by its spec and title (`.github/scripts/collect-live-videos.py`) and uploads them as the
+  artifact `live-videos-qa`, kept 30 days; `pages.yml` runs after every live run, release and
+  frontend deploy, fetches the newest and publishes it under `videos/`. Failed runs are published
+  too: a video of what went wrong is the useful one. A video shows the test accounts and their
+  tasks, never a password: it goes into a password field as dots, and is new on every run. About
+  2 MB per run, at Playwright's 800 x 450.
 
 ## When it runs
 

@@ -29,10 +29,18 @@ on:
   # `pull_request`, so a pull request cannot exercise it, and the deploy job only ever runs on
   # main. That is how this file's first version reached main with a deploy step that could not
   # succeed. A change here is not demonstrated by a green pull request.
+  # After a live run, to publish its videos (videos/). By the name of the workflow that ran: a live
+  # run called from a deploy or a release is part of that run, not one of its own. workflow_run
+  # always runs on the default branch, which is what the github-pages environment allows.
+  workflow_run:
+    workflows: [Live tests, Deploy frontend, Release]
+    types: [completed]
   workflow_dispatch:
 
 permissions:
   contents: read
+  # To find and download the newest live run's videos, an artifact of another workflow's run.
+  actions: read
 
 # Pages allows one deployment at a time, and a queued run must finish rather than be cancelled:
 # cancelling the deploy job is what leaves the environment stuck in "in progress".
@@ -58,8 +66,23 @@ jobs:
       - name: Install the site generator's dependencies
         run: pip install -r .github/scripts/requirements.txt
 
+      # The newest videos of qa's signed-in scenarios (live-tests.yml), if any are left: artifacts
+      # expire after 30 days, and the site then says there is no recording.
+      - name: Fetch the newest live run's videos
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          id=$(gh api "repos/$GITHUB_REPOSITORY/actions/artifacts?name=live-videos-qa&per_page=1" \
+            --jq '[.artifacts[] | select(.expired | not)][0].id // empty')
+          if [ -n "$id" ]; then
+            gh api "repos/$GITHUB_REPOSITORY/actions/artifacts/$id/zip" > videos.zip
+            unzip -q videos.zip -d _videos
+          else
+            echo "No live videos to publish."
+          fi
+
       - name: Build the site
-        run: python3 .github/scripts/build-site.py _site
+        run: python3 .github/scripts/build-site.py _site --videos _videos
 
       - uses: actions/upload-pages-artifact@v5
         with:
