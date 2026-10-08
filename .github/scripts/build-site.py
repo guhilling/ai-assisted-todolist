@@ -245,6 +245,7 @@ def reference_bar(up: str) -> str:
         f'{PROJECT}</a>'
         f'<span class="rest"><a href="openapi.yaml">openapi.yaml</a>'
         f'<a href="openapi.json">openapi.json</a>'
+        f'<a href="{up}">Home</a>'
         f'<a href="{up}doc/">Docs</a>'
         f'<a href="{up}api/">All versions</a>'
         f'<a href="{REPO_URL}">GitHub</a>'
@@ -295,7 +296,10 @@ def vendor_renderer(site: pathlib.Path, pages: list[pathlib.Path]) -> None:
 def masthead(depth: int, current: str) -> str:
     """The bar at the top of every page this script writes. `depth` is how far from the root."""
     up = "../" * depth
+    # Home first and in words: the logo links there too, but nothing about it says so, and a
+    # reader deep in the docs looked for a way back and did not find one.
     links = [
+        ("Home", up or "./", "home"),
         ("Docs", f"{up}doc/", "doc"),
         ("Instructions", f"{up}instructions/", "instructions"),
         ("API", f"{up}api/", "api"),
@@ -715,7 +719,7 @@ def build_landing(site: pathlib.Path, versions: list[tuple[str, str]]) -> None:
     </div>
   </main>"""
     (site / "index.html").write_text(
-        page(title=PROJECT, description=intro, depth=0, current="", body=hero)
+        page(title=PROJECT, description=intro, depth=0, current="home", body=hero)
     )
 
 
@@ -776,16 +780,26 @@ def build_videos(site: pathlib.Path, source: pathlib.Path | None) -> None:
         figures = []
         for video in index["videos"]:
             shutil.copyfile(source / video["file"], out / video["file"])
+            poster = ""
+            if video.get("poster"):
+                shutil.copyfile(source / video["poster"], out / video["poster"])
+                poster = f' poster="{html.escape(video["poster"])}"'
             figures.append(
                 f'<figure class="video">\n'
-                f'  <video controls preload="metadata" src="{html.escape(video["file"])}"></video>\n'
+                f'  <video controls preload="metadata"{poster} src="{html.escape(video["file"])}"></video>\n'
                 f'  <figcaption>{html.escape(video["title"])} <span>({html.escape(video["spec"])}, '
                 f'{html.escape(video["status"])})</span></figcaption>\n</figure>')
         body = (f'<p>Recorded on <strong>{html.escape(index["environment"])}</strong> running '
                 f'<strong>{html.escape(index["version"])}</strong>, {html.escape(index["recordedAt"])}, '
-                f'by <a href="{html.escape(index["runUrl"])}">this run</a>. Each run replaces them. The test accounts '
-                f'are reserved example.com addresses; their passwords show as dots and change with every run.</p>\n'
-                + "\n".join(figures))
+                f'by <a href="{html.escape(index["runUrl"])}">this run</a>. Each run replaces them. They play at '
+                f'half speed, since a scenario moves faster than anyone reads; the player\'s menu sets it back. '
+                f'The test accounts are reserved example.com addresses; their passwords show as dots and change '
+                f'with every run.</p>\n'
+                + "\n".join(figures)
+                # Half speed by default: defaultPlaybackRate is what a play starts at, playbackRate the
+                # current one, and both are needed for a video the visitor has not started yet.
+                + "\n<script>for (const v of document.querySelectorAll('video')) "
+                  "{ v.defaultPlaybackRate = 0.5; v.playbackRate = 0.5 }</script>")
     (out / "index.html").write_text(page(
         title=f"Live run videos – {PROJECT}",
         description="The newest recording of the signed-in scenarios against qa.",

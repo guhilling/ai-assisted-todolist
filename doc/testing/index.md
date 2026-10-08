@@ -13,6 +13,10 @@ about what exists and how to run it.
 | Browser end-to-end | `e2e/tests/` | the whole containerised stack | `e2e.yml` |
 | Live | `e2e/live/` | nothing: checks a deployed environment through CloudFront | `live-tests.yml`, after each deploy to qa |
 
+**Watch them run:** [the newest live run](https://guhilling.github.io/ai-assisted-todolist/videos/)
+has a video of each signed-in scenario against qa, replaced by every run
+([live tests](live.md) says how they are made).
+
 The backend's split between "unit" and "integration" is not about annotations but about
 what a test needs: most of it needs a real database, because that is where the behaviour
 being checked actually lives. H2 is deliberately not used — it does not reflect

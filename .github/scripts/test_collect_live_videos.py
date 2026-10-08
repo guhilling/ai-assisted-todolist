@@ -79,5 +79,74 @@ class CollectTest(unittest.TestCase):
             self.assertEqual(index["videos"][1]["status"], "failed")
 
 
+
+class SeveralVideosTest(unittest.TestCase):
+    """A scenario that opens a second tab -- opening a PDF does -- has a video per tab."""
+
+    def test_the_largest_is_the_scenario(self):
+        with tempfile.TemporaryDirectory() as raw:
+            root = pathlib.Path(raw)
+            (root / "tab.webm").write_bytes(b"x")
+            (root / "page.webm").write_bytes(b"x" * 100)
+            report = {"suites": [{"file": "attachments.spec.ts", "specs": [{"title": "opens a PDF", "tests": [
+                {"results": [{"status": "passed", "duration": 9000, "attachments": [
+                    {"name": "video", "path": str(root / "tab.webm")},
+                    {"name": "video", "path": str(root / "page.webm")},
+                ]}]}]}]}]}
+
+            self.assertEqual(collect.videos_in(report)[0].path, str(root / "page.webm"))
+
+
+class PosterTest(unittest.TestCase):
+
+    def test_each_video_gets_the_poster_made_for_it(self):
+        with tempfile.TemporaryDirectory() as raw:
+            root = pathlib.Path(raw)
+            (root / "a.webm").write_bytes(b"one")
+            (root / "b.webm").write_bytes(b"two")
+            report = root / "report.json"
+            report.write_text(json.dumps(_report(root)))
+            out = root / "out"
+
+            def poster(video, image):
+                image.write_bytes(b"jpeg of " + video.read_bytes())
+                return True
+
+            collect.collect(report, out, environment="qa", version="0.12.0", run_url="u",
+                            recorded_at="t", make_poster=poster)
+
+            index = json.loads((out / "index.json").read_text())
+            self.assertEqual(index["videos"][0]["poster"], "login-signs-an-account-in-and-manages-its-tasks.jpg")
+            self.assertEqual((out / index["videos"][0]["poster"]).read_bytes(), b"jpeg of one")
+
+    def test_a_video_without_a_poster_says_so(self):
+        with tempfile.TemporaryDirectory() as raw:
+            root = pathlib.Path(raw)
+            (root / "a.webm").write_bytes(b"one")
+            (root / "b.webm").write_bytes(b"two")
+            report = root / "report.json"
+            report.write_text(json.dumps(_report(root)))
+
+            collect.collect(report, root / "out", environment="qa", version="0.12.0", run_url="u",
+                            recorded_at="t", make_poster=lambda video, image: False)
+
+            index = json.loads((root / "out" / "index.json").read_text())
+            self.assertNotIn("poster", index["videos"][0])
+
+    def test_candidates_are_spread_across_the_video_clear_of_both_ends(self):
+        # A scenario starts and ends on the sign-in page; the middle is where it does something.
+        self.assertEqual(collect.poster_times(10.0), [2.0, 4.0, 6.0, 8.0])
+
+    def test_the_busiest_frame_is_the_poster(self):
+        with tempfile.TemporaryDirectory() as raw:
+            root = pathlib.Path(raw)
+            (root / "plain.jpg").write_bytes(b"x")
+            (root / "board.jpg").write_bytes(b"x" * 50)
+
+            self.assertEqual(collect.busiest([root / "plain.jpg", root / "board.jpg", root / "missing.jpg"]),
+                             root / "board.jpg")
+            self.assertIsNone(collect.busiest([root / "missing.jpg"]))
+
+
 if __name__ == "__main__":
     unittest.main()
