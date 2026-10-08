@@ -150,7 +150,14 @@ public class TaskResource {
     }
 
     private Task findOwnedTaskOrNotFound(Long id) {
-        User owner = currentUser();
+        return ownedTaskOrNotFound(id, currentUser());
+    }
+
+    /**
+     * The owner's task with this id, or 404 -- for someone else's, too. The one place the owner
+     * predicate is written, shared with {@link AttachmentResource}.
+     */
+    static Task ownedTaskOrNotFound(Long id, User owner) {
         Task task = Task.<Task>find("id = ?1 and owner = ?2", id, owner).firstResult();
         if (task == null) {
             throw new WebApplicationException(Response.Status.NOT_FOUND);

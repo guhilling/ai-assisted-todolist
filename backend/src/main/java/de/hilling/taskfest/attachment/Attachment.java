@@ -21,8 +21,8 @@ import org.hibernate.type.SqlTypes;
 /**
  * A file attached to a task (#204): its metadata here, its content in S3 under {@link #objectKey}.
  *
- * <p>Part of the task's aggregate, and so its owner's alone. The owner is kept on the attachment as
- * well, because an attachment outlives its task for the undo window: deleting a task
+ * <p>Its own aggregate, not part of the task's (doc/domain-model.md), and its owner's alone. The
+ * owner is kept on the attachment because an attachment outlives its task for the undo window: deleting a task
  * <em>detaches</em> its attachments ({@link #detachedAt}) rather than deleting them, undo
  * attaches them to the task it re-creates, and the sweep deletes them -- row and object -- once
  * the window has passed. The object key is random and says nothing about the owner or the file.</p>

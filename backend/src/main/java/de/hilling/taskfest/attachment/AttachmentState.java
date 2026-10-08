@@ -3,7 +3,7 @@ package de.hilling.taskfest.attachment;
 /**
  * Where an attachment stands between being announced and being usable (#204).
  *
- * <p>Stored as the PostgreSQL enum {@code attachment_state}, which {@code AttachmentKindColumnTest}
+ * <p>Stored as the PostgreSQL enum {@code attachment_state}, which {@code AttachmentEnumColumnTest}
  * keeps in step with these names.</p>
  */
 public enum AttachmentState {

@@ -28,9 +28,7 @@
             <column name="id" type="BIGINT" autoIncrement="true" generationType="BY DEFAULT" startWith="1">
                 <constraints primaryKey="true" nullable="false"/>
             </column>
-            <column name="task_id" type="BIGINT">
-                <constraints references="task(id)" foreignKeyName="fk_attachment_task" deleteCascade="false"/>
-            </column>
+            <column name="task_id" type="BIGINT"/>
             <column name="owner_id" type="BIGINT">
                 <constraints nullable="false" references="app_user(id)" foreignKeyName="fk_attachment_owner"/>
             </column>
@@ -54,8 +52,6 @@
             </column>
             <column name="detached_at" type="TIMESTAMP"/>
         </createTable>
-        <!-- Liquibase's references= cannot say ON DELETE SET NULL; the constraint is replaced. -->
-        <dropForeignKeyConstraint baseTableName="attachment" constraintName="fk_attachment_task"/>
         <addForeignKeyConstraint baseTableName="attachment" baseColumnNames="task_id"
             constraintName="fk_attachment_task" referencedTableName="task" referencedColumnNames="id"
             onDelete="SET NULL"/>

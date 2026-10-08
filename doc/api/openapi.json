@@ -16,14 +16,13 @@
               "Rechnung.pdf"
             ],
             "pattern": "\\S",
-            "maxLength": 255
+            "maxLength": 1024
           },
           "contentType": {
             "type": "string",
             "examples": [
               "application/pdf"
             ],
-            "pattern": "\\S",
             "maxLength": 255
           },
           "sizeBytes": {

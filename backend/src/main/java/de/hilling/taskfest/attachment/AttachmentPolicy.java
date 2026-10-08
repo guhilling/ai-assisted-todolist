@@ -8,8 +8,9 @@ import java.util.Optional;
  * <p>Checked before the upload, against what the browser announces; the size is then enforced by
  * S3 itself, because it is signed into the upload link, and checked once more when the upload is
  * confirmed. The counts include attachments still pending and those detached from a deleted task
- * but still inside the undo window, so the limits cannot be passed by racing uploads or by
- * deleting and undoing.</p>
+ * but still inside the undo window, so the limits cannot be passed by announcing without
+ * uploading or by deleting and undoing. {@code AttachmentService} serialises the counting per
+ * user, so they cannot be passed by announcing at once either.</p>
  */
 public final class AttachmentPolicy {
 

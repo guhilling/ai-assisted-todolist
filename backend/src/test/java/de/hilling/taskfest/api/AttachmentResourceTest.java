@@ -179,6 +179,47 @@ class AttachmentResourceTest {
     }
 
     @Test
+    @TestSecurity(user = "unknown-type@example.com")
+    @OidcSecurity(claims = { @Claim(key = "email", value = "unknown-type@example.com") })
+    void shouldRefuseAFileWhoseTypeTheBrowserDoesNotKnowAsUnsupported() {
+        // A browser reports File.type as "" for an extension it does not recognise.
+        announce(createTask("Odd file"), "notes.xyz", "", 10).statusCode(422)
+            .body("refusal", equalTo("UNSUPPORTED_TYPE"));
+    }
+
+    @Test
+    @TestSecurity(user = "long-name@example.com")
+    @OidcSecurity(claims = { @Claim(key = "email", value = "long-name@example.com") })
+    void shouldCutAnOverlongFileNameRatherThanRefuseIt() {
+        String name = "a".repeat(300) + ".pdf";
+        announce(createTask("Long name"), name, "application/pdf", 10).statusCode(201)
+            .body("attachment.fileName", equalTo("a".repeat(255)));
+    }
+
+    @Test
+    @TestSecurity(user = "parallel@example.com")
+    @OidcSecurity(claims = { @Claim(key = "email", value = "parallel@example.com") })
+    void shouldKeepToTheLimitWhenFilesAreAnnouncedAtOnce() throws Exception {
+        // A multi-file drop announces in parallel; counting and inserting must not interleave.
+        long taskId = createTask("Dropped six files");
+        java.util.concurrent.ExecutorService pool = java.util.concurrent.Executors.newFixedThreadPool(6);
+        try {
+            List<java.util.concurrent.Future<Integer>> answers = new java.util.ArrayList<>();
+            for (int file = 0; file < 6; file++) {
+                String name = "drop" + file + ".png";
+                answers.add(pool.submit(() -> announce(taskId, name, "image/png", 10).extract().statusCode()));
+            }
+            long accepted = 0;
+            for (java.util.concurrent.Future<Integer> answer : answers) {
+                accepted += answer.get() == 201 ? 1 : 0;
+            }
+            assertEquals(2, accepted);
+        } finally {
+            pool.shutdown();
+        }
+    }
+
+    @Test
     @TestSecurity(user = "full-task@example.com")
     @OidcSecurity(claims = { @Claim(key = "email", value = "full-task@example.com") })
     void shouldRefuseAThirdAttachmentOnATask() {
@@ -242,6 +283,49 @@ class AttachmentResourceTest {
         given().when().get("/api/tasks").then()
             .body("find { it.id == " + restored + " }.attachments.id", equalTo(List.of((int) id)));
         assertTrue(store.head(objectKeyOf(id)).isPresent());
+    }
+
+    @Test
+    @TestSecurity(user = "greedy-undo@example.com")
+    @OidcSecurity(claims = { @Claim(key = "email", value = "greedy-undo@example.com") })
+    void shouldNotLetAnUndoPutMoreOnATaskThanTheLimit() throws Exception {
+        // Two deleted tasks' attachments named in one undo: the task limit still holds.
+        List<Long> ids = new java.util.ArrayList<>();
+        for (int task = 0; task < 2; task++) {
+            long taskId = createTask("Deleted " + task);
+            for (int file = 0; file < 2; file++) {
+                JsonPath announced = announce(taskId, "f" + file + ".pdf", "application/pdf", PDF.length).extract()
+                    .jsonPath();
+                upload(announced, PDF);
+                confirm(taskId, announced.getLong("attachment.id")).statusCode(200);
+                ids.add(announced.getLong("attachment.id"));
+            }
+            given().when().delete("/api/tasks/" + taskId).then().statusCode(204);
+        }
+
+        given().contentType(ContentType.JSON)
+            .body(Map.of("description", "Greedy", "dueDate", LocalDate.now().plusDays(1).toString(),
+                "importance", TaskImportance.MEDIUM.name(), "state", TaskState.TODO.name(), "attachmentIds", ids))
+            .when().post("/api/tasks").then().statusCode(201).body("attachments.size()", equalTo(2));
+    }
+
+    @Test
+    @TestSecurity(user = "orphan@example.com")
+    @OidcSecurity(claims = { @Claim(key = "email", value = "orphan@example.com") })
+    void shouldSweepTheAttachmentsOfATaskDeletedBehindTheApplicationsBack() throws Exception {
+        long taskId = createTask("Deleted by a script");
+        JsonPath announced = announce(taskId, "kept.pdf", "application/pdf", PDF.length).extract().jsonPath();
+        long id = announced.getLong("attachment.id");
+        upload(announced, PDF);
+        confirm(taskId, id).statusCode(200);
+        String key = objectKeyOf(id);
+
+        // Not through TaskResource, so nothing detaches: ON DELETE SET NULL is all that happens.
+        QuarkusTransaction.requiringNew().run(() -> Task.delete("id", taskId));
+        attachments.sweep(Instant.now());
+
+        assertTrue(store.head(key).isEmpty());
+        assertEquals(0L, QuarkusTransaction.requiringNew().call(() -> Attachment.count("id", id)));
     }
 
     @Test

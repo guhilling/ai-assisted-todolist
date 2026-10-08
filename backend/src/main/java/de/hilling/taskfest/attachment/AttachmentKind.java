@@ -12,7 +12,7 @@ import java.util.Optional;
  * as one.</p>
  *
  * <p>Stored as the PostgreSQL enum {@code attachment_kind}; the names are the column's labels,
- * which {@code AttachmentKindColumnTest} keeps in step.</p>
+ * which {@code AttachmentEnumColumnTest} keeps in step.</p>
  */
 public enum AttachmentKind {
     PDF("application/pdf"),

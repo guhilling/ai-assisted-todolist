@@ -55,6 +55,12 @@ public class AttachmentResource {
     /** The longest media type a client may announce. */
     private static final int MAX_CONTENT_TYPE_LENGTH = 255;
 
+    /**
+     * The longest file name a client may announce. Longer than what is kept, deliberately: a
+     * long name is cut to fit rather than refused, so it only needs bounding against abuse.
+     */
+    private static final int MAX_ANNOUNCED_FILE_NAME_LENGTH = 1024;
+
     /** The status a refused attachment is answered with: the request was understood, and declined. */
     private static final int UNPROCESSABLE = 422;
 
@@ -85,7 +91,7 @@ public class AttachmentResource {
     @APIResponse(responseCode = "404", description = "No task with this id is owned by the caller.")
     public Response announce(@PathParam("taskId") Long taskId, @Valid AnnounceRequest request) {
         User owner = currentUser();
-        Task task = ownedTask(taskId, owner);
+        Task task = TaskResource.ownedTaskOrNotFound(taskId, owner);
         try {
             AttachmentService.Announced announced =
                 attachments.announce(owner, task, request.fileName(), request.contentType(), request.sizeBytes());
@@ -151,16 +157,8 @@ public class AttachmentResource {
 
     private Attachment ownedAttachment(Long taskId, Long id) {
         User owner = currentUser();
-        return attachments.find(owner, ownedTask(taskId, owner), id)
+        return attachments.find(owner, TaskResource.ownedTaskOrNotFound(taskId, owner), id)
             .orElseThrow(() -> new WebApplicationException(Response.Status.NOT_FOUND));
-    }
-
-    private static Task ownedTask(Long taskId, User owner) {
-        Task task = Task.<Task>find("id = ?1 and owner = ?2", taskId, owner).firstResult();
-        if (task == null) {
-            throw new WebApplicationException(Response.Status.NOT_FOUND);
-        }
-        return task;
     }
 
     private User currentUser() {
@@ -183,13 +181,15 @@ public class AttachmentResource {
      * What the browser announces before uploading: the file's name, type and size, which the upload
      * link is then signed for.
      *
-     * @param fileName the file's name; cleaned of any path, line break or quote
-     * @param contentType its media type: a PDF or an image (D2 on #204)
+     * @param fileName the file's name; cleaned of any path, line break or quote, and cut to 255
+     * @param contentType its media type: a PDF or an image (D2 on #204); anything else, the empty
+     *     type a browser reports for an extension it does not know included, is refused as
+     *     {@code UNSUPPORTED_TYPE} rather than rejected as malformed
      * @param sizeBytes its size, at most the configured limit (D1)
      */
     public record AnnounceRequest(
-        @NotBlank @Size(max = Attachment.MAX_FILE_NAME_LENGTH) @Schema(example = "Rechnung.pdf") String fileName,
-        @NotBlank @Size(max = MAX_CONTENT_TYPE_LENGTH) @Schema(example = "application/pdf") String contentType,
+        @NotBlank @Size(max = MAX_ANNOUNCED_FILE_NAME_LENGTH) @Schema(example = "Rechnung.pdf") String fileName,
+        @NotNull @Size(max = MAX_CONTENT_TYPE_LENGTH) @Schema(example = "application/pdf") String contentType,
         @NotNull @Min(1) @Schema(example = "48213") Long sizeBytes
     ) {
     }

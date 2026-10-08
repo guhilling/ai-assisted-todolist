@@ -4,6 +4,7 @@ import de.hilling.taskfest.model.Task;
 import de.hilling.taskfest.model.User;
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.persistence.LockModeType;
 import jakarta.transaction.Transactional;
 import java.time.Instant;
 import java.util.Collection;
@@ -74,6 +75,7 @@ public class AttachmentService {
     @Transactional
     public Announced announce(User owner, Task task, String fileName, String contentType, long sizeBytes) {
         AttachmentKind kind = AttachmentKind.of(contentType).orElseThrow(() -> new Refused("UNSUPPORTED_TYPE"));
+        lockAttachmentsOf(owner);
         long onTask = Attachment.count("task", task);
         long ofUser = Attachment.count("owner", owner);
         policy.refusal(sizeBytes, onTask, ofUser).ifPresent(refusal -> {
@@ -114,8 +116,12 @@ public class AttachmentService {
             remove(attachment);
             throw new Refused("MISMATCH");
         }
-        QuarkusTransaction.requiringNew().run(() ->
+        int confirmed = QuarkusTransaction.requiringNew().call(() ->
             Attachment.update("state = ?1 where id = ?2", AttachmentState.AVAILABLE, attachment.id));
+        if (confirmed == 0) {
+            // Swept between the HEAD and here: it is gone, and was never available.
+            return Optional.empty();
+        }
         attachment.state = AttachmentState.AVAILABLE;
         return Optional.of(attachment);
     }
@@ -167,30 +173,78 @@ public class AttachmentService {
         if (ids == null || ids.isEmpty()) {
             return;
         }
-        Attachment.update("task = ?1, detachedAt = null where id in ?2 and owner = ?3 and detachedAt >= ?4",
-            task, ids, owner, Instant.now().minus(config.undoWindow()));
+        lockAttachmentsOf(owner);
+        // At most as many as the task may hold: an undo names one task's, but nothing stops a
+        // request naming two deleted tasks' at once.
+        long room = config.maxPerTask() - Attachment.count("task", task);
+        // Changed as loaded entities, not by a bulk update, which would leave these instances
+        // stale in the persistence context for the response read straight after.
+        Attachment.<Attachment>find(
+                "id in ?1 and owner = ?2 and task is null and detachedAt >= ?3 order by id",
+                ids, owner, Instant.now().minus(config.undoWindow()))
+            .stream()
+            .limit(Math.max(room, 0))
+            .forEach(attachment -> {
+                attachment.task = task;
+                attachment.detachedAt = null;
+            });
     }
 
     /**
-     * Deletes what is no longer wanted: attachments detached longer than the undo window, and
-     * uploads announced longer ago than they may stay pending. Each on its own, so one failure does
-     * not stop the rest.
+     * Serialises the changes that count a user's attachments, by locking the user's row: two
+     * files announced at once -- a multi-file drop -- would otherwise both count the same total
+     * and both fit.
+     */
+    private static void lockAttachmentsOf(User owner) {
+        User.findById(owner.id, LockModeType.PESSIMISTIC_WRITE);
+    }
+
+    /** What the sweep deletes, as of ?1 minus the undo window and ?3 minus the pending lifetime. */
+    private static final String DUE = "((detachedAt is not null and detachedAt < ?1)"
+        + " or (state = ?2 and createdAt < ?3)"
+        // A task deleted other than through the API: ON DELETE SET NULL, and nothing detached it.
+        + " or (task is null and detachedAt is null))";
+
+    /**
+     * Deletes what is no longer wanted: attachments detached longer than the undo window, uploads
+     * announced longer ago than they may stay pending, and attachments whose task went without
+     * detaching them. Each on its own, so one failure does not stop the rest.
      *
      * @return how many were deleted
      */
     public int sweep(Instant now) {
-        List<Attachment> due = QuarkusTransaction.requiringNew().call(() -> Attachment.<Attachment>list(
-            "(detachedAt is not null and detachedAt < ?1) or (state = ?2 and createdAt < ?3)",
-            now.minus(config.undoWindow()), AttachmentState.PENDING, now.minus(config.pendingLifetime())));
+        Instant undoneBefore = now.minus(config.undoWindow());
+        Instant staleBefore = now.minus(config.pendingLifetime());
+        List<Long> due = QuarkusTransaction.requiringNew().call(() -> Attachment.<Attachment>list(
+                DUE, undoneBefore, AttachmentState.PENDING, staleBefore)
+            .stream().map(attachment -> attachment.id).toList());
         int deleted = 0;
-        for (Attachment attachment : due) {
+        for (Long id : due) {
             try {
-                remove(attachment);
-                deleted++;
+                deleted += sweepOne(id, undoneBefore, staleBefore) ? 1 : 0;
             } catch (RuntimeException failure) {
-                LOG.warn("Could not sweep attachment {}; the next sweep tries again", attachment.id, failure);
+                LOG.warn("Could not sweep attachment {}; the next sweep tries again", id, failure);
             }
         }
         return deleted;
+    }
+
+    /**
+     * Deletes one attachment if it is still due, holding its row while the object goes: a confirm
+     * or an undo that reached it since the list was read has made it wanted again, and must win.
+     */
+    private boolean sweepOne(Long id, Instant undoneBefore, Instant staleBefore) {
+        return QuarkusTransaction.requiringNew().call(() -> {
+            Attachment attachment = Attachment.<Attachment>find("id = ?4 and " + DUE,
+                    undoneBefore, AttachmentState.PENDING, staleBefore, id)
+                .withLock(LockModeType.PESSIMISTIC_WRITE)
+                .firstResult();
+            if (attachment == null) {
+                return false;
+            }
+            store.delete(attachment.objectKey);
+            attachment.delete();
+            return true;
+        });
     }
 }
