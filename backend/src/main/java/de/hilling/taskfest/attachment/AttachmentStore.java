@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
+import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
 import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
@@ -22,7 +23,8 @@ import software.amazon.awssdk.services.s3.presigner.model.PresignedPutObjectRequ
  * <p>The browser moves file content itself, through links signed here: an upload link that only
  * accepts exactly the announced size and type -- both are signed into it, so S3 refuses anything
  * else -- and a short-lived download link. The backend itself asks whether an object is there, deletes
- * it, and lists the bucket for the orphan clean-up (#208).</p>
+ * it, and lists the bucket for the orphan clean-up (#208). It also keeps the deletion records of
+ * #213, small text objects under their own prefix, in the same bucket.</p>
  */
 @ApplicationScoped
 public class AttachmentStore {
@@ -101,12 +103,27 @@ public class AttachmentStore {
     public record StoredObject(String key, Instant lastModified) {
     }
 
-    /** Every object in the bucket, page by page; at demo sizes, a handful of requests. */
+    /**
+     * Every attachment object in the bucket, page by page; at demo sizes, a handful of requests.
+     * Attachment keys are bare UUIDs, so anything under a prefix -- the deletion records of #213 --
+     * is something else and is left out: the orphan clean-up must never take it for an orphan.
+     */
     public List<StoredObject> list() {
-        return s3.listObjectsV2Paginator(list -> list.bucket(bucket)).contents().stream()
+        return listUnder("").stream().filter(object -> !object.key().contains("/")).toList();
+    }
+
+    /** Every object whose key starts with this prefix. */
+    public List<StoredObject> listUnder(String prefix) {
+        return s3.listObjectsV2Paginator(list -> list.bucket(bucket).prefix(prefix)).contents().stream()
             .map(object -> new StoredObject(object.key(), object.lastModified()))
             .toList();
     }
+
+    /** Writes a small text object, such as a deletion record (#213), replacing any already there. */
+    public void putText(String key, String text) {
+        s3.putObject(put -> put.bucket(bucket).key(key).contentType("text/plain"), RequestBody.fromString(text));
+    }
+
 
     /** What S3 holds under the key, or empty when nothing is there. */
     public Optional<HeadObjectResponse> head(String key) {

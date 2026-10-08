@@ -395,6 +395,9 @@ resource "aws_ecs_task_definition" "backend" {
       # Where task attachments go (attachments.tf).
       { name = "TASKFEST_ATTACHMENTS_BUCKET", value = local.attachments_bucket },
 
+      # Whose snapshots decide how long an account deletion record is kept (#213).
+      { name = "TASKFEST_ACCOUNT_DB_INSTANCE", value = local.db_instance },
+
       # Sign-in with Google (sign-in.tf), on only where a client id is configured.
       { name = "TASKFEST_AUTH_ENABLED", value = tostring(local.sign_in_enabled) },
       { name = "TASKFEST_OIDC_GOOGLE_CLIENT_ID", value = var.google_client_id },

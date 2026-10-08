@@ -96,8 +96,9 @@ betreiben und Fehlerursachen zu finden.
 
 Die Datenbank wird automatisch gesichert und die Sicherungen 7 Tage aufbewahrt, solange eine
 Umgebung läuft. Wird eine Umgebung abgeschaltet, was oft geschieht, wird ein Abbild ihrer
-Datenbank aufbewahrt, damit sie später wiederhergestellt werden kann. Eine Löschung, die Sie
-verlangen, wird auch auf jedes später wiederhergestellte Abbild angewendet.
+Datenbank aufbewahrt, damit sie später wiederhergestellt werden kann. Löschen Sie Ihr Konto, wird
+die Löschung automatisch auch auf jede später wiederhergestellte Sicherung und jedes Abbild
+angewendet, über den unter *Ihre Rechte* beschriebenen Vermerk.
 
 ### Profilbilder
 
@@ -128,9 +129,25 @@ Sie haben das Recht auf Auskunft über die zu Ihnen gespeicherten Daten, auf Ber
 Löschung, auf Einschränkung der Verarbeitung, auf Datenübertragbarkeit und auf Widerspruch gegen
 eine Verarbeitung, die auf berechtigten Interessen beruht (Art. 15–21 DSGVO).
 
-**Um Ihr Konto zu löschen**, schreiben Sie an die oben genannte Adresse. Die Anwendung bietet noch
-keine Löschung zur Selbstbedienung; Ihre E-Mail-Adresse und alle Ihre Aufgaben werden dann
-gelöscht.
+**Um Ihr Konto zu löschen**, wählen Sie oben auf der Übersicht *Konto löschen*. Nach einer
+Bestätigung wird Ihr Konto sofort mit allem gelöscht, was es enthält: Ihre E-Mail-Adresse, alle
+Ihre Aufgaben und alle Ihre Dateien. Einzige Ausnahme ist eine Datei, die in diesem Moment noch
+hochgeladen wurde: Sie kann nach der Löschung ankommen und wird dann innerhalb von sieben Tagen
+gelöscht. Danach werden Sie abgemeldet. Melden Sie sich später wieder an, beginnt ein neues,
+leeres Konto -- ebenso, wenn Sie eine auf einem anderen Gerät noch offene Sitzung weiter nutzen,
+die sich von hier aus nicht beenden lässt. Sie
+können auch an die oben genannte Adresse schreiben.
+
+**Was eine Löschung hinterlässt:** einen Vermerk, dass das Konto gelöscht wurde, damit die
+Löschung auch für eine später wiederhergestellte Datensicherung oder ein Abbild der Datenbank gilt.
+Der Vermerk enthält einen SHA-256-Hashwert Ihrer E-Mail-Adresse und den Zeitpunkt der Löschung,
+sonst nichts; er liegt bei den Anhängen in Amazon S3 in der AWS-Region Frankfurt. Er enthält Ihre
+Adresse nicht, ist aber pseudonym und nicht anonym: Wer Ihre Adresse bereits kennt, kann den
+Hashwert berechnen und so sehen, dass ein Konto mit dieser Adresse gelöscht wurde. Er wird
+automatisch gelöscht, sobald es keine Sicherung und kein Abbild der Datenbank mehr gibt, das älter
+als die Löschung ist, da dann keines das Konto zurückbringen könnte. Rechtsgrundlage: Art. 6 Abs. 1 lit. c DSGVO in Verbindung mit
+Art. 17 DSGVO, der Pflicht zur Löschung, die eine wiederhergestellte Sicherung sonst rückgängig
+machen würde.
 
 Sie haben außerdem das Recht, sich bei einer Datenschutz-Aufsichtsbehörde zu beschweren
 (Art. 77 DSGVO), zum Beispiel bei der für den Betreiber zuständigen:

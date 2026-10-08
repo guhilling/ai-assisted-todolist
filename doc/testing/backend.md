@@ -40,13 +40,23 @@ needs no Keycloak at all. Fifty-two tests across ten classes:
 - **`AttachmentPolicyTest`** — the allowed kinds, the size and count limits, and the cleaning of
   a file name for a `Content-Disposition` header, without booting anything.
 - **`AttachmentResourceTest`** — attachments end to end against S3 in LocalStack, under
-  `AttachmentStorageProfile` so only this class pays for that container: announce, a real PUT
+  `AttachmentStorageProfile`, which only the classes that need S3 use -- this one, the orphan
+  clean-up's and the account deletion's -- so the rest never start that container: announce, a real PUT
   to the presigned link, confirm, list, open, remove; the refusals; ownership; and a deleted
   task's attachments coming back with its undo, then swept. The profile switches LocalStack's
   signature validation **on** — it is off by default, and then S3 accepting only the signed size
   goes untested.
 - **`AttachmentEnumColumnTest`** — the attachment kind and state columns are the database's
   own enums, with the same labels as the Java enums.
+- **`AccountResourceTest`** and **`DeletionReplayTest`** — deleting one's own account (#213)
+  against LocalStack: everything the caller holds goes, nobody else's data is touched, an
+  interrupted deletion finishes when asked again, and an account a restore brought back is deleted
+  again unless it was created after the deletion, and a session left open elsewhere starts a new,
+  empty account. **`AccountWithoutRecordsTest`** deletes an account where records are switched off,
+  as in the Compose stacks. **`DeletionRecordsHashTest`** pins the record's key
+  with a known SHA-256, because a record written by one release must be found by the next;
+  **`DeletionPruningTest`** and **`RdsRestorePointsTest`** (a fake RDS client, since LocalStack has
+  none) cover when a record may go.
 - **`KeycloakLoginFlowTest`** — the real authorization code flow (see below).
 - **`MetricsResourceTest`** — `/q/metrics` is actually exposed, since Micrometer
   contributes it through configuration that nothing else would notice breaking.

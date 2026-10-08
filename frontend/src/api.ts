@@ -151,6 +151,7 @@ export type RequestErrorKey =
   | 'uploadAttachment'
   | 'openAttachment'
   | 'removeAttachment'
+  | 'deleteAccount'
 
 /** This module's own English, for a console or a test; the banner says the catalogue's text. */
 const requestErrorMessages: Record<RequestErrorKey, string> = {
@@ -162,6 +163,7 @@ const requestErrorMessages: Record<RequestErrorKey, string> = {
   uploadAttachment: 'Unable to upload the file.',
   openAttachment: 'Unable to open the file.',
   removeAttachment: 'Unable to remove the file.',
+  deleteAccount: 'Unable to delete your account.',
 }
 
 /** A request that failed, named by what it was doing. */
@@ -640,5 +642,19 @@ export async function removeAttachment(taskId: Task['id'], attachmentId: Attachm
   ensureSession(response)
   if (!response.ok) {
     throw new RequestError('removeAttachment')
+  }
+}
+
+const accountUrl = `${apiBaseUrl}/api/account`
+
+/**
+ * Deletes the signed-in user's account with every task and file it holds (#213). It cannot be
+ * undone; signing out is the caller's next step.
+ */
+export async function deleteAccount() {
+  const response = await fetch(accountUrl, { method: 'DELETE', credentials: 'include', headers: jsFetchHeaders })
+  ensureSession(response)
+  if (!response.ok) {
+    throw new RequestError('deleteAccount')
   }
 }

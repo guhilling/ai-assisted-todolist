@@ -89,8 +89,9 @@ finding the cause of errors.
 
 The database is backed up automatically for 7 days while an environment is running. When an
 environment is shut down, which happens often, a snapshot of its database is kept so that it can
-be restored later. A deletion you ask for is also applied to any snapshot that is restored
-afterwards.
+be restored later. When you delete your account, the deletion is also applied to any backup or
+snapshot that is restored afterwards, automatically, through the record described under *Your
+rights*.
 
 ### Profile pictures
 
@@ -118,8 +119,22 @@ You have the right to access the data held about you, to have it corrected or de
 restrict its processing, to receive it in a machine-readable form, and to object to processing
 based on legitimate interests (Art. 15–21 GDPR).
 
-**To delete your account**, write to the contact address above. The application has no
-self-service deletion yet; your email address and all your tasks are then deleted.
+**To delete your account**, use *Delete account* at the top of the board. After a confirmation,
+your account is deleted at once with everything it holds: your email address, all your tasks and
+all your files. The one exception is a file that was still being uploaded at that moment: it can
+arrive after the deletion, and is then deleted within seven days. You are then signed out.
+Signing in again later starts a new, empty account -- and so does using a session you left open on
+another device, which cannot be ended from here. You can also write to the contact address above.
+
+**What a deletion leaves behind:** a record that the account was deleted, so that the deletion
+also applies to a database backup or snapshot restored later. The record holds a SHA-256 hash of
+your email address and the time of the deletion, and nothing else; it is stored with the
+attachments, in Amazon S3 in AWS's Frankfurt region. It does not contain your address, but it is
+pseudonymous rather than anonymous: someone who already knows your address could compute the hash
+and see that an account with it was deleted. It is deleted automatically once no backup or
+snapshot of the database older than the deletion exists any more, since none could then bring the
+account back. Legal basis: Art. 6(1)(c) GDPR in conjunction with
+Art. 17 GDPR, the obligation to erase, which a restored backup would otherwise undo.
 
 You also have the right to complain to a data protection supervisory authority (Art. 77 GDPR), for
 example the one responsible for the operator:
