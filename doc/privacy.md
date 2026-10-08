@@ -106,8 +106,8 @@ based on legitimate interests (Art. 15–21 GDPR).
 **To delete your account**, write to the contact address above. The application has no
 self-service deletion yet; your email address and all your tasks are then deleted.
 
-You also have the right to complain to a data protection supervisory authority, for example the
-one responsible for the operator:
+You also have the right to complain to a data protection supervisory authority (Art. 77 GDPR), for
+example the one responsible for the operator:
 
 Der Landesbeauftragte für den Datenschutz Niedersachsen<br>
 Prinzenstraße 5<br>
