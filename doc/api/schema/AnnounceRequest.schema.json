@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "AnnounceRequest.schema.json",
+  "type": "object",
+  "required": [
+    "fileName",
+    "contentType",
+    "sizeBytes"
+  ],
+  "properties": {
+    "fileName": {
+      "type": "string",
+      "examples": [
+        "Rechnung.pdf"
+      ],
+      "pattern": "\\S",
+      "maxLength": 255
+    },
+    "contentType": {
+      "type": "string",
+      "examples": [
+        "application/pdf"
+      ],
+      "pattern": "\\S",
+      "maxLength": 255
+    },
+    "sizeBytes": {
+      "type": "integer",
+      "format": "int64",
+      "examples": [
+        48213
+      ],
+      "minimum": 1
+    }
+  }
+}

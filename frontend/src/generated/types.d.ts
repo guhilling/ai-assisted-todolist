@@ -6,6 +6,29 @@
  */
 
 /**
+ * The `AnnounceRequest` the backend speaks.
+ *
+ * Generated from `doc/api/schema/AnnounceRequest.schema.json`. Do not edit.
+ */
+export type AnnounceRequest = {
+    fileName: string;
+    contentType: string;
+    sizeBytes: number;
+};
+
+/**
+ * The `AttachmentResponse` the backend speaks.
+ *
+ * Generated from `doc/api/schema/AttachmentResponse.schema.json`. Do not edit.
+ */
+export type AttachmentResponse = {
+    id: number;
+    fileName: string;
+    contentType: string;
+    sizeBytes: number;
+};
+
+/**
  * The `AuthProviderResponse` the backend speaks.
  *
  * Generated from `doc/api/schema/AuthProviderResponse.schema.json`. Do not edit.
@@ -40,11 +63,37 @@ export type CurrentUserResponse = {
 };
 
 /**
+ * The `Instant` the backend speaks.
+ *
+ * Generated from `doc/api/schema/Instant.schema.json`. Do not edit.
+ */
+export type Instant = string;
+
+/**
+ * The `LinkResponse` the backend speaks.
+ *
+ * Generated from `doc/api/schema/LinkResponse.schema.json`. Do not edit.
+ */
+export type LinkResponse = {
+    url: string;
+    expiresAt: Instant;
+};
+
+/**
  * The `LocalDate` the backend speaks.
  *
  * Generated from `doc/api/schema/LocalDate.schema.json`. Do not edit.
  */
 export type LocalDate = string;
+
+/**
+ * The `RefusalResponse` the backend speaks.
+ *
+ * Generated from `doc/api/schema/RefusalResponse.schema.json`. Do not edit.
+ */
+export type RefusalResponse = {
+    refusal: 'UNSUPPORTED_TYPE' | 'EMPTY' | 'TOO_LARGE' | 'TASK_FULL' | 'USER_FULL' | 'MISMATCH';
+};
 
 /**
  * The `TaskCreateRequest` the backend speaks.
@@ -56,6 +105,7 @@ export type TaskCreateRequest = {
     dueDate: LocalDate;
     importance: TaskImportance;
     state: TaskState;
+    attachmentIds?: number[] | null;
 };
 
 /**
@@ -76,6 +126,7 @@ export type TaskResponse = {
     dueDate: LocalDate;
     importance: TaskImportance;
     state: TaskState;
+    attachments?: AttachmentResponse[];
 };
 
 /**
@@ -95,4 +146,16 @@ export type TaskUpdateRequest = {
     dueDate: LocalDate;
     importance: TaskImportance;
     state: TaskState;
+};
+
+/**
+ * The `UploadResponse` the backend speaks.
+ *
+ * Generated from `doc/api/schema/UploadResponse.schema.json`. Do not edit.
+ */
+export type UploadResponse = {
+    attachment: AttachmentResponse;
+    url: string;
+    headers: Record<string, string>;
+    expiresAt: Instant;
 };

@@ -1,5 +1,7 @@
 package de.hilling.taskfest.api;
 
+import de.hilling.taskfest.attachment.Attachment;
+import de.hilling.taskfest.attachment.AttachmentService;
 import de.hilling.taskfest.model.Task;
 import de.hilling.taskfest.model.TaskImportance;
 import de.hilling.taskfest.model.TaskState;
@@ -26,6 +28,7 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import io.quarkus.oidc.IdToken;
 import org.eclipse.microprofile.jwt.JsonWebToken;
 import org.eclipse.microprofile.openapi.annotations.Operation;
@@ -52,6 +55,9 @@ import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 @Tag(name = "Tasks", description = "Everything a signed-in user can do to their own tasks.")
 public class TaskResource {
 
+    /** How many attachments an undo may bring back: a task carries at most a few (D1 on #204). */
+    private static final int MAX_REATTACHED = 10;
+
     private static final String EXAMPLE_TASK = """
         {
           "id": 42,
@@ -73,6 +79,9 @@ public class TaskResource {
     @Inject
     UserService userService;
 
+    @Inject
+    AttachmentService attachments;
+
     @GET
     @Operation(summary = "List the caller's tasks", description = "Ordered by due date, then id.")
     @APIResponse(responseCode = "200", description = "The caller's tasks.",
@@ -81,8 +90,11 @@ public class TaskResource {
             examples = @ExampleObject(name = "tasks", value = "[" + EXAMPLE_TASK + "]")))
     public List<TaskResponse> list() {
         User owner = currentUser();
-        return Task.<Task>find("owner = ?1 order by dueDate asc, id asc", owner).stream()
-            .map(TaskResource::toResponse)
+        List<Task> tasks = Task.<Task>find("owner = ?1 order by dueDate asc, id asc", owner).list();
+        // One query for every task's attachments, so the count of statements stays constant.
+        Map<Long, List<Attachment>> attached = attachments.availableOf(tasks);
+        return tasks.stream()
+            .map(task -> toResponse(task, attached.getOrDefault(task.id, List.of())))
             .toList();
     }
 
@@ -100,6 +112,8 @@ public class TaskResource {
         task.owner = currentUser();
         apply(task, request);
         task.persist();
+        // An undo re-creating a deleted task brings its attachments back with it (D3 on #204).
+        attachments.reattach(task.owner, task, request.attachmentIds());
         return Response.status(Response.Status.CREATED)
             .entity(toResponse(task))
             .build();
@@ -129,6 +143,8 @@ public class TaskResource {
     @APIResponse(responseCode = "404", description = "No task with this id is owned by the caller.")
     public Response delete(@PathParam("id") Long id) {
         Task task = findOwnedTaskOrNotFound(id);
+        // Kept for the undo window, not deleted with the task (D3 on #204).
+        attachments.detachAll(task);
         task.delete();
         return Response.noContent().build();
     }
@@ -153,8 +169,13 @@ public class TaskResource {
         task.state = request.state();
     }
 
-    private static TaskResponse toResponse(Task task) {
-        return new TaskResponse(task.id, task.description, task.dueDate, task.importance, task.state);
+    private TaskResponse toResponse(Task task) {
+        return toResponse(task, attachments.availableOf(List.of(task)).getOrDefault(task.id, List.of()));
+    }
+
+    private static TaskResponse toResponse(Task task, List<Attachment> attached) {
+        return new TaskResponse(task.id, task.description, task.dueDate, task.importance, task.state,
+            attached.stream().map(AttachmentResource::toResponse).toList());
     }
 
     /**
@@ -188,13 +209,17 @@ public class TaskResource {
      * @param dueDate when it is due, today or later
      * @param importance how much it matters
      * @param state where it stands in the workflow
+     * @param attachmentIds attachments of the task an undo re-creates, to attach again; usually absent
      */
     public record TaskCreateRequest(
         @NotBlank @Size(max = Task.MAX_DESCRIPTION_LENGTH) @Schema(example = "Renew the passport")
         String description,
         @NotNull @FutureOrPresent @Schema(example = "2026-11-30") LocalDate dueDate,
         @NotNull @Schema(example = "HIGH") TaskImportance importance,
-        @NotNull @Schema(example = "TODO") TaskState state
+        @NotNull @Schema(example = "TODO") TaskState state,
+        @Size(max = MAX_REATTACHED) @Schema(description = "Attachments of a task deleted moments ago, for an undo "
+            + "to bring back (#204); only the caller's, only within the undo window.", nullable = true)
+        List<Long> attachmentIds
     ) implements TaskFields {
     }
 
@@ -239,6 +264,7 @@ public class TaskResource {
      * components they describe.</p>
      *
      * @param state where it stands in the workflow
+     * @param attachments its available attachments, oldest first
      */
     public record TaskResponse(
         @NotNull @Schema(example = "42") Long id,
@@ -246,7 +272,10 @@ public class TaskResource {
         String description,
         @NotNull @Schema(example = "2026-11-30") LocalDate dueDate,
         @NotNull @Schema(example = "HIGH") TaskImportance importance,
-        @NotNull @Schema(example = "TODO") TaskState state
+        @NotNull @Schema(example = "TODO") TaskState state,
+        @Schema(description = "Its available attachments (#204). Always sent; optional in the schema so the "
+            + "board still validates a task from a backend rolled back to before attachments.")
+        List<AttachmentResource.AttachmentResponse> attachments
     ) {
     }
 }

@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Attachments (#204): files on a task, their content in S3, their metadata here.
+
+  The task reference is nullable and set to NULL if the task goes: deleting a task detaches its
+  attachments for the undo window instead of deleting them (Attachment.detachedAt), and the
+  application does that itself before deleting the task; ON DELETE SET NULL only makes sure a
+  task deleted any other way can never take a row with it whose object would then be lost track of.
+-->
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="002-create-attachment-kind-type" author="guhilling">
+        <sql>CREATE TYPE attachment_kind AS ENUM ('PDF', 'JPEG', 'PNG', 'WEBP', 'GIF')</sql>
+        <rollback>DROP TYPE attachment_kind</rollback>
+    </changeSet>
+
+    <changeSet id="002-create-attachment-state-type" author="guhilling">
+        <sql>CREATE TYPE attachment_state AS ENUM ('PENDING', 'AVAILABLE')</sql>
+        <rollback>DROP TYPE attachment_state</rollback>
+    </changeSet>
+
+    <changeSet id="002-create-attachment-table" author="guhilling">
+        <createTable tableName="attachment">
+            <column name="id" type="BIGINT" autoIncrement="true" generationType="BY DEFAULT" startWith="1">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="task_id" type="BIGINT">
+                <constraints references="task(id)" foreignKeyName="fk_attachment_task" deleteCascade="false"/>
+            </column>
+            <column name="owner_id" type="BIGINT">
+                <constraints nullable="false" references="app_user(id)" foreignKeyName="fk_attachment_owner"/>
+            </column>
+            <column name="file_name" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="kind" type="attachment_kind">
+                <constraints nullable="false"/>
+            </column>
+            <column name="size_bytes" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="object_key" type="VARCHAR(255)">
+                <constraints nullable="false" unique="true" uniqueConstraintName="uc_attachment_object_key"/>
+            </column>
+            <column name="state" type="attachment_state">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="detached_at" type="TIMESTAMP"/>
+        </createTable>
+        <!-- Liquibase's references= cannot say ON DELETE SET NULL; the constraint is replaced. -->
+        <dropForeignKeyConstraint baseTableName="attachment" constraintName="fk_attachment_task"/>
+        <addForeignKeyConstraint baseTableName="attachment" baseColumnNames="task_id"
+            constraintName="fk_attachment_task" referencedTableName="task" referencedColumnNames="id"
+            onDelete="SET NULL"/>
+        <createIndex tableName="attachment" indexName="ix_attachment_task">
+            <column name="task_id"/>
+        </createIndex>
+        <createIndex tableName="attachment" indexName="ix_attachment_owner">
+            <column name="owner_id"/>
+        </createIndex>
+    </changeSet>
+
+</databaseChangeLog>

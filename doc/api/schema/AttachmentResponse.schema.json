@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "AttachmentResponse.schema.json",
+  "type": "object",
+  "required": [
+    "id",
+    "fileName",
+    "contentType",
+    "sizeBytes"
+  ],
+  "properties": {
+    "id": {
+      "type": "integer",
+      "format": "int64",
+      "examples": [
+        7
+      ]
+    },
+    "fileName": {
+      "type": "string",
+      "examples": [
+        "Rechnung.pdf"
+      ],
+      "maxLength": 255
+    },
+    "contentType": {
+      "type": "string",
+      "examples": [
+        "application/pdf"
+      ],
+      "maxLength": 255
+    },
+    "sizeBytes": {
+      "type": "integer",
+      "format": "int64",
+      "examples": [
+        48213
+      ]
+    }
+  }
+}

@@ -18,6 +18,8 @@
         <quarkus.platform.version>3.39.5</quarkus.platform.version>
         <jackson.version>2.22.3</jackson.version>
         <awssdk.version>2.55.11</awssdk.version>
+        <!-- The Quarkiverse Amazon services line built against this project's Quarkus minor. -->
+        <quarkus-amazon-services.version>3.22.1</quarkus-amazon-services.version>
         <surefire-plugin.version>3.6.0</surefire-plugin.version>
         <checkstyle-plugin.version>3.6.0</checkstyle-plugin.version>
         <enforcer-plugin.version>3.6.3</enforcer-plugin.version>
@@ -106,6 +108,24 @@
                     <artifactId>netty-nio-client</artifactId>
                 </exclusion>
             </exclusions>
+        </dependency>
+        <dependency>
+            <!-- Attachments live in S3 (#204): the client, the presigner for the browser's direct
+                 upload and download links, and Dev Services' LocalStack in the tests. -->
+            <groupId>io.quarkiverse.amazonservices</groupId>
+            <artifactId>quarkus-amazon-s3</artifactId>
+            <version>${quarkus-amazon-services.version}</version>
+        </dependency>
+        <dependency>
+            <!-- The JDK's own HTTP client for the S3 calls the backend makes itself (head, delete):
+                 the lightest of the SDK's clients, as the RDS signer above uses none at all. -->
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>url-connection-client</artifactId>
+        </dependency>
+        <dependency>
+            <!-- Deletes the attachments of deleted tasks once the undo window has passed (#204). -->
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-scheduler</artifactId>
         </dependency>
         <dependency>
             <groupId>io.quarkus</groupId>
@@ -298,6 +318,7 @@
                         <param>de.hilling.taskfest.logging.ProviderFieldTest</param>
                         <param>de.hilling.taskfest.api.SignInProvidersTest</param>
                         <param>de.hilling.taskfest.security.VerifiedEmailTest</param>
+                        <param>de.hilling.taskfest.attachment.AttachmentPolicyTest</param>
                     </targetTests>
                     <!-- The classes no allowlisted test reaches, excluded so the score reflects
                          what was actually measured rather than being diluted by code PIT could
@@ -309,6 +330,15 @@
                         <param>de.hilling.taskfest.api.AuthResource*</param>
                         <param>de.hilling.taskfest.api.TaskResource*</param>
                         <param>de.hilling.taskfest.model.*</param>
+                        <!-- The attachment classes that talk to S3 or the database; the policy
+                             and the kinds have a plain unit test and stay in scope. -->
+                        <param>de.hilling.taskfest.api.AttachmentResource*</param>
+                        <param>de.hilling.taskfest.attachment.Attachment</param>
+                        <param>de.hilling.taskfest.attachment.AttachmentService*</param>
+                        <param>de.hilling.taskfest.attachment.AttachmentStore*</param>
+                        <param>de.hilling.taskfest.attachment.AttachmentSweep*</param>
+                        <param>de.hilling.taskfest.attachment.AttachmentState</param>
+                        <param>de.hilling.taskfest.attachment.AttachmentsConfig*</param>
                         <!-- Narrowed from service.* when the Gravatar classes earned plain unit
                              tests; UserService still has none that avoids booting Quarkus. -->
                         <param>de.hilling.taskfest.service.UserService*</param>

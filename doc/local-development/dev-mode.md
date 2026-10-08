@@ -7,18 +7,20 @@ cd backend
 ./mvnw quarkus:dev
 ```
 
-Quarkus Dev Services starts two containers for you and wires the application to them:
+Quarkus Dev Services starts three containers for you and wires the application to them:
 
 - **PostgreSQL** (`postgres:18-alpine`) on a random port, with a fresh schema applied by
   Liquibase. The data is discarded when dev mode stops.
 - **Keycloak** (`quay.io/keycloak/keycloak:26.4`) on **`http://localhost:8082`**, importing
   `keycloak/realm-taskfest.json`. Its admin console is at `http://localhost:8082` with
   `admin` / `admin`.
+- **LocalStack**, standing in for S3, with the `taskfest-attachments` bucket created, so attaching
+  files to tasks works locally. Its content is discarded with it.
 
 The backend itself listens on `http://localhost:8080`. The Dev UI is at
 `http://localhost:8080/q/dev/`.
 
-First start pulls both images and takes a few minutes; later starts take seconds.
+First start pulls the images and takes a few minutes; later starts take seconds.
 
 ## 2. Start the frontend
 
