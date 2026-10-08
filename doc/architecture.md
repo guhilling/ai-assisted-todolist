@@ -6,25 +6,27 @@ Three deployable components and one external dependency:
 
 | Component | What it is | Where it lives |
 | --- | --- | --- |
-| Frontend | React 19 + TypeScript single-page app, served as static files by Apache httpd | `frontend/` |
-| Backend | Quarkus 3.25 REST API on Java 25, also the OIDC client | `backend/` |
-| Database | PostgreSQL 17, schema managed by Liquibase | — |
+| Frontend | React 19 + TypeScript single-page app, served as static files: from S3 through CloudFront in AWS, by Apache httpd locally | `frontend/` |
+| Backend | Quarkus 3 REST API on Java 25, also the OIDC client | `backend/` |
+| Database | PostgreSQL 18, schema managed by Liquibase; RDS in AWS | — |
 | Identity provider | Google in production; a Keycloak container in development and tests | `keycloak/` |
 | Object storage | S3 for task attachments; LocalStack, through Quarkus Dev Services, in development and tests | — |
 
 ## How a request travels
 
 ```
-browser ──▶ httpd ──▶ Quarkus ──▶ PostgreSQL
-            (static files, and a
-             reverse proxy for /api)
+browser ──▶ CloudFront ──▶ Quarkus ──▶ PostgreSQL (RDS)
+            (static files from S3,
+             /api to the backend)
 ```
 
-In production the browser talks to a single origin. httpd serves the built assets on
-`:8080` and proxies everything under `/api` to the backend, so the SPA makes same-origin
-requests and needs no CORS handling and no API base URL. In development Vite's dev server
-plays the same role: it serves the app on `:5173` and proxies `/api` to the backend on
-`:8080`.
+The browser talks to a single origin. In AWS that is CloudFront: the built assets come from the
+environment's site bucket, and everything under `/api/*` goes through a private VPC origin to the
+internal load balancer and on to the backend ([deployment](deployment/index.md)). Locally and in
+the end-to-end stack httpd plays the same part, serving the assets on `:8080` and proxying `/api`;
+in development Vite's dev server does, serving the app on `:5173` and proxying `/api` to the
+backend on `:8080`. Either way the SPA makes same-origin requests and needs no CORS handling and
+no API base URL.
 
 Both proxies must preserve the original `Host` header — Vite with `changeOrigin: false`,
 httpd with `ProxyPreserveHost On`. The backend builds the OIDC `redirect_uri` from that
@@ -102,10 +104,9 @@ field the spec left optional would be a field the frontend accepted as missing.
 ## Deployment
 
 Locally and in the end-to-end stack, httpd serves the built SPA and reverse-proxies `/api`, which
-is what makes the application same-origin. [deployment.md](deployment/index.md) plans the AWS shape,
-where that job moves to a CloudFront distribution with two origins — S3 for the SPA, the load
-balancer for `/api` — precisely so the same-origin arrangement the OIDC flow depends on survives.
-Nothing in it is built yet.
+is what makes the application same-origin. In AWS ([deployment](deployment/index.md)) that job is a
+CloudFront distribution with two origins — S3 for the SPA, the load balancer for `/api` — precisely
+so the same-origin arrangement the OIDC flow depends on survives.
 
 ## Schema management
 
