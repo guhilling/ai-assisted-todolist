@@ -144,8 +144,8 @@ def document(width, height, body, p: Palette, aria: str) -> str:
 
 
 def architecture(p: Palette) -> str:
-    """How a request travels, and where the tokens stop."""
-    w, h = 1000, 390
+    """How a request travels, where the tokens stop, and how files bypass the backend."""
+    w, h = 1000, 500
     row_y, box_h = 190, 72
     bottom = row_y + box_h
 
@@ -155,6 +155,7 @@ def architecture(p: Palette) -> str:
         box(530, row_y, 190, box_h, ["Quarkus backend", "the OIDC client"], p, accent=True),
         box(810, row_y, 160, box_h, ["PostgreSQL", "Liquibase schema"], p),
         box(530, 40, 190, 64, ["Identity provider", "Keycloak \u00b7 Google"], p),
+        box(810, 400, 160, 72, ["Object storage", "S3 \u00b7 attachments"], p),
 
         # The straight left-to-right path. Gaps are 90px so the labels sit clear of the boxes.
         arrow([(180, 226), (270, 226)], p),
@@ -177,12 +178,22 @@ def architecture(p: Palette) -> str:
         arrow([(625, bottom), (625, 312), (105, 312), (105, bottom)], p, accent=True),
         label(365, 334, "encrypted session cookie", p, accent=True, size=12),
         label(365, 352, "the browser never holds a token", p, accent=True, size=12),
+
+        # Attachments (#204): the backend only signs links and looks after the objects; the
+        # content goes straight between the browser and S3, so it never passes through it.
+        arrow([(700, bottom), (700, 418), (810, 418)], p),
+        label(712, 372, "signs links, checks,", p, anchor="start", size=11),
+        label(712, 387, "deletes", p, anchor="start", size=11),
+        arrow([(55, bottom), (55, 454), (810, 454)], p, accent=True),
+        label(380, 444, "files, straight: presigned PUT and GET", p, accent=True, size=12),
+        label(380, 476, "file content never passes through the backend", p, accent=True, size=12),
     ]
     aria = (
         "The browser talks only to httpd, which serves the app and proxies /api to the "
         "Quarkus backend. The backend is the OIDC client: it exchanges the code with the "
         "identity provider itself and returns an encrypted session cookie, so the browser "
-        "never holds a token."
+        "never holds a token. Files attached to tasks go straight between the browser and S3 "
+        "through presigned links the backend signs, so their content never passes through it."
     )
     return document(w, h, "\n  ".join(parts), p, aria)
 

@@ -31,12 +31,14 @@ experiment, and the application inside it is TaskFest.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="doc/images/architecture-dark.svg">
-  <img alt="The browser talks only to httpd, which serves the app and proxies /api to the Quarkus backend. The backend is the OIDC client: it exchanges the code with the identity provider itself and returns an encrypted session cookie, so the browser never holds a token." src="doc/images/architecture-light.svg">
+  <img alt="The browser talks only to httpd, which serves the app and proxies /api to the Quarkus backend. The backend is the OIDC client: it exchanges the code with the identity provider itself and returns an encrypted session cookie, so the browser never holds a token. Files attached to tasks go straight between the browser and S3 through presigned links the backend signs, so their content never passes through it." src="doc/images/architecture-light.svg">
 </picture>
 
 The backend is a *backend-for-frontend*: it is the OIDC client, it performs the code
 exchange itself, and what reaches the browser is an encrypted session cookie rather than a
-token. One origin, so the SPA needs no CORS handling and no API base URL.
+token. One origin for the app and its API, so the SPA needs no API base URL. The one cross-origin
+path is a file attached to a task: the browser uploads and downloads it straight to and from S3,
+through links the backend signs, which is what the bucket's CORS rule is for.
 [architecture.md](doc/architecture.md) has the deployment shape and
 [authentication.md](doc/authentication.md) the sign-in flow in full.
 
