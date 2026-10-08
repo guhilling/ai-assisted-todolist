@@ -9,8 +9,8 @@ sie beschreibt.
 
 Die Anwendung ist ein nicht kommerzielles Demonstrationsprojekt der Hilling IT GmbH. Sie steht
 Google-Konten offen, die dazu eingeladen wurden; sonst kann sich niemand anmelden – ausgenommen,
-nur in qa, zwei Testkonten, mit denen sich automatisierte Tests anmelden. Sie gehören keiner Person und enthalten nur, was diese
-Tests anlegen und wieder löschen.
+nur in qa, zwei Testkonten, mit denen sich automatisierte Tests anmelden. Sie gehören keiner
+Person und enthalten nur, was diese Tests anlegen und wieder löschen.
 
 ## Verantwortlicher
 
