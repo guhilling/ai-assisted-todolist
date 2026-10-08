@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Task, TaskImportance } from '../api'
 import { importanceLevels } from '../importance'
+import type { AttachmentActions } from './AttachmentList'
+import AttachmentPicker from './AttachmentPicker'
 import DueDateField from './DueDateField'
 import { useI18n } from '../i18n/context'
 
@@ -12,6 +14,8 @@ type TaskEditorProps = {
   saving: boolean
   onSave: (changes: TaskEdit) => void
   onCancel: () => void
+  /** Attaching files (#204); left out, the editor offers none. */
+  attachments?: AttachmentActions
 }
 
 /**
@@ -22,7 +26,7 @@ type TaskEditorProps = {
  * yesterday is still yesterday's, and the backend accepts that on an update for the same
  * reason. Escape and Cancel discard; nothing reaches the server until Save.
  */
-function TaskEditor({ task, saving, onSave, onCancel }: Readonly<TaskEditorProps>) {
+function TaskEditor({ task, saving, onSave, onCancel, attachments }: Readonly<TaskEditorProps>) {
   const { messages } = useI18n()
   const [description, setDescription] = useState(task.description)
   const [dueDate, setDueDate] = useState(task.dueDate)
@@ -80,6 +84,7 @@ function TaskEditor({ task, saving, onSave, onCancel }: Readonly<TaskEditorProps
           </button>
         </div>
       </div>
+      {attachments ? <AttachmentPicker task={task} actions={attachments} /> : null}
     </form>
   )
 }

@@ -22,6 +22,13 @@ Two details are deliberate:
   resolve straight away. Loading is transient, and asserting it against an immediate stub is a
   race that passes on timing rather than on behaviour — it did, until it did not.
 
+`Attachments.test.tsx` and `attachments-api.test.ts` cover files on tasks (#204): the row's list,
+preview, open and remove, and the editor's choose, drop, progress and refusals; and underneath,
+announce, upload and confirm. The upload goes through `XMLHttpRequest`, the only browser API that
+reports upload progress, so both stub it next to `fetch`. Opening a file is asserted to open the
+tab *on the click* and point it at the link afterwards, because a tab opened once a request has
+come back is what popup blockers block.
+
 `dates.test.ts` covers the due-date logic directly rather than through the DOM. It is the only
 pure logic in the frontend and the only place an off-by-one can hide: "Today", "Tomorrow", a
 weekday name and a plain date are each one day apart. It includes a daylight-saving case,

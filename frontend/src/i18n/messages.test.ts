@@ -28,7 +28,7 @@ function leaves(tree: object, prefix = ''): string[] {
  * By its full path -- `addRow.cancel`, not just `cancel`, which every other `.cancel` would have
  * vouched for -- unless the group is looked up by a key the code computes:
  * - groups typed as a `Record` over a type the code owns (`DueBucket`, `TaskImportance`, `api.ts`'s
- *   keys) hold exactly that type's keys, which the compiler checks; the group is used if it is
+ *   keys, the backend's attachment refusals) hold exactly that type's keys, which the compiler checks; the group is used if it is
  *   indexed anywhere;
  * - `failures` is indexed too, by keys the code passes as string literals, so each must appear so;
  * - `dates` is handed to `dates.ts` whole, which reads it as `words`.
@@ -37,7 +37,14 @@ function usage(path: string): RegExp {
   const parts = path.split('.')
   const leaf = parts.pop()!
   const group = parts.join('.')
-  const indexedByOwnedType = ['sections', 'importance.levels', 'errors', 'contract.subjects', 'contract.details']
+  const indexedByOwnedType = [
+    'sections',
+    'importance.levels',
+    'errors',
+    'contract.subjects',
+    'contract.details',
+    'attachments.refusals',
+  ]
   if (indexedByOwnedType.includes(group)) {
     return new RegExp(`\\.${group.replace('.', '\\.')}\\[`)
   }

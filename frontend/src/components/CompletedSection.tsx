@@ -1,4 +1,5 @@
 import type { Task, TaskState } from '../api'
+import type { AttachmentActions } from './AttachmentList'
 import TaskRow from './TaskRow'
 import { useI18n } from '../i18n/context'
 
@@ -9,6 +10,7 @@ type CompletedSectionProps = {
   onSetState: (task: Task, state: TaskState) => void
   onDelete: (task: Task) => void
   onClear: () => void
+  attachments?: AttachmentActions
 }
 
 /**
@@ -18,7 +20,15 @@ type CompletedSectionProps = {
  * ticked, but kept rather than hidden so a mis-click can be undone by ticking it back. The
  * count on the summary is what makes the section worth opening.
  */
-function CompletedSection({ tasks, today, onToggleDone, onSetState, onDelete, onClear }: Readonly<CompletedSectionProps>) {
+function CompletedSection({
+  tasks,
+  today,
+  onToggleDone,
+  onSetState,
+  onDelete,
+  onClear,
+  attachments,
+}: Readonly<CompletedSectionProps>) {
   const { messages } = useI18n()
   if (tasks.length === 0) {
     return null
@@ -43,6 +53,7 @@ function CompletedSection({ tasks, today, onToggleDone, onSetState, onDelete, on
             onToggleDone={onToggleDone}
             onSetState={onSetState}
             onDelete={onDelete}
+            attachments={attachments}
           />
         ))}
       </ul>

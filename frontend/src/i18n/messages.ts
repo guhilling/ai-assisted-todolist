@@ -9,7 +9,7 @@
  * The English texts are the ones the app has always shown, word for word: the tests and the
  * browser suites address the UI by them.
  */
-import type { ContractDetail, ContractSubject, RequestErrorKey, TaskImportance } from '../api'
+import type { AttachmentRefusal, ContractDetail, ContractSubject, RequestErrorKey, TaskImportance } from '../api'
 import type { DueBucket } from '../dates'
 import type { Language } from './language'
 
@@ -45,6 +45,9 @@ export const en = {
     updateTask: 'Unable to update task.',
     deleteTask: 'Unable to delete task.',
     unaddressable: 'That task could not be addressed.',
+    uploadAttachment: 'Unable to upload the file.',
+    openAttachment: 'Unable to open the file.',
+    removeAttachment: 'Unable to remove the file.',
   } as Record<RequestErrorKey, string>,
   /** An answer that broke the API contract (`ContractBreachError`): which one, and how. */
   contract: {
@@ -55,6 +58,8 @@ export const en = {
       taskList: 'a task list',
       signedInUser: 'a signed-in user',
       signInOptions: 'the sign-in options',
+      attachment: 'an attachment',
+      attachmentLink: 'a link to a file',
     } as Record<ContractSubject, string>,
     details: {
       idNotInteger: 'its id is not an exact integer',
@@ -94,6 +99,28 @@ export const en = {
     markInProgress: 'Mark as in progress',
     delete: 'Delete',
     inProgress: 'doing',
+  },
+  /** Files on a task (#204): in the editor, attaching; on the row, opening and removing. */
+  attachments: {
+    title: 'Attachments',
+    drop: 'Drop a PDF or image here, or',
+    choose: 'choose a file',
+    limits: (megabytes: number, perTask: number, perUser: number) =>
+      `PDF or image, up to ${megabytes} MB · ${perTask} per task, ${perUser} in all`,
+    full: (perTask: number) => `This task holds the most files it can (${perTask}).`,
+    uploading: (fileName: string) => `Uploading ${fileName}`,
+    open: (fileName: string) => `Open ${fileName}`,
+    remove: (fileName: string) => `Remove ${fileName}`,
+    uploadFailed: (fileName: string) => `${fileName} could not be uploaded. Try again.`,
+    /** Why a file was refused, by the backend's reason; typed by it, so none is missing. */
+    refusals: {
+      UNSUPPORTED_TYPE: (fileName: string) => `${fileName} is neither a PDF nor an image.`,
+      EMPTY: (fileName: string) => `${fileName} is empty.`,
+      TOO_LARGE: (fileName: string) => `${fileName} is larger than the limit.`,
+      TASK_FULL: (fileName: string) => `${fileName} was not attached: this task already holds as many files as it can.`,
+      USER_FULL: (fileName: string) => `${fileName} was not attached: you already have as many files as you can. Remove one first.`,
+      MISMATCH: (fileName: string) => `${fileName} did not arrive as sent and was discarded. Try again.`,
+    } as Record<AttachmentRefusal, (fileName: string) => string>,
   },
   completed: {
     title: (count: number) => `Completed (${count})`,
@@ -164,6 +191,9 @@ export const de: Messages = {
     updateTask: 'Die Aufgabe konnte nicht geändert werden.',
     deleteTask: 'Die Aufgabe konnte nicht gelöscht werden.',
     unaddressable: 'Diese Aufgabe lässt sich nicht ansprechen.',
+    uploadAttachment: 'Die Datei konnte nicht hochgeladen werden.',
+    openAttachment: 'Die Datei konnte nicht geöffnet werden.',
+    removeAttachment: 'Die Datei konnte nicht entfernt werden.',
   },
   contract: {
     message: (subject: string, detail?: string) =>
@@ -173,6 +203,8 @@ export const de: Messages = {
       taskList: 'eine Aufgabenliste',
       signedInUser: 'die angemeldete Person',
       signInOptions: 'die Anmeldeoptionen',
+      attachment: 'ein Anhang',
+      attachmentLink: 'ein Link zu einer Datei',
     },
     details: {
       idNotInteger: 'ihre ID ist keine exakte Ganzzahl',
@@ -212,6 +244,28 @@ export const de: Messages = {
     markInProgress: 'Als in Arbeit markieren',
     delete: 'Löschen',
     inProgress: 'in Arbeit',
+  },
+  attachments: {
+    title: 'Anhänge',
+    drop: 'PDF oder Bild hierher ziehen oder',
+    choose: 'Datei auswählen',
+    limits: (megabytes: number, perTask: number, perUser: number) =>
+      `PDF oder Bild, bis ${megabytes} MB · ${perTask} pro Aufgabe, ${perUser} insgesamt`,
+    full: (perTask: number) => `Diese Aufgabe hat schon so viele Dateien, wie sie haben kann (${perTask}).`,
+    uploading: (fileName: string) => `${fileName} wird hochgeladen`,
+    open: (fileName: string) => `${fileName} öffnen`,
+    remove: (fileName: string) => `${fileName} entfernen`,
+    uploadFailed: (fileName: string) => `${fileName} konnte nicht hochgeladen werden. Versuch es noch einmal.`,
+    refusals: {
+      UNSUPPORTED_TYPE: (fileName: string) => `${fileName} ist weder ein PDF noch ein Bild.`,
+      EMPTY: (fileName: string) => `${fileName} ist leer.`,
+      TOO_LARGE: (fileName: string) => `${fileName} ist größer als erlaubt.`,
+      TASK_FULL: (fileName: string) => `${fileName} wurde nicht angehängt: Diese Aufgabe hat schon so viele Dateien, wie sie haben kann.`,
+      USER_FULL: (fileName: string) =>
+        `${fileName} wurde nicht angehängt: Du hast schon so viele Dateien, wie du haben kannst. Entferne zuerst eine.`,
+      MISMATCH: (fileName: string) =>
+        `${fileName} ist nicht so angekommen, wie es gesendet wurde, und wurde verworfen. Versuch es noch einmal.`,
+    },
   },
   completed: {
     title: (count: number) => `Erledigt (${count})`,

@@ -36,7 +36,10 @@ const SCHEMA_DIR = join(FRONTEND, '..', 'doc', 'api', 'schema');
 const OUT_DIR = join(FRONTEND, 'src', 'generated');
 
 /** The shapes the frontend parses. Everything else here is a type only. */
-const VALIDATED = ['TaskResponse', 'CurrentUserResponse', 'AuthProvidersResponse'];
+const VALIDATED = [
+    'TaskResponse', 'CurrentUserResponse', 'AuthProvidersResponse',
+    'AttachmentResponse', 'UploadResponse', 'LinkResponse', 'RefusalResponse',
+];
 
 /**
  * The keywords this generator understands.
@@ -60,6 +63,13 @@ const KNOWN = new Set([
  * as an odd label, not something a malformed response could exploit.
  */
 const DATE = /^\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01])$/;
+
+/**
+ * `format: date-time`, as Java's `Instant` writes it: UTC, `Z`, any fraction of a second -- or an
+ * offset, which RFC 3339 allows and costs nothing to accept. Like `DATE`, the shape and ranges, not
+ * the calendar: the only use is when a link stops working, never a value anything is computed on.
+ */
+const DATE_TIME = /^\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01])T(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d+)?(?:Z|[+-](?:[01]\d|2[0-3]):[0-5]\d)$/;
 
 /**
  * `format: email`, deliberately looser than it could be.
@@ -199,6 +209,7 @@ function writeValidators(schemas) {
     const ajv = new Ajv2020({ schemas: [...schemas.values()], code: { source: true, esm: true } });
     ajv.addFormat('date', DATE);
     ajv.addFormat('email', EMAIL);
+    ajv.addFormat('date-time', DATE_TIME);
     // int64 says the integer fits 64 bits, which JavaScript cannot represent past 2^53 and so
     // cannot check. `type: integer` already rejects a fraction and a string; the safe-integer
     // range is checked where it matters, in api.ts, on the value about to address a task.

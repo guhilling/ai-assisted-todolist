@@ -1,4 +1,5 @@
 import type { Task, TaskState } from '../api'
+import type { AttachmentActions } from './AttachmentList'
 import type { TaskEdit } from './TaskEditor'
 import TaskRow from './TaskRow'
 
@@ -11,6 +12,7 @@ type TaskSectionProps = {
   onSetState: (task: Task, state: TaskState) => void
   onDelete: (task: Task) => void
   onEdit: (task: Task, changes: TaskEdit) => Promise<boolean>
+  attachments?: AttachmentActions
 }
 
 /**
@@ -29,6 +31,7 @@ function TaskSection({
   onSetState,
   onDelete,
   onEdit,
+  attachments,
 }: Readonly<TaskSectionProps>) {
   if (tasks.length === 0) {
     return null
@@ -47,6 +50,7 @@ function TaskSection({
             onSetState={onSetState}
             onDelete={onDelete}
             onEdit={onEdit}
+            attachments={attachments}
           />
         ))}
       </ul>

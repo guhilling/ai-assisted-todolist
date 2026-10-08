@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Task, TaskState } from '../api'
 import { describeDueDate, daysBetween } from '../dates'
+import AttachmentList, { type AttachmentActions } from './AttachmentList'
 import TaskEditor, { type TaskEdit } from './TaskEditor'
 import { useI18n } from '../i18n/context'
 
@@ -15,6 +16,8 @@ type TaskRowProps = {
    * Left out, the row offers no editing -- which is how the completed section stays read-only.
    */
   onEdit?: (task: Task, changes: TaskEdit) => Promise<boolean>
+  /** What the row may do with the task's files (#204); left out, it shows none. */
+  attachments?: AttachmentActions
 }
 
 /**
@@ -25,7 +28,7 @@ type TaskRowProps = {
  * name carries the description, because a board of identically-named checkboxes is unusable
  * to anyone not looking at it.
  */
-function TaskRow({ task, today, onToggleDone, onSetState, onDelete, onEdit }: Readonly<TaskRowProps>) {
+function TaskRow({ task, today, onToggleDone, onSetState, onDelete, onEdit, attachments }: Readonly<TaskRowProps>) {
   const { messages, locale } = useI18n()
   const done = task.state === 'DONE'
   const overdue = !done && daysBetween(today, task.dueDate) < 0
@@ -103,7 +106,13 @@ function TaskRow({ task, today, onToggleDone, onSetState, onDelete, onEdit }: Re
   if (editing) {
     return (
       <li className="task-row task-row--editing">
-        <TaskEditor task={task} saving={saving} onSave={(changes) => void save(changes)} onCancel={closeEditor} />
+        <TaskEditor
+          task={task}
+          saving={saving}
+          onSave={(changes) => void save(changes)}
+          onCancel={closeEditor}
+          attachments={attachments}
+        />
       </li>
     )
   }
@@ -137,6 +146,7 @@ function TaskRow({ task, today, onToggleDone, onSetState, onDelete, onEdit }: Re
           </span>
           {task.state === 'WORKING' ? <span className="task-chip">{messages.row.inProgress}</span> : null}
         </p>
+        {attachments ? <AttachmentList task={task} actions={attachments} removable={editable} /> : null}
       </div>
       <details className="task-menu" id={menuId} open={menuOpen}>
         <summary

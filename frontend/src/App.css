@@ -706,6 +706,152 @@ html {
   border: 1px solid var(--border);
 }
 
+/* ---------- attachments (#204) ---------- */
+
+/* On the row: under the meta line, an image as a small preview and a PDF by its name. */
+.attachment-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.attachment-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.attachment-open {
+  display: flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-raised);
+  color: var(--text);
+  font-size: var(--font-small);
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.attachment-open:hover,
+.attachment-open:focus-visible {
+  border-color: var(--accent);
+}
+
+.attachment-name {
+  padding: 0 var(--space-2);
+  overflow-wrap: anywhere;
+}
+
+/* Square, so a portrait and a landscape photo take the same room on the row. */
+.attachment-preview {
+  display: block;
+  width: var(--space-16);
+  height: var(--space-16);
+  object-fit: cover;
+}
+
+.attachment-preview--loading {
+  background: var(--border);
+}
+
+.attachment-remove {
+  min-width: 32px;
+  min-height: 32px;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  background: none;
+  color: var(--text-muted);
+  font-size: var(--font-body);
+  cursor: pointer;
+}
+
+.attachment-remove:hover,
+.attachment-remove:focus-visible {
+  color: var(--danger);
+}
+
+/* In the editor: the files, what is uploading, and where to drop or choose another. */
+.attachment-picker {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  border: none;
+  font-size: var(--font-small);
+}
+
+.attachment-picker > legend {
+  margin-bottom: var(--space-2);
+  padding: 0;
+  color: var(--text-muted);
+}
+
+.attachment-picker-list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.attachment-picker-list > li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.attachment-picker-list .attachment-name {
+  padding: 0;
+}
+
+.attachment-progress {
+  width: 100%;
+  accent-color: var(--accent);
+}
+
+.attachment-drop {
+  padding: var(--space-4);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  text-align: center;
+}
+
+.attachment-drop--active {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
+.attachment-choose {
+  color: var(--accent);
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+/* The hidden input keeps the label's focus ring visible: it is the label that is seen. */
+.attachment-choose:focus-within {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.attachment-hint {
+  margin: var(--space-1) 0 0;
+  color: var(--text-muted);
+}
+
+.attachment-problem {
+  margin: 0;
+  color: var(--danger);
+}
+
 /* ---------- row menu ---------- */
 
 .task-menu {

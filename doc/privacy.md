@@ -46,6 +46,22 @@ Legal basis: Art. 6(1)(b) GDPR. Kept until you delete them, or your account is d
 Please do not enter sensitive information (for example health data, or other people's personal
 data) — this is a demonstration, and it is not built or operated for such data.
 
+### Files you attach to tasks
+
+What you attach: PDFs and images, at most 10 MB each, two per task and five in all, with their
+names, types and sizes. The files are stored in Amazon S3 in AWS's Frankfurt region, encrypted;
+their names, types and sizes are stored with your tasks. Your browser sends a file straight to
+storage and fetches it from there, through links the application creates for you alone and which
+stop working after a few minutes. Nobody but you can open your files in the application, and they
+are never public.
+
+Legal basis: Art. 6(1)(b) GDPR. Kept until you remove the file or delete its task, or your account
+is deleted. A deleted task's files are kept for ten more minutes so that the deletion can be
+undone, then deleted; a file whose upload never finished is deleted after an hour. Stored files
+are not backed up: once deleted, a file is gone.
+
+The same request applies to files as to tasks: please attach nothing sensitive.
+
 ### The session cookie
 
 Signing in sets **one cookie**, which keeps you signed in and holds your encrypted sign-in tokens.

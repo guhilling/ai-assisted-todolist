@@ -14,6 +14,9 @@ import './index.css'
 import './App.css'
 
 export { default as AddTaskRow } from './components/AddTaskRow'
+export { default as AttachmentList } from './components/AttachmentList'
+export type { AttachmentActions, UploadOutcome } from './components/AttachmentList'
+export { default as AttachmentPicker } from './components/AttachmentPicker'
 export { default as CalendarPanel } from './components/CalendarPanel'
 export { default as CompletedSection } from './components/CompletedSection'
 export { default as DueDateField } from './components/DueDateField'
@@ -43,6 +46,8 @@ export { importanceLabels, importanceLevels } from './importance'
 
 /** The shapes the components take, generated from the backend's published JSON Schemas. */
 export type {
+  Attachment,
+  AttachmentRefusal,
   AuthProvider,
   AuthProvidersResponse,
   CurrentUser,
