@@ -671,8 +671,27 @@ describe('the board', () => {
     )
 
     const row = rowFor('Write the report')
-    expect(within(row).getByText('Tomorrow')).toBeInTheDocument()
+    // The section heading already says when; the row does not say it a second time.
+    expect(screen.getByRole('heading', { name: 'Tomorrow' })).toBeInTheDocument()
+    expect(within(row).queryByText('Tomorrow')).not.toBeInTheDocument()
     expect(within(row).getByText('High')).toBeInTheDocument()
+  })
+
+  it('words a due date the section heading does not already say', async () => {
+    await renderSignedIn(
+      mockApi({
+        me: ALICE,
+        tasks: [
+          task({ id: 8, description: 'Overdue one', dueDate: isoIn(-1) }),
+          task({ id: 9, description: 'Done today', dueDate: isoIn(0), state: 'DONE' }),
+        ],
+      }),
+    )
+
+    // "Overdue" covers many days, so the row says which; "Completed" says nothing about dates.
+    expect(within(rowFor('Overdue one')).getByText('Yesterday')).toBeInTheDocument()
+    fireEvent.click(screen.getByText(/^Completed/))
+    expect(within(rowFor('Done today')).getByText('Today')).toBeInTheDocument()
   })
 
   it('groups tasks by when they are due', async () => {
