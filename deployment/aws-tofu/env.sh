@@ -18,6 +18,8 @@
 #   ./env.sh down qa        destroy them; the VPC, subnets and IAM stay
 #   ./env.sh status qa      what the last apply recorded
 #   ./env.sh up qa --yes    skip the confirmation, for a workflow
+#   ./env.sh up qa v1.2.2 --from-snapshot=taskfest-qa-db-pre-release-...
+#                           restore that snapshot instead of the newest final one
 #   ./env.sh db-bootstrap qa   create the application's database user, once per environment
 #   ./env.sh migrate qa        run the Liquibase migrations, logged in with IAM
 #
@@ -27,7 +29,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly HERE
 
 usage() {
-    sed -n '3,21p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+    sed -n '3,24p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
     exit "${1:-1}"
 }
 
@@ -44,9 +46,14 @@ shift 2
 
 ASSUME_YES="no"
 RELEASE=""
+FROM_SNAPSHOT=""
 for argument in "$@"; do
     case "$argument" in
         --yes|-y) ASSUME_YES="yes" ;;
+        --from-snapshot=?*)
+            [[ "$COMMAND" == "up" ]] || usage
+            FROM_SNAPSHOT="${argument#--from-snapshot=}"
+            ;;
         v[0-9]*.[0-9]*.[0-9]*)
             [[ "$COMMAND" == "up" && -z "$RELEASE" ]] || usage
             RELEASE="$argument"
@@ -275,7 +282,9 @@ release_image() {
 # The newest final snapshot of this environment's database, or nothing if there is none.
 #
 # Teardown destroys the database and leaves a final snapshot; this is the other half, so that a
-# down/up cycle keeps the data. The region is read from terraform.tfvars rather than trusted to
+# down/up cycle keeps the data. Only a final snapshot: the ones a deploy takes before migrating
+# (#215) are manual snapshots of the same instance, but each is the state *before* a release, and
+# restoring one after a teardown would quietly drop everything since. The region is read from terraform.tfvars rather than trusted to
 # the CLI's default, because export_credentials_for passes on credentials but not a region.
 #
 # A failed lookup stops the run instead of falling through to an empty database: "the lookup
@@ -290,7 +299,7 @@ newest_final_snapshot() {
     # shellcheck disable=SC2016
     if ! snapshot="$(aws rds describe-db-snapshots --region "$region" \
         --db-instance-identifier "taskfest-${ENVIRONMENT}-db" --snapshot-type manual \
-        --query 'reverse(sort_by(DBSnapshots[?Status==`available`], &SnapshotCreateTime))[0].DBSnapshotIdentifier' \
+        --query 'reverse(sort_by(DBSnapshots[?Status==`available` && contains(DBSnapshotIdentifier, `-final-`)], &SnapshotCreateTime))[0].DBSnapshotIdentifier' \
         --output text)"; then
         echo "Could not look up the database snapshots for ${ENVIRONMENT}; not planning." >&2
         exit 1
@@ -356,7 +365,13 @@ case "$COMMAND" in
             echo "The backend starts as ${image}."
             up_args=(-var "backend_image=${image}")
 
-            snapshot="$(newest_final_snapshot)"
+            # Named, it is the way back from a failed migration (#215): the database as it was
+            # just before, which the deploy named in its run summary.
+            if [[ -n "$FROM_SNAPSHOT" ]]; then
+                snapshot="$FROM_SNAPSHOT"
+            else
+                snapshot="$(newest_final_snapshot)"
+            fi
             if [[ -n "$snapshot" ]]; then
                 echo "A newly created database is restored from ${snapshot}."
                 up_args+=(-var "db_restore_snapshot=${snapshot}")

@@ -7,6 +7,23 @@ stays on for dev and test, where overlap cannot happen, and off everywhere else.
 Liquibase rollbacks exist and are not exercised here; a restore is the honest answer and it costs
 the downtime that this deployment model already accepts.
 
+**The deploy takes that snapshot itself** (#215): a release with a migration stops the backend,
+snapshots the database as `taskfest-<env>-db-pre-release-<release>-<time>`, and only then migrates
+([deploying.md](deploying.md)). The newest three such snapshots per environment are kept and older
+ones deleted by the deploy; final snapshots are never touched by it. **To restore one** — after a
+migration that failed, or a release that has to go — take the environment down and bring it up on
+the release that ran before, from that snapshot:
+
+```bash
+deployment/aws-tofu/env.sh down qa
+deployment/aws-tofu/env.sh up qa v1.2.2 --from-snapshot=taskfest-qa-db-pre-release-v1-2-3-20261008-201530
+```
+
+`down` leaves a final snapshot of the migrated database as usual, so nothing is lost by trying.
+What was written between the snapshot and the restore is gone with it — little, since the backend
+was stopped in between — except that account deletions are replayed at start (#213); attachment
+files are the case below.
+
 **`task_state` and `task_importance` are native PostgreSQL enums**, and `ALTER TYPE … ADD VALUE`
 cannot be rolled back at all. A release adding an enum value is one-way: it must ship before
 anything uses the value, and the only way back is the snapshot. That is the price of the enum
@@ -20,9 +37,11 @@ automatically after seven days*.
 leaves a final snapshot named `taskfest-<env>-db-final-<timestamp>`; `env.sh up` looks up the
 newest one and passes it as `db_restore_snapshot`, so the new instance starts from it. With no
 snapshot it starts empty, and it says which on screen. To start empty on purpose, or from an
-older snapshot, run the plan by hand with `-var db_restore_snapshot=…` (or `=null`). Snapshots
-are never deleted automatically; at this size each is cents a month, and old ones are removed in
-the console when wanted.
+older snapshot, pass `--from-snapshot=<name>` to `up`, or run the plan by hand with
+`-var db_restore_snapshot=null` to start empty. `up` restores only *final* snapshots by itself;
+the pre-release ones above are each the state before some release, and restoring one unasked would
+drop everything since. Final snapshots are never deleted automatically; at this size each is cents
+a month, and old ones are removed in the console when wanted.
 
 **Starting empty or from an older snapshot costs attachment files.** The attachment bucket
 survives `down` and is not versioned, and the orphan clean-up deletes, after seven days, every file

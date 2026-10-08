@@ -39,8 +39,18 @@ applied without showing would be how an environment gets destroyed by muscle mem
 
 **Decision.** GitHub Actions deploys each environment by assuming an IAM **role** through GitHub's
 OIDC provider. The roles may register a task definition, update the one service, run the migration
-task and write the site bucket. They may not create, change or delete any infrastructure. A human
-with their own privileges creates the VPC, the database, the load balancer and the cluster.
+task, snapshot the database before a migration and write the site bucket. They may not create,
+change or delete any infrastructure. A human with their own privileges creates the VPC, the
+database, the load balancer and the cluster.
+
+**The snapshot grants are the downtime path's** (#215, D1): a release with a migration is deployed
+by the workflow, stop–snapshot–migrate–start, instead of by a person running `down` and `up` for an
+hour with an MFA session. That needed `rds:CreateDBSnapshot` and `DescribeDBSnapshots` on this
+environment's instance and its snapshots, and `rds:DeleteDBSnapshot` on its *pre-release*
+snapshots only, to keep the newest three. Scaling the service and running the migration were
+already allowed. The role still cannot delete or modify the database, restore it, or delete a
+final snapshot or touch the automated backups (seven days, point in time): a misused deploy role
+could migrate the data and delete pre-release snapshots, and those two remain the way back.
 
 **Why the scope stops at deploying.** A credential that can run `tofu apply` needs create *and
 delete* on every resource the configuration manages, which is administrator for that environment

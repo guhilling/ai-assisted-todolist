@@ -13,15 +13,22 @@ What it does, in order:
    has served before can come back stale (#181), a digest cannot.
 2. Skips, without failing, an environment that is down -- there is nothing to deploy to, and the
    next `env.sh up` starts the newest release anyway.
-3. Stops, failing, if the release changes the database changelog compared with the version that
-   is running. Blue/green keeps both versions live, which is exactly the overlap a schema change
-   must not have; that release needs the downtime path in doc/deployment/deploying.md. The
-   running version is read from its image tag; if it is `latest`, the previous release counts.
-4. Registers a task definition that differs in the image only from the configuration last applied
-   -- the newest active revision this deploy role did not register, usually tofu's (#189) -- points
-   the service at it, and waits until that deployment's rollout completes -- bake included -- or
-   fails. Redeploying the running version keeps its exact image, which is how a configuration
-   change is rolled out without a release.
+3. Compares the release's database changelog with the version that is running. The running
+   version is read from its image tag; if it is `latest`, the previous release counts.
+4. Without a migration, blue/green: registers a task definition that differs in the image only
+   from the configuration last applied -- the newest active revision this deploy role did not
+   register, usually tofu's (#189) -- points the service at it, and waits until that deployment's
+   rollout completes -- bake included -- or fails. Redeploying the running version keeps its exact
+   image, which is how a configuration change is rolled out without a release.
+5. With a migration, the downtime path (#215), because blue/green keeps both versions live, which
+   is exactly the overlap a schema change must not have: scales the service to zero, takes a
+   manual snapshot of the database, runs the migrate task on the release's image, and starts the
+   release as in 4. A failure before the migration restarts the old version, whose schema is
+   untouched; one from the migration on leaves the service at zero and names the snapshot to
+   restore (doc/deployment/database.md). The newest three pre-release snapshots are kept.
+
+With --preview it deploys nothing and needs no AWS: it says whether the release changes the
+changelog compared with the previous release, for the job name the prod approval shows.
 
 With --print-image it deploys nothing and prints the image `env.sh up` starts the backend as:
 what the environment runs if it is up, otherwise the release given (startup_choice).
@@ -49,12 +56,21 @@ READ_ONLY_FIELDS = ("taskDefinitionArn", "revision", "status", "registeredAt", "
 # How long a rollout may take, bake included: prod bakes five minutes, and the traffic shifts and
 # health checks around it take a few more. `aws ecs wait services-stable` gives up after ten.
 ROLLOUT_TIMEOUT_SECONDS = 30 * 60
+# The downtime path's other waits. Draining is the deregistration delay plus a stop; a snapshot
+# of a demo database takes minutes, and pulling the image is most of a migration.
+DRAIN_TIMEOUT_SECONDS = 10 * 60
+SNAPSHOT_TIMEOUT_SECONDS = 45 * 60
+MIGRATE_TIMEOUT_SECONDS = 20 * 60
+# D3 on #215: snapshots taken before a migration, kept per environment.
+SNAPSHOTS_KEPT = 3
+# In order. What a failure at each leaves behind is after_failure's.
+DOWNTIME_STEPS = ("stop", "snapshot", "migrate", "start")
 TAG = re.compile(r":(\d+\.\d+\.\d+(?:[-.][0-9A-Za-z.]+)?)(?:@sha256:[0-9a-f]{64})?$")
 
 
 @dataclasses.dataclass
 class Action:
-    """What to do with this environment: deploy, skip (it is down) or stop (needs downtime)."""
+    """What to do with this environment: deploy (blue/green), downtime (it migrates) or skip (it is down)."""
     kind: str
     reason: str = ""
 
@@ -132,10 +148,62 @@ def decide(service_active, migrations_differ):
     if not service_active:
         return Action("skip", "the backend service is not running here -- the environment is down")
     if migrations_differ:
-        return Action("stop", "this release changes the database migrations, which blue/green must "
-                              "not roll out under live traffic; use the downtime path "
-                              "(doc/deployment/deploying.md)")
+        return Action("downtime", "this release changes the database migrations, which blue/green must "
+                                  "not roll out under live traffic")
     return Action("deploy")
+
+
+def after_failure(step):
+    """What a failed downtime step leaves running: "restart" the old version, or "stay-down".
+
+    Until `migrate` runs the schema is the old version's, so it can simply come back. From then on
+    neither version is safe -- the old one against a migrated schema, either against a half-migrated
+    one -- so the service stays at zero until a person has looked.
+    """
+    return "restart" if DOWNTIME_STEPS.index(step) < DOWNTIME_STEPS.index("migrate") else "stay-down"
+
+
+def database_instance(environment):
+    return f"{PROJECT}-{environment}-db"
+
+
+def snapshot_prefix(environment):
+    """What every pre-release snapshot's name starts with -- and a final snapshot's (`-final-`) never does."""
+    return f"{database_instance(environment)}-pre-release-"
+
+
+def snapshot_identifier(environment, version, stamp):
+    """The manual snapshot taken before migrating: environment, release and time, in the letters,
+    digits and single hyphens RDS allows."""
+    release = re.sub(r"[^0-9A-Za-z]+", "-", version).strip("-")
+    return f"{snapshot_prefix(environment)}{release}-{stamp}"
+
+
+def snapshots_to_delete(snapshots, environment, keep=SNAPSHOTS_KEPT):
+    """The pre-release snapshots beyond the newest `keep`, newest first (D3 on #215).
+
+    Only this environment's pre-release snapshots are counted or deleted: a final snapshot is what
+    `env.sh up` restores, and one still being created is not yet a way back.
+    """
+    ours = [snapshot for snapshot in snapshots
+            if snapshot["DBSnapshotIdentifier"].startswith(snapshot_prefix(environment))
+            and snapshot.get("Status") == "available"]
+    ours.sort(key=lambda snapshot: snapshot["SnapshotCreateTime"], reverse=True)
+    return [snapshot["DBSnapshotIdentifier"] for snapshot in ours[keep:]]
+
+
+def task_network(service):
+    """The migrate task's network: the service's own, so it reaches the database the way the backend does."""
+    return {"awsvpcConfiguration": service["networkConfiguration"]["awsvpcConfiguration"]}
+
+
+def task_outcome(task):
+    """(succeeded, why) for a stopped one-off task. No exit code means the container never ran --
+    an image pull or a secret -- and then the stopped reason is the only explanation there is."""
+    exit_code = task["containers"][0].get("exitCode")
+    if exit_code is None:
+        return False, f"it never ran: {task.get('stoppedReason', 'no reason given')}"
+    return exit_code == 0, f"exit code {exit_code}"
 
 
 def rollout_state(services, task_definition_arn):
@@ -222,15 +290,202 @@ def print_startup_image(args, region, account, active, running_image):
     return 0
 
 
+def register_release(base, image):
+    """Registers `base` with only the image changed, and returns the new revision."""
+    return aws("ecs", "register-task-definition", "--cli-input-json",
+               json.dumps(next_task_definition(base, image)))["taskDefinition"]
+
+
+def wait_for_rollout(cluster, service, task_definition_arn):
+    """Polls until this task definition's deployment completes, fails or the timeout passes."""
+    deadline = time.monotonic() + ROLLOUT_TIMEOUT_SECONDS
+    state, seen = "IN_PROGRESS", False
+    while state == "IN_PROGRESS" and time.monotonic() < deadline:
+        time.sleep(15)
+        try:
+            polled = rollout_state(aws("ecs", "describe-services", "--cluster", cluster, "--services", service),
+                                   task_definition_arn)
+        except subprocess.CalledProcessError as error:
+            # Throttling or a network blip; the rollout goes on regardless, so keep watching it.
+            print(f"  describe-services failed, retrying: {error.stderr.strip()}")
+            continue
+        seen = seen or polled != "MISSING"
+        state = next_state(polled, seen)
+        print(f"  {polled}")
+    return state
+
+
+def wait_until(what, timeout, done):
+    """Polls `done` every 15 seconds; raises if it is not true within `timeout` seconds."""
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if done():
+            return
+        time.sleep(15)
+    raise RuntimeError(f"{what} did not happen within {timeout // 60} minutes")
+
+
+class Downtime:
+    """The downtime path's AWS calls, one method per step of DOWNTIME_STEPS (#215)."""
+
+    def __init__(self, environment, cluster, service, describe_service, deploy_role):
+        self.environment, self.cluster, self.service = environment, cluster, service
+        self.describe_service, self.deploy_role = describe_service, deploy_role
+        self.snapshot = None
+        self.migrate_task = None
+
+    def scale(self, count):
+        aws("ecs", "update-service", "--cluster", self.cluster, "--service", self.service,
+            "--desired-count", str(count))
+
+    def stop(self):
+        self.scale(0)
+        print("Scaled the backend to zero; waiting until no task runs.")
+
+        def stopped():
+            service = self.describe_service()
+            return service["runningCount"] == 0 and service["pendingCount"] == 0
+
+        wait_until("the backend stopping", DRAIN_TIMEOUT_SECONDS, stopped)
+        return "no task runs"
+
+    def snapshot_database(self, version):
+        self.snapshot = snapshot_identifier(self.environment, version, time.strftime("%Y%m%d-%H%M%S", time.gmtime()))
+        aws("rds", "create-db-snapshot", "--db-instance-identifier", database_instance(self.environment),
+            "--db-snapshot-identifier", self.snapshot)
+        print(f"Taking snapshot {self.snapshot}; waiting until it is available.")
+        wait_until("the snapshot becoming available", SNAPSHOT_TIMEOUT_SECONDS, lambda: aws(
+            "rds", "describe-db-snapshots", "--db-snapshot-identifier", self.snapshot,
+        )["DBSnapshots"][0]["Status"] == "available")
+        return f"`{self.snapshot}`"
+
+    def migrate(self, image):
+        family = f"{PROJECT}-{self.environment}-migrate"
+        describe = lambda name: aws("ecs", "describe-task-definition", "--task-definition", name)["taskDefinition"]
+        newest = describe(family)
+        registered = register_release(applied_revision(describe, newest, self.deploy_role), image)
+        self.migrate_task = aws(
+            "ecs", "run-task", "--cluster", self.cluster, "--task-definition", registered["taskDefinitionArn"],
+            "--launch-type", "FARGATE", "--started-by", "deploy-backend",
+            "--network-configuration", json.dumps(task_network(self.describe_service())),
+        )["tasks"][0]["taskArn"]
+        print(f"Migrating with task {self.migrate_task}; waiting for it to finish.")
+        stopped = {}
+
+        def finished():
+            task = aws("ecs", "describe-tasks", "--cluster", self.cluster, "--tasks", self.migrate_task)["tasks"][0]
+            stopped.update(task)
+            return task.get("lastStatus") == "STOPPED"
+
+        wait_until("the migration finishing", MIGRATE_TIMEOUT_SECONDS, finished)
+        succeeded, why = task_outcome(stopped)
+        log = f"log stream `task/migrate/{self.migrate_task.rsplit('/', 1)[-1]}` in `/ecs/{PROJECT}-{self.environment}`"
+        if not succeeded:
+            raise RuntimeError(f"the migration failed, {why}; see its {log}")
+        return f"{why}, revision {registered['revision']}; {log}"
+
+    def start(self, base, image, count):
+        registered = register_release(base, image)
+        aws("ecs", "update-service", "--cluster", self.cluster, "--service", self.service,
+            "--task-definition", registered["taskDefinitionArn"], "--desired-count", str(count))
+        print(f"Starting {registered['taskDefinitionArn']} with {count} task(s); waiting until it is serving.")
+        state = wait_for_rollout(self.cluster, self.service, registered["taskDefinitionArn"])
+        if state != "COMPLETED":
+            raise RuntimeError(f"the rollout {'did not finish in time' if state == 'IN_PROGRESS' else state}")
+        return f"{count} task(s) serving, revision {registered['revision']}"
+
+    def prune_snapshots(self):
+        """Deletes pre-release snapshots beyond the newest three; a failure only warns."""
+        try:
+            snapshots = aws("rds", "describe-db-snapshots", "--db-instance-identifier",
+                            database_instance(self.environment), "--snapshot-type", "manual")["DBSnapshots"]
+            for name in snapshots_to_delete(snapshots, self.environment):
+                aws("rds", "delete-db-snapshot", "--db-snapshot-identifier", name)
+                print(f"Deleted the old pre-release snapshot {name}.")
+        except subprocess.CalledProcessError as error:
+            print(f"::warning::Old pre-release snapshots were not cleaned up: {error.stderr.strip()}")
+
+
+def take_downtime(args, cluster, service, running_version, running_count, base, image):
+    """Runs the downtime path step by step, recovers as after_failure says, and reports each step."""
+    describe_service = lambda: aws("ecs", "describe-services", "--cluster", cluster,
+                                   "--services", service)["services"][0]
+    path = Downtime(args.environment, cluster, service, describe_service, f"{PROJECT}-{args.environment}-deploy")
+    # The environment is up, so it is meant to serve: a service found at zero starts with one task.
+    count = max(running_count, 1)
+    run = {
+        "stop": path.stop,
+        "snapshot": lambda: path.snapshot_database(args.version),
+        "migrate": lambda: path.migrate(image),
+        "start": lambda: path.start(base, image, count),
+    }
+    lines = [f"**{args.version} to {args.environment}, with downtime:** the release changes the database "
+             f"migrations (compared with {running_version}).", "", "| Step | Outcome |", "| --- | --- |"]
+    for step in DOWNTIME_STEPS:
+        try:
+            outcome = run[step]()
+        except (RuntimeError, subprocess.CalledProcessError, KeyError, IndexError) as error:
+            why = error.stderr.strip() if isinstance(error, subprocess.CalledProcessError) else str(error)
+            lines.append(f"| {step} | **failed:** {why} |")
+            lines += ["", recover(path, step, running_version, running_count)]
+            summary("\n".join(lines))
+            return 1
+        lines.append(f"| {step} | {outcome} |")
+        if step == "snapshot":
+            path.prune_snapshots()
+    lines += ["", f"**{args.version} deployed to {args.environment}** (was {running_version}), `{image}`."]
+    summary("\n".join(lines))
+    return 0
+
+
+def recover(path, step, running_version, running_count):
+    """Leaves the environment as after_failure says, and says what a person does next."""
+    if after_failure(step) == "restart":
+        try:
+            path.scale(running_count)
+        except subprocess.CalledProcessError as error:
+            return (f"::error::Nothing was migrated, but restarting {running_version} failed too: "
+                    f"{error.stderr.strip()}. Scale the service back to {running_count} by hand.")
+        return (f"::error::Nothing was migrated, so {running_version} is starting again with "
+                f"{running_count} task(s).")
+    try:
+        path.scale(0)
+    except subprocess.CalledProcessError as error:
+        print(f"::warning::Could not scale the service to zero: {error.stderr.strip()}")
+    restore = (f"Restore snapshot `{path.snapshot}` as described in doc/deployment/database.md, "
+               f"or fix the cause and deploy again." if path.snapshot else "")
+    return (f"::error::The service is left at zero: neither {running_version} nor the release may run "
+            f"against this schema until a person has looked. {restore}")
+
+
+def preview(version):
+    """--preview: whether the release migrates, compared with the previous release, for the approval."""
+    previous = previous_release(version)
+    downtime = changelog_differs(previous, version)
+    output = os.environ.get("GITHUB_OUTPUT")
+    if output:
+        with open(output, "a", encoding="utf-8") as out:
+            out.write(f"downtime={'true' if downtime else 'false'}\n")
+    summary(f"**{version} changes the database migrations** compared with {previous}: deploying it means "
+            f"a few minutes' downtime -- stop, snapshot, migrate, start." if downtime else
+            f"{version} changes no database migration compared with {previous}: blue/green, no downtime. "
+            f"The deploy itself compares with the version actually running.")
+    return 0
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--environment", required=True)
     parser.add_argument("--version")
     parser.add_argument("--print-image", action="store_true",
                         help="print the image `env.sh up` starts the backend as, and deploy nothing")
+    parser.add_argument("--preview", action="store_true",
+                        help="say whether the release migrates, compared with the previous release; no AWS")
     args = parser.parse_args()
     if not args.print_image and not args.version:
         parser.error("--version is required to deploy")
+    if args.preview:
+        return preview(args.version)
 
     region = os.environ["AWS_REGION"]
     cluster, service = f"{PROJECT}-{args.environment}", f"{PROJECT}-{args.environment}-backend"
@@ -252,37 +507,22 @@ def main():
     if action.kind == "skip":
         summary(f"**{args.version} not deployed to {args.environment}:** {action.reason}.")
         return 0
-    if action.kind == "stop":
-        summary(f"::error::{args.version} not deployed to {args.environment}: {action.reason}. "
-                f"Changelog compared with {running_version}.")
-        return 1
 
     image = image_to_deploy(running_image, args.version,
                             lambda: image_reference(account, region, args.version, release_digest(args.version)))
     base = applied_revision(
         lambda name: aws("ecs", "describe-task-definition", "--task-definition", name)["taskDefinition"],
         running, f"{PROJECT}-{args.environment}-deploy")
+    if action.kind == "downtime":
+        return take_downtime(args, cluster, service, running_version, active[0]["desiredCount"], base, image)
+
     carried = (f" Configuration from revision {base['revision']}, applied since revision "
                f"{running['revision']} was deployed." if base["revision"] > running["revision"] else "")
-    registered = aws("ecs", "register-task-definition", "--cli-input-json",
-                     json.dumps(next_task_definition(base, image)))["taskDefinition"]
+    registered = register_release(base, image)
     aws("ecs", "update-service", "--cluster", cluster, "--service", service,
         "--task-definition", registered["taskDefinitionArn"])
     print(f"Rolling out {registered['taskDefinitionArn']} -- waiting for it to complete, bake included")
-    deadline = time.monotonic() + ROLLOUT_TIMEOUT_SECONDS
-    state, seen = "IN_PROGRESS", False
-    while state == "IN_PROGRESS" and time.monotonic() < deadline:
-        time.sleep(15)
-        try:
-            polled = rollout_state(aws("ecs", "describe-services", "--cluster", cluster, "--services", service),
-                                   registered["taskDefinitionArn"])
-        except subprocess.CalledProcessError as error:
-            # Throttling or a network blip; the rollout goes on regardless, so keep watching it.
-            print(f"  describe-services failed, retrying: {error.stderr.strip()}")
-            continue
-        seen = seen or polled != "MISSING"
-        state = next_state(polled, seen)
-        print(f"  {polled}")
+    state = wait_for_rollout(cluster, service, registered["taskDefinitionArn"])
     if state == "IN_PROGRESS":
         summary(f"::error::{args.version} to {args.environment}: the rollout is still in progress after "
                 f"30 minutes and may yet complete -- check the service before deploying anything else.")
@@ -294,7 +534,6 @@ def main():
     summary(f"**{args.version} deployed to {args.environment}** (was {running_version}), "
             f"`{image}`, task definition revision {registered['revision']}.{carried}")
     return 0
-
 
 if __name__ == "__main__":
     sys.exit(main())
