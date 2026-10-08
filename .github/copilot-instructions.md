@@ -21,6 +21,14 @@ many speculative ones. Say what breaks and under which input or state.
   hand; a change there without a matching backend change is a finding.
 - **Documentation lives in `/doc` and changes with the behaviour it describes.** Behaviour changed
   without its page, or a page now saying something untrue, is a finding.
+- **Descriptions drift after later commits.** A pull request often gets further commits after
+  review. Check that its description, the commit messages it adds and the docs it touches still
+  match the code as it now stands: a value, a schedule or a rule changed in a later commit but
+  still stated the old way elsewhere is a finding.
+- **Anything that deletes data deserves its failure modes spelled out.** For a job or guard that
+  deletes rows or S3 objects, ask what it does after a database restored from an older snapshot,
+  on an empty database, while an upload or a related request is in flight, and after the next
+  ordinary write; a guard whose boundary moves with new data is a finding.
 
 ## Conventions worth checking
 
