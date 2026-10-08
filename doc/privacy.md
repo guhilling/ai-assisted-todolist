@@ -8,8 +8,7 @@ does, and changes in the same change as the behaviour it describes.
 
 The application is a non-commercial demonstration project of Hilling IT GmbH. It is open to Google
 accounts that have been invited to it; nobody else can sign in — except, in qa only, two test
-accounts (`taskfest-test-one@example.com`, `taskfest-test-two@example.com`) which automated tests
-sign in with. They belong to no person and hold only what those tests create and delete again.
+accounts which automated tests sign in with. They belong to no person and hold only what those tests create and delete again.
 
 ## Who is responsible
 
