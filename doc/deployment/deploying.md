@@ -62,8 +62,8 @@ environment and a tag — which is also the rollback, with the previous tag — 
 environment that way and no other, with its frontend deployed after it:
 
 ```
-./env.sh down qa
-./env.sh up qa v1.2.3
+deployment/aws-tofu/env.sh down qa
+deployment/aws-tofu/env.sh up qa v1.2.3
 gh workflow run deploy-frontend.yml -f environment=qa -f version=v1.2.3
 ```
 

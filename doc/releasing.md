@@ -38,8 +38,8 @@ with it. Bring it to qa by the downtime path, and then deploy its frontend, whic
 live checks:
 
 ```bash
-./env.sh down qa
-./env.sh up qa v1.2.3
+deployment/aws-tofu/env.sh down qa
+deployment/aws-tofu/env.sh up qa v1.2.3
 gh workflow run deploy-frontend.yml -f environment=qa -f version=v1.2.3
 ```
 
