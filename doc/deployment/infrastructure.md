@@ -52,6 +52,7 @@ Per environment, identical unless noted:
 | **No NAT gateway** | See *Cost* — this is the single biggest saving, and it is why the tasks sit in the public subnets |
 | Security groups | ALB open on 443; ECS open only to the ALB; RDS open only to ECS |
 | VPC flow logs, to a private S3 bucket | All traffic, kept 30 days; see *Observability*. Not behind the teardown switch, because delivery is charged per GB and a torn-down VPC sends almost nothing |
+| Alerting: SNS topic `taskfest-<env>-alerts`, Gunnar's email subscribed (address from the SSM parameter `/taskfest/alert-email`), a log metric filter and the alarm `taskfest-<env>-orphan-alert` | Mails when the orphan clean-up finds more than two orphans (#208, `alerting.tf`). Foundation: the alarm must exist when `up` restores a database |
 | Attachments bucket `taskfest-<env>-attachments` | The files on tasks (#204, `attachments.tf`). Private, TLS only, no versioning so a deleted file is gone; CORS lets the site PUT and GET; the task role may read, write and delete objects and list the bucket -- the last only so that HEAD on a missing object is a 404, not a 403. Foundation: people's files survive `down` |
 | **Internal** ALB, two target groups | Blue/green shifts traffic between them; reachable only from CloudFront |
 | Two private subnets | For the load balancer only. No NAT gateway: nothing in them makes outbound calls |
