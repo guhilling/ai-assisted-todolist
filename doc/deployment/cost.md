@@ -25,7 +25,8 @@ within their free allowances, as expected.
 
 **While down** — what `env.sh down` leaves: about **$1 a month**. The Route 53 zone ($0.50, which
 exists for other reasons anyway), the Google client secret ($0.40), and cents for the final
-snapshots, the site and flow-log buckets and the logs. qa's Cognito test accounts (#190) add
+snapshots, the site, flow-log and attachment buckets and the logs. Attachments are at most
+50 MB a user, so their storage is fractions of a cent. qa's Cognito test accounts (#190) add
 nothing: Cognito's Lite plan is free for the first 10,000 monthly active users, and the app
 client's secret is an SSM standard parameter, which is free too — chosen over a Secrets Manager
 secret, which would have been another $0.40.
