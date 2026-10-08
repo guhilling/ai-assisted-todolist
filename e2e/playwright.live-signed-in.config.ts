@@ -23,6 +23,11 @@ process.env.LIVE_BASE_URL ??= 'https://taskfest-qa.cloud.hilling.de'
  * collect-live-videos.py names them, and the newest run's are published on the site under
  * `videos/` for the documentation to link to. A video shows the test accounts and their tasks; the
  * passwords go into a password field, as dots, and are new on every run.
+ *
+ * No traces, unlike the Compose suite: a trace records what each `fill` typed and every request's
+ * body, so the sign-in -- the typed password, and the form Cognito's login page posts -- would put
+ * this run's passwords into the report a failed run uploads. The video and the screenshots show
+ * what went wrong without them.
  */
 export default defineConfig({
   testDir: './tests',
@@ -42,7 +47,7 @@ export default defineConfig({
   timeout: 60_000,
   use: {
     baseURL: process.env.LIVE_BASE_URL,
-    trace: 'retain-on-failure',
+    trace: 'off',
     screenshot: 'only-on-failure',
     video: 'on',
   },
