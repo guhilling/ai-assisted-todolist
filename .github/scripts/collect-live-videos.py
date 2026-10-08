@@ -13,6 +13,12 @@ so the newest recording of a scenario is always at the same address, and writes 
 beside them: which environment and release were recorded, when, by which run, and each
 scenario's title and outcome. pages.yml publishes the newest such directory under `videos/`.
 
+A scenario that opens a second tab -- opening a PDF does -- has a video per tab, and the page's is
+the one worth showing: the largest. Each video also gets a poster, so the published page shows what
+a video is about before it plays: of four frames spread across it, the one with the most on screen
+-- the largest JPEG -- which is the board with its tasks rather than the sign-in page a scenario
+starts and ends on. ffmpeg makes it, and a video without one is published all the same.
+
 What the videos show is qa's test accounts (`taskfest-test-one@example.com`, `…-two@…`) and their
 tasks. Their passwords are typed into a password field, so the video shows dots, and the
 live-test job sets new ones on every run anyway.
@@ -24,6 +30,7 @@ import json
 import pathlib
 import re
 import shutil
+import subprocess
 import sys
 
 
@@ -49,17 +56,57 @@ def videos_in(report):
                 if not results:
                     continue
                 last = results[-1]
-                video = next((a for a in last.get("attachments", []) if a.get("name") == "video" and a.get("path")),
-                             None)
-                if video:
+                paths = [a["path"] for a in last.get("attachments", []) if a.get("name") == "video" and a.get("path")]
+                if paths:
                     found.append(Video(file, spec["title"], last.get("status", "unknown"),
-                                       last.get("duration", 0), video["path"]))
+                                       last.get("duration", 0), largest(paths)))
         for child in suite.get("suites", []):
             walk(child, file)
 
     for suite in report.get("suites", []):
         walk(suite, suite.get("file", ""))
     return found
+
+
+def largest(paths):
+    """The largest of these files that exists -- a scenario's own page rather than a tab it opened."""
+    sizes = {path: pathlib.Path(path).stat().st_size for path in paths if pathlib.Path(path).exists()}
+    return max(sizes, key=sizes.get) if sizes else paths[0]
+
+
+def poster_times(duration_s):
+    """Where the candidate poster frames are taken: spread across the video, clear of both ends."""
+    return [duration_s * fraction for fraction in (0.2, 0.4, 0.6, 0.8)]
+
+
+def busiest(candidates):
+    """Of the candidate frames, the one with the most on screen: the largest JPEG."""
+    existing = [path for path in candidates if path.exists()]
+    return max(existing, key=lambda path: path.stat().st_size) if existing else None
+
+
+def ffmpeg_poster(video, image):
+    """The busiest of the candidate frames as a JPEG, made with ffmpeg; False when none can be made."""
+    if not (shutil.which("ffmpeg") and shutil.which("ffprobe")):
+        return False
+    try:
+        duration = float(subprocess.run(
+            ["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", str(video)],
+            check=True, capture_output=True, text=True).stdout.strip())
+    except (subprocess.CalledProcessError, ValueError):
+        return False
+    candidates = []
+    for i, at in enumerate(poster_times(duration)):
+        candidate = image.with_suffix(f".{i}.jpg")
+        subprocess.run(["ffmpeg", "-v", "error", "-y", "-ss", f"{at:.2f}", "-i", str(video),
+                        "-frames:v", "1", "-q:v", "4", str(candidate)], capture_output=True)
+        candidates.append(candidate)
+    chosen = busiest(candidates)
+    if chosen:
+        chosen.replace(image)
+    for candidate in candidates:
+        candidate.unlink(missing_ok=True)
+    return chosen is not None
 
 
 def stable_name(spec, title):
@@ -69,16 +116,21 @@ def stable_name(spec, title):
     return f"{words}.webm"
 
 
-def collect(report_path, out, *, environment, version, run_url, recorded_at):
-    """Copies the run's videos to `out` under their stable names, with `index.json` beside them."""
+def collect(report_path, out, *, environment, version, run_url, recorded_at, make_poster=ffmpeg_poster):
+    """Copies the run's videos to `out` under their stable names, each with a poster where one can be
+    made, and `index.json` beside them."""
     out.mkdir(parents=True, exist_ok=True)
     videos = videos_in(json.loads(report_path.read_text(encoding="utf-8")))
     entries = []
     for video in videos:
         name = stable_name(video.spec, video.title)
         shutil.copyfile(video.path, out / name)
-        entries.append({"spec": video.spec, "title": video.title, "status": video.status,
-                        "durationMs": video.duration_ms, "file": name})
+        entry = {"spec": video.spec, "title": video.title, "status": video.status,
+                 "durationMs": video.duration_ms, "file": name}
+        poster = name.removesuffix(".webm") + ".jpg"
+        if make_poster(out / name, out / poster):
+            entry["poster"] = poster
+        entries.append(entry)
     index = {"environment": environment, "version": version, "recordedAt": recorded_at, "runUrl": run_url,
              "videos": entries}
     (out / "index.json").write_text(json.dumps(index, indent=2) + "\n", encoding="utf-8")

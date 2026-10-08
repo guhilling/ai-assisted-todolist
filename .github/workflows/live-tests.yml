@@ -137,7 +137,9 @@ jobs:
         working-directory: e2e
         env:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        # ffmpeg for each video's poster frame; without it the videos are published without one.
         run: |
+          sudo apt-get install -y --no-install-recommends ffmpeg >/dev/null || echo "::warning::no ffmpeg, so no posters"
           version=$(curl -fsS "$LIVE_BASE_URL/api/version" | jq -r .version || echo unknown)
           python3 ../.github/scripts/collect-live-videos.py live-videos/report.json live-videos/out \
             --environment "$ENVIRONMENT" --version "$version" --run-url "$RUN_URL" \
