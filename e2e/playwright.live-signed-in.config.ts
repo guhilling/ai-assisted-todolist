@@ -18,6 +18,11 @@ process.env.LIVE_BASE_URL ??= 'https://taskfest-qa.cloud.hilling.de'
  *
  * Serial, as against the Compose stack: the scenarios share the two accounts. No retries, for the
  * same reason as the smoke checks -- a flaky live run is a finding.
+ *
+ * Every scenario is recorded, and in CI a JSON report says which video is whose:
+ * collect-live-videos.py names them, and the newest run's are published on the site under
+ * `videos/` for the documentation to link to. A video shows the test accounts and their tasks; the
+ * passwords go into a password field, as dots, and are new on every run.
  */
 export default defineConfig({
   testDir: './tests',
@@ -27,12 +32,19 @@ export default defineConfig({
   workers: 1,
   forbidOnly: !!process.env.CI,
   retries: 0,
-  reporter: process.env.CI ? [['html', { open: 'never', outputFolder: 'playwright-report-live-signed-in' }], ['list']] : 'list',
+  reporter: process.env.CI
+    ? [
+        ['html', { open: 'never', outputFolder: 'playwright-report-live-signed-in' }],
+        ['json', { outputFile: 'live-videos/report.json' }],
+        ['list'],
+      ]
+    : 'list',
   timeout: 60_000,
   use: {
     baseURL: process.env.LIVE_BASE_URL,
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
+    video: 'on',
   },
   projects: [{ name: 'live-signed-in', use: { ...devices['Desktop Chrome'] } }],
 })

@@ -16,6 +16,8 @@ What it produces:
     api/main/             the moving snapshot: doc/api as it is on main
     api/v1.2.3/           one per release tag, read out of git history
     api/latest/           a copy of the newest release
+    videos/               the newest live run's recording of qa's signed-in scenarios, when the
+                          workflow passes `--videos` with them (live-tests.yml, pages.yml)
     assets/               the stylesheet, the logo, the favicon
 
 Why the documentation is rendered here rather than left on GitHub: `doc/` is the source of
@@ -43,6 +45,7 @@ fonts away, so a published page makes no third-party request at all.
 from __future__ import annotations
 
 import html
+import json
 import os
 import pathlib
 import posixpath
@@ -760,9 +763,43 @@ def build_assets(site: pathlib.Path) -> None:
         shutil.copyfile(IMAGES / name, assets / name)
 
 
+def build_videos(site: pathlib.Path, source: pathlib.Path | None) -> None:
+    """The newest live run's videos, one per scenario, under the names collect-live-videos.py gave
+    them; a page saying there are none when the run's artifact is missing or expired."""
+    out = site / "videos"
+    out.mkdir(parents=True, exist_ok=True)
+    index_file = source / "index.json" if source else None
+    if index_file is None or not index_file.exists():
+        body = "<p>No recording is available: the newest live run's videos have expired, or none was made yet.</p>"
+    else:
+        index = json.loads(index_file.read_text(encoding="utf-8"))
+        figures = []
+        for video in index["videos"]:
+            shutil.copyfile(source / video["file"], out / video["file"])
+            figures.append(
+                f'<figure class="video">\n'
+                f'  <video controls preload="metadata" src="{html.escape(video["file"])}"></video>\n'
+                f'  <figcaption>{html.escape(video["title"])} <span>({html.escape(video["spec"])}, '
+                f'{html.escape(video["status"])})</span></figcaption>\n</figure>')
+        body = (f'<p>Recorded on <strong>{html.escape(index["environment"])}</strong> running '
+                f'<strong>{html.escape(index["version"])}</strong>, {html.escape(index["recordedAt"])}, '
+                f'by <a href="{html.escape(index["runUrl"])}">this run</a>. Each run replaces them. The test accounts '
+                f'are reserved example.com addresses; their passwords show as dots and change with every run.</p>\n'
+                + "\n".join(figures))
+    (out / "index.html").write_text(page(
+        title=f"Live run videos – {PROJECT}",
+        description="The newest recording of the signed-in scenarios against qa.",
+        depth=1, current="",
+        body=f'  <main class="prose">\n<h1>The newest live run</h1>\n{body}\n  </main>'), encoding="utf-8")
+
+
 def main(argv: list[str]) -> int:
+    videos: pathlib.Path | None = None
+    if len(argv) == 4 and argv[2] == "--videos":
+        videos = pathlib.Path(argv[3])
+        argv = argv[:2]
     if len(argv) != 2:
-        print(f"usage: {argv[0]} <output-directory>", file=sys.stderr)
+        print(f"usage: {argv[0]} <output-directory> [--videos <directory>]", file=sys.stderr)
         return 1
 
     site = pathlib.Path(argv[1])
@@ -793,6 +830,7 @@ def main(argv: list[str]) -> int:
     build_instructions(site, pages)
     build_api_index(site, published)
     build_landing(site, published)
+    build_videos(site, videos)
     check_links(site)
     print(f"built {site} with API versions: {', '.join(slug for slug, _ in published)}")
     return 0

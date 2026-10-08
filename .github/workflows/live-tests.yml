@@ -130,6 +130,28 @@ jobs:
           done
           E2E_IDENTITY=cognito npm run test:live-signed-in
 
+      # Every scenario's video, named by its title, for the site to publish the newest run's
+      # (pages.yml, under videos/). Failed runs too: a video of what went wrong is the most useful one.
+      - name: Collect the videos
+        if: ${{ !cancelled() }}
+        working-directory: e2e
+        env:
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          version=$(curl -fsS "$LIVE_BASE_URL/api/version" | jq -r .version || echo unknown)
+          python3 ../.github/scripts/collect-live-videos.py live-videos/report.json live-videos/out \
+            --environment "$ENVIRONMENT" --version "$version" --run-url "$RUN_URL" \
+            --recorded-at "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+      - name: Upload the videos
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: live-videos-${{ inputs.environment }}
+          path: e2e/live-videos/out
+          retention-days: 30
+          if-no-files-found: ignore
+
       - name: Upload the Playwright report
         if: failure()
         uses: actions/upload-artifact@v7
