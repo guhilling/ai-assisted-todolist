@@ -28,7 +28,8 @@ What it does, in order:
    restore (doc/deployment/database.md). The newest three pre-release snapshots are kept.
 
 With --preview it deploys nothing and needs no AWS: it says whether the release changes the
-changelog compared with the previous release, for the job name the prod approval shows.
+changelog compared with the version the environment reports through its public /api/version --
+or the previous release, when it reports none -- for the job name the prod approval shows.
 
 With --print-image it deploys nothing and prints the image `env.sh up` starts the backend as:
 what the environment runs if it is up, otherwise the release given (startup_choice).
@@ -41,6 +42,7 @@ import copy
 import dataclasses
 import json
 import os
+import pathlib
 import re
 import signal
 import subprocess
@@ -66,6 +68,7 @@ MIGRATE_TIMEOUT_SECONDS = 20 * 60
 SNAPSHOTS_KEPT = 3
 # In order. What a failure at each leaves behind is after_failure's.
 DOWNTIME_STEPS = ("stop", "snapshot", "migrate", "start")
+RELEASE_VERSION = re.compile(r"^\d+\.\d+\.\d+(?:-[0-9A-Za-z.]+)?$")
 TAG = re.compile(r":(\d+\.\d+\.\d+(?:[-.][0-9A-Za-z.]+)?)(?:@sha256:[0-9a-f]{64})?$")
 
 
@@ -542,18 +545,43 @@ def recover(path, step, running_version, running_count, migrated=True):
             f"against this schema until a person has looked. {restore}")
 
 
-def preview(version):
-    """--preview: whether the release migrates, compared with the previous release, for the approval."""
-    previous = previous_release(version)
-    downtime = changelog_differs(previous, version)
+def preview_base(reported, previous):
+    """What the approval compares the release with: (tag, "running") for the release the environment
+    reports through /api/version, or (previous release, "previous") when it reports none -- it is
+    down, runs a release from before the endpoint, or runs a build that is no release."""
+    version = reported.get("version") if isinstance(reported, dict) else None
+    if isinstance(version, str) and RELEASE_VERSION.match(version) and "SNAPSHOT" not in version:
+        return f"v{version}", "running"
+    return previous, "previous"
+
+
+def reported_version(environment):
+    """The environment's own answer to GET /api/version, or None. No credentials: it is public."""
+    tfvars = pathlib.Path(__file__).resolve().parents[2] / "deployment/aws-tofu/environments" / environment / "terraform.tfvars"
+    match = re.search(r'^\s*hostname\s*=\s*"([^"]+)"', tfvars.read_text(encoding="utf-8"), re.MULTILINE)
+    if not match:
+        return None
+    try:
+        with urllib.request.urlopen(f"https://{match.group(1)}/api/version", timeout=15) as response:
+            return json.load(response)
+    except (OSError, ValueError):
+        return None
+
+
+def preview(environment, version):
+    """--preview: whether the release migrates compared with what the environment runs, for the approval."""
+    base, source = preview_base(reported_version(environment), previous_release(version))
+    downtime = changelog_differs(base, version)
     output = os.environ.get("GITHUB_OUTPUT")
     if output:
         with open(output, "a", encoding="utf-8") as out:
             out.write(f"downtime={'true' if downtime else 'false'}\n")
-    summary(f"**{version} changes the database migrations** compared with {previous}: deploying it means "
+    against = (f"{base}, which {environment} runs" if source == "running" else
+               f"{base}, the previous release ({environment} did not say what it runs)")
+    summary(f"**{version} changes the database migrations** compared with {against}: deploying it means "
             f"a few minutes' downtime -- stop, snapshot, migrate, start." if downtime else
-            f"{version} changes no database migration compared with {previous}: blue/green, no downtime. "
-            f"The deploy itself compares with the version actually running.")
+            f"{version} changes no database migration compared with {against}: blue/green, no downtime. "
+            f"The deploy itself compares with the version actually running, and decides.")
     return 0
 
 
@@ -569,7 +597,7 @@ def main():
     if not args.print_image and not args.version:
         parser.error("--version is required to deploy")
     if args.preview:
-        return preview(args.version)
+        return preview(args.environment, args.version)
 
     region = os.environ["AWS_REGION"]
     cluster, service = f"{PROJECT}-{args.environment}", f"{PROJECT}-{args.environment}-backend"

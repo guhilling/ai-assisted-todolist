@@ -55,10 +55,10 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  # Whether the release migrates, from git alone, before any approval: its answer names the deploy
-  # job, so the prod approval says when approving means downtime. It compares with the previous
-  # release, since what prod runs needs the credentials the approval guards; the deploy itself
-  # compares with the version actually running, and decides.
+  # Whether the release migrates, before any approval and without credentials: its answer names the
+  # deploy job, so the prod approval says when approving means downtime. It compares with what the
+  # environment reports at its public /api/version, or with the previous release when it reports
+  # nothing; the deploy itself compares with the version actually running, and decides.
   preview:
     name: Migrations
     runs-on: ubuntu-26.04

@@ -93,10 +93,13 @@ snapshot restore in [database.md](database.md). A rollback without a migration i
 blue/green deploy, as before.
 
 **prod's approval says when it means downtime.** Before the approval, a job without credentials
-(`Migrations`) compares the release's changelog with the previous release, and names the deploy
-job after the answer: `Deploy to prod WITH DOWNTIME (database migration)`. It compares with the
-previous release rather than with what prod runs, because reading that needs the credentials the
-approval guards; the deploy itself compares with what runs, and decides.
+(`Migrations`) asks the environment which release it runs — `GET /api/version`, public, over the
+environment's own hostname — compares the release's changelog with that one, and names the deploy
+job after the answer: `Deploy to prod WITH DOWNTIME (database migration)`. Reading what runs from
+AWS would need the credentials the approval guards; the version endpoint needs none. When the
+environment says nothing — it is down, or runs a release from before the endpoint — the job
+compares with the previous release instead and says so in its summary. Either way the deploy
+itself compares with what runs, and decides.
 
 **`down` and `up` remain for what they are for:** pausing an environment, and starting one again on
 a named release ([teardown.md](teardown.md)). `up` creates the backend service with **no tasks**,

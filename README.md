@@ -112,7 +112,7 @@ the backend build enforces them.
 
 ## API
 
-All endpoints require a session except `/api/auth/providers`.
+All endpoints require a session except `/api/auth/providers` and `/api/version`.
 
 | Method | Path | |
 | --- | --- | --- |
@@ -122,6 +122,7 @@ All endpoints require a session except `/api/auth/providers`.
 | `DELETE` | `/api/tasks/{id}` | delete |
 | `GET` | `/api/auth/providers` | sign-in options |
 | `GET` | `/api/auth/login` `/logout` `/me` | session |
+| `GET` | `/api/version` | the running release, for the prod approval |
 
 A task has a description, a due date, an importance (`LOW`, `MEDIUM`, `HIGH`) and a state
 (`TODO`, `WORKING`, `DONE`). OpenAPI is at `/q/openapi`, Swagger UI at `/q/swagger-ui`,

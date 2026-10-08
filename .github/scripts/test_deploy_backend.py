@@ -332,3 +332,21 @@ class MigrationTaskTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class PreviewTest(unittest.TestCase):
+    """What the approval compares with (#215): what the environment reports it runs, when it can."""
+
+    def test_the_reported_release_is_compared_with(self):
+        self.assertEqual(deploy.preview_base({"version": "0.11.0"}, "v0.12.0"), ("v0.11.0", "running"))
+
+    def test_a_pre_release_is_a_release(self):
+        self.assertEqual(deploy.preview_base({"version": "1.0.0-rc.1"}, "v0.12.0"), ("v1.0.0-rc.1", "running"))
+
+    def test_a_snapshot_build_falls_back_to_the_previous_release(self):
+        self.assertEqual(deploy.preview_base({"version": "1.0.0-SNAPSHOT"}, "v0.12.0"), ("v0.12.0", "previous"))
+
+    def test_no_answer_falls_back_to_the_previous_release(self):
+        # Down, or a release from before /api/version existed.
+        self.assertEqual(deploy.preview_base(None, "v0.12.0"), ("v0.12.0", "previous"))
+        self.assertEqual(deploy.preview_base({"unexpected": 1}, "v0.12.0"), ("v0.12.0", "previous"))
