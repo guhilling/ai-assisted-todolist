@@ -44,9 +44,9 @@ Gunnar's threshold). Older than an hour, because an upload whose row was written
 read the rows looks like an orphan for a moment, and must not page anyone. Orphans are counted even
 while the empty-database guard holds, so an empty database facing a full bucket alerts within the
 hour. A separate line with a string field, rather than a threshold on the count, because CloudWatch
-compares `mdc` values as the strings they are. **The alarm itself is not built yet:** the metric
-filter on that line, the alarm and the SNS topic that mails Gunnar come with the alerting
-infrastructure. Until then the alert is in the log only.
+compares `mdc` values as the strings they are. A metric filter counts those lines and the alarm
+`taskfest-<env>-orphan-alert` mails Gunnar through the environment's alerts topic
+([observability.md](observability.md) has the setup).
 
 ## When it runs
 

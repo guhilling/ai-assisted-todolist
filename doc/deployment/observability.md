@@ -16,7 +16,29 @@ Named, because "best practices are applied" plans nothing:
   with Athena or `aws s3 cp` — not watched, and at demo traffic they cost cents a month.
 - **Traces.** Not in this plan. One service and one database do not repay X-Ray yet; when the
   commercial shape has more than one service, this is where it goes.
-- **Alerting to** an SNS topic per environment with Gunnar's email subscribed.
+- **Alerting to** an SNS topic per environment, `taskfest-<env>-alerts`, with Gunnar's email
+  subscribed (`alerting.tf`). Built for the orphan clean-up's alarm (#208) so far; the alarms
+  above notify the same topic once they exist.
+
+## Alerting: the address, and the one-time setup
+
+The address the alerts go to is **not in the repository**. It lives in an SSM parameter,
+`/taskfest/alert-email`, one for the account, which `alerting.tf` reads; a standard `String`
+parameter is free. Create it once, before the first apply that includes `alerting.tf` -- the plan
+fails without it:
+
+```sh
+aws ssm put-parameter --name /taskfest/alert-email --type String --value '<the address>'
+```
+
+After each environment's apply, AWS mails that address a confirmation link per topic (one for qa,
+one for prod), and nothing is delivered until it is clicked. A topic that is ever destroyed and
+created again needs its link clicked again. To change the address, overwrite the parameter
+(`--overwrite`) and apply both environments.
+
+**The orphan alarm** (`taskfest-<env>-orphan-alert`) counts the backend's `orphanSweepAlert` lines
+with a metric filter and goes to ALARM when an hour holds one, mailing on entering ALARM and on
+returning to OK. [attachments.md](attachments.md) says when the backend writes that line.
 
 
 ## The backend's logs: what is in them, and how to ask them

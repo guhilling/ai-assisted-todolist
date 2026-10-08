@@ -194,6 +194,25 @@ data "aws_iam_policy_document" "lifecycle" {
     ]
   }
 
+  # Reads for alerting.tf, so a refresh can see the topic and its subscription, and read the alert
+  # address the subscription is made from. CloudWatch and Logs reads are covered above.
+  statement {
+    sid = "ReadThisEnvironmentsAlerting"
+    actions = [
+      "sns:GetTopicAttributes",
+      "sns:GetSubscriptionAttributes",
+      "sns:ListSubscriptionsByTopic",
+      "sns:ListTagsForResource",
+    ]
+    resources = ["arn:aws:sns:${local.region}:${local.account}:${local.alerts_topic}"]
+  }
+
+  statement {
+    sid       = "ReadTheAlertAddress"
+    actions   = ["ssm:GetParameter"]
+    resources = ["arn:aws:ssm:${local.region}:${local.account}:parameter${local.alert_email_param}"]
+  }
+
   # The state backend. Without this the role cannot run OpenTofu at all: the first thing an apply
   # does is read the state object, which failed with a bare S3 403 naming no bucket.
   #

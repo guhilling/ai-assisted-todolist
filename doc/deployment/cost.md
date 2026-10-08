@@ -26,7 +26,10 @@ within their free allowances, as expected.
 **While down** — what `env.sh down` leaves: about **$1 a month**. The Route 53 zone ($0.50, which
 exists for other reasons anyway), the Google client secret ($0.40), and cents for the final
 snapshots, the site, flow-log and attachment buckets and the logs. Attachments are at most
-50 MB a user, so their storage is fractions of a cent. qa's Cognito test accounts (#190) add
+50 MB a user, so their storage is fractions of a cent. The orphan alarm (#208) adds about **$0.40 a
+month** per environment, up or down: $0.10 for the alarm and $0.30 for the custom metric its log
+filter publishes. The alerts topic, its email delivery and the SSM parameter holding the address
+are free at this volume. qa's Cognito test accounts (#190) add
 nothing: Cognito's Lite plan is free for the first 10,000 monthly active users, and the app
 client's secret is an SSM standard parameter, which is free too — chosen over a Secrets Manager
 secret, which would have been another $0.40.
