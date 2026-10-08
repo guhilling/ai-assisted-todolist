@@ -296,6 +296,31 @@ class TaskResourceTest {
     }
 
     @Test
+    @TestSecurity(user = ALICE)
+    @OidcSecurity(claims = { @Claim(key = "email", value = ALICE) })
+    void shouldListTasksDueTheSameDayByImportanceHighFirst() {
+        // #217: within a due date, what matters most comes first; creation order breaks ties.
+        String marker = "importance-" + UUID.randomUUID();
+        LocalDate day = LocalDate.now().plusDays(5);
+        createTask(marker + " low", day, TaskImportance.LOW, TaskState.TODO);
+        createTask(marker + " medium", day, TaskImportance.MEDIUM, TaskState.TODO);
+        createTask(marker + " high, older", day, TaskImportance.HIGH, TaskState.TODO);
+        createTask(marker + " high, newer", day, TaskImportance.HIGH, TaskState.TODO);
+
+        List<String> ordered = given()
+            .when().get("/api/tasks")
+            .then()
+            .statusCode(200)
+            .extract().jsonPath().getList("description", String.class)
+            .stream()
+            .filter(description -> description.startsWith(marker))
+            .toList();
+
+        assertThat(ordered, equalTo(List.of(
+            marker + " high, older", marker + " high, newer", marker + " medium", marker + " low")));
+    }
+
+    @Test
     void shouldRejectAnonymousWrites() {
         given()
             .header("X-Requested-With", "JavaScript")

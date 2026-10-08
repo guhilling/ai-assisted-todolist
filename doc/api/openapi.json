@@ -621,7 +621,7 @@
     "/api/tasks": {
       "get": {
         "summary": "List the caller's tasks",
-        "description": "Ordered by due date, then id.",
+        "description": "Ordered by due date, then by importance, high first, then id.",
         "tags": [
           "Tasks"
         ],

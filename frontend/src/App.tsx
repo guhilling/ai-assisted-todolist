@@ -44,6 +44,7 @@ import TaskSection from './components/TaskSection'
 import UserAvatar from './components/UserAvatar'
 import UndoToast from './components/UndoToast'
 import { bucketOf, todayIso, type DueBucket } from './dates'
+import { importanceLevels } from './importance'
 import { useI18n } from './i18n/context'
 import { describeFailure } from './i18n/failures'
 import type { Messages } from './i18n/messages'
@@ -105,7 +106,14 @@ function Board() {
     () =>
       [...tasks]
         .filter((task) => task.state !== 'DONE')
-        .sort((left, right) => left.dueDate.localeCompare(right.dueDate) || left.id - right.id),
+        // By due date; within a day, what matters most first (#217); then creation order, so the
+        // board never reshuffles tasks that are otherwise alike.
+        .sort(
+          (left, right) =>
+            left.dueDate.localeCompare(right.dueDate) ||
+            importanceLevels.indexOf(right.importance) - importanceLevels.indexOf(left.importance) ||
+            left.id - right.id,
+        ),
     [tasks],
   )
 

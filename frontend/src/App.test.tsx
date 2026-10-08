@@ -746,6 +746,43 @@ describe('the board', () => {
     expect(descriptions).toEqual(['Added first', 'Added later'])
   })
 
+  it('orders tasks due the same day by importance, high first', async () => {
+    await renderSignedIn(
+      mockApi({
+        me: ALICE,
+        tasks: [
+          task({ id: 1, description: 'Low one', dueDate: isoIn(2), importance: 'LOW' }),
+          task({ id: 2, description: 'Medium one', dueDate: isoIn(2), importance: 'MEDIUM' }),
+          task({ id: 3, description: 'High one', dueDate: isoIn(2), importance: 'HIGH' }),
+        ],
+      }),
+    )
+
+    const descriptions = screen.getAllByText(/ one$/).map((node) => node.textContent)
+    expect(descriptions).toEqual(['High one', 'Medium one', 'Low one'])
+  })
+
+  it('moves a task to its new place when its importance changes', async () => {
+    // Created later than the medium one, so only its importance can put it first.
+    const low = task({ id: 2, description: 'Becomes urgent', dueDate: isoIn(2), importance: 'LOW' })
+    await renderSignedIn(
+      mockApi({
+        me: ALICE,
+        tasks: [low, task({ id: 1, description: 'Already medium', dueDate: isoIn(2), importance: 'MEDIUM' })],
+        put: { status: 200, body: { ...low, importance: 'HIGH' } },
+      }),
+    )
+
+    fireEvent.click(openMenu('Becomes urgent').getByRole('button', { name: 'Edit' }))
+    fireEvent.change(screen.getByRole('combobox', { name: 'Importance' }), { target: { value: 'HIGH' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+    await waitFor(() => {
+      const descriptions = screen.getAllByText(/^(Becomes urgent|Already medium)$/).map((node) => node.textContent)
+      expect(descriptions).toEqual(['Becomes urgent', 'Already medium'])
+    })
+  })
+
   it('leaves a section out when it has no tasks', async () => {
     await renderSignedIn(mockApi({ me: ALICE, tasks: [task({ description: 'Only tomorrow', dueDate: isoIn(1) })] }))
 
