@@ -51,6 +51,23 @@ Bitte geben Sie keine sensiblen Informationen ein (zum Beispiel Gesundheitsdaten
 personenbezogene Daten anderer) – dies ist eine Demonstration und weder für solche Daten gebaut
 noch betrieben.
 
+### Dateien, die Sie an Aufgaben anhängen
+
+Was Sie anhängen: PDFs und Bilder, jeweils höchstens 10 MB, zwei pro Aufgabe und fünf insgesamt,
+mit ihren Namen, Typen und Größen. Die Dateien werden verschlüsselt in Amazon S3 in der
+AWS-Region Frankfurt gespeichert; Namen, Typen und Größen bei Ihren Aufgaben. Ihr Browser sendet
+eine Datei direkt an den Speicher und lädt sie von dort, über Links, die die Anwendung nur für Sie
+erzeugt und die nach wenigen Minuten nicht mehr funktionieren. Außer Ihnen kann niemand Ihre
+Dateien in der Anwendung öffnen, und sie sind nie öffentlich.
+
+Rechtsgrundlage: Art. 6 Abs. 1 lit. b DSGVO. Gespeichert, bis Sie die Datei entfernen oder ihre
+Aufgabe löschen oder Ihr Konto gelöscht wird. Die Dateien einer gelöschten Aufgabe bleiben noch
+zehn Minuten erhalten, damit sich das Löschen rückgängig machen lässt, und werden dann gelöscht;
+eine Datei, deren Hochladen nie abgeschlossen wurde, nach einer Stunde. Gespeicherte Dateien
+werden nicht gesichert: Einmal gelöscht, ist eine Datei weg.
+
+Für Dateien gilt dieselbe Bitte wie für Aufgaben: Hängen Sie bitte nichts Sensibles an.
+
 ### Das Sitzungs-Cookie
 
 Die Anmeldung setzt **ein Cookie**, das Sie angemeldet hält und Ihre verschlüsselten

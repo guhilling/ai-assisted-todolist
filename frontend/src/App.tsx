@@ -7,6 +7,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import './App.css'
 import {
+  AttachmentRefusedError,
+  attachmentLink,
   apiBaseUrl,
   authLogoutUrl,
   deleteTask,
@@ -17,8 +19,11 @@ import {
   fetchTasks,
   postTask,
   putTask,
+  removeAttachment,
   restoreTask,
   SessionExpiredError,
+  uploadAttachment,
+  type Attachment,
   type AuthProvidersResponse,
   type CurrentUser,
   type Task,
@@ -26,6 +31,7 @@ import {
   type TaskState,
 } from './api'
 import AddTaskRow from './components/AddTaskRow'
+import type { AttachmentActions, UploadOutcome } from './components/AttachmentList'
 import type { TaskEdit } from './components/TaskEditor'
 import CompletedSection from './components/CompletedSection'
 import LegalFooter from './components/LegalFooter'
@@ -51,6 +57,12 @@ const sections: { bucket: DueBucket; overdue?: boolean }[] = [
   { bucket: 'thisWeek' },
   { bucket: 'later' },
 ]
+
+/**
+ * A link that shows a file. Here rather than in the board, so it is one function for the app's
+ * lifetime and a preview asks for its link once, not on every render of the board.
+ */
+const linkToAttachment = (taskId: Task['id'], attachmentId: Attachment['id']) => attachmentLink(taskId, attachmentId)
 
 /** The app, speaking the visitor's language to everything in it (#203). */
 function App() {
@@ -254,6 +266,60 @@ function Board() {
     }
   }
 
+  /** Sets a task's files, leaving everything else about it as the board has it. */
+  const setAttachments = (taskId: Task['id'], change: (current: Attachment[]) => Attachment[]) =>
+    setTasks((current) =>
+      current.map((candidate) =>
+        candidate.id === taskId ? { ...candidate, attachments: change(candidate.attachments ?? []) } : candidate,
+      ),
+    )
+
+  /**
+   * What the rows and the editor do with files (#204). Opening asks for a link only on the click,
+   * because a link works for minutes and a board stays open for hours; the tab is opened first,
+   * on the click itself, since a browser blocks one opened after a request has come back.
+   */
+  const attachmentActions: AttachmentActions = {
+    link: linkToAttachment,
+    open: (task, attachment) => {
+      setError(null)
+      const tab = window.open('', '_blank')
+      attachmentLink(task.id, attachment.id)
+        .then((url) => {
+          if (tab) {
+            // The new tab must not be able to reach back into the board.
+            tab.opener = null
+            tab.location.href = url
+          }
+        })
+        .catch((openError: unknown) => {
+          tab?.close()
+          reportFailure(openError, 'loading')
+        })
+    },
+    remove: (task, attachment) => {
+      setError(null)
+      removeAttachment(task.id, attachment.id)
+        .then(() => setAttachments(task.id, (current) => current.filter((kept) => kept.id !== attachment.id)))
+        .catch((removeError: unknown) => reportFailure(removeError, 'deleting'))
+    },
+    upload: async (task, file, onProgress): Promise<UploadOutcome> => {
+      try {
+        const attachment = await uploadAttachment(task.id, file, onProgress)
+        setAttachments(task.id, (current) => [...current, attachment])
+        return { ok: true }
+      } catch (uploadError) {
+        if (uploadError instanceof AttachmentRefusedError) {
+          return { refusal: uploadError.refusal }
+        }
+        if (uploadError instanceof SessionExpiredError) {
+          reportFailure(uploadError, 'saving')
+        }
+        return { failed: true }
+      }
+    },
+  }
+
   /** Returns whether the task was saved, so the add row knows whether to clear itself. */
   const addTask = async (input: TaskInput) => {
     setSaving(true)
@@ -336,6 +402,7 @@ function Board() {
               onSetState={setTaskState}
               onDelete={removeTask}
               onEdit={editTask}
+              attachments={attachmentActions}
             />
           ))}
 
@@ -346,6 +413,7 @@ function Board() {
             onSetState={setTaskState}
             onDelete={removeTask}
             onClear={clearCompleted}
+            attachments={attachmentActions}
           />
 
           {tasks.length === 0 ? <p className="board-note">{messages.board.empty}</p> : null}

@@ -11,16 +11,22 @@
  * and to turn a checked response into a value the application owns.
  */
 import type {
+  AttachmentResponse,
   AuthProviderResponse,
   AuthProvidersResponse as WireAuthProvidersResponse,
   CurrentUserResponse,
   TaskCreateRequest,
+  RefusalResponse,
   TaskResponse,
 } from './generated/types'
 import {
+  validateAttachmentResponse,
   validateAuthProvidersResponse,
   validateCurrentUserResponse,
+  validateLinkResponse,
+  validateRefusalResponse,
   validateTaskResponse,
+  validateUploadResponse,
 } from './generated/validators'
 
 /**
@@ -41,6 +47,15 @@ export type { TaskImportance, TaskState } from './generated/types'
  * the rest of the application can go on saying `Task`, which is the domain's word for it.
  */
 export type Task = TaskResponse
+
+/**
+ * A file on a task (#204): its name, type and size. The content is in storage, reached through a
+ * link asked for when it is opened.
+ */
+export type Attachment = AttachmentResponse
+
+/** Why an attachment was refused, as the backend names it; the board words it (#203). */
+export type AttachmentRefusal = RefusalResponse['refusal']
 
 /** The fields a client may set. The backend's create request, generated from its schema. */
 export type TaskInput = TaskCreateRequest
@@ -127,7 +142,15 @@ function taskUrl(id: Task['id']) {
  * failure by key and keeps an English message of its own, for consoles and tests. The board
  * words the key from its message catalogue (`i18n/failures.ts`).
  */
-export type RequestErrorKey = 'loadTasks' | 'createTask' | 'updateTask' | 'deleteTask' | 'unaddressable'
+export type RequestErrorKey =
+  | 'loadTasks'
+  | 'createTask'
+  | 'updateTask'
+  | 'deleteTask'
+  | 'unaddressable'
+  | 'uploadAttachment'
+  | 'openAttachment'
+  | 'removeAttachment'
 
 /** This module's own English, for a console or a test; the banner says the catalogue's text. */
 const requestErrorMessages: Record<RequestErrorKey, string> = {
@@ -136,6 +159,9 @@ const requestErrorMessages: Record<RequestErrorKey, string> = {
   updateTask: 'Unable to update task.',
   deleteTask: 'Unable to delete task.',
   unaddressable: 'That task could not be addressed.',
+  uploadAttachment: 'Unable to upload the file.',
+  openAttachment: 'Unable to open the file.',
+  removeAttachment: 'Unable to remove the file.',
 }
 
 /** A request that failed, named by what it was doing. */
@@ -150,7 +176,7 @@ export class RequestError extends Error {
 }
 
 /** Which answer broke the contract. */
-export type ContractSubject = 'task' | 'taskList' | 'signedInUser' | 'signInOptions'
+export type ContractSubject = 'task' | 'taskList' | 'signedInUser' | 'signInOptions' | 'attachment' | 'attachmentLink'
 
 /** How it broke it, where checked by hand. */
 export type ContractDetail = 'idNotInteger' | 'notArray'
@@ -160,6 +186,8 @@ const contractSubjects: Record<ContractSubject, string> = {
   taskList: 'a task list',
   signedInUser: 'a signed-in user',
   signInOptions: 'the sign-in options',
+  attachment: 'an attachment',
+  attachmentLink: 'a link to a file',
 }
 
 const contractDetails: Record<ContractDetail, string> = {
@@ -206,13 +234,28 @@ function toTask(data: unknown): Task {
   if (!Number.isSafeInteger(id)) {
     throw new ContractBreachError('task', 'idNotInteger')
   }
-  return {
+  const task: Task = {
     id,
     description: data.description,
     dueDate: data.dueDate,
     importance: data.importance,
     state: data.state,
   }
+  // Optional on the wire, so a backend from before attachments still validates; copied only when
+  // sent, so a task looks exactly as it did then when it has none to speak of.
+  if (data.attachments) {
+    task.attachments = data.attachments.map((attachment) => toAttachment(attachment, 'task'))
+  }
+  return task
+}
+
+/** Turns a checked attachment into one the application owns, its id checked like a task's. */
+function toAttachment(data: AttachmentResponse, subject: ContractSubject): Attachment {
+  const id = Number(data.id)
+  if (!Number.isSafeInteger(id)) {
+    throw new ContractBreachError(subject, 'idNotInteger')
+  }
+  return { id, fileName: data.fileName, contentType: data.contentType, sizeBytes: data.sizeBytes }
 }
 
 /** Turns a checked response into the task list. Each task is checked in its own right. */
@@ -422,15 +465,180 @@ export async function deleteTask(task: Task) {
  * lands among tasks sharing its due date.
  */
 export async function restoreTask(task: Task, today: string) {
-  const created = await postTask({
+  const input: TaskInput = {
     description: task.description,
     dueDate: task.dueDate < today ? today : task.dueDate,
     importance: task.importance,
     state: task.state,
-  })
+  }
+  // Its files were only detached by the delete, and come back with it within the undo window.
+  if (task.attachments && task.attachments.length > 0) {
+    input.attachmentIds = task.attachments.map((attachment) => attachment.id)
+  }
+  const created = await postTask(input)
 
   if (created.dueDate === task.dueDate) {
     return created
   }
   return putTask({ ...created, dueDate: task.dueDate })
+}
+
+/** The types the backend accepts (D2 on #204): PDFs, and the images every browser shows inline. */
+export const attachmentTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp', 'image/gif']
+
+/**
+ * The limits the backend enforces (D1 on #204), here only to say them before an upload and to spare
+ * one the backend would refuse anyway. The backend's configuration is the authority
+ * (`taskfest.attachments.*`); should the two differ, its refusal is what the board shows.
+ */
+export const attachmentLimits = { maxSizeBytes: 10 * 1024 * 1024, perTask: 2, perUser: 5 }
+
+/** An attachment refused, for the board to say why in the visitor's language. */
+export class AttachmentRefusedError extends Error {
+  readonly refusal: AttachmentRefusal
+
+  constructor(refusal: AttachmentRefusal) {
+    super(`The file was refused: ${refusal}.`)
+    this.name = 'AttachmentRefusedError'
+    this.refusal = refusal
+  }
+}
+
+/** The URL of a task's attachments, or of one of them, with every id checked like `taskUrl`. */
+function attachmentsUrl(taskId: Task['id'], attachmentId?: Attachment['id']) {
+  const base = `${taskUrl(taskId)}/attachments`
+  if (attachmentId === undefined) {
+    return base
+  }
+  if (!Number.isSafeInteger(attachmentId)) {
+    throw new RequestError('unaddressable')
+  }
+  return `${base}/${encodeURIComponent(attachmentId)}`
+}
+
+/** Throws the backend's refusal when it gave one, as an {@link AttachmentRefusedError}. */
+async function ensureNotRefused(response: Response) {
+  if (response.status !== 422) {
+    return
+  }
+  const data: unknown = await response.json().catch(() => null)
+  if (validateRefusalResponse(data)) {
+    throw new AttachmentRefusedError(data.refusal)
+  }
+}
+
+/**
+ * PUTs the file to the signed link, reporting progress as a fraction.
+ *
+ * `XMLHttpRequest` rather than `fetch`, because only it reports how much of an upload has gone.
+ * The headers are the ones the link was signed for, sent exactly; the browser adds Content-Length
+ * itself, and storage refuses a file of any other size.
+ */
+function putToStorage(url: string, headers: Record<string, string>, file: File, onProgress: (fraction: number) => void) {
+  return new Promise<void>((resolve, reject) => {
+    const request = new XMLHttpRequest()
+    request.open('PUT', url)
+    for (const [name, value] of Object.entries(headers)) {
+      request.setRequestHeader(name, value)
+    }
+    request.upload.onprogress = (event) => {
+      if (event.lengthComputable) {
+        onProgress(event.loaded / event.total)
+      }
+    }
+    request.onload = () =>
+      request.status >= 200 && request.status < 300 ? resolve() : reject(new RequestError('uploadAttachment'))
+    request.onerror = () => reject(new RequestError('uploadAttachment'))
+    request.send(file)
+  })
+}
+
+/**
+ * Attaches a file to a task: announces it, uploads it straight to storage through the link the
+ * announcement returns, and confirms it. The content never passes through the backend.
+ *
+ * A file of a type or size the backend would refuse is refused here without a request, so a
+ * 40 MB photo is not first uploaded to be told so.
+ *
+ * @throws AttachmentRefusedError when the file is refused, here or by the backend
+ * @throws RequestError when a step fails for any other reason
+ */
+export async function uploadAttachment(taskId: Task['id'], file: File, onProgress: (fraction: number) => void) {
+  if (!attachmentTypes.includes(file.type)) {
+    throw new AttachmentRefusedError('UNSUPPORTED_TYPE')
+  }
+  if (file.size === 0) {
+    throw new AttachmentRefusedError('EMPTY')
+  }
+  if (file.size > attachmentLimits.maxSizeBytes) {
+    throw new AttachmentRefusedError('TOO_LARGE')
+  }
+
+  const announced = await fetch(attachmentsUrl(taskId), {
+    method: 'POST',
+    credentials: 'include',
+    headers: jsonHeaders,
+    body: JSON.stringify({ fileName: file.name, contentType: file.type, sizeBytes: file.size }),
+  })
+  await ensureNotRefused(announced)
+  const upload = await readJson(
+    announced,
+    (data) => {
+      if (!validateUploadResponse(data)) {
+        throw new ContractBreachError('attachment')
+      }
+      return { attachment: toAttachment(data.attachment, 'attachment'), url: data.url, headers: data.headers }
+    },
+    'uploadAttachment',
+  )
+
+  await putToStorage(upload.url, upload.headers, file, onProgress)
+
+  const confirmed = await fetch(`${attachmentsUrl(taskId, upload.attachment.id)}/confirm`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: jsFetchHeaders,
+  })
+  await ensureNotRefused(confirmed)
+  return readJson(
+    confirmed,
+    (data) => {
+      if (!validateAttachmentResponse(data)) {
+        throw new ContractBreachError('attachment')
+      }
+      return toAttachment(data, 'attachment')
+    },
+    'uploadAttachment',
+  )
+}
+
+/** A link that opens the file for a few minutes, for the owner's browser only. */
+export async function attachmentLink(taskId: Task['id'], attachmentId: Attachment['id']) {
+  const response = await fetch(`${attachmentsUrl(taskId, attachmentId)}/link`, {
+    credentials: 'include',
+    headers: jsFetchHeaders,
+  })
+  return readJson(
+    response,
+    (data) => {
+      if (!validateLinkResponse(data)) {
+        throw new ContractBreachError('attachmentLink')
+      }
+      return data.url
+    },
+    'openAttachment',
+  )
+}
+
+/** Removes a file from its task, for good: unlike a task, a removed file has no undo. */
+export async function removeAttachment(taskId: Task['id'], attachmentId: Attachment['id']) {
+  const response = await fetch(attachmentsUrl(taskId, attachmentId), {
+    method: 'DELETE',
+    credentials: 'include',
+    headers: jsFetchHeaders,
+  })
+  ensureSession(response)
+  if (!response.ok) {
+    throw new RequestError('removeAttachment')
+  }
 }

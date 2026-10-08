@@ -328,3 +328,29 @@ only (D3). Provider labels: they are backend configuration, so "TaskFest test ac
 English in a German sentence until labels are configured per language. The privacy policy, the
 terms and the documentation site (D4).
 
+
+## Files go straight to storage, with the tab opened on the click
+
+**Decision.** Attaching a file (#204) is three requests from `api.ts`: announce it to the backend,
+PUT it to the presigned link that comes back, confirm it. Opening one asks for a link on the click
+and points a tab at it. The backend never sees file content; `doc/decisions/domain-and-backend.md`
+says why.
+
+**Why `XMLHttpRequest` for the PUT.** The issue asks for progress, and `fetch` cannot report how
+much of an upload has gone. It is used for that one request only; everything else stays `fetch`.
+
+**Why the tab is opened before the link exists.** A link works for minutes and the board stays
+open for hours, so it is asked for when the file is opened, not when the row renders. A tab opened
+after that request has come back is no longer a direct result of the click, and popup blockers
+refuse it. So the click opens an empty tab, and the link is put into it when it arrives, with
+`opener` cleared so the file's tab cannot reach back into the board.
+
+**Why the limits are in the frontend too.** `attachmentLimits` repeats D1 to say the limits before
+an upload and to refuse a 40 MB photo without sending it. The backend's configuration is the
+authority and refuses anyway; the refusal texts deliberately name no numbers, so only the hint
+would be wrong if the two came apart.
+
+**Why a file attaches when it has uploaded, not on Save.** An upload is a transfer, not a form
+field. Holding it until Save would leave an object in storage that the task does not know about,
+and Cancel undoing it would mean deleting what was just sent.
+
