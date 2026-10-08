@@ -31,7 +31,20 @@ trigger matches those two shapes only, so an unrelated tag does not start a rele
 | `gate` | Derives the version, refuses a tag that is not on `main`, then runs the full backend `verify` and the full frontend suite at the release version, and packs the frontend build — built with `VITE_TASKFEST_VERSION` from the tag, which the page's footer shows (a build that is no release says *Development build*) |
 | `publish` | Builds and pushes `taskfest-backend` and `taskfest-frontend` to Quay, tagged with the version |
 | `announce` | Creates the GitHub Release, with notes generated from the pull requests since the previous release, and attaches the API contract and `taskfest-frontend-<version>.tar.gz` — the build `deploy-frontend.yml` puts into a site bucket |
-| `deploy-backend-qa`, `deploy-frontend-qa` | Deploy a final release — not a pre-release — to qa, backend first, through `deploy-backend.yml` and `deploy-frontend.yml` — see [Deploying](deployment/deploying.md). A qa that is down is skipped without failing the release; a release that changes the database changelog stops there with a failure, by design: it reaches qa by the downtime path instead, `./env.sh down qa` then `./env.sh up qa <tag>` ([Deploying](deployment/deploying.md)). prod is always deployed by hand |
+| `deploy-backend-qa`, `deploy-frontend-qa` | Deploy a final release — not a pre-release — to qa, backend first, through `deploy-backend.yml` and `deploy-frontend.yml` — see [Deploying](deployment/deploying.md). A qa that is down is skipped without failing the release; a release that changes the database changelog stops there with a failure, by design, and the frontend deploy is skipped with it: such a release takes the downtime path described below. prod is always deployed by hand |
+
+**A release with a migration** stops at `deploy-backend-qa`, and `deploy-frontend-qa` is skipped
+with it. Bring it to qa by the downtime path, and then deploy its frontend, which also runs the
+live checks:
+
+```bash
+./env.sh down qa
+./env.sh up qa v1.2.3
+gh workflow run deploy-frontend.yml -f environment=qa -f version=v1.2.3
+```
+
+Without the last step qa serves the new backend under the old frontend, as v0.9.0 did until it was
+run by hand. #215 makes the whole path part of the deploy.
 
 **Releases up to v0.2.0 carry the old name.** Their images are `quay.io/ghilling/todo-backend`
 and `todo-frontend`, and their frontend archive is `todo-frontend-<version>.tar.gz`; everything

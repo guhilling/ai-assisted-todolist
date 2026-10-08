@@ -59,12 +59,17 @@ environment and a tag — which is also the rollback, with the previous tag — 
    after ten.
 
 **The downtime path: `down`, then `up` on the release.** A release with a migration reaches an
-environment that way and no other:
+environment that way and no other, with its frontend deployed after it:
 
 ```
 ./env.sh down qa
 ./env.sh up qa v1.2.3
+gh workflow run deploy-frontend.yml -f environment=qa -f version=v1.2.3
 ```
+
+The last line is not optional. `env.sh` never touches the frontend, and the site bucket outlives
+`down`, so without it the environment serves the new backend under the previous frontend. The
+frontend deploy is also what runs the live checks afterwards (qa only), which `up` does not.
 
 `down` leaves a final snapshot, which is the backup taken immediately before the migration that
 the plan above asks for — rolling back is `down` and `up` on the previous release from the
