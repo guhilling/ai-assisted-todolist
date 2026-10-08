@@ -36,4 +36,24 @@ public interface AttachmentsConfig {
 
     /** How long an announced upload may stay unconfirmed before it is swept. */
     Duration pendingLifetime();
+
+    /**
+     * How old an object must be before the orphan clean-up (#208) may delete it. Far beyond an
+     * upload link's lifetime, so an upload under way -- whose row is being written or confirmed
+     * while the object arrives -- is never mistaken for one left behind.
+     */
+    Duration orphanMargin();
+
+    /** When the orphan clean-up runs; read by {@code OrphanSweep}'s schedule. */
+    OrphanSweepSchedule orphanSweep();
+
+    /** The orphan clean-up's schedule, in the scheduler's own notation ({@code 5m}, {@code 24h}). */
+    interface OrphanSweepSchedule {
+
+        /** How long after a start the first run comes, so it does not compete with startup. */
+        String delay();
+
+        /** How often it runs after that. */
+        String every();
+    }
 }

@@ -339,6 +339,8 @@
                         <param>de.hilling.taskfest.attachment.AttachmentSweep*</param>
                         <param>de.hilling.taskfest.attachment.AttachmentState</param>
                         <param>de.hilling.taskfest.attachment.AttachmentsConfig*</param>
+                        <param>de.hilling.taskfest.attachment.OrphanedObjects*</param>
+                        <param>de.hilling.taskfest.attachment.OrphanSweep*</param>
                         <!-- Narrowed from service.* when the Gravatar classes earned plain unit
                              tests; UserService still has none that avoids booting Quarkus. -->
                         <param>de.hilling.taskfest.service.UserService*</param>
