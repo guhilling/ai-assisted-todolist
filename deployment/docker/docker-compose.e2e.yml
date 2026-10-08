@@ -1,10 +1,15 @@
-# Full stack for the browser end-to-end tests: PostgreSQL, Keycloak, the Quarkus backend and
-# the httpd-served frontend.
+# Full stack for the browser end-to-end tests: PostgreSQL, Keycloak, S3 (LocalStack), the Quarkus
+# backend and the httpd-served frontend.
 #
 # Keycloak is published on localhost:8082 for the browser, while the backend reaches it inside
 # the compose network as keycloak:8082. KC_HOSTNAME_BACKCHANNEL_DYNAMIC lets those two differ:
 # the issuer and the login URL stay on localhost, and the token/JWKS endpoints the backend
 # discovers follow whichever host asked for them. No hosts-file entry is needed.
+#
+# S3 needs one address both sides can use, because the backend signs links the browser then
+# follows (#204): s3.localhost:4566. The browser resolves every *.localhost to 127.0.0.1, where the
+# port is published; inside the network the same name is an alias of the LocalStack container. So
+# the signed host and the requested host are one, as they are against AWS.
 # A distinct project name keeps this stack from colliding with the dev stack above: without
 # it both derive the same name from this directory and each treats the other's containers as
 # orphans. This stack owns no volumes and is always torn down with `down -v`.
@@ -49,6 +54,28 @@ services:
       timeout: 5s
       retries: 40
 
+  localstack:
+    # The tag the backend's own tests run (Quarkus Dev Services), so both test against one S3.
+    image: localstack/localstack:4.13
+    environment:
+      SERVICES: s3
+      # Check signatures as AWS does: otherwise a link signed for one size accepts any (#204).
+      S3_SKIP_SIGNATURE_VALIDATION: "0"
+    volumes:
+      - ../../e2e/localstack-init.sh:/etc/localstack/init/ready.d/init.sh:ro
+      - ../../e2e/localstack-healthcheck.sh:/config/healthcheck.sh:ro
+    ports:
+      - "4566:4566"
+    networks:
+      default:
+        aliases:
+          - s3.localhost
+    healthcheck:
+      test: ["CMD", "bash", "/config/healthcheck.sh"]
+      interval: 3s
+      timeout: 3s
+      retries: 40
+
   backend:
     image: ${BACKEND_IMAGE:-quay.io/ghilling/taskfest-backend:latest}
     environment:
@@ -58,10 +85,6 @@ services:
       FRONTEND_ORIGINS: http://localhost:3000
       QUARKUS_OIDC_ENABLED: "true"
       TASKFEST_OIDC_COOKIE_SECURE: "false"
-      # No attachment bucket in this stack, so nothing for the orphan clean-up (#208) to list.
-      TASKFEST_ATTACHMENTS_ORPHAN_SWEEP_EVERY: "off"
-      # Nor anywhere to keep account deletion records (#213).
-      TASKFEST_ACCOUNT_DELETIONS_ENABLED: "false"
       SMALLRYE_CONFIG_LOCATIONS: /config/backend-e2e.properties
     volumes:
       - ../../e2e/backend-e2e.properties:/config/backend-e2e.properties:ro
@@ -70,6 +93,8 @@ services:
       postgres:
         condition: service_healthy
       keycloak:
+        condition: service_healthy
+      localstack:
         condition: service_healthy
     ports:
       - "8080:8080"

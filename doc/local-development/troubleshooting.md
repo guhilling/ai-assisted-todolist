@@ -50,7 +50,7 @@ refuses to boot.
 `docker-container` driver the build result stays in the build cache rather than in the
 image store; add `--load` to the `docker build` command.
 
-**Port 8080, 8082, 5173 or 3000 is already in use.** Usually one of the other stacks is
+**Port 8080, 8082, 5173, 3000 or 4566 is already in use.** Usually one of the other stacks is
 still up. `docker compose -f deployment/docker/docker-compose.e2e.yml down -v` and
 `docker compose -f deployment/docker/docker-compose.yml down`, then check for a stray `quarkus:dev`.
 

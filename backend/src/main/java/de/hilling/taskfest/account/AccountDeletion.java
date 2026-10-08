@@ -27,7 +27,7 @@ import org.slf4j.LoggerFactory;
  * sending can land after that, with nothing referring to it: the orphan clean-up of #208 removes
  * it within seven days, which the privacy policy says (Gunnar's decision on #224).</p>
  *
- * <p>Where deletion records are switched off -- the Compose stacks, which have no bucket -- the
+ * <p>Where deletion records are switched off -- the local container stack, which has no bucket -- the
  * account is deleted without one.</p>
  */
 @ApplicationScoped

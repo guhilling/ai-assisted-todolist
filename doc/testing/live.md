@@ -42,7 +42,8 @@ environment, which is worth a red run rather than a quiet green one.
 
 ## The signed-in scenarios
 
-The same scenarios the Compose suite runs (`e2e/tests/login.spec.ts`), with
+The same scenarios the Compose suite runs (`e2e/tests/login.spec.ts` and
+`e2e/tests/attachments.spec.ts`), with
 `e2e/playwright.live-signed-in.config.ts`, signed in as qa's Cognito test accounts
 (`taskfest-test-one@example.com`, `taskfest-test-two@example.com`, #190) instead of the local
 Keycloak ones. `e2e/support/identity.ts` is the only place the two differ: the button, how to fill
@@ -59,7 +60,11 @@ visible one is addressed — and the accounts. One scenario runs in qa only: bot
   so the passwords exist in that step's environment only, masked in the log.
 - **Test data stays contained.** Before and after a run, `e2e/live/test-accounts.ts` signs in as
   each account and deletes all of its tasks. The accounts are used for nothing else, so that is
-  safe — and a run aborted half-way is cleaned up by the next one.
+  safe — and a run aborted half-way is cleaned up by the next one. Files attached during a run
+  (#204) are removed first, task by task, because a deleted task's files stay for the ten-minute
+  undo window and count toward the five a user may have: two aborted runs in a row would
+  otherwise fail the next on that limit. An upload abandoned half way is not listed, and the
+  attachment sweep removes it within the hour.
 - **While the environment is down, the job does not start**: the smoke job reports the backend's
   state, and there is nothing to sign in to.
 - **One run at a time** (a concurrency group per environment): two would reset each other's

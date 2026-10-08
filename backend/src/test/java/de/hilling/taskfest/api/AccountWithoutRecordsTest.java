@@ -12,8 +12,8 @@ import static io.restassured.RestAssured.given;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
- * Deleting an account where deletion records are switched off (#213) -- the Compose stacks, which
- * have no bucket, and this plain test profile: the account goes, without a record.
+ * Deleting an account where deletion records are switched off (#213) -- the local container stack,
+ * which has no bucket, and this plain test profile: the account goes, without a record.
  */
 @QuarkusTest
 class AccountWithoutRecordsTest {

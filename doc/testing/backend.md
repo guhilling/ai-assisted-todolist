@@ -53,7 +53,7 @@ needs no Keycloak at all. Fifty-two tests across ten classes:
   interrupted deletion finishes when asked again, and an account a restore brought back is deleted
   again unless it was created after the deletion, and a session left open elsewhere starts a new,
   empty account. **`AccountWithoutRecordsTest`** deletes an account where records are switched off,
-  as in the Compose stacks. **`DeletionRecordsHashTest`** pins the record's key
+  as in the local container stack. **`DeletionRecordsHashTest`** pins the record's key
   with a known SHA-256, because a record written by one release must be found by the next;
   **`DeletionPruningTest`** and **`RdsRestorePointsTest`** (a fake RDS client, since LocalStack has
   none) cover when a record may go.

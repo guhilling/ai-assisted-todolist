@@ -260,7 +260,7 @@ which the account is gone but unrecorded, which a crash or an S3 outage would ot
 restore to undo. A deletion that then fails removes its record again before reporting the failure:
 the user is told it did not happen, so the replay must not carry it out later, taking whatever was
 added since. A crash between record and deletion leaves the record, and the replay finishes a
-deletion the user did ask for. Where records are switched off (the Compose stacks, no bucket), the
+deletion the user did ask for. Where records are switched off (the local container stack, no bucket), the
 account is deleted without one.
 
 **Re-applying, before anyone can sign in.** `DeletionReplay` runs during start-up -- a restore
