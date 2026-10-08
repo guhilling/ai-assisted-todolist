@@ -7,7 +7,8 @@ process.env.E2E_IDENTITY ??= 'cognito'
 process.env.LIVE_BASE_URL ??= 'https://taskfest-qa.cloud.hilling.de'
 
 /**
- * The signed-in scenarios (tests/login.spec.ts) against a deployed environment, with its test
+ * The signed-in scenarios (tests/login.spec.ts, and tests/attachments.spec.ts, which uploads to the
+ * environment's real attachment bucket) against a deployed environment, with its test
  * accounts (#144).
  *
  * The same tests the Compose suite runs, signed in as qa's Cognito test accounts instead of the local

@@ -51,7 +51,7 @@ compares `mdc` values as the strings they are. A metric filter counts those line
 ## When it runs
 
 Five minutes after every start of the backend, then **every hour**
-(`taskfest.attachments.orphan-sweep.delay` and `.every`). The Compose stacks, which have no bucket,
+(`taskfest.attachments.orphan-sweep.delay` and `.every`). The local container stack, which has no bucket,
 switch it off with `TASKFEST_ATTACHMENTS_ORPHAN_SWEEP_EVERY=off`. Both task sets of a blue/green
 deployment may run it during the overlap; deleting an object that is already gone is harmless.
 

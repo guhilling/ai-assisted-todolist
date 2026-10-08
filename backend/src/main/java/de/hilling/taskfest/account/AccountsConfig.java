@@ -14,7 +14,7 @@ public interface AccountsConfig {
 
     /**
      * Whether deletions are recorded, checked and re-applied. Off only where there is no bucket to
-     * keep records in: the plain test profile and the Compose stacks.
+     * keep records in: the plain test profile and the local container stack.
      */
     @WithDefault("true")
     boolean deletionsEnabled();

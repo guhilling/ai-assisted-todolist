@@ -94,7 +94,13 @@ test('attaches a PDF and an image, opens them, and removes them', async ({ page 
   await expect(reloaded.getByRole('button', { name: /^Open / })).toHaveCount(0)
 
   // Tidy: the task itself goes as well, so neither the Compose database nor qa's accounts fill up.
+  // The row disappears before the request is sent, so the test waits for the server's answer;
+  // ending first would close the page and cancel the DELETE.
   await reloaded.getByLabel(`Actions for "${description}"`).click()
+  const deleted = page.waitForResponse(
+    (response) => response.request().method() === 'DELETE' && response.url().includes('/api/tasks/'),
+  )
   await reloaded.getByRole('button', { name: 'Delete' }).click()
+  expect((await deleted).ok()).toBe(true)
   await expect(page.locator('.task-row', { hasText: description })).toHaveCount(0)
 })
