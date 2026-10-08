@@ -1,5 +1,6 @@
 import type { Task, TaskState } from '../api'
 import TaskRow from './TaskRow'
+import { useI18n } from '../i18n/context'
 
 type CompletedSectionProps = {
   tasks: Task[]
@@ -18,6 +19,7 @@ type CompletedSectionProps = {
  * count on the summary is what makes the section worth opening.
  */
 function CompletedSection({ tasks, today, onToggleDone, onSetState, onDelete, onClear }: Readonly<CompletedSectionProps>) {
+  const { messages } = useI18n()
   if (tasks.length === 0) {
     return null
   }
@@ -25,11 +27,11 @@ function CompletedSection({ tasks, today, onToggleDone, onSetState, onDelete, on
   return (
     <details className="completed-section">
       <summary>
-        <span className="section-title">Completed ({tasks.length})</span>
+        <span className="section-title">{messages.completed.title(tasks.length)}</span>
       </summary>
       <div className="completed-actions">
         <button type="button" className="button-quiet" onClick={onClear}>
-          Clear completed
+          {messages.completed.clear}
         </button>
       </div>
       <ul className="task-list">

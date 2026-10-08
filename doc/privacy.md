@@ -1,13 +1,14 @@
 # Privacy policy
 
+*Deutsche Fassung: [Datenschutzerklärung](datenschutz.md)*
+
 This policy covers TaskFest, the task list at `taskfest-qa.cloud.hilling.de` and `taskfest.cloud.hilling.de`
 (“the application”), and this documentation site. It describes what the application actually
 does, and changes in the same change as the behaviour it describes.
 
 The application is a non-commercial demonstration project of Hilling IT GmbH. It is open to Google
 accounts that have been invited to it; nobody else can sign in — except, in qa only, two test
-accounts (`taskfest-test-one@example.com`, `taskfest-test-two@example.com`) which automated tests
-sign in with. They belong to no person and hold only what those tests create and delete again.
+accounts which automated tests sign in with. They belong to no person and hold only what those tests create and delete again.
 
 ## Who is responsible
 
@@ -53,6 +54,9 @@ It is technically necessary for the application to work, which is why no consent
 
 There are **no** analytics, advertising or tracking cookies, and no analytics or tracking scripts
 of any kind.
+
+The language you choose in the footer is remembered by your browser, in its local storage; it is
+not sent to the application.
 
 ### Technical logs
 
@@ -101,8 +105,8 @@ based on legitimate interests (Art. 15–21 GDPR).
 **To delete your account**, write to the contact address above. The application has no
 self-service deletion yet; your email address and all your tasks are then deleted.
 
-You also have the right to complain to a data protection supervisory authority, for example the
-one responsible for the operator:
+You also have the right to complain to a data protection supervisory authority (Art. 77 GDPR), for
+example the one responsible for the operator:
 
 Der Landesbeauftragte für den Datenschutz Niedersachsen<br>
 Prinzenstraße 5<br>
@@ -113,4 +117,4 @@ Prinzenstraße 5<br>
 This policy is part of the project's documentation and is changed in the open, in the
 repository. The date below is the date of the last change to its content.
 
-Last changed: 7 October 2026
+Last changed: 8 October 2026

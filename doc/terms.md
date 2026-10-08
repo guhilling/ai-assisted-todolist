@@ -1,5 +1,7 @@
 # Terms of service
 
+*Deutsche Fassung: [Nutzungsbedingungen](nutzungsbedingungen.md)*
+
 These terms apply to TaskFest, the task list at `taskfest-qa.cloud.hilling.de` and
 `taskfest.cloud.hilling.de` (“the application”), operated by Hilling IT GmbH (see its
 [imprint](https://www.hilling.it/impressum/), and the [privacy policy](privacy.md) for how to reach
@@ -7,7 +9,7 @@ the operator about the application).
 
 ## What the application is
 
-A private, **non-commercial demonstration** of building and running software with AI assistance.
+A **non-commercial demonstration** of building and running software with AI assistance.
 It is free of charge. It is not a product, and it is not run for anyone's day-to-day use.
 
 ## Who may use it
@@ -52,4 +54,4 @@ These terms may change; the current version is always the one on this page. Germ
 If you are a consumer living elsewhere, the mandatory consumer protection of the country you live
 in is not affected.
 
-Last changed: 7 October 2026
+Last changed: 8 October 2026

@@ -8,6 +8,7 @@ import googleLight3x from '../assets/google-sign-in-light@3x.png'
 import key from '../assets/key.svg'
 import taskfestMark from '../assets/taskfest-mark.svg'
 import { iconFor } from '../providerIcons'
+import { useI18n } from '../i18n/context'
 
 /** Where the project explains itself. Linked rather than inlined, so the board stays a board. */
 export const purposeUrl = 'https://github.com/guhilling/ai-assisted-todolist/blob/main/doc/purpose.md'
@@ -38,15 +39,16 @@ type SignedOutProps = {
  * be read, and bouncing every visitor to an identity provider would leave nowhere to say so.
  */
 function SignedOut({ providers, apiBaseUrl }: Readonly<SignedOutProps>) {
+  const { messages } = useI18n()
   const available = providers.providers.filter((provider) => provider.available && provider.loginUrl)
 
   return (
     <div className="signed-out">
       <h1 className="signed-out-title">TaskFest</h1>
-      <p className="signed-out-copy">Your own list, private to whoever signs in.</p>
+      <p className="signed-out-copy">{messages.signedOut.tagline}</p>
 
       {available.length === 0 ? (
-        <p className="signed-out-note">Sign-in is not configured for this deployment.</p>
+        <p className="signed-out-note">{messages.signedOut.notConfigured}</p>
       ) : (
         <div className="signed-out-actions">
           {available.map((provider) => {
@@ -58,7 +60,9 @@ function SignedOut({ providers, apiBaseUrl }: Readonly<SignedOutProps>) {
               // The PNGs, not the SVGs: Google's SVGs draw the G through a <foreignObject>, which
               // Safari renders as a blur. srcSet picks the sharp one for the screen.
               return (
-                <a className="sign-in-google" key={provider.id} href={href}>
+                // lang="en": the image and its alt are Google's English, whatever the page speaks (D3 on
+                // #203), and a screen reader should pronounce them as English.
+                <a className="sign-in-google" key={provider.id} href={href} lang="en">
                   <picture>
                     <source
                       srcSet={`${googleDark} 1x, ${googleDark2x} 2x, ${googleDark3x} 3x`}
@@ -78,7 +82,7 @@ function SignedOut({ providers, apiBaseUrl }: Readonly<SignedOutProps>) {
             return (
               <a className="sign-in-button" key={provider.id} href={href}>
                 <img className="sign-in-icon" src={icon === 'taskfest' ? taskfestMark : key} alt="" width={20} height={20} />
-                Sign in with {provider.label}
+                {messages.signedOut.signInWith(provider.label)}
               </a>
             )
           })}

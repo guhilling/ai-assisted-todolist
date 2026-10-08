@@ -8,6 +8,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import { addDays, bucketOf, daysBetween, describeDueDate, quickDates, todayIso } from './dates'
+import { de } from './i18n/messages'
 
 /** A Thursday, chosen so "within this week" crosses a weekend and a month end. */
 const THURSDAY = '2026-10-29'
@@ -102,5 +103,27 @@ describe('todayIso', () => {
     // 23:30 on the 29th in a zone ahead of UTC is still the 29th locally, though 20:30 UTC.
     expect(todayIso(new Date(2026, 9, 29, 23, 30))).toBe('2026-10-29')
     expect(todayIso(new Date(2026, 9, 29, 0, 15))).toBe('2026-10-29')
+  })
+})
+
+describe('due dates in another language', () => {
+  const today = '2026-10-05'
+
+  it('use that language’s words', () => {
+    expect(describeDueDate('2026-10-05', today, de.dates, 'de-DE')).toBe('Heute')
+    expect(describeDueDate('2026-10-06', today, de.dates, 'de-DE')).toBe('Morgen')
+    expect(describeDueDate('2026-10-04', today, de.dates, 'de-DE')).toBe('Gestern')
+    expect(describeDueDate('2026-10-02', today, de.dates, 'de-DE')).toBe('vor 3 Tagen')
+  })
+
+  it('name weekdays and dates the way that language writes them', () => {
+    // "Do." in most browsers, "Do" in Node's ICU: the dot is the engine's, not ours.
+    expect(describeDueDate('2026-10-08', today, de.dates, 'de-DE')).toMatch(/^Do\.?$/)
+    expect(describeDueDate('2026-10-31', today, de.dates, 'de-DE')).toBe('31. Okt.')
+    expect(describeDueDate('2027-01-15', today, de.dates, 'de-DE')).toBe('15. Jan. 2027')
+  })
+
+  it('offer the quick dates in that language', () => {
+    expect(quickDates(today, de.dates).map((quick) => quick.label)).toEqual(['Heute', 'Morgen', 'In 1 Woche', 'In 2 Wochen'])
   })
 })

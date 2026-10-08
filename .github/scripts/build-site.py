@@ -104,7 +104,9 @@ DOC_ORDER = [
     "releasing",
     "decisions",
     "privacy",
+    "datenschutz",
     "terms",
+    "nutzungsbedingungen",
 ]
 
 
@@ -245,7 +247,8 @@ def reference_bar(up: str) -> str:
         f'<a href="{REPO_URL}">GitHub</a>'
         # The legal links, here too: a page without the site footer still needs them one click away.
         f'<a href="{IMPRINT_URL}">Imprint</a>'
-        f'<a href="{up}doc/privacy.html">Privacy policy</a></span>'
+        f'<a href="{up}doc/privacy.html">Privacy policy</a>'
+        f'<a href="{up}doc/datenschutz.html" lang="de">Datenschutz</a></span>'
         f"</div>"
     )
 
@@ -321,17 +324,24 @@ def footer(depth: int) -> str:
     <a href="{up}api/">API contract</a>
     <a href="{IMPRINT_URL}">Imprint</a>
     <a href="{up}doc/privacy.html">Privacy policy</a>
+    <a href="{up}doc/datenschutz.html" lang="de">Datenschutz</a>
     <a href="{up}doc/terms.html">Terms of service</a>
+    <a href="{up}doc/nutzungsbedingungen.html" lang="de">Nutzungsbedingungen</a>
     <span>Contact: {CONTACT}</span>
     <span>Built from <code>main</code>; every page here is generated.</span>
   </footer>"""
 
 
-def page(*, title: str, description: str, depth: int, current: str, body: str) -> str:
+# Pages written in German (#203); every other page is English. The <html lang> follows, so screen
+# readers and hyphenation treat the text as what it is.
+GERMAN_PAGES = {"datenschutz", "nutzungsbedingungen"}
+
+
+def page(*, title: str, description: str, depth: int, current: str, body: str, lang: str = "en") -> str:
     """One complete HTML document, shell and all."""
     up = "../" * depth
     return f"""<!DOCTYPE html>
-<html lang="en">
+<html lang="{lang}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -590,6 +600,7 @@ def write_page(
             current=section,
             body=f'  <div class="layout">\n{sidebar(pages, section, slug, depth)}\n'
             f'  <main class="prose">\n{body}\n  </main>\n  </div>',
+            lang="de" if slug.split("/")[-1] in GERMAN_PAGES else "en",
         )
     )
 

@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Task, TaskImportance } from '../api'
-import { importanceLabels, importanceLevels } from '../importance'
+import { importanceLevels } from '../importance'
 import DueDateField from './DueDateField'
+import { useI18n } from '../i18n/context'
 
 /** What editing may change. The state has its own controls: the checkbox and the row menu. */
 export type TaskEdit = Pick<Task, 'description' | 'dueDate' | 'importance'>
@@ -22,6 +23,7 @@ type TaskEditorProps = {
  * reason. Escape and Cancel discard; nothing reaches the server until Save.
  */
 function TaskEditor({ task, saving, onSave, onCancel }: Readonly<TaskEditorProps>) {
+  const { messages } = useI18n()
   const [description, setDescription] = useState(task.description)
   const [dueDate, setDueDate] = useState(task.dueDate)
   const [importance, setImportance] = useState<TaskImportance>(task.importance)
@@ -36,7 +38,7 @@ function TaskEditor({ task, saving, onSave, onCancel }: Readonly<TaskEditorProps
   return (
     <form
       className="add-form task-editor"
-      aria-label={`Edit "${task.description}"`}
+      aria-label={messages.editor.label(task.description)}
       onSubmit={(event) => {
         event.preventDefault()
         if (!blank) {
@@ -52,7 +54,7 @@ function TaskEditor({ task, saving, onSave, onCancel }: Readonly<TaskEditorProps
       <input
         ref={descriptionRef}
         className="add-description"
-        aria-label="Description"
+        aria-label={messages.editor.description}
         value={description}
         onChange={(event) => setDescription(event.target.value)}
       />
@@ -60,21 +62,21 @@ function TaskEditor({ task, saving, onSave, onCancel }: Readonly<TaskEditorProps
       <div className="add-controls">
         <DueDateField value={dueDate} onChange={setDueDate} />
         <label className="add-field">
-          <span>Importance</span>
+          <span>{messages.importance.label}</span>
           <select value={importance} onChange={(event) => setImportance(event.target.value as TaskImportance)}>
             {importanceLevels.map((level) => (
               <option key={level} value={level}>
-                {importanceLabels[level]}
+                {messages.importance.levels[level]}
               </option>
             ))}
           </select>
         </label>
         <div className="add-actions">
           <button type="button" className="button-quiet" onClick={onCancel}>
-            Cancel
+            {messages.editor.cancel}
           </button>
           <button type="submit" className="button-primary" disabled={saving || blank}>
-            {saving ? 'Saving…' : 'Save'}
+            {saving ? messages.editor.saving : messages.editor.save}
           </button>
         </div>
       </div>

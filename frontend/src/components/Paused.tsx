@@ -1,4 +1,5 @@
 import panda from '../assets/paused-panda.svg'
+import { useI18n } from '../i18n/context'
 
 type PausedProps = {
   /** The deployment's name for its environment, such as "QA"; null when it gives none. */
@@ -11,12 +12,13 @@ type PausedProps = {
  * "sign-in is not configured", which was true only in the narrowest sense.
  */
 function Paused({ environmentName }: Readonly<PausedProps>) {
+  const { messages } = useI18n()
   return (
     <div className="signed-out">
       <h1 className="signed-out-title">TaskFest</h1>
-      <img className="paused-panda" src={panda} alt="A cartoon panda chewing on bamboo" width={240} height={240} />
+      <img className="paused-panda" src={panda} alt={messages.paused.panda} width={240} height={240} />
       <p className="paused-message">
-        {environmentName ? `Environment ${environmentName}` : 'This environment'} is paused at the moment.
+        {messages.paused.message(environmentName)}
       </p>
     </div>
   )

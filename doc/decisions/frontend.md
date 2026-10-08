@@ -299,3 +299,32 @@ architecture diagrams, and the Cognito pool appears to users as "TaskFest test a
 to Google as the identity provider, which the issuer says. A configurable `icon` per provider would
 have done it too, at the price of an API change and a changed existing test.
 
+
+## English and German, from a typed catalogue of our own
+
+**Decision (#203).** Every text the frontend shows comes from `src/i18n/messages.ts`: an English
+catalogue that defines the shape, and a German one typed as that shape. The language is the
+visitor's remembered choice, else the browser's first preference the app has, else English; a
+switch in the footer changes it and is remembered in the browser. `<html lang>` follows. Dates and
+due-date words take the language's words and locale (`dates.ts`), and the calendar uses
+react-day-picker's German locale.
+
+**Why no i18n library.** Two languages and about a hundred texts need a lookup, interpolation and
+plurals for a handful of entries -- which a typed object of strings and small functions gives,
+with completeness checked by the compiler rather than at runtime. FormatJS or i18next would add a
+runtime dependency, an extraction step and a key format, for features (ICU message syntax,
+lazy-loaded catalogues) nothing here needs yet. If a third language or a translation tool arrives,
+that is the moment to revisit.
+
+**Why errors carry keys.** The wire layer stays language-free: `api.ts` imports no catalogue. It
+names a failure -- a request by what it was doing, a broken contract by which answer and how -- and
+keeps an English message of its own for consoles and tests; `i18n/failures.ts` words it from the
+catalogue when the banner renders, so switching language translates a banner already on screen. An
+error nobody named (the browser's "Failed to fetch", a JSON parser's complaint) speaks English or
+the browser's language, so it is shown as it is on an English page only.
+
+**What stays English (for now).** Google's sign-in button: its official assets exist in English
+only (D3). Provider labels: they are backend configuration, so "TaskFest test account" stays
+English in a German sentence until labels are configured per language. The privacy policy, the
+terms and the documentation site (D4).
+

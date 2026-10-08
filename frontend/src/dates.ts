@@ -8,6 +8,9 @@
  * from `yyyy-mm-dd` shifts the day backwards west of UTC.
  */
 
+import { localeOf } from './i18n/language'
+import { en, type Messages } from './i18n/messages'
+
 /** Which group of the board a task belongs to, derived from its due date alone. */
 export type DueBucket = 'overdue' | 'today' | 'tomorrow' | 'thisWeek' | 'later'
 
@@ -19,9 +22,13 @@ export type QuickDate = {
 
 /**
  * Pinned rather than left to the environment's default locale, so the same date renders the
- * same string on a German laptop, a US CI runner and in jsdom.
+ * same string on a German laptop, a US CI runner and in jsdom. Since #203 the caller passes the
+ * locale of the language the app speaks; this is the default, English's.
  */
-const DISPLAY_LOCALE = 'en-GB'
+const DISPLAY_LOCALE = localeOf('en')
+
+/** The words a due date is described with, in the language the app speaks: `i18n/messages.ts`. */
+export type DateWords = Messages['dates']
 
 const MILLISECONDS_PER_DAY = 86_400_000
 
@@ -59,27 +66,27 @@ export function addDays(iso: string, days: number) {
  * this week, and a date once it is far enough away that "in 9 days" stops meaning anything.
  * Overdue dates say how late they are, because "3 days ago" is the thing worth noticing.
  */
-export function describeDueDate(iso: string, today: string) {
+export function describeDueDate(iso: string, today: string, words: DateWords = en.dates, locale = DISPLAY_LOCALE) {
   const offset = daysBetween(today, iso)
 
   if (offset === 0) {
-    return 'Today'
+    return words.today
   }
   if (offset === 1) {
-    return 'Tomorrow'
+    return words.tomorrow
   }
   if (offset === -1) {
-    return 'Yesterday'
+    return words.yesterday
   }
   if (offset < -1) {
-    return `${-offset} days ago`
+    return words.daysAgo(-offset)
   }
   if (offset < 7) {
-    return atUtcMidnight(iso).toLocaleDateString(DISPLAY_LOCALE, { weekday: 'short', timeZone: 'UTC' })
+    return atUtcMidnight(iso).toLocaleDateString(locale, { weekday: 'short', timeZone: 'UTC' })
   }
 
   const sameYear = iso.slice(0, 4) === today.slice(0, 4)
-  return atUtcMidnight(iso).toLocaleDateString(DISPLAY_LOCALE, {
+  return atUtcMidnight(iso).toLocaleDateString(locale, {
     day: 'numeric',
     month: 'short',
     timeZone: 'UTC',
@@ -109,11 +116,11 @@ export function bucketOf(iso: string, today: string): DueBucket {
  * These exist because typing a date is the slowest part of adding a task, and almost every
  * task is due in one of these four places.
  */
-export function quickDates(today: string): QuickDate[] {
+export function quickDates(today: string, words: DateWords = en.dates): QuickDate[] {
   return [
-    { label: 'Today', iso: today },
-    { label: 'Tomorrow', iso: addDays(today, 1) },
-    { label: 'In 1 week', iso: addDays(today, 7) },
-    { label: 'In 2 weeks', iso: addDays(today, 14) },
+    { label: words.today, iso: today },
+    { label: words.tomorrow, iso: addDays(today, 1) },
+    { label: words.inWeeks(1), iso: addDays(today, 7) },
+    { label: words.inWeeks(2), iso: addDays(today, 14) },
   ]
 }

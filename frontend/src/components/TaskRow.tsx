@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Task, TaskState } from '../api'
 import { describeDueDate, daysBetween } from '../dates'
-import { importanceLabels } from '../importance'
 import TaskEditor, { type TaskEdit } from './TaskEditor'
+import { useI18n } from '../i18n/context'
 
 type TaskRowProps = {
   task: Task
@@ -26,6 +26,7 @@ type TaskRowProps = {
  * to anyone not looking at it.
  */
 function TaskRow({ task, today, onToggleDone, onSetState, onDelete, onEdit }: Readonly<TaskRowProps>) {
+  const { messages, locale } = useI18n()
   const done = task.state === 'DONE'
   const overdue = !done && daysBetween(today, task.dueDate) < 0
   const inputId = `task-${task.id}`
@@ -115,7 +116,7 @@ function TaskRow({ task, today, onToggleDone, onSetState, onDelete, onEdit }: Re
         id={inputId}
         checked={done}
         onChange={() => onToggleDone(task)}
-        aria-label={`Mark "${task.description}" as done`}
+        aria-label={messages.row.markDone(task.description)}
       />
       <div className="task-body">
         <label className="task-description" htmlFor={inputId}>
@@ -129,18 +130,18 @@ function TaskRow({ task, today, onToggleDone, onSetState, onDelete, onEdit }: Re
             * alone conveys nothing to a screen reader, which gets the word instead.
             */}
           <span className={`task-importance task-importance--${task.importance.toLowerCase()}`}>
-            <span className="visually-hidden">{importanceLabels[task.importance]}</span>
+            <span className="visually-hidden">{messages.importance.levels[task.importance]}</span>
           </span>
           <span className={overdue ? 'task-due task-due--overdue' : 'task-due'}>
-            {describeDueDate(task.dueDate, today)}
+            {describeDueDate(task.dueDate, today, messages.dates, locale)}
           </span>
-          {task.state === 'WORKING' ? <span className="task-chip">doing</span> : null}
+          {task.state === 'WORKING' ? <span className="task-chip">{messages.row.inProgress}</span> : null}
         </p>
       </div>
       <details className="task-menu" id={menuId} open={menuOpen}>
         <summary
           id={summaryId}
-          aria-label={`Actions for "${task.description}"`}
+          aria-label={messages.row.actions(task.description)}
           onClick={(event) => {
             // The native toggle is suppressed so `menuOpen` is the only thing that decides,
             // rather than racing the `toggle` event, which browsers fire asynchronously.
@@ -159,7 +160,7 @@ function TaskRow({ task, today, onToggleDone, onSetState, onDelete, onEdit }: Re
                 setEditing(true)
               }}
             >
-              Edit
+              {messages.row.edit}
             </button>
           ) : null}
           {task.state === 'WORKING' ? (
@@ -170,7 +171,7 @@ function TaskRow({ task, today, onToggleDone, onSetState, onDelete, onEdit }: Re
                 onSetState(task, 'TODO')
               }}
             >
-              Mark as not started
+              {messages.row.markNotStarted}
             </button>
           ) : (
             <button
@@ -180,7 +181,7 @@ function TaskRow({ task, today, onToggleDone, onSetState, onDelete, onEdit }: Re
                 onSetState(task, 'WORKING')
               }}
             >
-              Mark as in progress
+              {messages.row.markInProgress}
             </button>
           )}
           <button
@@ -191,7 +192,7 @@ function TaskRow({ task, today, onToggleDone, onSetState, onDelete, onEdit }: Re
               onDelete(task)
             }}
           >
-            Delete
+            {messages.row.delete}
           </button>
         </div>
       </details>
