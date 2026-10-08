@@ -323,7 +323,7 @@ paths:
       - Account
       responses:
         "204":
-          description: Deleted; sign out next.
+          description: "Deleted, and this browser's session ended."
         "401":
           description: Not Authorized
         "403":
