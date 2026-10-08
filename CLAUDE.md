@@ -43,6 +43,11 @@ slows things down.
   not apply, and note the review's outcome in the PR. Docs-only changes, Renovate updates and
   follow-up fixes without an issue do not need one. For a particularly critical change Gunnar
   may run `/code-review ultra` himself; Claude cannot start that one.
+- **The same pull requests get one Copilot review, requested by hand** once `/code-review high`'s
+  fixes are pushed: `gh pr edit <n> --add-reviewer @copilot`. It is not wired into the ruleset,
+  because a review there ran on every push of every pull request, Renovate's included, and used up
+  the monthly premium-request quota. Its findings are gone through with Gunnar one by one, like
+  any other review's, and need not hold up the merge.
 - Delete a branch once its pull request is merged — locally and on `origin` —
   unless told otherwise. Because pull requests are squash-merged, a merged
   branch does not show up in `git branch --merged main`, so stale branches are
