@@ -9,8 +9,10 @@ the downtime that this deployment model already accepts.
 
 **The deploy takes that snapshot itself** (#215): a release with a migration stops the backend,
 snapshots the database as `taskfest-<env>-db-pre-release-<release>-<time>`, and only then migrates
-([deploying.md](deploying.md)). The newest three such snapshots per environment are kept and older
-ones deleted by the deploy; final snapshots are never touched by it. **To restore one** — after a
+([deploying.md](deploying.md)). After a successful deploy the newest three such snapshots per
+environment are kept and older ones deleted; final snapshots are never touched by it. A deploy
+refuses to roll back across a migration, because the older release would start on the newer
+schema: this restore is that rollback. **To restore one** — after a
 migration that failed, or a release that has to go — take the environment down and bring it up on
 the release that ran before, from that snapshot:
 
@@ -19,7 +21,9 @@ deployment/aws-tofu/env.sh down qa
 deployment/aws-tofu/env.sh up qa v1.2.2 --from-snapshot=taskfest-qa-db-pre-release-v1-2-3-20261008-201530
 ```
 
-`down` leaves a final snapshot of the migrated database as usual, so nothing is lost by trying.
+`--from-snapshot` is refused while the environment is up: tofu restores only a database it
+creates. `down` leaves a final snapshot of the migrated database as usual, so nothing is lost by
+trying.
 What was written between the snapshot and the restore is gone with it — little, since the backend
 was stopped in between — except that account deletions are replayed at start (#213); attachment
 files are the case below.

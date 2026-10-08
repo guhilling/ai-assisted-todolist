@@ -251,7 +251,7 @@ start_backend() {
 #
 # deploy-backend.py decides and builds the reference, so an environment brought up and one
 # deployed to name their image the same way: one that is already up keeps what it runs, since
-# releases reach it through deploy-backend.yml and its migration check; one that is down starts the
+# releases reach it through deploy-backend.yml, which migrates them itself; one that is down starts the
 # release named on the command line or, for qa only, the newest final release on origin -- which
 # release.yml has already deployed to qa. prod starts only a release someone names.
 #
@@ -366,8 +366,15 @@ case "$COMMAND" in
             up_args=(-var "backend_image=${image}")
 
             # Named, it is the way back from a failed migration (#215): the database as it was
-            # just before, which the deploy named in its run summary.
+            # just before, which the deploy named in its run summary. Only a database being created
+            # is restored -- tofu ignores the snapshot afterwards -- so an environment that is up
+            # is refused, rather than migrated and started on the schema it was meant to leave.
             if [[ -n "$FROM_SNAPSHOT" ]]; then
+                if [[ "$(run_tofu output -json db_endpoint 2>/dev/null || echo null)" != "null" ]]; then
+                    echo "${ENVIRONMENT} is up, so its database exists and nothing would be restored." >&2
+                    echo "Take it down first: ./env.sh down ${ENVIRONMENT}" >&2
+                    exit 1
+                fi
                 snapshot="$FROM_SNAPSHOT"
             else
                 snapshot="$(newest_final_snapshot)"

@@ -42,6 +42,7 @@ import dataclasses
 import json
 import os
 import re
+import signal
 import subprocess
 import sys
 import time
@@ -70,7 +71,8 @@ TAG = re.compile(r":(\d+\.\d+\.\d+(?:[-.][0-9A-Za-z.]+)?)(?:@sha256:[0-9a-f]{64}
 
 @dataclasses.dataclass
 class Action:
-    """What to do with this environment: deploy (blue/green), downtime (it migrates) or skip (it is down)."""
+    """What to do with this environment: deploy (blue/green), downtime (it migrates), skip (it is down)
+    or stop (a rollback across a migration, which only a snapshot restore can do)."""
     kind: str
     reason: str = ""
 
@@ -143,24 +145,52 @@ def image_to_deploy(running_image, version, resolve):
     return resolve()
 
 
-def decide(service_active, migrations_differ):
+def is_older(version, than):
+    """Whether release `version` precedes release `than`; a pre-release precedes its final release."""
+    def key(tag):
+        core, _, suffix = tag.removeprefix("v").partition("-")
+        return tuple(int(part) for part in core.split(".")), suffix == ""
+    return key(version) < key(than)
+
+
+def decide(service_active, migrations_differ, downgrade=False):
     """The whole policy, as a pure function of the environment's state and the changelog diff."""
     if not service_active:
         return Action("skip", "the backend service is not running here -- the environment is down")
+    if migrations_differ and downgrade:
+        return Action("stop", "this rolls back across a database migration: the older release's "
+                              "Liquibase would leave the newer schema as it is and start against it. "
+                              "Roll back by restoring the snapshot taken before the migration "
+                              "(doc/deployment/database.md)")
     if migrations_differ:
         return Action("downtime", "this release changes the database migrations, which blue/green must "
                                   "not roll out under live traffic")
     return Action("deploy")
 
 
-def after_failure(step):
+def after_failure(step, migrated=True):
     """What a failed downtime step leaves running: "restart" the old version, or "stay-down".
 
     Until `migrate` runs the schema is the old version's, so it can simply come back. From then on
     neither version is safe -- the old one against a migrated schema, either against a half-migrated
-    one -- so the service stays at zero until a person has looked.
+    one -- so the service stays at zero until a person has looked. A migration whose task never
+    started (`migrated=False`) changed nothing either.
     """
-    return "restart" if DOWNTIME_STEPS.index(step) < DOWNTIME_STEPS.index("migrate") else "stay-down"
+    if not migrated or DOWNTIME_STEPS.index(step) < DOWNTIME_STEPS.index("migrate"):
+        return "restart"
+    return "stay-down"
+
+
+def without_rollback(configuration):
+    """The service's deployment configuration with the circuit breaker's rollback off.
+
+    The downtime path's start must not roll back: the version ECS would restore is the old one,
+    and the schema has been migrated under it. A failed start stops instead, and the service is
+    scaled to zero.
+    """
+    changed = copy.deepcopy(configuration)
+    changed.setdefault("deploymentCircuitBreaker", {"enable": True})["rollback"] = False
+    return changed
 
 
 def database_instance(environment):
@@ -228,8 +258,9 @@ def startup_choice(service_active, running_image, version):
     """What `env.sh up` starts the backend as: ("keep", image), ("release", version) or ("error", why).
 
     An environment that is already up keeps what it runs. Releases reach it through this script,
-    past the migration check; if `up` moved the task definitions tofu owns -- `migrate` among
-    them -- to a newer release, a release that check stopped could reach the database anyway.
+    which takes the downtime path for a migration and refuses a rollback across one; if `up` moved
+    the task definitions tofu owns -- `migrate` among them -- to another release, a migration could
+    reach the database past both.
     """
     if service_active:
         return ("keep", running_image)
@@ -316,13 +347,30 @@ def wait_for_rollout(cluster, service, task_definition_arn):
 
 
 def wait_until(what, timeout, done):
-    """Polls `done` every 15 seconds; raises if it is not true within `timeout` seconds."""
+    """Polls `done` every 15 seconds; raises if it is not true within `timeout` seconds. A failed
+    call -- throttling, a network blip -- is retried like wait_for_rollout's: what is waited for
+    goes on regardless."""
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
-        if done():
-            return
+        try:
+            if done():
+                return
+        except subprocess.CalledProcessError as error:
+            print(f"  polling failed, retrying: {error.stderr.strip()}")
         time.sleep(15)
     raise RuntimeError(f"{what} did not happen within {timeout // 60} minutes")
+
+
+class NothingMigrated(RuntimeError):
+    """The migrate task was never placed, so the schema is untouched and the old version can return."""
+
+
+class Cancelled(RuntimeError):
+    """The run was cancelled; the step it interrupted is recovered from like any failure."""
+
+
+def cancel(signum, frame):
+    raise Cancelled(f"the run was cancelled (signal {signum})")
 
 
 class Downtime:
@@ -362,13 +410,16 @@ class Downtime:
     def migrate(self, image):
         family = f"{PROJECT}-{self.environment}-migrate"
         describe = lambda name: aws("ecs", "describe-task-definition", "--task-definition", name)["taskDefinition"]
-        newest = describe(family)
-        registered = register_release(applied_revision(describe, newest, self.deploy_role), image)
-        self.migrate_task = aws(
+        # Its newest revision is only the fallback; applied_revision reads the family itself.
+        registered = register_release(applied_revision(describe, describe(family), self.deploy_role), image)
+        started = aws(
             "ecs", "run-task", "--cluster", self.cluster, "--task-definition", registered["taskDefinitionArn"],
             "--launch-type", "FARGATE", "--started-by", "deploy-backend",
             "--network-configuration", json.dumps(task_network(self.describe_service())),
-        )["tasks"][0]["taskArn"]
+        )
+        if not started.get("tasks"):
+            raise NothingMigrated(f"the migrate task was not started: {json.dumps(started.get('failures', []))}")
+        self.migrate_task = started["tasks"][0]["taskArn"]
         print(f"Migrating with task {self.migrate_task}; waiting for it to finish.")
         stopped = {}
 
@@ -377,21 +428,48 @@ class Downtime:
             stopped.update(task)
             return task.get("lastStatus") == "STOPPED"
 
-        wait_until("the migration finishing", MIGRATE_TIMEOUT_SECONDS, finished)
+        try:
+            wait_until("the migration finishing", MIGRATE_TIMEOUT_SECONDS, finished)
+        except BaseException:
+            # Never leave it running: a restore or the next deploy's migration would overlap it.
+            self.stop_migration()
+            raise
         succeeded, why = task_outcome(stopped)
         log = f"log stream `task/migrate/{self.migrate_task.rsplit('/', 1)[-1]}` in `/ecs/{PROJECT}-{self.environment}`"
         if not succeeded:
             raise RuntimeError(f"the migration failed, {why}; see its {log}")
         return f"{why}, revision {registered['revision']}; {log}"
 
+    def stop_migration(self):
+        if not self.migrate_task:
+            return
+        try:
+            aws("ecs", "stop-task", "--cluster", self.cluster, "--task", self.migrate_task,
+                "--reason", "deploy-backend gave up waiting for it")
+        except subprocess.CalledProcessError as error:
+            print(f"::warning::Could not stop the migrate task {self.migrate_task}: {error.stderr.strip()}")
+
     def start(self, base, image, count):
+        """Starts the release with the circuit breaker's rollback off for this one deployment, so a
+        failed start never brings the old version back against the migrated schema; the
+        service's own configuration is put back afterwards, whatever happened."""
+        configuration = self.describe_service()["deploymentConfiguration"]
         registered = register_release(base, image)
         aws("ecs", "update-service", "--cluster", self.cluster, "--service", self.service,
-            "--task-definition", registered["taskDefinitionArn"], "--desired-count", str(count))
-        print(f"Starting {registered['taskDefinitionArn']} with {count} task(s); waiting until it is serving.")
-        state = wait_for_rollout(self.cluster, self.service, registered["taskDefinitionArn"])
-        if state != "COMPLETED":
-            raise RuntimeError(f"the rollout {'did not finish in time' if state == 'IN_PROGRESS' else state}")
+            "--task-definition", registered["taskDefinitionArn"], "--desired-count", str(count),
+            "--deployment-configuration", json.dumps(without_rollback(configuration)))
+        try:
+            print(f"Starting {registered['taskDefinitionArn']} with {count} task(s); waiting until it is serving.")
+            state = wait_for_rollout(self.cluster, self.service, registered["taskDefinitionArn"])
+            if state != "COMPLETED":
+                raise RuntimeError(f"the rollout {'did not finish in time' if state == 'IN_PROGRESS' else state}")
+        finally:
+            try:
+                aws("ecs", "update-service", "--cluster", self.cluster, "--service", self.service,
+                    "--deployment-configuration", json.dumps(configuration))
+            except subprocess.CalledProcessError as error:
+                print(f"::warning::The circuit breaker's rollback is still off; the next apply puts it "
+                      f"back: {error.stderr.strip()}")
         return f"{count} task(s) serving, revision {registered['revision']}"
 
     def prune_snapshots(self):
@@ -421,26 +499,32 @@ def take_downtime(args, cluster, service, running_version, running_count, base, 
     }
     lines = [f"**{args.version} to {args.environment}, with downtime:** the release changes the database "
              f"migrations (compared with {running_version}).", "", "| Step | Outcome |", "| --- | --- |"]
+    # Cancelling the run must not leave the environment wherever it was: the step it interrupts is
+    # recovered from like a failure. GitHub sends SIGINT, then SIGTERM.
+    signal.signal(signal.SIGTERM, cancel)
+    signal.signal(signal.SIGINT, cancel)
     for step in DOWNTIME_STEPS:
         try:
             outcome = run[step]()
-        except (RuntimeError, subprocess.CalledProcessError, KeyError, IndexError) as error:
+        except Exception as error:  # noqa: BLE001 -- whatever failed, the environment must be left safe
             why = error.stderr.strip() if isinstance(error, subprocess.CalledProcessError) else str(error)
-            lines.append(f"| {step} | **failed:** {why} |")
-            lines += ["", recover(path, step, running_version, running_count)]
+            lines.append(f"| {step} | **failed:** {why or type(error).__name__} |")
+            migrated = not isinstance(error, NothingMigrated)
+            lines += ["", recover(path, step, running_version, running_count, migrated)]
             summary("\n".join(lines))
             return 1
         lines.append(f"| {step} | {outcome} |")
-        if step == "snapshot":
-            path.prune_snapshots()
+    # Only now: a failed migration's retries each snapshot a half-migrated database, and pruning
+    # then could delete the last clean one, which the first failure named as the way back.
+    path.prune_snapshots()
     lines += ["", f"**{args.version} deployed to {args.environment}** (was {running_version}), `{image}`."]
     summary("\n".join(lines))
     return 0
 
 
-def recover(path, step, running_version, running_count):
+def recover(path, step, running_version, running_count, migrated=True):
     """Leaves the environment as after_failure says, and says what a person does next."""
-    if after_failure(step) == "restart":
+    if after_failure(step, migrated) == "restart":
         try:
             path.scale(running_count)
         except subprocess.CalledProcessError as error:
@@ -503,10 +587,15 @@ def main():
         return print_startup_image(args, region, account, active, running_image)
     running_version = (version_of(running_image) if running_image else None) or previous_release(args.version)
 
-    action = decide(bool(active), active and changelog_differs(running_version, args.version))
+    action = decide(bool(active), active and changelog_differs(running_version, args.version),
+                    downgrade=is_older(args.version, running_version))
     if action.kind == "skip":
         summary(f"**{args.version} not deployed to {args.environment}:** {action.reason}.")
         return 0
+    if action.kind == "stop":
+        summary(f"::error::{args.version} not deployed to {args.environment} (runs {running_version}): "
+                f"{action.reason}.")
+        return 1
 
     image = image_to_deploy(running_image, args.version,
                             lambda: image_reference(account, region, args.version, release_digest(args.version)))

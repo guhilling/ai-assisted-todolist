@@ -97,6 +97,8 @@ jobs:
           # names this repository and this GitHub environment.
           role-to-assume: arn:aws:iam::808706946095:role/taskfest-${{ inputs.environment }}-deploy
           aws-region: eu-central-1
+          # The role's maximum: the downtime path's waits may outlast the default hour (deploy.tf).
+          role-duration-seconds: 7200
 
       - name: Roll the release out
         env:

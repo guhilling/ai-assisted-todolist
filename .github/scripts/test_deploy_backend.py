@@ -161,6 +161,31 @@ class DecideTest(unittest.TestCase):
     def test_anything_else_is_deployed_blue_green(self):
         self.assertEqual(deploy.decide(service_active=True, migrations_differ=False).kind, "deploy")
 
+    def test_rolling_back_across_a_migration_is_refused(self):
+        # The older release's Liquibase ignores the newer changesets and exits 0, so the downtime
+        # path would start it against a schema it was not built for. The way back is a restore.
+        action = deploy.decide(service_active=True, migrations_differ=True, downgrade=True)
+        self.assertEqual(action.kind, "stop")
+        self.assertIn("snapshot", action.reason)
+
+    def test_rolling_back_without_a_migration_is_an_ordinary_deploy(self):
+        self.assertEqual(deploy.decide(service_active=True, migrations_differ=False, downgrade=True).kind, "deploy")
+
+
+class OlderTest(unittest.TestCase):
+
+    def test_an_earlier_release_is_older(self):
+        self.assertTrue(deploy.is_older("v1.2.2", "v1.2.3"))
+        self.assertTrue(deploy.is_older("v1.9.0", "v1.10.0"))
+
+    def test_the_same_or_a_later_release_is_not(self):
+        self.assertFalse(deploy.is_older("v1.2.3", "v1.2.3"))
+        self.assertFalse(deploy.is_older("v1.3.0", "v1.2.3"))
+
+    def test_a_pre_release_is_older_than_its_final_release(self):
+        self.assertTrue(deploy.is_older("v1.2.3-rc.1", "v1.2.3"))
+        self.assertFalse(deploy.is_older("v1.2.3", "v1.2.3-rc.1"))
+
 
 class RolloutTest(unittest.TestCase):
     """Waiting is reading the new deployment's rolloutState, not ECS's ten-minute stable waiter."""
@@ -227,6 +252,19 @@ class DowntimeTest(unittest.TestCase):
         # The schema is untouched until `migrate` runs, so what ran before can run again.
         self.assertEqual(deploy.after_failure("stop"), "restart")
         self.assertEqual(deploy.after_failure("snapshot"), "restart")
+
+    def test_a_migration_that_never_started_restarts_the_old_version(self):
+        # RunTask can refuse to place a task at all (capacity, ENIs): the schema is still untouched.
+        self.assertEqual(deploy.after_failure("migrate", migrated=False), "restart")
+
+    def test_the_start_turns_off_the_rollback_and_keeps_the_rest(self):
+        # ECS's rollback would bring the old version back against the migrated schema.
+        configuration = {"strategy": "BLUE_GREEN", "bakeTimeInMinutes": 5,
+                         "deploymentCircuitBreaker": {"enable": True, "rollback": True}}
+        self.assertEqual(deploy.without_rollback(configuration),
+                         {"strategy": "BLUE_GREEN", "bakeTimeInMinutes": 5,
+                          "deploymentCircuitBreaker": {"enable": True, "rollback": False}})
+        self.assertTrue(configuration["deploymentCircuitBreaker"]["rollback"])
 
     def test_from_the_migration_on_a_failure_leaves_the_service_down(self):
         # Neither version may run against a schema it was not built for, or against a half-migrated one.

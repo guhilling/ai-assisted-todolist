@@ -83,6 +83,11 @@ resource "aws_iam_role" "deploy" {
   description        = "Redeploys the ${var.environment} application from GitHub Actions. Cannot change infrastructure."
   assume_role_policy = data.aws_iam_policy_document.deploy_trust.json
 
+  # Two hours, not IAM's default one: the downtime path's waits (#215) -- stop, snapshot, migrate,
+  # and a rollout with prod's bake -- may add up to more than an hour, and credentials that expire
+  # mid-start would also fail the call that leaves the service safe. deploy-backend.yml asks for it.
+  max_session_duration = 7200
+
   tags = { Name = "${local.name}-deploy" }
 }
 

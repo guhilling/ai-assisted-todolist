@@ -63,12 +63,15 @@ in the run summary:
 1. **stop** — scale the service to zero and wait until no task runs (up to ten minutes);
 2. **snapshot** — take a manual snapshot of the database, `taskfest-<env>-db-pre-release-<release>-<time>`,
    and wait until it is available (up to 45 minutes; a demo-sized database takes a few). It is the
-   way back. The newest three per environment are kept and older ones deleted
-   ([database.md](database.md));
+   way back. Once a deploy has succeeded, the newest three per environment are kept and older ones
+   deleted ([database.md](database.md)) — not before, or retrying a failed migration three times
+   would delete the one clean snapshot the first failure named;
 3. **migrate** — register a revision of the `migrate` task with the release's image, run it in the
    service's own network, and wait for exit 0 (up to 20 minutes);
 4. **start** — register the release's task definition as in step 4 above, point the service at it,
-   scale back to the task count it had, and wait until the rollout has completed.
+   scale back to the task count it had, and wait until the rollout has completed. The circuit
+   breaker's rollback is off for this one deployment and put back afterwards: what it would roll
+   back to is the old version, on the migrated schema.
 
 The downtime runs from the stop until the release's tasks pass their health checks and take the
 traffic: the snapshot and the migration, plus a start, usually a matter of minutes.
@@ -77,8 +80,17 @@ or snapshotting restarts the old version, whose schema is untouched. From the mi
 service stays at **zero**: the old version must not run against a migrated schema, and neither
 against a half-migrated one. The summary names the snapshot, and the way back is a restore
 ([database.md](database.md)) or a fix and another deploy. A start that fails after a successful
-migration is treated the same way, since ECS's rollback would otherwise bring the old version back
-against the new schema.
+migration is treated the same way. A migrate task that was never placed changed nothing and
+restarts the old version; one the deploy gave up on is stopped, so it cannot overlap a restore.
+Cancelling the run is a failure of the step it interrupts. The polls retry a failed AWS call
+rather than mistaking throttling for a failed step, and the deploy role's session lasts two hours
+so the credentials outlive the longest wait.
+
+**A rollback across a migration is refused.** Deploying an older release whose changelog differs
+from the running one's fails before anything stops: its Liquibase would leave the newer schema as
+it is, exit 0, and the old version would start against it. The way back over a migration is the
+snapshot restore in [database.md](database.md). A rollback without a migration is an ordinary
+blue/green deploy, as before.
 
 **prod's approval says when it means downtime.** Before the approval, a job without credentials
 (`Migrations`) compares the release's changelog with the previous release, and names the deploy

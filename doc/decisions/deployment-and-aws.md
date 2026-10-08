@@ -50,7 +50,9 @@ environment's instance and its snapshots, and `rds:DeleteDBSnapshot` on its *pre
 snapshots only, to keep the newest three. Scaling the service and running the migration were
 already allowed. The role still cannot delete or modify the database, restore it, or delete a
 final snapshot or touch the automated backups (seven days, point in time): a misused deploy role
-could migrate the data and delete pre-release snapshots, and those two remain the way back.
+could migrate the data and delete pre-release snapshots, and those two remain the way back. Its
+sessions last two hours rather than one, because the path's waits together can outlast an hour,
+and credentials that expire mid-start would also fail the call that leaves the service safe.
 
 **Why the scope stops at deploying.** A credential that can run `tofu apply` needs create *and
 delete* on every resource the configuration manages, which is administrator for that environment
