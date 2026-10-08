@@ -47,6 +47,11 @@ needs no Keycloak at all. Fifty-two tests across ten classes:
   goes untested.
 - **`AttachmentEnumColumnTest`** — the attachment kind and state columns are the database's
   own enums, with the same labels as the Java enums.
+- **`AccountResourceTest`** and **`DeletionReplayTest`** — deleting one's own account (#213)
+  against LocalStack: everything the caller holds goes, nobody else's data is touched, an
+  interrupted deletion finishes when asked again, and an account a restore brought back is deleted
+  again unless it was created after the deletion. **`DeletionRecordsHashTest`** pins the record's
+  key with a known SHA-256, because a record written by one release must be found by the next.
 - **`KeycloakLoginFlowTest`** — the real authorization code flow (see below).
 - **`MetricsResourceTest`** — `/q/metrics` is actually exposed, since Micrometer
   contributes it through configuration that nothing else would notice breaking.

@@ -148,10 +148,81 @@ html {
 }
 
 .app-identity {
+  position: relative;
   display: flex;
   align-items: center;
   gap: var(--space-3);
   font-size: var(--font-small);
+}
+
+/* ---------- deleting one's own account (#213) ---------- */
+
+.account-delete {
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.account-delete:hover,
+.account-delete:focus-visible {
+  color: var(--danger);
+  text-decoration: underline;
+}
+
+/* Anchored under the header's identity row, as the row menus are under their button, so the board
+   stays readable behind it. */
+.account-confirm {
+  position: absolute;
+  top: calc(100% + var(--space-2));
+  right: 0;
+  z-index: 10;
+  width: min(400px, calc(100vw - var(--space-8)));
+  padding: var(--space-4);
+  border: 1px solid var(--danger);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: 0 4px 16px color-mix(in srgb, var(--text) 15%, transparent);
+  font-size: var(--font-body);
+}
+
+.account-confirm-title {
+  margin: 0 0 var(--space-2);
+  font-size: var(--font-body);
+}
+
+.account-confirm p {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+.account-confirm-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+}
+
+.account-confirm-actions > button {
+  white-space: nowrap;
+}
+
+.button-danger {
+  min-height: 44px;
+  padding: 0 var(--space-4);
+  border: none;
+  border-radius: 999px;
+  background: var(--danger);
+  color: var(--accent-contrast);
+  font-weight: 600;
+}
+
+.button-danger:disabled {
+  opacity: 0.5;
+  cursor: default;
 }
 
 .user-avatar {

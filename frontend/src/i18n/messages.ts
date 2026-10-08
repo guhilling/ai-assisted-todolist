@@ -48,6 +48,7 @@ export const en = {
     uploadAttachment: 'Unable to upload the file.',
     openAttachment: 'Unable to open the file.',
     removeAttachment: 'Unable to remove the file.',
+    deleteAccount: 'Unable to delete your account.',
   } as Record<RequestErrorKey, string>,
   /** An answer that broke the API contract (`ContractBreachError`): which one, and how. */
   contract: {
@@ -99,6 +100,16 @@ export const en = {
     markInProgress: 'Mark as in progress',
     delete: 'Delete',
     inProgress: 'doing',
+  },
+  /** Deleting one's own account (#213): the header's button, its confirmation, and the note after. */
+  account: {
+    delete: 'Delete account',
+    title: 'Delete your account?',
+    body: 'Every task and every file you have here is deleted, for good. This cannot be undone.',
+    keep: 'Keep my account',
+    confirm: 'Delete my account',
+    deleting: 'Deleting…',
+    deleted: 'Your account has been deleted. Signing in again starts a new, empty one.',
   },
   /** Files on a task (#204): in the editor, attaching; on the row, opening and removing. */
   attachments: {
@@ -194,6 +205,7 @@ export const de: Messages = {
     uploadAttachment: 'Die Datei konnte nicht hochgeladen werden.',
     openAttachment: 'Die Datei konnte nicht geöffnet werden.',
     removeAttachment: 'Die Datei konnte nicht entfernt werden.',
+    deleteAccount: 'Dein Konto konnte nicht gelöscht werden.',
   },
   contract: {
     message: (subject: string, detail?: string) =>
@@ -244,6 +256,15 @@ export const de: Messages = {
     markInProgress: 'Als in Arbeit markieren',
     delete: 'Löschen',
     inProgress: 'in Arbeit',
+  },
+  account: {
+    delete: 'Konto löschen',
+    title: 'Dein Konto löschen?',
+    body: 'Alle Aufgaben und alle Dateien, die du hier hast, werden endgültig gelöscht. Das lässt sich nicht rückgängig machen.',
+    keep: 'Konto behalten',
+    confirm: 'Mein Konto löschen',
+    deleting: 'Wird gelöscht …',
+    deleted: 'Dein Konto wurde gelöscht. Wenn du dich wieder anmeldest, beginnt ein neues, leeres Konto.',
   },
   attachments: {
     title: 'Anhänge',

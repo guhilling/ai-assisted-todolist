@@ -13,6 +13,7 @@ import {
   authLogoutUrl,
   deleteTask,
   BackendPausedError,
+  deleteAccount,
   fetchAuthProviders,
   fetchEnvironmentName,
   fetchCurrentUser,
@@ -30,6 +31,8 @@ import {
   type TaskInput,
   type TaskState,
 } from './api'
+import { rememberAccountDeleted, takeAccountDeleted } from './accountDeleted'
+import AccountDeletion from './components/AccountDeletion'
 import AddTaskRow from './components/AddTaskRow'
 import type { AttachmentActions, UploadOutcome } from './components/AttachmentList'
 import type { TaskEdit } from './components/TaskEditor'
@@ -85,6 +88,8 @@ function Board() {
   // renders, so switching language translates a banner already on screen too.
   const [error, setError] = useState<{ cause: unknown; fallback: keyof Messages['failures'] } | null>(null)
   const [sessionExpired, setSessionExpired] = useState(false)
+  // Read once on mount: the sign-out after deleting an account comes back here (#213).
+  const [accountDeleted] = useState(takeAccountDeleted)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [deleted, setDeleted] = useState<Task[] | null>(null)
@@ -320,6 +325,23 @@ function Board() {
     },
   }
 
+  /**
+   * Deletes the account (#213), then signs out by navigating to the sign-out, which ends the
+   * session the backend still holds and comes back to the signed-out page.
+   */
+  const deleteMyAccount = async () => {
+    setError(null)
+    try {
+      await deleteAccount()
+      rememberAccountDeleted()
+      window.location.assign(authLogoutUrl)
+      return true
+    } catch (deleteError) {
+      reportFailure(deleteError, 'deleting')
+      return false
+    }
+  }
+
   /** Returns whether the task was saved, so the add row knows whether to clear itself. */
   const addTask = async (input: TaskInput) => {
     setSaving(true)
@@ -350,6 +372,11 @@ function Board() {
             {messages.board.sessionExpired}
           </p>
         ) : null}
+        {accountDeleted ? (
+          <p className="session-notice" role="status" aria-live="polite">
+            {messages.account.deleted}
+          </p>
+        ) : null}
         {paused ? (
           <Paused environmentName={paused.environmentName} />
         ) : (
@@ -370,6 +397,7 @@ function Board() {
           <a className="text-link" href={authLogoutUrl}>
             {messages.app.signOut}
           </a>
+          <AccountDeletion onDelete={deleteMyAccount} />
         </div>
       </header>
 

@@ -238,3 +238,32 @@ re-attaches at most as many as a task may hold, whatever it names.
 
 **Rejected: malware scanning (D4).** The files are only ever opened by the person who uploaded
 them, so a scan would protect someone from their own file.
+
+
+## Deleting an account leaves a record outside the database
+
+**Decision.** A user deletes their own account (#213, Gunnar's decision; no admin role).
+`DELETE /api/account` acts on the caller only. It writes a deletion record first, then deletes each
+attachment, file before row, and last, in one transaction with the user's row locked, any
+remaining attachment rows, the tasks and the user. The browser then signs out.
+
+**Why a record, and why outside the database.** The privacy policy promises that a deletion also
+applies to a backup restored later, and the database is restored from snapshots routinely
+(`env.sh up`, a rollback). A record kept in the database would be undone by the very restore it is
+meant to survive, so it is a small object, `deleted-accounts/<SHA-256 of the email>` holding the
+deletion time, in the environment's attachment bucket, which a restore does not touch.
+`DeletionReplay`, shortly after every start and daily, deletes again any account such a record names
+-- but only one created *before* the deletion, so someone who signed up again afterwards keeps the
+new account. The attachment listing the orphan clean-up uses ignores everything under a prefix, so a
+record is never taken for an orphan.
+
+**Why this order.** Writing the record first makes the deletion finishable: an attempt that fails
+half way is completed by asking again, or by the replay after the next start. Locking the user's row
+last stops an upload racing the deletion from leaving an attachment row behind; a file such an
+upload slipped into the bucket is an orphan, and the clean-up of #208 removes it.
+
+**The hash is pseudonymous, not anonymous.** It holds no address, but anyone who knows an address
+can compute its hash and see that an account with it was deleted. That is said in the privacy
+policy. A keyed hash (HMAC) would avoid it at the price of a secret to keep and rotate; for a demo
+project the plain hash Gunnar chose is the proportionate answer.
+

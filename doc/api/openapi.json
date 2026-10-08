@@ -423,6 +423,10 @@
   },
   "tags": [
     {
+      "name": "Account",
+      "description": "The signed-in user's own account."
+    },
+    {
       "name": "Attachments",
       "description": "Files on a task, transferred directly between the browser and storage."
     },
@@ -436,6 +440,31 @@
     }
   ],
   "paths": {
+    "/api/account": {
+      "delete": {
+        "summary": "Delete my account",
+        "description": "Deletes every task and every file of the caller, and the account itself. It cannot be undone.",
+        "tags": [
+          "Account"
+        ],
+        "responses": {
+          "204": {
+            "description": "Deleted; sign out next."
+          },
+          "401": {
+            "description": "Not Authorized"
+          },
+          "403": {
+            "description": "Not Allowed"
+          }
+        },
+        "security": [
+          {
+            "SecurityScheme": []
+          }
+        ]
+      }
+    },
     "/api/auth/login": {
       "get": {
         "summary": "Start or complete sign-in",

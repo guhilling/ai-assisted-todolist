@@ -15,6 +15,8 @@
 | **Pending** | An attachment announced but not yet confirmed: its upload link is handed out, the file may or may not have arrived. Never listed. |
 | **Available** | An attachment whose file has arrived as announced. The only kind the board lists and opens. |
 | **Detached** | An attachment whose task was deleted, kept for the undo window in case the deletion is undone. |
+| **Account deletion** | A user deleting their own account: every task, every attachment and the user go at once, with no undo. |
+| **Deletion record** | What an account deletion leaves behind: a hash of the email and the time, kept outside the database so a restored backup cannot bring the account back. |
 
 Note the deliberate absence of "todo" as a noun. The code says *task* throughout, and the
 REST resource is `/api/tasks`. An earlier iteration used `/api/todos`; the rename is
@@ -53,6 +55,8 @@ past the window, and uploads that were never confirmed.
 | A user sees and changes only their own tasks | Every query in `TaskResource` carries an owner predicate |
 | An attachment is a PDF, JPEG, PNG, WebP or GIF | `AttachmentKind`, checked on announce, and a native enum column |
 | An attachment is at most 10 MB, at most 2 per task, at most 5 per user | `AttachmentPolicy`, counting pending and detached ones too; the size is also signed into the upload link, so S3 refuses any other |
+| A user can delete only their own account | `DELETE /api/account` acts on the caller and takes no id |
+| A deleted account stays deleted after a restore | `DeletionReplay` deletes again, after every start, any account a deletion record names that was created before the deletion |
 | A user sees and opens only their own attachments | Every lookup in `AttachmentService.find` carries the owner and the task, and a download link is only signed for a found one |
 
 That first one used to read "a task's due date is today or later", enforced on the entity as

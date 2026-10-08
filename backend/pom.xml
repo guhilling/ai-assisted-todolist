@@ -320,6 +320,7 @@
                         <param>de.hilling.taskfest.security.VerifiedEmailTest</param>
                         <param>de.hilling.taskfest.attachment.AttachmentPolicyTest</param>
                         <param>de.hilling.taskfest.attachment.OrphanPlanTest</param>
+                        <param>de.hilling.taskfest.account.DeletionRecordsHashTest</param>
                     </targetTests>
                     <!-- The classes no allowlisted test reaches, excluded so the score reflects
                          what was actually measured rather than being diluted by code PIT could
@@ -342,6 +343,13 @@
                         <param>de.hilling.taskfest.attachment.AttachmentsConfig*</param>
                         <param>de.hilling.taskfest.attachment.OrphanedObjects*</param>
                         <param>de.hilling.taskfest.attachment.OrphanSweep*</param>
+                        <!-- Account deletion (#213) talks to S3 and the database throughout, and
+                             has Quarkus tests only. DeletionRecords stays in scope for its one pure
+                             part, the record key's hash, which DeletionRecordsHashTest pins; its
+                             S3 methods count as uncovered there. -->
+                        <param>de.hilling.taskfest.account.AccountDeletion*</param>
+                        <param>de.hilling.taskfest.account.DeletionReplay*</param>
+                        <param>de.hilling.taskfest.api.AccountResource*</param>
                         <!-- Narrowed from service.* when the Gravatar classes earned plain unit
                              tests; UserService still has none that avoids booting Quarkus. -->
                         <param>de.hilling.taskfest.service.UserService*</param>

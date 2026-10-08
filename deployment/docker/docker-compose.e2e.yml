@@ -60,6 +60,8 @@ services:
       TASKFEST_OIDC_COOKIE_SECURE: "false"
       # No attachment bucket in this stack, so nothing for the orphan clean-up (#208) to list.
       TASKFEST_ATTACHMENTS_ORPHAN_SWEEP_EVERY: "off"
+      # Nor any deletion records to re-apply (#213).
+      TASKFEST_ACCOUNT_DELETION_REPLAY_EVERY: "off"
       SMALLRYE_CONFIG_LOCATIONS: /config/backend-e2e.properties
     volumes:
       - ../../e2e/backend-e2e.properties:/config/backend-e2e.properties:ro
