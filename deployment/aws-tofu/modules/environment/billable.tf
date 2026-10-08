@@ -392,6 +392,9 @@ resource "aws_ecs_task_definition" "backend" {
       { name = "TASKFEST_DATASOURCE_CREDENTIALS_PROVIDER", value = "rds-iam" },
       { name = "AWS_REGION", value = local.region },
 
+      # Where task attachments go (attachments.tf).
+      { name = "TASKFEST_ATTACHMENTS_BUCKET", value = local.attachments_bucket },
+
       # Sign-in with Google (sign-in.tf), on only where a client id is configured.
       { name = "TASKFEST_AUTH_ENABLED", value = tostring(local.sign_in_enabled) },
       { name = "TASKFEST_OIDC_GOOGLE_CLIENT_ID", value = var.google_client_id },
