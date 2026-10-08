@@ -6,7 +6,7 @@ import de.hilling.taskfest.model.Task;
 import de.hilling.taskfest.model.TaskImportance;
 import de.hilling.taskfest.model.TaskState;
 import de.hilling.taskfest.model.User;
-import de.hilling.taskfest.account.AccountGate;
+import de.hilling.taskfest.service.UserService;
 import io.quarkus.security.Authenticated;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
@@ -26,7 +26,6 @@ import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
-import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
@@ -78,7 +77,7 @@ public class TaskResource {
     JsonWebToken jwt;
 
     @Inject
-    AccountGate accounts;
+    UserService userService;
 
     @Inject
     AttachmentService attachments;
@@ -167,7 +166,7 @@ public class TaskResource {
     }
 
     private User currentUser() {
-        return accounts.signedIn(jwt.getClaim(OidcClaims.EMAIL), Instant.ofEpochSecond(jwt.getIssuedAtTime()));
+        return userService.getOrCreateByEmail(jwt.getClaim(OidcClaims.EMAIL));
     }
 
     private static void apply(Task task, TaskFields request) {

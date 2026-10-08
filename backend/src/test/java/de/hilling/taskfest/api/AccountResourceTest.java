@@ -15,10 +15,8 @@ import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.junit.TestProfile;
 import io.quarkus.test.security.TestSecurity;
 import io.quarkus.test.security.oidc.Claim;
-import io.quarkus.test.security.oidc.ClaimType;
 import io.quarkus.test.security.oidc.OidcSecurity;
 import jakarta.inject.Inject;
-import java.time.Instant;
 import java.time.LocalDate;
 import org.junit.jupiter.api.Test;
 import software.amazon.awssdk.core.sync.RequestBody;
@@ -121,31 +119,17 @@ class AccountResourceTest {
     }
 
     @Test
-    @TestSecurity(user = "old-session@example.com")
-    @OidcSecurity(claims = {
-        @Claim(key = "email", value = "old-session@example.com"),
-        // Issued in 2001: a session from before the deletion, still held by another device.
-        @Claim(key = "iat", value = "1000000000", type = ClaimType.LONG) })
-    void shouldRefuseASessionIssuedBeforeTheDeletion() {
-        records.record("old-session@example.com", Instant.now());
+    @TestSecurity(user = "other-device@example.com")
+    @OidcSecurity(claims = { @Claim(key = "email", value = "other-device@example.com") })
+    void shouldStartANewEmptyAccountForASessionLeftOpenElsewhere() {
+        // The account was deleted on another device; this session cannot be ended from the server,
+        // and using it starts afresh, as signing in again would (Gunnar's decision on #224).
+        holdingsOf("other-device@example.com");
+        given().when().delete("/api/account").then().statusCode(204);
 
-        given().when().get("/api/tasks").then().statusCode(401);
+        given().when().get("/api/tasks").then().statusCode(200).body("size()", org.hamcrest.Matchers.is(0));
 
-        assertEquals(0L, count(() -> User.count("email", "old-session@example.com")));
-    }
-
-    @Test
-    @TestSecurity(user = "new-session@example.com")
-    @OidcSecurity(claims = {
-        @Claim(key = "email", value = "new-session@example.com"),
-        // Issued in 2100: a sign-in after the deletion, which starts a new, empty account.
-        @Claim(key = "iat", value = "4102444800", type = ClaimType.LONG) })
-    void shouldStartANewAccountForASignInAfterTheDeletion() {
-        records.record("new-session@example.com", Instant.now());
-
-        given().when().get("/api/tasks").then().statusCode(200);
-
-        assertEquals(1L, count(() -> User.count("email", "new-session@example.com")));
+        assertEquals(1L, count(() -> User.count("email", "other-device@example.com")));
     }
 
     /** What a user holds: one task with one uploaded attachment. */

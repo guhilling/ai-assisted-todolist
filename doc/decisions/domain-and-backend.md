@@ -243,9 +243,9 @@ them, so a scan would protect someone from their own file.
 ## Deleting an account leaves a record outside the database
 
 **Decision.** A user deletes their own account (#213, Gunnar's decision; no admin role).
-`DELETE /api/account` acts on the caller only. It deletes each attachment, file before row; then,
-in one transaction with the user's row locked, any remaining attachment rows, the tasks and the
-user; and **last** writes a deletion record. The response expires this browser's session cookies.
+`DELETE /api/account` acts on the caller only. It writes a deletion record, then deletes each
+attachment, file before row, and, in one transaction with the user's row locked, any remaining
+attachment rows, the tasks and the user. The response expires this browser's session cookies.
 
 **Why a record, and why outside the database.** The privacy policy promises that a deletion also
 applies to a backup restored later, and the database is restored from snapshots routinely
@@ -255,27 +255,36 @@ environment's attachment bucket, which a restore does not touch; its time is the
 The attachment listing the orphan clean-up uses ignores everything under a prefix, so a record is
 never taken for an orphan.
 
-**Why the record comes last.** A deletion that fails half way is reported as failed, and the user
-carries on; a record written first would have the replay finish that deletion later, taking
-whatever was added since. Written last, a failed deletion is finished by asking again.
+**Why the record comes first, and is taken back on failure.** Written first, there is no moment in
+which the account is gone but unrecorded, which a crash or an S3 outage would otherwise leave for a
+restore to undo. A deletion that then fails removes its record again before reporting the failure:
+the user is told it did not happen, so the replay must not carry it out later, taking whatever was
+added since. A crash between record and deletion leaves the record, and the replay finishes a
+deletion the user did ask for. Where records are switched off (the Compose stacks, no bucket), the
+account is deleted without one.
 
 **Re-applying, before anyone can sign in.** `DeletionReplay` runs during start-up -- a restore
 always comes with one -- and daily, and deletes again any account a record names that was created
-*before* the deletion; someone who signed up again afterwards has a newer account and keeps it.
-Each record and account is handled on its own, so one failure stops nothing else.
+*before* the deletion -- checked again under the row lock, so an account created meanwhile is never
+taken for the restored one; someone who signed up again afterwards keeps theirs. The accounts are
+found by hashing the emails in SQL, not by loading every user. Each record and account is handled
+on its own, so one failure stops nothing else.
 
-**A session that outlived the account is refused.** The session is an encrypted cookie, so the
-server cannot end one another device holds, and that device's next request would recreate the
-account -- newer than the deletion, so kept. `AccountGate` therefore answers 401 when it would
-create a user whose deletion is recorded and the request's ID token was issued before that
-deletion; signing in again issues a new token and starts a new account. Only creating a user asks,
-so the check costs one S3 request per new account.
+**A session left open elsewhere starts a new account (Gunnar's decision).** The session is an
+encrypted cookie, so the server cannot end one another device holds, and that device's next request
+creates the account afresh -- empty, exactly as signing in again would. A check comparing the ID
+token's issue time with the deletion was built and dropped: Quarkus refreshes expired ID tokens,
+which renews the issue time, and refusing the session left its cookie in place, so the user could
+not sign in again. Making the promise hold would need a tamper-proof sign-in time of our own per
+session; the deleted data stays deleted either way.
 
 **How long a record is kept (Gunnar's decision).** Exactly as long as a snapshot or backup older
 than the deletion exists: each run deletes the records older than the oldest restorable point of
-the environment's database, from RDS's listing of its snapshots and retained backups
-(`RdsRestorePoints`). When that cannot be known -- RDS refused, listed nothing, or no instance is
-configured, as everywhere but AWS -- nothing is pruned.
+the environment's database, from RDS's listing of its snapshots and retained backups, every page of
+it (`RdsRestorePoints`). When that cannot be known -- RDS refused, listed nothing, or no instance is
+configured, as everywhere but AWS -- nothing is pruned. A record whose account is still there (its
+re-deletion failed) is kept, and a record rewritten since it was read stays. Pruning runs daily,
+not at start-up, so RDS never stands between a start and the first request.
 
 **A file still uploading can outlive the deletion (Gunnar's decision).** An upload link signed
 before the deletion stays valid for up to ten minutes, and a file arriving through it has no row:

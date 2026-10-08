@@ -122,9 +122,9 @@ based on legitimate interests (Art. 15–21 GDPR).
 **To delete your account**, use *Delete account* at the top of the board. After a confirmation,
 your account is deleted at once with everything it holds: your email address, all your tasks and
 all your files. The one exception is a file that was still being uploaded at that moment: it can
-arrive after the deletion, and is then deleted within seven days. You are then signed out, and a
-session still open on another device no longer works. Signing in again later starts a new, empty
-account. You can also write to the contact address above.
+arrive after the deletion, and is then deleted within seven days. You are then signed out.
+Signing in again later starts a new, empty account -- and so does using a session you left open on
+another device, which cannot be ended from here. You can also write to the contact address above.
 
 **What a deletion leaves behind:** a record that the account was deleted, so that the deletion
 also applies to a database backup or snapshot restored later. The record holds a SHA-256 hash of

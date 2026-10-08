@@ -124,14 +124,6 @@ public class AttachmentStore {
         s3.putObject(put -> put.bucket(bucket).key(key).contentType("text/plain"), RequestBody.fromString(text));
     }
 
-    /** Reads a small text object, or empty when nothing is there. */
-    public Optional<String> getText(String key) {
-        try {
-            return Optional.of(s3.getObjectAsBytes(get -> get.bucket(bucket).key(key)).asUtf8String());
-        } catch (NoSuchKeyException missing) {
-            return Optional.empty();
-        }
-    }
 
     /** What S3 holds under the key, or empty when nothing is there. */
     public Optional<HeadObjectResponse> head(String key) {

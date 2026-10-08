@@ -19,9 +19,9 @@ import org.eclipse.microprofile.openapi.annotations.tags.Tag;
  * The signed-in user's own account (#213): for now, deleting it with everything it holds.
  *
  * <p>It acts on the caller and takes no id, so there is nothing to point at anyone else's
- * account. The response expires this browser's session cookies, as signing out does; a session
- * another device still holds is refused by {@code AccountGate} instead, since an encrypted cookie
- * cannot be ended from the server.</p>
+ * account. The response expires this browser's session cookies, as signing out does. A session
+ * another device still holds cannot be ended from here -- it is an encrypted cookie -- and using it
+ * starts a new, empty account, exactly as signing in again would (Gunnar's decision on #224).</p>
  */
 @Path("/api/account")
 @Authenticated

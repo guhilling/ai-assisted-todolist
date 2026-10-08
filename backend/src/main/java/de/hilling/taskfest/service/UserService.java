@@ -39,8 +39,7 @@ public class UserService {
         return created;
     }
 
-    /** The user with this email, or null; it creates nothing. */
-    public User findByEmail(String email) {
+    private static User findByEmail(String email) {
         return User.find("email", email).firstResult();
     }
 

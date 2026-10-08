@@ -38,9 +38,11 @@ public class RdsRestorePoints implements RestorePoints {
     @Override
     public Optional<Instant> oldest() {
         try {
-            Stream<Instant> snapshots = rds.describeDBSnapshots(request -> request.dbInstanceIdentifier(instance))
+            // Every page: final snapshots pile up with each `down`, and the oldest may be on the last.
+            Stream<Instant> snapshots = rds.describeDBSnapshotsPaginator(
+                    request -> request.dbInstanceIdentifier(instance))
                 .dbSnapshots().stream().map(DBSnapshot::snapshotCreateTime);
-            Stream<Instant> backups = rds.describeDBInstanceAutomatedBackups(
+            Stream<Instant> backups = rds.describeDBInstanceAutomatedBackupsPaginator(
                     request -> request.dbInstanceIdentifier(instance))
                 .dbInstanceAutomatedBackups().stream()
                 .map(DBInstanceAutomatedBackup::restoreWindow)

@@ -133,8 +133,9 @@ eine Verarbeitung, die auf berechtigten Interessen beruht (Art. 15–21 DSGVO).
 Bestätigung wird Ihr Konto sofort mit allem gelöscht, was es enthält: Ihre E-Mail-Adresse, alle
 Ihre Aufgaben und alle Ihre Dateien. Einzige Ausnahme ist eine Datei, die in diesem Moment noch
 hochgeladen wurde: Sie kann nach der Löschung ankommen und wird dann innerhalb von sieben Tagen
-gelöscht. Danach werden Sie abgemeldet, und eine auf einem anderen Gerät noch offene Sitzung
-funktioniert nicht mehr. Melden Sie sich später wieder an, beginnt ein neues, leeres Konto. Sie
+gelöscht. Danach werden Sie abgemeldet. Melden Sie sich später wieder an, beginnt ein neues,
+leeres Konto -- ebenso, wenn Sie eine auf einem anderen Gerät noch offene Sitzung weiter nutzen,
+die sich von hier aus nicht beenden lässt. Sie
 können auch an die oben genannte Adresse schreiben.
 
 **Was eine Löschung hinterlässt:** einen Vermerk, dass das Konto gelöscht wurde, damit die

@@ -30,6 +30,13 @@ class RdsRestorePointsTest {
             @Override
             public DescribeDbSnapshotsResponse describeDBSnapshots(DescribeDbSnapshotsRequest request) {
                 assertEquals("taskfest-qa-db", request.dbInstanceIdentifier());
+                // Two pages, the older snapshot on the second, as with many final snapshots.
+                if (request.marker() == null) {
+                    return DescribeDbSnapshotsResponse.builder()
+                        .dbSnapshots(DBSnapshot.builder().snapshotCreateTime(Instant.parse("2026-10-07T00:00:00Z")).build())
+                        .marker("page-2")
+                        .build();
+                }
                 return DescribeDbSnapshotsResponse.builder()
                     .dbSnapshots(snapshot == null ? java.util.List.of()
                         : java.util.List.of(DBSnapshot.builder().snapshotCreateTime(snapshot).build()))
@@ -39,9 +46,11 @@ class RdsRestorePointsTest {
             @Override
             public DescribeDbInstanceAutomatedBackupsResponse describeDBInstanceAutomatedBackups(
                     DescribeDbInstanceAutomatedBackupsRequest request) {
+                // A backup without a restore window, as RDS reports one still being created, is ignored.
+                DBInstanceAutomatedBackup windowless = DBInstanceAutomatedBackup.builder().build();
                 return DescribeDbInstanceAutomatedBackupsResponse.builder()
-                    .dbInstanceAutomatedBackups(backup == null ? java.util.List.of()
-                        : java.util.List.of(DBInstanceAutomatedBackup.builder()
+                    .dbInstanceAutomatedBackups(backup == null ? java.util.List.of(windowless)
+                        : java.util.List.of(windowless, DBInstanceAutomatedBackup.builder()
                             .restoreWindow(RestoreWindow.builder().earliestTime(backup).build()).build()))
                     .build();
             }
@@ -64,10 +73,41 @@ class RdsRestorePointsTest {
     }
 
     @Test
+    void shouldReadEveryPageOfSnapshots() {
+        // SNAPSHOT is on the second page; the first holds only a newer one.
+        assertEquals(Optional.of(SNAPSHOT), new RdsRestorePoints(rds(SNAPSHOT, null), "taskfest-qa-db").oldest());
+    }
+
+    @Test
     void shouldKnowNothingWhenRdsListsNothing() {
         // No restorable point at all is far likelier a wrong instance name than a database
         // without backups, so it keeps every record rather than deleting them all.
-        assertEquals(Optional.empty(), new RdsRestorePoints(rds(null, null), "taskfest-qa-db").oldest());
+        assertEquals(Optional.empty(), new RdsRestorePoints(empty(), "taskfest-qa-db").oldest());
+    }
+
+    /** RDS listing nothing at all. */
+    private static RdsClient empty() {
+        return new RdsClient() {
+            @Override
+            public DescribeDbSnapshotsResponse describeDBSnapshots(DescribeDbSnapshotsRequest request) {
+                return DescribeDbSnapshotsResponse.builder().build();
+            }
+
+            @Override
+            public DescribeDbInstanceAutomatedBackupsResponse describeDBInstanceAutomatedBackups(
+                    DescribeDbInstanceAutomatedBackupsRequest request) {
+                return DescribeDbInstanceAutomatedBackupsResponse.builder().build();
+            }
+
+            @Override
+            public String serviceName() {
+                return "rds";
+            }
+
+            @Override
+            public void close() {
+            }
+        };
     }
 
     @Test

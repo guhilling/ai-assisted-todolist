@@ -13,6 +13,7 @@ import jakarta.inject.Inject;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -39,12 +40,18 @@ class DeletionReplayTest {
     @Inject
     AttachmentStore store;
 
+    @Inject
+    AccountDeletion deletion;
+
+    @Inject
+    AccountsConfig config;
+
     @Test
     void shouldDeleteAgainAnAccountARestoreBroughtBack() {
-        records.record("restored@example.com", Instant.now());
+        records.record("restored@example.com");
         long taskId = restoredUser("restored@example.com", Instant.now().minus(Duration.ofDays(30)));
 
-        replay.run();
+        replay.run(false);
 
         assertEquals(0L, (long) QuarkusTransaction.requiringNew().call(() -> User.count("email", "restored@example.com")));
         assertEquals(0L, (long) QuarkusTransaction.requiringNew().call(() -> Task.count("id", taskId)));
@@ -53,19 +60,49 @@ class DeletionReplayTest {
     @Test
     void shouldKeepAnAccountCreatedAfterTheDeletion() {
         // The record's time is when S3 wrote it; this account was created after that.
-        records.record("came-back@example.com", Instant.now());
+        records.record("came-back@example.com");
         restoredUser("came-back@example.com", Instant.now().plus(Duration.ofMinutes(1)));
 
-        replay.run();
+        replay.run(false);
 
         assertEquals(1L, (long) QuarkusTransaction.requiringNew().call(() -> User.count("email", "came-back@example.com")));
     }
 
     @Test
     void shouldKeepTheRecordsOutOfTheOrphanCleanUpsListing() {
-        records.record("listed@example.com", Instant.now());
+        records.record("listed@example.com");
 
         assertTrue(store.list().stream().noneMatch(object -> object.key().startsWith(DeletionRecords.PREFIX)));
+    }
+
+    @Test
+    void shouldPruneARecordNoRestoreCanNeedAnyMore() {
+        records.record("long-gone@example.com");
+        // A database whose oldest snapshot is newer than the record: nothing can bring it back.
+        DeletionReplay pruning = new DeletionReplay(records, deletion,
+            () -> Optional.of(Instant.now().plus(Duration.ofDays(1))), config);
+
+        pruning.run(true);
+
+        assertTrue(records.deletedAt("long-gone@example.com").isEmpty());
+    }
+
+    @Test
+    void shouldKeepEveryRecordWhenTheOldestSnapshotIsUnknown() {
+        records.record("kept@example.com");
+
+        replay.scheduled();
+
+        assertTrue(records.deletedAt("kept@example.com").isPresent());
+    }
+
+    @Test
+    void shouldTakeBackTheRecordOfADeletionThatDidNotGoThrough() {
+        records.record("changed-mind@example.com");
+
+        records.forget("changed-mind@example.com");
+
+        assertTrue(records.deletedAt("changed-mind@example.com").isEmpty());
     }
 
     private static long restoredUser(String email, Instant createdAt) {

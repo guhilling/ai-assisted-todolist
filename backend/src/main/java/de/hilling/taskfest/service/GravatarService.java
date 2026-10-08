@@ -35,6 +35,12 @@ import org.jboss.logging.Logger;
 @ApplicationScoped
 public class GravatarService {
 
+    /**
+     * The cache of looked-up avatars, keyed by email; account deletion (#213) clears an address
+     * from it, so the name is shared rather than written twice.
+     */
+    public static final String AVATAR_CACHE = "gravatar-avatars";
+
     private static final Logger LOG = Logger.getLogger(GravatarService.class);
 
     /** Gravatar answers 200 when the address has a picture, and 404 when it does not. */
@@ -65,7 +71,7 @@ public class GravatarService {
      * @param email the signed-in user's address
      * @return the avatar URL when Gravatar holds an image for the address, otherwise empty
      */
-    @CacheResult(cacheName = "gravatar-avatars")
+    @CacheResult(cacheName = AVATAR_CACHE)
     public Optional<String> avatarUrlFor(String email) {
         if (!enabled) {
             return Optional.empty();

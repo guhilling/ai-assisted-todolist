@@ -325,6 +325,7 @@
                         <param>de.hilling.taskfest.account.DeletionRecordsHashTest</param>
                         <param>de.hilling.taskfest.account.DeletionPruningTest</param>
                         <param>de.hilling.taskfest.account.RdsRestorePointsTest</param>
+                        <param>de.hilling.taskfest.account.RestorePointsProducerTest</param>
                     </targetTests>
                     <!-- The classes no allowlisted test reaches, excluded so the score reflects
                          what was actually measured rather than being diluted by code PIT could
@@ -353,9 +354,7 @@
                              S3 methods count as uncovered there. -->
                         <param>de.hilling.taskfest.account.AccountDeletion*</param>
                         <param>de.hilling.taskfest.account.DeletionReplay*</param>
-                        <param>de.hilling.taskfest.account.AccountGate*</param>
                         <param>de.hilling.taskfest.account.AccountsConfig*</param>
-                        <param>de.hilling.taskfest.account.RestorePointsProducer*</param>
                         <param>de.hilling.taskfest.api.SessionCookies*</param>
                         <param>de.hilling.taskfest.api.AccountResource*</param>
                         <!-- Narrowed from service.* when the Gravatar classes earned plain unit

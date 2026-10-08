@@ -9,6 +9,7 @@ import java.time.Instant;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * The record a deleted account leaves behind (#213), so that a database restored from an older
@@ -16,7 +17,7 @@ import java.util.Optional;
  *
  * <p>The record must outlive the database it is about, so it is not in the database: it is a small
  * object in the environment's attachment bucket, which a restore does not touch, under
- * {@code deleted-accounts/<SHA-256 of the email>}, holding the time of the deletion. The hash is
+ * {@code deleted-accounts/<SHA-256 of the email>}; its time is the object's own, as S3 keeps it. The hash is
  * what lets a restored account be recognised without keeping its address; it is pseudonymous, not
  * anonymous, and the privacy policy says so (Gunnar's decision on #213).</p>
  */
@@ -41,9 +42,17 @@ public class DeletionRecords {
     public record Deletion(String emailHash, Instant deletedAt) {
     }
 
-    /** Records that the account with this email was deleted at this time, replacing an older record. */
-    public void record(String email, Instant deletedAt) {
-        store.putText(PREFIX + hash(email), deletedAt.toString());
+    /**
+     * Records that the account with this email is being deleted now, replacing an older record.
+     * The time is the object's own; the body only says what the object is, for a person who finds it.
+     */
+    public void record(String email) {
+        store.putText(PREFIX + hash(email), "TaskFest account deletion record (#213); the time is this object's.");
+    }
+
+    /** Removes the record of a deletion that did not go through. */
+    public void forget(String email) {
+        store.delete(PREFIX + hash(email));
     }
 
     /**
@@ -61,18 +70,30 @@ public class DeletionRecords {
             .toList();
     }
 
-    /** Removes a record that is no longer needed. */
-    public void remove(Deletion deletion) {
-        store.delete(PREFIX + deletion.emailHash());
+    /**
+     * Removes a record that is no longer needed -- unless it was written again since it was read, in
+     * which case it records a newer deletion and stays.
+     */
+    public void removeIfUnchanged(Deletion deletion) {
+        String key = PREFIX + deletion.emailHash();
+        boolean unchanged = store.head(key).map(head -> head.lastModified().equals(deletion.deletedAt())).orElse(false);
+        if (unchanged) {
+            store.delete(key);
+        }
     }
 
     /**
      * The records no restore can make necessary again: those older than the oldest point the
-     * database could be restored to. None when that point is unknown.
+     * database could be restored to, except any whose account is still there -- a re-deletion that
+     * failed, which the next run must still be able to retry. None when that point is unknown.
      */
-    public static List<Deletion> prunable(List<Deletion> records, Optional<Instant> oldestRestorable) {
+    public static List<Deletion> prunable(List<Deletion> records, Optional<Instant> oldestRestorable,
+                                          Set<String> stillPresent) {
         return oldestRestorable
-            .map(oldest -> records.stream().filter(record -> record.deletedAt().isBefore(oldest)).toList())
+            .map(oldest -> records.stream()
+                .filter(record -> record.deletedAt().isBefore(oldest))
+                .filter(record -> !stillPresent.contains(record.emailHash()))
+                .toList())
             .orElse(List.of());
     }
 

@@ -3,6 +3,7 @@ package de.hilling.taskfest.account;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -28,14 +29,22 @@ class DeletionPruningTest {
             deletion("at", "2026-10-01T00:00:00Z"),
             deletion("after", "2026-10-05T00:00:00Z"));
 
-        assertEquals(List.of("before"), DeletionRecords.prunable(records, Optional.of(OLDEST)).stream()
+        assertEquals(List.of("before"), DeletionRecords.prunable(records, Optional.of(OLDEST), Set.of()).stream()
             .map(DeletionRecords.Deletion::emailHash).toList());
+    }
+
+    @Test
+    void shouldKeepTheRecordOfAnAccountThatIsStillThere() {
+        // Its re-deletion failed; pruning the record would make the failure permanent.
+        List<DeletionRecords.Deletion> records = List.of(deletion("failed", "2026-09-01T00:00:00Z"));
+
+        assertTrue(DeletionRecords.prunable(records, Optional.of(OLDEST), Set.of("failed")).isEmpty());
     }
 
     @Test
     void shouldPruneNothingWhenTheOldestRestorablePointIsUnknown() {
         List<DeletionRecords.Deletion> records = List.of(deletion("old", "2020-01-01T00:00:00Z"));
 
-        assertTrue(DeletionRecords.prunable(records, Optional.empty()).isEmpty());
+        assertTrue(DeletionRecords.prunable(records, Optional.empty(), Set.of()).isEmpty());
     }
 }

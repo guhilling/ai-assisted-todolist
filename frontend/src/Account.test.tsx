@@ -73,6 +73,25 @@ describe('deleting the account', () => {
     expect(fetchMock).not.toHaveBeenCalledWith('/api/account', expect.anything())
   })
 
+  it('puts focus back on the button the confirmation was opened from', async () => {
+    await signedInBoard(backend({ signedIn: true }))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Delete account' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Keep my account' }))
+
+    expect(screen.getByRole('button', { name: 'Delete account' })).toHaveFocus()
+  })
+
+  it('closes on Escape, as the row menus do', async () => {
+    await signedInBoard(backend({ signedIn: true }))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Delete account' }))
+    fireEvent.keyDown(screen.getByRole('alertdialog'), { key: 'Escape' })
+
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Delete account' })).toHaveFocus()
+  })
+
   it('deletes, then signs out and leaves a note for the signed-out page', async () => {
     const fetchMock = backend({ signedIn: true })
     await signedInBoard(fetchMock)
