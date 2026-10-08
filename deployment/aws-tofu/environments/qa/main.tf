@@ -132,6 +132,16 @@ output "tasks_security_group_id" {
   value       = module.environment.tasks_security_group_id
 }
 
+output "backend_service_name" {
+  description = "The backend's ECS service, which env.sh up scales once the database is migrated."
+  value       = module.environment.backend_service_name
+}
+
+output "backend_task_count" {
+  description = "How many backend tasks env.sh up scales the service to."
+  value       = module.environment.backend_task_count
+}
+
 output "db_bootstrap_task_family" {
   description = "The task that creates the application's database user."
   value       = module.environment.db_bootstrap_task_family

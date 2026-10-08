@@ -73,6 +73,16 @@ output "cluster_name" {
   value       = aws_ecs_cluster.this.name
 }
 
+output "backend_service_name" {
+  description = "The backend's ECS service, which env.sh up scales once the database is migrated."
+  value       = local.service_name
+}
+
+output "backend_task_count" {
+  description = "How many backend tasks env.sh up scales the service to."
+  value       = local.backend_task_count
+}
+
 output "db_bootstrap_task_family" {
   description = "The task that creates the application's database user. Run by env.sh db-bootstrap."
   value       = local.db_bootstrap_family

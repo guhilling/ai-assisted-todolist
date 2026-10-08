@@ -38,25 +38,25 @@ state. Injecting it into the running service was rejected for exactly that rotat
 secret once, at task start, so a long-running task would keep the old password and fail on its
 next connection after a rotation.
 
-**Creating the database user is one command, once per environment.** `taskfest_<env>` does not
-exist until the master user creates it, and nothing outside the VPC can reach the database to do
-that, so it is a one-off ECS task:
+**Creating the database user happens once per environment, inside `up`.** `taskfest_<env>` does
+not exist until the master user creates it, and nothing outside the VPC can reach the database to
+do that, so it is a one-off ECS task. `up` runs it whenever there was no snapshot to restore from,
+then the migration, and only then starts the backend:
 
 ```sh
-./env.sh up qa             # the database, and the two task definitions that point at it
-./env.sh db-bootstrap qa   # creates taskfest_qa: CREATE ROLE, GRANT rds_iam, schema grants
-./env.sh migrate qa        # Liquibase, logged in as taskfest_qa with an IAM token
-./env.sh up qa             # again, on a brand-new environment only -- see below
+./env.sh up qa             # apply; db-bootstrap if the database started empty; migrate; start
+./env.sh db-bootstrap qa   # the same steps by hand, should one need repeating
+./env.sh migrate qa
 ```
 
-**On a brand-new environment the first `up` fails, and that is expected.** It creates the
-database, then waits for the service, whose backend cannot log in as a user that does not exist
-yet: `FATAL: password authentication failed for user "taskfest_qa"`. Because it is the service's
-first deployment, ECS has nothing to roll back to and `up` stops with *No rollback candidate was
-found*. Everything up to the service is in place by then, so `db-bootstrap` and `migrate` work,
-and the second `up` replaces the failed service and succeeds. This happened when the environments
-were rebuilt under the TaskFest name (#128); an environment restored from a snapshot already has
-its user and never sees it.
+**Why `up` starts the backend last.** Before it did, the first `up` of a brand-new environment
+failed: it waited for the service, whose backend could not log in as a user that did not exist yet
+(`FATAL: password authentication failed for user "taskfest_qa"`), and because it was the service's
+first deployment ECS had nothing to roll back to and stopped with *No rollback candidate was
+found*. That happened when the environments were rebuilt under the TaskFest name (#128). A release
+with a migration would have failed the same way, on Hibernate's schema validation. The service is
+now created with no tasks and scaled up by `up` once the database is ready
+([deploying.md](deploying.md)).
 
 `db-bootstrap` runs `psql` from the official PostgreSQL image (pulled from ECR Public's mirror,
 which has no Docker Hub rate limit) with the SQL in `modules/environment/db-bootstrap.sql`. It is

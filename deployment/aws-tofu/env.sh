@@ -12,7 +12,8 @@
 # by muscle memory. What is applied is the saved plan file, so it is exactly what was shown and
 # not a second, differently-timed evaluation.
 #
-#   ./env.sh up qa          create the database, load balancer and service, on the newest release
+#   ./env.sh up qa          create the database, load balancer and service, on the newest release;
+#                           migrate the database, then start the backend
 #   ./env.sh up prod v1.2.3 the same, on that release; prod always needs one named
 #   ./env.sh down qa        destroy them; the VPC, subnets and IAM stay
 #   ./env.sh status qa      what the last apply recorded
@@ -218,6 +219,26 @@ run_one_off() {
     fi
 }
 
+# Scales the backend service to its task count and waits until it is serving -- up to ten
+# minutes, the waiter's own limit.
+start_backend() {
+    local cluster service count region
+
+    cluster="$(run_tofu output -raw cluster_name)"
+    service="$(run_tofu output -raw backend_service_name)"
+    count="$(run_tofu output -raw backend_task_count)"
+    region="$(tfvars_region)"
+
+    aws ecs update-service --region "$region" --cluster "$cluster" --service "$service" \
+        --desired-count "$count" --query 'service.desiredCount' --output text >/dev/null
+    echo "Starting the backend (${count} task(s)); waiting until it is serving."
+    if ! aws ecs wait services-stable --region "$region" --cluster "$cluster" --services "$service"; then
+        echo "The backend was not stable within ten minutes; see the service's events in the console." >&2
+        exit 1
+    fi
+    echo "The backend is serving."
+}
+
 # The backend image `up` starts, by version and digest through the account's ECR cache -- never
 # `latest`, which the cache can serve a day stale (#181).
 #
@@ -392,6 +413,20 @@ NOTE
         fi
 
         run_tofu apply -input=false "$plan_file"
+
+        # The service was created with no tasks (billable.tf), so nothing has started against a
+        # schema it does not expect. Migrate, then start it. On an environment that was already up
+        # the migration finds nothing to do -- it runs the image already running -- and the count
+        # is what it was.
+        if [[ "$COMMAND" == "up" ]]; then
+            if [[ -z "$snapshot" ]]; then
+                # A database created empty has no application user yet; elsewhere this is a no-op.
+                echo "No snapshot to restore from, so the application user is created first."
+                run_one_off db-bootstrap
+            fi
+            run_one_off migrate
+            start_backend
+        fi
         ;;
 
     db-bootstrap|migrate)
