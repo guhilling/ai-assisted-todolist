@@ -22,6 +22,7 @@
 #                           restore that snapshot instead of the newest final one
 #   ./env.sh db-bootstrap qa   create the application's database user, once per environment
 #   ./env.sh migrate qa        run the Liquibase migrations, logged in with IAM
+#   ./env.sh account           apply the account-wide root (account/), as an administrator
 #
 set -euo pipefail
 
@@ -29,7 +30,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly HERE
 
 usage() {
-    sed -n '3,24p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+    sed -n '3,25p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
     exit "${1:-1}"
 }
 
@@ -38,11 +39,19 @@ case "${1:-}" in
     help|--help|-h) usage 0 ;;
 esac
 
-[[ $# -ge 2 ]] || usage
-
-readonly COMMAND="$1"
-readonly ENVIRONMENT="$2"
-shift 2
+# `account` names no environment: it is the account-wide root (account/), applied once per AWS
+# account and before either environment.
+if [[ "${1:-}" == "account" ]]; then
+    COMMAND="account"
+    ENVIRONMENT="account"
+    shift
+else
+    [[ $# -ge 2 ]] || usage
+    COMMAND="$1"
+    ENVIRONMENT="$2"
+    shift 2
+fi
+readonly COMMAND ENVIRONMENT
 
 ASSUME_YES="no"
 RELEASE=""
@@ -63,7 +72,11 @@ for argument in "$@"; do
 done
 readonly ASSUME_YES
 
-readonly ROOT="${HERE}/environments/${ENVIRONMENT}"
+if [[ "$COMMAND" == "account" ]]; then
+    readonly ROOT="${HERE}/account"
+else
+    readonly ROOT="${HERE}/environments/${ENVIRONMENT}"
+fi
 if [[ ! -d "$ROOT" ]]; then
     echo "No such environment: ${ENVIRONMENT}" >&2
     echo "Available: $(cd "${HERE}/environments" && echo */ | tr -d '/')" >&2
@@ -119,6 +132,9 @@ chosen_profile() {
         echo "$value $variable"
     elif [[ -n "${AWS_PROFILE:-}" ]]; then
         echo "$AWS_PROFILE AWS_PROFILE"
+    elif [[ "$ENVIRONMENT" == "account" ]]; then
+        # No lifecycle role for the account root: only an administrator applies it.
+        echo "- none"
     else
         echo "taskfest-${ENVIRONMENT}-lifecycle default"
     fi
@@ -127,6 +143,15 @@ chosen_profile() {
 use_lifecycle_profile() {
     local wanted source profiles
     read -r wanted source <<< "$(chosen_profile)"
+    if [[ "$source" == "none" ]]; then
+        cat >&2 <<NOTE
+The account-wide root is applied by an administrator, and there is no default profile for it.
+Name yours in TASKFEST_ACCOUNT_AWS_PROFILE (in your shell's startup file, say), or for one run:
+
+  TASKFEST_ACCOUNT_AWS_PROFILE=<your admin profile> $0 account
+NOTE
+        exit 1
+    fi
     # Read once and searched afterwards: `aws configure list-profiles | grep -q` under pipefail
     # fails now and then, when grep stops at its match and the CLI dies of the closed pipe.
     profiles="$(aws configure list-profiles 2>/dev/null || true)"
@@ -139,10 +164,15 @@ The AWS profile ${wanted} (from ${source}) assumes no role: it has no role_arn a
 it is an IAM user's own credentials, and those may not touch ${ENVIRONMENT}'s state or resources --
 being allowed to assume a role is not having its permissions.
 
-Use a profile that assumes the role, for example taskfest-${ENVIRONMENT}-lifecycle, by naming it in
+Use a profile that assumes a role -- for an environment taskfest-${ENVIRONMENT}-lifecycle, for the
+account root an administrator's -- by naming it in
 TASKFEST_$(echo "$ENVIRONMENT" | tr '[:lower:]-' '[:upper:]_')_AWS_PROFILE (in your shell's startup file, say), or for one run:
 
-  TASKFEST_$(echo "$ENVIRONMENT" | tr '[:lower:]-' '[:upper:]_')_AWS_PROFILE=taskfest-${ENVIRONMENT}-lifecycle $0 ${COMMAND} ${ENVIRONMENT}
+  $(if [[ "$COMMAND" == "account" ]]; then
+        echo "TASKFEST_ACCOUNT_AWS_PROFILE=<your admin profile> $0 account"
+    else
+        echo "TASKFEST_$(echo "$ENVIRONMENT" | tr '[:lower:]-' '[:upper:]_')_AWS_PROFILE=taskfest-${ENVIRONMENT}-lifecycle $0 ${COMMAND} ${ENVIRONMENT}"
+    fi)
 NOTE
         exit 1
     fi
@@ -493,6 +523,22 @@ NOTE
             run_one_off migrate
             start_backend
         fi
+        ;;
+
+    account)
+        # The same ceremony as up and down: the profile resolved through the AWS CLI, which can ask
+        # for the MFA code OpenTofu cannot, and the saved plan applied, so what is applied is what
+        # was shown. Nothing is passed in: the root has no running switch and no per-run variables.
+        use_lifecycle_profile
+        run_tofu init -input=false >/dev/null
+        plan_file="$(mktemp -t "tofu-account")"
+        trap 'rm -f "$plan_file"' EXIT
+        run_tofu plan -input=false -out="$plan_file"
+        if [[ "$ASSUME_YES" != "yes" ]]; then
+            read -r -p "Apply this plan to the account root? [y/N] " answer
+            [[ "$answer" == "y" || "$answer" == "Y" ]] || { echo "Nothing applied."; exit 1; }
+        fi
+        run_tofu apply -input=false "$plan_file"
         ;;
 
     db-bootstrap|migrate)
