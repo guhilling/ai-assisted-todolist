@@ -18,7 +18,8 @@ What it produces:
     api/latest/           a copy of the newest release
     videos/               the newest live run's recording of qa's signed-in scenarios, when the
                           workflow passes `--videos` with them (live-tests.yml, pages.yml)
-    assets/               the stylesheet, the logo, the favicon
+    assets/               the stylesheet, the logo, the favicon, and lightbox.js: click an image
+                          in the documentation to see it almost filling the window
 
 Why the documentation is rendered here rather than left on GitHub: `doc/` is the source of
 truth for this project, and reading it meant either cloning the repository or clicking through
@@ -357,6 +358,7 @@ def page(*, title: str, description: str, depth: int, current: str, body: str, l
 <meta name="color-scheme" content="light dark">
 <link rel="icon" href="{up}assets/favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="{up}assets/site.css">
+<script src="{up}assets/lightbox.js" defer></script>
 </head>
 <body>
 {masthead(depth, current)}
@@ -763,6 +765,8 @@ def build_assets(site: pathlib.Path) -> None:
     assets = site / "assets"
     assets.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(SCRIPTS / "site.css", assets / "site.css")
+    # Click an image to see it almost filling the window (lightbox.js).
+    shutil.copyfile(SCRIPTS / "lightbox.js", assets / "lightbox.js")
     for name in ("logo-light.svg", "logo-dark.svg", "favicon.svg"):
         shutil.copyfile(IMAGES / name, assets / name)
 
