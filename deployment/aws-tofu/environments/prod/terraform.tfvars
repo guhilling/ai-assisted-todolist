@@ -26,5 +26,6 @@ blue_green_bake_minutes = 5
 # A rollout's last phase waits this long for connections to the old task to finish.
 deregistration_delay_seconds = 30
 
-# x86 for now; Graviton (#250, about 20% less) once qa has shown it works -- Gunnar's call.
-cpu_architecture = "X86_64"
+# Graviton (#250): about 20% less for the same task size. qa ran on it first; Gunnar moved prod
+# after qa had shown it works. Needs a release from v0.15.0 on, which plan and deploy both enforce.
+cpu_architecture = "ARM64"
