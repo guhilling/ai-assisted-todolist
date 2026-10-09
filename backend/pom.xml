@@ -486,6 +486,27 @@
 
     <profiles>
         <profile>
+            <!-- A local image for the machine it is built on (#249): Jib builds amd64 unless told
+                 otherwise, and an Apple-silicon Mac without Rosetta cannot run that. Activated by
+                 the JVM's own architecture, so `./mvnw package -Dquarkus.container-image.build=true`
+                 needs no flag there, and the arm64 e2e runner gets arm64 too. Publishing sets both
+                 platforms explicitly and overrides this. -->
+            <id>arm64-image</id>
+            <!-- Not when pushing: a push from an Apple-silicon Mac would otherwise replace a
+                 multi-architecture tag with an arm64-only one. Publishing names its platforms. -->
+            <activation>
+                <os>
+                    <arch>aarch64</arch>
+                </os>
+                <property>
+                    <name>!quarkus.container-image.push</name>
+                </property>
+            </activation>
+            <properties>
+                <quarkus.jib.platforms>linux/arm64</quarkus.jib.platforms>
+            </properties>
+        </profile>
+        <profile>
             <!-- Activated by release.yml, which also passes -Drevision from the git tag.
                  requireReleaseDeps already runs on every build; what this adds is the
                  check that the artifact being released is not itself a snapshot, which

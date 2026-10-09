@@ -41,6 +41,7 @@ write), AWS credentials and AWS_REGION in the environment, plus GITHUB_SERVER_UR
 GITHUB_REPOSITORY and GITHUB_RUN_ID, which Actions sets.
 """
 
+import copy
 import dataclasses
 import json
 import os
@@ -99,7 +100,32 @@ def queries(now, days=IN_USE_DAYS):
     return [filter_criteria(now, days), filter_criteria(now, days, window="ecrImagePushedAt")]
 
 
-def merge_results(in_use, arrived):
+def index_tags_of(indexes):
+    """Which tags each image inside a multi-architecture index is known by: the index's (#249).
+
+    indexes: the cached indexes that carry a tag, as {"tags": [...], "manifest": <the index's JSON>}.
+    """
+    known = {}
+    for index in indexes:
+        for entry in json.loads(index["manifest"]).get("manifests", []):
+            known.setdefault(entry["digest"], []).extend(index["tags"])
+    return known
+
+
+def with_index_tags(found, index_tags):
+    """The findings, each image that carries no tag of its own named by its index's tags instead."""
+    named = []
+    for f in found:
+        image = f["resources"][0]["details"]["awsEcrContainerImage"]
+        tags = index_tags.get(image.get("imageHash"))
+        if not image.get("imageTags") and tags:
+            f = copy.deepcopy(f)
+            f["resources"][0]["details"]["awsEcrContainerImage"]["imageTags"] = list(tags)
+        named.append(f)
+    return named
+
+
+def merge_results(in_use, arrived, index_tags=None):
     """The findings worth reporting, from the in-use query and the arrived-recently query.
 
     An image that only arrived recently counts while it still carries a tag. Through the
@@ -107,7 +133,13 @@ def merge_results(in_use, arrived):
     newer `latest` or release -- and keeping it in scope for its 30 days held an issue open long
     after the fix was deployed (#178). It still counts while Inspector sees ECS running it, which
     is what the in-use query is for.
+
+    Since the images are multi-architecture (#249), what ECS runs is an image inside the release's
+    index, and the cache keeps the tag on the index only. So an image counts as tagged while a
+    tagged index holds it (index_tags, from index_tags_of), and is listed under that index's tags.
     """
+    index_tags = index_tags or {}
+    in_use, arrived = with_index_tags(in_use, index_tags), with_index_tags(arrived, index_tags)
     tagged = [f for f in arrived
               if f["resources"][0]["details"]["awsEcrContainerImage"].get("imageTags")]
     return merge(in_use, tagged)
@@ -219,7 +251,33 @@ def list_findings():
         return json.loads(output).get("findings", [])
 
     in_use, arrived = (query(criteria) for criteria in queries(int(time.time())))
-    return merge_results(in_use, arrived)
+    repositories = {f["resources"][0]["details"]["awsEcrContainerImage"]["repositoryName"]
+                    for f in in_use + arrived}
+    return merge_results(in_use, arrived, index_tags_of(cached_indexes(repositories)))
+
+
+INDEX_MEDIA_TYPES = ("application/vnd.oci.image.index.v1+json",
+                     "application/vnd.docker.distribution.manifest.list.v2+json")
+
+
+def cached_indexes(repositories):
+    """The tagged multi-architecture indexes the cache holds in these repositories, with their JSON."""
+    def ecr(*args):
+        return json.loads(subprocess.run(["aws", "ecr", *args, "--output", "json"],
+                                         check=True, capture_output=True, text=True).stdout)
+
+    indexes = []
+    for repository in sorted(repositories):
+        tagged = [image for image in ecr("describe-images", "--repository-name", repository,
+                                         "--filter", "tagStatus=TAGGED")["imageDetails"]
+                  if image.get("imageManifestMediaType") in INDEX_MEDIA_TYPES]
+        for image in tagged:
+            got = ecr("batch-get-image", "--repository-name", repository,
+                      "--image-ids", f"imageDigest={image['imageDigest']}",
+                      "--accepted-media-types", *INDEX_MEDIA_TYPES)["images"]
+            if got:
+                indexes.append({"tags": image.get("imageTags", []), "manifest": got[0]["imageManifest"]})
+    return indexes
 
 
 def gh(*args):

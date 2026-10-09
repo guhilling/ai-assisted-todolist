@@ -116,6 +116,9 @@ jobs:
     name: Publish ${{ matrix.name }} image
     needs: gate
     runs-on: ubuntu-26.04
+    env:
+      # Every platform the images are published for (#249), in one place for both and the check.
+      PLATFORMS: linux/amd64,linux/arm64
     strategy:
       matrix:
         include:
@@ -154,25 +157,24 @@ jobs:
           package -DskipTests
           -Dquarkus.container-image.build=true
           -Dquarkus.container-image.push=true
-
-      - uses: actions/setup-node@v7
-        if: matrix.name == 'frontend'
-        with:
-          node-version: '24'
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
-
-      - name: Install frontend dependencies
-        if: matrix.name == 'frontend'
-        run: npm ci
+          -Dquarkus.jib.platforms="$PLATFORMS"
 
       - name: Publish the frontend image
         if: matrix.name == 'frontend'
         run: >
           docker buildx build --push
+          --platform "$PLATFORMS"
           --tag quay.io/ghilling/taskfest-frontend:${{ needs.gate.outputs.version }}
           --build-arg VITE_TASKFEST_VERSION=${{ needs.gate.outputs.version }}
           -f docker/Dockerfile .
+
+      # The tag must be one image index with every platform built (#249), or a machine of the
+      # missing one pulls nothing it can run.
+      - name: Check the image is published for every platform
+        working-directory: .
+        run: >
+          python3 .github/scripts/check-image-platforms.py
+          "quay.io/ghilling/taskfest-${{ matrix.name }}:${{ needs.gate.outputs.version }}" "$PLATFORMS"
 
   announce:
     name: GitHub Release
