@@ -10,4 +10,13 @@ describe('the footer outside the app', () => {
     expect(screen.getByRole('link', { name: 'Imprint' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Deutsch' })).not.toBeInTheDocument()
   })
+
+  it("links About to the project's purpose in the published documentation, not to a file on GitHub", () => {
+    render(<LegalFooter />)
+
+    expect(screen.getByRole('link', { name: /About/ })).toHaveAttribute(
+      'href',
+      'https://guhilling.github.io/ai-assisted-todolist/doc/purpose.html',
+    )
+  })
 })
