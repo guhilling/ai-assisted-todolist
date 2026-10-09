@@ -71,10 +71,10 @@ if [[ ! -d "$ROOT" ]]; then
 fi
 
 # The lifecycle role is the identity for exactly this operation, so `up` and `down` default to
-# it -- but respect an AWS_PROFILE that is already set, because someone who has chosen a profile
-# means it. `status` deliberately does not: reading what the last apply recorded needs nothing
-# but the state bucket, and demanding an MFA-backed role to answer a question is friction with
-# no safety behind it.
+# it -- but respect a profile someone has chosen: TASKFEST_<ENV>_AWS_PROFILE for this environment,
+# or else AWS_PROFILE (chosen_profile). A chosen profile must assume a role (assumes_a_role).
+# `status` deliberately does not: reading what the last apply recorded needs nothing but the state
+# bucket, and demanding an MFA-backed role to answer a question is friction with no safety behind it.
 # Resolve a profile into actual credentials, rather than handing OpenTofu the profile name.
 #
 # OpenTofu cannot assume a role that requires MFA: its AWS layer has nowhere to ask for the
@@ -100,10 +100,54 @@ export_credentials_for() {
     unset AWS_PROFILE
 }
 
-use_lifecycle_profile() {
-    local wanted="${AWS_PROFILE:-taskfest-${ENVIRONMENT}-lifecycle}"
+# Whether a profile assumes a role -- a role_arn, or an SSO role -- rather than being an IAM user
+# itself. Read from the configuration only; nothing is signed.
+assumes_a_role() {
+    [[ -n "$(aws configure get role_arn --profile "$1" 2>/dev/null)" ||
+       -n "$(aws configure get sso_role_name --profile "$1" 2>/dev/null)" ]]
+}
 
-    if aws configure list-profiles 2>/dev/null | grep -qx "$wanted"; then
+# The profile for this environment, and what chose it: TASKFEST_<ENV>_AWS_PROFILE first, so a
+# person can name one per environment in their shell's startup file without it being overridden
+# by a global AWS_PROFILE; then AWS_PROFILE; then the lifecycle profile by its conventional name.
+# Prints "<profile> <source>".
+chosen_profile() {
+    local variable value
+    variable="TASKFEST_$(echo "$ENVIRONMENT" | tr '[:lower:]-' '[:upper:]_')_AWS_PROFILE"
+    value="${!variable:-}"
+    if [[ -n "$value" ]]; then
+        echo "$value $variable"
+    elif [[ -n "${AWS_PROFILE:-}" ]]; then
+        echo "$AWS_PROFILE AWS_PROFILE"
+    else
+        echo "taskfest-${ENVIRONMENT}-lifecycle default"
+    fi
+}
+
+use_lifecycle_profile() {
+    local wanted source profiles
+    read -r wanted source <<< "$(chosen_profile)"
+    # Read once and searched afterwards: `aws configure list-profiles | grep -q` under pipefail
+    # fails now and then, when grep stops at its match and the CLI dies of the closed pipe.
+    profiles="$(aws configure list-profiles 2>/dev/null || true)"
+
+    # A profile that is the IAM user itself -- one that may assume every role -- holds none of the
+    # roles' permissions, and failed with a bare 403 on the state bucket. Stop and say why instead.
+    if grep -qx "$wanted" <<< "$profiles" && ! assumes_a_role "$wanted"; then
+        cat >&2 <<NOTE
+The AWS profile ${wanted} (from ${source}) assumes no role: it has no role_arn and no SSO role, so
+it is an IAM user's own credentials, and those may not touch ${ENVIRONMENT}'s state or resources --
+being allowed to assume a role is not having its permissions.
+
+Use a profile that assumes the role, for example taskfest-${ENVIRONMENT}-lifecycle, by naming it in
+TASKFEST_$(echo "$ENVIRONMENT" | tr '[:lower:]-' '[:upper:]_')_AWS_PROFILE (in your shell's startup file, say), or for one run:
+
+  TASKFEST_$(echo "$ENVIRONMENT" | tr '[:lower:]-' '[:upper:]_')_AWS_PROFILE=taskfest-${ENVIRONMENT}-lifecycle $0 ${COMMAND} ${ENVIRONMENT}
+NOTE
+        exit 1
+    fi
+
+    if grep -qx "$wanted" <<< "$profiles"; then
         # export-credentials arrived in AWS CLI 2.13. Without it, fall back to the old behaviour
         # and say what will happen, rather than failing on a missing subcommand.
         if aws configure export-credentials help >/dev/null 2>&1; then
@@ -118,8 +162,8 @@ use_lifecycle_profile() {
     fi
 
     # An explicitly chosen profile that does not exist is an error, not something to shrug at.
-    if [[ -n "${AWS_PROFILE:-}" ]]; then
-        echo "AWS_PROFILE is set to ${AWS_PROFILE}, which is not configured." >&2
+    if [[ "$source" != "default" ]]; then
+        echo "${source} is set to ${wanted}, which is not configured." >&2
         exit 1
     fi
 

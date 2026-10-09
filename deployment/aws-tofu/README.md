@@ -181,6 +181,28 @@ rather than re-evaluating, so what is applied is exactly what was displayed. `--
 prompt, for a workflow. It defaults to the lifecycle profile for `up` and `down`, and deliberately
 not for `status` — reading what the last apply recorded needs nothing but the state bucket.
 
+**Which profile it uses**, for `up`, `down`, `db-bootstrap` and `migrate`, in this order:
+
+1. `TASKFEST_QA_AWS_PROFILE` or `TASKFEST_PROD_AWS_PROFILE` — `TASKFEST_<ENV>_AWS_PROFILE` for the
+   environment named — if set;
+2. `AWS_PROFILE`, if set;
+3. `taskfest-<env>-lifecycle`.
+
+The per-environment variables are optional and each person's own; set them in your shell's
+startup file (`~/.zshrc`) if your profiles are named differently, or if you keep a global
+`AWS_PROFILE` for other work, which they win over:
+
+```sh
+export TASKFEST_QA_AWS_PROFILE=taskfest-qa-lifecycle
+export TASKFEST_PROD_AWS_PROFILE=my-prod-admin
+```
+
+**A profile that assumes no role is refused** — one with neither a `role_arn` nor an SSO role, which
+is an IAM user's own credentials. Being allowed to assume the lifecycle role is not having its
+permissions, so such a profile failed with a bare 403 on the state bucket; now `env.sh` stops before
+anything runs and says which profile, from which variable, and what to use instead.
+`.github/scripts/test_env_sh.py` pins the order and the refusal.
+
 **`up` starts a release, never `latest`**, pinned to its digest on Quay and pulled through the
 ECR cache (`taskfest-backend:<version>@sha256:…`); `deploy-backend.py --print-image` makes the
 choice, so `up` and a deployment name an image the same way:
