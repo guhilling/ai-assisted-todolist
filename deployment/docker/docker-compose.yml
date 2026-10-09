@@ -40,10 +40,15 @@ services:
       TASKFEST_ATTACHMENTS_ORPHAN_SWEEP_EVERY: "off"
       # Nor anywhere to keep account deletion records (#213).
       TASKFEST_ACCOUNT_DELETIONS_ENABLED: "false"
+      # Behind httpd, which now reaches the backend over TLS (#247): the scheme the browser used
+      # comes from httpd's X-Forwarded-Proto, as it comes from the load balancer's in AWS.
+      QUARKUS_HTTP_PROXY_PROXY_ADDRESS_FORWARDING: "true"
+      QUARKUS_HTTP_PROXY_ALLOW_X_FORWARDED: "true"
     depends_on:
       - postgres
     ports:
-      - "8080:8080"
+      # TLS, with the self-signed certificate the backend makes at start (#247).
+      - "8443:8443"
 
   frontend:
     build:

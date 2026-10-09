@@ -242,8 +242,10 @@ resource "aws_lb_target_group" "blue" {
   name        = "${local.name}-blue"
   vpc_id      = aws_vpc.this.id
   target_type = "ip"
-  protocol    = "HTTP"
-  port        = var.backend_port
+  # TLS to the task (#247): the task serves a self-signed certificate it makes at start, which a
+  # load balancer accepts as it does not validate its targets' certificates.
+  protocol = "HTTPS"
+  port     = var.backend_port
 
   # How long a target leaving the group keeps its open connections: the last phase of every
   # blue/green rollout waits on it. Per environment -- seconds in qa, where nobody is mid-request
@@ -251,8 +253,9 @@ resource "aws_lb_target_group" "blue" {
   deregistration_delay = var.deregistration_delay_seconds
 
   health_check {
-    path    = "/q/health/ready"
-    matcher = "200"
+    protocol = "HTTPS"
+    path     = "/q/health/ready"
+    matcher  = "200"
     # Every 10 s rather than 15: a new task becomes eligible for traffic sooner. Free -- the
     # load balancer does not charge for health checks, and the backend logs no request lines.
     interval            = 10
@@ -271,8 +274,10 @@ resource "aws_lb_target_group" "green" {
   name        = "${local.name}-green"
   vpc_id      = aws_vpc.this.id
   target_type = "ip"
-  protocol    = "HTTP"
-  port        = var.backend_port
+  # TLS to the task (#247): the task serves a self-signed certificate it makes at start, which a
+  # load balancer accepts as it does not validate its targets' certificates.
+  protocol = "HTTPS"
+  port     = var.backend_port
 
   # How long a target leaving the group keeps its open connections: the last phase of every
   # blue/green rollout waits on it. Per environment -- seconds in qa, where nobody is mid-request
@@ -280,8 +285,9 @@ resource "aws_lb_target_group" "green" {
   deregistration_delay = var.deregistration_delay_seconds
 
   health_check {
-    path    = "/q/health/ready"
-    matcher = "200"
+    protocol = "HTTPS"
+    path     = "/q/health/ready"
+    matcher  = "200"
     # Every 10 s rather than 15: a new task becomes eligible for traffic sooner. Free -- the
     # load balancer does not charge for health checks, and the backend logs no request lines.
     interval            = 10
@@ -383,6 +389,10 @@ resource "aws_ecs_task_definition" "backend" {
     portMappings = [{ containerPort = var.backend_port, protocol = "tcp" }]
 
     environment = concat([
+      # TLS only (#247): the image starts through start-with-tls.sh, which makes a self-signed
+      # keystore, and its prod profile opens no plain-HTTP port. The port is named here as well,
+      # so it cannot drift from the target groups and the security group rules.
+      { name = "QUARKUS_HTTP_SSL_PORT", value = tostring(var.backend_port) },
       { name = "QUARKUS_LIQUIBASE_MIGRATE_AT_START", value = "false" },
       {
         name  = "QUARKUS_DATASOURCE_JDBC_URL"

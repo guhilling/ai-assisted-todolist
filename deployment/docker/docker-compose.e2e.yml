@@ -86,6 +86,10 @@ services:
       QUARKUS_OIDC_ENABLED: "true"
       TASKFEST_OIDC_COOKIE_SECURE: "false"
       SMALLRYE_CONFIG_LOCATIONS: /config/backend-e2e.properties
+      # Behind httpd, which now reaches the backend over TLS (#247): the scheme the browser used
+      # comes from httpd's X-Forwarded-Proto, as it comes from the load balancer's in AWS.
+      QUARKUS_HTTP_PROXY_PROXY_ADDRESS_FORWARDING: "true"
+      QUARKUS_HTTP_PROXY_ALLOW_X_FORWARDED: "true"
     volumes:
       - ../../e2e/backend-e2e.properties:/config/backend-e2e.properties:ro
       - ../../e2e/backend-healthcheck.sh:/config/healthcheck.sh:ro
@@ -97,7 +101,8 @@ services:
       localstack:
         condition: service_healthy
     ports:
-      - "8080:8080"
+      # TLS, with the self-signed certificate the backend makes at start (#247).
+      - "8443:8443"
     healthcheck:
       # Without this, `up --wait` treats the backend as ready the moment the container runs,
       # and Playwright starts against an application still booting -- it answers 502 through

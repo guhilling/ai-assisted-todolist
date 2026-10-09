@@ -23,7 +23,8 @@ browser ──▶ CloudFront ──▶ Quarkus ──▶ PostgreSQL (RDS)
 The browser talks to a single origin. In AWS that is CloudFront: the built assets come from the
 environment's site bucket, and everything under `/api/*` goes through a private VPC origin to the
 internal load balancer and on to the backend ([deployment](deployment/index.md)). Locally and in
-the end-to-end stack httpd plays the same part, serving the assets on `:8080` and proxying `/api`;
+the end-to-end stack httpd plays the same part, serving the assets on `:8080` and proxying `/api`
+to the backend's TLS port, `:8443`; the image's `prod` profile serves nothing else (#247);
 in development Vite's dev server does, serving the app on `:5173` and proxying `/api` to the
 backend on `:8080`. Either way the SPA makes same-origin requests and needs no CORS handling and
 no API base URL.

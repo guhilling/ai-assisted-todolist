@@ -47,9 +47,9 @@ variable "private_subnet_cidrs" {
 }
 
 variable "backend_port" {
-  description = "The port the Quarkus container listens on."
+  description = "The port the Quarkus container serves TLS on, to the load balancer (#247)."
   type        = number
-  default     = 8080
+  default     = 8443
 }
 
 variable "github_oidc_repository" {
