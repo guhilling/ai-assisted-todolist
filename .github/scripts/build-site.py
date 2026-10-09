@@ -519,8 +519,12 @@ def sidebar(pages: list[DocPage], section: str, current: str, depth: int) -> str
             return f'<li>{link}<ul class="sidebar__chapter">{nested}</ul></li>'
         return f"<li>{link}</li>"
 
+    # The start page -- the README, the project's introduction -- first and at the same level as
+    # the rest, then doc/README.md under the name of what it mainly is.
+    introduction = f'<li><a href="{up}">Introduction</a></li>'
     documentation = "\n      ".join(
-        [item("doc", "index", "Overview")] + [item("doc", p.key, p.title, p.children) for p in pages]
+        [introduction, item("doc", "index", "Table of Contents")]
+        + [item("doc", p.key, p.title, p.children) for p in pages]
     )
     instructions = "\n      ".join(item("instructions", slug, label) for slug, _, label in INSTRUCTIONS)
     return f"""  <aside class="sidebar">
