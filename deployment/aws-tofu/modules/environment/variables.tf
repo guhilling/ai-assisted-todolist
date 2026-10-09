@@ -46,6 +46,20 @@ variable "private_subnet_cidrs" {
   }
 }
 
+variable "cpu_architecture" {
+  description = <<-EOT
+    What the Fargate tasks run on: X86_64, or ARM64 for Graviton, about 20% cheaper for the same
+    vCPU and memory (#250). The backend, migrate and db-bootstrap tasks move together. ARM64 needs
+    images published for arm64 -- releases from v0.15.0 on (#249); an older one cannot start there.
+  EOT
+  type        = string
+
+  validation {
+    condition     = contains(["X86_64", "ARM64"], var.cpu_architecture)
+    error_message = "cpu_architecture is X86_64 or ARM64."
+  }
+}
+
 variable "backend_port" {
   description = "The port the Quarkus container serves TLS on, to the load balancer (#247)."
   type        = number

@@ -346,6 +346,26 @@ that hop as hardware-encrypted rather than shown what the configuration does wit
 tasks use would need an exclusion. If compliance ever asks for proof rather than configuration,
 monitor mode for a day costs about $4.
 
+## The tasks run on Graviton, chosen per environment
+
+Fargate on ARM64 costs 20% less than on x86 for the same vCPU and memory
+([cost](../deployment/cost.md)), and the database was Graviton already (`db.t4g`). Once the images
+were published for arm64 (#249), the tasks could follow (#250). `cpu_architecture` -- a module
+variable, set in each environment's `terraform.tfvars` -- moves the backend, migrate and
+db-bootstrap tasks together, so that, once rolled out, the one-off tasks run the same build of the
+image as the service. Between `env.sh up` registering the new revisions and the configuration
+rollout, the service still runs the old architecture while a migrate task would run the new one;
+the image is the same release either way, so that matters only for how long the window lasts. qa went first; prod follows
+by setting it in its `terraform.tfvars` once qa has shown it works (Gunnar's call).
+
+A task definition's architecture is configuration, so it reaches the service as a configuration
+rollout: `env.sh up` registers the revisions, and `deploy-backend.yml` with the running version
+moves the service onto them, blue/green ([deploying](../deployment/deploying.md)). A release from
+before v0.15.0 has no arm64 image and cannot start on Graviton, so it is refused rather than tried:
+`plan` stops on a precondition, and `deploy-backend.py` refuses such a release before anything
+stops. Rolling back that far means switching back to `X86_64` first. *Rejected: a separate story per task*, which would have left the
+migrate task on x86 against an arm64 service for no saving worth having.
+
 ## ECS-native blue/green, which needed AWS provider 6
 
 Two target groups, a production listener

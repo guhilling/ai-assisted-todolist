@@ -45,7 +45,8 @@ findings that are:
   `latest` or release, so it drops out as soon as the fix is pulled — unless Inspector sees ECS
   still running it. **Since the images are multi-architecture (#249)** the cache keeps a release's
   tag on its index, and the image ECS runs — the one Inspector scans — is stored untagged inside
-  it. So the workflow reads the cached indexes (`ecr:DescribeImages`, `ecr:BatchGetImage` on
+  it. With qa on Graviton and prod on x86 (#250) a release can be two such images, one per
+  architecture, each scanned on its own; the cache keeps fifteen images, about five releases. So the workflow reads the cached indexes (`ecr:DescribeImages`, `ecr:BatchGetImage` on
   `quay/*`, granted to the findings role) and counts an image inside a tagged index as carrying
   that tag, and lists it under it; an image no tagged index holds any longer is superseded as
   before.

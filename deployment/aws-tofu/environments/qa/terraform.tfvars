@@ -25,3 +25,7 @@ blue_green_bake_minutes = 2
 
 # A rollout's last phase waits this long for connections to the old task to finish.
 deregistration_delay_seconds = 5
+
+# Graviton (#250): about 20% less for the same task size. qa first; prod follows once qa has
+# shown it works (Gunnar's call), by setting the same in prod's terraform.tfvars.
+cpu_architecture = "ARM64"

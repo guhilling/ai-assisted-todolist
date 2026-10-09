@@ -126,7 +126,7 @@ resource "aws_ecs_task_definition" "db_bootstrap" {
 
   runtime_platform {
     operating_system_family = "LINUX"
-    cpu_architecture        = "X86_64"
+    cpu_architecture        = var.cpu_architecture
   }
 
   container_definitions = jsonencode([{
@@ -181,7 +181,7 @@ resource "aws_ecs_task_definition" "migrate" {
 
   runtime_platform {
     operating_system_family = "LINUX"
-    cpu_architecture        = "X86_64"
+    cpu_architecture        = var.cpu_architecture
   }
 
   container_definitions = jsonencode([{
@@ -212,6 +212,12 @@ resource "aws_ecs_task_definition" "migrate" {
     precondition {
       condition     = var.backend_image != null
       error_message = "backend_image is required while the environment is up: run ./env.sh up, or pass -var backend_image=<the image env.sh up prints>."
+    }
+
+    # A release before v0.15.0 has no arm64 image (#249): on Graviton its tasks could not start.
+    precondition {
+      condition     = var.cpu_architecture != "ARM64" || local.backend_image_runs_on
+      error_message = "cpu_architecture is ARM64, but ${coalesce(var.backend_image, "the backend image")} has no arm64 image: releases before v0.15.0 are amd64 only. Start a later release, or set cpu_architecture to X86_64."
     }
   }
 }
@@ -378,7 +384,7 @@ resource "aws_ecs_task_definition" "backend" {
 
   runtime_platform {
     operating_system_family = "LINUX"
-    cpu_architecture        = "X86_64"
+    cpu_architecture        = var.cpu_architecture
   }
 
   container_definitions = jsonencode([{
@@ -446,6 +452,12 @@ resource "aws_ecs_task_definition" "backend" {
     precondition {
       condition     = var.backend_image != null
       error_message = "backend_image is required while the environment is up: run ./env.sh up, or pass -var backend_image=<the image env.sh up prints>."
+    }
+
+    # A release before v0.15.0 has no arm64 image (#249): on Graviton its tasks could not start.
+    precondition {
+      condition     = var.cpu_architecture != "ARM64" || local.backend_image_runs_on
+      error_message = "cpu_architecture is ARM64, but ${coalesce(var.backend_image, "the backend image")} has no arm64 image: releases before v0.15.0 are amd64 only. Start a later release, or set cpu_architecture to X86_64."
     }
   }
 }
