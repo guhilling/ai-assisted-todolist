@@ -26,6 +26,26 @@ function DueDateField({ value, onChange, min }: Readonly<DueDateFieldProps>) {
   const [open, setOpen] = useState(false)
   const fieldRef = useRef<HTMLDivElement>(null)
   const toggleRef = useRef<HTMLButtonElement>(null)
+  // Whether closing should give focus back to the button: after a pick or Escape, not after a
+  // click elsewhere, which has put focus where it wanted it.
+  const refocus = useRef(false)
+
+  /** Closes the calendar, and has the button take focus once it is gone. */
+  const closeToButton = () => {
+    refocus.current = true
+    setOpen(false)
+  }
+
+  // Focus goes back only after the calendar has gone (#256). Done in the close itself, a day
+  // could take it straight back: react-day-picker focuses the selected day in an effect, and when a
+  // day is picked before that effect has run, React runs it before removing the calendar -- the
+  // focus went to a day that then disappeared, and fell to the page.
+  useEffect(() => {
+    if (!open && refocus.current) {
+      refocus.current = false
+      toggleRef.current?.focus()
+    }
+  }, [open])
 
   useEffect(() => {
     if (!open) {
@@ -42,8 +62,7 @@ function DueDateField({ value, onChange, min }: Readonly<DueDateFieldProps>) {
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         event.stopPropagation()
-        setOpen(false)
-        toggleRef.current?.focus()
+        closeToButton()
       }
     }
 
@@ -91,8 +110,7 @@ function DueDateField({ value, onChange, min }: Readonly<DueDateFieldProps>) {
               min={min}
               onPick={(iso) => {
                 onChange(iso)
-                setOpen(false)
-                toggleRef.current?.focus()
+                closeToButton()
               }}
             />
           </Suspense>

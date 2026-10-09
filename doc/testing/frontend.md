@@ -18,6 +18,11 @@ Two details are deliberate:
 - **Fixture dates are computed from the real today**, not hardcoded. The board reads the clock
   once on mount and groups rows by how far away they are, so a fixed date would change which
   section a row lands in as time passed, and the suite would rot quietly.
+- **A race that CI hits now and then gets a test that hits it every time.** The calendar's focus
+  test failed on slow runners only (#256): react-day-picker focuses the selected day in an effect,
+  and a day picked before that effect had run lost the focus the field had just given back.
+  `DueDateFocus.test.tsx` makes the late focus happen deterministically -- it failed with the CI
+  error before the fix -- rather than retrying the original until it passes.
 - **The loading-state test holds the board's own fetch open** rather than letting the stub
   resolve straight away. Loading is transient, and asserting it against an immediate stub is a
   race that passes on timing rather than on behaviour — it did, until it did not.

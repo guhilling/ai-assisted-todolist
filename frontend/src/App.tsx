@@ -117,6 +117,20 @@ function Board() {
     [tasks],
   )
 
+  /**
+   * Reports a failed request. A session that has ended is not a failure of the request that
+   * noticed it, so it signs the board out and says why, instead of showing an error message.
+   */
+  const reportFailure = (failure: unknown, fallback: keyof Messages['failures']) => {
+    if (failure instanceof SessionExpiredError) {
+      setError(null)
+      setSessionExpired(true)
+      setCurrentUser(null)
+      return
+    }
+    setError({ cause: failure, fallback })
+  }
+
   useEffect(() => {
     /**
      * Loaded on its own, not alongside the session probe.
@@ -160,19 +174,6 @@ function Board() {
     void loadSession()
   }, [])
 
-  /**
-   * Reports a failed request. A session that has ended is not a failure of the request that
-   * noticed it, so it signs the board out and says why, instead of showing an error message.
-   */
-  const reportFailure = (failure: unknown, fallback: keyof Messages['failures']) => {
-    if (failure instanceof SessionExpiredError) {
-      setError(null)
-      setSessionExpired(true)
-      setCurrentUser(null)
-      return
-    }
-    setError({ cause: failure, fallback })
-  }
 
   const replaceTask = (updated: Task) =>
     setTasks((current) => current.map((task) => (task.id === updated.id ? updated : task)))
