@@ -60,7 +60,7 @@ export async function makeThumbnail(file: File): Promise<Blob | null> {
     context.drawImage(bitmap, (bitmap.width - sourceWidth) / 2, (bitmap.height - sourceHeight) / 2, sourceWidth,
       sourceHeight, 0, 0, size.width, size.height)
     const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.8))
-    return blob && blob.type === 'image/jpeg' && blob.size <= MAX_BYTES ? blob : null
+    return blob?.type === 'image/jpeg' && blob.size <= MAX_BYTES ? blob : null
   } catch {
     return null
   } finally {

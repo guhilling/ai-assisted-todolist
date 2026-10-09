@@ -63,7 +63,7 @@ class StartWithTlsScriptTest {
     /** Runs the script with a `java` that records its arguments and the TLS settings, and returns them. */
     private Map<String, String> run() throws IOException, InterruptedException {
         Path bin = Files.createDirectories(work.resolve("bin"));
-        Path record = work.resolve("started.txt");
+        Path startedWith = work.resolve("started.txt");
         Path java = bin.resolve("java");
         Files.writeString(java, """
             #!/bin/bash
@@ -72,7 +72,7 @@ class StartWithTlsScriptTest {
               echo "QUARKUS_TLS_KEY_STORE_P12_PATH=$QUARKUS_TLS_KEY_STORE_P12_PATH"
               echo "QUARKUS_TLS_KEY_STORE_P12_PASSWORD=$QUARKUS_TLS_KEY_STORE_P12_PASSWORD"
             } > "%s"
-            """.formatted(record));
+            """.formatted(startedWith));
         Files.setPosixFilePermissions(java, PosixFilePermissions.fromString("rwxr-xr-x"));
         Path keytool = Path.of(System.getProperty("java.home"), "bin");
 
@@ -83,7 +83,7 @@ class StartWithTlsScriptTest {
         String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
         assertEquals(0, process.waitFor(), output);
 
-        return Files.readAllLines(record).stream()
+        return Files.readAllLines(startedWith).stream()
             .map(line -> line.split("=", 2))
             .collect(Collectors.toMap(pair -> pair[0], pair -> pair[1]));
     }
