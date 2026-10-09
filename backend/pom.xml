@@ -492,10 +492,15 @@
                  needs no flag there, and the arm64 e2e runner gets arm64 too. Publishing sets both
                  platforms explicitly and overrides this. -->
             <id>arm64-image</id>
+            <!-- Not when pushing: a push from an Apple-silicon Mac would otherwise replace a
+                 multi-architecture tag with an arm64-only one. Publishing names its platforms. -->
             <activation>
                 <os>
                     <arch>aarch64</arch>
                 </os>
+                <property>
+                    <name>!quarkus.container-image.push</name>
+                </property>
             </activation>
             <properties>
                 <quarkus.jib.platforms>linux/arm64</quarkus.jib.platforms>

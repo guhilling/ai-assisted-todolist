@@ -49,6 +49,7 @@ Decisions with consequences, why they were taken, and what was rejected. Newest 
 - [SNAPSHOT dependencies fail every build, not just releases](build-and-dependencies.md#snapshot-dependencies-fail-every-build-not-just-releases)
 - [Renovate merges the small updates and asks about the large ones](build-and-dependencies.md#renovate-merges-the-small-updates-and-asks-about-the-large-ones)
 - [CodeQL scanning, unfiltered by path](build-and-dependencies.md#codeql-scanning-unfiltered-by-path)
+- [The images are published for amd64 and arm64](build-and-dependencies.md#the-images-are-published-for-amd64-and-arm64)
 - [The runner is pinned, so an image migration is a decision](build-and-dependencies.md#the-runner-is-pinned-so-an-image-migration-is-a-decision)
 - [Pages deploys only from `main`](build-and-dependencies.md#pages-deploys-only-from-main)
 - [Misconfiguration scanning is static, in CI, with Trivy — not AWS Config](build-and-dependencies.md#misconfiguration-scanning-is-static-in-ci-with-trivy-not-aws-config)

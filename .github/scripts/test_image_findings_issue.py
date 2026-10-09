@@ -9,6 +9,7 @@ Run with:  python3 -m unittest discover -s .github/scripts -p 'test_*.py'
 """
 
 import importlib.util
+import json
 import pathlib
 import unittest
 from unittest import mock
@@ -230,6 +231,42 @@ class QueriesTest(unittest.TestCase):
         second = dict(finding("CVE-2026-0002"), findingArn="arn:finding/2")
         merged = findings.merge([first, second], [dict(first)])
         self.assertEqual([f["findingArn"] for f in merged], ["arn:finding/1", "arn:finding/2"])
+
+
+
+def child(cve, digest, tags=()):
+    """A finding on one architecture's image of a multi-architecture release (#249)."""
+    f = dict(finding(cve, tags=tags), findingArn=f"arn:finding/{cve}")
+    f["resources"][0]["details"]["awsEcrContainerImage"]["imageHash"] = digest
+    return f
+
+
+class MultiArchitectureTest(unittest.TestCase):
+    """ECS pulls a release's index by digest and then the image for its architecture; the cache keeps
+    the index's tag and stores that image untagged, and Inspector scans the image, not the index."""
+
+    INDEX = json.dumps({"manifests": [
+        {"digest": "sha256:amd", "platform": {"architecture": "amd64", "os": "linux"}},
+        {"digest": "sha256:arm", "platform": {"architecture": "arm64", "os": "linux"}},
+    ]})
+
+    def test_each_image_in_an_index_is_known_by_the_index_tags(self):
+        tags = findings.index_tags_of([{"tags": ["0.15.0"], "manifest": self.INDEX}])
+        self.assertEqual(tags, {"sha256:amd": ["0.15.0"], "sha256:arm": ["0.15.0"]})
+
+    def test_an_image_from_a_tagged_index_counts_when_it_arrived_recently(self):
+        fresh = child("CVE-2026-0005", "sha256:amd")
+        merged = findings.merge_results(in_use=[], arrived=[fresh], index_tags={"sha256:amd": ["0.15.0"]})
+        self.assertEqual([f["findingArn"] for f in merged], ["arn:finding/CVE-2026-0005"])
+
+    def test_it_is_listed_under_the_release_it_belongs_to(self):
+        fresh = child("CVE-2026-0005", "sha256:amd")
+        merged = findings.merge_results(in_use=[], arrived=[fresh], index_tags={"sha256:amd": ["0.15.0"]})
+        self.assertEqual(findings.rows(merged)[0].images, {"quay/ghilling/taskfest-backend:0.15.0"})
+
+    def test_an_image_no_tagged_index_holds_any_longer_is_still_superseded(self):
+        old = child("CVE-2026-0006", "sha256:old")
+        self.assertEqual(findings.merge_results(in_use=[], arrived=[old], index_tags={"sha256:amd": ["0.15.0"]}), [])
 
 
 if __name__ == "__main__":

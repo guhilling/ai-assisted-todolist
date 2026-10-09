@@ -149,7 +149,8 @@ what makes Quarkus Dev Services start PostgreSQL and Keycloak automatically.
 ## Containers and deployment
 
 The backend image is built by **Jib** rather than from a Dockerfile — `./mvnw package
--Dquarkus.container-image.build=true` — on an explicitly pinned base of our own, `jre-runtime`
+-Dquarkus.container-image.build=true` — and published, like the frontend's, for `amd64` and `arm64`
+(#249), on an explicitly pinned base of our own, `jre-runtime`
 (Temurin's Java 25 JRE on UBI micro, `deployment/jre-runtime/`). The pin matters: Jib's default
 base ships JDK 21 and cannot load this code's class files. There are no Dockerfiles under
 `backend/` at all: the four Quarkus generated were unused, two of them JDK 17 based, and all

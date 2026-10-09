@@ -96,7 +96,7 @@ data "aws_iam_policy_document" "image_findings_trust" {
 
 resource "aws_iam_role" "image_findings" {
   name               = "${var.project}-image-findings"
-  description        = "Lets the daily workflow on main read Amazon Inspector findings. Nothing else."
+  description        = "Lets the daily workflow on main read Amazon Inspector findings and the cached image indexes. Nothing else."
   assume_role_policy = data.aws_iam_policy_document.image_findings_trust.json
 }
 
@@ -106,6 +106,19 @@ data "aws_iam_policy_document" "image_findings" {
     sid       = "ReadInspectorFindings"
     actions   = ["inspector2:ListFindings"]
     resources = ["*"]
+  }
+
+  # The images are multi-architecture (#249): the cache keeps a release's tag on its index, and
+  # the image ECS runs -- the one Inspector scans -- is stored untagged inside it. Reading the
+  # cached indexes is how the script names that image by its release. Read-only, and only the
+  # cache's own repositories.
+  statement {
+    sid = "ReadTheCachedIndexes"
+    actions = [
+      "ecr:DescribeImages",
+      "ecr:BatchGetImage",
+    ]
+    resources = ["arn:aws:ecr:${var.region}:${data.aws_caller_identity.current.account_id}:repository/quay/*"]
   }
 }
 

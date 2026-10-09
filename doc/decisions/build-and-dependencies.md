@@ -211,19 +211,27 @@ Rosetta cannot run an amd64 image, and the local stacks run the published ones.
 `-Dquarkus.jib.platforms=linux/amd64,linux/arm64` is all the backend needs. The frontend's Node
 stage runs on the build machine (`FROM --platform=$BUILDPLATFORM`), once, and its output is the
 same static files for both; the final stage only copies, so `buildx` builds the arm64 image with no
-QEMU. After pushing, both workflows check the tag's index really lists both architectures.
+QEMU. Each workflow names the platforms once (`PLATFORMS`), builds both images with it and, after
+pushing, checks with it that the tag's index lists every one (`.github/scripts/check-image-platforms.py`).
+A classic, non-BuildKit `docker build` does not fill in `$BUILDPLATFORM`; Docker has defaulted to
+BuildKit since 23, and Podman's buildah fills it in too.
 
 **Local builds are for the machine they are built on.** The backend's `arm64-image` Maven profile
 activates on an `aarch64` JVM and sets the Jib platform to `linux/arm64`, so a Mac builds arm64
-with the usual command; `docker build` and `podman build` build for the host anyway.
+with the usual command; `docker build` and `podman build` build for the host anyway. Not when
+pushing: a hand-pushed `latest` from a Mac would otherwise replace the two-architecture index with
+an arm64-only image.
 
 **The proof is the e2e suite on arm64.** `e2e.yml` runs on GitHub's free `ubuntu-24.04-arm` runner
-as well as on `ubuntu-26.04`: it builds both images natively there, checks they are for that
+as well as on `ubuntu-26.04` -- two jobs sharing their steps through a YAML anchor, not a matrix,
+because Renovate reads runner labels only from a literal `runs-on:` -- it builds both images natively there, checks they are for that
 architecture, and runs the whole stack and every scenario on them. *Rejected: QEMU for the e2e
 run*, which would prove less (emulated) and take far longer.
 
-**AWS is unchanged.** `deploy-backend.py` pins the release's index digest, as before, and Fargate on
-`X86_64` pulls the amd64 image from it; #250 moves it to Graviton.
+**AWS barely changes.** `deploy-backend.py` pins the release's digest as before, which is now the
+index's, and Fargate on `X86_64` pulls the amd64 image from it; #250 moves it to Graviton. What does
+change is image scanning: the cache stores that image untagged inside the tagged index, so the
+findings workflow maps it to the index's tag ([image scanning](../deployment/image-scanning.md)).
 
 ## The runner is pinned, so an image migration is a decision
 
