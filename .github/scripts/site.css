@@ -336,3 +336,42 @@ pre code { padding: 0; background: none; border: 0; white-space: pre; }
 .video video { display: block; width: 100%; max-width: 800px; border: 1px solid var(--border); border-radius: 6px; }
 .video figcaption { margin-top: 0.4rem; }
 .video figcaption span { opacity: 0.7; }
+
+/* The image viewer (lightbox.js): an image opens almost filling the window. */
+.lightbox-target { cursor: zoom-in; }
+.lightbox-target:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.lightbox {
+  width: 100vw;
+  height: 100vh;
+  max-width: 100vw;
+  max-height: 100vh;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: zoom-out;
+}
+.lightbox::backdrop { background: rgba(10, 12, 15, 0.85); }
+.lightbox[open] { display: flex; align-items: center; justify-content: center; }
+/* As large as the window allows, in proportion: a small image -- a diagram drawn at 1000 px --
+   is scaled up, which width and height with object-fit do and max-width alone would not. The
+   diagrams bring their own background. */
+.lightbox__image {
+  width: 96vw;
+  height: 94vh;
+  object-fit: contain;
+}
+.lightbox__close {
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.92);
+  color: #1a1f24;
+  font-size: 22px;
+  line-height: 36px;
+  cursor: pointer;
+}
