@@ -12,9 +12,11 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { useState } from 'react'
 import { describe, expect, it } from 'vitest'
 import DueDateField from './components/DueDateField'
+import { addDays, todayIso } from './dates'
 
 function Field() {
-  const [value, setValue] = useState('2026-10-12')
+  // From today, like every fixture here: a fixed date would put the calendar in a fixed month.
+  const [value, setValue] = useState(addDays(todayIso(), 1))
   return <DueDateField value={value} onChange={setValue} />
 }
 
@@ -23,8 +25,8 @@ describe('picking a day', () => {
     render(<Field />)
     fireEvent.click(screen.getByRole('button', { name: /choose the due date from a calendar/i }))
     const calendar = await screen.findByRole('grid')
-    const selected = within(calendar).getByRole('button', { name: /October 12/ })
-    const day = within(calendar).getByText('15')
+    const selected = calendar.querySelector<HTMLButtonElement>('[aria-selected="true"] button')!
+    const day = within(calendar).getAllByRole('button').find((button) => button !== selected && !button.hasAttribute('disabled'))!
 
     // As the pending autoFocus effect does: React runs it before it removes the calendar, so the
     // day takes the focus straight after the field has given it back to the button.

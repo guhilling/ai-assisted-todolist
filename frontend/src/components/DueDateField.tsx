@@ -1,4 +1,5 @@
 import { Suspense, lazy, useEffect, useId, useRef, useState } from 'react'
+import { useReturnFocus } from '../focus'
 import { useI18n } from '../i18n/context'
 
 const CalendarPanel = lazy(() => import('./CalendarPanel'))
@@ -26,26 +27,15 @@ function DueDateField({ value, onChange, min }: Readonly<DueDateFieldProps>) {
   const [open, setOpen] = useState(false)
   const fieldRef = useRef<HTMLDivElement>(null)
   const toggleRef = useRef<HTMLButtonElement>(null)
-  // Whether closing should give focus back to the button: after a pick or Escape, not after a
-  // click elsewhere, which has put focus where it wanted it.
-  const refocus = useRef(false)
+  // Focus goes back to the button only once the calendar has gone (#256, focus.ts): after a pick
+  // or Escape, not after a click elsewhere.
+  const returnFocus = useReturnFocus(open, toggleRef)
 
   /** Closes the calendar, and has the button take focus once it is gone. */
   const closeToButton = () => {
-    refocus.current = true
+    returnFocus()
     setOpen(false)
   }
-
-  // Focus goes back only after the calendar has gone (#256). Done in the close itself, a day
-  // could take it straight back: react-day-picker focuses the selected day in an effect, and when a
-  // day is picked before that effect has run, React runs it before removing the calendar -- the
-  // focus went to a day that then disappeared, and fell to the page.
-  useEffect(() => {
-    if (!open && refocus.current) {
-      refocus.current = false
-      toggleRef.current?.focus()
-    }
-  }, [open])
 
   useEffect(() => {
     if (!open) {
@@ -62,7 +52,8 @@ function DueDateField({ value, onChange, min }: Readonly<DueDateFieldProps>) {
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         event.stopPropagation()
-        closeToButton()
+        returnFocus()
+        setOpen(false)
       }
     }
 
@@ -73,7 +64,7 @@ function DueDateField({ value, onChange, min }: Readonly<DueDateFieldProps>) {
       document.removeEventListener('click', closeUnlessInside)
       field?.removeEventListener('keydown', closeOnEscape)
     }
-  }, [open])
+  }, [open, returnFocus])
 
   return (
     <div className="add-field date-field" ref={fieldRef}>

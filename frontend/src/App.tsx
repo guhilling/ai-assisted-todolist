@@ -174,7 +174,6 @@ function Board() {
     void loadSession()
   }, [])
 
-
   const replaceTask = (updated: Task) =>
     setTasks((current) => current.map((task) => (task.id === updated.id ? updated : task)))
 
