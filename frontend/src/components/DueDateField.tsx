@@ -1,4 +1,5 @@
 import { Suspense, lazy, useEffect, useId, useRef, useState } from 'react'
+import { useReturnFocus } from '../focus'
 import { useI18n } from '../i18n/context'
 
 const CalendarPanel = lazy(() => import('./CalendarPanel'))
@@ -26,6 +27,15 @@ function DueDateField({ value, onChange, min }: Readonly<DueDateFieldProps>) {
   const [open, setOpen] = useState(false)
   const fieldRef = useRef<HTMLDivElement>(null)
   const toggleRef = useRef<HTMLButtonElement>(null)
+  // Focus goes back to the button only once the calendar has gone (#256, focus.ts): after a pick
+  // or Escape, not after a click elsewhere.
+  const returnFocus = useReturnFocus(open, toggleRef)
+
+  /** Closes the calendar, and has the button take focus once it is gone. */
+  const closeToButton = () => {
+    returnFocus()
+    setOpen(false)
+  }
 
   useEffect(() => {
     if (!open) {
@@ -42,8 +52,8 @@ function DueDateField({ value, onChange, min }: Readonly<DueDateFieldProps>) {
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         event.stopPropagation()
+        returnFocus()
         setOpen(false)
-        toggleRef.current?.focus()
       }
     }
 
@@ -54,7 +64,7 @@ function DueDateField({ value, onChange, min }: Readonly<DueDateFieldProps>) {
       document.removeEventListener('click', closeUnlessInside)
       field?.removeEventListener('keydown', closeOnEscape)
     }
-  }, [open])
+  }, [open, returnFocus])
 
   return (
     <div className="add-field date-field" ref={fieldRef}>
@@ -91,8 +101,7 @@ function DueDateField({ value, onChange, min }: Readonly<DueDateFieldProps>) {
               min={min}
               onPick={(iso) => {
                 onChange(iso)
-                setOpen(false)
-                toggleRef.current?.focus()
+                closeToButton()
               }}
             />
           </Suspense>

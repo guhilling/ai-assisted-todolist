@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { useEscapeWithin } from '../escape'
+import { useReturnFocus } from '../focus'
 import { useI18n } from '../i18n/context'
 
 type AccountDeletionProps = {
@@ -29,21 +30,12 @@ function AccountDeletion({ email, onDelete }: Readonly<AccountDeletionProps>) {
   const confirmed = typed.trim().toLowerCase() === email.trim().toLowerCase()
   const trigger = useRef<HTMLButtonElement>(null)
   const dialog = useRef<HTMLElement>(null)
-  const returnFocus = useRef(false)
-
-  /**
-   * Closing the confirmation puts focus back on the button it was opened from; without this it
-   * falls to the page body when the dialog unmounts, and a keyboard user starts over at the top.
-   */
-  useEffect(() => {
-    if (!asking && returnFocus.current) {
-      returnFocus.current = false
-      trigger.current?.focus()
-    }
-  }, [asking])
+  // Closing the confirmation puts focus back on the button it was opened from; without this it
+  // falls to the page body when the dialog unmounts, and a keyboard user starts over at the top.
+  const returnFocus = useReturnFocus(asking, trigger)
 
   const close = () => {
-    returnFocus.current = true
+    returnFocus()
     setTyped('')
     setAsking(false)
   }
