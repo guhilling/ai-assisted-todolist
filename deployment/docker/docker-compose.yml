@@ -44,6 +44,9 @@ services:
       # comes from httpd's X-Forwarded-Proto, as it comes from the load balancer's in AWS.
       QUARKUS_HTTP_PROXY_PROXY_ADDRESS_FORWARDING: "true"
       QUARKUS_HTTP_PROXY_ALLOW_X_FORWARDED: "true"
+      # And the host the browser used, port included, from mod_proxy's X-Forwarded-Host: trusting
+      # X-Forwarded-Proto alone resets the port, and sign-in lost the browser's :3000.
+      QUARKUS_HTTP_PROXY_ENABLE_FORWARDED_HOST: "true"
     depends_on:
       - postgres
     ports:

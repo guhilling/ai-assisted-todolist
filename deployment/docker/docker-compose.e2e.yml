@@ -90,6 +90,9 @@ services:
       # comes from httpd's X-Forwarded-Proto, as it comes from the load balancer's in AWS.
       QUARKUS_HTTP_PROXY_PROXY_ADDRESS_FORWARDING: "true"
       QUARKUS_HTTP_PROXY_ALLOW_X_FORWARDED: "true"
+      # And the host the browser used, port included, from mod_proxy's X-Forwarded-Host: trusting
+      # X-Forwarded-Proto alone resets the port, and sign-in lost the browser's :3000.
+      QUARKUS_HTTP_PROXY_ENABLE_FORWARDED_HOST: "true"
     volumes:
       - ../../e2e/backend-e2e.properties:/config/backend-e2e.properties:ro
       - ../../e2e/backend-healthcheck.sh:/config/healthcheck.sh:ro
@@ -113,10 +116,25 @@ services:
       timeout: 5s
       retries: 24
 
+  # Whether the backend is serving, asked over TLS (#247). The backend's own image cannot ask: it
+  # has bash but no curl, and bash's /dev/tcp speaks plain TCP. So this container asks for it, with
+  # -k as the load balancer does, and the frontend waits for it rather than for the open port.
+  backend-ready:
+    image: docker.io/curlimages/curl:8.22.0
+    command: ["sleep", "infinity"]
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsSk", "-o", "/dev/null", "https://backend:8443/api/auth/providers"]
+      interval: 3s
+      timeout: 5s
+      retries: 40
+
   frontend:
     image: ${FRONTEND_IMAGE:-taskfest-frontend:e2e}
     depends_on:
-      backend:
+      backend-ready:
         condition: service_healthy
     ports:
       - "3000:8080"

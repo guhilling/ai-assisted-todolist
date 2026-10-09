@@ -1,6 +1,5 @@
 package de.hilling.taskfest.tls;
 
-import de.hilling.taskfest.health.ReadinessProbe;
 import io.quarkus.test.common.http.TestHTTPResource;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.junit.QuarkusTestProfile;
@@ -20,17 +19,16 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 import static io.restassured.RestAssured.given;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * The backend as the AWS task definition runs it (#247): TLS only, with a self-signed keystore
  * made by the same script, so the load balancer's connection to the task is encrypted and no plain
  * HTTP port is open beside it.
  *
- * <p>The profile sets what the task definition sets -- the TLS port, insecure requests disabled --
- * and the keystore path and password the script hands over. The readiness check is what the load
+ * <p>The profile sets what the {@code prod} profile sets -- insecure requests disabled -- and the
+ * keystore path and password the script hands over; {@code ProdServesTlsOnlyTest} pins that the
+ * {@code prod} profile really sets them. The readiness check is what the load
  * balancer's health check asks, so it is what is asked here. The load balancer does not validate a
  * target's certificate, and neither does this test.</p>
  */
@@ -59,17 +57,6 @@ class ServesTlsTest {
 
         assertThrows(ConnectException.class,
             () -> http.send(HttpRequest.newBuilder(plain).build(), HttpResponse.BodyHandlers.discarding()));
-    }
-
-    @Test
-    void shouldBeReportedReadyByTheProbeTheComposeStacksUse() {
-        // The Compose stacks cannot speak TLS from bash, so their health check runs this class.
-        assertTrue(ReadinessProbe.ready(URI.create(readiness.toString())));
-    }
-
-    @Test
-    void shouldBeReportedNotReadyWhereNothingAnswers() {
-        assertFalse(ReadinessProbe.ready(URI.create("https://localhost:" + PLAIN_TEST_PORT + "/q/health/ready")));
     }
 
     static final int PLAIN_TEST_PORT = 8081;

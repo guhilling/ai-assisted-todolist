@@ -412,10 +412,11 @@ resource "aws_ecs_task_definition" "backend" {
       { name = "TASKFEST_AUTH_ENABLED", value = tostring(local.sign_in_enabled) },
       { name = "TASKFEST_OIDC_GOOGLE_CLIENT_ID", value = var.google_client_id },
 
-      # Behind CloudFront and the load balancer, which talks to the task over plain HTTP. The
-      # backend builds the OIDC callback address from the request, so it must believe the load
-      # balancer's X-Forwarded-Proto -- otherwise it asks Google to return to http://, which
-      # Google refuses. Believed only from inside the VPC; nothing else can reach the task anyway.
+      # Behind CloudFront and the load balancer, whose connection to the task is not the
+      # visitor's: TLS to port 8443 since #247. The backend builds the OIDC callback address from
+      # the request, so it must believe the load balancer's X-Forwarded-Proto and -Port --
+      # otherwise it asks Google to return to its own port, which Google refuses. Believed only
+      # from inside the VPC; nothing else can reach the task anyway.
       # SignInBehindProxyTest pins this with the same keys.
       { name = "QUARKUS_HTTP_PROXY_PROXY_ADDRESS_FORWARDING", value = "true" },
       { name = "QUARKUS_HTTP_PROXY_ALLOW_X_FORWARDED", value = "true" },
