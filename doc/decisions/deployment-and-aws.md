@@ -308,6 +308,34 @@ CloudFront's own (which has to be in us-east-1). That works because `/api/*` for
 instead of the origin's domain name — so no second name for the load balancer is needed. Both
 certificates validate through the same DNS record.
 
+## Encryption in transit is settled by configuration, hop by hop, not measured
+
+#97 asked to switch on AWS's VPC Encryption Controls in monitor mode and let the flow logs say
+which traffic inside qa's VPC is in cleartext. It is not switched on (Gunnar's decision): since
+March 2026 the feature costs $0.17 an hour in Frankfurt for every VPC holding a network interface,
+monitor and enforce mode alike -- about $124 a month at 24/7, roughly doubling what qa costs while
+it is up -- and every hop can be answered from the configuration that enforces it:
+
+| Hop | Encrypted | Enforced by |
+| --- | --- | --- |
+| browser → CloudFront | TLS | the viewer protocol policy: HTTP is redirected for the app and refused for `/api/*` |
+| CloudFront → site bucket | TLS | origin access control over HTTPS; the bucket policy refuses `aws:SecureTransport` false |
+| CloudFront → load balancer | TLS | the VPC origin is `https-only`; the listener is HTTPS with the environment's ACM certificate and `ELBSecurityPolicy-TLS13-1-2-2021-06` |
+| **load balancer → backend task** | **no: HTTP to port 8080** | the target group's protocol -- the one cleartext hop, inside the private VPC |
+| backend, migrate, db-bootstrap → RDS | TLS, server certificate verified | `sslmode=verify-full` against the RDS bundle (`PGSSLMODE` for db-bootstrap); RDS for PostgreSQL 18 refuses plain connections (`rds.force_ssl`), and IAM login needs TLS anyway |
+| browser and backend → attachment bucket | TLS | presigned HTTPS links and the SDK; the bucket policy refuses plain HTTP |
+| tasks → AWS APIs, Google, Quay through ECR | TLS | HTTPS endpoints only |
+
+So the one hop to fix is the load balancer to the task, and it is its own story: TLS from the
+load balancer to the backend task, with a certificate the container generates itself -- a load
+balancer does not validate its targets' certificates, so no CA and no renewal are involved.
+*Rejected: monitor mode to confirm the table*, for the price above; and since AWS moves load
+balancers and Fargate onto encrypting hardware once it is on, the measurement would have reported
+that hop as hardware-encrypted rather than shown what the configuration does without it.
+*Rejected: enforce mode*, for the same price, permanently, and the internet gateway the public
+tasks use would need an exclusion. If compliance ever asks for proof rather than configuration,
+monitor mode for a day costs about $4.
+
 ## ECS-native blue/green, which needed AWS provider 6
 
 Two target groups, a production listener
