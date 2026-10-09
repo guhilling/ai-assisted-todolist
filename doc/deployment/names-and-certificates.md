@@ -54,8 +54,9 @@ This is manual configuration in the Google console and cannot be automated here.
   `TASKFEST_OIDC_GOOGLE_CLIENT_SECRET`. It does not rotate by itself, unlike the RDS master secret, so
   injection at start is fine; after changing it, start new tasks. About $0.40 a month, and it stays
   while the environment is down.
-- **Behind CloudFront and the ALB** the backend sees plain HTTP, so it is told to believe the
-  load balancer's `X-Forwarded-Proto` (`quarkus.http.proxy.*`, set in the task definition, trusted
+- **Behind CloudFront and the ALB** the backend sees the load balancer's connection, not the
+  visitor's -- TLS since #247, with a certificate of its own the load balancer does not check --
+  so it is told to believe the load balancer's `X-Forwarded-Proto` (`quarkus.http.proxy.*`, set in the task definition, trusted
   from inside the VPC only). Without that it asks Google to return to `http://…`, which Google
   rejects as an unregistered redirect URI. `SignInBehindProxyTest` pins it.
 - **Who may sign in** is decided in the Google console: with the app in *Testing*, only the Google

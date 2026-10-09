@@ -321,14 +321,24 @@ it is up -- and every hop can be answered from the configuration that enforces i
 | browser → CloudFront | TLS | the viewer protocol policy: HTTP is redirected for the app and refused for `/api/*` |
 | CloudFront → site bucket | TLS | origin access control over HTTPS; the bucket policy refuses `aws:SecureTransport` false |
 | CloudFront → load balancer | TLS | the VPC origin is `https-only`; the listener is HTTPS with the environment's ACM certificate and `ELBSecurityPolicy-TLS13-1-2-2021-06` |
-| **load balancer → backend task** | **no: HTTP to port 8080** | the target group's protocol -- the one cleartext hop, inside the private VPC |
+| load balancer → backend task | TLS, since #247 | both target groups and their health checks are `HTTPS` to port 8443; the task serves a self-signed certificate it makes at start (`start-with-tls.sh`) and opens no plain-HTTP port (`%prod.quarkus.http.insecure-requests=disabled` in `application.properties`) |
 | backend, migrate, db-bootstrap → RDS | TLS, server certificate verified | `sslmode=verify-full` against the RDS bundle (`PGSSLMODE` for db-bootstrap); RDS for PostgreSQL 18 refuses plain connections (`rds.force_ssl`), and IAM login needs TLS anyway |
 | browser and backend → attachment bucket | TLS | presigned HTTPS links and the SDK; the bucket policy refuses plain HTTP |
 | tasks → AWS APIs, Google, Quay through ECR | TLS | HTTPS endpoints only |
 
-So the one hop to fix is the load balancer to the task, and it is its own story: TLS from the
-load balancer to the backend task, with a certificate the container generates itself -- a load
-balancer does not validate its targets' certificates, so no CA and no renewal are involved.
+That left one hop in cleartext, the load balancer to the task -- HTTP to port 8080 -- and #247
+closed it with a certificate the container makes itself: a load balancer does not validate its
+targets' certificates, so no CA, no stored secret and no renewal are involved. Each task makes a
+new key pair at start with the JRE's `keytool`, as the image has no `openssl`. The script is the
+image's own entry point and the `prod` profile serves TLS only, so the same holds behind httpd in
+the Compose stacks, where the end-to-end suite exercises it on every pull request (Gunnar's
+decision: HTTPS wherever `prod` runs, not only in AWS). A release from before #247 cannot run on
+this infrastructure: it serves plain HTTP on 8080. **The switch needs an environment that is down.** The target
+groups' protocol and port can only change by replacing them, and while the environment is up they
+are held by the listener rule and the service, which ignore changes to them; so the order was:
+both environments down, the security group rules applied with an administrator's profile (the
+lifecycle role may not change them), a release built after #247, then `env.sh up`, which creates the
+HTTPS target groups and starts that release.
 *Rejected: monitor mode to confirm the table*, for the price above; and since AWS moves load
 balancers and Fargate onto encrypting hardware once it is on, the measurement would have reported
 that hop as hardware-encrypted rather than shown what the configuration does without it.

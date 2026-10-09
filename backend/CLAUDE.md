@@ -218,6 +218,15 @@ every response with, so an annotation here is enforced in the browser as well as
   `opt/rds/global-bundle.pem`, which the AWS JDBC URL names as `sslrootcert` so that
   `sslmode=verify-full` can check the server. It is AWS's public bundle, downloaded from
   `truststore.pki.rds.amazonaws.com`, and is not a secret.
+- **The image starts through `src/main/jib/opt/taskfest/start-with-tls.sh`** (#247),
+  `quarkus.jib.jvm-entrypoint`, run by `bash` because Jib copies files without their execute bit. It
+  makes a self-signed keystore and then runs Java as Jib's own entry point would, so **the script's
+  last line is that entry point and the JVM arguments, kept by hand**: Jib ignores
+  `quarkus.jib.jvm-arguments` once the entry point is custom. `StartWithTlsScriptTest` pins it. The
+  `prod` profile serves TLS only on 8443, in AWS and in the Compose stacks alike; dev mode and the
+  tests stay on plain HTTP. A health check inside the container cannot speak TLS (bash only), so
+  the e2e stack's `backend-ready` container asks with curl; `ProdServesTlsOnlyTest` pins the `prod`
+  settings and that the port matches the infrastructure's.
 - **There are no Dockerfiles under `backend/`, deliberately.** The four Quarkus
   generated (`Dockerfile.jvm`, `.legacy-jar`, `.native`, `.native-micro`) were
   deleted: nothing built them, two were JDK 17 based and so were a trap, and none

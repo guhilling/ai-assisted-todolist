@@ -12,7 +12,9 @@ docker compose -f deployment/docker/docker-compose.yml up --build
 ```
 
 - frontend: `http://localhost:3000`
-- backend: `http://localhost:8080`
+- backend: `https://localhost:8443` — TLS only, as everywhere the image runs with the `prod` profile
+  (#247), with a self-signed certificate made at start, so `curl -k`; the app reaches it through
+  httpd
 - postgres: `localhost:5432` (`taskfest` / `taskfest` / `taskfest`)
 
 To point this stack at real Google credentials, copy `.env.example` to `.env`, fill it in
