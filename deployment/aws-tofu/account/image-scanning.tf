@@ -24,9 +24,9 @@ resource "aws_ecr_pull_through_cache_rule" "quay" {
 # a new CVE is published, at $0.01 a rescan, so keeping only the newest few stops paying for
 # images nobody runs any more. Mutable, because `latest` moves.
 # How many images a cached repository keeps. Since the images are multi-architecture (#249), a
-# release is up to three of them: its index, and the image of each architecture an environment
-# pulls -- qa on Graviton, prod on x86 (#250). Fifteen keeps about five releases, as five did when
-# a release was one image.
+# release is two or three of them: its index, and the image of each architecture an environment
+# pulls -- arm64 since both run on Graviton (#250), amd64 as well should one go back. Fifteen keeps
+# about five releases either way, as five did when a release was one image.
 locals {
   cache_lifecycle_policy = jsonencode({
     rules = [{
