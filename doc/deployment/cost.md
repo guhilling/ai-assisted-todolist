@@ -11,11 +11,18 @@ One environment, **while up**:
 | --- | --- | --- | --- |
 | ALB | $0.027/h | $0.65 | $19.70, plus load-balancer capacity units, ~$0 at demo traffic |
 | Fargate, 0.5 vCPU / 1 GB, x86 | $0.0284/h | $0.68 | $20.70 |
+| *or* Fargate, same size, Graviton (ARM64) | $0.0227/h | $0.55 | $16.58 |
 | RDS `db.t4g.micro`, single-AZ | $0.0191/h | $0.46 | $13.90 |
 | RDS storage, 20 GB gp3 | $0.135/GB-month | $0.09 | $2.70 |
 | **Public IPv4 address** of the task | $0.005/h | $0.12 | $3.65 |
 | CloudFront, S3, CloudWatch, DNS queries | | | cents at demo traffic |
-| **Total** | **~$0.083/h** | **~$2.00** | **~$61** |
+| **Total**, with x86 | **~$0.083/h** | **~$2.00** | **~$61** |
+
+**Graviton (#250)** is $0.03725 per vCPU-hour and $0.00409 per GB-hour in Frankfurt against x86's
+$0.04656 and $0.00511 (AWS's price list for `eu-central-1`, 2026-10-09): 20% less for the backend
+task, $0.0057 an hour, about $4 a month at 24/7. The short migrate and db-bootstrap tasks save the
+same share of almost nothing. `cpu_architecture` chooses it per environment; qa runs on Graviton,
+prod on x86 until it follows.
 
 Two things the earlier estimate (~$50) missed: **public IPv4 addresses are billed**, since 2024,
 at $0.005 an hour each — the price of running the task in a public subnet instead of paying for

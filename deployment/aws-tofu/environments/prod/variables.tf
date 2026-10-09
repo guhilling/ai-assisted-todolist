@@ -78,3 +78,9 @@ variable "deregistration_delay_seconds" {
   description = "How long a target leaving the load balancer keeps its connections; every rollout waits on it."
   type        = number
 }
+
+variable "cpu_architecture" {
+  description = "What the Fargate tasks run on: X86_64, or ARM64 for Graviton (#250)."
+  type        = string
+  default     = "X86_64"
+}
