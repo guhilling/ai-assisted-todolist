@@ -1,4 +1,7 @@
-FROM node:24-alpine AS build
+# The build stage runs on the machine that builds (BUILDPLATFORM), once, whatever the image is
+# for: its output is the same static files for amd64 and arm64 (#249), so nothing is emulated.
+# The stage below only copies, and runs no command, so it needs no emulation either.
+FROM --platform=$BUILDPLATFORM node:24-alpine AS build
 WORKDIR /app
 COPY package.json package-lock.json* ./
 RUN npm ci

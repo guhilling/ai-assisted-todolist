@@ -154,6 +154,7 @@ jobs:
           package -DskipTests
           -Dquarkus.container-image.build=true
           -Dquarkus.container-image.push=true
+          -Dquarkus.jib.platforms=linux/amd64,linux/arm64
 
       - uses: actions/setup-node@v7
         if: matrix.name == 'frontend'
@@ -170,9 +171,25 @@ jobs:
         if: matrix.name == 'frontend'
         run: >
           docker buildx build --push
+          --platform linux/amd64,linux/arm64
           --tag quay.io/ghilling/taskfest-frontend:${{ needs.gate.outputs.version }}
           --build-arg VITE_TASKFEST_VERSION=${{ needs.gate.outputs.version }}
           -f docker/Dockerfile .
+
+      # The tag must be one image index with both architectures (#249), or a machine of the
+      # missing one pulls nothing it can run.
+      - name: Check the image is published for amd64 and arm64
+        working-directory: .
+        env:
+          IMAGE: quay.io/ghilling/taskfest-${{ matrix.name }}:${{ needs.gate.outputs.version }}
+        run: |
+          platforms=$(docker buildx imagetools inspect "$IMAGE" --format '{{json .Manifest}}' \
+            | jq -r '[.manifests[]?.platform | select(.os == "linux") | .architecture] | sort | unique | join(",")')
+          echo "$IMAGE: $platforms"
+          if [ "$platforms" != "amd64,arm64" ]; then
+            echo "::error::$IMAGE is not published for amd64 and arm64"
+            exit 1
+          fi
 
   announce:
     name: GitHub Release

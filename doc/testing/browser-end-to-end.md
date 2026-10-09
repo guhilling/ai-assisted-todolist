@@ -9,6 +9,9 @@ docker compose -f deployment/docker/docker-compose.e2e.yml up -d --wait
 cd e2e && npx playwright test
 ```
 
+In CI it runs twice, on an amd64 and on an arm64 runner, each with images built natively for it
+(#249): the arm64 run is what shows the images work on Apple silicon and Graviton.
+
 Full setup is in [local-development.md](../local-development/index.md). Useful flags while
 debugging: `--headed`, `--debug`, and `npx playwright show-report` after a failure.
 

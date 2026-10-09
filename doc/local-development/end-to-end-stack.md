@@ -12,6 +12,11 @@ docker compose -f deployment/docker/docker-compose.e2e.yml up -d --wait
 cd e2e && npm ci && npx playwright install chromium && npx playwright test
 ```
 
+Both builds are for the machine they run on: on an Apple-silicon Mac the backend's `arm64-image`
+profile makes Jib build arm64 (no Rosetta needed), and the published `latest` images carry arm64 as
+well (#249). With Podman instead of Docker, add `-Dquarkus.jib.docker-executable-name=podman` to the
+backend build.
+
 Here the app is on `http://localhost:3000` with sign-in enabled against Keycloak on
 `http://localhost:8082`, so you can also drive it by hand with the accounts above.
 

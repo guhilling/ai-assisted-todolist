@@ -200,6 +200,31 @@ not something a repository supplies. It is not a sign of a missing
 `.github/codeql/codeql-config.yml`, and it still says `false` now that one exists.
 
 
+## The images are published for amd64 and arm64
+
+**Decision.** `taskfest-backend` and `taskfest-frontend` are each one image index with an `amd64`
+and an `arm64` image, for `latest` and for every release (#249). An Apple-silicon Mac without
+Rosetta cannot run an amd64 image, and the local stacks run the published ones.
+
+**How, without emulating a build.** Jib assembles both from the multi-architecture base
+(`jre-runtime`, already published for both) without running anything, so
+`-Dquarkus.jib.platforms=linux/amd64,linux/arm64` is all the backend needs. The frontend's Node
+stage runs on the build machine (`FROM --platform=$BUILDPLATFORM`), once, and its output is the
+same static files for both; the final stage only copies, so `buildx` builds the arm64 image with no
+QEMU. After pushing, both workflows check the tag's index really lists both architectures.
+
+**Local builds are for the machine they are built on.** The backend's `arm64-image` Maven profile
+activates on an `aarch64` JVM and sets the Jib platform to `linux/arm64`, so a Mac builds arm64
+with the usual command; `docker build` and `podman build` build for the host anyway.
+
+**The proof is the e2e suite on arm64.** `e2e.yml` runs on GitHub's free `ubuntu-24.04-arm` runner
+as well as on `ubuntu-26.04`: it builds both images natively there, checks they are for that
+architecture, and runs the whole stack and every scenario on them. *Rejected: QEMU for the e2e
+run*, which would prove less (emulated) and take far longer.
+
+**AWS is unchanged.** `deploy-backend.py` pins the release's index digest, as before, and Fargate on
+`X86_64` pulls the amd64 image from it; #250 moves it to Graviton.
+
 ## The runner is pinned, so an image migration is a decision
 
 **Decision.** Every `runs-on` in `.github/workflows/` names `ubuntu-24.04` rather than

@@ -24,7 +24,20 @@ permissions:
 
 jobs:
   e2e:
-    runs-on: ubuntu-26.04
+    name: e2e (${{ matrix.arch }})
+    # The whole suite on both architectures (#249): on arm64 the images are built natively for
+    # arm64 -- Jib by the backend's arm64-image profile, the frontend by Docker -- and the stack runs
+    # on them, which is the proof they work there and what a Mac without Rosetta runs. GitHub's
+    # arm64 runners are free for public repositories; 24.04 is the newest arm64 image offered.
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-26.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v7
 
@@ -47,6 +60,15 @@ jobs:
       - name: Build the frontend image
         working-directory: frontend
         run: docker build -f docker/Dockerfile -t taskfest-frontend:e2e .
+
+      # Built for this runner's architecture, or the stack would run under emulation at best.
+      - name: Check the images are built for this machine
+        run: |
+          for image in quay.io/ghilling/taskfest-backend:latest taskfest-frontend:e2e; do
+            built=$(docker image inspect "$image" --format '{{.Architecture}}')
+            echo "$image: $built"
+            [ "$built" = "${{ matrix.arch }}" ] || { echo "::error::$image is $built, not ${{ matrix.arch }}"; exit 1; }
+          done
 
       - name: Start the stack
         run: docker compose -f deployment/docker/docker-compose.e2e.yml up -d --wait
@@ -80,7 +102,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v7
         with:
-          name: playwright-report
+          name: playwright-report-${{ matrix.arch }}
           path: e2e/playwright-report
           retention-days: 7
 
