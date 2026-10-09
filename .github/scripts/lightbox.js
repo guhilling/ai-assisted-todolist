@@ -1,5 +1,5 @@
-// Click an image in the documentation to see it almost filling the window; click anywhere,
-// press Escape or use the close button to go back. build-site.py copies this to assets/ and every
+// Click an image in the documentation to see it almost filling the window; click anywhere or press
+// Escape to go back, as the line beneath it says. build-site.py copies this to assets/ and every
 // page it writes loads it.
 //
 // A native <dialog>: shown modal, it keeps focus inside, Escape closes it without a line of code
@@ -17,22 +17,23 @@
   const dialog = document.createElement('dialog')
   dialog.className = 'lightbox'
   dialog.setAttribute('aria-label', 'Enlarged image')
-  const close = document.createElement('button')
-  close.type = 'button'
-  close.className = 'lightbox__close'
-  close.setAttribute('aria-label', 'Close')
-  close.textContent = '×'
   const shown = document.createElement('img')
   shown.className = 'lightbox__image'
-  dialog.append(close, shown)
+  const hint = document.createElement('p')
+  hint.className = 'lightbox__hint'
+  hint.textContent = 'Click or press Esc to close'
+  dialog.append(shown, hint)
   document.body.append(dialog)
 
   // Anywhere in it closes it, the image and the button included.
   dialog.addEventListener('click', () => dialog.close())
 
-  const open = (image) => {
+  // Shown once the image is decoded, so the window never shows an empty frame first and then the
+  // image jumping in; the CSS fades it in from there.
+  const open = async (image) => {
     shown.src = image.currentSrc || image.src
     shown.alt = image.alt
+    await shown.decode().catch(() => undefined)
     dialog.showModal()
   }
 
