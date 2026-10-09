@@ -106,12 +106,17 @@ aws s3api put-public-access-block \
 
 ## Running it
 
-Once, first:
+Once, first, and again whenever `account/` changes:
 
 ```sh
-cd deployment/aws-tofu/account
-tofu init && tofu apply
+TASKFEST_ACCOUNT_AWS_PROFILE=<your admin profile> ./deployment/aws-tofu/env.sh account
 ```
+
+`env.sh account` resolves the profile through the AWS CLI -- which asks for the MFA code OpenTofu
+cannot ask for itself -- shows the plan and applies exactly that plan once you confirm, as `up` and
+`down` do. There is no default profile for it: only an administrator applies this root. A plain
+`tofu -chdir=account apply` with a profile that assumes an MFA-protected role fails with
+*"assume role with MFA enabled, but AssumeRoleTokenProvider session option not set"*.
 
 Then an environment:
 
@@ -195,6 +200,7 @@ startup file (`~/.zshrc`) if your profiles are named differently, or if you keep
 ```sh
 export TASKFEST_QA_AWS_PROFILE=taskfest-qa-lifecycle
 export TASKFEST_PROD_AWS_PROFILE=my-prod-admin
+export TASKFEST_ACCOUNT_AWS_PROFILE=my-admin    # for `env.sh account`, which has no default
 ```
 
 **A profile that assumes no role is refused** — one with neither a `role_arn` nor an SSO role, which

@@ -87,5 +87,34 @@ class ProfileChoiceTest(unittest.TestCase):
         self.assertIn("not configured", result.stderr)
 
 
+
+@unittest.skipUnless(shutil.which("aws") and shutil.which("bash"), "needs the AWS CLI and bash")
+class AccountTest(unittest.TestCase):
+    """`env.sh account` applies the account-wide root, as an administrator: there is no default
+    profile for it, and a plain user is refused like anywhere else."""
+
+    setUp = ProfileChoiceTest.setUp
+    tearDown = ProfileChoiceTest.tearDown
+    run_env_sh = ProfileChoiceTest.run_env_sh
+
+    def test_a_profile_must_be_named(self):
+        result = self.run_env_sh("account")
+
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("TASKFEST_ACCOUNT_AWS_PROFILE", result.stderr)
+
+    def test_its_own_variable_comes_first_and_a_plain_user_is_refused(self):
+        result = self.run_env_sh("account", AWS_PROFILE="with-role", TASKFEST_ACCOUNT_AWS_PROFILE="plain")
+
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("assumes no role", result.stderr)
+        self.assertIn("TASKFEST_ACCOUNT_AWS_PROFILE", result.stderr)
+
+    def test_aws_profile_is_used_when_its_own_variable_is_not_set(self):
+        result = self.run_env_sh("account", AWS_PROFILE="other-plain")
+
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("other-plain (from AWS_PROFILE)", result.stderr)
+
 if __name__ == "__main__":
     unittest.main()
