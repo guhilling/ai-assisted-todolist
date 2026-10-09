@@ -156,10 +156,28 @@ def is_older(version, than):
     return key(version) < key(than)
 
 
-def decide(service_active, migrations_differ, downgrade=False):
+# The first release published for arm64 as well as amd64 (#249).
+FIRST_ARM64_RELEASE = "v0.15.0"
+
+
+def has_arm64_image(version):
+    """Whether a release was published with an arm64 image, and so can run on Graviton (#250)."""
+    return not is_older(version, FIRST_ARM64_RELEASE)
+
+
+def runs_on_arm64(task_definition):
+    """Whether this configuration runs the tasks on Graviton (ARM64)."""
+    return task_definition.get("runtimePlatform", {}).get("cpuArchitecture") == "ARM64"
+
+
+def decide(service_active, migrations_differ, downgrade=False, without_arm64=False):
     """The whole policy, as a pure function of the environment's state and the changelog diff."""
     if not service_active:
         return Action("skip", "the backend service is not running here -- the environment is down")
+    if without_arm64:
+        return Action("stop", f"this environment runs on Graviton (ARM64), and releases before "
+                              f"{FIRST_ARM64_RELEASE} have no arm64 image to start there; switch "
+                              f"cpu_architecture back to X86_64 first")
     if migrations_differ and downgrade:
         return Action("stop", "this rolls back across a database migration: the older release's "
                               "Liquibase would leave the newer schema as it is and start against it. "
@@ -615,8 +633,12 @@ def main():
         return print_startup_image(args, region, account, active, running_image)
     running_version = (version_of(running_image) if running_image else None) or previous_release(args.version)
 
+    base = applied_revision(
+        lambda name: aws("ecs", "describe-task-definition", "--task-definition", name)["taskDefinition"],
+        running, f"{PROJECT}-{args.environment}-deploy") if active else None
     action = decide(bool(active), active and changelog_differs(running_version, args.version),
-                    downgrade=is_older(args.version, running_version))
+                    downgrade=is_older(args.version, running_version),
+                    without_arm64=bool(base) and runs_on_arm64(base) and not has_arm64_image(args.version))
     if action.kind == "skip":
         summary(f"**{args.version} not deployed to {args.environment}:** {action.reason}.")
         return 0
@@ -627,9 +649,6 @@ def main():
 
     image = image_to_deploy(running_image, args.version,
                             lambda: image_reference(account, region, args.version, release_digest(args.version)))
-    base = applied_revision(
-        lambda name: aws("ecs", "describe-task-definition", "--task-definition", name)["taskDefinition"],
-        running, f"{PROJECT}-{args.environment}-deploy")
     if action.kind == "downtime":
         return take_downtime(args, cluster, service, running_version, active[0]["desiredCount"], base, image)
 

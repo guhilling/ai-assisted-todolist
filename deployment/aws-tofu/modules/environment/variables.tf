@@ -53,7 +53,6 @@ variable "cpu_architecture" {
     images published for arm64 -- releases from v0.15.0 on (#249); an older one cannot start there.
   EOT
   type        = string
-  default     = "X86_64"
 
   validation {
     condition     = contains(["X86_64", "ARM64"], var.cpu_architecture)

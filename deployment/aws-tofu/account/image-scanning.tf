@@ -23,24 +23,40 @@ resource "aws_ecr_pull_through_cache_rule" "quay" {
 # rule is about cost as much as storage: Inspector rescans every image a repository holds whenever
 # a new CVE is published, at $0.01 a rescan, so keeping only the newest few stops paying for
 # images nobody runs any more. Mutable, because `latest` moves.
+# How many images a cached repository keeps. Since the images are multi-architecture (#249), a
+# release is up to three of them: its index, and the image of each architecture an environment
+# pulls -- qa on Graviton, prod on x86 (#250). Fifteen keeps about five releases, as five did when
+# a release was one image.
+locals {
+  cache_lifecycle_policy = jsonencode({
+    rules = [{
+      rulePriority = 1
+      description  = "Keep the newest fifteen images, about five releases"
+      selection = {
+        tagStatus   = "any"
+        countType   = "imageCountMoreThan"
+        countNumber = 15
+      }
+      action = { type = "expire" }
+    }]
+  })
+}
+
 resource "aws_ecr_repository_creation_template" "quay" {
   prefix               = "quay"
   description          = "Repositories ECR creates when pulling through the quay.io cache"
   applied_for          = ["PULL_THROUGH_CACHE"]
   image_tag_mutability = "MUTABLE"
 
-  lifecycle_policy = jsonencode({
-    rules = [{
-      rulePriority = 1
-      description  = "Keep the newest five images"
-      selection = {
-        tagStatus   = "any"
-        countType   = "imageCountMoreThan"
-        countNumber = 5
-      }
-      action = { type = "expire" }
-    }]
-  })
+  lifecycle_policy = local.cache_lifecycle_policy
+}
+
+# The template applies to repositories created from now on; the backend's was created by its first
+# pull, with the policy of the time, so it gets the current one here. The repository itself stays
+# the cache's: only its lifecycle policy is managed.
+resource "aws_ecr_lifecycle_policy" "backend_cache" {
+  repository = "quay/ghilling/taskfest-backend"
+  policy     = local.cache_lifecycle_policy
 }
 
 # Inspector for ECR only. EC2, Lambda and code scanning are left off: there is nothing of those to

@@ -82,5 +82,4 @@ variable "deregistration_delay_seconds" {
 variable "cpu_architecture" {
   description = "What the Fargate tasks run on: X86_64, or ARM64 for Graviton (#250)."
   type        = string
-  default     = "X86_64"
 }

@@ -16,7 +16,8 @@ One environment, **while up**:
 | RDS storage, 20 GB gp3 | $0.135/GB-month | $0.09 | $2.70 |
 | **Public IPv4 address** of the task | $0.005/h | $0.12 | $3.65 |
 | CloudFront, S3, CloudWatch, DNS queries | | | cents at demo traffic |
-| **Total**, with x86 | **~$0.083/h** | **~$2.00** | **~$61** |
+| **Total**, with x86 (prod) | **~$0.083/h** | **~$2.00** | **~$61** |
+| **Total**, with Graviton (qa) | **~$0.077/h** | **~$1.86** | **~$56** |
 
 **Graviton (#250)** is $0.03725 per vCPU-hour and $0.00409 per GB-hour in Frankfurt against x86's
 $0.04656 and $0.00511 (AWS's price list for `eu-central-1`, 2026-10-09): 20% less for the backend
@@ -41,9 +42,10 @@ nothing: Cognito's Lite plan is free for the first 10,000 monthly active users, 
 client's secret is an SSM standard parameter, which is free too — chosen over a Secrets Manager
 secret, which would have been another $0.40.
 
-That is the whole cost model: **qa costs about $2 for each day it is up, and close to nothing
-otherwise.** A day of demos is $2; forgetting it for a month is $61, which is what the budget alarm
-is for. **Both environments up at once** would be about $120 a month.
+That is the whole cost model: **qa costs about $1.86 for each day it is up, on Graviton, and close
+to nothing otherwise.** A day of demos is under $2; forgetting it for a month is about $56, which is
+what the budget alarm is for. prod on x86 is about $2 a day and $61 a month, so **both environments
+up at once** would be about $117 a month.
 
 **Image scanning**, whether the environment is up or not: Amazon Inspector at $0.09 per image's
 first scan and $0.01 per rescan, plus ECR storage for at most five cached images, about 1 GB at

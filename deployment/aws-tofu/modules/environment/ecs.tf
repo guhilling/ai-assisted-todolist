@@ -114,6 +114,13 @@ locals {
   # Where ECR's pull-through cache keeps Quay's images: quay.io/ghilling/x is quay/ghilling/x here.
   image_repository_prefix = "quay/ghilling/${var.project}-"
   backend_image           = var.backend_image
+  # The release the backend image is (0.15.0 from `quay/...:0.15.0@sha256:...`), or null for an image
+  # named some other way. Graviton needs one published for arm64 (#249, #250): v0.15.0 or later.
+  backend_release = try(regex(":(\\d+)\\.(\\d+)\\.(\\d+)", var.backend_image), null)
+  backend_image_runs_on = (
+    local.backend_release == null ? true :
+    tonumber(local.backend_release[0]) > 0 || tonumber(local.backend_release[1]) >= 15
+  )
 }
 
 resource "aws_iam_role" "task_execution" {

@@ -187,6 +187,25 @@ class OlderTest(unittest.TestCase):
         self.assertFalse(deploy.is_older("v1.2.3", "v1.2.3-rc.1"))
 
 
+
+class ArchitectureTest(unittest.TestCase):
+    """Graviton (#250): a release before v0.15.0 has no arm64 image (#249) and cannot start there."""
+
+    def test_an_arm64_environment_refuses_a_release_without_an_arm64_image(self):
+        action = deploy.decide(service_active=True, migrations_differ=False, without_arm64=True)
+        self.assertEqual(action.kind, "stop")
+        self.assertIn("arm64", action.reason)
+
+    def test_a_release_has_an_arm64_image_from_v0_15_0_on(self):
+        self.assertTrue(deploy.has_arm64_image("v0.15.0"))
+        self.assertTrue(deploy.has_arm64_image("v1.0.0"))
+        self.assertFalse(deploy.has_arm64_image("v0.14.0"))
+
+    def test_the_environment_runs_arm64_when_its_configuration_says_so(self):
+        self.assertTrue(deploy.runs_on_arm64({"runtimePlatform": {"cpuArchitecture": "ARM64"}}))
+        self.assertFalse(deploy.runs_on_arm64({"runtimePlatform": {"cpuArchitecture": "X86_64"}}))
+        self.assertFalse(deploy.runs_on_arm64({}))
+
 class RolloutTest(unittest.TestCase):
     """Waiting is reading the new deployment's rolloutState, not ECS's ten-minute stable waiter."""
 

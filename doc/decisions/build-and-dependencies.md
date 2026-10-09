@@ -229,7 +229,8 @@ architecture, and runs the whole stack and every scenario on them. *Rejected: QE
 run*, which would prove less (emulated) and take far longer.
 
 **AWS barely changes.** `deploy-backend.py` pins the release's digest as before, which is now the
-index's, and Fargate on `X86_64` pulls the amd64 image from it; #250 moves it to Graviton. What does
+index's, and Fargate pulls the image of its own architecture from it: amd64 in prod, arm64 in qa
+since #250 moved qa to Graviton. What does
 change is image scanning: the cache stores that image untagged inside the tagged index, so the
 findings workflow maps it to the index's tag ([image scanning](../deployment/image-scanning.md)).
 
