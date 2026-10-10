@@ -174,6 +174,13 @@ describe('changing the board from the app (#271)', () => {
     expect(await screen.findByText('Completed (2)')).toBeOnTheScreen()
   })
 
+  it('ticks a completed task, as the website’s checkbox does', async () => {
+    await showBoard(backend())
+
+    expect(within(screen.getByRole('checkbox', { name: 'Mark "Pay the rent" as done' })).getByText('✓')).toBeOnTheScreen()
+    expect(within(screen.getByRole('checkbox', { name: 'Mark "Water the plants" as done' })).queryByText('✓')).toBeNull()
+  })
+
   it('opens a completed task again', async () => {
     const changes = backend()
     const user = await showBoard(changes)

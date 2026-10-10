@@ -39,6 +39,7 @@ function dependencies(overrides: Partial<Dependencies> = {}): Dependencies {
     provider: { signIn: jest.fn(), refresh: jest.fn() },
     fetchTasks: jest.fn().mockResolvedValue(tasks),
     fetchMinimumAppVersion: jest.fn().mockResolvedValue('0.0.0'),
+    changes: { create: jest.fn(), update: jest.fn(), remove: jest.fn(), restore: jest.fn() },
     appVersion: '1.2.0',
     now: () => NOW,
     ...overrides,
@@ -159,7 +160,7 @@ describe('the app', () => {
     const deps = dependencies({ sessions: memorySessions(session), fetchTasks: jest.fn().mockResolvedValue([]) })
     await render(<TaskFestApp variant={variants.dev} language="en" dependencies={deps} />)
 
-    // Not the website's "Add your first task": there is nothing to add with here yet.
+    // Not the website's "Add your first task": the app's add button sits below the board instead.
     expect(await screen.findByText('Nothing here yet.')).toBeOnTheScreen()
   })
 

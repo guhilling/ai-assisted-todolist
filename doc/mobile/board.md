@@ -12,7 +12,7 @@ order, words and colours, and everything the website does with a task except fil
   cannot be dated in the past, which the backend refuses.
 - **Edit a task** — a tap on it opens the same form with its values, and with the state too: not
   started, in progress or done. An edit may date a task in the past, as on the website's.
-- **Complete or reopen a task** — the circle in front of it.
+- **Complete or reopen a task** — the circle in front of it, which a completed task shows ticked in the website's green.
 - **Delete a task** — from its form, at once and without "are you sure?": an offer to undo stands
   below the board for eight seconds. **Clear completed** deletes every completed task the same way.
   Undo puts a task back with its files, as the website's does.

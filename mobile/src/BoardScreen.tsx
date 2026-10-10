@@ -68,7 +68,9 @@ export function BoardScreen({
             hitSlop={8}
             style={[styles.check, done && styles.checked]}
             onPress={() => onToggle(task)}
-          />
+          >
+            {done ? <Text style={styles.tick}>✓</Text> : null}
+          </Pressable>
         ) : null}
         <Pressable
           accessibilityRole={changeable ? 'button' : undefined}
