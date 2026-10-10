@@ -1,0 +1,8 @@
+# The first half of the offline check (#272): signs in and loads the board, which the app keeps.
+# run-on-emulator.sh then takes the backend away and runs 2-offline.yaml. In a folder of its own,
+# so the run over mobile/maestro does not pick it up out of order.
+appId: de.hilling.taskfest.dev
+name: Offline, 1 - keep the board
+---
+- runFlow: ../sign-in.yaml
+- stopApp

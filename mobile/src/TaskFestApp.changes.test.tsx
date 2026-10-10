@@ -49,6 +49,7 @@ function dependencies(changes: TaskChanges, overrides: Partial<Dependencies> = {
     now: () => NOW,
     changes,
     deleteAccount: jest.fn(),
+    keptBoard: { load: jest.fn().mockResolvedValue(null), save: jest.fn().mockResolvedValue(undefined), clear: jest.fn().mockResolvedValue(undefined) },
     ...overrides,
   }
 }

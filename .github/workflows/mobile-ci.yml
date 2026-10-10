@@ -184,6 +184,7 @@ jobs:
           path: |
             maestro-output
             maestro-report.xml
+            maestro-offline-*.xml
           retention-days: 14
 
       - name: Collect the stack logs

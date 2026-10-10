@@ -1,7 +1,9 @@
 import Constants from 'expo-constants'
+import { File, Paths } from 'expo-file-system'
 import { getLocales } from 'expo-localization'
 import * as SecureStore from 'expo-secure-store'
 import { createTask, deleteAccount, deleteTask, fetchMinimumAppVersion, fetchTasks, restoreTask, updateTask } from './api'
+import { createKeptBoardStore } from './keptBoard'
 import { providerFor } from './provider'
 import { createSessionStore } from './staySignedIn'
 import { TaskFestApp, type Dependencies } from './TaskFestApp'
@@ -35,6 +37,7 @@ const dependencies: Dependencies = {
     restore: (caller, task, today) => restoreTask({ ...caller, appVersion }, task, today),
   },
   deleteAccount: (caller) => deleteAccount({ ...caller, appVersion }),
+  keptBoard: createKeptBoardStore(new File(Paths.cache, 'board.json')),
   fetchMinimumAppVersion: () => fetchMinimumAppVersion(variant.apiBaseUrl, appVersion),
   appVersion,
   now: Date.now,

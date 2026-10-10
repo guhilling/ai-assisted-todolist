@@ -29,3 +29,9 @@ retry adb reverse tcp:8082 tcp:8082
 retry adb install -r "$apk"
 
 maestro test mobile/maestro --format junit --output maestro-report.xml --test-output-dir maestro-output
+
+# Offline (#272): keep a board, take the backend away -- the app reaches it through adb reverse,
+# which airplane mode does not cut -- and read the kept board.
+maestro test mobile/maestro/offline/1-keep.yaml --format junit --output maestro-offline-1.xml --test-output-dir maestro-output
+retry adb reverse --remove tcp:3000
+maestro test mobile/maestro/offline/2-offline.yaml --format junit --output maestro-offline-2.xml --test-output-dir maestro-output

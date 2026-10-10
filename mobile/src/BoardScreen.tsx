@@ -11,7 +11,8 @@ const UNDO_FOR_MS = 8000
 /**
  * The board (#267, #271): the website's sections and order, a tick to complete or reopen a task, a
  * tap on it to edit it, and the add button, the offer to undo a delete and any failure below. The
- * account sheet opens from the head of it (#275).
+ * account sheet opens from the head of it (#275). The board kept on the phone is shown the same way,
+ * with a note above it while it waits for, or could not get, the current one (#272).
  *
  * A task holding an importance or state a newer backend added is shown but not offered for any
  * change: the backend replaces a whole task, so saving it would overwrite the value the app does
@@ -33,6 +34,8 @@ export function BoardScreen({
   onUndo,
   onDismissUndo,
   onAccount,
+  kept,
+  onRetry,
 }: {
   tasks: BoardTask[]
   today: string
@@ -53,6 +56,13 @@ export function BoardScreen({
   /** Must keep its identity across renders, or the undo's countdown starts over with each. */
   onDismissUndo: () => void
   onAccount: () => void
+  /**
+   * Set while the board shown is the one kept on the phone (#272): still `loading` the current
+   * one, or `failed` to, with when the kept one is from.
+   */
+  kept?: { failed: false } | { failed: true; since: string }
+  /** Loads the board again, after a failed load. */
+  onRetry: () => void
 }) {
   const board = boardOf(tasks, today)
   const clearable = board.completed.some(isChangeable)
@@ -113,6 +123,16 @@ export function BoardScreen({
         </Pressable>
       </View>
       <ScrollView style={styles.board} contentContainerStyle={styles.boardContent}>
+        {kept?.failed ? (
+          <View accessibilityRole="alert" style={styles.offline}>
+            <Text style={styles.description}>{messages.offline.note(kept.since)}</Text>
+            <Pressable accessibilityRole="button" style={styles.quietButton} onPress={onRetry}>
+              <Text style={styles.quietButtonText}>{messages.board.retry}</Text>
+            </Pressable>
+          </View>
+        ) : kept ? (
+          <Text style={styles.muted}>{messages.board.loading}</Text>
+        ) : null}
         {failure ? (
           <Text accessibilityRole="alert" style={styles.notice}>
             {failure}
