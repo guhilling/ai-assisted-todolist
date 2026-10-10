@@ -582,7 +582,8 @@ export function TaskFestApp({
   /** Puts back what was deleted, once, and each task that could be; says so if one could not. */
   const undo = async () => {
     const tasks = undoable.current
-    if (!tasks) {
+    // Refused before the offer is withdrawn: it stands for the rest of its time (#272).
+    if (!tasks || refusedWhileKept()) {
       return
     }
     offerUndo(null)

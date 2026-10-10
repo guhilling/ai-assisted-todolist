@@ -318,6 +318,8 @@ describe('the board kept on the phone (#272)', () => {
 
     expect(await screen.findByText('Nothing can be changed without a connection. Try again once you are online.')).toBeOnTheScreen()
     expect(deps.changes.restore).not.toHaveBeenCalled()
+    // Refused, not used up: the offer stands for the rest of its time.
+    expect(screen.getByRole('button', { name: 'Undo' })).toBeOnTheScreen()
   })
 
   it('still lets the account be deleted from the kept board, failing only for want of a connection', async () => {
