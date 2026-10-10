@@ -1,0 +1,50 @@
+# Adds a task, edits it, completes it, deletes it and takes the delete back (#271), on the board of
+# the end-to-end stack's gunnar. Signs in first, as the sign-in flow does; each flow starts afresh.
+appId: de.hilling.taskfest.dev
+name: Change the board
+---
+- runFlow: sign-in.yaml
+
+- tapOn: "Add a task"
+- tapOn:
+    id: "task-description"
+- inputText: "Water the plants"
+- tapOn: "In 1 week"
+- tapOn: "High"
+- hideKeyboard
+- takeScreenshot: 04-add
+- tapOn: "Add"
+- extendedWaitUntil:
+    visible: "Water the plants"
+    timeout: 10000
+- takeScreenshot: 05-added
+
+- tapOn: "Water the plants"
+- tapOn:
+    id: "task-description"
+- eraseText: 30
+- inputText: "Water the orchids"
+- hideKeyboard
+- tapOn: "In progress"
+- takeScreenshot: 06-edit
+- tapOn: "Save"
+- extendedWaitUntil:
+    visible: "Water the orchids"
+    timeout: 10000
+
+- tapOn: 'Mark "Water the orchids" as done'
+- extendedWaitUntil:
+    visible: "Completed \\(1\\)"
+    timeout: 10000
+- takeScreenshot: 07-completed
+
+- tapOn: "Water the orchids"
+- tapOn: "Delete"
+- assertVisible: "Task deleted"
+- assertNotVisible: "Water the orchids"
+- takeScreenshot: 08-deleted
+- tapOn: "Undo"
+- extendedWaitUntil:
+    visible: "Water the orchids"
+    timeout: 10000
+- takeScreenshot: 09-undone

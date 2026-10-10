@@ -29,8 +29,8 @@ export const en = {
     loading: 'Loading tasks…',
     empty: 'Nothing here yet. Add your first task.',
     sessionExpired: 'Your session has expired. Sign in again to carry on.',
-    /** The mobile app's, which cannot add a task yet (#271), so does not ask for one. */
-    emptyReadOnly: 'Nothing here yet.',
+    /** The mobile app's: shorter, with its add button right below. */
+    emptyShort: 'Nothing here yet.',
     /** The mobile app's button after a failure. */
     retry: 'Try again',
   },
@@ -94,6 +94,8 @@ export const en = {
   dueDate: {
     label: 'Due date',
     calendar: 'Choose the due date from a calendar',
+    /** The mobile app's chip that opens the platform's calendar. */
+    other: 'Other date',
     loadingCalendar: 'Loading calendar…',
   },
   importance: {
@@ -110,6 +112,15 @@ export const en = {
     inProgress: 'doing',
     /** The mobile app's, for an importance or state newer than the app (#268). */
     unknown: 'Unknown',
+    /** The mobile app's, on a task with such a value: saving it would overwrite what it cannot show. */
+    updateToChange: 'Update the app to change this task.',
+  },
+  /** The mobile app's editor, which sets the state directly (#271). */
+  taskState: {
+    label: 'State',
+    todo: 'Not started',
+    working: 'In progress',
+    done: 'Done',
   },
   /** Deleting one's own account (#213): the header's button, its confirmation, and the note after. */
   account: {
@@ -201,7 +212,7 @@ export const de: Messages = {
     loading: 'Aufgaben werden geladen …',
     empty: 'Noch nichts hier. Leg deine erste Aufgabe an.',
     sessionExpired: 'Deine Sitzung ist abgelaufen. Melde dich wieder an, um weiterzumachen.',
-    emptyReadOnly: 'Noch nichts hier.',
+    emptyShort: 'Noch nichts hier.',
     retry: 'Noch einmal versuchen',
   },
   update: {
@@ -260,6 +271,7 @@ export const de: Messages = {
   dueDate: {
     label: 'Fällig am',
     calendar: 'Fälligkeitsdatum im Kalender wählen',
+    other: 'Anderes Datum',
     loadingCalendar: 'Kalender wird geladen …',
   },
   importance: {
@@ -275,6 +287,13 @@ export const de: Messages = {
     delete: 'Löschen',
     inProgress: 'in Arbeit',
     unknown: 'Unbekannt',
+    updateToChange: 'Aktualisiere die App, um diese Aufgabe zu ändern.',
+  },
+  taskState: {
+    label: 'Status',
+    todo: 'Nicht begonnen',
+    working: 'In Arbeit',
+    done: 'Erledigt',
   },
   account: {
     delete: 'Konto löschen',

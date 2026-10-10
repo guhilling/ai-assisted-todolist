@@ -1,7 +1,7 @@
 import Constants from 'expo-constants'
 import { getLocales } from 'expo-localization'
 import * as SecureStore from 'expo-secure-store'
-import { fetchMinimumAppVersion, fetchTasks } from './api'
+import { createTask, deleteTask, fetchMinimumAppVersion, fetchTasks, restoreTask, updateTask } from './api'
 import { providerFor } from './provider'
 import { createSessionStore } from './staySignedIn'
 import { TaskFestApp, type Dependencies } from './TaskFestApp'
@@ -28,6 +28,12 @@ const dependencies: Dependencies = {
   provider: variant.signIn ? providerFor(variant.signIn, variant.scheme) : noProvider,
   // Every request names the app's release (#268).
   fetchTasks: (caller) => fetchTasks({ ...caller, appVersion }),
+  changes: {
+    create: (caller, input) => createTask({ ...caller, appVersion }, input),
+    update: (caller, task) => updateTask({ ...caller, appVersion }, task),
+    remove: (caller, task) => deleteTask({ ...caller, appVersion }, task),
+    restore: (caller, task, today) => restoreTask({ ...caller, appVersion }, task, today),
+  },
   fetchMinimumAppVersion: () => fetchMinimumAppVersion(variant.apiBaseUrl, appVersion),
   appVersion,
   now: Date.now,

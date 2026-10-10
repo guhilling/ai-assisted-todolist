@@ -9,9 +9,15 @@
  * Every text the app shows is in the website's catalogue, the app's own ones included, and the
  * catalogue's test counts the app's code as a use.
  */
-export type { TaskImportance, TaskResponse as Task, TaskState } from '../../frontend/src/generated/types'
+export type {
+  TaskCreateRequest as TaskInput,
+  TaskImportance,
+  TaskResponse as Task,
+  TaskState,
+} from '../../frontend/src/generated/types'
 export { validateTaskResponse, validateVersionResponse } from '../../frontend/src/generated/validators'
-export { compareCompleted, compareOpen, importanceRank } from '../../frontend/src/importance'
-export { bucketOf, describeDueDate, todayIso, type DueBucket } from '../../frontend/src/dates'
+export { compareCompleted, compareOpen, importanceLevels, importanceRank } from '../../frontend/src/importance'
+export { addDays, bucketOf, describeDueDate, quickDates, todayIso, type DueBucket } from '../../frontend/src/dates'
 export { catalogues, type Messages } from '../../frontend/src/i18n/messages'
 export { chooseLanguage, localeOf, type Language } from '../../frontend/src/i18n/language'
+export { needsDatingBack, restoreInput } from '../../frontend/src/restore'

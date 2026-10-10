@@ -1,4 +1,13 @@
-import { importanceRank, validateTaskResponse, validateVersionResponse, type Task, type TaskState } from './web'
+import {
+  importanceRank,
+  needsDatingBack,
+  restoreInput,
+  validateTaskResponse,
+  validateVersionResponse,
+  type Task,
+  type TaskInput,
+  type TaskState,
+} from './web'
 
 /**
  * The app's side of the REST API (#267): every request carries the ID token as a bearer token
@@ -112,12 +121,58 @@ export async function fetchMinimumAppVersion(
   return data.minimumAppVersion
 }
 
-/** One GET, signed in when there is an ID token; the one place requests are made and answered. */
+/** Creates a task and hands it back as the backend stored it, with its new id. */
+export async function createTask(caller: Caller, input: TaskInput, fetchImpl: typeof fetch = fetch): Promise<BoardTask> {
+  const response = await send(caller, 'POST', '/api/tasks', fetchImpl, input)
+  return readTask(await response.json())
+}
+
+/**
+ * Saves a whole task: the backend replaces rather than patches, so the task goes back with the
+ * fields that changed and the ones that did not. A past due date is accepted, as on the website.
+ */
+export async function updateTask(caller: Caller, task: Task, fetchImpl: typeof fetch = fetch): Promise<BoardTask> {
+  const { description, dueDate, importance, state } = task
+  const response = await send(caller, 'PUT', `/api/tasks/${task.id}`, fetchImpl, { description, dueDate, importance, state })
+  return readTask(await response.json())
+}
+
+/** Deletes a task. Its files stay detached on the backend for a while, for an undo. */
+export async function deleteTask(caller: Caller, task: Task, fetchImpl: typeof fetch = fetch): Promise<void> {
+  await send(caller, 'DELETE', `/api/tasks/${task.id}`, fetchImpl)
+}
+
+/**
+ * Puts a deleted task back, with its files, by the website's own rule (`restoreInput`): a task
+ * already overdue is created today and then dated back. It returns with a new id.
+ */
+export async function restoreTask(
+  caller: Caller,
+  task: Task,
+  today: string,
+  fetchImpl: typeof fetch = fetch,
+): Promise<BoardTask> {
+  const created = await createTask(caller, restoreInput(task, today), fetchImpl)
+  return needsDatingBack(created, task) ? updateTask(caller, { ...created, dueDate: task.dueDate }, fetchImpl) : created
+}
+
+/** One GET, signed in when there is an ID token. */
 async function get(
   caller: Omit<Caller, 'idToken'> & { idToken?: string },
   path: string,
   fetchImpl: typeof fetch,
 ): Promise<unknown> {
+  return (await send(caller, 'GET', path, fetchImpl)).json()
+}
+
+/** One request, and the one place requests are made and their failures read. */
+async function send(
+  caller: Omit<Caller, 'idToken'> & { idToken?: string },
+  method: 'GET' | 'POST' | 'PUT' | 'DELETE',
+  path: string,
+  fetchImpl: typeof fetch,
+  body?: object,
+): Promise<Response> {
   const headers: Record<string, string> = { Accept: 'application/json' }
   if (caller.idToken) {
     headers.Authorization = `Bearer ${caller.idToken}`
@@ -125,12 +180,17 @@ async function get(
   if (caller.appVersion) {
     headers[APP_VERSION_HEADER] = caller.appVersion
   }
-  const response = await fetchImpl(`${caller.baseUrl}${path}`, { headers })
+  if (body) {
+    headers['Content-Type'] = 'application/json'
+  }
+  const init: RequestInit =
+    method === 'GET' ? { headers } : body ? { method, headers, body: JSON.stringify(body) } : { method, headers }
+  const response = await fetchImpl(`${caller.baseUrl}${path}`, init)
   if (response.status === 401) {
     throw new SignedOutError()
   }
   if (!response.ok) {
     throw new RequestFailedError(response.status)
   }
-  return response.json()
+  return response
 }
