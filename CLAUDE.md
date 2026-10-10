@@ -117,13 +117,16 @@ slows things down.
 - A piece of work Claude should finish without a conversation first is written with the
   **Story** issue form (`.github/ISSUE_TEMPLATE/story.yml`): what and why, **done when**,
   constraints, **decisions — yours or mine**, out of scope.
+- A goal too large for one story is an **Epic** (`.github/ISSUE_TEMPLATE/epic.yml`). It is never
+  implemented directly: it starts with an investigation — options compared, with references —
+  whose result is a decision for Gunnar, and is then split into stories linked as sub-issues.
 - **Prefer the outcome to the mechanism.** A named mechanism that turns out not to work costs a
   round trip; an outcome does not. Issue #70 asked for `Optional<T>`, which breaks the OpenAPI
   document, so the ask became a question instead of a change.
 - **Say which decisions are delegated.** Ask-don't-guess above means an unmarked decision
   becomes a question and the run stops there, which is right — but most decisions do not need
   Gunnar, and saying so is what lets a story be finished in one go.
-- Anything that is not a story — a bug, a question, a note to self — uses the blank form.
+- Anything that is neither a story nor an epic — a bug, a question, a note to self — uses the blank form.
 - **Every open issue carries a priority, in two places kept in step**: a label —
   `priority: 1 now` (next up, at most two or three), `priority: 2 next` (after that) or
   `priority: 3 later` (wanted, not soon) — and the same value in the *Priority* field of the

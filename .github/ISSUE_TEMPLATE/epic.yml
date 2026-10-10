@@ -1,0 +1,71 @@
+name: Epic
+description: A goal too large for one story. It is investigated first, then split into stories that are each finished on their own.
+labels: ["epic"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        An epic is never implemented in one go. Its first step is an investigation: the options,
+        compared with references, and the questions they raise. Once its decisions are made, it
+        is split into stories (`story.yml`), linked here as sub-issues, and it is done when they
+        are.
+
+  - type: textarea
+    id: intent
+    attributes:
+      label: Goal and why
+      description: >
+        What should exist at the end, and the reason for wanting it. As with a story, prefer the
+        outcome to the mechanism -- an epic is where the mechanism is still to be found.
+      placeholder: |
+        A mobile app for TaskFest, so the board is at hand without a browser and reminders can
+        reach the phone.
+    validations:
+      required: true
+
+  - type: textarea
+    id: investigate
+    attributes:
+      label: To find out first
+      description: >
+        The questions the investigation answers before any story is written: the options to
+        compare, what to compare them on, and how deep to go (reading only, or throw-away spikes).
+      placeholder: |
+        - Native apps, a cross-platform framework, or reusing the TypeScript we have?
+        - How does sign-in work in an app?
+
+  - type: textarea
+    id: done
+    attributes:
+      label: Done when
+      description: >
+        How we will both know the whole epic is finished. The investigation has its own end: a
+        comparison and a decision recorded under `doc/decisions/`.
+      placeholder: |
+        - The app runs on an iPhone and an Android phone, installed through the testers' channels
+        - Every feature of the website works in it
+
+  - type: textarea
+    id: constraints
+    attributes:
+      label: Constraints
+      description: >
+        What holds whatever the options turn out to be -- cost, platforms, distribution,
+        house style.
+
+  - type: textarea
+    id: decisions
+    attributes:
+      label: Decisions — yours or mine
+      description: >
+        An epic usually ends in a choice that is yours. Say which ones, and what is delegated --
+        the shape of the investigation, how the stories are cut.
+      placeholder: |
+        Mine: the technology, and anything that costs money.
+        Yours: how the comparison is written, the spikes, the order of the stories.
+
+  - type: textarea
+    id: out-of-scope
+    attributes:
+      label: Out of scope
+      description: What not to touch, and anything already considered and rejected.
