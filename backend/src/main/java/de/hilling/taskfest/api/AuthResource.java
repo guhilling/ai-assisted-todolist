@@ -31,9 +31,11 @@ import org.eclipse.microprofile.openapi.annotations.tags.Tag;
  * Drives the browser side of sign-in for a backend that acts as the frontend's
  * authentication broker.
  *
- * <p>The single-page app never sees an access token: Quarkus OIDC runs in
- * {@code web-app} mode, so the tokens stay server-side inside the encrypted
- * {@code q_session} cookie and the frontend only ever learns who is signed in. That is
+ * <p>The single-page app never sees an access token: for a browser, Quarkus OIDC runs the
+ * code flow, so the tokens stay server-side inside the encrypted
+ * {@code q_session} cookie and the frontend only ever learns who is signed in. (An installed
+ * app sends an ID token as a bearer instead, and never comes here: see
+ * {@code BearerIdToken}.) That is
  * why {@code /login} has no body worth speaking of — being {@code @Authenticated} is the
  * whole point, since the security layer intercepts the unauthenticated request and starts
  * the authorization code flow before this method is ever reached.</p>
