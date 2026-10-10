@@ -74,6 +74,16 @@ describe('the app', () => {
     expect(fetchTasks).toHaveBeenCalledWith({ baseUrl: 'http://localhost:3000', idToken })
   })
 
+  it('says so when signing in fails, and offers it again', async () => {
+    const deps = dependencies({ provider: { signIn: jest.fn().mockRejectedValue(new Error('no token')), refresh: jest.fn() } })
+    await render(<TaskFestApp variant={variants.dev} language="en" dependencies={deps} />)
+
+    await userEvent.setup().press(await screen.findByRole('button', { name: 'Sign in with Keycloak' }))
+
+    expect(await screen.findByText('Unexpected error while loading data.')).toBeOnTheScreen()
+    expect(screen.getByRole('button', { name: 'Sign in with Keycloak' })).toBeOnTheScreen()
+  })
+
   it('stays on the sign-in when the user turns back', async () => {
     const deps = dependencies({ provider: { signIn: jest.fn().mockResolvedValue(null), refresh: jest.fn() } })
     await render(<TaskFestApp variant={variants.dev} language="en" dependencies={deps} />)

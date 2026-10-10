@@ -19,7 +19,7 @@ export type Dependencies = {
 
 type State =
   | { kind: 'starting' }
-  | { kind: 'signedOut'; notice?: 'sessionExpired' }
+  | { kind: 'signedOut'; notice?: 'sessionExpired' | 'signInFailed' }
   | { kind: 'loading' }
   | { kind: 'board'; board: Board }
   | { kind: 'failed' }
@@ -77,11 +77,17 @@ export function TaskFestApp({
   }, [now, provider, sessions, showBoard])
 
   const signIn = async () => {
-    const tokens = await provider.signIn()
-    const session = tokens ? sessionFromTokens(tokens, now()) : null
-    if (session) {
-      await sessions.save(session)
-      await showBoard(session)
+    try {
+      const tokens = await provider.signIn()
+      const session = tokens ? sessionFromTokens(tokens, now()) : null
+      if (session) {
+        await sessions.save(session)
+        await showBoard(session)
+      }
+    } catch (failure) {
+      // Logged for the device log -- the only trace a failed sign-in on a test device leaves.
+      console.warn('Signing in failed', failure)
+      setState({ kind: 'signedOut', notice: 'signInFailed' })
     }
   }
 
@@ -114,14 +120,18 @@ function SignedOutScreen({
   variant: Variant
   messages: Messages
   styles: Styles
-  notice?: 'sessionExpired'
+  notice?: 'sessionExpired' | 'signInFailed'
   onSignIn: () => void
 }) {
   return (
     <View style={styles.signedOut}>
       <Text style={styles.title}>TaskFest</Text>
       <Text style={styles.muted}>{messages.signedOut.tagline}</Text>
-      {notice ? <Text style={styles.notice}>{messages.board.sessionExpired}</Text> : null}
+      {notice ? (
+        <Text style={styles.notice}>
+          {notice === 'sessionExpired' ? messages.board.sessionExpired : messages.failures.loading}
+        </Text>
+      ) : null}
       {variant.signIn ? (
         <Pressable accessibilityRole="button" style={styles.button} onPress={onSignIn}>
           <Text style={styles.buttonText}>{messages.signedOut.signInWith(variant.signIn.label)}</Text>
