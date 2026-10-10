@@ -103,6 +103,35 @@ class BearerTokenTest {
     }
 
     @Test
+    void shouldLetAnAppDeleteItsUsersAccount() {
+        // The app's account sheet (#275): the same endpoint the website uses, by bearer token.
+        String token = appToken("taskfest-app", "ada");
+        String description = "Gone with the account " + UUID.randomUUID();
+        withBearer(token)
+            .contentType(ContentType.JSON)
+            .body(Map.of(
+                "description", description,
+                "dueDate", LocalDate.now().plusDays(1).toString(),
+                "importance", TaskImportance.LOW.name(),
+                "state", TaskState.TODO.name()))
+            .when().post("/api/tasks")
+            .then()
+            .statusCode(201);
+
+        withBearer(token)
+            .when().delete("/api/account")
+            .then()
+            .statusCode(204)
+            .header("Set-Cookie", nullValue());
+
+        withBearer(token)
+            .when().get("/api/tasks")
+            .then()
+            .statusCode(200)
+            .body("description", not(hasItem(description)));
+    }
+
+    @Test
     void shouldRefuseATokenIssuedToAnotherApplication() {
         // Same provider, same user, but issued to someone else's client: anyone holding a token
         // from that application could otherwise replay it here as its user.

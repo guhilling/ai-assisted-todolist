@@ -1,7 +1,7 @@
 import Constants from 'expo-constants'
 import { getLocales } from 'expo-localization'
 import * as SecureStore from 'expo-secure-store'
-import { createTask, deleteTask, fetchMinimumAppVersion, fetchTasks, restoreTask, updateTask } from './api'
+import { createTask, deleteAccount, deleteTask, fetchMinimumAppVersion, fetchTasks, restoreTask, updateTask } from './api'
 import { providerFor } from './provider'
 import { createSessionStore } from './staySignedIn'
 import { TaskFestApp, type Dependencies } from './TaskFestApp'
@@ -34,6 +34,7 @@ const dependencies: Dependencies = {
     remove: (caller, task) => deleteTask({ ...caller, appVersion }, task),
     restore: (caller, task, today) => restoreTask({ ...caller, appVersion }, task, today),
   },
+  deleteAccount: (caller) => deleteAccount({ ...caller, appVersion }),
   fetchMinimumAppVersion: () => fetchMinimumAppVersion(variant.apiBaseUrl, appVersion),
   appVersion,
   now: Date.now,

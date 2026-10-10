@@ -29,6 +29,7 @@ The backend sees only ID tokens, which live an hour, so the month a sign-in last
 - A session unused for **thirty days** ends; every use starts the thirty days again.
 - A session that cannot be renewed, or that the backend refuses (401), ends, and the app says so
   and offers the sign-in again — as the website does when its cookie has expired.
+- Signing out ends it at once, on the phone only ([account.md](account.md)).
 
 The provider has to let the refresh token live that long. Keycloak's does with the
 `offline_access` scope, which the `dev` variant asks for — and which a user may only be given

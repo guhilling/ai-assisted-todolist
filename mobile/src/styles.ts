@@ -76,6 +76,13 @@ export function stylesFor(theme: Theme) {
     chipText: { color: theme.text },
     chipTextActive: { color: theme.accentContrast },
     formButtons: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8 },
+    boardHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 8 },
+    brand: { fontSize: 20, fontWeight: '700', color: theme.brandStrong },
+    account: { gap: 8 },
+    dangerButton: { borderWidth: 1, borderColor: theme.danger, borderRadius: 6, paddingVertical: 12, paddingHorizontal: 16 },
+    confirm: { backgroundColor: theme.surfaceRaised, borderRadius: 6, padding: 16, gap: 12 },
+    legal: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center', columnGap: 16, rowGap: 4 },
+    legalLink: { color: theme.accent, paddingVertical: 8 },
   })
 }
 

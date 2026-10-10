@@ -10,7 +10,8 @@ const UNDO_FOR_MS = 8000
 
 /**
  * The board (#267, #271): the website's sections and order, a tick to complete or reopen a task, a
- * tap on it to edit it, and the add button, the offer to undo a delete and any failure below.
+ * tap on it to edit it, and the add button, the offer to undo a delete and any failure below. The
+ * account sheet opens from the head of it (#275).
  *
  * A task holding an importance or state a newer backend added is shown but not offered for any
  * change: the backend replaces a whole task, so saving it would overwrite the value the app does
@@ -31,6 +32,7 @@ export function BoardScreen({
   onClearCompleted,
   onUndo,
   onDismissUndo,
+  onAccount,
 }: {
   tasks: BoardTask[]
   today: string
@@ -50,6 +52,7 @@ export function BoardScreen({
   onUndo: () => void
   /** Must keep its identity across renders, or the undo's countdown starts over with each. */
   onDismissUndo: () => void
+  onAccount: () => void
 }) {
   const board = boardOf(tasks, today)
   const clearable = board.completed.some(isChangeable)
@@ -103,6 +106,12 @@ export function BoardScreen({
 
   return (
     <View style={styles.board}>
+      <View style={styles.boardHead}>
+        <Text style={styles.brand}>TaskFest</Text>
+        <Pressable accessibilityRole="button" style={styles.quietButton} onPress={onAccount}>
+          <Text style={styles.quietButtonText}>{messages.account.open}</Text>
+        </Pressable>
+      </View>
       <ScrollView style={styles.board} contentContainerStyle={styles.boardContent}>
         {failure ? (
           <Text accessibilityRole="alert" style={styles.notice}>

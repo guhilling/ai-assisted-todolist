@@ -132,6 +132,10 @@ export const en = {
     confirm: 'Delete my account',
     deleting: 'Deleting…',
     deleted: 'Your account has been deleted. Signing in again starts a new, empty one.',
+    /** The mobile app's account sheet (#275): its button on the board and its title, who is signed in, and closing it. */
+    open: 'Account',
+    signedInAs: (email: string) => `Signed in as ${email}`,
+    done: 'Done',
   },
   /** Files on a task (#204): in the editor, attaching; on the row, opening and removing. */
   attachments: {
@@ -191,6 +195,8 @@ export const en = {
     contact: 'Contact:',
     version: (version: string) => `Version ${version}`,
     developmentBuild: 'Development build',
+    /** The mobile app's link to the terms of service (#275). */
+    terms: 'Terms',
   },
 }
 
@@ -304,6 +310,9 @@ export const de: Messages = {
     confirm: 'Mein Konto löschen',
     deleting: 'Wird gelöscht …',
     deleted: 'Dein Konto wurde gelöscht. Wenn du dich wieder anmeldest, beginnt ein neues, leeres Konto.',
+    open: 'Konto',
+    signedInAs: (email: string) => `Angemeldet als ${email}`,
+    done: 'Fertig',
   },
   attachments: {
     title: 'Anhänge',
@@ -361,6 +370,7 @@ export const de: Messages = {
     contact: 'Kontakt:',
     version: (version: string) => `Version ${version}`,
     developmentBuild: 'Entwicklungs-Build',
+    terms: 'Nutzungsbedingungen',
   },
 }
 

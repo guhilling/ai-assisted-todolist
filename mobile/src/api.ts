@@ -143,6 +143,14 @@ export async function deleteTask(caller: Caller, task: Task, fetchImpl: typeof f
 }
 
 /**
+ * Deletes the signed-in user's account with every task and file it holds (#275), as the website's
+ * header does. It cannot be undone; forgetting the session is the caller's next step.
+ */
+export async function deleteAccount(caller: Caller, fetchImpl: typeof fetch = fetch): Promise<void> {
+  await send(caller, 'DELETE', '/api/account', fetchImpl)
+}
+
+/**
  * Puts a deleted task back, with its files, by the website's own rule (`restoreInput`): a task
  * already overdue is created today and then dated back. It returns with a new id.
  */

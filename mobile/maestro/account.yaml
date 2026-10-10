@@ -1,0 +1,28 @@
+# Opens the account sheet, asks to delete the account and keeps it, then signs out (#275), as the
+# end-to-end stack's gunnar. The account is never deleted here: the other flows sign in as the same
+# user and expect the task CI seeded for him.
+appId: de.hilling.taskfest.dev
+name: Account and sign-out
+---
+- runFlow: sign-in.yaml
+
+- tapOn: "Account"
+- extendedWaitUntil:
+    visible: "Signed in as .*"
+    timeout: 10000
+- assertVisible: "Imprint"
+- assertVisible: "Terms"
+- takeScreenshot: 10-account
+
+- tapOn: "Delete account"
+- assertVisible: "Delete your account\\?"
+- takeScreenshot: 11-delete-account
+- tapOn: "Keep my account"
+- assertNotVisible: "Delete your account\\?"
+
+- tapOn: "Sign out"
+- extendedWaitUntil:
+    visible: "Sign in with Keycloak"
+    timeout: 10000
+- assertVisible: "Privacy"
+- takeScreenshot: 12-signed-out

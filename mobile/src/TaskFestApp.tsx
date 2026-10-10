@@ -2,10 +2,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ActivityIndicator, AppState, Modal, Pressable, Text, useColorScheme, View } from 'react-native'
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context'
 import { SignedOutError, type BoardTask, type Caller } from './api'
+import { AccountScreen } from './AccountScreen'
 import { isTooOld } from './appVersion'
 import { isChangeable } from './board'
 import { BoardScreen } from './BoardScreen'
-import type { Session } from './session'
+import { LegalLinks } from './LegalLinks'
+import { emailOf, type Session } from './session'
 import {
   RenewalUnavailableError,
   currentSession,
@@ -35,6 +37,8 @@ export type Dependencies = {
   provider: { signIn(): Promise<Tokens | null>; refresh: Refresh }
   fetchTasks(caller: Caller): Promise<BoardTask[]>
   changes: TaskChanges
+  /** Deletes the signed-in user's account with everything in it (#275). */
+  deleteAccount(caller: Caller): Promise<void>
   /** The oldest app release the backend serves (#268). */
   fetchMinimumAppVersion(): Promise<string>
   /** This build's release: the tag's, or 0.0.0 from a branch. */
@@ -59,11 +63,17 @@ function withinTime<T>(promise: Promise<T | null>, ms = VERSION_CHECK_MS): Promi
   })
 }
 
+/** Why the sign-in is shown, when there is something to say about it. */
+type SignedOutNotice = 'sessionExpired' | 'signInFailed' | 'accountDeleted'
+
+/** The account sheet over the board, with what went wrong with the last delete. */
+type Account = { failure?: string }
+
 type State =
   | { kind: 'starting' }
-  | { kind: 'signedOut'; notice?: 'sessionExpired' | 'signInFailed' }
+  | { kind: 'signedOut'; notice?: SignedOutNotice }
   | { kind: 'loading' }
-  | { kind: 'board'; tasks: BoardTask[] }
+  | { kind: 'board'; tasks: BoardTask[]; email: string | null }
   | { kind: 'failed' }
   | { kind: 'tooOld' }
 
@@ -78,6 +88,9 @@ type State =
  * Changes behave as on the website: a tick shows at once and is taken back if the backend refuses
  * it; an add or an edit waits for the backend, keeping the form open until it agreed; a delete
  * goes at once, with an offer to undo it.
+ *
+ * Signing out forgets the session on the phone and nothing more, as the website's sign-out leaves
+ * the provider's own session alone (#275): signing in again may not ask for a password.
  */
 export function TaskFestApp({
   variant,
@@ -88,12 +101,13 @@ export function TaskFestApp({
   language: Language
   dependencies: Dependencies
 }) {
-  const { sessions, provider, fetchTasks, fetchMinimumAppVersion, appVersion, now, changes } = dependencies
+  const { sessions, provider, fetchTasks, fetchMinimumAppVersion, appVersion, now, changes, deleteAccount } = dependencies
   const messages = catalogues[language]
   const theme = useColorScheme() === 'dark' ? dark : light
   const styles = useMemo(() => stylesFor(theme), [theme])
   const [state, setState] = useState<State>({ kind: 'starting' })
   const [form, setForm] = useState<Form | null>(null)
+  const [account, setAccount] = useState<Account | null>(null)
   const [failure, setFailure] = useState<string>()
   /** What was just deleted and can be put back; the key starts a new countdown for each delete. */
   const [deleted, setDeleted] = useState<{ tasks: BoardTask[]; key: number } | null>(null)
@@ -125,7 +139,7 @@ export function TaskFestApp({
       setState((current) => (current.kind === 'board' ? current : { kind: 'loading' }))
       try {
         const tasks = await fetchTasks({ baseUrl: variant.apiBaseUrl, idToken: session.idToken })
-        setState({ kind: 'board', tasks })
+        setState({ kind: 'board', tasks, email: emailOf(session.idToken) })
       } catch (failure) {
         if (failure instanceof SignedOutError) {
           await sessions.clear()
@@ -243,15 +257,40 @@ export function TaskFestApp({
    */
   const failed = async (cause: unknown, text: string): Promise<string | null> => {
     if (cause instanceof SignedOutError) {
-      await sessions.clear()
-      setForm(null)
-      offerUndo(null)
-      setFailure(undefined)
-      setState({ kind: 'signedOut', notice: 'sessionExpired' })
+      await signOut('sessionExpired')
       return null
     }
     console.warn('A change was not saved', cause)
     return text
+  }
+
+  /**
+   * Forgets the session on the phone and everything shown for it, and goes back to the sign-in.
+   * The one way out: whatever the app keeps for a signed-in user goes here.
+   */
+  const signOut = async (notice?: SignedOutNotice) => {
+    await sessions.clear()
+    setForm(null)
+    setAccount(null)
+    offerUndo(null)
+    setFailure(undefined)
+    setState({ kind: 'signedOut', notice })
+  }
+
+  /** Deletes the account, then signs out; says why on the sheet when the backend refused. */
+  const removeAccount = async (): Promise<boolean> => {
+    setAccount({})
+    try {
+      await sending(async () => deleteAccount(await caller()))
+    } catch (cause) {
+      const text = await failed(cause, messages.errors.deleteAccount)
+      if (text) {
+        setAccount({ failure: text })
+      }
+      return false
+    }
+    await signOut('accountDeleted')
+    return true
   }
 
   /** Runs a change, counted as on its way until it is done. */
@@ -397,6 +436,8 @@ export function TaskFestApp({
         {state.kind === 'signedOut' ? (
           <SignedOutScreen
             variant={variant}
+            language={language}
+            appVersion={appVersion}
             messages={messages}
             styles={styles}
             notice={state.notice}
@@ -421,6 +462,7 @@ export function TaskFestApp({
               }
               onUndo={() => void undo()}
               onDismissUndo={dismissUndo}
+              onAccount={() => setAccount({})}
             />
             <Modal
               visible={form !== null}
@@ -443,6 +485,25 @@ export function TaskFestApp({
                   onCancel={() => setForm(null)}
                 />
               ) : null}
+            </Modal>
+            <Modal
+              visible={account !== null}
+              animationType="slide"
+              presentationStyle="pageSheet"
+              onRequestClose={() => setAccount(null)}
+            >
+              <AccountScreen
+                email={state.email}
+                language={language}
+                messages={messages}
+                styles={styles}
+                theme={theme}
+                appVersion={appVersion}
+                failure={account?.failure}
+                onSignOut={() => void signOut()}
+                onDelete={removeAccount}
+                onDone={() => setAccount(null)}
+              />
             </Modal>
           </>
         ) : state.kind === 'tooOld' ? (
@@ -467,35 +528,52 @@ export function TaskFestApp({
   )
 }
 
+/** The words for each reason the sign-in is shown. */
+function noticeText(notice: SignedOutNotice, messages: Messages) {
+  switch (notice) {
+    case 'sessionExpired':
+      return messages.board.sessionExpired
+    case 'signInFailed':
+      return messages.signedOut.failed
+    case 'accountDeleted':
+      return messages.account.deleted
+  }
+}
+
 function SignedOutScreen({
   variant,
+  language,
+  appVersion,
   messages,
   styles,
   notice,
   onSignIn,
 }: {
   variant: Variant
+  language: Language
+  appVersion: string
   messages: Messages
   styles: Styles
-  notice?: 'sessionExpired' | 'signInFailed'
+  notice?: SignedOutNotice
   onSignIn: () => void
 }) {
   return (
-    <View style={styles.signedOut}>
-      <Text style={styles.title}>TaskFest</Text>
-      <Text style={styles.muted}>{messages.signedOut.tagline}</Text>
-      {notice ? (
-        <Text style={styles.notice}>
-          {notice === 'sessionExpired' ? messages.board.sessionExpired : messages.signedOut.failed}
-        </Text>
-      ) : null}
-      {variant.signIn ? (
-        <Pressable accessibilityRole="button" style={styles.button} onPress={onSignIn}>
-          <Text style={styles.buttonText}>{messages.signedOut.signInWith(variant.signIn.label)}</Text>
-        </Pressable>
-      ) : (
-        <Text style={styles.muted}>{messages.signedOut.notConfigured}</Text>
-      )}
+    <View style={styles.board}>
+      <View style={styles.signedOut}>
+        <Text style={styles.title}>TaskFest</Text>
+        <Text style={styles.muted}>{messages.signedOut.tagline}</Text>
+        {notice ? (
+          <Text style={notice === 'accountDeleted' ? styles.muted : styles.notice}>{noticeText(notice, messages)}</Text>
+        ) : null}
+        {variant.signIn ? (
+          <Pressable accessibilityRole="button" style={styles.button} onPress={onSignIn}>
+            <Text style={styles.buttonText}>{messages.signedOut.signInWith(variant.signIn.label)}</Text>
+          </Pressable>
+        ) : (
+          <Text style={styles.muted}>{messages.signedOut.notConfigured}</Text>
+        )}
+      </View>
+      <LegalLinks language={language} messages={messages} styles={styles} appVersion={appVersion} />
     </View>
   )
 }
