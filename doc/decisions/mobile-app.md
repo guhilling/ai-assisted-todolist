@@ -103,19 +103,19 @@ automated sign-in for the app's tests. The app signs them in with code + PKCE th
 browser.
 
 
-## Sign in with Apple comes later, and its hidden addresses are still open
+## Sign in with Apple comes later; a hidden address is a separate account
 
 **Decision.** Sign in with Apple is planned: Apple and Google together cover nearly every phone.
 It is not part of the first stories.
 
-**Open question.** The email is the identity
+**Hidden addresses.** The email is the identity
 ([The email stays the identity](authentication.md#the-email-stays-the-identity-and-every-provider-must-verify-it)).
 Apple's *Hide My Email* gives each app a relay address, so the same person signing in with Google
-and with a hidden Apple address would have two accounts. There are two ways out:
-- accept that, and say so on the sign-in page;
-- move the identity to issuer and subject, which reopens D1 of #141.
+and with a hidden Apple address has two accounts, two boards. That is accepted, and the sign-in
+page says so (Gunnar, #264, 10 October 2026).
 
-That is decided before Apple is added.
+**Rejected: the identity as issuer and subject.** It would join the two, but it reopens D1 of #141
+and changes the domain for a case one sentence on the sign-in page covers.
 
 
 ## Push goes through Amazon SNS; reminders are local
@@ -141,8 +141,11 @@ setting.
 
 **Cost.** Push needs a new domain concept, the **device**: an app installation that belongs to a
 user and is deleted with the account. It also needs an APNs key from Apple and a Firebase project
-for FCM, which FCM requires even through SNS. And Apple and Google see what is pushed, so the
-privacy policy has to name them.
+for FCM, which FCM requires even through SNS.
+
+**A notification carries the task's description**, not only "a task was added" (Gunnar, #264,
+10 October 2026). It is what makes the notification worth having. The text passes through Apple's
+and Google's push services, so the privacy policy names both.
 
 
 ## Readable offline, not editable offline
@@ -185,8 +188,10 @@ the public stores. There are three variants, installable side by side:
 build that goes to testers is the same signed release build a store takes, so a public release
 would be a decision, not a project.
 
-**Still open.** The Apple and Google developer accounts, individual or organization, and when
-they are opened. Distribution and APNs wait for them.
+**Developer accounts: organization, for both.** Apple and Google accounts are opened for
+**Hilling IT GmbH**, which has a D-U-N-S number, so the stores name the company as the seller
+(Gunnar, #264, 10 October 2026). An organization account on Google Play is also exempt from the
+closed test of 12 testers for 14 days that a personal one needs before a public release.
 
 
 ## No crash reporting, for now
