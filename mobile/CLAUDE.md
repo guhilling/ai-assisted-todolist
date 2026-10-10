@@ -19,6 +19,7 @@ or any page with `.md` appended), not what you remember. Add Expo packages with
   texts, date and importance rules: used, never copied. A text only the app shows goes into
   `src/messages.ts`, in both languages: the website's catalogue holds only what the website uses,
   and its test enforces that.
+  There is deliberately no `shared/` package yet (`doc/decisions/mobile-app.md`).
 - **Installed apps are older than their backend** (#268, `doc/releasing.md`). Every request names
   the app's release in `X-TaskFest-App`; the app checks `/api/version`'s `minimumAppVersion` at
   start and asks for an update when it is too old; and it reads an enum value it does not know as

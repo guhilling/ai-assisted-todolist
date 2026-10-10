@@ -90,8 +90,9 @@ Decisions with consequences, why they were taken, and what was rejected. Newest 
 
 - [Expo, rather than native apps or a WebView](mobile-app.md#expo-rather-than-native-apps-or-a-webview)
 - [Native projects are generated, and builds run on GitHub Actions](mobile-app.md#native-projects-are-generated-and-builds-run-on-github-actions)
+- [The app imports the website's code; a `shared/` package can wait](mobile-app.md#the-app-imports-the-websites-code-a-shared-package-can-wait)
 - [The app sends Google's ID token as a bearer token](mobile-app.md#the-app-sends-googles-id-token-as-a-bearer-token)
-- [Sign in with Apple comes later, and its hidden addresses are still open](mobile-app.md#sign-in-with-apple-comes-later-and-its-hidden-addresses-are-still-open)
+- [Sign in with Apple comes later; a hidden address is a separate account](mobile-app.md#sign-in-with-apple-comes-later-a-hidden-address-is-a-separate-account)
 - [Push goes through Amazon SNS; reminders are local](mobile-app.md#push-goes-through-amazon-sns-reminders-are-local)
 - [Readable offline, not editable offline](mobile-app.md#readable-offline-not-editable-offline)
 - [Releases follow semantic versioning, measured by the API](mobile-app.md#releases-follow-semantic-versioning-measured-by-the-api)
