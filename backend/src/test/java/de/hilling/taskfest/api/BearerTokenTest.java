@@ -122,8 +122,8 @@ class BearerTokenTest {
 
     @Test
     void shouldRefuseAnExpiredToken() {
-        // The apps realm issues tokens for five seconds, so this one is soon out of date.
-        String token = appToken("taskfest-app", "ada");
+        // The brief realm issues tokens for three seconds, so this one is soon out of date.
+        String token = KeycloakTokens.idToken("brief", "taskfest-app", null, "ada", "ada");
 
         await().atMost(Duration.ofSeconds(30)).pollInterval(Duration.ofSeconds(1)).untilAsserted(() ->
             refused(withBearer(token).when().get("/api/auth/me").then()));
@@ -175,9 +175,11 @@ class BearerTokenTest {
     }
 
     /**
-     * Sign-in on, and a further provider for the {@code apps} realm beside the main one -- declared
-     * as a deployment would: a named tenant, its shared settings referring to the main tenant's.
-     * It has no sign-in button and no {@code tenant-paths}: an app reaches it by its tokens' issuer.
+     * Sign-in on, and further providers for the {@code apps} and {@code brief} realms beside the main
+     * one -- declared as a deployment would: named tenants, their shared settings referring to the
+     * main tenant's. They have no sign-in button and no {@code tenant-paths}: an app reaches them by
+     * its tokens' issuer. {@code brief} exists for the expiry case alone, so that no other test
+     * races a short-lived token.
      */
     public static class AppTokens implements QuarkusTestProfile {
 
@@ -186,11 +188,14 @@ class BearerTokenTest {
             Map<String, String> overrides = new HashMap<>(Map.of(
                 "taskfest.auth.enabled", "true",
                 "quarkus.keycloak.devservices.realm-path",
-                "../keycloak/realm-taskfest.json,src/test/resources/realm-apps.json",
-                "quarkus.oidc.apps.auth-server-url", "${keycloak.url}/realms/apps",
-                "quarkus.oidc.apps.client-id", "taskfest-app"));
-            TwoSignInProviders.SHARED_SETTINGS.forEach(setting ->
-                overrides.put("quarkus.oidc.apps." + setting, "${quarkus.oidc." + setting + "}"));
+                "../keycloak/realm-taskfest.json,src/test/resources/realm-apps.json,"
+                    + "src/test/resources/realm-brief.json"));
+            for (String realm : new String[] {"apps", "brief"}) {
+                overrides.put("quarkus.oidc." + realm + ".auth-server-url", "${keycloak.url}/realms/" + realm);
+                overrides.put("quarkus.oidc." + realm + ".client-id", "taskfest-app");
+                TwoSignInProviders.SHARED_SETTINGS.forEach(setting ->
+                    overrides.put("quarkus.oidc." + realm + "." + setting, "${quarkus.oidc." + setting + "}"));
+            }
             return overrides;
         }
     }

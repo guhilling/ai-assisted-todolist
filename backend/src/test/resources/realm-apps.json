@@ -5,7 +5,7 @@
   "registrationAllowed": false,
   "loginWithEmailAllowed": true,
   "duplicateEmailsAllowed": false,
-  "accessTokenLifespan": 5,
+  "accessTokenLifespan": 1800,
   "ssoSessionIdleTimeout": 1800,
   "clients": [
     {

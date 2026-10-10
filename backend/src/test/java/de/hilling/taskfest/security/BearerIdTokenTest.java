@@ -81,10 +81,50 @@ class BearerIdTokenTest {
     }
 
     @Test
+    void shouldStillCheckTheClientWhereTheTenantAcceptsAnyAudience() {
+        // token.audience=any makes Quarkus skip its own check, so ours must not be skipped too.
+        BearerIdToken anyAudience = new BearerIdToken(Map.of("lax", "taskfest-lax")::get, tenant -> false);
+
+        SecurityIdentity identity = bearerIdentity("lax", Set.of("someone-else"));
+
+        assertThrows(AuthenticationFailedException.class,
+            () -> anyAudience.augment(identity, null).await().indefinitely());
+    }
+
+    @Test
+    void shouldRefuseABearerIdentityWithoutAToken() {
+        // An opaque token, verified by introspection: no claims to check, so no way in.
+        SecurityIdentity opaque = QuarkusSecurityIdentity.builder()
+            .setPrincipal(() -> "sub-1")
+            .addCredential(new AccessTokenCredential("opaque"))
+            .addAttribute("tenant-id", DEFAULT_TENANT)
+            .build();
+
+        assertThrows(AuthenticationFailedException.class, () -> augmented(opaque));
+    }
+
+    @Test
+    void shouldRefuseATokenThatSaysItIsAnAccessToken() {
+        // Keycloak's typ and Cognito's token_use; Google's ID tokens carry neither.
+        assertThrows(AuthenticationFailedException.class,
+            () -> augmented(bearerIdentity(DEFAULT_TENANT, Set.of("taskfest-backend"), Map.of("typ", "Bearer"))));
+        assertThrows(AuthenticationFailedException.class,
+            () -> augmented(bearerIdentity(DEFAULT_TENANT, Set.of("taskfest-backend"), Map.of("token_use", "access"))));
+    }
+
+    @Test
+    void shouldAcceptATokenThatSaysItIsAnIdToken() {
+        SecurityIdentity augmented = augmented(
+            bearerIdentity(DEFAULT_TENANT, Set.of("taskfest-backend"), Map.of("typ", "ID", "token_use", "id")));
+
+        assertEquals(RAW_TOKEN, augmented.getCredential(IdTokenCredential.class).getToken());
+    }
+
+    @Test
     void shouldLeaveASessionIdentityAlone() {
         // The code flow already holds an ID token of its own.
         SecurityIdentity session = QuarkusSecurityIdentity.builder()
-            .setPrincipal(new StubToken(Set.of("taskfest-backend")))
+            .setPrincipal(new StubToken(Set.of("taskfest-backend"), Map.of()))
             .addCredential(new AccessTokenCredential("access"))
             .addCredential(new IdTokenCredential("id"))
             .addAttribute("tenant-id", DEFAULT_TENANT)
@@ -113,20 +153,32 @@ class BearerIdTokenTest {
         assertFalse(BearerIdToken.namesItsAudience(config, DEFAULT_TENANT));
     }
 
+    @Test
+    void shouldNotCountAnyAudienceAsNamingOne() {
+        Config config = new SmallRyeConfigBuilder().withDefaultValues(Map.of(
+            "quarkus.oidc.lax.token.audience", "any")).build();
+
+        assertFalse(BearerIdToken.namesItsAudience(config, "lax"));
+    }
+
     private SecurityIdentity augmented(SecurityIdentity identity) {
         return bearerIdToken.augment(identity, null).await().indefinitely();
     }
 
     private static SecurityIdentity bearerIdentity(String tenant, Set<String> audience) {
+        return bearerIdentity(tenant, audience, Map.of());
+    }
+
+    private static SecurityIdentity bearerIdentity(String tenant, Set<String> audience, Map<String, Object> claims) {
         return QuarkusSecurityIdentity.builder()
-            .setPrincipal(new StubToken(audience))
+            .setPrincipal(new StubToken(audience, claims))
             .addCredential(new AccessTokenCredential(RAW_TOKEN))
             .addAttribute("tenant-id", tenant)
             .build();
     }
 
-    /** A verified token with an audience, and nothing else a token has. */
-    private record StubToken(Set<String> audience) implements JsonWebToken {
+    /** A verified token with an audience and a few claims, and nothing else a token has. */
+    private record StubToken(Set<String> audience, Map<String, Object> claims) implements JsonWebToken {
 
         @Override
         public String getName() {
@@ -140,12 +192,13 @@ class BearerIdTokenTest {
 
         @Override
         public Set<String> getClaimNames() {
-            return Set.of();
+            return claims.keySet();
         }
 
         @Override
+        @SuppressWarnings("unchecked")
         public <T> T getClaim(String claimName) {
-            return null;
+            return (T) claims.get(claimName);
         }
     }
 }
