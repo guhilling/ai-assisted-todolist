@@ -6,6 +6,9 @@ name: Sign in and see the board
 ---
 - launchApp:
     clearState: true
+- extendedWaitUntil:
+    visible: "Sign in with Keycloak"
+    timeout: 30000
 - takeScreenshot: 01-signed-out
 - tapOn: "Sign in with Keycloak"
 # A fresh emulator's Chrome greets its first user; none of this is TaskFest's.
