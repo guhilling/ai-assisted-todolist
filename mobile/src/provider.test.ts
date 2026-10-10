@@ -63,6 +63,22 @@ describe('signing in with a provider', () => {
     expect(mocked.exchangeCodeAsync).not.toHaveBeenCalled()
   })
 
+  it('reports an error the provider sent back, rather than taking it for turning back', async () => {
+    mocked.__promptAsync.mockResolvedValue({ type: 'error', error: new Error('invalid_scope'), params: {} })
+
+    await expect(providerFor(keycloak, 'scheme').signIn()).rejects.toThrow('invalid_scope')
+  })
+
+  it('asks for the provider’s discovery document once, not on every renewal', async () => {
+    mocked.refreshAsync.mockResolvedValue({ idToken: 'id' })
+    const provider = providerFor(keycloak, 'scheme')
+
+    await provider.refresh('r')
+    await provider.refresh('r')
+
+    expect(AuthSession.fetchDiscoveryAsync).toHaveBeenCalledTimes(1)
+  })
+
   it('renews with the refresh token', async () => {
     mocked.refreshAsync.mockResolvedValue({ idToken: 'id-2', refreshToken: 'refresh-2' })
 

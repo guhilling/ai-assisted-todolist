@@ -1,12 +1,12 @@
 import Constants from 'expo-constants'
 import { getLocales } from 'expo-localization'
 import * as SecureStore from 'expo-secure-store'
-import { fetchTasks } from '../api'
-import { providerFor } from '../provider'
-import { createSessionStore } from '../staySignedIn'
-import { TaskFestApp, type Dependencies } from '../TaskFestApp'
-import type { Variant } from '../variants'
-import { chooseLanguage } from '../web'
+import { fetchTasks } from './api'
+import { providerFor } from './provider'
+import { createSessionStore } from './staySignedIn'
+import { TaskFestApp, type Dependencies } from './TaskFestApp'
+import type { Variant } from './variants'
+import { chooseLanguage } from './web'
 
 /** The variant this build was made as: `app.config.ts` put it into the app's configuration. */
 const variant = Constants.expoConfig?.extra?.variant as Variant
@@ -25,12 +25,13 @@ const dependencies: Dependencies = {
 }
 
 /**
- * The app, with the real keychain, provider and backend -- in the root layout rather than a route,
- * so no navigation can unmount it. The sign-in's return arrives as a link while the sign-in is
- * still waiting for it; were the app inside a route, that link would mount a fresh copy, which
- * found no session yet and showed the sign-in again (#267).
+ * The app's root, with the real keychain, provider and backend.
+ *
+ * One screen, so no router: Expo Router, tried first, took the sign-in's return link for a page
+ * and mounted a second copy of the app while the first still waited for its tokens (#267).
+ * Navigation comes back with the screens that need it.
  */
-export default function Layout() {
+export default function Main() {
   const language = chooseLanguage(null, getLocales().map((locale) => locale.languageTag))
   return <TaskFestApp variant={variant} language={language} dependencies={dependencies} />
 }

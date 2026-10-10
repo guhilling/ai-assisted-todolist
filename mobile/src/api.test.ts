@@ -1,4 +1,4 @@
-import { ContractBreachError, RequestFailedError, SignedOutError, fetchCurrentUser, fetchTasks } from './api'
+import { ContractBreachError, RequestFailedError, SignedOutError, fetchTasks } from './api'
 
 const BASE = 'https://taskfest.example'
 
@@ -50,13 +50,5 @@ describe('the backend, as the app asks it', () => {
 
     await expect(failure).rejects.toBeInstanceOf(RequestFailedError)
     await expect(failure).rejects.toMatchObject({ status: 503 })
-  })
-
-  it('asks who is signed in', async () => {
-    const me = { email: 'gunnar@example.com', name: 'Gunnar' }
-    const fetchImpl = respond(200, me)
-
-    await expect(fetchCurrentUser({ baseUrl: BASE, idToken: 't' }, fetchImpl)).resolves.toEqual(me)
-    expect(fetchImpl).toHaveBeenCalledWith(`${BASE}/api/auth/me`, expect.anything())
   })
 })

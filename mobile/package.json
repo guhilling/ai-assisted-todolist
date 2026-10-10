@@ -1,7 +1,7 @@
 {
   "name": "taskfest-mobile",
   "version": "1.0.0",
-  "main": "expo-router/entry",
+  "main": "index.ts",
   "dependencies": {
     "expo": "~57.0.27",
     "expo-auth-session": "~57.0.14",
@@ -9,16 +9,13 @@
     "expo-constants": "~57.0.21",
     "expo-crypto": "~57.0.3",
     "expo-font": "~57.0.4",
-    "expo-linking": "~57.0.12",
     "expo-localization": "~57.0.2",
-    "expo-router": "~57.0.25",
     "expo-secure-store": "~57.0.4",
     "expo-status-bar": "~57.0.1",
     "expo-web-browser": "~57.0.3",
     "react": "19.2.3",
     "react-native": "0.86.3",
-    "react-native-safe-area-context": "~5.7.0",
-    "react-native-screens": "~4.26.0"
+    "react-native-safe-area-context": "~5.7.0"
   },
   "devDependencies": {
     "@testing-library/react-native": "^14.1.0",
@@ -47,13 +44,22 @@
     "preset": "jest-expo",
     "collectCoverageFrom": [
       "src/**/*.{ts,tsx}",
-      "!src/app/**"
+      "!src/Main.tsx",
+      "!src/**/*.d.ts"
     ],
     "modulePaths": [
       "<rootDir>/node_modules"
     ],
     "setupFiles": [
       "<rootDir>/jest.setup.ts"
-    ]
+    ],
+    "coverageThreshold": {
+      "global": {
+        "statements": 95,
+        "branches": 90,
+        "functions": 93,
+        "lines": 95
+      }
+    }
   }
 }

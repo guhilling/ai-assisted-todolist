@@ -4,7 +4,15 @@ import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context'
 import { SignedOutError, type Caller } from './api'
 import { boardOf, type Board } from './board'
 import type { Session } from './session'
-import { currentSession, sessionFromTokens, type Refresh, type SessionStore, type Tokens } from './staySignedIn'
+import { appCatalogues, type AppMessages } from './messages'
+import {
+  RenewalUnavailableError,
+  currentSession,
+  sessionFromTokens,
+  type Refresh,
+  type SessionStore,
+  type Tokens,
+} from './staySignedIn'
 import { dark, light, type Theme } from './theme'
 import type { Variant } from './variants'
 import { catalogues, describeDueDate, localeOf, todayIso, type Language, type Messages, type Task } from './web'
@@ -43,6 +51,7 @@ export function TaskFestApp({
 }) {
   const { sessions, provider, fetchTasks, now } = dependencies
   const messages = catalogues[language]
+  const appMessages = appCatalogues[language]
   const theme = useColorScheme() === 'dark' ? dark : light
   const styles = useMemo(() => stylesFor(theme), [theme])
   const [state, setState] = useState<State>({ kind: 'starting' })
@@ -65,25 +74,47 @@ export function TaskFestApp({
     [fetchTasks, now, sessions, variant.apiBaseUrl],
   )
 
+  /** How often the start has been tried: "try again" raises it, and the effect below runs anew. */
+  const [attempt, setAttempt] = useState(0)
+
   useEffect(() => {
-    void (async () => {
-      const session = await currentSession(sessions, provider.refresh, now())
+    /** From the kept session to the board, or to the sign-in. */
+    const start = async () => {
+      let session: Session | null
+      try {
+        session = await currentSession(sessions, provider.refresh, now())
+      } catch (failure) {
+        if (failure instanceof RenewalUnavailableError) {
+          // Offline, or the provider unreachable: the session is kept for when it is back.
+          setState({ kind: 'failed' })
+          return
+        }
+        // The keychain could not be read -- invalidated, restored from a backup: start afresh.
+        console.warn('The kept session could not be read', failure)
+        await sessions.clear().catch(() => undefined)
+        session = null
+      }
       if (session) {
         await showBoard(session)
       } else {
         setState({ kind: 'signedOut' })
       }
-    })()
-  }, [now, provider, sessions, showBoard])
+    }
+    void start()
+  }, [attempt, now, provider, sessions, showBoard])
 
   const signIn = async () => {
     try {
       const tokens = await provider.signIn()
-      const session = tokens ? sessionFromTokens(tokens, now()) : null
-      if (session) {
-        await sessions.save(session)
-        await showBoard(session)
+      if (!tokens) {
+        return
       }
+      const session = sessionFromTokens(tokens, now())
+      if (!session) {
+        throw new Error('The provider issued no ID token the app can use.')
+      }
+      await sessions.save(session)
+      await showBoard(session)
     } catch (failure) {
       // Logged for the device log -- the only trace a failed sign-in on a test device leaves.
       console.warn('Signing in failed', failure)
@@ -95,11 +126,34 @@ export function TaskFestApp({
     <SafeAreaProvider>
       <SafeAreaView style={styles.screen}>
         {state.kind === 'signedOut' ? (
-          <SignedOutScreen variant={variant} messages={messages} styles={styles} notice={state.notice} onSignIn={signIn} />
+          <SignedOutScreen
+            variant={variant}
+            messages={messages}
+            appMessages={appMessages}
+            styles={styles}
+            notice={state.notice}
+            onSignIn={signIn}
+          />
         ) : state.kind === 'board' ? (
-          <BoardScreen board={state.board} today={todayIso(new Date(now()))} language={language} messages={messages} styles={styles} />
+          <BoardScreen
+            board={state.board}
+            today={todayIso(new Date(now()))}
+            language={language}
+            messages={messages}
+            appMessages={appMessages}
+            styles={styles}
+          />
         ) : state.kind === 'failed' ? (
-          <Text style={styles.notice}>{messages.failures.loading}</Text>
+          <View style={styles.signedOut}>
+            <Text style={styles.notice}>{messages.failures.loading}</Text>
+            <Pressable accessibilityRole="button" style={styles.button} onPress={() => {
+                setState({ kind: 'starting' })
+                setAttempt((count) => count + 1)
+              }}
+            >
+              <Text style={styles.buttonText}>{appMessages.tryAgain}</Text>
+            </Pressable>
+          </View>
         ) : (
           <ActivityIndicator color={theme.accent} accessibilityLabel={messages.board.loading} />
         )}
@@ -113,12 +167,14 @@ type Styles = ReturnType<typeof stylesFor>
 function SignedOutScreen({
   variant,
   messages,
+  appMessages,
   styles,
   notice,
   onSignIn,
 }: {
   variant: Variant
   messages: Messages
+  appMessages: AppMessages
   styles: Styles
   notice?: 'sessionExpired' | 'signInFailed'
   onSignIn: () => void
@@ -129,7 +185,7 @@ function SignedOutScreen({
       <Text style={styles.muted}>{messages.signedOut.tagline}</Text>
       {notice ? (
         <Text style={styles.notice}>
-          {notice === 'sessionExpired' ? messages.board.sessionExpired : messages.failures.loading}
+          {notice === 'sessionExpired' ? messages.board.sessionExpired : appMessages.signInFailed}
         </Text>
       ) : null}
       {variant.signIn ? (
@@ -148,16 +204,18 @@ function BoardScreen({
   today,
   language,
   messages,
+  appMessages,
   styles,
 }: {
   board: Board
   today: string
   language: Language
   messages: Messages
+  appMessages: AppMessages
   styles: Styles
 }) {
   if (board.sections.length === 0 && board.completed.length === 0) {
-    return <Text style={styles.muted}>{messages.board.empty}</Text>
+    return <Text style={styles.muted}>{appMessages.emptyBoard}</Text>
   }
   const row = (task: Task, sayWhen: boolean) => (
     <View key={task.id} style={styles.row}>

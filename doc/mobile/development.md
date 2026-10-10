@@ -50,7 +50,8 @@ them and `theme.test.ts` compares the two.
 ## Tests and CI
 
 - **Unit and component tests** run on Jest with `jest-expo` and React Native Testing Library:
-  `npm test`, or `npm run test:coverage`. As everywhere in this project, the test comes first.
+  `npm test`, or `npm run test:coverage`, which fails below the floor in `package.json`. As
+  everywhere in this project, the test comes first.
 - **`npm run lint`** (oxlint, the frontend's rules), **`npm run typecheck`**, and
   **`npm run check:deps`** — the frontend's pre-release check, run on the app's lockfile.
 - **Maestro** flows under `mobile/maestro/` drive the built app on an emulator.

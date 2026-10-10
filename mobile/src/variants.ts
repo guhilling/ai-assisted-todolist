@@ -3,7 +3,7 @@
  * with its own bundle id, name, URL scheme and backend.
  *
  * Read by `app.config.ts` when a build is made, which puts the chosen one into the app's
- * configuration; `config.ts` reads it back at runtime. `APP_VARIANT` chooses, and is `dev` unless
+ * configuration; `Main.tsx` reads it back at runtime. `APP_VARIANT` chooses, and is `dev` unless
  * set. The scheme is the bundle id, so a sign-in in the browser returns to the variant that
  * started it and no other app can claim the redirect by accident.
  */

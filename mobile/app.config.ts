@@ -38,7 +38,6 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       predictiveBackGestureEnabled: false,
     },
     plugins: [
-      'expo-router',
       'expo-secure-store',
       'expo-localization',
       'expo-web-browser',
@@ -48,7 +47,6 @@ export default ({ config }: ConfigContext): ExpoConfig => {
         dev ? { android: { usesCleartextTraffic: true }, ios: {} } : { android: {}, ios: {} },
       ],
     ],
-    experiments: { typedRoutes: true },
     extra: { variant },
   }
 }

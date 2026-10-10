@@ -18,8 +18,22 @@ export type KeyValueStore = {
 /** What a provider hands out on sign-in or renewal. */
 export type Tokens = { idToken?: string; refreshToken?: string }
 
-/** Renews the tokens with a refresh token; rejects when the provider will not. */
+/** Renews the tokens with a refresh token; rejects when the provider will not, or cannot be asked. */
 export type Refresh = (refreshToken: string) => Promise<Tokens>
+
+/**
+ * The session could not be renewed for now -- no connection, the provider unreachable -- and is
+ * kept: being offline for a moment must not undo a sign-in meant to last a month.
+ */
+export class RenewalUnavailableError extends Error {
+  constructor(cause: unknown) {
+    super('The sign-in could not be renewed just now.', { cause })
+    this.name = 'RenewalUnavailableError'
+  }
+}
+
+/** The OAuth error with which a provider refuses a refresh token for good: expired, revoked or unknown. */
+const REFUSED = 'invalid_grant'
 
 const ID_TOKEN = 'taskfest.idToken'
 const REFRESH_TOKEN = 'taskfest.refreshToken'
@@ -76,7 +90,9 @@ export type SessionStore = ReturnType<typeof createSessionStore>
  * The session to send now, or null when the user has to sign in.
  *
  * Ends a session unused for thirty days, renews an ID token about to run out, and ends the
- * session when it cannot be renewed. Every session handed out is recorded as used now.
+ * session when the provider refuses to renew it. When the provider cannot be asked, the session is
+ * kept and a {@link RenewalUnavailableError} says so. Every session handed out is recorded as used
+ * now.
  */
 export async function currentSession(sessions: SessionStore, refresh: Refresh, now: number): Promise<Session | null> {
   let session = await sessions.load()
@@ -99,9 +115,14 @@ async function renewed(session: Session, refresh: Refresh, now: number): Promise
   if (!session.refreshToken) {
     return null
   }
+  let tokens: Tokens
   try {
-    return sessionFromTokens(await refresh(session.refreshToken), now, session)
-  } catch {
-    return null
+    tokens = await refresh(session.refreshToken)
+  } catch (failure) {
+    if ((failure as { code?: unknown }).code === REFUSED) {
+      return null
+    }
+    throw new RenewalUnavailableError(failure)
   }
+  return sessionFromTokens(tokens, now, session)
 }

@@ -1,5 +1,12 @@
 import { INACTIVITY_LIMIT_MS, type Session } from './session'
-import { createSessionStore, currentSession, sessionFromTokens, type KeyValueStore, type Tokens } from './staySignedIn'
+import {
+  RenewalUnavailableError,
+  createSessionStore,
+  currentSession,
+  sessionFromTokens,
+  type KeyValueStore,
+  type Tokens,
+} from './staySignedIn'
 
 function tokenWith(payload: object) {
   return `h.${btoa(JSON.stringify(payload)).replace(/=+$/, '')}.s`
@@ -105,15 +112,26 @@ describe('staying signed in', () => {
     await expect(currentSession(sessions, refresh, later)).resolves.toMatchObject({ refreshToken: 'refresh-1' })
   })
 
-  it('ends the session when renewing fails or is impossible', async () => {
-    const failing = createSessionStore(memoryStore())
-    await failing.save(session)
-    await expect(currentSession(failing, jest.fn().mockRejectedValue(new Error('revoked')), NOW + HOUR)).resolves.toBeNull()
-    await expect(failing.load()).resolves.toBeNull()
+  it('ends the session when the provider refuses to renew it, or renewing is impossible', async () => {
+    const refused = createSessionStore(memoryStore())
+    await refused.save(session)
+    const invalidGrant = Object.assign(new Error('revoked'), { code: 'invalid_grant' })
+    await expect(currentSession(refused, jest.fn().mockRejectedValue(invalidGrant), NOW + HOUR)).resolves.toBeNull()
+    await expect(refused.load()).resolves.toBeNull()
 
     const withoutRefresh = createSessionStore(memoryStore())
     await withoutRefresh.save({ ...session, refreshToken: null })
     await expect(currentSession(withoutRefresh, jest.fn(), NOW + HOUR)).resolves.toBeNull()
+  })
+
+  it('keeps the session when renewing fails for any other reason, such as being offline', async () => {
+    const sessions = createSessionStore(memoryStore())
+    await sessions.save(session)
+
+    await expect(
+      currentSession(sessions, jest.fn().mockRejectedValue(new TypeError('Network request failed')), NOW + HOUR),
+    ).rejects.toBeInstanceOf(RenewalUnavailableError)
+    await expect(sessions.load()).resolves.toEqual(session)
   })
 
   it('has nothing when nobody signed in', async () => {

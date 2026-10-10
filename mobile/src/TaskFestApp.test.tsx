@@ -80,8 +80,53 @@ describe('the app', () => {
 
     await userEvent.setup().press(await screen.findByRole('button', { name: 'Sign in with Keycloak' }))
 
-    expect(await screen.findByText('Unexpected error while loading data.')).toBeOnTheScreen()
+    expect(await screen.findByText('Signing in did not work. Try again.')).toBeOnTheScreen()
     expect(screen.getByRole('button', { name: 'Sign in with Keycloak' })).toBeOnTheScreen()
+  })
+
+  it('says so when the provider’s answer holds no ID token it can use', async () => {
+    const deps = dependencies({ provider: { signIn: jest.fn().mockResolvedValue({ refreshToken: 'r' }), refresh: jest.fn() } })
+    await render(<TaskFestApp variant={variants.dev} language="en" dependencies={deps} />)
+
+    await userEvent.setup().press(await screen.findByRole('button', { name: 'Sign in with Keycloak' }))
+
+    expect(await screen.findByText('Signing in did not work. Try again.')).toBeOnTheScreen()
+    expect(deps.fetchTasks).not.toHaveBeenCalled()
+  })
+
+  it('offers the sign-in when the kept session cannot be read', async () => {
+    const broken = memorySessions(null)
+    broken.load = jest.fn().mockRejectedValue(new Error('keystore invalidated'))
+    await render(<TaskFestApp variant={variants.dev} language="en" dependencies={dependencies({ sessions: broken })} />)
+
+    expect(await screen.findByRole('button', { name: 'Sign in with Keycloak' })).toBeOnTheScreen()
+  })
+
+  it('keeps the session and offers to try again when it cannot be renewed for now', async () => {
+    const expiring = { ...session, expiresAt: NOW }
+    const sessions = memorySessions(expiring)
+    const refresh = jest
+      .fn()
+      .mockRejectedValueOnce(new TypeError('Network request failed'))
+      .mockResolvedValueOnce({ idToken: tokenWith({ exp: (NOW + HOUR) / 1000 }) })
+    const deps = dependencies({ sessions, provider: { signIn: jest.fn(), refresh } })
+    await render(<TaskFestApp variant={variants.dev} language="en" dependencies={deps} />)
+
+    await userEvent.setup().press(await screen.findByRole('button', { name: 'Try again' }))
+
+    expect(await screen.findByText('Water the plants')).toBeOnTheScreen()
+    expect(sessions.current()).not.toBeNull()
+  })
+
+  it('offers to try again when the board cannot be loaded', async () => {
+    const fetchTasks = jest.fn().mockRejectedValueOnce(new Error('503')).mockResolvedValueOnce(tasks)
+    const deps = dependencies({ sessions: memorySessions(session), fetchTasks })
+    await render(<TaskFestApp variant={variants.dev} language="en" dependencies={deps} />)
+
+    expect(await screen.findByText('Unexpected error while loading data.')).toBeOnTheScreen()
+    await userEvent.setup().press(screen.getByRole('button', { name: 'Try again' }))
+
+    expect(await screen.findByText('Water the plants')).toBeOnTheScreen()
   })
 
   it('stays on the sign-in when the user turns back', async () => {
@@ -111,7 +156,8 @@ describe('the app', () => {
     const deps = dependencies({ sessions: memorySessions(session), fetchTasks: jest.fn().mockResolvedValue([]) })
     await render(<TaskFestApp variant={variants.dev} language="en" dependencies={deps} />)
 
-    expect(await screen.findByText('Nothing here yet. Add your first task.')).toBeOnTheScreen()
+    // Not the website's "Add your first task": there is nothing to add with here yet.
+    expect(await screen.findByText('Nothing here yet.')).toBeOnTheScreen()
   })
 
   it('asks for a sign-in again when the backend no longer accepts the session', async () => {

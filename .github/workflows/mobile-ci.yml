@@ -4,6 +4,10 @@ on:
   pull_request:
     paths:
       - 'mobile/**'
+      # The Maestro flow runs the backend and the end-to-end stack built from this commit.
+      - 'backend/**'
+      - 'frontend/docker/**'
+      - 'deployment/docker/docker-compose.e2e.yml'
       # The app imports the website's generated types, validators, texts and date rules (#267).
       - 'frontend/src/**'
       - 'frontend/scripts/check-no-prerelease-deps.mjs'
@@ -14,6 +18,10 @@ on:
     branches: [main]
     paths:
       - 'mobile/**'
+      # The Maestro flow runs the backend and the end-to-end stack built from this commit.
+      - 'backend/**'
+      - 'frontend/docker/**'
+      - 'deployment/docker/docker-compose.e2e.yml'
       - 'frontend/src/**'
       - 'frontend/scripts/check-no-prerelease-deps.mjs'
       - 'keycloak/**'
@@ -97,7 +105,9 @@ jobs:
         run: npx expo prebuild --platform ios
       - name: Build for the simulator
         working-directory: mobile/ios
+        # pipefail, or the step's status would be tail's and a failed build would pass.
         run: |
+          set -o pipefail
           workspace=$(ls -d *.xcworkspace)
           xcodebuild -workspace "$workspace" -scheme "${workspace%.xcworkspace}" \
             -configuration Release -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \

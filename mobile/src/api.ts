@@ -1,4 +1,4 @@
-import { validateCurrentUserResponse, validateTaskResponse, type CurrentUser, type Task } from './web'
+import { validateTaskResponse, type Task } from './web'
 
 /**
  * The app's side of the REST API (#267): every request carries the ID token as a bearer token
@@ -48,15 +48,6 @@ export async function fetchTasks(caller: Caller, fetchImpl: typeof fetch = fetch
     }
     return item
   })
-}
-
-/** Who is signed in, as the backend sees it. */
-export async function fetchCurrentUser(caller: Caller, fetchImpl: typeof fetch = fetch): Promise<CurrentUser> {
-  const data = await get(caller, '/api/auth/me', fetchImpl)
-  if (!validateCurrentUserResponse(data)) {
-    throw new ContractBreachError('the signed-in user')
-  }
-  return data
 }
 
 async function get(caller: Caller, path: string, fetchImpl: typeof fetch): Promise<unknown> {

@@ -12,14 +12,25 @@ import type { SignIn } from './variants'
  */
 export function providerFor(signIn: SignIn, scheme: string) {
   const redirectUri = makeRedirectUri({ scheme, path: 'oauthredirect' })
-  const discovery = () => fetchDiscoveryAsync(signIn.issuer)
+  // Asked for once and kept, unless asking failed: renewing should not cost a round trip more.
+  let document: ReturnType<typeof fetchDiscoveryAsync> | null = null
+  const discovery = () => {
+    document ??= fetchDiscoveryAsync(signIn.issuer).catch((failure: unknown) => {
+      document = null
+      throw failure
+    })
+    return document
+  }
 
   return {
-    /** Runs the sign-in in the browser; null when the user turned back. */
+    /** Runs the sign-in in the browser; null when the user turned back, a rejection on an error. */
     async signIn(): Promise<Tokens | null> {
       const document = await discovery()
       const request = new AuthRequest({ clientId: signIn.clientId, scopes: signIn.scopes, redirectUri, usePKCE: true })
       const result = await request.promptAsync(document)
+      if (result.type === 'error') {
+        throw result.error ?? new Error('The provider reported an error.')
+      }
       if (result.type !== 'success') {
         return null
       }

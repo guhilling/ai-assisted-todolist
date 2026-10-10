@@ -16,8 +16,13 @@ or any page with `.md` appended), not what you remember. Add Expo packages with
   configuration goes in `app.config.ts` or a config plugin.
 - **Builds run on GitHub Actions, not EAS** (`doc/decisions/mobile-app.md`).
 - **The website's code comes in through `src/web.ts` only.** Generated types and validators,
-  texts, date and importance rules: used, never copied. A text the app needs goes into
-  `frontend/src/i18n/messages.ts`, for both languages.
+  texts, date and importance rules: used, never copied. A text only the app shows goes into
+  `src/messages.ts`, in both languages: the website's catalogue holds only what the website uses,
+  and its test enforces that.
+- **No router yet.** One screen; `src/Main.tsx` is the root. Expo Router took the sign-in's return
+  link for a page and remounted the app mid-sign-in, so it comes back only with screens to route.
+- **Coverage has a floor** (`jest.coverageThreshold` in `package.json`): raise it when coverage
+  rises, never lower it to land a change.
 - **The backend is sent the ID token**, never the access token (`src/api.ts`), and every response
   is checked with the generated validators before it is read.
 - **Tokens live in the keychain** (`expo-secure-store`), never in AsyncStorage or a file.
