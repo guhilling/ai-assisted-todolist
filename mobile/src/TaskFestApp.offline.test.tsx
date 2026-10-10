@@ -8,6 +8,16 @@ import { TaskFestApp, type Dependencies } from './TaskFestApp'
 import { variants } from './variants'
 import type { Language } from './web'
 
+/** Hands back what the app does when it comes back to the foreground. */
+function foreground() {
+  let onChange: (state: string) => void = () => undefined
+  jest.spyOn(AppState, 'addEventListener').mockImplementation((_type, listener) => {
+    onChange = listener as (state: string) => void
+    return { remove: jest.fn() } as never
+  })
+  return () => act(async () => onChange('active'))
+}
+
 jest.mock('./DueDatePicker', () => ({ DueDatePicker: () => null }))
 
 const NOW = Date.UTC(2026, 9, 10, 9)
@@ -235,6 +245,115 @@ describe('the board kept on the phone (#272)', () => {
     expect(await screen.findByRole('button', { name: 'Sign in with Keycloak' })).toBeOnTheScreen()
     expect(console.warn).toHaveBeenCalledWith('The board could not be kept', expect.any(Error))
     expect(console.warn).toHaveBeenCalledWith('The kept board could not be forgotten', expect.any(Error))
+  })
+
+  it('keeps a change only once the backend agreed to it', async () => {
+    let agree: () => void = () => undefined
+    const update = jest.fn((_caller, task: BoardTask) => new Promise<BoardTask>((resolve) => (agree = () => resolve(task))))
+    const keptBoard = memoryBoard(null)
+    const { user } = await start({ keptBoard, changes: { ...dependencies().changes, update } })
+    await screen.findByText('Book the train')
+
+    await user.press(screen.getByRole('checkbox', { name: 'Mark "Water the plants" as done' }))
+    expect(keptBoard.current()?.tasks).toEqual([water, train])
+
+    await act(async () => agree())
+    expect(keptBoard.current()?.tasks).toEqual(expect.arrayContaining([{ ...water, state: 'DONE' }, train]))
+  })
+
+  it('keeps no change the backend refused', async () => {
+    const update = jest.fn().mockRejectedValue(new Error('500'))
+    const keptBoard = memoryBoard(null)
+    jest.spyOn(console, 'warn').mockImplementation(() => undefined)
+    const { user } = await start({ keptBoard, changes: { ...dependencies().changes, update } })
+    await screen.findByText('Book the train')
+
+    await user.press(screen.getByRole('checkbox', { name: 'Mark "Water the plants" as done' }))
+
+    await screen.findByText('Unable to update task.')
+    expect(keptBoard.current()?.tasks).toEqual([water, train])
+  })
+
+  it('says the kept board is as of its load, not of the last change since', async () => {
+    let clock = NOW
+    const keptBoard = memoryBoard(null)
+    const lasting = memorySessions({ ...session, expiresAt: NOW + 24 * HOUR })
+    const { user } = await start({ keptBoard, sessions: lasting, now: () => clock })
+    await screen.findByText('Book the train')
+
+    clock = NOW + 8 * HOUR
+    await user.press(screen.getByRole('checkbox', { name: 'Mark "Water the plants" as done' }))
+    await screen.findByText('Completed (1)')
+
+    expect(keptBoard.current()?.savedAt).toBe(NOW)
+  })
+
+  it('never keeps the board again once signed out, whatever answers late', async () => {
+    let agree: () => void = () => undefined
+    const update = jest.fn((_caller, task: BoardTask) => new Promise<BoardTask>((resolve) => (agree = () => resolve(task))))
+    const keptBoard = memoryBoard(null)
+    const { user } = await start({ keptBoard, changes: { ...dependencies().changes, update } })
+    await screen.findByText('Book the train')
+
+    await user.press(screen.getByRole('checkbox', { name: 'Mark "Water the plants" as done' }))
+    await user.press(screen.getByRole('button', { name: 'Account' }))
+    await user.press(screen.getByRole('button', { name: 'Sign out' }))
+    await act(async () => agree())
+
+    await screen.findByRole('button', { name: 'Sign in with Keycloak' })
+    expect(keptBoard.current()).toBeNull()
+  })
+
+  it('refuses to undo a delete once the board shown may not be current', async () => {
+    const comeBack = foreground()
+    const fetchTasks = jest.fn().mockResolvedValueOnce([water, train]).mockImplementation(noConnection)
+    const { deps, user } = await start({ fetchTasks, changes: { ...dependencies().changes, remove: jest.fn().mockResolvedValue(undefined) } })
+    await screen.findByText('Book the train')
+
+    await user.press(screen.getByRole('button', { name: 'Edit "Water the plants"' }))
+    await user.press(screen.getByRole('button', { name: 'Delete' }))
+    await comeBack()
+    await screen.findByText(OFFLINE)
+    await user.press(screen.getByRole('button', { name: 'Undo' }))
+
+    expect(await screen.findByText('Nothing can be changed without a connection. Try again once you are online.')).toBeOnTheScreen()
+    expect(deps.changes.restore).not.toHaveBeenCalled()
+  })
+
+  it('says it is loading again when the app comes back to the foreground', async () => {
+    const comeBack = foreground()
+    const fetchTasks = jest.fn().mockImplementationOnce(noConnection).mockImplementation(pending)
+    await start({ keptBoard: memoryBoard(kept), fetchTasks })
+    await screen.findByText(OFFLINE)
+
+    await comeBack()
+
+    expect(await screen.findByText('Loading tasks…')).toBeOnTheScreen()
+    expect(screen.queryByText(OFFLINE)).toBeNull()
+  })
+
+  it('reads the kept board only when the app starts afresh', async () => {
+    const comeBack = foreground()
+    const keptBoard = memoryBoard(kept)
+    const load = jest.spyOn(keptBoard, 'load')
+    await start({ keptBoard })
+    await screen.findByText('Book the train')
+
+    await comeBack()
+
+    expect(load).toHaveBeenCalledTimes(1)
+  })
+
+  it('drops a refusal once the board is current again', async () => {
+    const fetchTasks = jest.fn().mockImplementationOnce(noConnection).mockResolvedValue([water, train])
+    const { user } = await start({ keptBoard: memoryBoard(kept), fetchTasks })
+    await screen.findByText(OFFLINE)
+
+    await user.press(screen.getByRole('button', { name: 'Add a task' }))
+    await user.press(screen.getByRole('button', { name: 'Try again' }))
+
+    await screen.findByText('Book the train')
+    expect(screen.queryByText('Nothing can be changed without a connection. Try again once you are online.')).toBeNull()
   })
 
   it('forgets the kept board when the backend no longer accepts the session', async () => {

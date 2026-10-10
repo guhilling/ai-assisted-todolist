@@ -46,16 +46,18 @@ with its stand-in.
 The app keeps the last board it loaded on the phone (#272), so it can be read without a
 connection — read, not changed ([decisions/mobile-app.md](../decisions/mobile-app.md)).
 
-- **Kept after every load**, and after every change the backend agreed to, as one JSON file in the
+- **Kept after every load**, and after every change the backend agreed to — never a tick it has not
+  answered yet — as one JSON file in the
   app's cache directory: a copy of what the backend holds, which the system may clear, which is
   not backed up, and which no other app can read (`mobile/src/keptBoard.ts`).
 - **Shown at once at the start**, before the network answers, with "Loading tasks…" above it;
   the loaded board then replaces it.
 - **Without a connection** — the load fails, or the sign-in cannot be renewed — the kept board stays,
-  with a note saying when it is from and that it may not be current, and **Try again**. A board
+  with a note saying when it was loaded and that it may not be current, and **Try again**. A board
   already shown that fails to load again in the foreground stays the same way.
-- **Nothing on it can be changed.** A tick, the form, Add a task and Clear completed are refused
-  with a message, and nothing is sent or queued to send later: an update replaces the whole task,
+- **Nothing on it can be changed.** A tick, the form, Add a task, Clear completed and Undo are
+  refused with a message — every change is checked where it is sent, so none can slip past — and
+  nothing is sent or queued to send later: an update replaces the whole task,
   so a change made to an old copy would overwrite whatever changed since.
 - **It belongs to one account.** It names the address it was loaded for and is shown only to a
   session of that address, and signing out, deleting the account, or a session that has ended

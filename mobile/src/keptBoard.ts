@@ -1,4 +1,5 @@
 import type { BoardTask } from './api'
+import { validateTaskResponse } from './web'
 
 /**
  * The last board the app loaded, kept on the phone so it can be read without a connection (#272).
@@ -30,6 +31,21 @@ export type TextFile = {
   delete(): void
 }
 
+/**
+ * Whether a kept task is still one this release can show: checked against the schema like a loaded
+ * one, its list of values it did not know (#268) aside. A file it cannot read whole is no board.
+ */
+function isKeptTask(item: unknown): item is BoardTask {
+  if (typeof item !== 'object' || item === null) {
+    return false
+  }
+  const { unknown, ...task } = item as BoardTask
+  return (
+    validateTaskResponse(task) &&
+    (unknown === undefined || (Array.isArray(unknown) && unknown.every((value) => value === 'importance' || value === 'state')))
+  )
+}
+
 /** The file's layout; a later release that changes it raises this, and an older one ignores it. */
 const FORMAT = 1
 
@@ -50,7 +66,8 @@ export function createKeptBoardStore(file: TextFile): KeptBoardStore {
           kept.version !== FORMAT ||
           typeof kept.account !== 'string' ||
           typeof kept.savedAt !== 'number' ||
-          !Array.isArray(kept.tasks)
+          !Array.isArray(kept.tasks) ||
+          !kept.tasks.every(isKeptTask)
         ) {
           return null
         }
