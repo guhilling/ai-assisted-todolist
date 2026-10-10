@@ -51,4 +51,5 @@ calendars.
 `reminders.test.ts` covers the rule, `notifications.test.ts` the platform's use, and
 `TaskFestApp.reminders.test.tsx` the app's. On the emulator, `mobile/maestro/reminders/turn-on.yaml`
 adds a task due tomorrow and turns the reminders on, and `run-on-emulator.sh` then checks that
-Android holds a pending alarm of the app's for tomorrow 08:00 in the emulator's time zone.
+Android holds a pending alarm of the app's for 08:00 in the emulator's time zone — any day's, since a
+run may cross midnight.

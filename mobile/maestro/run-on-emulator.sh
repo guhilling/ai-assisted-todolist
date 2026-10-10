@@ -30,16 +30,24 @@ retry adb install -r "$apk"
 
 maestro test mobile/maestro --format junit --output maestro-report.xml --test-output-dir maestro-output
 
-# Reminders (#273): turn them on, then make sure Android holds the app's alarm for tomorrow 08:00 --
-# a pending alarm (`Alarm{... <package>}`) set for that moment, in the emulator's own time zone, not
-# merely the package's name somewhere in the statistics.
+# Reminders (#273): turn them on, then make sure Android holds a pending alarm of the app's
+# (`Alarm{... origWhen <ms> ... <package>}`) set for 08:00 in the emulator's own time zone -- not
+# merely the package's name somewhere in the statistics. Any day's 08:00: which day "tomorrow" is
+# was the emulator's to decide when the task was added, and a run may cross midnight.
 maestro test mobile/maestro/reminders/turn-on.yaml --format junit --output maestro-reminders.xml --test-output-dir maestro-output
 zone="$(adb shell getprop persist.sys.timezone | tr -d '\r')"
-expected="$(TZ="${zone:-UTC}" date -d 'tomorrow 08:00' +%s)000"
-# Read once, for the check and for saying what was found instead.
 alarms="$(adb shell dumpsys alarm)"
-if ! grep -E "Alarm\{.*origWhen ${expected}.*de\.hilling\.taskfest\.dev\}" <<< "$alarms"; then
-  echo "No reminder is scheduled for ${expected} (tomorrow 08:00 in ${zone:-UTC}). The app's alarms:" >&2
+scheduled=false
+for when in $(grep -oE 'Alarm\{[^}]*origWhen [0-9]+[^}]*de\.hilling\.taskfest\.dev\}' <<< "$alarms" |
+  grep -oE 'origWhen [0-9]+' | awk '{ print $2 }'); do
+  at="$(TZ="${zone:-UTC}" date -d "@$((when / 1000))" '+%F %H:%M')"
+  echo "The app has an alarm at ${at} (${zone:-UTC})."
+  if [[ "$at" == *" 08:00" ]]; then
+    scheduled=true
+  fi
+done
+if [[ "$scheduled" != true ]]; then
+  echo "No reminder is scheduled for 08:00 in ${zone:-UTC}. The app's entries in dumpsys alarm:" >&2
   grep -n -A2 "de.hilling.taskfest.dev" <<< "$alarms" | head -40 >&2 || true
   exit 1
 fi
