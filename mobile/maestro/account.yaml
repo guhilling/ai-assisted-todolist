@@ -16,6 +16,7 @@ name: Account and sign-out
 
 - tapOn: "Delete account"
 - assertVisible: "Delete your account\\?"
+- hideKeyboard
 - takeScreenshot: 11-delete-account
 - tapOn: "Keep my account"
 - assertNotVisible: "Delete your account\\?"

@@ -81,6 +81,8 @@ export function stylesFor(theme: Theme) {
     account: { gap: 8 },
     dangerButton: { borderWidth: 1, borderColor: theme.danger, borderRadius: 6, paddingVertical: 12, paddingHorizontal: 16 },
     confirm: { backgroundColor: theme.surfaceRaised, borderRadius: 6, padding: 16, gap: 12 },
+    // Stacked: side by side, the two answers do not fit a phone's width.
+    confirmButtons: { gap: 8 },
     legal: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center', columnGap: 16, rowGap: 4 },
     legalLink: { color: theme.accent, paddingVertical: 8 },
   })

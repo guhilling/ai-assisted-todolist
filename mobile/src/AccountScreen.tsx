@@ -94,10 +94,7 @@ export function AccountScreen({
               value={typed}
               onChangeText={setTyped}
             />
-            <View style={styles.formButtons}>
-              <Pressable accessibilityRole="button" style={styles.quietButton} onPress={keep}>
-                <Text style={styles.quietButtonText}>{messages.account.keep}</Text>
-              </Pressable>
+            <View style={styles.confirmButtons}>
               <Pressable
                 accessibilityRole="button"
                 accessibilityState={{ disabled: deleting || !confirmed }}
@@ -106,6 +103,9 @@ export function AccountScreen({
                 onPress={() => void remove()}
               >
                 <Text style={styles.dangerText}>{deleting ? messages.account.deleting : messages.account.confirm}</Text>
+              </Pressable>
+              <Pressable accessibilityRole="button" style={styles.quietButton} onPress={keep}>
+                <Text style={styles.quietButtonText}>{messages.account.keep}</Text>
               </Pressable>
             </View>
           </View>
