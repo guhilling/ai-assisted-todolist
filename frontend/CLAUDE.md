@@ -48,7 +48,8 @@ DDD, and project context all still apply here).
   are in the catalogue (`importanceLabels` is its English entry, for the design system). It also
   holds how the board orders tasks (`compareOpen`, `compareCompleted`, #217), from an explicit
   `importanceRank` -- never from the pickers' order, which can change for its own reasons.
-- `i18n/` holds the languages (#203): the catalogue (`messages.ts`), how the language is chosen
+- `i18n/` holds the languages (#203): the catalogue (`messages.ts`, which the mobile app shares,
+  its own texts included -- `doc/mobile/development.md`), how the language is chosen
   (`language.ts`), the provider and `useI18n()`, and how a failure is worded (`failures.ts`).
 - `App.tsx` holds state and composition, and nothing else.
 - `components/` holds the pieces. They take callbacks and data; none of them fetches.

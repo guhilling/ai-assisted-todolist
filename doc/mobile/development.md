@@ -43,9 +43,16 @@ stack and Keycloak at the same addresses the browser does — and the tokens' is
 `mobile/src/web.ts` is the one place the app takes code from `frontend/src`: the generated wire
 types and validators, the de/en texts, and the date and importance rules. They are imported
 directly — Metro watches `frontend/src`, and Jest resolves their few imports from the app's own
-`node_modules` — so the app shows the board in the website's words and order without a copy. The
-colours live in the website's CSS, which React Native cannot read; `mobile/src/theme.ts` repeats
-them and `theme.test.ts` compares the two.
+`node_modules` — so the app shows the board in the website's words and order without a copy.
+
+**All texts live in one catalogue**, the website's `frontend/src/i18n/messages.ts`: the app has
+none of its own. A text only the app shows goes there too, in German and English, with a comment
+saying it is the app's. The catalogue's test (`messages.test.ts`) reads the app's code as well as
+the website's, so an entry is kept while either side shows it and fails the test once neither
+does. Website CI therefore also runs when `mobile/src` changes.
+
+The colours live in the website's CSS, which React Native cannot read; `mobile/src/theme.ts`
+repeats them and `theme.test.ts` compares the two.
 
 ## Older than its backend
 

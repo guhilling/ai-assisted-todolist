@@ -16,9 +16,10 @@ or any page with `.md` appended), not what you remember. Add Expo packages with
   configuration goes in `app.config.ts` or a config plugin.
 - **Builds run on GitHub Actions, not EAS** (`doc/decisions/mobile-app.md`).
 - **The website's code comes in through `src/web.ts` only.** Generated types and validators,
-  texts, date and importance rules: used, never copied. A text only the app shows goes into
-  `src/messages.ts`, in both languages: the website's catalogue holds only what the website uses,
-  and its test enforces that.
+  texts, date and importance rules: used, never copied. **Every text is in the website's
+  catalogue**, `frontend/src/i18n/messages.ts`, in both languages — one only the app shows too,
+  with a comment saying so. Its test counts the app's code as a use, so an entry neither side
+  shows any more fails it.
   There is deliberately no `shared/` package yet (`doc/decisions/mobile-app.md`).
 - **Installed apps are older than their backend** (#268, `doc/releasing.md`). Every request names
   the app's release in `X-TaskFest-App`; the app checks `/api/version`'s `minimumAppVersion` at
