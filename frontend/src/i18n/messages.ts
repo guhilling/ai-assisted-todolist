@@ -29,6 +29,14 @@ export const en = {
     loading: 'Loading tasks…',
     empty: 'Nothing here yet. Add your first task.',
     sessionExpired: 'Your session has expired. Sign in again to carry on.',
+    /** The mobile app's, which cannot add a task yet (#271), so does not ask for one. */
+    emptyReadOnly: 'Nothing here yet.',
+    /** The mobile app's button after a failure. */
+    retry: 'Try again',
+  },
+  /** The mobile app's, when the backend no longer serves its release (#268). */
+  update: {
+    required: 'This version of the app is too old for TaskFest. Update it to carry on.',
   },
   /** What the banner says when a failure says nothing for itself, by what was being done. */
   failures: {
@@ -100,6 +108,8 @@ export const en = {
     markInProgress: 'Mark as in progress',
     delete: 'Delete',
     inProgress: 'doing',
+    /** The mobile app's, for an importance or state newer than the app (#268). */
+    unknown: 'Unknown',
   },
   /** Deleting one's own account (#213): the header's button, its confirmation, and the note after. */
   account: {
@@ -155,6 +165,8 @@ export const en = {
     tagline: 'Your own list, private to whoever signs in.',
     notConfigured: 'Sign-in is not configured for this deployment.',
     signInWith: (provider: string) => `Sign in with ${provider}`,
+    /** The mobile app's, when its sign-in in the browser did not complete. */
+    failed: 'Signing in did not work. Try again.',
   },
   paused: {
     message: (environment: string | null) =>
@@ -189,6 +201,11 @@ export const de: Messages = {
     loading: 'Aufgaben werden geladen …',
     empty: 'Noch nichts hier. Leg deine erste Aufgabe an.',
     sessionExpired: 'Deine Sitzung ist abgelaufen. Melde dich wieder an, um weiterzumachen.',
+    emptyReadOnly: 'Noch nichts hier.',
+    retry: 'Noch einmal versuchen',
+  },
+  update: {
+    required: 'Diese Version der App ist zu alt für TaskFest. Aktualisiere sie, um weiterzumachen.',
   },
   failures: {
     loading: 'Unerwarteter Fehler beim Laden der Daten.',
@@ -257,6 +274,7 @@ export const de: Messages = {
     markInProgress: 'Als in Arbeit markieren',
     delete: 'Löschen',
     inProgress: 'in Arbeit',
+    unknown: 'Unbekannt',
   },
   account: {
     delete: 'Konto löschen',
@@ -310,6 +328,7 @@ export const de: Messages = {
     tagline: 'Deine eigene Liste – privat für alle, die sich anmelden.',
     notConfigured: 'Für diese Installation ist keine Anmeldung eingerichtet.',
     signInWith: (provider: string) => `Mit ${provider} anmelden`,
+    failed: 'Die Anmeldung hat nicht geklappt. Versuch es noch einmal.',
   },
   paused: {
     message: (environment: string | null) =>

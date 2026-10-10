@@ -3,17 +3,28 @@
  *
  * Complete is the compiler's job: German is typed as English's shape, so a missing key fails the
  * build. Lean is this test's: every entry has to be used, by its full path, in the code -- so a
- * text nobody shows any more is deleted rather than translated forever. The sources are read
- * through Vite, so the check needs no Node types.
+ * text nobody shows any more is deleted rather than translated forever. The code is the website's
+ * and the mobile app's, which shares this catalogue (`doc/mobile/development.md`): a text either
+ * one shows counts as used. The sources are read through Vite, so the check needs no Node types.
  */
 import { describe, expect, it } from 'vitest'
 import { de, en } from './messages'
 
-const sources = import.meta.glob(['../**/*.{ts,tsx}', '!../**/*.test.{ts,tsx}', '!../i18n/messages.ts', '!../generated/**'], {
-  query: '?raw',
-  import: 'default',
-  eager: true,
-}) as Record<string, string>
+const sources = import.meta.glob(
+  [
+    '../**/*.{ts,tsx}',
+    '!../**/*.test.{ts,tsx}',
+    '!../i18n/messages.ts',
+    '!../generated/**',
+    '../../../mobile/src/**/*.{ts,tsx}',
+    '!../../../mobile/src/**/*.test.{ts,tsx}',
+  ],
+  {
+    query: '?raw',
+    import: 'default',
+    eager: true,
+  },
+) as Record<string, string>
 
 /** Every leaf of a catalogue, as `group.leaf` or `group.inner.leaf`. */
 function leaves(tree: object, prefix = ''): string[] {
@@ -64,6 +75,7 @@ describe('the message catalogues', () => {
 
   it('hold nothing the app no longer uses', () => {
     const code = Object.values(sources).join('\n')
+    expect(Object.keys(sources).some((path) => path.includes('/mobile/src/'))).toBe(true)
     const unused = leaves(en).filter((path) => !usage(path).test(code))
 
     expect(unused).toEqual([])

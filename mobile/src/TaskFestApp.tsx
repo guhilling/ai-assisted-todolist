@@ -5,7 +5,6 @@ import { SignedOutError, type BoardTask, type Caller } from './api'
 import { isTooOld } from './appVersion'
 import { boardOf, type Board } from './board'
 import type { Session } from './session'
-import { appCatalogues, type AppMessages } from './messages'
 import {
   RenewalUnavailableError,
   currentSession,
@@ -71,7 +70,6 @@ export function TaskFestApp({
 }) {
   const { sessions, provider, fetchTasks, fetchMinimumAppVersion, appVersion, now } = dependencies
   const messages = catalogues[language]
-  const appMessages = appCatalogues[language]
   const theme = useColorScheme() === 'dark' ? dark : light
   const styles = useMemo(() => stylesFor(theme), [theme])
   const [state, setState] = useState<State>({ kind: 'starting' })
@@ -180,7 +178,6 @@ export function TaskFestApp({
           <SignedOutScreen
             variant={variant}
             messages={messages}
-            appMessages={appMessages}
             styles={styles}
             notice={state.notice}
             onSignIn={signIn}
@@ -191,21 +188,20 @@ export function TaskFestApp({
             today={todayIso(new Date(now()))}
             language={language}
             messages={messages}
-            appMessages={appMessages}
             styles={styles}
           />
         ) : state.kind === 'tooOld' ? (
           <View style={styles.signedOut}>
-            <Text style={styles.notice}>{appMessages.updateRequired}</Text>
+            <Text style={styles.notice}>{messages.update.required}</Text>
             <Pressable accessibilityRole="button" style={styles.button} onPress={retry}>
-              <Text style={styles.buttonText}>{appMessages.tryAgain}</Text>
+              <Text style={styles.buttonText}>{messages.board.retry}</Text>
             </Pressable>
           </View>
         ) : state.kind === 'failed' ? (
           <View style={styles.signedOut}>
             <Text style={styles.notice}>{messages.failures.loading}</Text>
             <Pressable accessibilityRole="button" style={styles.button} onPress={retry}>
-              <Text style={styles.buttonText}>{appMessages.tryAgain}</Text>
+              <Text style={styles.buttonText}>{messages.board.retry}</Text>
             </Pressable>
           </View>
         ) : (
@@ -221,14 +217,12 @@ type Styles = ReturnType<typeof stylesFor>
 function SignedOutScreen({
   variant,
   messages,
-  appMessages,
   styles,
   notice,
   onSignIn,
 }: {
   variant: Variant
   messages: Messages
-  appMessages: AppMessages
   styles: Styles
   notice?: 'sessionExpired' | 'signInFailed'
   onSignIn: () => void
@@ -239,7 +233,7 @@ function SignedOutScreen({
       <Text style={styles.muted}>{messages.signedOut.tagline}</Text>
       {notice ? (
         <Text style={styles.notice}>
-          {notice === 'sessionExpired' ? messages.board.sessionExpired : appMessages.signInFailed}
+          {notice === 'sessionExpired' ? messages.board.sessionExpired : messages.signedOut.failed}
         </Text>
       ) : null}
       {variant.signIn ? (
@@ -258,31 +252,29 @@ function BoardScreen({
   today,
   language,
   messages,
-  appMessages,
   styles,
 }: {
   board: Board
   today: string
   language: Language
   messages: Messages
-  appMessages: AppMessages
   styles: Styles
 }) {
   if (board.sections.length === 0 && board.completed.length === 0) {
-    return <Text style={styles.muted}>{appMessages.emptyBoard}</Text>
+    return <Text style={styles.muted}>{messages.board.emptyReadOnly}</Text>
   }
   const row = (task: BoardTask, sayWhen: boolean) => (
     <View key={task.id} style={styles.row}>
       {task.unknown?.includes('importance') ? (
         // An importance a newer backend added (#268): marked, not guessed.
-        <View accessibilityLabel={appMessages.unknownValue} style={[styles.dot, styles.unknownDot]} />
+        <View accessibilityLabel={messages.row.unknown} style={[styles.dot, styles.unknownDot]} />
       ) : (
         <View style={[styles.dot, styles[`importance${task.importance}`]]} />
       )}
       <Text style={[styles.description, task.state === 'DONE' && styles.done]}>{task.description}</Text>
       {task.unknown?.includes('state') ? (
         // A state a newer backend added (#268): kept open, and said to be unknown.
-        <Text style={styles.muted}>{appMessages.unknownValue}</Text>
+        <Text style={styles.muted}>{messages.row.unknown}</Text>
       ) : null}
       {sayWhen ? (
         <Text style={styles.muted}>{describeDueDate(task.dueDate, today, messages.dates, localeOf(language))}</Text>

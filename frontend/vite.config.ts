@@ -8,7 +8,10 @@ import { defineConfig } from 'vite'
  * See https://vite.dev/config/ for the full option reference.
  */
 export default defineConfig({
-  plugins: [react()],
+  // The mobile app's files are read as text only, never compiled: their tsconfig extends Expo's,
+  // which only the app installs. node_modules is plugin-react's own default exclusion.
+  plugins: [react({ exclude: [/\/node_modules\//, /\/mobile\/src\//] })],
+  oxc: { exclude: [/\.js$/, /\/mobile\/src\//] },
   server: {
     // IPv4 explicitly. Left to itself Vite binds whatever `localhost` resolves to in Node, which
     // can be ::1 alone -- while a browser that resolves localhost to 127.0.0.1 first then finds
@@ -17,6 +20,9 @@ export default defineConfig({
     // Fail rather than drift to 5174 when 5173 is taken: the sign-in redirects and the docs
     // name 5173, and a silently moved dev server looks exactly like one that never started.
     strictPort: true,
+    // The catalogue test reads the mobile app's code too, which shares the website's texts
+    // (`src/i18n/messages.test.ts`). Only Vitest needs it; the dev server serves nothing outside.
+    ...(process.env.VITEST ? { fs: { allow: ['.', '../mobile/src'] } } : {}),
     proxy: {
       '/api': {
         target: 'http://localhost:8080',
