@@ -83,6 +83,8 @@ version may be, and the backend logs nothing else as an `app`.
 - **Unit and component tests** run on Jest with `jest-expo` and React Native Testing Library:
   `npm test`, or `npm run test:coverage`, which fails below the floor in `package.json`. As
   everywhere in this project, the test comes first.
+  A test may take up to 15 seconds (`testTimeout`): the first in a file pays for loading the app,
+  which on CI's runners with coverage took longer than Jest's default 5 more than once.
 - **`npm run lint`** (oxlint, the frontend's rules), **`npm run typecheck`**, and
   **`npm run check:deps`** — the frontend's pre-release check, run on the app's lockfile.
 - **Maestro** flows under `mobile/maestro/` drive the built app on an emulator: `sign-in.yaml`

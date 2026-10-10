@@ -55,6 +55,7 @@
     "setupFiles": [
       "<rootDir>/jest.setup.ts"
     ],
+    "testTimeout": 15000,
     "coverageThreshold": {
       "global": {
         "statements": 95,

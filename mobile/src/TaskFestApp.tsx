@@ -630,7 +630,13 @@ export function TaskFestApp({
               language={language}
               messages={messages}
               styles={styles}
-              failure={refused && state.kept ? messages.offline[state.kept === 'loading' ? 'wait' : 'readOnly'] : failure}
+              failure={
+                refused && state.kept
+                  ? state.kept === 'loading'
+                    ? messages.offline.wait
+                    : messages.offline.readOnly
+                  : failure
+              }
               deleted={deleted ? { count: deleted.tasks.length, key: deleted.key } : undefined}
               busy={busy}
               onAdd={() => refusedWhileKept() || setForm({})}
