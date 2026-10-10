@@ -46,6 +46,38 @@
         "offline_access",
         "microprofile-jwt"
       ]
+    },
+    {
+      "clientId": "taskfest-app",
+      "name": "TaskFest app (dev build)",
+      "description": "Public client the mobile app's dev build signs in with (#267): code flow with PKCE through the system browser. The backend accepts its ID tokens as bearer tokens.",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "redirectUris": [
+        "de.hilling.taskfest.dev://oauthredirect"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256"
+      },
+      "defaultClientScopes": [
+        "web-origins",
+        "acr",
+        "profile",
+        "roles",
+        "email",
+        "basic"
+      ],
+      "optionalClientScopes": [
+        "address",
+        "phone",
+        "offline_access",
+        "microprofile-jwt"
+      ]
     }
   ],
   "users": [

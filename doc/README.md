@@ -11,6 +11,7 @@ truth; the root `README.md` is a short entry point that links here.
 | [authentication.md](authentication.md) | The backend-for-frontend OIDC design, Google in production, Keycloak locally |
 | [local-development/](local-development/index.md) | How to get everything running on your machine, and how to test it |
 | [testing/](testing/index.md) | The test layers, what each is for, and how to run them |
+| [mobile/](mobile/index.md) | The iOS and Android app: its variants, how to run and test it, how it signs in |
 | [deployment/](deployment/index.md) | The AWS environments: what runs where, who may change it, and what it costs |
 | [releasing.md](releasing.md) | How a release is cut, what it checks, and what it publishes |
 | [decisions/](decisions/index.md) | Decisions taken, why, and what was rejected, by topic |

@@ -11,6 +11,8 @@ about what exists and how to run it.
 | Frontend unit | `frontend/src/dates.test.ts` | nothing; pure functions | `frontend-ci.yml`, `sonarcloud.yml` |
 | Frontend component | `frontend/src/App.test.tsx` | jsdom, stubbed `fetch` | `frontend-ci.yml`, `sonarcloud.yml` |
 | Browser end-to-end | `e2e/tests/` | the whole containerised stack | `e2e.yml` |
+| Mobile unit / component | `mobile/src/**/*.test.ts(x)` | nothing; `jest-expo` and React Native Testing Library | `mobile-ci.yml` |
+| Mobile end-to-end | `mobile/maestro/` | the app on an Android emulator, against the containerised stack | `mobile-ci.yml` |
 | Live | `e2e/live/` | nothing: checks a deployed environment through CloudFront | `live-tests.yml`, after each deploy to qa |
 
 **Watch them run:** [the newest live run](https://guhilling.github.io/ai-assisted-todolist/videos/)

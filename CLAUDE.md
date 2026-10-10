@@ -71,8 +71,8 @@ slows things down.
   regenerate their half and fail on any difference, so neither can go stale and neither is
   hand-edited. A wire change starts at the backend record.
 - Code-level documentation is Javadoc and TSDoc in the code itself, saying what
-  a type is *for*. The conventions are in `backend/CLAUDE.md` and
-  `frontend/CLAUDE.md`; on the backend they are enforced by Checkstyle.
+  a type is *for*. The conventions are in `backend/CLAUDE.md`,
+  `frontend/CLAUDE.md` and `mobile/CLAUDE.md`; on the backend they are enforced by Checkstyle.
 - Deployment artifacts live under `/deployment`, never at the repository root:
   `deployment/docker/` holds the Compose stacks and `deployment/aws-tofu/` the AWS
   infrastructure. The AWS code is **OpenTofu**, not Terraform — the binary is `tofu`,
