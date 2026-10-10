@@ -24,6 +24,48 @@ published. Nothing outside this repository ever consumes the backend's POM. If t
 Tags are `vMAJOR.MINOR.PATCH`, optionally with a suffix (`v1.1.0-rc.1`). The workflow's
 trigger matches those two shapes only, so an unrelated tag does not start a release.
 
+## Which number to raise
+
+Installed mobile apps lag behind the backend by weeks, so a release's number says what an app can
+rely on (#268, [decisions/mobile-app.md](decisions/mobile-app.md)). From **1.0.0**, the first
+release with an app build, the API decides:
+
+| Change | Release |
+| --- | --- |
+| An app built for an earlier release can no longer use the API: an endpoint or a field gone, a request field newly required, a response's type changed | **major** |
+| A compatible addition: a new endpoint, an optional request field, a new response field | **minor** |
+| Neither | **patch** |
+
+Under 0.x semantic versioning promises nothing; the releases before 1.0.0 made no such promise.
+
+**Enforced, not remembered.** Backend CI compares `doc/api/openapi.yaml` with the one of the
+release named in `doc/api/oldest-supported-release`, using
+[oasdiff](https://github.com/oasdiff/oasdiff), and fails on a breaking change. A breaking change
+therefore cannot land by accident; landing one on purpose takes three things in the same pull
+request:
+
+1. move `doc/api/oldest-supported-release` forward to the oldest release the backend will still
+   serve after the change;
+2. raise `taskfest.minimum-app-version` (`TASKFEST_MINIMUM_APP_VERSION`) to the first app release
+   that copes with it — `/api/version` announces it, and older apps ask their user to update;
+3. tag the next release as the next **major**.
+
+Before that, consider not breaking anything: a new endpoint or a new field beside the old one is
+a minor release, and the old one can go in a later major once no supported app uses it. Which
+releases still call what is in the request log, whose `app` field is the version the app names
+in `X-TaskFest-App`.
+
+**New enum values** in a response are a warning, not an error: oasdiff cannot tell whether
+clients tolerate them. The app reads a value it does not know as unknown rather than refusing the
+response, so for the app they are compatible; the website, which always deploys with its backend,
+stays strict.
+
+**Several API versions at once**, should a breaking change ever be unavoidable: today's paths are
+version 1. A breaking change would add `/api/v2/...` beside them, from records of its own, with its
+own OpenAPI document and its own baseline, and v1 would stay served until
+`taskfest.minimum-app-version` no longer admits an app that uses it. Path versioning keeps the
+CloudFront routing and the generated documents simple. None exists yet.
+
 ## What the workflow does
 
 | Job | What it does |

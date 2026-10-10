@@ -1,0 +1,8 @@
+# The oldest release whose API every newer backend still serves (#268): installed mobile apps lag
+# behind the backend, so Backend CI fails on any change to doc/api/openapi.yaml that would break a
+# client of this release (oasdiff, "breaking", errors only).
+#
+# Moving it forward is the deliberate act that allows a breaking change, and it goes with the next
+# major release and a raised taskfest.minimum-app-version. doc/releasing.md says how. One line, a
+# release tag:
+v0.17.0
