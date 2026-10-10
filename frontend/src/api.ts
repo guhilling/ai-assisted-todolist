@@ -19,6 +19,7 @@ import type {
   RefusalResponse,
   TaskResponse,
 } from './generated/types'
+import { needsDatingBack, restoreInput } from './restore'
 import { makeThumbnail as makeImageThumbnail } from './thumbnail'
 import {
   validateAttachmentResponse,
@@ -456,31 +457,17 @@ export async function deleteTask(task: Task) {
 }
 
 /**
- * Puts a deleted task back.
- *
- * Two requests rather than one, because creating refuses a date in the past: a task that was
- * already overdue when it was deleted is created dated today and then corrected by an update,
- * which does allow one. Without that, undo would fail for exactly the tasks people delete
- * most -- the old ones.
+ * Puts a deleted task back, by the rule both the website and the app follow (`restore.ts`): two
+ * requests for a task already overdue, created today and then dated back.
  *
  * It comes back with a **new id**. The server has no memory of the old one, and nothing here
  * refers to a task by id except the rows themselves, so the only visible effect is where it
  * lands among tasks sharing its due date.
  */
 export async function restoreTask(task: Task, today: string) {
-  const input: TaskInput = {
-    description: task.description,
-    dueDate: task.dueDate < today ? today : task.dueDate,
-    importance: task.importance,
-    state: task.state,
-  }
-  // Its files were only detached by the delete, and come back with it within the undo window.
-  if (task.attachments && task.attachments.length > 0) {
-    input.attachmentIds = task.attachments.map((attachment) => attachment.id)
-  }
-  const created = await postTask(input)
+  const created = await postTask(restoreInput(task, today))
 
-  if (created.dueDate === task.dueDate) {
+  if (!needsDatingBack(created, task)) {
     return created
   }
   return putTask({ ...created, dueDate: task.dueDate })

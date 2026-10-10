@@ -20,3 +20,4 @@ export { compareCompleted, compareOpen, importanceLevels, importanceRank } from 
 export { addDays, bucketOf, describeDueDate, quickDates, todayIso, type DueBucket } from '../../frontend/src/dates'
 export { catalogues, type Messages } from '../../frontend/src/i18n/messages'
 export { chooseLanguage, localeOf, type Language } from '../../frontend/src/i18n/language'
+export { needsDatingBack, restoreInput } from '../../frontend/src/restore'

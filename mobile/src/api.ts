@@ -1,5 +1,7 @@
 import {
   importanceRank,
+  needsDatingBack,
+  restoreInput,
   validateTaskResponse,
   validateVersionResponse,
   type Task,
@@ -141,9 +143,8 @@ export async function deleteTask(caller: Caller, task: Task, fetchImpl: typeof f
 }
 
 /**
- * Puts a deleted task back, with its files, as the website's undo does: a task already overdue is
- * created today -- creating refuses a past date -- and then dated back by an update. It returns
- * with a new id.
+ * Puts a deleted task back, with its files, by the website's own rule (`restoreInput`): a task
+ * already overdue is created today and then dated back. It returns with a new id.
  */
 export async function restoreTask(
   caller: Caller,
@@ -151,17 +152,8 @@ export async function restoreTask(
   today: string,
   fetchImpl: typeof fetch = fetch,
 ): Promise<BoardTask> {
-  const input: TaskInput = {
-    description: task.description,
-    dueDate: task.dueDate < today ? today : task.dueDate,
-    importance: task.importance,
-    state: task.state,
-  }
-  if (task.attachments && task.attachments.length > 0) {
-    input.attachmentIds = task.attachments.map((attachment) => attachment.id)
-  }
-  const created = await createTask(caller, input, fetchImpl)
-  return created.dueDate === task.dueDate ? created : updateTask(caller, { ...created, dueDate: task.dueDate }, fetchImpl)
+  const created = await createTask(caller, restoreInput(task, today), fetchImpl)
+  return needsDatingBack(created, task) ? updateTask(caller, { ...created, dueDate: task.dueDate }, fetchImpl) : created
 }
 
 /** One GET, signed in when there is an ID token. */

@@ -20,9 +20,6 @@ import {
 /** What the form sets: everything about a task but its id and its files. */
 export type TaskValues = Pick<Task, 'description' | 'dueDate' | 'importance' | 'state'>
 
-/** The backend's limit on a description (`Task.MAX_DESCRIPTION_LENGTH`). */
-const MAX_DESCRIPTION_LENGTH = 255
-
 const STATES: TaskState[] = ['TODO', 'WORKING', 'DONE']
 
 /**
@@ -108,7 +105,6 @@ export function TaskForm({
         placeholderTextColor={theme.textMuted}
         value={description}
         onChangeText={setDescription}
-        maxLength={MAX_DESCRIPTION_LENGTH}
         autoFocus={!editing}
       />
 
@@ -151,7 +147,13 @@ export function TaskForm({
 
       <View style={styles.formButtons}>
         {onDelete ? (
-          <Pressable accessibilityRole="button" style={[styles.quietButton, { marginRight: 'auto' }]} onPress={onDelete}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityState={{ disabled: saving }}
+            disabled={saving}
+            style={[styles.quietButton, { marginRight: 'auto' }, saving && styles.disabled]}
+            onPress={onDelete}
+          >
             <Text style={styles.dangerText}>{messages.row.delete}</Text>
           </Pressable>
         ) : null}

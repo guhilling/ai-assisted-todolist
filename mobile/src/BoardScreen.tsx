@@ -24,6 +24,7 @@ export function BoardScreen({
   styles,
   failure,
   deleted,
+  busy,
   onAdd,
   onOpen,
   onToggle,
@@ -38,8 +39,10 @@ export function BoardScreen({
   styles: Styles
   /** What went wrong with the last change, in the user's language. */
   failure?: string
-  /** How many tasks were just deleted and can still be put back. */
-  deleted?: number
+  /** How many tasks were just deleted and can still be put back; a new key for each delete. */
+  deleted?: { count: number; key: number }
+  /** The tasks with a change on its way, which wait for it before they take another. */
+  busy: ReadonlySet<number>
   onAdd: () => void
   onOpen: (task: BoardTask) => void
   onToggle: (task: BoardTask) => void
@@ -60,7 +63,8 @@ export function BoardScreen({
           <Pressable
             accessibilityRole="checkbox"
             accessibilityLabel={messages.row.markDone(task.description)}
-            accessibilityState={{ checked: done }}
+            accessibilityState={{ checked: done, disabled: busy.has(task.id) }}
+            disabled={busy.has(task.id)}
             hitSlop={8}
             style={[styles.check, done && styles.checked]}
             onPress={() => onToggle(task)}
@@ -131,7 +135,7 @@ export function BoardScreen({
       </ScrollView>
       <View style={styles.footer}>
         {deleted ? (
-          <UndoOffer count={deleted} messages={messages} styles={styles} onUndo={onUndo} onDismiss={onDismissUndo} />
+          <UndoOffer key={deleted.key} count={deleted.count} messages={messages} styles={styles} onUndo={onUndo} onDismiss={onDismissUndo} />
         ) : null}
         <Pressable accessibilityRole="button" style={styles.button} onPress={onAdd}>
           <Text style={styles.buttonText}>{messages.addRow.open}</Text>

@@ -151,6 +151,15 @@ describe('the task form (#271)', () => {
     expect(screen.getByLabelText('What needs doing')).toHaveDisplayValue('Water the plants')
   })
 
+  it('cannot delete a task while its edit is being saved', async () => {
+    const onSave = jest.fn(() => new Promise<boolean>(() => undefined))
+    await render(form({ task, onSave, onDelete: jest.fn() }))
+
+    await userEvent.setup().press(screen.getByRole('button', { name: 'Save' }))
+
+    expect(screen.getByRole('button', { name: 'Delete' })).toBeDisabled()
+  })
+
   it('deletes the task being edited, or goes back without saving', async () => {
     const onDelete = jest.fn()
     const onCancel = jest.fn()

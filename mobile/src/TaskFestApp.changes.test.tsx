@@ -1,4 +1,5 @@
-import { act, render, screen, userEvent, within } from '@testing-library/react-native'
+import { act, fireEvent, render, screen, userEvent, within } from '@testing-library/react-native'
+import { AppState } from 'react-native'
 import { RequestFailedError, SignedOutError, type BoardTask } from './api'
 import type { Session } from './session'
 import type { SessionStore } from './staySignedIn'
@@ -288,6 +289,146 @@ describe('changing the board from the app (#271)', () => {
     expect(screen.queryByRole('button', { name: 'Clear completed' })).toBeNull()
     await user.press(screen.getByText('Pay the rent'))
     expect(screen.queryByLabelText('Description')).toBeNull()
+  })
+
+  it('gives each delete its own time to undo', async () => {
+    jest.useFakeTimers()
+    try {
+      const user = await showBoard(backend())
+
+      await user.press(screen.getByRole('button', { name: 'Edit "Book the train"' }))
+      await user.press(screen.getByRole('button', { name: 'Delete' }))
+      await act(async () => jest.advanceTimersByTime(7000))
+      await user.press(screen.getByRole('button', { name: 'Edit "Water the plants"' }))
+      await user.press(screen.getByRole('button', { name: 'Delete' }))
+      await act(async () => jest.advanceTimersByTime(2000))
+
+      expect(screen.getByText('Task deleted')).toBeOnTheScreen()
+    } finally {
+      jest.useRealTimers()
+    }
+  })
+
+  it('puts back what it can when only some deleted tasks can be restored', async () => {
+    const done = { ...water, id: 4, description: 'Post the letter', state: 'DONE' as const }
+    const restore = jest.fn(async (_caller, task: BoardTask) => {
+      if (task.id === done.id) {
+        throw new RequestFailedError(500)
+      }
+      return { ...task, id: task.id + 100 }
+    })
+    const user = await showBoard(backend({ restore }), { fetchTasks: jest.fn().mockResolvedValue([water, rent, done]) })
+
+    await user.press(screen.getByRole('button', { name: 'Clear completed' }))
+    await user.press(screen.getByRole('button', { name: 'Undo' }))
+
+    expect(await screen.findByText('Pay the rent')).toBeOnTheScreen()
+    expect(screen.queryByText('Post the letter')).toBeNull()
+    expect(screen.getByText('Unexpected error while restoring data.')).toBeOnTheScreen()
+  })
+
+  it('puts deleted tasks back once, however quickly undo is tapped', async () => {
+    const changes = backend()
+    const user = await showBoard(changes)
+
+    await user.press(screen.getByRole('button', { name: 'Edit "Book the train"' }))
+    await user.press(screen.getByRole('button', { name: 'Delete' }))
+    const undo = screen.getByRole('button', { name: 'Undo' })
+    await act(async () => {
+      fireEvent.press(undo)
+      fireEvent.press(undo)
+    })
+
+    expect(changes.restore).toHaveBeenCalledTimes(1)
+  })
+
+  it('sends one change of a task at a time', async () => {
+    let finish: (task: BoardTask) => void = () => undefined
+    const update = jest.fn((_caller, task: BoardTask) => new Promise<BoardTask>((resolve) => (finish = () => resolve(task))))
+    const user = await showBoard(backend({ update }))
+
+    await user.press(screen.getByRole('checkbox', { name: 'Mark "Water the plants" as done' }))
+    await user.press(screen.getByRole('checkbox', { name: 'Mark "Water the plants" as done' }))
+    expect(update).toHaveBeenCalledTimes(1)
+
+    await act(async () => finish(water))
+    await user.press(screen.getByRole('checkbox', { name: 'Mark "Water the plants" as done' }))
+    expect(update).toHaveBeenCalledTimes(2)
+  })
+
+  it('renews a session about to run out once, however many changes need it', async () => {
+    const fresh = `h.${btoa(JSON.stringify({ exp: (NOW + HOUR) / 1000 })).replace(/=+$/, '')}.s`
+    // The start renews too, to a token about to run out again; the changes' renewal then waits.
+    const short = `h.${btoa(JSON.stringify({ exp: (NOW + 1000) / 1000 })).replace(/=+$/, '')}.s`
+    let renew: () => void = () => undefined
+    const refresh = jest
+      .fn()
+      .mockResolvedValueOnce({ idToken: short, refreshToken: 'r1' })
+      .mockImplementation(() => new Promise((resolve) => (renew = () => resolve({ idToken: fresh, refreshToken: 'r2' }))))
+    const sessions = memorySessions({ ...session, expiresAt: NOW + 1000 })
+    const changes = backend()
+    const user = await showBoard(changes, { sessions, provider: { signIn: jest.fn(), refresh } })
+
+    await user.press(screen.getByRole('checkbox', { name: 'Mark "Water the plants" as done' }))
+    await user.press(screen.getByRole('checkbox', { name: 'Mark "Book the train" as done' }))
+    await act(async () => renew())
+
+    expect(refresh).toHaveBeenCalledTimes(2)
+    expect(changes.update).toHaveBeenCalledTimes(2)
+  })
+
+  it('keeps an open form as it is when the app comes back to the foreground', async () => {
+    let onChange: (state: string) => void = () => undefined
+    jest.spyOn(AppState, 'addEventListener').mockImplementation((_type, listener) => {
+      onChange = listener as (state: string) => void
+      return { remove: jest.fn() } as never
+    })
+    const fetchTasks = jest.fn().mockResolvedValueOnce([water]).mockReturnValue(new Promise(() => undefined))
+    const user = await showBoard(backend(), { fetchTasks })
+
+    await user.press(screen.getByRole('button', { name: 'Add a task' }))
+    await user.type(screen.getByLabelText('What needs doing'), 'Renew the passport')
+    await act(async () => onChange('active'))
+
+    expect(screen.getByLabelText('What needs doing')).toHaveDisplayValue('Renew the passport')
+  })
+
+  it('loads the board again in place when the app comes back to the foreground', async () => {
+    let onChange: (state: string) => void = () => undefined
+    jest.spyOn(AppState, 'addEventListener').mockImplementation((_type, listener) => {
+      onChange = listener as (state: string) => void
+      return { remove: jest.fn() } as never
+    })
+    let load: () => void = () => undefined
+    const fetchTasks = jest
+      .fn()
+      .mockResolvedValueOnce([water])
+      .mockReturnValueOnce(new Promise((resolve) => (load = () => resolve([water, train]))))
+    await showBoard(backend(), { fetchTasks })
+
+    await act(async () => onChange('active'))
+    expect(screen.getByText('Water the plants')).toBeOnTheScreen()
+    await act(async () => load())
+
+    expect(await screen.findByText('Book the train')).toBeOnTheScreen()
+  })
+
+  it('closes only the form whose save went through', async () => {
+    let finish: () => void = () => undefined
+    const create = jest.fn(
+      (_caller, input) => new Promise<BoardTask>((resolve) => (finish = () => resolve({ ...input, id: 10 }))),
+    )
+    const user = await showBoard(backend({ create }))
+
+    await user.press(screen.getByRole('button', { name: 'Add a task' }))
+    await user.type(screen.getByLabelText('What needs doing'), 'Renew the passport')
+    await user.press(screen.getByRole('button', { name: 'Add' }))
+    await user.press(screen.getByRole('button', { name: 'Cancel' }))
+    await user.press(screen.getByRole('button', { name: 'Edit "Book the train"' }))
+    await act(async () => finish())
+
+    expect(screen.getByLabelText('Description')).toHaveDisplayValue('Book the train')
+    expect(screen.getByText('Renew the passport')).toBeOnTheScreen()
   })
 
   it('offers to add the first task on an empty board', async () => {
