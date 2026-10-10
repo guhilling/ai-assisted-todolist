@@ -84,3 +84,15 @@ Decisions with consequences, why they were taken, and what was rejected. Newest 
 - [ECS-native blue/green, which needed AWS provider 6](deployment-and-aws.md#ecs-native-bluegreen-which-needed-aws-provider-6)
 - [The frontend's deep links are a CloudFront Function, and a release needs no invalidation](deployment-and-aws.md#the-frontends-deep-links-are-a-cloudfront-function-and-a-release-needs-no-invalidation)
 - [Image vulnerabilities come from Amazon Inspector, through ECR's pull-through cache](deployment-and-aws.md#image-vulnerabilities-come-from-amazon-inspector-through-ecrs-pull-through-cache)
+
+## [Mobile app](mobile-app.md)
+
+- [Expo, rather than native apps or a WebView](mobile-app.md#expo-rather-than-native-apps-or-a-webview)
+- [Native projects are generated, and builds run on GitHub Actions](mobile-app.md#native-projects-are-generated-and-builds-run-on-github-actions)
+- [The app sends Google's ID token as a bearer token](mobile-app.md#the-app-sends-googles-id-token-as-a-bearer-token)
+- [Sign in with Apple comes later, and its hidden addresses are still open](mobile-app.md#sign-in-with-apple-comes-later-and-its-hidden-addresses-are-still-open)
+- [Push goes through Amazon SNS; reminders are local](mobile-app.md#push-goes-through-amazon-sns-reminders-are-local)
+- [Readable offline, not editable offline](mobile-app.md#readable-offline-not-editable-offline)
+- [Releases follow semantic versioning, measured by the API](mobile-app.md#releases-follow-semantic-versioning-measured-by-the-api)
+- [Testers only, one app per environment](mobile-app.md#testers-only-one-app-per-environment)
+- [No crash reporting, for now](mobile-app.md#no-crash-reporting-for-now)
