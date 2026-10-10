@@ -46,9 +46,13 @@ rather than the index page.
 ## Why the backend is a backend-for-frontend
 
 The backend is the OIDC *client*, not a resource server that validates bearer tokens the
-frontend obtained for itself. Quarkus OIDC runs in `web-app` mode: the backend performs
-the authorization code exchange and keeps the resulting tokens in the encrypted
+frontend obtained for itself. For the browser, Quarkus OIDC runs the code flow: the backend
+performs the authorization code exchange and keeps the resulting tokens in the encrypted
 `q_session` cookie. The frontend never holds a token, and never sees one.
+
+The mobile app is the exception, and a deliberate one: it cannot carry the website's cookie, so
+it sends the ID token its platform's sign-in gave it as a bearer token, and the tenants are
+`hybrid` to accept both ([authentication.md](authentication.md#apps-sign-in-with-a-bearer-id-token)).
 
 The consequences are worth stating, because they explain several shapes elsewhere:
 

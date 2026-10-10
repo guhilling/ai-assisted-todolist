@@ -1,0 +1,47 @@
+{
+  "realm": "brief",
+  "enabled": true,
+  "sslRequired": "none",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "accessTokenLifespan": 3,
+  "ssoSessionIdleTimeout": 1800,
+  "clients": [
+    {
+      "clientId": "taskfest-app",
+      "description": "BearerTokenTest's expiry case: a realm of its own whose tokens live three seconds, so no other test races them.",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": true,
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": true,
+      "defaultClientScopes": [
+        "web-origins",
+        "acr",
+        "profile",
+        "roles",
+        "email",
+        "basic"
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "ada",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "ada@example.org",
+      "firstName": "Ada",
+      "lastName": "App",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "ada",
+          "temporary": false
+        }
+      ]
+    }
+  ]
+}

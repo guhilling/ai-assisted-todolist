@@ -327,6 +327,8 @@
                         <param>de.hilling.taskfest.logging.ProviderFieldTest</param>
                         <param>de.hilling.taskfest.api.SignInProvidersTest</param>
                         <param>de.hilling.taskfest.security.VerifiedEmailTest</param>
+                        <param>de.hilling.taskfest.security.BearerIdTokenTest</param>
+                        <param>de.hilling.taskfest.security.MainProviderAudienceTest</param>
                         <param>de.hilling.taskfest.attachment.AttachmentPolicyTest</param>
                         <param>de.hilling.taskfest.attachment.OrphanPlanTest</param>
                         <param>de.hilling.taskfest.attachment.ReusedLinksTest</param>

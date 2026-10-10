@@ -128,3 +128,28 @@ somebody else's avatar or nobody's, never an error.
 it is what the fallback does anyway when no image exists. The issue asked for Gravatar, and the
 trade is now written down rather than decided by omission.
 
+
+
+## Apps send a bearer ID token, and the audience is checked in code
+
+**Decision (#266, S1 on #264).** Every tenant is `hybrid`: the website keeps its code flow and
+session cookie, and an installed app sends its ID token as `Authorization: Bearer`. The tenant is
+chosen by the token's issuer. `BearerIdToken` refuses a bearer token not issued to the tenant's own
+client (unless the tenant lists its audiences in `token.audience`, which Quarkus then checks), and
+makes the bearer token the identity's ID token.
+
+**Why the audience in code, not configuration.** Quarkus checks a bearer token's audience only
+where `token.audience` is set, so a tenant that forgot it would accept an ID token issued to *any*
+application at the same provider — at Google, any site with a Google sign-in could replay its
+users' tokens here. A rule every tenant needs, and whose absence fails open, belongs where it
+cannot be forgotten; configuring it per tenant would have been one more line in the block for a
+new provider, and one more for `NamedTenantSettingsTest` to police.
+
+**Why the bearer token becomes the ID token.** Every resource reads claims through `@IdToken`
+(`ClaimsComeFromTheIdTokenTest`), which Quarkus fills only in the code flow. Switching them to the
+`SecurityIdentity` would have touched every resource and that test; giving a bearer identity an ID
+token credential keeps both unchanged. It is the truth, too: what the app sends *is* an ID token.
+
+**Rejected.** A separate `service` tenant per provider for apps — twice the tenants, and the main
+provider's bearer requests would have needed a path or header to reach theirs. And a session of
+the backend's own for apps (S2 on #264), which would have needed a session store.

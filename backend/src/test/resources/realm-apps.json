@@ -1,0 +1,80 @@
+{
+  "realm": "apps",
+  "enabled": true,
+  "sslRequired": "none",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "accessTokenLifespan": 1800,
+  "ssoSessionIdleTimeout": 1800,
+  "clients": [
+    {
+      "clientId": "taskfest-app",
+      "description": "The app's own client in BearerTokenTest: a public client, as an installed app is.",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": true,
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": true,
+      "defaultClientScopes": [
+        "web-origins",
+        "acr",
+        "profile",
+        "roles",
+        "email",
+        "basic"
+      ]
+    },
+    {
+      "clientId": "someone-else",
+      "description": "Another application at the same provider, whose tokens TaskFest must refuse.",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": true,
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": true,
+      "defaultClientScopes": [
+        "web-origins",
+        "acr",
+        "profile",
+        "roles",
+        "email",
+        "basic"
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "ada",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "ada@example.org",
+      "firstName": "Ada",
+      "lastName": "App",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "ada",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "unverified",
+      "enabled": true,
+      "emailVerified": false,
+      "email": "unverified@example.org",
+      "firstName": "Unverified",
+      "lastName": "App",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "unverified",
+          "temporary": false
+        }
+      ]
+    }
+  ]
+}

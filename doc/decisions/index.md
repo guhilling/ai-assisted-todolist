@@ -18,6 +18,7 @@ Decisions with consequences, why they were taken, and what was rejected. Newest 
 - [Provider availability comes from configuration](authentication.md#provider-availability-comes-from-configuration)
 - [Name and picture are session data, not identity](authentication.md#name-and-picture-are-session-data-not-identity)
 - [Gravatar is asked by the backend, and that buys accuracy rather than privacy](authentication.md#gravatar-is-asked-by-the-backend-and-that-buys-accuracy-rather-than-privacy)
+- [Apps send a bearer ID token, and the audience is checked in code](authentication.md#apps-send-a-bearer-id-token-and-the-audience-is-checked-in-code)
 
 ## [Frontend and user interface](frontend.md)
 

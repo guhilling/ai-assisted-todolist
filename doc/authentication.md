@@ -4,8 +4,9 @@
 
 The backend is the OIDC **client**. It performs the authorization code exchange itself and
 keeps the resulting tokens server-side, inside the encrypted `q_session` cookie that
-Quarkus OIDC's `web-app` application type manages. The single-page app never obtains,
-holds or sends a token — it sends a cookie, like any classic web session.
+Quarkus OIDC's code flow manages. The single-page app never obtains, holds or sends a token —
+it sends a cookie, like any classic web session. (The mobile app cannot, and sends a bearer ID
+token instead: [Apps sign in with a bearer ID token](#apps-sign-in-with-a-bearer-id-token).)
 
 This was chosen over the more common "SPA gets a token, backend validates the bearer"
 arrangement because tokens in browser storage are the part of that design that goes wrong,
@@ -148,6 +149,51 @@ boolean at Google and Keycloak (Cognito has sent the string `"true"`, which is a
 Adding a provider therefore means trusting it with that claim — see
 [decisions/authentication.md](decisions/authentication.md).
 
+## Apps sign in with a bearer ID token
+
+The mobile app (#264) cannot use the cookie: Google refuses sign-in inside a WebView, and a cookie
+set in the system browser never reaches the app. It signs in with its platform's own sign-in —
+Google's SDK, or code + PKCE through the system browser — and sends the **ID token** it is given as
+`Authorization: Bearer` on every request ([decisions/mobile-app.md](decisions/mobile-app.md)).
+
+```
+App      sign-in with the platform's SDK          → an ID token, kept in the Keychain / Keystore
+App      GET /api/tasks  Authorization: Bearer <ID token>
+Backend  tenant by the token's issuer → signature, issuer, expiry (Quarkus)
+         → issued to our client? email verified? (BearerIdToken, VerifiedEmail)
+         → 200, or 401 — never a redirect, never a session cookie
+```
+
+- **Every tenant is `hybrid`**: a request with an `Authorization` header is a bearer request, any
+  other is the code flow exactly as before. The website sends no such header, so nothing changed
+  for it — `BearerTokenTest` checks its background requests still get the 499.
+- **The tenant comes from the token's issuer** (`quarkus.oidc.resolve-tenants-with-issuer`), so a
+  further provider needs no path of its own for bearer requests: its `auth-server-url` is enough.
+- **The token must have been issued to us.** Quarkus checks a bearer token's audience only where
+  `token.audience` is configured, and without the check an ID token that *any* other site obtained
+  from Google would sign its holder in here. `BearerIdToken` therefore accepts, for a tenant that
+  does not name its audiences, only tokens whose `aud` includes the tenant's client id — so a new
+  provider is safe without a line of extra configuration. Google in `prod` names its audiences:
+  the web client id, which the website and Android's Credential Manager both issue tokens for,
+  and the iOS client id from `TASKFEST_OIDC_GOOGLE_IOS_CLIENT_ID`, which Google's iOS SDK may use
+  instead. qa's test accounts list theirs too: the backend's client and the app's own public one
+  (`TASKFEST_OIDC_COGNITO_APP_CLIENT_ID`), since an installed app cannot keep a secret. Neither
+  variable is set by a deployment yet: the app's Cognito client comes with #267, the iOS client id
+  with #280, and until then each list names a placeholder that matches no token.
+- **Only an ID token is a way in.** A bearer token Quarkus could verify only by introspection — an
+  opaque one — is refused, since there are no claims to check; so is a token declaring itself an
+  access token (Keycloak's `typ`, Cognito's `token_use`). `token.audience=any`, with which Quarkus
+  checks no audience, does not count as naming one.
+- **Google's issuer must be the `https` one.** Google documents that an ID token's `iss` may also
+  be `accounts.google.com` without the scheme; such a token matches no tenant's issuer and is
+  refused. The native SDKs issue the `https` form, which #280 confirms with a real token.
+- **The bearer token is the ID token.** The resources read their claims through `@IdToken`, which
+  Quarkus fills only in the code flow; `BearerIdToken` gives a bearer identity the same token as
+  its ID token, so every resource works unchanged for both.
+- **How long it lasts is the app's business.** The backend only ever sees ID tokens, valid for an
+  hour at Google and renewed silently by the SDK. The app signs itself out after 30 days without
+  use; the website's eight hours are unchanged.
+
 ## The provider list
 
 `GET /api/auth/providers` drives the signed-out screen. A provider is advertised as usable
@@ -263,6 +309,10 @@ able to sign in.
   not breaking the other, an unknown provider refused with a 404, the shared settings equal, and an
   unverified address refused. `ProviderInLogsTest` checks the log lines name the provider;
   `SignInProvidersTest` and `VerifiedEmailTest` are the plain unit tests behind it.
+- `BearerTokenTest` — the app's way in, with real ID tokens from Keycloak: the main provider and a
+  further one resolved by issuer, tasks kept apart, and a 401 without redirect or cookie for a token
+  issued to another client, an unverified address, a broken signature and an expired token.
+  `BearerIdTokenTest` is the plain unit test behind it.
 - `KeycloakLoginFlowTest` — the real authorization code flow against Dev Services Keycloak:
   follow the redirect, post the Keycloak login form, land on the callback, then use the API
   with the resulting session. It also proves two real accounts cannot see each other's
