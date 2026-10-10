@@ -1,0 +1,62 @@
+# Development
+
+## One app, three variants
+
+`APP_VARIANT` chooses the build (`mobile/src/variants.ts`, read by `mobile/app.config.ts`). The three
+install side by side, each with its own bundle id, name, URL scheme and backend:
+
+| Variant | Bundle id | Backend | Signs in with |
+| --- | --- | --- | --- |
+| `dev` (the default) | `de.hilling.taskfest.dev` | the end-to-end stack on `localhost:3000` | the local Keycloak, client `taskfest-app` |
+| `qa` | `de.hilling.taskfest.qa` | `https://taskfest-qa.cloud.hilling.de` | qa's Cognito test accounts — once the app's Cognito client exists |
+| `prod` | `de.hilling.taskfest` | `https://taskfest.cloud.hilling.de` | nobody yet: Google sign-in is #280 |
+
+The scheme is the bundle id, so a sign-in in the browser returns to the variant that started it.
+Only the `dev` build may talk plain HTTP, and only to localhost.
+
+## Native projects are generated
+
+`ios/` and `android/` are made by `npx expo prebuild` from `app.config.ts` and are never
+committed ([decisions/mobile-app.md](../decisions/mobile-app.md)). Anything native about the app
+is said in `app.config.ts` or a config plugin, never by editing a generated project.
+
+## Running it
+
+The `dev` variant runs against the end-to-end stack
+([local-development/end-to-end-stack.md](../local-development/end-to-end-stack.md)):
+
+```sh
+docker compose -f deployment/docker/docker-compose.e2e.yml up -d --wait
+cd mobile && npm install
+npx expo run:ios          # needs Xcode; the simulator shares the Mac's localhost
+npx expo run:android      # needs the Android SDK and an emulator, then:
+adb reverse tcp:3000 tcp:3000 && adb reverse tcp:8082 tcp:8082
+```
+
+`adb reverse` gives the emulator the Mac's ports on its own `localhost`, so the app reaches the
+stack and Keycloak at the same addresses the browser does — and the tokens' issuer,
+`http://localhost:8082/realms/taskfest`, is the one the backend expects. Sign in as `gunnar` /
+`gunnar` ([authentication.md](../authentication.md)).
+
+## What it shares with the website
+
+`mobile/src/web.ts` is the one place the app takes code from `frontend/src`: the generated wire
+types and validators, the de/en texts, and the date and importance rules. They are imported
+directly — Metro watches `frontend/src`, and Jest resolves their few imports from the app's own
+`node_modules` — so the app shows the board in the website's words and order without a copy. The
+colours live in the website's CSS, which React Native cannot read; `mobile/src/theme.ts` repeats
+them and `theme.test.ts` compares the two.
+
+## Tests and CI
+
+- **Unit and component tests** run on Jest with `jest-expo` and React Native Testing Library:
+  `npm test`, or `npm run test:coverage`, which fails below the floor in `package.json`. As
+  everywhere in this project, the test comes first.
+- **`npm run lint`** (oxlint, the frontend's rules), **`npm run typecheck`**, and
+  **`npm run check:deps`** — the frontend's pre-release check, run on the app's lockfile.
+- **Maestro** flows under `mobile/maestro/` drive the built app on an emulator.
+
+`.github/workflows/mobile-ci.yml` runs all of it on every pull request touching the app or what
+it shares with the website: the checks; a release APK of the `dev` variant on Linux; an iOS
+simulator build on macOS; and the Maestro flows on an Android emulator against the end-to-end
+stack, built from the same commit. Its screenshots are the `maestro-output` artifact.

@@ -104,6 +104,7 @@ DOC_ORDER = [
     "authentication",
     "local-development",
     "testing",
+    "mobile",
     "deployment",
     "releasing",
     "decisions",

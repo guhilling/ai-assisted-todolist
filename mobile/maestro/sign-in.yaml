@@ -1,0 +1,44 @@
+# Signs in to the end-to-end stack as gunnar, through Keycloak in the system browser, and sees the
+# task CI put on his board beforehand (#267). Runs on an Android emulator; the stack's localhost
+# ports reach it through `adb reverse`.
+appId: de.hilling.taskfest.dev
+name: Sign in and see the board
+---
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible: "Sign in with Keycloak"
+    timeout: 30000
+- takeScreenshot: 01-signed-out
+- tapOn: "Sign in with Keycloak"
+# A fresh emulator's Chrome greets its first user; none of this is TaskFest's.
+- runFlow:
+    when:
+      visible: "Accept & continue"
+    commands:
+      - tapOn: "Accept & continue"
+- runFlow:
+    when:
+      visible: "No thanks"
+    commands:
+      - tapOn: "No thanks"
+- runFlow:
+    when:
+      visible: "Use without an account"
+    commands:
+      - tapOn: "Use without an account"
+- extendedWaitUntil:
+    visible: "Username or email"
+    timeout: 30000
+- takeScreenshot: 02-keycloak
+- tapOn: "Username or email"
+- inputText: "gunnar"
+- tapOn: "Password"
+- inputText: "gunnar"
+- hideKeyboard
+- tapOn: "Sign In"
+- extendedWaitUntil:
+    visible: "Seeded by CI for the app"
+    timeout: 30000
+- assertVisible: "Today"
+- takeScreenshot: 03-board

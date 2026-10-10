@@ -1,0 +1,31 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "ignorePatterns": [],
+  "plugins": [
+    "react",
+    "typescript",
+    "oxc",
+    "jsdoc"
+  ],
+  "rules": {
+    "react/rules-of-hooks": "error",
+    "react/only-export-components": [
+      "warn",
+      {
+        "allowConstantExport": true
+      }
+    ],
+    "jsdoc/check-tag-names": "error",
+    "jsdoc/empty-tags": "error",
+    "jsdoc/no-blank-blocks": "error",
+    "no-warning-comments": [
+      "error",
+      {
+        "terms": [
+          "todo:"
+        ],
+        "location": "start"
+      }
+    ]
+  }
+}

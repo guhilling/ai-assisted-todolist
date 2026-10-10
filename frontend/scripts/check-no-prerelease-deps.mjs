@@ -13,7 +13,20 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
-const lockfile = join(dirname(dirname(fileURLToPath(import.meta.url))), 'package-lock.json');
+// The project to check: the frontend by default, or the directory given -- the mobile app runs
+// this same check on its own lockfile (#267).
+const project = process.argv[2] ?? dirname(dirname(fileURLToPath(import.meta.url)));
+const lockfile = join(project, 'package-lock.json');
+
+/**
+ * Pre-releases that are the only version there is, each exactly as installed and with its reason.
+ * Not a way around the rule: an entry names one version, so anything newer fails again.
+ */
+const ACCEPTED = new Map([
+    // Babel's @babel/core depends on it, and with it every React Native build (#267). It has had
+    // no other release since 2018, so there is nothing stable to pin to.
+    ['gensync', '1.0.0-beta.2'],
+]);
 
 /** Matches a semver pre-release suffix: the hyphen after `major.minor.patch`. */
 const PRERELEASE = /^\d+\.\d+\.\d+-/;
@@ -24,6 +37,7 @@ const offenders = Object.entries(lock.packages ?? {})
     // The root package is the "" key; it is this project, not a dependency.
     .filter(([path, meta]) => path !== '' && typeof meta.version === 'string')
     .filter(([, meta]) => PRERELEASE.test(meta.version))
+    .filter(([path, meta]) => ACCEPTED.get(path.replace(/^.*node_modules\//, '')) !== meta.version)
     .map(([path, meta]) => `  ${path.replace(/^node_modules\//, '')}@${meta.version}`);
 
 if (offenders.length > 0) {
