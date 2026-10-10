@@ -12,7 +12,7 @@ TypeScript: one code base, rendered as the platform's own widgets on iOS and And
 
 **Why.** Of the options compared, it reuses the most of what exists without inheriting the
 website's UI: the generated wire types, the ahead-of-time validators, the de/en texts and the
-date and importance rules, shared as a package between `frontend/` and the app. React stays the
+date and importance rules, shared between `frontend/` and the app. React stays the
 idiom, so the same knowledge applies on both sides. And Gunnar is using Expo in another project,
 so what is learnt here carries over.
 
@@ -51,6 +51,23 @@ installed apps without a store build. That is attractive, but it makes "which ve
 installed" fuzzy just as apps start to have a minimum version. They can be added later without
 changing anything else.
 
+
+## The app imports the website's code; a `shared/` package can wait
+
+**Decision.** The app takes the website's generated wire types and validators, its de/en texts
+and its date and importance rules straight from `frontend/src`, through the one module
+`mobile/src/web.ts` (`doc/mobile/development.md`). There is no `shared/` package yet, though #267
+first asked for one.
+
+**Why.** The direct import already gives what the package was for: one copy, used by both, and
+drift caught by the website's own tests and generators. A package would move those files out of
+`frontend/src`, which changes the imports of existing frontend tests, and it adds an npm workspace
+to the build, CI caches and Renovate for no gain today. `web.ts` keeps the door open: everything
+the app borrows goes through it, so a later move changes that one file on the app's side.
+
+**Revisit when** a third consumer appears, the website needs something only the app has, or the
+app's bundler or test runner stops resolving `frontend/src` cleanly. Gunnar decided this on #267,
+on 10 October 2026, and asked for it to be reviewed later.
 
 ## The app sends Google's ID token as a bearer token
 
