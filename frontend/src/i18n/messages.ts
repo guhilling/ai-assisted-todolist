@@ -34,6 +34,12 @@ export const en = {
     /** The mobile app's button after a failure. */
     retry: 'Try again',
   },
+  /** The mobile app's board kept on the phone (#272): shown without a connection, never changed. */
+  offline: {
+    note: (when: string) => `No connection. These are your tasks as of ${when}, and they may not be current.`,
+    readOnly: 'Nothing can be changed without a connection. Try again once you are online.',
+    wait: 'Just a moment: your tasks are being loaded.',
+  },
   /** The mobile app's, when the backend no longer serves its release (#268). */
   update: {
     required: 'This version of the app is too old for TaskFest. Update it to carry on.',
@@ -220,6 +226,11 @@ export const de: Messages = {
     sessionExpired: 'Deine Sitzung ist abgelaufen. Melde dich wieder an, um weiterzumachen.',
     emptyShort: 'Noch nichts hier.',
     retry: 'Noch einmal versuchen',
+  },
+  offline: {
+    note: (when: string) => `Keine Verbindung. Das sind deine Aufgaben, Stand ${when}; sie sind vielleicht nicht mehr aktuell.`,
+    readOnly: 'Ohne Verbindung lässt sich nichts ändern. Versuch es wieder, sobald du online bist.',
+    wait: 'Einen Moment: deine Aufgaben werden geladen.',
   },
   update: {
     required: 'Diese Version der App ist zu alt für TaskFest. Aktualisiere sie, um weiterzumachen.',

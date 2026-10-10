@@ -80,6 +80,7 @@ export function stylesFor(theme: Theme) {
     brand: { fontSize: 20, fontWeight: '700', color: theme.brandStrong },
     account: { gap: 8 },
     dangerButton: { borderWidth: 1, borderColor: theme.danger, borderRadius: 6, paddingVertical: 12, paddingHorizontal: 16 },
+    offline: { backgroundColor: theme.surfaceRaised, borderRadius: 6, paddingLeft: 16, gap: 4, paddingTop: 12 },
     confirm: { backgroundColor: theme.surfaceRaised, borderRadius: 6, padding: 16, gap: 12 },
     // Stacked: side by side, the two answers do not fit a phone's width.
     confirmButtons: { gap: 8 },

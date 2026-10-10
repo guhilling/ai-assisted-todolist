@@ -1,0 +1,17 @@
+# The second half of the offline check (#272), with the backend out of reach: run-on-emulator.sh
+# has removed the adb reverse it is reached through, which airplane mode alone does not cut. The
+# app starts on the board it kept, says it may not be current, and refuses a change.
+appId: de.hilling.taskfest.dev
+name: Offline, 2 - read the kept board
+---
+- setAirplaneMode: enabled
+- launchApp
+- extendedWaitUntil:
+    visible: "No connection\\. These are your tasks as of .*"
+    timeout: 30000
+- assertVisible: "Seeded by CI for the app"
+- takeScreenshot: 13-offline
+- tapOn: "Seeded by CI for the app"
+- assertVisible: "Nothing can be changed without a connection\\..*"
+- takeScreenshot: 14-offline-refused
+- setAirplaneMode: disabled

@@ -87,7 +87,10 @@ version may be, and the backend logs nothing else as an `app`.
   **`npm run check:deps`** — the frontend's pre-release check, run on the app's lockfile.
 - **Maestro** flows under `mobile/maestro/` drive the built app on an emulator: `sign-in.yaml`
   signs in and sees the board, `change-tasks.yaml` changes it ([board.md](board.md)), and
-  `account.yaml` opens the account sheet and signs out ([account.md](account.md)).
+  `account.yaml` opens the account sheet and signs out ([account.md](account.md)). The two flows in
+  `offline/` run after them, one at a time: the first loads a board, then `run-on-emulator.sh`
+  removes the `adb reverse` the app reaches the backend through — airplane mode alone does not cut
+  it — and the second reads the kept board and has a change refused ([board.md](board.md)).
 
 `.github/workflows/mobile-ci.yml` runs all of it on every pull request touching the app or what
 it shares with the website: the checks; a release APK of the `dev` variant on Linux; an iOS

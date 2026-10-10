@@ -153,6 +153,11 @@ and Google's push services, so the privacy policy names both.
 **Decision.** The app keeps the last board it loaded and shows it without a connection. Changes
 need a connection.
 
+**How (#272).** One JSON file in the app's cache directory, written after every load: the board is
+a copy of the backend's, small, and only ever read whole, so a database or a persisted query cache
+would add a dependency for nothing. It names its account, is removed on sign-out, and while it is
+shown — before the load, or after one failed — every change is refused rather than sent.
+
 **Why not more.** Editing offline means queueing changes. Because an update sends the whole task,
 a queued change would silently overwrite a newer one. That needs a version per task, optimistic
 locking, before it can be built, and it is worth its own story, which would help the website too.

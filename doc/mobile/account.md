@@ -11,8 +11,8 @@ sheet over the board.
 - **Sign out** — forgets the session on the phone (the tokens in the keychain) and everything shown
   for it, and goes back to the sign-in. Like the website's sign-out it leaves the provider's own
   session alone: it is not an RP-initiated logout, so signing in again may not ask for a password.
-  The app keeps nothing else for a signed-in user yet; whatever it comes to keep — the board for
-  offline reading (#272), the scheduled reminders (#273) — is removed in the same place,
+  The board kept for reading offline ([board.md](board.md)) goes with it, and whatever else the app
+  comes to keep for a signed-in user — the scheduled reminders (#273) — is removed in the same place,
   `signOut` in `mobile/src/TaskFestApp.tsx`, which every way to the sign-in goes through — a
   session the backend turns away too. A renewal under way is waited for before the keychain is
   cleared, and a start or a load begun before the sign-out gives up, so neither signs back in.

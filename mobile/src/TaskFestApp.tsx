@@ -6,8 +6,9 @@ import { AccountScreen } from './AccountScreen'
 import { isTooOld } from './appVersion'
 import { isChangeable } from './board'
 import { BoardScreen } from './BoardScreen'
+import type { KeptBoardStore } from './keptBoard'
 import { LegalLinks } from './LegalLinks'
-import { emailOf, type Session } from './session'
+import { emailOf, isInactive, type Session } from './session'
 import {
   RenewalUnavailableError,
   currentSession,
@@ -20,7 +21,7 @@ import { stylesFor, type Styles } from './styles'
 import { TaskForm, type TaskValues } from './TaskForm'
 import { dark, light } from './theme'
 import type { Variant } from './variants'
-import { catalogues, todayIso, type Language, type Messages, type Task, type TaskInput } from './web'
+import { catalogues, localeOf, todayIso, type Language, type Messages, type Task, type TaskInput } from './web'
 
 /** How the app changes tasks on the backend (#271), each as the signed-in user. */
 export type TaskChanges = {
@@ -39,6 +40,8 @@ export type Dependencies = {
   changes: TaskChanges
   /** Deletes the signed-in user's account with everything in it (#275). */
   deleteAccount(caller: Caller): Promise<void>
+  /** The last board loaded, kept on the phone to be read without a connection (#272). */
+  keptBoard: KeptBoardStore
   /** The oldest app release the backend serves (#268). */
   fetchMinimumAppVersion(): Promise<string>
   /** This build's release: the tag's, or 0.0.0 from a branch. */
@@ -73,7 +76,18 @@ type State =
   | { kind: 'starting' }
   | { kind: 'signedOut'; notice?: SignedOutNotice }
   | { kind: 'loading' }
-  | { kind: 'board'; tasks: BoardTask[]; email: string | null }
+  | {
+      kind: 'board'
+      tasks: BoardTask[]
+      email: string | null
+      /** When the board shown was loaded, in milliseconds since the epoch. */
+      loadedAt: number
+      /**
+       * Set while it may not be current (#272): the board kept on the phone, shown while the
+       * current one is `loading`, or after a load `failed`. Nothing on it can be changed then.
+       */
+      kept?: 'loading' | 'failed'
+    }
   | { kind: 'failed' }
   | { kind: 'tooOld' }
 
@@ -101,7 +115,8 @@ export function TaskFestApp({
   language: Language
   dependencies: Dependencies
 }) {
-  const { sessions, provider, fetchTasks, fetchMinimumAppVersion, appVersion, now, changes, deleteAccount } = dependencies
+  const { sessions, provider, fetchTasks, fetchMinimumAppVersion, appVersion, now, changes, deleteAccount, keptBoard } =
+    dependencies
   const messages = catalogues[language]
   const theme = useColorScheme() === 'dark' ? dark : light
   const styles = useMemo(() => stylesFor(theme), [theme])
@@ -152,6 +167,10 @@ export function TaskFestApp({
         // The screen signs out regardless; the next start finds the session again, at worst.
         console.warn('The kept session could not be forgotten', failure)
       })
+      await keptBoard.clear().catch((failure: unknown) => {
+        // Never shown to anyone else regardless: it names its account.
+        console.warn('The kept board could not be forgotten', failure)
+      })
       setForm(null)
       setAccount(null)
       undoable.current = null
@@ -159,7 +178,32 @@ export function TaskFestApp({
       setFailure(undefined)
       setState({ kind: 'signedOut', notice })
     },
-    [sessions],
+    [keptBoard, sessions],
+  )
+
+  /**
+   * The board kept on the phone, shown at once while the current one loads -- if the kept session
+   * is its account's, and still good. A board already shown stays.
+   */
+  const showKept = useCallback(async () => {
+    const [board, stored] = await Promise.all([
+      keptBoard.load().catch(() => null),
+      sessions.load().catch(() => null),
+    ])
+    if (!board || !stored || isInactive(stored, now()) || emailOf(stored.idToken) !== board.account) {
+      return
+    }
+    setState((current) =>
+      current.kind === 'starting'
+        ? { kind: 'board', tasks: board.tasks, email: board.account, loadedAt: board.savedAt, kept: 'loading' }
+        : current,
+    )
+  }, [keptBoard, now, sessions])
+
+  /** A load that did not work: a board shown stays, marked as possibly out of date. */
+  const loadFailed = useCallback(
+    () => setState((current) => (current.kind === 'board' ? { ...current, kept: 'failed' } : { kind: 'failed' })),
+    [],
   )
 
   const showBoard = useCallback(
@@ -170,7 +214,11 @@ export function TaskFestApp({
       try {
         const tasks = await fetchTasks({ baseUrl: variant.apiBaseUrl, idToken: session.idToken })
         if (signOuts.current === started) {
-          setState({ kind: 'board', tasks, email: emailOf(session.idToken) })
+          setState({ kind: 'board', tasks, email: emailOf(session.idToken), loadedAt: now() })
+          // A change refused because the board was not current is moot once it is.
+          setFailure((current) =>
+            current === messages.offline.readOnly || current === messages.offline.wait ? undefined : current,
+          )
         }
       } catch (failure) {
         if (signOuts.current !== started) {
@@ -179,12 +227,21 @@ export function TaskFestApp({
         if (failure instanceof SignedOutError) {
           await signOut('sessionExpired')
         } else {
-          setState({ kind: 'failed' })
+          loadFailed()
         }
       }
     },
-    [fetchTasks, signOut, variant.apiBaseUrl],
+    [fetchTasks, loadFailed, messages, now, signOut, variant.apiBaseUrl],
   )
+
+  // Every board loaded, and every change the backend agreed to, is kept for reading offline.
+  useEffect(() => {
+    if (state.kind === 'board' && !state.kept && state.email) {
+      keptBoard.save({ account: state.email, savedAt: now(), tasks: state.tasks }).catch((failure: unknown) => {
+        console.warn('The board could not be kept', failure)
+      })
+    }
+  }, [keptBoard, now, state])
 
   /** How often the start has been tried: "try again" raises it, and the effect below runs anew. */
   const [attempt, setAttempt] = useState(0)
@@ -208,6 +265,7 @@ export function TaskFestApp({
     /** From the kept session to the board, or to the sign-in. */
     const start = async () => {
       const started = signOuts.current
+      await showKept()
       // Which releases the backend serves, and the kept session, are asked for at once. An app the
       // backend no longer serves says so before anything else; one that cannot find out in time
       // carries on, since a slow or absent network is no reason to lock anyone out.
@@ -232,7 +290,7 @@ export function TaskFestApp({
         const { failure } = outcome
         if (failure instanceof RenewalUnavailableError) {
           // Offline, or the provider unreachable: the session is kept for when it is back.
-          setState({ kind: 'failed' })
+          loadFailed()
           return
         }
         // The keychain could not be read -- invalidated, restored from a backup: start afresh.
@@ -243,16 +301,37 @@ export function TaskFestApp({
       if (session) {
         await showBoard(session)
       } else {
+        // The session ran out unused: its board goes with it.
+        await keptBoard.clear().catch(() => undefined)
         // Already at the sign-in, it stays as it is, with whatever it says -- "account deleted", say.
         setState((current) => (current.kind === 'signedOut' ? current : { kind: 'signedOut' }))
       }
     }
     void start()
-  }, [appVersion, attempt, fetchMinimumAppVersion, sessionNow, showBoard, signOut])
+  }, [appVersion, attempt, fetchMinimumAppVersion, keptBoard, loadFailed, sessionNow, showBoard, showKept, signOut])
 
   const retry = () => {
     setState({ kind: 'starting' })
     setAttempt((count) => count + 1)
+  }
+
+  /** Loads the board again, keeping the one shown until the new one is there. */
+  const reload = () => {
+    setState((current) => (current.kind === 'board' ? { ...current, kept: 'loading' } : current))
+    setAttempt((count) => count + 1)
+  }
+
+  /**
+   * Whether the board shown may not be current, which no change is made to (#272): an update
+   * replaces the whole task, so one made to an old copy would overwrite whatever changed since.
+   * Says so, and the change is not sent -- nor kept to send later.
+   */
+  const refusedWhileKept = () => {
+    if (state.kind !== 'board' || !state.kept) {
+      return false
+    }
+    setFailure(state.kept === 'loading' ? messages.offline.wait : messages.offline.readOnly)
+    return true
   }
 
   const signIn = async () => {
@@ -392,7 +471,7 @@ export function TaskFestApp({
   }
 
   const toggle = async (task: BoardTask) => {
-    if (!markBusy(task, true)) {
+    if (refusedWhileKept() || !markBusy(task, true)) {
       return
     }
     const next: BoardTask = { ...task, state: task.state === 'DONE' ? 'TODO' : 'DONE' }
@@ -489,15 +568,24 @@ export function TaskFestApp({
               failure={failure}
               deleted={deleted ? { count: deleted.tasks.length, key: deleted.key } : undefined}
               busy={busy}
-              onAdd={() => setForm({})}
-              onOpen={(task) => setForm({ task })}
+              onAdd={() => refusedWhileKept() || setForm({})}
+              onOpen={(task) => refusedWhileKept() || setForm({ task })}
               onToggle={(task) => void toggle(task)}
               onClearCompleted={() =>
+                refusedWhileKept() ||
                 void remove(state.tasks.filter((task) => task.state === 'DONE' && isChangeable(task)))
               }
               onUndo={() => void undo()}
               onDismissUndo={dismissUndo}
               onAccount={() => setAccount({})}
+              kept={
+                state.kept === 'failed'
+                  ? { failed: true, since: describeTime(state.loadedAt, language) }
+                  : state.kept
+                    ? { failed: false }
+                    : undefined
+              }
+              onRetry={reload}
             />
             <Modal
               visible={form !== null}
@@ -613,4 +701,14 @@ function SignedOutScreen({
       <LegalLinks language={language} messages={messages} styles={styles} appVersion={appVersion} />
     </View>
   )
+}
+
+/** A moment as the user's language writes it: "10 Oct, 08:00". */
+function describeTime(epochMs: number, language: Language) {
+  return new Date(epochMs).toLocaleString(localeOf(language), {
+    day: 'numeric',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
 }
