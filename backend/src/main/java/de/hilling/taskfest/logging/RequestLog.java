@@ -57,6 +57,12 @@ public class RequestLog {
     /** The header the load balancer puts its trace id in. */
     public static final String REQUEST_ID_HEADER = "X-Amzn-Trace-Id";
 
+    /** The header the mobile app names its release in (#268). */
+    public static final String APP_VERSION_HEADER = "X-TaskFest-App";
+
+    /** A release as the app is versioned: major.minor.patch, each at most a few digits. */
+    private static final Pattern APP_VERSION = Pattern.compile("\\d{1,6}\\.\\d{1,6}\\.\\d{1,6}");
+
     private static final Pattern TRACE_ROOT = Pattern.compile("Root=1-[0-9a-f]{8}-[0-9a-f]{24}");
     /** Longer than any header the load balancer sends; anything longer is not searched at all. */
     private static final int MAX_TRACE_HEADER = 512;
@@ -86,6 +92,7 @@ public class RequestLog {
         fields.put("path", path);
         fields.put("status", String.valueOf(context.response().getStatusCode()));
         fields.put("durationMs", String.valueOf(Duration.between(started, Instant.now()).toMillis()));
+        appVersion(context.request().getHeader(APP_VERSION_HEADER)).ifPresent(app -> fields.put("app", app));
         if (context.user() instanceof QuarkusHttpUser user) {
             SecurityIdentity identity = user.getSecurityIdentity();
             if (identity != null && !identity.isAnonymous()) {
@@ -111,6 +118,15 @@ public class RequestLog {
             }
         }
         return UUID.randomUUID().toString();
+    }
+
+    /**
+     * The mobile app's release, from its header, so a query can tell which releases still call
+     * which endpoints before an old API is dropped (#268). The client sends it, so it is written
+     * only when it is shaped like a version: no line breaks, nothing long.
+     */
+    static Optional<String> appVersion(String header) {
+        return header != null && APP_VERSION.matcher(header).matches() ? Optional.of(header) : Optional.empty();
     }
 
     /**

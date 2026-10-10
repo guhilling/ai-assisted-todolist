@@ -55,6 +55,24 @@ jobs:
             exit 1
           }
 
+      - name: Fetch the API of the oldest supported release
+        working-directory: .
+        # Installed mobile apps are weeks behind the backend (#268), so the API must keep serving
+        # them. doc/api/oldest-supported-release names the oldest release it still has to serve.
+        run: |
+          baseline=$(grep -v '^#' doc/api/oldest-supported-release | tr -d '[:space:]')
+          git fetch --no-tags --depth=1 origin "refs/tags/$baseline:refs/tags/$baseline"
+          mkdir -p "$GITHUB_WORKSPACE/.oasdiff"
+          git show "$baseline:doc/api/openapi.yaml" > "$GITHUB_WORKSPACE/.oasdiff/baseline.yaml"
+          echo "Comparing with $baseline"
+
+      - name: Check the API breaks nothing that release relies on
+        # Errors only: a warning is a change oasdiff cannot judge, such as a new enum value in a
+        # response, which an app tolerates by reading unknown values as unknown (doc/releasing.md).
+        uses: docker://tufin/oasdiff:v1.33.0
+        with:
+          args: breaking .oasdiff/baseline.yaml doc/api/openapi.yaml --fail-on ERR
+
       - name: Upload the mutation testing report
         # Always, not just on failure: PIT reports rather than gating, so this artifact is
         # the only way to see which mutants survived. The build log gives only the total.

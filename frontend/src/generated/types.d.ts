@@ -180,4 +180,5 @@ export type UploadResponse = {
  */
 export type VersionResponse = {
     version: string;
+    minimumAppVersion: string;
 };

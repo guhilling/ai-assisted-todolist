@@ -325,6 +325,7 @@
                         <param>de.hilling.taskfest.logging.SignInLogTest</param>
                         <param>de.hilling.taskfest.logging.RequestLogFieldsTest</param>
                         <param>de.hilling.taskfest.logging.ProviderFieldTest</param>
+                        <param>de.hilling.taskfest.logging.AppVersionFieldTest</param>
                         <param>de.hilling.taskfest.api.SignInProvidersTest</param>
                         <param>de.hilling.taskfest.security.VerifiedEmailTest</param>
                         <param>de.hilling.taskfest.security.BearerIdTokenTest</param>

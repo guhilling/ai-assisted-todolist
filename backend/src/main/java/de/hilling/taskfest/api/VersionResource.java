@@ -33,32 +33,40 @@ public class VersionResource {
 
     private final String version;
 
-    /** The resource for the version this build was made as. */
-    public VersionResource(@ConfigProperty(name = "quarkus.application.version") String version) {
+    private final String minimumAppVersion;
+
+    /** The resource for the version this build was made as, and the oldest app it serves. */
+    public VersionResource(@ConfigProperty(name = "quarkus.application.version") String version,
+                           @ConfigProperty(name = "taskfest.minimum-app-version") String minimumAppVersion) {
         this.version = version;
+        this.minimumAppVersion = minimumAppVersion;
     }
 
     @GET
     @Operation(summary = "Report the running release", description = "The version this backend was "
-        + "built as, needing no authentication to ask.")
+        + "built as, and the oldest mobile app release it still serves, needing no authentication to ask.")
     @APIResponse(responseCode = "200", description = "The running version.",
         content = @Content(mediaType = MediaType.APPLICATION_JSON,
             schema = @Schema(implementation = VersionResponse.class),
             examples = @ExampleObject(name = "release", value = """
             {
-              "version": "0.11.0"
+              "version": "1.3.0",
+              "minimumAppVersion": "1.0.0"
             }""")))
     public VersionResponse version() {
-        return new VersionResponse(version);
+        return new VersionResponse(version, minimumAppVersion);
     }
 
     /**
      * The payload behind {@code GET /api/version}.
      *
      * @param version the release without its {@code v}, such as {@code 0.11.0}, or a SNAPSHOT
+     * @param minimumAppVersion the oldest mobile app release this deployment still serves (#268): an
+     *     older app asks its user to update. {@code 0.0.0} while no app is too old
      */
     public record VersionResponse(
-        @NotNull @Size(max = MAX_VERSION_LENGTH) @Schema(example = "0.11.0") String version
+        @NotNull @Size(max = MAX_VERSION_LENGTH) @Schema(example = "0.11.0") String version,
+        @NotNull @Size(max = MAX_VERSION_LENGTH) @Schema(example = "1.0.0") String minimumAppVersion
     ) {
     }
 }
