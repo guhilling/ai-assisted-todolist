@@ -1,4 +1,5 @@
-import { render, screen, userEvent } from '@testing-library/react-native'
+import { act, render, screen, userEvent } from '@testing-library/react-native'
+import { AppState } from 'react-native'
 import { SignedOutError } from './api'
 import type { Session } from './session'
 import type { SessionStore } from './staySignedIn'
@@ -37,6 +38,8 @@ function dependencies(overrides: Partial<Dependencies> = {}): Dependencies {
     sessions: memorySessions(null),
     provider: { signIn: jest.fn(), refresh: jest.fn() },
     fetchTasks: jest.fn().mockResolvedValue(tasks),
+    fetchMinimumAppVersion: jest.fn().mockResolvedValue('0.0.0'),
+    appVersion: '1.2.0',
     now: () => NOW,
     ...overrides,
   }
@@ -175,6 +178,83 @@ describe('the app', () => {
     await render(<TaskFestApp variant={variants.dev} language="en" dependencies={deps} />)
 
     expect(await screen.findByText('Unexpected error while loading data.')).toBeOnTheScreen()
+  })
+
+  it('asks for an update when the backend no longer serves this release (#268)', async () => {
+    const deps = dependencies({ sessions: memorySessions(session), fetchMinimumAppVersion: jest.fn().mockResolvedValue('1.3.0') })
+    await render(<TaskFestApp variant={variants.dev} language="en" dependencies={deps} />)
+
+    expect(
+      await screen.findByText('This version of the app is too old for TaskFest. Update it to carry on.'),
+    ).toBeOnTheScreen()
+    expect(deps.fetchTasks).not.toHaveBeenCalled()
+  })
+
+  it('lets the user try again once told to update', async () => {
+    const fetchMinimumAppVersion = jest.fn().mockResolvedValueOnce('1.3.0').mockResolvedValueOnce('1.0.0')
+    const deps = dependencies({ sessions: memorySessions(session), fetchMinimumAppVersion })
+    await render(<TaskFestApp variant={variants.dev} language="en" dependencies={deps} />)
+
+    await userEvent.setup().press(await screen.findByRole('button', { name: 'Try again' }))
+
+    expect(await screen.findByText('Water the plants')).toBeOnTheScreen()
+  })
+
+  it('checks again when it comes back to the foreground', async () => {
+    let onChange: (state: string) => void = () => undefined
+    jest.spyOn(AppState, 'addEventListener').mockImplementation((_type, listener) => {
+      onChange = listener as (state: string) => void
+      return { remove: jest.fn() } as never
+    })
+    const fetchMinimumAppVersion = jest.fn().mockResolvedValueOnce('0.0.0').mockResolvedValueOnce('1.3.0')
+    const deps = dependencies({ sessions: memorySessions(session), fetchMinimumAppVersion })
+    await render(<TaskFestApp variant={variants.dev} language="en" dependencies={deps} />)
+    expect(await screen.findByText('Water the plants')).toBeOnTheScreen()
+
+    await act(async () => onChange('active'))
+
+    expect(
+      await screen.findByText('This version of the app is too old for TaskFest. Update it to carry on.'),
+    ).toBeOnTheScreen()
+  })
+
+  it('does not wait long for the answer before showing the sign-in', async () => {
+    jest.useFakeTimers()
+    try {
+      const deps = dependencies({ fetchMinimumAppVersion: () => new Promise<string>(() => undefined) })
+      await render(<TaskFestApp variant={variants.dev} language="en" dependencies={deps} />)
+
+      await act(async () => jest.advanceTimersByTime(5000))
+
+      expect(screen.getByRole('button', { name: 'Sign in with Keycloak' })).toBeOnTheScreen()
+    } finally {
+      jest.useRealTimers()
+    }
+  })
+
+  it('carries on when it cannot tell which releases the backend serves', async () => {
+    const deps = dependencies({ fetchMinimumAppVersion: jest.fn().mockRejectedValue(new Error('offline')) })
+    await render(<TaskFestApp variant={variants.dev} language="en" dependencies={deps} />)
+
+    expect(await screen.findByRole('button', { name: 'Sign in with Keycloak' })).toBeOnTheScreen()
+  })
+
+  it('marks a value it does not know, rather than hiding the task', async () => {
+    const newer = [{ ...tasks[0], unknown: ['importance' as const] }]
+    const deps = dependencies({ sessions: memorySessions(session), fetchTasks: jest.fn().mockResolvedValue(newer) })
+    await render(<TaskFestApp variant={variants.dev} language="en" dependencies={deps} />)
+
+    expect(await screen.findByText('Water the plants')).toBeOnTheScreen()
+    expect(screen.getByLabelText('Unknown')).toBeOnTheScreen()
+  })
+
+  it('marks a state it does not know, too', async () => {
+    const newer = [{ ...tasks[0], unknown: ['state' as const] }]
+    const deps = dependencies({ sessions: memorySessions(session), fetchTasks: jest.fn().mockResolvedValue(newer) })
+    await render(<TaskFestApp variant={variants.dev} language="en" dependencies={deps} />)
+
+    expect(await screen.findByText('Water the plants')).toBeOnTheScreen()
+    expect(screen.getByText('Unknown')).toBeOnTheScreen()
   })
 
   it('speaks German to a German phone', async () => {

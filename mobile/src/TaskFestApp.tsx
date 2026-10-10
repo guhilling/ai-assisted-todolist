@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, useColorScheme, View } from 'react-native'
+import { ActivityIndicator, AppState, Pressable, ScrollView, StyleSheet, Text, useColorScheme, View } from 'react-native'
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context'
-import { SignedOutError, type Caller } from './api'
+import { SignedOutError, type BoardTask, type Caller } from './api'
+import { isTooOld } from './appVersion'
 import { boardOf, type Board } from './board'
 import type { Session } from './session'
 import { appCatalogues, type AppMessages } from './messages'
@@ -15,14 +16,32 @@ import {
 } from './staySignedIn'
 import { dark, light, type Theme } from './theme'
 import type { Variant } from './variants'
-import { catalogues, describeDueDate, localeOf, todayIso, type Language, type Messages, type Task } from './web'
+import { catalogues, describeDueDate, localeOf, todayIso, type Language, type Messages } from './web'
 
 /** What the app needs from outside itself, handed in so tests can stand in for each. */
 export type Dependencies = {
   sessions: SessionStore
   provider: { signIn(): Promise<Tokens | null>; refresh: Refresh }
-  fetchTasks(caller: Caller): Promise<Task[]>
+  fetchTasks(caller: Caller): Promise<BoardTask[]>
+  /** The oldest app release the backend serves (#268). */
+  fetchMinimumAppVersion(): Promise<string>
+  /** This build's release: the tag's, or 0.0.0 from a branch. */
+  appVersion: string
   now(): number
+}
+
+/** How long the start waits to hear which releases the backend serves before carrying on. */
+const VERSION_CHECK_MS = 3000
+
+/** The promise's value, or null once the time is up -- never a wait without end. */
+function withinTime<T>(promise: Promise<T | null>, ms = VERSION_CHECK_MS): Promise<T | null> {
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => resolve(null), ms)
+    void promise.then((value) => {
+      clearTimeout(timer)
+      resolve(value)
+    })
+  })
 }
 
 type State =
@@ -31,6 +50,7 @@ type State =
   | { kind: 'loading' }
   | { kind: 'board'; board: Board }
   | { kind: 'failed' }
+  | { kind: 'tooOld' }
 
 /**
  * The app, from sign-in to the board (#267): read-only for now, in the user's language, in the
@@ -49,7 +69,7 @@ export function TaskFestApp({
   language: Language
   dependencies: Dependencies
 }) {
-  const { sessions, provider, fetchTasks, now } = dependencies
+  const { sessions, provider, fetchTasks, fetchMinimumAppVersion, appVersion, now } = dependencies
   const messages = catalogues[language]
   const appMessages = appCatalogues[language]
   const theme = useColorScheme() === 'dark' ? dark : light
@@ -77,13 +97,39 @@ export function TaskFestApp({
   /** How often the start has been tried: "try again" raises it, and the effect below runs anew. */
   const [attempt, setAttempt] = useState(0)
 
+  // Back in the foreground, the app starts over: the backend may no longer serve this release,
+  // and the board may have changed meanwhile.
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (next) => {
+      if (next === 'active') {
+        setAttempt((count) => count + 1)
+      }
+    })
+    return () => subscription.remove()
+  }, [])
+
   useEffect(() => {
     /** From the kept session to the board, or to the sign-in. */
     const start = async () => {
+      // Which releases the backend serves, and the kept session, are asked for at once. An app the
+      // backend no longer serves says so before anything else; one that cannot find out in time
+      // carries on, since a slow or absent network is no reason to lock anyone out.
+      const [minimum, outcome] = await Promise.all([
+        withinTime(fetchMinimumAppVersion().catch(() => null)),
+        currentSession(sessions, provider.refresh, now()).then(
+          (session) => ({ session }),
+          (failure: unknown) => ({ failure }),
+        ),
+      ])
+      if (minimum && isTooOld(appVersion, minimum)) {
+        setState({ kind: 'tooOld' })
+        return
+      }
       let session: Session | null
-      try {
-        session = await currentSession(sessions, provider.refresh, now())
-      } catch (failure) {
+      if ('session' in outcome) {
+        session = outcome.session
+      } else {
+        const { failure } = outcome
         if (failure instanceof RenewalUnavailableError) {
           // Offline, or the provider unreachable: the session is kept for when it is back.
           setState({ kind: 'failed' })
@@ -101,7 +147,12 @@ export function TaskFestApp({
       }
     }
     void start()
-  }, [attempt, now, provider, sessions, showBoard])
+  }, [appVersion, attempt, fetchMinimumAppVersion, now, provider, sessions, showBoard])
+
+  const retry = () => {
+    setState({ kind: 'starting' })
+    setAttempt((count) => count + 1)
+  }
 
   const signIn = async () => {
     try {
@@ -143,14 +194,17 @@ export function TaskFestApp({
             appMessages={appMessages}
             styles={styles}
           />
+        ) : state.kind === 'tooOld' ? (
+          <View style={styles.signedOut}>
+            <Text style={styles.notice}>{appMessages.updateRequired}</Text>
+            <Pressable accessibilityRole="button" style={styles.button} onPress={retry}>
+              <Text style={styles.buttonText}>{appMessages.tryAgain}</Text>
+            </Pressable>
+          </View>
         ) : state.kind === 'failed' ? (
           <View style={styles.signedOut}>
             <Text style={styles.notice}>{messages.failures.loading}</Text>
-            <Pressable accessibilityRole="button" style={styles.button} onPress={() => {
-                setState({ kind: 'starting' })
-                setAttempt((count) => count + 1)
-              }}
-            >
+            <Pressable accessibilityRole="button" style={styles.button} onPress={retry}>
               <Text style={styles.buttonText}>{appMessages.tryAgain}</Text>
             </Pressable>
           </View>
@@ -217,10 +271,19 @@ function BoardScreen({
   if (board.sections.length === 0 && board.completed.length === 0) {
     return <Text style={styles.muted}>{appMessages.emptyBoard}</Text>
   }
-  const row = (task: Task, sayWhen: boolean) => (
+  const row = (task: BoardTask, sayWhen: boolean) => (
     <View key={task.id} style={styles.row}>
-      <View style={[styles.dot, styles[`importance${task.importance}`]]} />
+      {task.unknown?.includes('importance') ? (
+        // An importance a newer backend added (#268): marked, not guessed.
+        <View accessibilityLabel={appMessages.unknownValue} style={[styles.dot, styles.unknownDot]} />
+      ) : (
+        <View style={[styles.dot, styles[`importance${task.importance}`]]} />
+      )}
       <Text style={[styles.description, task.state === 'DONE' && styles.done]}>{task.description}</Text>
+      {task.unknown?.includes('state') ? (
+        // A state a newer backend added (#268): kept open, and said to be unknown.
+        <Text style={styles.muted}>{appMessages.unknownValue}</Text>
+      ) : null}
       {sayWhen ? (
         <Text style={styles.muted}>{describeDueDate(task.dueDate, today, messages.dates, localeOf(language))}</Text>
       ) : null}
@@ -272,6 +335,7 @@ function stylesFor(theme: Theme) {
     importanceLOW: { backgroundColor: theme.importanceLow },
     importanceMEDIUM: { backgroundColor: theme.importanceMedium },
     importanceHIGH: { backgroundColor: theme.importanceHigh },
+    unknownDot: { borderWidth: 1, borderColor: theme.textMuted },
     description: { flex: 1, color: theme.text },
     done: { color: theme.textMuted, textDecorationLine: 'line-through' },
   })

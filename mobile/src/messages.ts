@@ -11,6 +11,8 @@ const en = {
   signInFailed: 'Signing in did not work. Try again.',
   tryAgain: 'Try again',
   emptyBoard: 'Nothing here yet.',
+  updateRequired: 'This version of the app is too old for TaskFest. Update it to carry on.',
+  unknownValue: 'Unknown',
 }
 
 /** The shape every language's texts have: English's. */
@@ -20,6 +22,8 @@ const de: AppMessages = {
   signInFailed: 'Die Anmeldung hat nicht geklappt. Versuch es noch einmal.',
   tryAgain: 'Noch einmal versuchen',
   emptyBoard: 'Noch nichts hier.',
+  updateRequired: 'Diese Version der App ist zu alt für TaskFest. Aktualisiere sie, um weiterzumachen.',
+  unknownValue: 'Unbekannt',
 }
 
 /** The app's own texts, by language. */

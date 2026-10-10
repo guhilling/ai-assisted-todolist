@@ -35,10 +35,10 @@ const FRONTEND = dirname(dirname(fileURLToPath(import.meta.url)));
 const SCHEMA_DIR = join(FRONTEND, '..', 'doc', 'api', 'schema');
 const OUT_DIR = join(FRONTEND, 'src', 'generated');
 
-/** The shapes the frontend parses. Everything else here is a type only. */
+/** The shapes the frontend and the mobile app parse (#268). Everything else here is a type only. */
 const VALIDATED = [
     'TaskResponse', 'CurrentUserResponse', 'AuthProvidersResponse',
-    'AttachmentResponse', 'UploadResponse', 'LinkResponse', 'RefusalResponse',
+    'AttachmentResponse', 'UploadResponse', 'LinkResponse', 'RefusalResponse', 'VersionResponse',
 ];
 
 /**
