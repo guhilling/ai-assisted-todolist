@@ -48,6 +48,7 @@ function dependencies(changes: TaskChanges, overrides: Partial<Dependencies> = {
     appVersion: '1.2.0',
     now: () => NOW,
     changes,
+    deleteAccount: jest.fn(),
     ...overrides,
   }
 }

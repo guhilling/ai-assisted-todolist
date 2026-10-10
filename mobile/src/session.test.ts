@@ -1,4 +1,4 @@
-import { INACTIVITY_LIMIT_MS, expiryOf, isInactive, needsRefresh, used, type Session } from './session'
+import { INACTIVITY_LIMIT_MS, emailOf, expiryOf, isInactive, needsRefresh, used, type Session } from './session'
 
 /** A token with the given payload; the header and signature do not matter to the app. */
 function tokenWith(payload: object) {
@@ -50,5 +50,23 @@ describe('a session', () => {
     expect(renewed.lastUsedAt).toBe(later)
     expect(isInactive(renewed, NOW + INACTIVITY_LIMIT_MS + 1)).toBe(false)
     expect(session.lastUsedAt).toBe(NOW)
+  })
+})
+
+describe('the signed-in address (#275)', () => {
+  it('is the ID token’s email claim', () => {
+    expect(emailOf(tokenWith({ email: 'ada@example.com' }))).toBe('ada@example.com')
+  })
+
+  it('reads an address beyond ASCII, as the token’s UTF-8 has it', () => {
+    const claims = Buffer.from(JSON.stringify({ email: 'jörg@example.de' })).toString('base64url')
+
+    expect(emailOf(`header.${claims}.signature`)).toBe('jörg@example.de')
+  })
+
+  it('is unknown when the token names none, or cannot be read', () => {
+    expect(emailOf(tokenWith({ sub: 'ada' }))).toBeNull()
+    expect(emailOf('not a token')).toBeNull()
+    expect(emailOf('header.%%%.signature')).toBeNull()
   })
 })

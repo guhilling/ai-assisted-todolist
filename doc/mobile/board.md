@@ -1,7 +1,8 @@
 # The board
 
 The app's one screen once signed in (#267, #271): the website's board, in the website's sections,
-order, words and colours, and everything the website does with a task except files.
+order, words and colours, and everything the website does with a task except files. **Account**,
+at its head, opens the account sheet ([account.md](account.md)).
 
 ## What it does
 

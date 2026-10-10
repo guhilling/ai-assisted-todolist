@@ -9,7 +9,7 @@
 export function isTooOld(appVersion: string, minimumAppVersion: string): boolean {
   const app = parse(appVersion)
   const minimum = parse(minimumAppVersion)
-  if (!app || !minimum || app.every((part) => part === 0)) {
+  if (!app || !minimum || isDevelopmentBuild(appVersion)) {
     return false
   }
   for (let i = 0; i < 3; i++) {
@@ -18,6 +18,11 @@ export function isTooOld(appVersion: string, minimumAppVersion: string): boolean
     }
   }
   return false
+}
+
+/** Whether this is a build from a branch rather than a release: those are all 0.0.0. */
+export function isDevelopmentBuild(appVersion: string): boolean {
+  return parse(appVersion)?.every((part) => part === 0) ?? false
 }
 
 function parse(version: string): number[] | null {

@@ -40,6 +40,7 @@ function dependencies(overrides: Partial<Dependencies> = {}): Dependencies {
     fetchTasks: jest.fn().mockResolvedValue(tasks),
     fetchMinimumAppVersion: jest.fn().mockResolvedValue('0.0.0'),
     changes: { create: jest.fn(), update: jest.fn(), remove: jest.fn(), restore: jest.fn() },
+    deleteAccount: jest.fn(),
     appVersion: '1.2.0',
     now: () => NOW,
     ...overrides,

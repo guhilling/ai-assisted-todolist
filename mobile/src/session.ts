@@ -31,13 +31,31 @@ const RENEWAL_MARGIN_MS = 60 * 1000
  * @returns milliseconds since the epoch, or null when the token says nothing the app can read
  */
 export function expiryOf(token: string): number | null {
+  const exp = claimsOf(token)?.exp
+  return typeof exp === 'number' ? exp * 1000 : null
+}
+
+/**
+ * The signed-in address, from the ID token's `email` claim (#275): the same claim the backend
+ * keys the account by, so it is what deleting the account asks to have typed.
+ *
+ * @returns the address, or null when the token names none the app can read
+ */
+export function emailOf(token: string): string | null {
+  const email = claimsOf(token)?.email
+  return typeof email === 'string' ? email : null
+}
+
+/** A token's claims, unverified, or null when they cannot be read. They are UTF-8, which `atob` alone is not. */
+function claimsOf(token: string): Record<string, unknown> | null {
   const payload = token.split('.')[1]
   if (!payload) {
     return null
   }
   try {
-    const claims = JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/'))) as { exp?: unknown }
-    return typeof claims.exp === 'number' ? claims.exp * 1000 : null
+    const bytes = atob(payload.replace(/-/g, '+').replace(/_/g, '/'))
+    const utf8 = Array.from(bytes, (byte) => `%${byte.charCodeAt(0).toString(16).padStart(2, '0')}`).join('')
+    return JSON.parse(decodeURIComponent(utf8)) as Record<string, unknown>
   } catch {
     return null
   }

@@ -13,5 +13,11 @@ export const privacyUrls: Record<Language, string> = {
   de: 'https://taskfest-docs.cloud.hilling.de/doc/datenschutz.html',
 }
 
+/** The terms of service in each language, published beside the privacy policy; the app links them (#275). */
+export const termsUrls: Record<Language, string> = {
+  en: 'https://taskfest-docs.cloud.hilling.de/doc/terms.html',
+  de: 'https://taskfest-docs.cloud.hilling.de/doc/nutzungsbedingungen.html',
+}
+
 /** The English privacy policy; kept for the design system's consumers. */
 export const privacyUrl = privacyUrls.en
