@@ -14,6 +14,15 @@ name: Reminders, turn them on
 # A new task is due tomorrow, so there is a morning to be reminded on.
 - tapOn: "Add"
 - extendedWaitUntil:
+    visible: "Renew the passport"
+    timeout: 10000
+# launchApp grants every permission unless told otherwise, and the app rightly offers nothing it
+# already has: start it again, signed in still, with the notifications' permission never asked.
+- launchApp:
+    stopApp: true
+    permissions:
+      notifications: unset
+- extendedWaitUntil:
     visible: "Get a reminder at 08:00 on days tasks are due\\?"
     timeout: 10000
 - takeScreenshot: 15-reminders-offer

@@ -118,3 +118,12 @@ describe('the texts that depend on a value', () => {
   })
 })
 
+describe('the app’s reminder counts (#273)', () => {
+  it('say one task, or how many, in either language', () => {
+    expect(en.reminders.dueToday(1)).toBe('1 task due today')
+    expect(en.reminders.dueToday(3)).toBe('3 tasks due today')
+    expect(de.reminders.dueToday(1)).toBe('1 Aufgabe heute fällig')
+    expect(de.reminders.dueToday(3)).toBe('3 Aufgaben heute fällig')
+  })
+})
+
