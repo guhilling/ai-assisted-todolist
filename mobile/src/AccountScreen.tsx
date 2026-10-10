@@ -11,8 +11,10 @@ import { confirmsEmail, type Language, type Messages } from './web'
  *
  * Deleting asks first, as the website does, in the website's words: the delete button stays
  * disabled until the signed-in address is typed, in any case and with any spaces around it, so two
- * taps in a row can never delete an account. A refused delete closes the question again and says
- * why; whoever shows the sheet signs out once `onDelete` says the account is gone.
+ * taps in a row can never delete an account. While the delete is on its way the sheet offers
+ * nothing else -- no sign-out, no closing it -- as the website's confirmation does not. A refused
+ * delete closes the question again and says why; whoever shows the sheet signs out once
+ * `onDelete` says the account is gone.
  */
 export function AccountScreen({
   email,
@@ -22,6 +24,7 @@ export function AccountScreen({
   theme,
   appVersion,
   failure,
+  deleting,
   onSignOut,
   onDelete,
   onDone,
@@ -35,13 +38,14 @@ export function AccountScreen({
   appVersion: string
   /** What went wrong with the last delete, in the user's language. */
   failure?: string
+  /** Whether a delete is on its way, which nothing may interrupt. */
+  deleting: boolean
   onSignOut: () => void
   /** Deletes the account; true once it is gone. */
   onDelete: () => Promise<boolean>
   onDone: () => void
 }) {
   const [asking, setAsking] = useState(false)
-  const [deleting, setDeleting] = useState(false)
   const [typed, setTyped] = useState('')
   const confirmed = email !== null && confirmsEmail(typed, email)
 
@@ -51,9 +55,7 @@ export function AccountScreen({
   }
 
   const remove = async () => {
-    setDeleting(true)
     if (!(await onDelete())) {
-      setDeleting(false)
       keep()
     }
   }
@@ -62,7 +64,13 @@ export function AccountScreen({
     <ScrollView style={styles.formScreen} contentContainerStyle={styles.form} keyboardShouldPersistTaps="handled">
       <View style={styles.sectionHead}>
         <Text style={styles.formTitle}>{messages.account.open}</Text>
-        <Pressable accessibilityRole="button" style={styles.quietButton} onPress={onDone}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityState={{ disabled: deleting }}
+          disabled={deleting}
+          style={[styles.quietButton, deleting && styles.disabled]}
+          onPress={onDone}
+        >
           <Text style={styles.quietButtonText}>{messages.account.done}</Text>
         </Pressable>
       </View>
@@ -74,7 +82,13 @@ export function AccountScreen({
       ) : null}
 
       <View style={styles.account}>
-        <Pressable accessibilityRole="button" style={styles.button} onPress={onSignOut}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityState={{ disabled: deleting }}
+          disabled={deleting}
+          style={[styles.button, deleting && styles.disabled]}
+          onPress={onSignOut}
+        >
           <Text style={styles.buttonText}>{messages.app.signOut}</Text>
         </Pressable>
         {asking ? (

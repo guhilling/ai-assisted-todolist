@@ -66,8 +66,8 @@ function withinTime<T>(promise: Promise<T | null>, ms = VERSION_CHECK_MS): Promi
 /** Why the sign-in is shown, when there is something to say about it. */
 type SignedOutNotice = 'sessionExpired' | 'signInFailed' | 'accountDeleted'
 
-/** The account sheet over the board, with what went wrong with the last delete. */
-type Account = { failure?: string }
+/** The account sheet over the board: whether a delete is on its way, or what went wrong with the last. */
+type Account = { deleting?: boolean; failure?: string }
 
 type State =
   | { kind: 'starting' }
@@ -311,13 +311,15 @@ export function TaskFestApp({
 
   /** Deletes the account, then signs out; says why on the sheet when the backend refused. */
   const removeAccount = async (): Promise<boolean> => {
-    setAccount({})
+    // Nothing else is offered until the backend answers: a sign-out and a new sign-in meanwhile
+    // would leave this answer to sign out a session that never asked for it.
+    setAccount({ deleting: true })
     try {
       await sending(async () => deleteAccount(await caller()))
     } catch (cause) {
       const text = await failed(cause, messages.errors.deleteAccount)
       if (text) {
-        // Only on a sheet still open: one closed meanwhile, or signed out of, stays so.
+        // Only on a sheet still open: one the session's end closed meanwhile stays so.
         setAccount((current) => current && { failure: text })
       }
       return false
@@ -520,10 +522,11 @@ export function TaskFestApp({
               ) : null}
             </Modal>
             <Modal
+              testID="account-sheet"
               visible={account !== null}
               animationType="slide"
               presentationStyle="pageSheet"
-              onRequestClose={() => setAccount(null)}
+              onRequestClose={() => setAccount((current) => (current?.deleting ? current : null))}
             >
               <AccountScreen
                 email={state.email}
@@ -533,6 +536,7 @@ export function TaskFestApp({
                 theme={theme}
                 appVersion={appVersion}
                 failure={account?.failure}
+                deleting={account?.deleting ?? false}
                 onSignOut={() => void signOut()}
                 onDelete={removeAccount}
                 onDone={() => setAccount(null)}

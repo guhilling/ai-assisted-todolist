@@ -1,4 +1,4 @@
-import { act, render, screen, userEvent, within } from '@testing-library/react-native'
+import { act, fireEvent, render, screen, userEvent, within } from '@testing-library/react-native'
 import { AppState, Linking } from 'react-native'
 import { RequestFailedError, SignedOutError, type BoardTask } from './api'
 import type { Session } from './session'
@@ -263,20 +263,24 @@ describe('the account, when things overlap (#275)', () => {
     expect(screen.queryByText('Water the plants')).toBeNull()
   })
 
-  it('leaves no sheet behind when a refused delete answers after the sign-out', async () => {
+  it('neither signs out nor closes while the delete is on its way', async () => {
+    // A sign-out and a new sign-in before the answer would leave the late answer to sign out a
+    // session that never asked for it (CodeRabbit on #291); nothing but waiting is offered instead.
     let refuse: () => void = () => undefined
     const deleteAccount = jest.fn(() => new Promise<void>((_resolve, reject) => (refuse = () => reject(new RequestFailedError(500)))))
-    const signIn = jest.fn().mockResolvedValue({ idToken, refreshToken: 'r' })
-    const { user } = await openAccount({ deleteAccount, provider: { signIn, refresh: jest.fn() } })
+    const { user } = await openAccount({ deleteAccount })
 
     await confirmDelete(user)
-    await user.press(screen.getByRole('button', { name: 'Sign out' }))
-    await act(async () => refuse())
-    await user.press(await screen.findByRole('button', { name: 'Sign in with Keycloak' }))
+    await act(async () => fireEvent(screen.getByTestId('account-sheet'), 'requestClose'))
 
-    expect(await screen.findByText('Water the plants')).toBeOnTheScreen()
-    expect(screen.queryByText('Signed in as ada@example.com')).toBeNull()
-    expect(screen.queryByText('Unable to delete your account.')).toBeNull()
+    expect(screen.getByRole('button', { name: 'Sign out' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Done' })).toBeDisabled()
+    expect(screen.getByText('Signed in as ada@example.com')).toBeOnTheScreen()
+
+    await act(async () => refuse())
+
+    expect(await screen.findByText('Unable to delete your account.')).toBeOnTheScreen()
+    expect(screen.getByRole('button', { name: 'Sign out' })).toBeEnabled()
   })
 
   it('signs out on the screen even when the keychain will not forget', async () => {

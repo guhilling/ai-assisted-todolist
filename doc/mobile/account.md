@@ -23,7 +23,9 @@ sheet over the board.
   spaces around it: the website's own rule, `frontend/src/confirmsEmail.ts`). It calls the website's endpoint, `DELETE /api/account`, with the ID token,
   then signs out and says the account was deleted; signing in again starts a new, empty one. A
   refused delete closes the question and says why; a session that has ended leads to the sign-in,
-  as any change does ([board.md](board.md)).
+  as any change does ([board.md](board.md)). While the delete is on its way the sheet offers
+  nothing else: no sign-out, and it cannot be closed, so a late answer can never sign out a
+  session started in the meantime.
 - **Imprint, privacy policy, terms** — the published pages, in the user's language, opened in the
   browser, and which release this is ("Development build" for a build from a branch). They are on
   the sign-in too, so they are reachable before signing in: the stores ask for the privacy policy
