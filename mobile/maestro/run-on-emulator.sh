@@ -30,12 +30,17 @@ retry adb install -r "$apk"
 
 maestro test mobile/maestro --format junit --output maestro-report.xml --test-output-dir maestro-output
 
-# Reminders (#273): turn them on, then make sure Android holds the app's alarm for tomorrow.
+# Reminders (#273): turn them on, then make sure Android holds the app's alarm for tomorrow 08:00 --
+# a pending alarm (`Alarm{... <package>}`) set for that moment, in the emulator's own time zone, not
+# merely the package's name somewhere in the statistics.
 maestro test mobile/maestro/reminders/turn-on.yaml --format junit --output maestro-reminders.xml --test-output-dir maestro-output
-# Captured first: under pipefail, grep -q stopping early would fail the pipeline with SIGPIPE.
+zone="$(adb shell getprop persist.sys.timezone | tr -d '\r')"
+expected="$(TZ="${zone:-UTC}" date -d 'tomorrow 08:00' +%s)000"
+# Read once, for the check and for saying what was found instead.
 alarms="$(adb shell dumpsys alarm)"
-if ! grep -q "de.hilling.taskfest.dev" <<< "$alarms"; then
-  echo "No reminder is scheduled: Android holds no alarm for de.hilling.taskfest.dev." >&2
+if ! grep -E "Alarm\{.*origWhen ${expected}.*de\.hilling\.taskfest\.dev\}" <<< "$alarms"; then
+  echo "No reminder is scheduled for ${expected} (tomorrow 08:00 in ${zone:-UTC}). The app's alarms:" >&2
+  grep -n -A2 "de.hilling.taskfest.dev" <<< "$alarms" | head -40 >&2 || true
   exit 1
 fi
 

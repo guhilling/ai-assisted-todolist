@@ -40,6 +40,24 @@ Notifications.setNotificationHandler({
   }),
 })
 
+/**
+ * expo-notifications, adapted to what the reminders need. Written out rather than cast, so the
+ * compiler checks every call against the library's own types after an SDK update.
+ */
+const notifications: NotificationsApi = {
+  getPermissionsAsync: () => Notifications.getPermissionsAsync(),
+  requestPermissionsAsync: () => Notifications.requestPermissionsAsync(),
+  cancelAllScheduledNotificationsAsync: () => Notifications.cancelAllScheduledNotificationsAsync(),
+  scheduleNotificationAsync: ({ content, trigger }) =>
+    Notifications.scheduleNotificationAsync({
+      content,
+      trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: trigger.date, channelId: trigger.channelId },
+    }),
+  createChannel: async (id, name) => {
+    await Notifications.setNotificationChannelAsync(id, { name, importance: Notifications.AndroidImportance.DEFAULT })
+  },
+}
+
 const dependencies: Dependencies = {
   sessions: createSessionStore(SecureStore),
   provider: variant.signIn ? providerFor(variant.signIn, variant.scheme) : noProvider,
@@ -53,11 +71,11 @@ const dependencies: Dependencies = {
   },
   deleteAccount: (caller) => deleteAccount({ ...caller, appVersion }),
   keptBoard: createKeptBoardStore(new File(Paths.cache, 'board.json')),
-  // The trigger's type is expo-notifications' enum, whose value is the string the adapter passes.
-  reminders: createReminderScheduler(Notifications as unknown as NotificationsApi, new File(Paths.document, 'reminders-declined'), {
-    name: catalogues[language].reminders.channel,
-    importance: Notifications.AndroidImportance.DEFAULT,
-  }),
+  reminders: createReminderScheduler(
+    notifications,
+    new File(Paths.document, 'reminders-declined'),
+    catalogues[language].reminders.channel,
+  ),
   fetchMinimumAppVersion: () => fetchMinimumAppVersion(variant.apiBaseUrl, appVersion),
   appVersion,
   now: Date.now,

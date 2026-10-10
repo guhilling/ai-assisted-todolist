@@ -34,8 +34,17 @@ const MILLISECONDS_PER_DAY = 86_400_000
 
 /** Anchors an ISO date at UTC midnight, where day arithmetic cannot be bitten by DST. */
 function atUtcMidnight(iso: string) {
-  const [year, month, day] = iso.split('-').map(Number)
+  const { year, month, day } = calendarParts(iso)
   return new Date(Date.UTC(year, month - 1, day))
+}
+
+/**
+ * A `yyyy-mm-dd` date's year, month (1-12) and day: the one place it is taken apart, for the
+ * website's arithmetic above and the app's 08:00 on the day (#273).
+ */
+export function calendarParts(iso: string) {
+  const [year, month, day] = iso.split('-').map(Number)
+  return { year, month, day }
 }
 
 /** Formats a UTC-anchored date back to `yyyy-mm-dd`. */

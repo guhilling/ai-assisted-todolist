@@ -191,4 +191,15 @@ describe('the due-day reminders, from the app (#273)', () => {
 
     expect(screen.queryByText(OFFER)).toBeNull()
   })
+
+  it('clears them when the session ran out unused', async () => {
+    const reminders = scheduler('granted')
+    const stale = { ...session, lastUsedAt: NOW - 31 * 24 * HOUR }
+    await render(
+      <TaskFestApp variant={variants.dev} language="en" dependencies={dependencies({ reminders, sessions: memorySessions(stale) })} />,
+    )
+
+    await screen.findByRole('button', { name: 'Sign in with Keycloak' })
+    expect(reminders.replace).toHaveBeenCalledWith([])
+  })
 })

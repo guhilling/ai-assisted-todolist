@@ -8,11 +8,13 @@ The app reminds without a server (#273): local notifications it schedules itself
 - **One reminder at 08:00 on every day with open tasks due**, saying how many: "3 tasks due today"
   ("3 Aufgaben heute fällig"). A count rather than the descriptions, since it shows on the lock
   screen. Tapping it opens the app on the board.
-- **Only open tasks count.** A completed task never reminds, an overdue one is the board's to show,
-  and today's reminder is scheduled only until its 08:00 has passed.
+- **Only open tasks count.** A completed task never reminds, nor one whose state this release does
+  not know (#268) — a newer backend's state may be a closed one; an overdue task is the board's to
+  show, and today's reminder is scheduled only until its 08:00 has passed.
 - **Rescheduled from what the backend holds**, after every load and every change it agreed to, and
   replaced whole each time — the same view the board kept for offline reading comes from
-  ([board.md](board.md)). So a task completed or moved never reminds.
+  ([board.md](board.md)). So a task completed or moved never reminds. Replacements run one at a
+  time, and one that would schedule exactly what is scheduled already does nothing.
 - **At most 60 days ahead** are scheduled, the nearest first: iOS keeps 64 pending notifications per
   app and drops the rest, and the next load schedules further days.
 - **Signing out, deleting the account and a session that ended clear them**
@@ -27,7 +29,8 @@ asks **"Get a reminder at 08:00 on days tasks are due?"**, with **Turn on** and 
 
 - **Turn on** brings up the system's own question, which iOS asks only once; allowed, the
   reminders are scheduled at once.
-- **Not now** is remembered on the phone, and the note is not shown again.
+- **Not now** is remembered on the phone, and the note is not shown again — nor after a refusal in
+  the system's question, which Android would let the app ask a second time.
 - Without the permission — refused, or never given — nothing is scheduled and the app works as
   before. Turning them on later is the system settings' job.
 
@@ -48,4 +51,4 @@ calendars.
 `reminders.test.ts` covers the rule, `notifications.test.ts` the platform's use, and
 `TaskFestApp.reminders.test.tsx` the app's. On the emulator, `mobile/maestro/reminders/turn-on.yaml`
 adds a task due tomorrow and turns the reminders on, and `run-on-emulator.sh` then checks that
-Android holds the app's alarm.
+Android holds a pending alarm of the app's for tomorrow 08:00 in the emulator's time zone.

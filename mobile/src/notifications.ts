@@ -1,19 +1,22 @@
 import type { TextFile } from './keptBoard'
 import type { Reminder } from './reminders'
 
-/** The part of expo-notifications the reminders need, so tests can stand in for the platform. */
+/**
+ * What the reminders need of the platform: expo-notifications' calls, narrowed to the reminders'
+ * use and adapted to it in `Main.tsx`, where the compiler checks them against the library -- and
+ * tests stand in for it here.
+ */
 export type NotificationsApi = {
-  getPermissionsAsync(): Promise<{ granted: boolean; canAskAgain: boolean }>
+  getPermissionsAsync(): Promise<{ granted: boolean; status: string }>
   requestPermissionsAsync(): Promise<{ granted: boolean }>
   cancelAllScheduledNotificationsAsync(): Promise<void>
-  scheduleNotificationAsync(request: {
-    content: { title: string }
-    trigger: { type: 'date'; date: Date; channelId: string }
-  }): Promise<string>
-  setNotificationChannelAsync(id: string, channel: { name: string; importance: number }): Promise<unknown>
+  /** One notification at a moment, on an Android channel. */
+  scheduleNotificationAsync(request: { content: { title: string }; trigger: { date: Date; channelId: string } }): Promise<string>
+  /** Android's channel, which it needs before it can ask or show one; nothing on iOS. */
+  createChannel(id: string, name: string): Promise<void>
 }
 
-/** Whether reminders may be shown: allowed, refused for good, or not asked yet. */
+/** Whether reminders may be shown: allowed, refused, or not asked yet. */
 export type ReminderPermission = 'granted' | 'denied' | 'undetermined'
 
 /** Schedules the due-day reminders on the phone, and asks for the permission they need (#273). */
@@ -34,43 +37,62 @@ const CHANNEL = 'reminders'
 /**
  * The reminders with expo-notifications: local notifications, scheduled for a moment -- 08:00 on
  * the day, as the phone's clock had it when scheduled -- and replaced whole each time, so one never
- * outlives the task it was for. Android needs a channel before it can ask or show one; iOS ignores
- * the channel. Without permission nothing is scheduled, and the app works on regardless.
+ * outlives the task it was for. Without permission nothing is scheduled, and the app works on
+ * regardless.
+ *
+ * Replacements run one at a time: each cancels everything and then schedules, so two overlapping
+ * would otherwise both leave their reminders behind. A replacement with exactly the reminders
+ * already scheduled does nothing -- most changes to a board leave them as they were.
  *
  * @param declinedFlag a file whose existence records that the offer was declined
- * @param channel Android's channel: its name in the user's language, and expo-notifications'
- *   `AndroidImportance` for it
+ * @param channelName the Android channel's name, in the user's language
  */
-export function createReminderScheduler(
-  api: NotificationsApi,
-  declinedFlag: TextFile,
-  channel: { name: string; importance: number },
-): ReminderScheduler {
-  const ensureChannel = () => api.setNotificationChannelAsync(CHANNEL, channel)
+export function createReminderScheduler(api: NotificationsApi, declinedFlag: TextFile, channelName: string): ReminderScheduler {
+  let queue: Promise<unknown> = Promise.resolve()
+  /** What is scheduled now, as JSON; null when that is not known, or nothing could be. */
+  let scheduled: string | null = null
+
+  const replaceNow = async (reminders: Reminder[]) => {
+    const wanted = JSON.stringify(reminders)
+    const { granted } = await api.getPermissionsAsync()
+    if (granted && wanted === scheduled) {
+      return
+    }
+    scheduled = null
+    await api.cancelAllScheduledNotificationsAsync()
+    if (!granted || reminders.length === 0) {
+      scheduled = granted ? wanted : null
+      return
+    }
+    await api.createChannel(CHANNEL, channelName)
+    await Promise.all(
+      reminders.map((reminder) =>
+        api.scheduleNotificationAsync({
+          content: { title: reminder.title },
+          trigger: { date: reminder.at, channelId: CHANNEL },
+        }),
+      ),
+    )
+    scheduled = wanted
+  }
 
   return {
     async permission() {
-      const { granted, canAskAgain } = await api.getPermissionsAsync()
-      return granted ? 'granted' : canAskAgain ? 'undetermined' : 'denied'
+      const { granted, status } = await api.getPermissionsAsync()
+      // By the status, not by whether it may be asked again: Android asks twice, so a first refusal
+      // still allows asking -- and it is a refusal all the same.
+      return granted ? 'granted' : status === 'undetermined' ? 'undetermined' : 'denied'
     },
 
     async ask() {
-      await ensureChannel()
+      await api.createChannel(CHANNEL, channelName)
       return (await api.requestPermissionsAsync()).granted
     },
 
-    async replace(reminders) {
-      await api.cancelAllScheduledNotificationsAsync()
-      if (reminders.length === 0 || !(await api.getPermissionsAsync()).granted) {
-        return
-      }
-      await ensureChannel()
-      for (const reminder of reminders) {
-        await api.scheduleNotificationAsync({
-          content: { title: reminder.title },
-          trigger: { type: 'date', date: reminder.at, channelId: CHANNEL },
-        })
-      }
+    replace(reminders) {
+      const run = queue.then(() => replaceNow(reminders))
+      queue = run.catch(() => undefined)
+      return run
     },
 
     async declined() {

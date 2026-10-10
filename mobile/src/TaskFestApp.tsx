@@ -271,10 +271,16 @@ export function TaskFestApp({
 
   /** Offers the reminders while they have not been asked for, nor the offer declined (#273). */
   const offerIfAsked = useCallback(async () => {
+    const started = signOuts.current
+    let offer: boolean
     try {
-      setOfferReminders((await reminders.permission()) === 'undetermined' && !(await reminders.declined()))
+      offer = (await reminders.permission()) === 'undetermined' && !(await reminders.declined())
     } catch {
-      setOfferReminders(false)
+      offer = false
+    }
+    // An answer arriving after a sign-out is the old session's, and the sign-out has reset it.
+    if (signOuts.current === started) {
+      setOfferReminders(offer)
     }
   }, [reminders])
 
@@ -376,14 +382,15 @@ export function TaskFestApp({
       if (session) {
         await showBoard(session)
       } else {
-        // The session ran out unused: its board goes with it.
+        // The session ran out unused: its board and its reminders go with it.
         await keptBoard.clear().catch(() => undefined)
+        await reminders.replace([]).catch(() => undefined)
         // Already at the sign-in, it stays as it is, with whatever it says -- "account deleted", say.
         setState((current) => (current.kind === 'signedOut' ? current : { kind: 'signedOut' }))
       }
     }
     void start()
-  }, [appVersion, attempt, fetchMinimumAppVersion, keptBoard, loadFailed, sessionNow, showBoard, showKept, signOut])
+  }, [appVersion, attempt, fetchMinimumAppVersion, keptBoard, loadFailed, reminders, sessionNow, showBoard, showKept, signOut])
 
   const retry = () => {
     setState({ kind: 'starting' })
@@ -446,6 +453,12 @@ export function TaskFestApp({
   }
 
   const today = todayIso(new Date(now()))
+
+  /** Whether the board has anything to be reminded of: the offer explains itself by it (#273). */
+  const remindable = useMemo(
+    () => state.kind === 'board' && remindersFor(state.tasks, now(), messages).length > 0,
+    [messages, now, state],
+  )
 
   /** Applies a change to the board's tasks, if the board is what is shown. */
   const setTasks = (change: (tasks: BoardTask[]) => BoardTask[]) =>
@@ -708,8 +721,7 @@ export function TaskFestApp({
               }
               onRetry={reload}
               offer={
-                // Only with something to be reminded of: the offer explains itself by the board.
-                offerReminders && !state.kept && remindersFor(state.tasks, now(), messages).length > 0
+                offerReminders && !state.kept && remindable
                   ? { onTurnOn: () => void turnOnReminders(), onNotNow: declineReminders }
                   : undefined
               }

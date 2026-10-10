@@ -37,6 +37,12 @@ describe('the due-day reminders (#273)', () => {
     expect(remindersFor(tasks, EARLY, catalogues.en)).toEqual([{ at: at8(2026, 10, 12), title: '1 task due today' }])
   })
 
+  it('never reminds of a task whose state this release does not know: it may be closed', () => {
+    const closed: BoardTask = { ...task('2026-10-11'), unknown: ['state'] }
+
+    expect(remindersFor([closed], EARLY, catalogues.en)).toEqual([])
+  })
+
   it('leaves overdue tasks to the board', () => {
     expect(remindersFor([task('2026-10-01')], EARLY, catalogues.en)).toEqual([])
   })

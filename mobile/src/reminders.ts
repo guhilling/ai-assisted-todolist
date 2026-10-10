@@ -1,5 +1,5 @@
 import type { BoardTask } from './api'
-import type { Messages } from './web'
+import { calendarParts, type Messages } from './web'
 
 /** One local notification: when, and what it says. */
 export type Reminder = { at: Date; title: string }
@@ -15,8 +15,9 @@ const HOUR = 8
 
 /**
  * The due-day reminders for a board (#273): one at 08:00 on every day with open tasks due that
- * day, saying how many. A completed task never reminds, an overdue one is the board's to show,
- * and today's reminder is scheduled only until its 08:00 has passed.
+ * day, saying how many. A completed task never reminds, nor one whose state this release does not
+ * know (#268) -- a newer backend's state may well be a closed one; an overdue task is the board's
+ * to show, and today's reminder is scheduled only until its 08:00 has passed.
  *
  * 08:00 is the phone's local time when the reminders are scheduled; following a change of time
  * zone afterwards is #290's.
@@ -24,7 +25,7 @@ const HOUR = 8
 export function remindersFor(tasks: BoardTask[], now: number, messages: Messages): Reminder[] {
   const due = new Map<string, number>()
   for (const task of tasks) {
-    if (task.state !== 'DONE') {
+    if (task.state !== 'DONE' && !task.unknown?.includes('state')) {
       due.set(task.dueDate, (due.get(task.dueDate) ?? 0) + 1)
     }
   }
@@ -36,7 +37,7 @@ export function remindersFor(tasks: BoardTask[], now: number, messages: Messages
 }
 
 /** 08:00 on a calendar day, in the phone's time zone. */
-function eightOn(day: string) {
-  const [year, month, date] = day.split('-').map(Number)
-  return new Date(year, month - 1, date, HOUR, 0)
+function eightOn(iso: string) {
+  const { year, month, day } = calendarParts(iso)
+  return new Date(year, month - 1, day, HOUR, 0)
 }
