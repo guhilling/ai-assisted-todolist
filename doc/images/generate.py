@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
-Generates the project's SVG artwork: the README's diagrams, and the logo.
+Generates the project's SVG artwork: the README's diagrams, and the logo -- with the website's
+favicon and sign-in icon, and the sources of the app's icons.
 
 Run it after changing anything a diagram claims, or the mark:
 
@@ -349,76 +350,113 @@ def workflow(p: Palette) -> str:
     return document(w, h, "\n  ".join(parts), p, aria)
 
 
-# The mark, as geometry rather than as a literal, because three files draw the same shape: the
-# two colour variants and the self-adapting favicon.
+# The mark: a panda's head on a mint tile, its right ear a green disc with a check mark (Gunnar's
+# pick, "D", 2026-10-10). It abstracts the panda of the paused page (`paused-panda.svg`) -- same
+# ink, same mint -- and keeps the old mark's point that a task done is a tick. It brings its own
+# background, so it reads the same on a light page and a dark one, and needs no colour variants:
+# `logo-light.svg` and `logo-dark.svg` stay two files only because the README and the
+# documentation site choose between them with `<picture>`.
 #
-# A rounded square with its top-right corner deliberately missing, and a check mark leaving
-# through the gap. The open corner is the whole idea: a closed box with a tick in it is the most
-# generic todo icon there is, and a task that is done is one that has left the list rather than
-# one that sits in it wearing a mark. It also survives being 16 pixels wide, which a busier
-# drawing would not.
+# The geometry is written once, in a 128-unit square, and every file below draws it: the logo,
+# the favicons, the sign-in button's icon, and the app's icons, which differ only in how much
+# room they leave round it.
 LOGO_VIEWBOX = 128
-# Clockwise from where the right edge resumes below the absent corner, round to where the top
-# edge stops before it. The arcs are the three corners that do exist.
-LOGO_OUTLINE = (
-    "M 112 54 L 112 86 A 26 26 0 0 1 86 112 L 42 112 "
-    "A 26 26 0 0 1 16 86 L 16 42 A 26 26 0 0 1 42 16 L 70 16"
-)
-# Ends outside the square, past where the corner would have been.
-LOGO_CHECK = "M 40 68 L 58 88 L 118 24"
+INK = "#1d1d1f"
+MINT = "#e9f5e1"
+LEAF = "#7fae1c"
+# The check mark, inside the green disc that stands in for the right ear.
+LOGO_CHECK = "M 87 34 L 93.5 41 L 106 27"
+ARIA_LOGO = "A panda's head on a mint tile, its right ear a green disc with a check mark"
 
 
-def logo_body(outline: str, check: str) -> str:
-    """The two strokes, given the colours or the class names that will carry them."""
-    return (
-        f'<path d="{LOGO_OUTLINE}" fill="none" {outline} stroke-width="9" '
-        'stroke-linecap="round"/>\n  '
-        f'<path d="{LOGO_CHECK}" fill="none" {check} stroke-width="12" '
-        'stroke-linecap="round" stroke-linejoin="round"/>'
-    )
+def panda() -> str:
+    """The panda and its badge, in the 128-unit square, without a tile behind them."""
+    return f"""<circle cx="34" cy="36" r="13" fill="{INK}"/>
+  <circle cx="64" cy="72" r="40" fill="#ffffff" stroke="{INK}" stroke-width="6"/>
+  <ellipse cx="49" cy="72" rx="8.5" ry="12" transform="rotate(-32 49 72)" fill="{INK}"/>
+  <ellipse cx="79" cy="72" rx="8.5" ry="12" transform="rotate(32 79 72)" fill="{INK}"/>
+  <circle cx="51" cy="70" r="3.5" fill="#ffffff"/>
+  <circle cx="77" cy="70" r="3.5" fill="#ffffff"/>
+  <ellipse cx="64" cy="88" rx="6" ry="4.5" fill="{INK}"/>
+  <circle cx="96" cy="34" r="19" fill="{LEAF}" stroke="{MINT}" stroke-width="5"/>
+  <path d="{LOGO_CHECK}" fill="none" stroke="#ffffff" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round"/>"""
 
 
-ARIA_LOGO = (
-    "A rounded square missing its top-right corner, with a check mark leaving through the gap"
-)
-
-
-def logo(p: Palette) -> str:
-    """
-    The mark, on no background at all.
-
-    Transparent rather than filled, unlike the diagrams: a logo has to sit on a README, a page
-    header and a browser tab, and a background of its own would be wrong on at least one of
-    them. The colour variants exist so the strokes suit what it is sitting on.
-    """
-    body = logo_body(f'stroke="{p.text}"', f'stroke="{p.accent}"')
-    return (
-        f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {LOGO_VIEWBOX} {LOGO_VIEWBOX}"\n'
-        f'     width="{LOGO_VIEWBOX}" height="{LOGO_VIEWBOX}" role="img"\n'
-        f'     aria-label="{ARIA_LOGO}">\n  {body}\n</svg>\n'
-    )
-
-
-def favicon() -> str:
-    """
-    One file for the browser tab, choosing its own colours.
-
-    A tab is the one place that cannot be handed two files and told to pick, the way a README
-    does with `<picture>` and a page does with a media query in CSS. An SVG favicon can carry
-    the query itself, so this is a single file that adapts.
-    """
-    body = logo_body('class="edge"', 'class="tick"')
+def logo() -> str:
+    """The mark on its rounded tile: the logo, the favicon and the sign-in button's icon."""
     return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {LOGO_VIEWBOX} {LOGO_VIEWBOX}"
-     role="img" aria-label="{ARIA_LOGO}">
-  <style>
-    .edge {{ stroke: {LIGHT.text}; }}
-    .tick {{ stroke: {LIGHT.accent}; }}
-    @media (prefers-color-scheme: dark) {{
-      .edge {{ stroke: {DARK.text}; }}
-      .tick {{ stroke: {DARK.accent}; }}
-    }}
-  </style>
-  {body}
+     width="{LOGO_VIEWBOX}" height="{LOGO_VIEWBOX}" role="img" aria-label="{ARIA_LOGO}">
+  <rect width="{LOGO_VIEWBOX}" height="{LOGO_VIEWBOX}" rx="28" fill="{MINT}"/>
+  {panda()}
+</svg>
+"""
+
+
+# The app's icons (#264), as the sources `mobile/assets/render-icons.sh` turns into the PNGs Expo
+# takes. Each platform rounds or crops the icon itself, so none of them has the tile's corners.
+
+def app_icon() -> str:
+    """iOS and the fallback icon: full-bleed mint, the panda a little smaller, clear of the corners
+    iOS cuts away."""
+    return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {LOGO_VIEWBOX} {LOGO_VIEWBOX}">
+  <rect width="{LOGO_VIEWBOX}" height="{LOGO_VIEWBOX}" fill="{MINT}"/>
+  <g transform="translate(64 64) scale(0.84) translate(-66 -64)">
+  {panda()}
+  </g>
+</svg>
+"""
+
+
+# Android's adaptive icon is 108 units square, and only a circle 66 across at its centre is sure to
+# show whatever shape the launcher cuts. The panda and its badge reach about 63 units from their
+# centre (69, 65), so they are scaled to fit inside that circle.
+ADAPTIVE = 108
+ADAPTIVE_FIT = "translate(54 54) scale(0.52) translate(-69 -65)"
+
+
+def android_foreground() -> str:
+    """The adaptive icon's foreground: the panda alone, on nothing."""
+    return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {ADAPTIVE} {ADAPTIVE}">
+  <g transform="{ADAPTIVE_FIT}">
+  {panda()}
+  </g>
+</svg>
+"""
+
+
+def android_background() -> str:
+    """The adaptive icon's background: the tile's mint, all over."""
+    return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {ADAPTIVE} {ADAPTIVE}">
+  <rect width="{ADAPTIVE}" height="{ADAPTIVE}" fill="{MINT}"/>
+</svg>
+"""
+
+
+def android_monochrome() -> str:
+    """
+    The themed icon Android 13 tints with the wallpaper's colours: one colour, read only by its
+    alpha. The white of the head is left out, and the eyes and the check mark are cut out of their
+    patches and badge, so the drawing still reads in a single colour.
+    """
+    return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {ADAPTIVE} {ADAPTIVE}">
+  <defs>
+    <mask id="cut">
+      <rect x="-200" y="-200" width="600" height="600" fill="#ffffff"/>
+      <circle cx="51" cy="70" r="3.5" fill="#000000"/>
+      <circle cx="77" cy="70" r="3.5" fill="#000000"/>
+      <path d="{LOGO_CHECK}" fill="none" stroke="#000000" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </mask>
+  </defs>
+  <g transform="{ADAPTIVE_FIT}">
+    <g fill="{INK}" mask="url(#cut)">
+      <circle cx="34" cy="36" r="13"/>
+      <circle cx="64" cy="72" r="40" fill="none" stroke="{INK}" stroke-width="6"/>
+      <ellipse cx="49" cy="72" rx="8.5" ry="12" transform="rotate(-32 49 72)"/>
+      <ellipse cx="79" cy="72" rx="8.5" ry="12" transform="rotate(32 79 72)"/>
+      <ellipse cx="64" cy="88" rx="6" ry="4.5"/>
+      <circle cx="96" cy="34" r="19"/>
+    </g>
+  </g>
 </svg>
 """
 
@@ -428,7 +466,6 @@ def main() -> None:
         "architecture": architecture,
         "workflow": workflow,
         "identities": identities,
-        "logo": logo,
     }
     for name, build in per_scheme.items():
         for palette in (LIGHT, DARK):
@@ -436,9 +473,24 @@ def main() -> None:
             path.write_text(build(palette))
             print(f"wrote {path.relative_to(HERE.parent.parent)}")
 
-    path = HERE / "favicon.svg"
-    path.write_text(favicon())
-    print(f"wrote {path.relative_to(HERE.parent.parent)}")
+    # The mark is the same everywhere it is drawn; the website's copies are written here too, so
+    # none of them can be left behind when it changes.
+    repo = HERE.parent.parent
+    artwork = {
+        HERE / "logo-light.svg": logo,
+        HERE / "logo-dark.svg": logo,
+        HERE / "favicon.svg": logo,
+        repo / "frontend/public/favicon.svg": logo,
+        repo / "frontend/src/assets/taskfest-mark.svg": logo,
+        repo / "mobile/assets/icons/icon.svg": app_icon,
+        repo / "mobile/assets/icons/android-icon-foreground.svg": android_foreground,
+        repo / "mobile/assets/icons/android-icon-background.svg": android_background,
+        repo / "mobile/assets/icons/android-icon-monochrome.svg": android_monochrome,
+    }
+    for path, build in artwork.items():
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(build())
+        print(f"wrote {path.relative_to(repo)}")
 
 
 if __name__ == "__main__":

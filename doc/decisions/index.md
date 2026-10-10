@@ -32,6 +32,7 @@ Decisions with consequences, why they were taken, and what was rejected. Newest 
 - [A task id is checked before it is put in a URL](frontend.md#a-task-id-is-checked-before-it-is-put-in-a-url)
 - [Responses are validated against the schema the backend publishes](frontend.md#responses-are-validated-against-the-schema-the-backend-publishes)
 - [Spacing and type are scales, not values](frontend.md#spacing-and-type-are-scales-not-values)
+- [The mark is a panda with a ticked ear](frontend.md#the-mark-is-a-panda-with-a-ticked-ear)
 
 ## [Testing](testing.md)
 

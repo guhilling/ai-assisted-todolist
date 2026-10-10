@@ -54,6 +54,11 @@ does. Website CI therefore also runs when `mobile/src` changes.
 The colours live in the website's CSS, which React Native cannot read; `mobile/src/theme.ts`
 repeats them and `theme.test.ts` compares the two.
 
+The icons are the website's mark ([decisions/frontend.md](../decisions/frontend.md)):
+`doc/images/generate.py` writes their SVG sources to `mobile/assets/icons/`, and
+`mobile/assets/render-icons.sh` turns them into the PNGs `app.config.ts` names — the iOS icon and
+Android's adaptive icon, with its mint background and a single-colour version for themed icons.
+
 ## Older than its backend
 
 An installed app is weeks older than the backend it talks to, so it is built to cope (#268,

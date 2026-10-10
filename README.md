@@ -56,8 +56,10 @@ somebody remembering it. The one deliberate exception is mutation testing, which
 rather than blocks — [the testing chapter](doc/testing/mutation-testing.md) says why, and
 [the decisions](doc/decisions/index.md) record that and every other choice with its reasoning.
 
-Both diagrams are generated: edit `doc/images/generate.py` and re-run it rather than
-touching the SVGs, which exist in a light and a dark variant that must stay in step.
+The diagrams and the logo are generated: edit `doc/images/generate.py` and re-run it rather than
+touching the SVGs, which exist in a light and a dark variant that must stay in step. It also writes
+the website's favicon and the sources of the app's icons, which `mobile/assets/render-icons.sh`
+turns into the PNGs the app is built with.
 
 ## Getting it running
 

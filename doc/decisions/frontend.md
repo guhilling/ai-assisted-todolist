@@ -375,3 +375,20 @@ the task exists. A file refused then does not undo the task: the row names it an
 can be attached again from the editor. The editor and the add row share the drop zone (`FileDrop`)
 and the uploading with its progress and messages (`useUploads`).
 
+## The mark is a panda with a ticked ear
+
+**Decision (Gunnar, 10 October 2026).** TaskFest's mark is a panda's head on a mint tile, its right
+ear a green disc with a check mark. It replaces the rounded square with an open corner and a tick
+leaving through the gap. It is drawn once, in `doc/images/generate.py`, which writes every file that
+shows it: the README's and the documentation site's logo, the favicons, the sign-in button's icon,
+and the sources of the app's icons (`mobile/assets/icons/`, rendered to PNG by
+`mobile/assets/render-icons.sh`). CI fails when any of them differs from what the generator writes.
+
+**Why a panda.** It started as the panda of the paused page, which Gunnar liked better than the
+abstract mark. Made more abstract, it keeps that page's ink and mint, and the tick that says what
+the app is for. Of four drafts (a round head with a tick ear, the old open square as a face, a
+panda drawn only by its dark parts, and this tile) the tile won: it brings its own background, so
+it reads the same on light and dark pages and needs no colour variants, and it is already shaped
+like an app icon. Two bamboo variants (a stalk behind the head, a tick drawn as bamboo) were also
+drawn; the plain tick stays legible at 16 pixels, where bamboo turns into a green smudge.
+

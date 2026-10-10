@@ -193,7 +193,7 @@ def render_reference(directory: pathlib.Path, label: str) -> None:
             # Redoc otherwise links Montserrat and Roboto from Google Fonts. The site's own
             # stack is a system one, so there is nothing to fetch and nothing to wait for.
             "--disableGoogleFont",
-            # The palette doc/images/generate.py draws the logo and the diagrams with, so the
+            # The palette doc/images/generate.py draws the diagrams with, so the
             # reference does not look like a different project's page.
             "--theme.openapi.theme.colors.primary.main=#1a73e8",
             "--theme.openapi.theme.typography.fontFamily=system-ui, -apple-system, "

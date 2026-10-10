@@ -1,6 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128"
-     width="128" height="128" role="img" aria-label="A panda's head on a mint tile, its right ear a green disc with a check mark">
-  <rect width="128" height="128" rx="28" fill="#e9f5e1"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <rect width="128" height="128" fill="#e9f5e1"/>
+  <g transform="translate(64 64) scale(0.84) translate(-66 -64)">
   <circle cx="34" cy="36" r="13" fill="#1d1d1f"/>
   <circle cx="64" cy="72" r="40" fill="#ffffff" stroke="#1d1d1f" stroke-width="6"/>
   <ellipse cx="49" cy="72" rx="8.5" ry="12" transform="rotate(-32 49 72)" fill="#1d1d1f"/>
@@ -10,4 +10,5 @@
   <ellipse cx="64" cy="88" rx="6" ry="4.5" fill="#1d1d1f"/>
   <circle cx="96" cy="34" r="19" fill="#7fae1c" stroke="#e9f5e1" stroke-width="5"/>
   <path d="M 87 34 L 93.5 41 L 106 27" fill="none" stroke="#ffffff" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
 </svg>

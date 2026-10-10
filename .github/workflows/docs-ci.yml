@@ -33,9 +33,12 @@ jobs:
           python3 doc/images/generate.py
           # --intent-to-add first, or a brand new diagram would be untracked and so invisible
           # to git diff -- the one case this gate most needs to catch.
-          git add --all --intent-to-add doc/images
-          git diff --exit-code doc/images || {
-            echo "::error::doc/images is out of date. Run: python3 doc/images/generate.py"
+          # The mark's copies outside doc/images are generated too: the website's favicon and
+          # sign-in icon, and the sources of the app's icons.
+          generated="doc/images frontend/public/favicon.svg frontend/src/assets/taskfest-mark.svg mobile/assets/icons"
+          git add --all --intent-to-add $generated
+          git diff --exit-code $generated || {
+            echo "::error::The generated artwork is out of date. Run: python3 doc/images/generate.py"
             exit 1
           }
 
