@@ -9,7 +9,7 @@
  */
 export type { TaskImportance, TaskResponse as Task, TaskState } from '../../frontend/src/generated/types'
 export { validateTaskResponse, validateVersionResponse } from '../../frontend/src/generated/validators'
-export { compareCompleted, compareOpen } from '../../frontend/src/importance'
+export { compareCompleted, compareOpen, importanceRank } from '../../frontend/src/importance'
 export { bucketOf, describeDueDate, todayIso, type DueBucket } from '../../frontend/src/dates'
 export { catalogues, type Messages } from '../../frontend/src/i18n/messages'
 export { chooseLanguage, localeOf, type Language } from '../../frontend/src/i18n/language'

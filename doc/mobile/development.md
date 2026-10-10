@@ -54,11 +54,17 @@ An installed app is weeks older than the backend it talks to, so it is built to 
 
 - every request names its release in `X-TaskFest-App`, which the backend's request log records as
   `app`, so it can be seen which releases still call what;
-- at start it asks `GET /api/version` for `minimumAppVersion` and, when it is older, asks its user
-  to update instead of failing on an API it no longer matches — a build from a branch (`0.0.0`) is
-  never too old, and an answer it cannot get locks nobody out;
+- at start, and whenever it comes back to the foreground, it asks `GET /api/version` for
+  `minimumAppVersion` — alongside reading the kept session, and for three seconds at most — and,
+  when it is older, asks its user to update instead of failing on an API it no longer matches. A
+  build from a branch (`0.0.0`) is never too old, and an answer it cannot get locks nobody out;
 - an importance or state it does not know, which a newer backend may add, is read as unknown and
   marked on the board, not refused: the task stays open and is ordered as the least important.
+
+The version is `TASKFEST_VERSION`, which `app.config.ts` makes the app's version. Only the release
+build will set it, from the tag (#276); until then every build is `0.0.0`, and the minimum version
+has nothing to compare with. It is a bare `major.minor.patch`, since that is all an iOS app's
+version may be, and the backend logs nothing else as an `app`.
 
 ## Tests and CI
 

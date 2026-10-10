@@ -1,10 +1,4 @@
-import {
-  validateTaskResponse,
-  validateVersionResponse,
-  type Task,
-  type TaskImportance,
-  type TaskState,
-} from './web'
+import { importanceRank, validateTaskResponse, validateVersionResponse, type Task, type TaskState } from './web'
 
 /**
  * The app's side of the REST API (#267): every request carries the ID token as a bearer token
@@ -24,9 +18,16 @@ const APP_VERSION_HEADER = 'X-TaskFest-App'
  */
 export type BoardTask = Task & { unknown?: ('importance' | 'state')[] }
 
-/** The values this release knows; a compile error here when the backend adds one. */
-const KNOWN_IMPORTANCE: Record<TaskImportance, true> = { LOW: true, MEDIUM: true, HIGH: true }
+/**
+ * The states this release knows; a compile error here when the backend adds one. The importances
+ * it knows are the website's `importanceRank`, which has every level for the same reason.
+ */
 const KNOWN_STATE: Record<TaskState, true> = { TODO: true, WORKING: true, DONE: true }
+
+/** Whether a value is one of a record's own keys -- never a name every object inherits. */
+function isKnown(value: unknown, known: object) {
+  return typeof value === 'string' && Object.hasOwn(known, value)
+}
 
 /** The backend refused the token: expired, revoked or never valid. The app signs in again. */
 export class SignedOutError extends Error {
@@ -79,11 +80,11 @@ function readTask(item: unknown): BoardTask {
     const record = item as Record<string, unknown>
     const unknown: ('importance' | 'state')[] = []
     const stand = { ...record }
-    if (typeof record.importance === 'string' && !(record.importance in KNOWN_IMPORTANCE)) {
+    if (typeof record.importance === 'string' && !isKnown(record.importance, importanceRank)) {
       unknown.push('importance')
       stand.importance = 'LOW'
     }
-    if (typeof record.state === 'string' && !(record.state in KNOWN_STATE)) {
+    if (typeof record.state === 'string' && !isKnown(record.state, KNOWN_STATE)) {
       unknown.push('state')
       stand.state = 'TODO'
     }
@@ -104,21 +105,23 @@ export async function fetchMinimumAppVersion(
   appVersion: string,
   fetchImpl: typeof fetch = fetch,
 ): Promise<string> {
-  const response = await fetchImpl(`${baseUrl}/api/version`, {
-    headers: { Accept: 'application/json', [APP_VERSION_HEADER]: appVersion },
-  })
-  if (!response.ok) {
-    throw new RequestFailedError(response.status)
-  }
-  const data: unknown = await response.json()
+  const data = await get({ baseUrl, appVersion }, '/api/version', fetchImpl)
   if (!validateVersionResponse(data)) {
     throw new ContractBreachError('the running version')
   }
   return data.minimumAppVersion
 }
 
-async function get(caller: Caller, path: string, fetchImpl: typeof fetch): Promise<unknown> {
-  const headers: Record<string, string> = { Accept: 'application/json', Authorization: `Bearer ${caller.idToken}` }
+/** One GET, signed in when there is an ID token; the one place requests are made and answered. */
+async function get(
+  caller: Omit<Caller, 'idToken'> & { idToken?: string },
+  path: string,
+  fetchImpl: typeof fetch,
+): Promise<unknown> {
+  const headers: Record<string, string> = { Accept: 'application/json' }
+  if (caller.idToken) {
+    headers.Authorization = `Bearer ${caller.idToken}`
+  }
   if (caller.appVersion) {
     headers[APP_VERSION_HEADER] = caller.appVersion
   }

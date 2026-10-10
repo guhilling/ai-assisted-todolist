@@ -19,7 +19,7 @@ describe('the backend, as the app asks it', () => {
     await fetchTasks({ baseUrl: BASE, idToken: 'the-token' }, fetchImpl)
 
     expect(fetchImpl).toHaveBeenCalledWith(`${BASE}/api/tasks`, {
-      headers: expect.objectContaining({ Accept: 'application/json', Authorization: 'Bearer the-token' }),
+      headers: { Accept: 'application/json', Authorization: 'Bearer the-token' },
     })
   })
 
@@ -51,6 +51,14 @@ describe('the backend, as the app asks it', () => {
 
     // Ordered as the least important and kept open, so it is never hidden; marked as unknown.
     expect(task).toMatchObject({ id: 1, importance: 'LOW', state: 'TODO', unknown: ['importance', 'state'] })
+  })
+
+  it('does not take a name every object has for a known value', async () => {
+    const odd = { ...aTask, importance: 'constructor', state: 'toString' }
+
+    const [task] = await fetchTasks({ baseUrl: BASE, idToken: 't' }, respond(200, [odd]))
+
+    expect(task.unknown).toEqual(['importance', 'state'])
   })
 
   it('still refuses an unknown value where something else is wrong too', async () => {
