@@ -1,0 +1,73 @@
+import { StyleSheet } from 'react-native'
+import type { Theme } from './theme'
+
+/** The app's styles in one theme's colours: one set for every screen, made once per theme. */
+export function stylesFor(theme: Theme) {
+  return StyleSheet.create({
+    screen: { flex: 1, backgroundColor: theme.bg, paddingHorizontal: 16 },
+    signedOut: { flex: 1, justifyContent: 'center', gap: 16 },
+    title: { fontSize: 32, fontWeight: '700', color: theme.brandStrong },
+    muted: { color: theme.textMuted },
+    notice: { color: theme.danger },
+    button: { backgroundColor: theme.accent, borderRadius: 6, paddingVertical: 12, paddingHorizontal: 16 },
+    buttonText: { color: theme.accentContrast, fontWeight: '600', textAlign: 'center' },
+    quietButton: { borderRadius: 6, paddingVertical: 12, paddingHorizontal: 16 },
+    quietButtonText: { color: theme.accent, fontWeight: '600', textAlign: 'center' },
+    dangerText: { color: theme.danger, fontWeight: '600', textAlign: 'center' },
+    disabled: { opacity: 0.5 },
+    board: { flex: 1 },
+    boardContent: { paddingVertical: 16, gap: 24 },
+    section: { gap: 8 },
+    sectionHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+    heading: { fontSize: 18, fontWeight: '700', color: theme.text },
+    overdue: { color: theme.danger },
+    row: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      paddingVertical: 8,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: theme.border,
+    },
+    rowBody: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 },
+    check: { width: 24, height: 24, borderRadius: 12, borderWidth: 2, borderColor: theme.textMuted },
+    checked: { backgroundColor: theme.textMuted },
+    dot: { width: 8, height: 8, borderRadius: 4 },
+    importanceLOW: { backgroundColor: theme.importanceLow },
+    importanceMEDIUM: { backgroundColor: theme.importanceMedium },
+    importanceHIGH: { backgroundColor: theme.importanceHigh },
+    unknownDot: { borderWidth: 1, borderColor: theme.textMuted },
+    description: { flex: 1, color: theme.text },
+    done: { color: theme.textMuted, textDecorationLine: 'line-through' },
+    footer: { paddingVertical: 8, gap: 8 },
+    undo: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      backgroundColor: theme.surfaceRaised,
+      borderRadius: 6,
+      paddingLeft: 16,
+    },
+    formScreen: { flex: 1, backgroundColor: theme.bg },
+    form: { padding: 16, gap: 16 },
+    formTitle: { fontSize: 20, fontWeight: '700', color: theme.text },
+    label: { color: theme.textMuted, fontWeight: '600' },
+    input: {
+      borderWidth: 1,
+      borderColor: theme.border,
+      borderRadius: 6,
+      padding: 12,
+      color: theme.text,
+      backgroundColor: theme.surfaceRaised,
+    },
+    chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+    chip: { borderWidth: 1, borderColor: theme.border, borderRadius: 16, paddingVertical: 6, paddingHorizontal: 12 },
+    chipActive: { backgroundColor: theme.accent, borderColor: theme.accent },
+    chipText: { color: theme.text },
+    chipTextActive: { color: theme.accentContrast },
+    formButtons: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8 },
+  })
+}
+
+/** The styles every screen is handed. */
+export type Styles = ReturnType<typeof stylesFor>

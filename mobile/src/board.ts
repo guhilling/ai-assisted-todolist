@@ -25,3 +25,8 @@ export function boardOf(tasks: BoardTask[], today: string): Board {
   const completed = tasks.filter((task) => task.state === 'DONE').sort(compareCompleted)
   return { sections, completed }
 }
+
+/** Whether the app may change a task: not one holding a value it does not know (#268, #271). */
+export function isChangeable(task: BoardTask) {
+  return !task.unknown?.length
+}

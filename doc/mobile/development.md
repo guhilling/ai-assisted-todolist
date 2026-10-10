@@ -80,7 +80,8 @@ version may be, and the backend logs nothing else as an `app`.
   everywhere in this project, the test comes first.
 - **`npm run lint`** (oxlint, the frontend's rules), **`npm run typecheck`**, and
   **`npm run check:deps`** — the frontend's pre-release check, run on the app's lockfile.
-- **Maestro** flows under `mobile/maestro/` drive the built app on an emulator.
+- **Maestro** flows under `mobile/maestro/` drive the built app on an emulator: `sign-in.yaml`
+  signs in and sees the board, `change-tasks.yaml` changes it ([board.md](board.md)).
 
 `.github/workflows/mobile-ci.yml` runs all of it on every pull request touching the app or what
 it shares with the website: the checks; a release APK of the `dev` variant on Linux; an iOS
