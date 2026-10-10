@@ -1,5 +1,5 @@
-import { render, screen, userEvent, within } from '@testing-library/react-native'
-import { Linking } from 'react-native'
+import { act, render, screen, userEvent, within } from '@testing-library/react-native'
+import { AppState, Linking } from 'react-native'
 import { RequestFailedError, SignedOutError, type BoardTask } from './api'
 import type { Session } from './session'
 import type { SessionStore } from './staySignedIn'
@@ -213,6 +213,131 @@ describe('the account, from the app (#275)', () => {
     expect(screen.getByText('Angemeldet als ada@example.com')).toBeOnTheScreen()
     expect(Linking.openURL).toHaveBeenNthCalledWith(1, 'https://taskfest-docs.cloud.hilling.de/doc/datenschutz.html')
     expect(Linking.openURL).toHaveBeenNthCalledWith(2, 'https://taskfest-docs.cloud.hilling.de/doc/nutzungsbedingungen.html')
+  })
+})
+
+/** Hands back what the app does when it comes back to the foreground. */
+function foreground() {
+  let onChange: (state: string) => void = () => undefined
+  jest.spyOn(AppState, 'addEventListener').mockImplementation((_type, listener) => {
+    onChange = listener as (state: string) => void
+    return { remove: jest.fn() } as never
+  })
+  return () => act(async () => onChange('active'))
+}
+
+async function confirmDelete(user: ReturnType<typeof userEvent.setup>) {
+  await user.press(screen.getByRole('button', { name: 'Delete account' }))
+  await user.type(screen.getByLabelText('Type your email address to confirm'), 'ada@example.com')
+  await user.press(screen.getByRole('button', { name: 'Delete my account' }))
+}
+
+describe('the account, when things overlap (#275)', () => {
+  it('stays signed out when a renewal under way finishes after the sign-out', async () => {
+    const comeBack = foreground()
+    const soon = tokenWith({ exp: (NOW + 30_000) / 1000, email: 'ada@example.com' })
+    let renew: () => void = () => undefined
+    const refresh = jest
+      .fn()
+      .mockResolvedValueOnce({ idToken: soon })
+      .mockReturnValueOnce(new Promise((resolve) => (renew = () => resolve({ idToken }))))
+    const sessions = memorySessions({ ...session, idToken: soon, expiresAt: NOW + 30_000 })
+    const fetchTasks = jest.fn().mockResolvedValue([water])
+    await render(
+      <TaskFestApp
+        variant={variants.dev}
+        language="en"
+        dependencies={dependencies({ sessions, fetchTasks, provider: { signIn: jest.fn(), refresh } })}
+      />,
+    )
+    await screen.findByText('Water the plants')
+    const user = userEvent.setup()
+
+    await comeBack()
+    await user.press(screen.getByRole('button', { name: 'Account' }))
+    await user.press(screen.getByRole('button', { name: 'Sign out' }))
+    await act(async () => renew())
+
+    expect(sessions.current()).toBeNull()
+    expect(screen.getByRole('button', { name: 'Sign in with Keycloak' })).toBeOnTheScreen()
+    expect(screen.queryByText('Water the plants')).toBeNull()
+  })
+
+  it('leaves no sheet behind when a refused delete answers after the sign-out', async () => {
+    let refuse: () => void = () => undefined
+    const deleteAccount = jest.fn(() => new Promise<void>((_resolve, reject) => (refuse = () => reject(new RequestFailedError(500)))))
+    const signIn = jest.fn().mockResolvedValue({ idToken, refreshToken: 'r' })
+    const { user } = await openAccount({ deleteAccount, provider: { signIn, refresh: jest.fn() } })
+
+    await confirmDelete(user)
+    await user.press(screen.getByRole('button', { name: 'Sign out' }))
+    await act(async () => refuse())
+    await user.press(await screen.findByRole('button', { name: 'Sign in with Keycloak' }))
+
+    expect(await screen.findByText('Water the plants')).toBeOnTheScreen()
+    expect(screen.queryByText('Signed in as ada@example.com')).toBeNull()
+    expect(screen.queryByText('Unable to delete your account.')).toBeNull()
+  })
+
+  it('signs out on the screen even when the keychain will not forget', async () => {
+    jest.spyOn(console, 'warn').mockImplementation(() => undefined)
+    const sessions = { ...memorySessions(session), clear: jest.fn().mockRejectedValue(new Error('keychain')) }
+    const { user } = await openAccount({ sessions })
+
+    await user.press(screen.getByRole('button', { name: 'Sign out' }))
+
+    expect(await screen.findByRole('button', { name: 'Sign in with Keycloak' })).toBeOnTheScreen()
+    expect(console.warn).toHaveBeenCalled()
+  })
+
+  it('says the account was deleted even when the keychain will not forget', async () => {
+    jest.spyOn(console, 'warn').mockImplementation(() => undefined)
+    const sessions = { ...memorySessions(session), clear: jest.fn().mockRejectedValue(new Error('keychain')) }
+    const { user } = await openAccount({ sessions })
+
+    await confirmDelete(user)
+
+    expect(
+      await screen.findByText('Your account has been deleted. Signing in again starts a new, empty one.'),
+    ).toBeOnTheScreen()
+  })
+
+  it('does not start over in the foreground while the sheet is open', async () => {
+    const comeBack = foreground()
+    const fetchTasks = jest.fn().mockResolvedValue([water])
+    const { user } = await openAccount({ fetchTasks })
+
+    await user.press(screen.getByRole('button', { name: 'Delete account' }))
+    await user.type(screen.getByLabelText('Type your email address to confirm'), 'ada@')
+    await comeBack()
+
+    expect(fetchTasks).toHaveBeenCalledTimes(1)
+    expect(screen.getByLabelText('Type your email address to confirm')).toHaveDisplayValue('ada@')
+  })
+
+  it('still says the account was deleted after a trip to the background', async () => {
+    const comeBack = foreground()
+    const { user } = await openAccount()
+
+    await confirmDelete(user)
+    await screen.findByText('Your account has been deleted. Signing in again starts a new, empty one.')
+    await comeBack()
+
+    expect(screen.getByText('Your account has been deleted. Signing in again starts a new, empty one.')).toBeOnTheScreen()
+  })
+
+  it('closes the sheet when the backend turns the session away on the next load', async () => {
+    const comeBack = foreground()
+    const signIn = jest.fn().mockResolvedValue({ idToken, refreshToken: 'r' })
+    const fetchTasks = jest.fn().mockResolvedValueOnce([water]).mockRejectedValueOnce(new SignedOutError()).mockResolvedValue([water])
+    const { user } = await openAccount({ fetchTasks, provider: { signIn, refresh: jest.fn() } })
+
+    await user.press(screen.getByRole('button', { name: 'Done' }))
+    await comeBack()
+    await user.press(await screen.findByRole('button', { name: 'Sign in with Keycloak' }))
+
+    expect(await screen.findByText('Water the plants')).toBeOnTheScreen()
+    expect(screen.queryByText('Signed in as ada@example.com')).toBeNull()
   })
 })
 

@@ -1,4 +1,5 @@
 import { Linking, Pressable, Text, View } from 'react-native'
+import { isDevelopmentBuild } from './appVersion'
 import type { Styles } from './styles'
 import { imprintUrl, privacyUrls, termsUrls, type Language, type Messages } from './web'
 
@@ -33,7 +34,7 @@ export function LegalLinks({
       {link(messages.footer.privacy, privacyUrls[language])}
       {link(messages.footer.terms, termsUrls[language])}
       <Text style={styles.muted}>
-        {appVersion === '0.0.0' ? messages.footer.developmentBuild : messages.footer.version(appVersion)}
+        {isDevelopmentBuild(appVersion) ? messages.footer.developmentBuild : messages.footer.version(appVersion)}
       </Text>
     </View>
   )

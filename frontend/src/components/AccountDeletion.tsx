@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { confirmsEmail } from '../confirmsEmail'
 import { useEscapeWithin } from '../escape'
 import { useReturnFocus } from '../focus'
 import { useI18n } from '../i18n/context'
@@ -27,7 +28,7 @@ function AccountDeletion({ email, onDelete }: Readonly<AccountDeletionProps>) {
   const [asking, setAsking] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [typed, setTyped] = useState('')
-  const confirmed = typed.trim().toLowerCase() === email.trim().toLowerCase()
+  const confirmed = confirmsEmail(typed, email)
   const trigger = useRef<HTMLButtonElement>(null)
   const dialog = useRef<HTMLElement>(null)
   // Closing the confirmation puts focus back on the button it was opened from; without this it

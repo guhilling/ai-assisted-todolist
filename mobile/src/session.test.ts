@@ -58,6 +58,12 @@ describe('the signed-in address (#275)', () => {
     expect(emailOf(tokenWith({ email: 'ada@example.com' }))).toBe('ada@example.com')
   })
 
+  it('reads an address beyond ASCII, as the token’s UTF-8 has it', () => {
+    const claims = Buffer.from(JSON.stringify({ email: 'jörg@example.de' })).toString('base64url')
+
+    expect(emailOf(`header.${claims}.signature`)).toBe('jörg@example.de')
+  })
+
   it('is unknown when the token names none, or cannot be read', () => {
     expect(emailOf(tokenWith({ sub: 'ada' }))).toBeNull()
     expect(emailOf('not a token')).toBeNull()

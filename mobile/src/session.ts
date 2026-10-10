@@ -46,14 +46,16 @@ export function emailOf(token: string): string | null {
   return typeof email === 'string' ? email : null
 }
 
-/** A token's claims, unverified, or null when they cannot be read. */
+/** A token's claims, unverified, or null when they cannot be read. They are UTF-8, which `atob` alone is not. */
 function claimsOf(token: string): Record<string, unknown> | null {
   const payload = token.split('.')[1]
   if (!payload) {
     return null
   }
   try {
-    return JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/'))) as Record<string, unknown>
+    const bytes = atob(payload.replace(/-/g, '+').replace(/_/g, '/'))
+    const utf8 = Array.from(bytes, (byte) => `%${byte.charCodeAt(0).toString(16).padStart(2, '0')}`).join('')
+    return JSON.parse(decodeURIComponent(utf8)) as Record<string, unknown>
   } catch {
     return null
   }

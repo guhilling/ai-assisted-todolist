@@ -13,10 +13,14 @@ sheet over the board.
   session alone: it is not an RP-initiated logout, so signing in again may not ask for a password.
   The app keeps nothing else for a signed-in user yet; whatever it comes to keep — the board for
   offline reading (#272), the scheduled reminders (#273) — is removed in the same place,
-  `signOut` in `mobile/src/TaskFestApp.tsx`.
+  `signOut` in `mobile/src/TaskFestApp.tsx`, which every way to the sign-in goes through — a
+  session the backend turns away too. A renewal under way is waited for before the keychain is
+  cleared, and a start or a load begun before the sign-out gives up, so neither signs back in.
+  While the sheet is open, coming back to the foreground does not start the app over: its own
+  legal links leave the app, and a half-typed confirmation would be lost.
 - **Delete account** — the website's confirmation, in its words: everything goes, for good, and
   the delete button stays disabled until the signed-in address is typed (in any case, with any
-  spaces around it). It calls the website's endpoint, `DELETE /api/account`, with the ID token,
+  spaces around it: the website's own rule, `frontend/src/confirmsEmail.ts`). It calls the website's endpoint, `DELETE /api/account`, with the ID token,
   then signs out and says the account was deleted; signing in again starts a new, empty one. A
   refused delete closes the question and says why; a session that has ended leads to the sign-in,
   as any change does ([board.md](board.md)).

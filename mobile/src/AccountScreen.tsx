@@ -3,7 +3,7 @@ import { Pressable, ScrollView, Text, TextInput, View } from 'react-native'
 import { LegalLinks } from './LegalLinks'
 import type { Styles } from './styles'
 import type { Theme } from './theme'
-import type { Language, Messages } from './web'
+import { confirmsEmail, type Language, type Messages } from './web'
 
 /**
  * The account sheet (#275): who is signed in, signing out, deleting the account, and the legal
@@ -43,7 +43,7 @@ export function AccountScreen({
   const [asking, setAsking] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [typed, setTyped] = useState('')
-  const confirmed = email !== null && typed.trim().toLowerCase() === email.trim().toLowerCase()
+  const confirmed = email !== null && confirmsEmail(typed, email)
 
   const keep = () => {
     setTyped('')

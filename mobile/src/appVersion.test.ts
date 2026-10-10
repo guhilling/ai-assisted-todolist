@@ -1,4 +1,4 @@
-import { isTooOld } from './appVersion'
+import { isDevelopmentBuild, isTooOld } from './appVersion'
 
 describe('whether this app is too old for the backend', () => {
   it('is, when the backend serves only newer releases', () => {
@@ -23,5 +23,13 @@ describe('whether this app is too old for the backend', () => {
   it('does not lock anyone out over a version it cannot read', () => {
     expect(isTooOld('1.0.0', 'soon')).toBe(false)
     expect(isTooOld('unknown', '1.0.0')).toBe(false)
+  })
+})
+
+describe('a development build (#275)', () => {
+  it('is one built from a branch: 0.0.0', () => {
+    expect(isDevelopmentBuild('0.0.0')).toBe(true)
+    expect(isDevelopmentBuild('1.2.0')).toBe(false)
+    expect(isDevelopmentBuild('0.0.1')).toBe(false)
   })
 })

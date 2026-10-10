@@ -117,12 +117,14 @@ export function TaskFestApp({
   /** The tasks whose change is on its way: each is sent one change at a time. */
   const [busy, setBusy] = useState<ReadonlySet<number>>(new Set())
   const busyIds = useRef(new Set<number>())
-  /** Changes on their way, and whether a form is open: the foreground start waits for neither. */
+  /** Changes on their way, and whether a form or the account sheet is open: the foreground start waits for neither. */
   const inFlight = useRef(0)
-  const formOpen = useRef(false)
+  const sheetOpen = useRef(false)
   useEffect(() => {
-    formOpen.current = form !== null
-  }, [form])
+    sheetOpen.current = form !== null || account !== null
+  }, [form, account])
+  /** Raised by every sign-out, so a start or a load begun before one does not sign back in after it. */
+  const signOuts = useRef(0)
   /** The renewal under way, shared, so the refresh token is never spent twice at once. */
   const renewal = useRef<Promise<Session | null> | null>(null)
 
@@ -133,34 +135,65 @@ export function TaskFestApp({
     return renewal.current
   }, [now, provider, sessions])
 
+  /**
+   * Forgets the session on the phone and everything shown for it, and goes back to the sign-in.
+   * The one way out: whatever the app keeps for a signed-in user goes here.
+   *
+   * A renewal under way would save its session after the keychain was cleared, so it is waited for
+   * first; and a start or a load begun before the sign-out finds it counted and gives up.
+   */
+  const signOut = useCallback(
+    async (notice?: SignedOutNotice) => {
+      signOuts.current += 1
+      await renewal.current?.catch(() => undefined)
+      await sessions.clear().catch((failure: unknown) => {
+        // The screen signs out regardless; the next start finds the session again, at worst.
+        console.warn('The kept session could not be forgotten', failure)
+      })
+      setForm(null)
+      setAccount(null)
+      undoable.current = null
+      setDeleted(null)
+      setFailure(undefined)
+      setState({ kind: 'signedOut', notice })
+    },
+    [sessions],
+  )
+
   const showBoard = useCallback(
     async (session: Session) => {
+      const started = signOuts.current
       // A board already shown stays while it loads anew, and with it any form open over it.
       setState((current) => (current.kind === 'board' ? current : { kind: 'loading' }))
       try {
         const tasks = await fetchTasks({ baseUrl: variant.apiBaseUrl, idToken: session.idToken })
-        setState({ kind: 'board', tasks, email: emailOf(session.idToken) })
+        if (signOuts.current === started) {
+          setState({ kind: 'board', tasks, email: emailOf(session.idToken) })
+        }
       } catch (failure) {
+        if (signOuts.current !== started) {
+          return
+        }
         if (failure instanceof SignedOutError) {
-          await sessions.clear()
-          setState({ kind: 'signedOut', notice: 'sessionExpired' })
+          await signOut('sessionExpired')
         } else {
           setState({ kind: 'failed' })
         }
       }
     },
-    [fetchTasks, sessions, variant.apiBaseUrl],
+    [fetchTasks, signOut, variant.apiBaseUrl],
   )
 
   /** How often the start has been tried: "try again" raises it, and the effect below runs anew. */
   const [attempt, setAttempt] = useState(0)
 
   // Back in the foreground, the app starts over: the backend may no longer serve this release,
-  // and the board may have changed meanwhile. Not while a form is open or a change is on its way,
-  // though: the form would lose what was typed, and the board could miss the change.
+  // and the board may have changed meanwhile. Not while a form or the account sheet is open or a
+  // change is on its way, though: the sheet would lose what was typed -- and the account sheet's
+  // own legal links leave the app -- and the board could miss the change.
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (next) => {
-      if (next === 'active' && !formOpen.current && inFlight.current === 0) {
+      if (next === 'active' && !sheetOpen.current && inFlight.current === 0) {
         setAttempt((count) => count + 1)
       }
     })
@@ -170,6 +203,7 @@ export function TaskFestApp({
   useEffect(() => {
     /** From the kept session to the board, or to the sign-in. */
     const start = async () => {
+      const started = signOuts.current
       // Which releases the backend serves, and the kept session, are asked for at once. An app the
       // backend no longer serves says so before anything else; one that cannot find out in time
       // carries on, since a slow or absent network is no reason to lock anyone out.
@@ -180,6 +214,9 @@ export function TaskFestApp({
           (failure: unknown) => ({ failure }),
         ),
       ])
+      if (signOuts.current !== started) {
+        return
+      }
       if (minimum && isTooOld(appVersion, minimum)) {
         setState({ kind: 'tooOld' })
         return
@@ -196,17 +233,18 @@ export function TaskFestApp({
         }
         // The keychain could not be read -- invalidated, restored from a backup: start afresh.
         console.warn('The kept session could not be read', failure)
-        await sessions.clear().catch(() => undefined)
-        session = null
+        await signOut()
+        return
       }
       if (session) {
         await showBoard(session)
       } else {
-        setState({ kind: 'signedOut' })
+        // Already at the sign-in, it stays as it is, with whatever it says -- "account deleted", say.
+        setState((current) => (current.kind === 'signedOut' ? current : { kind: 'signedOut' }))
       }
     }
     void start()
-  }, [appVersion, attempt, fetchMinimumAppVersion, sessionNow, sessions, showBoard])
+  }, [appVersion, attempt, fetchMinimumAppVersion, sessionNow, showBoard, signOut])
 
   const retry = () => {
     setState({ kind: 'starting' })
@@ -264,19 +302,6 @@ export function TaskFestApp({
     return text
   }
 
-  /**
-   * Forgets the session on the phone and everything shown for it, and goes back to the sign-in.
-   * The one way out: whatever the app keeps for a signed-in user goes here.
-   */
-  const signOut = async (notice?: SignedOutNotice) => {
-    await sessions.clear()
-    setForm(null)
-    setAccount(null)
-    offerUndo(null)
-    setFailure(undefined)
-    setState({ kind: 'signedOut', notice })
-  }
-
   /** Deletes the account, then signs out; says why on the sheet when the backend refused. */
   const removeAccount = async (): Promise<boolean> => {
     setAccount({})
@@ -285,7 +310,8 @@ export function TaskFestApp({
     } catch (cause) {
       const text = await failed(cause, messages.errors.deleteAccount)
       if (text) {
-        setAccount({ failure: text })
+        // Only on a sheet still open: one closed meanwhile, or signed out of, stays so.
+        setAccount((current) => current && { failure: text })
       }
       return false
     }
