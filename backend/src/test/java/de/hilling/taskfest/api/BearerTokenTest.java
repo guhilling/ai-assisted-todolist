@@ -5,7 +5,6 @@ import de.hilling.taskfest.model.TaskState;
 import de.hilling.taskfest.support.KeycloakTokens;
 import de.hilling.taskfest.support.TwoSignInProviders;
 import io.quarkus.test.junit.QuarkusTest;
-import io.quarkus.test.junit.QuarkusTestProfile;
 import io.quarkus.test.junit.TestProfile;
 import io.restassured.http.ContentType;
 import io.restassured.response.ValidatableResponse;
@@ -13,7 +12,6 @@ import io.restassured.specification.RequestSpecification;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.util.Base64;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -29,14 +27,15 @@ import static org.hamcrest.Matchers.nullValue;
  * The app's way in (#266): an ID token sent as {@code Authorization: Bearer}, beside the session
  * cookie the website uses.
  *
- * <p>Two providers, as in a deployment with more than one: the main one (the {@code taskfest}
- * realm, standing in for Google) and a named tenant for a realm of its own (the {@code apps}
- * realm, standing in for qa's Cognito pool), whose client is public, as an installed app's is.
+ * <p>In {@link TwoSignInProviders}, shared with the other multi-provider tests so Quarkus and
+ * Keycloak boot once: the main provider (the {@code taskfest} realm, standing in for Google) and
+ * the {@code apps} realm's tenant, standing in for qa's Cognito pool, whose client is public, as
+ * an installed app's is.
  * Every refusal is a 401 -- never the redirect into a sign-in page that a browser would get, and
  * never a session cookie.</p>
  */
 @QuarkusTest
-@TestProfile(BearerTokenTest.AppTokens.class)
+@TestProfile(TwoSignInProviders.class)
 class BearerTokenTest {
 
     private static final String WWW_AUTHENTICATE = "WWW-Authenticate";
@@ -172,31 +171,5 @@ class BearerTokenTest {
             .replace("gunnar@example.com", "lasse@example.com");
         String altered = Base64.getUrlEncoder().withoutPadding().encodeToString(payload.getBytes());
         return parts[0] + "." + altered + "." + parts[2];
-    }
-
-    /**
-     * Sign-in on, and further providers for the {@code apps} and {@code brief} realms beside the main
-     * one -- declared as a deployment would: named tenants, their shared settings referring to the
-     * main tenant's. They have no sign-in button and no {@code tenant-paths}: an app reaches them by
-     * its tokens' issuer. {@code brief} exists for the expiry case alone, so that no other test
-     * races a short-lived token.
-     */
-    public static class AppTokens implements QuarkusTestProfile {
-
-        @Override
-        public Map<String, String> getConfigOverrides() {
-            Map<String, String> overrides = new HashMap<>(Map.of(
-                "taskfest.auth.enabled", "true",
-                "quarkus.keycloak.devservices.realm-path",
-                "../keycloak/realm-taskfest.json,src/test/resources/realm-apps.json,"
-                    + "src/test/resources/realm-brief.json"));
-            for (String realm : new String[] {"apps", "brief"}) {
-                overrides.put("quarkus.oidc." + realm + ".auth-server-url", "${keycloak.url}/realms/" + realm);
-                overrides.put("quarkus.oidc." + realm + ".client-id", "taskfest-app");
-                TwoSignInProviders.SHARED_SETTINGS.forEach(setting ->
-                    overrides.put("quarkus.oidc." + realm + "." + setting, "${quarkus.oidc." + setting + "}"));
-            }
-            return overrides;
-        }
     }
 }

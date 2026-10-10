@@ -8,7 +8,8 @@ import java.util.Map;
 /**
  * Sign-in on, and a second provider beside the default one (#143): a second realm in the
  * Keycloak Dev Services starts, declared as a deployment would declare it -- a named OIDC tenant
- * and its {@code taskfest.auth.providers} entry, nothing in code.
+ * and its {@code taskfest.auth.providers} entry, nothing in code. Two more realms are providers
+ * only an app signs in with, by bearer token ({@link #APP_REALMS}, #266).
  *
  * <p>Shared by every test that needs two providers, so they run in one Quarkus instance rather
  * than booting it, and Keycloak with it, once per class.</p>
@@ -20,6 +21,9 @@ public class TwoSignInProviders implements QuarkusTestProfile {
 
     /** Where the second provider sends the browser back: a callback of its own. */
     public static final String OTHER_CALLBACK = "/api/auth/callback/other";
+
+    /** The realms of the providers only an app signs in with, each a tenant of the same name. */
+    public static final List<String> APP_REALMS = List.of("apps", "brief");
 
     /**
      * The settings every provider shares with the main one. A named tenant inherits nothing, so
@@ -43,7 +47,8 @@ public class TwoSignInProviders implements QuarkusTestProfile {
             "taskfest.auth.enabled", "true",
             // Dev Services imports both realms into the one Keycloak it starts.
             "quarkus.keycloak.devservices.realm-path",
-            "../keycloak/realm-taskfest.json,src/test/resources/realm-other.json",
+            "../keycloak/realm-taskfest.json,src/test/resources/realm-other.json,"
+                + "src/test/resources/realm-apps.json,src/test/resources/realm-brief.json",
             "quarkus.oidc.other.auth-server-url", "${keycloak.url}/realms/other",
             "quarkus.oidc.other.client-id", "taskfest-backend-other",
             "quarkus.oidc.other.credentials.secret", "other-secret",
@@ -56,6 +61,15 @@ public class TwoSignInProviders implements QuarkusTestProfile {
             "taskfest.auth.providers.other.client-secret", "other-secret"));
         SHARED_SETTINGS.forEach(setting ->
             overrides.put("quarkus.oidc.other." + setting, "${quarkus.oidc." + setting + "}"));
+        // Two providers only an app signs in with (#266): no button, no tenant-paths, reached by
+        // their tokens' issuer. apps stands for qa's test accounts with the app's public client;
+        // brief issues tokens that live three seconds, for the expiry case alone.
+        for (String realm : APP_REALMS) {
+            overrides.put("quarkus.oidc." + realm + ".auth-server-url", "${keycloak.url}/realms/" + realm);
+            overrides.put("quarkus.oidc." + realm + ".client-id", "taskfest-app");
+            SHARED_SETTINGS.forEach(setting ->
+                overrides.put("quarkus.oidc." + realm + "." + setting, "${quarkus.oidc." + setting + "}"));
+        }
         return overrides;
     }
 }

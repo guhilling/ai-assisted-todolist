@@ -15,8 +15,9 @@ import static io.restassured.RestAssured.given;
  * Drives the real OIDC authorization code flow against the Keycloak instance started by
  * Quarkus Dev Services.
  *
- * <p>The application runs in {@code web-app} (BFF) mode, so there is no bearer token to hand
- * out: signing in means following the redirect to Keycloak, submitting the login form, and
+ * <p>For a browser the application runs the code flow (BFF), so there is no bearer token to hand
+ * out -- that is the app's way in, {@code KeycloakTokens}: signing in means following the redirect
+ * to Keycloak, submitting the login form, and
  * letting the callback exchange the code for a {@code q_session} cookie. Both Keycloak and the
  * application keep state in cookies, so this class plays the part of the browser's cookie jar
  * and carries every cookie it is handed into the next request.</p>
