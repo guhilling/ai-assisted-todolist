@@ -56,6 +56,9 @@ jobs:
 
   android:
     runs-on: ubuntu-26.04
+    # It takes 7 to 9 minutes; one run hung for 28 before it was cancelled, and GitHub's own
+    # limit is six hours.
+    timeout-minutes: 30
     env:
       APP_VARIANT: dev
     steps:
