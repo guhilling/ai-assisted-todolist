@@ -320,6 +320,23 @@ describe('the board kept on the phone (#272)', () => {
     expect(deps.changes.restore).not.toHaveBeenCalled()
   })
 
+  it('still lets the account be deleted from the kept board, failing only for want of a connection', async () => {
+    const deleteAccount = jest.fn().mockImplementation(noConnection)
+    jest.spyOn(console, 'warn').mockImplementation(() => undefined)
+    const { user } = await start({ keptBoard: memoryBoard(kept), fetchTasks: jest.fn(noConnection), deleteAccount })
+    await screen.findByText(OFFLINE)
+
+    await user.press(screen.getByRole('button', { name: 'Account' }))
+    await user.press(screen.getByRole('button', { name: 'Delete account' }))
+    await user.type(screen.getByLabelText('Type your email address to confirm'), 'ada@example.com')
+    await user.press(screen.getByRole('button', { name: 'Delete my account' }))
+
+    expect(deleteAccount).toHaveBeenCalled()
+    expect(await screen.findByText('Unable to delete your account.')).toBeOnTheScreen()
+    expect(screen.getByRole('button', { name: 'Sign out' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Done' })).toBeEnabled()
+  })
+
   it('says it is loading again when the app comes back to the foreground', async () => {
     const comeBack = foreground()
     const fetchTasks = jest.fn().mockImplementationOnce(noConnection).mockImplementation(pending)

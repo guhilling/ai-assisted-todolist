@@ -404,14 +404,22 @@ export function TaskFestApp({
   const replace = (task: BoardTask) => setTasks((tasks) => tasks.map((each) => (each.id === task.id ? task : each)))
 
   /**
-   * The session to send a change as, renewed if it is about to run out -- the one door every change
-   * goes through, so none is sent while the board shown may not be current (#272).
+   * The session to send a change to the board as -- the one door every such change goes through,
+   * so none is sent while the board shown may not be current (#272).
    */
   const caller = async (): Promise<Caller> => {
     const board = shown.current
     if (board.kind === 'board' && board.kept) {
       throw new KeptBoardShownError()
     }
+    return signedInCaller()
+  }
+
+  /**
+   * The session to send a request as, renewed if it is about to run out. Deleting the account goes
+   * this way: it does not depend on how current the board is.
+   */
+  const signedInCaller = async (): Promise<Caller> => {
     const session = await sessionNow()
     if (!session) {
       throw new SignedOutError()
@@ -444,13 +452,12 @@ export function TaskFestApp({
     // would leave this answer to sign out a session that never asked for it.
     setAccount({ deleting: true })
     try {
-      await sending(async () => deleteAccount(await caller()))
+      await sending(async () => deleteAccount(await signedInCaller()))
     } catch (cause) {
       const text = await failed(cause, messages.errors.deleteAccount)
-      if (text) {
-        // Only on a sheet still open: one the session's end closed meanwhile stays so.
-        setAccount((current) => current && { failure: text })
-      }
+      // Whatever the failure, the sheet is offered again -- only one the session's end closed
+      // meanwhile stays closed.
+      setAccount((current) => current && { failure: text ?? undefined })
       return false
     }
     await signOut('accountDeleted')
