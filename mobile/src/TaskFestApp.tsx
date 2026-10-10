@@ -123,6 +123,8 @@ export function TaskFestApp({
   useEffect(() => {
     sheetOpen.current = form !== null || account !== null
   }, [form, account])
+  /** A sign-in in the browser: coming back from it is a return to the foreground, not a reason to start over. */
+  const signingIn = useRef(false)
   /** Raised by every sign-out, so a start or a load begun before one does not sign back in after it. */
   const signOuts = useRef(0)
   /** The renewal under way, shared, so the refresh token is never spent twice at once. */
@@ -190,10 +192,12 @@ export function TaskFestApp({
   // Back in the foreground, the app starts over: the backend may no longer serve this release,
   // and the board may have changed meanwhile. Not while a form or the account sheet is open or a
   // change is on its way, though: the sheet would lose what was typed -- and the account sheet's
-  // own legal links leave the app -- and the board could miss the change.
+  // own legal links leave the app -- and the board could miss the change. Nor while signing in:
+  // the browser coming back is a return to the foreground, and starting over then finds no session
+  // yet and could forget the one the sign-in is about to save.
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (next) => {
-      if (next === 'active' && !sheetOpen.current && inFlight.current === 0) {
+      if (next === 'active' && !sheetOpen.current && !signingIn.current && inFlight.current === 0) {
         setAttempt((count) => count + 1)
       }
     })
@@ -252,6 +256,7 @@ export function TaskFestApp({
   }
 
   const signIn = async () => {
+    signingIn.current = true
     try {
       const tokens = await provider.signIn()
       if (!tokens) {
@@ -267,6 +272,8 @@ export function TaskFestApp({
       // Logged for the device log -- the only trace a failed sign-in on a test device leaves.
       console.warn('Signing in failed', failure)
       setState({ kind: 'signedOut', notice: 'signInFailed' })
+    } finally {
+      signingIn.current = false
     }
   }
 

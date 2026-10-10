@@ -2,7 +2,7 @@ import { act, render, screen, userEvent, within } from '@testing-library/react-n
 import { AppState, Linking } from 'react-native'
 import { RequestFailedError, SignedOutError, type BoardTask } from './api'
 import type { Session } from './session'
-import type { SessionStore } from './staySignedIn'
+import type { SessionStore, Tokens } from './staySignedIn'
 import { TaskFestApp, type Dependencies } from './TaskFestApp'
 import { variants } from './variants'
 import type { Language } from './web'
@@ -324,6 +324,32 @@ describe('the account, when things overlap (#275)', () => {
     await comeBack()
 
     expect(screen.getByText('Your account has been deleted. Signing in again starts a new, empty one.')).toBeOnTheScreen()
+  })
+
+  it('does not start over when the sign-in comes back from the browser', async () => {
+    // Coming back from the browser is a return to the foreground; starting over then would find no
+    // session yet, and could forget the one the sign-in is about to save.
+    const comeBack = foreground()
+    let finish: () => void = () => undefined
+    const signIn = jest.fn(() => new Promise<Tokens>((resolve) => (finish = () => resolve({ idToken, refreshToken: 'r' }))))
+    const sessions = memorySessions(null)
+    const fetchMinimumAppVersion = jest.fn().mockResolvedValue('0.0.0')
+    await render(
+      <TaskFestApp
+        variant={variants.dev}
+        language="en"
+        dependencies={dependencies({ sessions, fetchMinimumAppVersion, provider: { signIn, refresh: jest.fn() } })}
+      />,
+    )
+    const user = userEvent.setup()
+
+    await user.press(await screen.findByRole('button', { name: 'Sign in with Keycloak' }))
+    await comeBack()
+    await act(async () => finish())
+
+    expect(await screen.findByText('Water the plants')).toBeOnTheScreen()
+    expect(fetchMinimumAppVersion).toHaveBeenCalledTimes(1)
+    expect(sessions.current()).not.toBeNull()
   })
 
   it('closes the sheet when the backend turns the session away on the next load', async () => {
