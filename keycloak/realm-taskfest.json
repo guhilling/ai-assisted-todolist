@@ -94,6 +94,9 @@
           "value": "gunnar",
           "temporary": false
         }
+      ],
+      "realmRoles": [
+        "default-roles-taskfest"
       ]
     },
     {
@@ -109,6 +112,9 @@
           "value": "lasse",
           "temporary": false
         }
+      ],
+      "realmRoles": [
+        "default-roles-taskfest"
       ]
     }
   ]

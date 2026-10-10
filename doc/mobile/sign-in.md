@@ -31,5 +31,7 @@ The backend sees only ID tokens, which live an hour, so the month a sign-in last
   and offers the sign-in again — as the website does when its cookie has expired.
 
 The provider has to let the refresh token live that long. Keycloak's does with the
-`offline_access` scope, which the `dev` variant asks for; Cognito's client sets the refresh token's
+`offline_access` scope, which the `dev` variant asks for — and which a user may only be given
+with the realm's default roles: the local accounts are imported with `default-roles-taskfest`,
+since an imported user gets no roles otherwise; Cognito's client sets the refresh token's
 lifetime itself, and asking for `offline_access` there is an error.
