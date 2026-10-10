@@ -118,6 +118,42 @@ resource "aws_cognito_user_pool_client" "backend" {
   prevent_user_existence_errors = "ENABLED"
 }
 
+# The mobile app's own client in the pool (#267): public, since an installed app cannot keep a
+# secret, so it signs in with the code flow and PKCE through the system browser and returns to the
+# qa build's scheme. The backend accepts its ID tokens as bearer tokens: the task definition names
+# it in TASKFEST_OIDC_COGNITO_APP_CLIENT_ID (billable.tf), and application.properties lists it as an
+# audience of the cognito tenant.
+resource "aws_cognito_user_pool_client" "app" {
+  count = local.test_sign_in
+
+  name         = "${local.name}-app"
+  user_pool_id = aws_cognito_user_pool.test_accounts[0].id
+
+  generate_secret = false
+
+  allowed_oauth_flows_user_pool_client = true
+  allowed_oauth_flows                  = ["code"]
+  allowed_oauth_scopes                 = ["openid", "email", "profile"]
+  supported_identity_providers         = ["COGNITO"]
+  callback_urls                        = ["de.hilling.taskfest.qa://oauthredirect"]
+
+  explicit_auth_flows = ["ALLOW_REFRESH_TOKEN_AUTH", "ALLOW_USER_SRP_AUTH"]
+  read_attributes     = ["email", "email_verified", "name"]
+
+  # The app keeps a sign-in for thirty days without use (doc/decisions/mobile-app.md); Cognito's refresh
+  # tokens do not roll, so here it ends thirty days after sign-in, used or not.
+  id_token_validity      = 1
+  access_token_validity  = 1
+  refresh_token_validity = 30
+  token_validity_units {
+    id_token      = "hours"
+    access_token  = "hours"
+    refresh_token = "days"
+  }
+
+  prevent_user_existence_errors = "ENABLED"
+}
+
 resource "aws_cognito_user" "test" {
   for_each = var.test_sign_in ? local.test_accounts : {}
 
