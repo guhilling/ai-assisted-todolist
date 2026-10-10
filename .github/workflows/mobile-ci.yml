@@ -172,11 +172,7 @@ jobs:
           target: google_apis
           arch: x86_64
           disable-animations: true
-          script: |
-            adb reverse tcp:3000 tcp:3000
-            adb reverse tcp:8082 tcp:8082
-            adb install apk/app-release.apk
-            maestro test mobile/maestro --format junit --output maestro-report.xml --test-output-dir maestro-output
+          script: bash mobile/maestro/run-on-emulator.sh apk/app-release.apk
 
       - uses: actions/upload-artifact@v7
         if: always()
