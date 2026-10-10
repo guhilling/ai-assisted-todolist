@@ -5,7 +5,7 @@
  * describes, which is the difference between this and the `as` it replaced: the claim is
  * made by a check that runs, not by an assertion the compiler erases.
  */
-import type { TaskResponse, CurrentUserResponse, AuthProvidersResponse, AttachmentResponse, UploadResponse, LinkResponse, RefusalResponse } from './types';
+import type { TaskResponse, CurrentUserResponse, AuthProvidersResponse, AttachmentResponse, UploadResponse, LinkResponse, RefusalResponse, VersionResponse } from './types';
 
 /** One Ajv validator: a type guard that also reports why it said no. */
 export type Validator<T> = ((data: unknown) => data is T) & {
@@ -19,3 +19,4 @@ export declare const validateAttachmentResponse: Validator<AttachmentResponse>;
 export declare const validateUploadResponse: Validator<UploadResponse>;
 export declare const validateLinkResponse: Validator<LinkResponse>;
 export declare const validateRefusalResponse: Validator<RefusalResponse>;
+export declare const validateVersionResponse: Validator<VersionResponse>;

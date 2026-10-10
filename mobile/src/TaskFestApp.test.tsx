@@ -37,6 +37,8 @@ function dependencies(overrides: Partial<Dependencies> = {}): Dependencies {
     sessions: memorySessions(null),
     provider: { signIn: jest.fn(), refresh: jest.fn() },
     fetchTasks: jest.fn().mockResolvedValue(tasks),
+    fetchMinimumAppVersion: jest.fn().mockResolvedValue('0.0.0'),
+    appVersion: '1.2.0',
     now: () => NOW,
     ...overrides,
   }
@@ -71,7 +73,7 @@ describe('the app', () => {
 
     expect(await screen.findByText('Water the plants')).toBeOnTheScreen()
     expect(sessions.current()?.idToken).toBe(idToken)
-    expect(fetchTasks).toHaveBeenCalledWith({ baseUrl: 'http://localhost:3000', idToken })
+    expect(fetchTasks).toHaveBeenCalledWith({ baseUrl: 'http://localhost:3000', idToken, appVersion: '1.2.0' })
   })
 
   it('says so when signing in fails, and offers it again', async () => {
@@ -175,6 +177,32 @@ describe('the app', () => {
     await render(<TaskFestApp variant={variants.dev} language="en" dependencies={deps} />)
 
     expect(await screen.findByText('Unexpected error while loading data.')).toBeOnTheScreen()
+  })
+
+  it('asks for an update when the backend no longer serves this release (#268)', async () => {
+    const deps = dependencies({ sessions: memorySessions(session), fetchMinimumAppVersion: jest.fn().mockResolvedValue('1.3.0') })
+    await render(<TaskFestApp variant={variants.dev} language="en" dependencies={deps} />)
+
+    expect(
+      await screen.findByText('This version of the app is too old for TaskFest. Update it to carry on.'),
+    ).toBeOnTheScreen()
+    expect(deps.fetchTasks).not.toHaveBeenCalled()
+  })
+
+  it('carries on when it cannot tell which releases the backend serves', async () => {
+    const deps = dependencies({ fetchMinimumAppVersion: jest.fn().mockRejectedValue(new Error('offline')) })
+    await render(<TaskFestApp variant={variants.dev} language="en" dependencies={deps} />)
+
+    expect(await screen.findByRole('button', { name: 'Sign in with Keycloak' })).toBeOnTheScreen()
+  })
+
+  it('marks a value it does not know, rather than hiding the task', async () => {
+    const newer = [{ ...tasks[0], unknown: ['importance' as const] }]
+    const deps = dependencies({ sessions: memorySessions(session), fetchTasks: jest.fn().mockResolvedValue(newer) })
+    await render(<TaskFestApp variant={variants.dev} language="en" dependencies={deps} />)
+
+    expect(await screen.findByText('Water the plants')).toBeOnTheScreen()
+    expect(screen.getByLabelText('Unknown')).toBeOnTheScreen()
   })
 
   it('speaks German to a German phone', async () => {

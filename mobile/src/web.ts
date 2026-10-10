@@ -7,8 +7,8 @@
  * They are imported from `frontend/` directly for now; whether they move into a package both sides
  * depend on is an open question on #267, and this file is the only one that would change.
  */
-export type { TaskResponse as Task } from '../../frontend/src/generated/types'
-export { validateTaskResponse } from '../../frontend/src/generated/validators'
+export type { TaskImportance, TaskResponse as Task, TaskState } from '../../frontend/src/generated/types'
+export { validateTaskResponse, validateVersionResponse } from '../../frontend/src/generated/validators'
 export { compareCompleted, compareOpen } from '../../frontend/src/importance'
 export { bucketOf, describeDueDate, todayIso, type DueBucket } from '../../frontend/src/dates'
 export { catalogues, type Messages } from '../../frontend/src/i18n/messages'

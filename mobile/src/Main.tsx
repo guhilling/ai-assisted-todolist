@@ -1,7 +1,7 @@
 import Constants from 'expo-constants'
 import { getLocales } from 'expo-localization'
 import * as SecureStore from 'expo-secure-store'
-import { fetchTasks } from './api'
+import { fetchMinimumAppVersion, fetchTasks } from './api'
 import { providerFor } from './provider'
 import { createSessionStore } from './staySignedIn'
 import { TaskFestApp, type Dependencies } from './TaskFestApp'
@@ -17,10 +17,15 @@ const noProvider: Dependencies['provider'] = {
   refresh: () => Promise.reject(new Error('This build has no sign-in.')),
 }
 
+/** This build's release: the tag's, set by app.config.ts, or 0.0.0 for a build from a branch. */
+const appVersion = Constants.expoConfig?.version ?? '0.0.0'
+
 const dependencies: Dependencies = {
   sessions: createSessionStore(SecureStore),
   provider: variant.signIn ? providerFor(variant.signIn, variant.scheme) : noProvider,
   fetchTasks: (caller) => fetchTasks(caller),
+  fetchMinimumAppVersion: () => fetchMinimumAppVersion(variant.apiBaseUrl, appVersion),
+  appVersion,
   now: Date.now,
 }
 

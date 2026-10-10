@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, useColorScheme, View } from 'react-native'
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context'
-import { SignedOutError, type Caller } from './api'
+import { SignedOutError, type BoardTask, type Caller } from './api'
+import { isTooOld } from './appVersion'
 import { boardOf, type Board } from './board'
 import type { Session } from './session'
 import { appCatalogues, type AppMessages } from './messages'
@@ -15,13 +16,17 @@ import {
 } from './staySignedIn'
 import { dark, light, type Theme } from './theme'
 import type { Variant } from './variants'
-import { catalogues, describeDueDate, localeOf, todayIso, type Language, type Messages, type Task } from './web'
+import { catalogues, describeDueDate, localeOf, todayIso, type Language, type Messages } from './web'
 
 /** What the app needs from outside itself, handed in so tests can stand in for each. */
 export type Dependencies = {
   sessions: SessionStore
   provider: { signIn(): Promise<Tokens | null>; refresh: Refresh }
-  fetchTasks(caller: Caller): Promise<Task[]>
+  fetchTasks(caller: Caller): Promise<BoardTask[]>
+  /** The oldest app release the backend serves (#268). */
+  fetchMinimumAppVersion(): Promise<string>
+  /** This build's release: the tag's, or 0.0.0 from a branch. */
+  appVersion: string
   now(): number
 }
 
@@ -31,6 +36,7 @@ type State =
   | { kind: 'loading' }
   | { kind: 'board'; board: Board }
   | { kind: 'failed' }
+  | { kind: 'tooOld' }
 
 /**
  * The app, from sign-in to the board (#267): read-only for now, in the user's language, in the
@@ -49,7 +55,7 @@ export function TaskFestApp({
   language: Language
   dependencies: Dependencies
 }) {
-  const { sessions, provider, fetchTasks, now } = dependencies
+  const { sessions, provider, fetchTasks, fetchMinimumAppVersion, appVersion, now } = dependencies
   const messages = catalogues[language]
   const appMessages = appCatalogues[language]
   const theme = useColorScheme() === 'dark' ? dark : light
@@ -60,7 +66,7 @@ export function TaskFestApp({
     async (session: Session) => {
       setState({ kind: 'loading' })
       try {
-        const tasks = await fetchTasks({ baseUrl: variant.apiBaseUrl, idToken: session.idToken })
+        const tasks = await fetchTasks({ baseUrl: variant.apiBaseUrl, idToken: session.idToken, appVersion })
         setState({ kind: 'board', board: boardOf(tasks, todayIso(new Date(now()))) })
       } catch (failure) {
         if (failure instanceof SignedOutError) {
@@ -71,7 +77,7 @@ export function TaskFestApp({
         }
       }
     },
-    [fetchTasks, now, sessions, variant.apiBaseUrl],
+    [appVersion, fetchTasks, now, sessions, variant.apiBaseUrl],
   )
 
   /** How often the start has been tried: "try again" raises it, and the effect below runs anew. */
@@ -80,6 +86,13 @@ export function TaskFestApp({
   useEffect(() => {
     /** From the kept session to the board, or to the sign-in. */
     const start = async () => {
+      // An app the backend no longer serves says so before anything else; one that cannot find
+      // out carries on, since being offline is no reason to lock anyone out.
+      const minimum = await fetchMinimumAppVersion().catch(() => null)
+      if (minimum && isTooOld(appVersion, minimum)) {
+        setState({ kind: 'tooOld' })
+        return
+      }
       let session: Session | null
       try {
         session = await currentSession(sessions, provider.refresh, now())
@@ -101,7 +114,7 @@ export function TaskFestApp({
       }
     }
     void start()
-  }, [attempt, now, provider, sessions, showBoard])
+  }, [appVersion, attempt, fetchMinimumAppVersion, now, provider, sessions, showBoard])
 
   const signIn = async () => {
     try {
@@ -143,6 +156,8 @@ export function TaskFestApp({
             appMessages={appMessages}
             styles={styles}
           />
+        ) : state.kind === 'tooOld' ? (
+          <Text style={styles.notice}>{appMessages.updateRequired}</Text>
         ) : state.kind === 'failed' ? (
           <View style={styles.signedOut}>
             <Text style={styles.notice}>{messages.failures.loading}</Text>
@@ -217,9 +232,14 @@ function BoardScreen({
   if (board.sections.length === 0 && board.completed.length === 0) {
     return <Text style={styles.muted}>{appMessages.emptyBoard}</Text>
   }
-  const row = (task: Task, sayWhen: boolean) => (
+  const row = (task: BoardTask, sayWhen: boolean) => (
     <View key={task.id} style={styles.row}>
-      <View style={[styles.dot, styles[`importance${task.importance}`]]} />
+      {task.unknown?.includes('importance') ? (
+        // An importance a newer backend added (#268): marked, not guessed.
+        <View accessibilityLabel={appMessages.unknownValue} style={[styles.dot, styles.unknownDot]} />
+      ) : (
+        <View style={[styles.dot, styles[`importance${task.importance}`]]} />
+      )}
       <Text style={[styles.description, task.state === 'DONE' && styles.done]}>{task.description}</Text>
       {sayWhen ? (
         <Text style={styles.muted}>{describeDueDate(task.dueDate, today, messages.dates, localeOf(language))}</Text>
@@ -272,6 +292,7 @@ function stylesFor(theme: Theme) {
     importanceLOW: { backgroundColor: theme.importanceLow },
     importanceMEDIUM: { backgroundColor: theme.importanceMedium },
     importanceHIGH: { backgroundColor: theme.importanceHigh },
+    unknownDot: { borderWidth: 1, borderColor: theme.textMuted },
     description: { flex: 1, color: theme.text },
     done: { color: theme.textMuted, textDecorationLine: 'line-through' },
   })
