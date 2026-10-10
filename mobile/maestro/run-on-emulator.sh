@@ -30,6 +30,15 @@ retry adb install -r "$apk"
 
 maestro test mobile/maestro --format junit --output maestro-report.xml --test-output-dir maestro-output
 
+# Reminders (#273): turn them on, then make sure Android holds the app's alarm for tomorrow.
+maestro test mobile/maestro/reminders/turn-on.yaml --format junit --output maestro-reminders.xml --test-output-dir maestro-output
+# Captured first: under pipefail, grep -q stopping early would fail the pipeline with SIGPIPE.
+alarms="$(adb shell dumpsys alarm)"
+if ! grep -q "de.hilling.taskfest.dev" <<< "$alarms"; then
+  echo "No reminder is scheduled: Android holds no alarm for de.hilling.taskfest.dev." >&2
+  exit 1
+fi
+
 # Offline (#272): keep a board, take the backend away -- the app reaches it through adb reverse,
 # which airplane mode does not cut -- and read the kept board.
 maestro test mobile/maestro/offline/1-keep.yaml --format junit --output maestro-offline-1.xml --test-output-dir maestro-output

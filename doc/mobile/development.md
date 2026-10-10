@@ -57,7 +57,8 @@ repeats them and `theme.test.ts` compares the two.
 The icons are the website's mark ([decisions/frontend.md](../decisions/frontend.md)):
 `doc/images/generate.py` writes their SVG sources to `mobile/assets/icons/`, and
 `mobile/assets/render-icons.sh` turns them into the PNGs `app.config.ts` names — the iOS icon and
-Android's adaptive icon, with its mint background and a single-colour version for themed icons.
+Android's adaptive icon, with its mint background and a single-colour version for themed icons —
+and the white status-bar icon of the reminders.
 
 ## Older than its backend
 
@@ -92,7 +93,9 @@ version may be, and the backend logs nothing else as an `app`.
   `account.yaml` opens the account sheet and signs out ([account.md](account.md)). The two flows in
   `offline/` run after them, one at a time: the first loads a board, then `run-on-emulator.sh`
   removes the `adb reverse` the app reaches the backend through — airplane mode alone does not cut
-  it — and the second reads the kept board and has a change refused ([board.md](board.md)).
+  it — and the second reads the kept board and has a change refused ([board.md](board.md)). Before
+  them, `reminders/turn-on.yaml` turns the reminders on, and the script checks Android holds the
+  app's alarm ([reminders.md](reminders.md)).
 
 `.github/workflows/mobile-ci.yml` runs all of it on every pull request touching the app or what
 it shares with the website: the checks; a release APK of the `dev` variant on Linux; an iOS

@@ -12,7 +12,8 @@ const UNDO_FOR_MS = 8000
  * The board (#267, #271): the website's sections and order, a tick to complete or reopen a task, a
  * tap on it to edit it, and the add button, the offer to undo a delete and any failure below. The
  * account sheet opens from the head of it (#275). The board kept on the phone is shown the same way,
- * with a note above it while it waits for, or could not get, the current one (#272).
+ * with a note above it while it waits for, or could not get, the current one (#272). The offer to
+ * turn the due-day reminders on stands above the board until it is answered (#273).
  *
  * A task holding an importance or state a newer backend added is shown but not offered for any
  * change: the backend replaces a whole task, so saving it would overwrite the value the app does
@@ -36,6 +37,7 @@ export function BoardScreen({
   onAccount,
   kept,
   onRetry,
+  offer,
 }: {
   tasks: BoardTask[]
   today: string
@@ -63,6 +65,8 @@ export function BoardScreen({
   kept?: { failed: false } | { failed: true; since: string }
   /** Loads the board again, after a failed load. */
   onRetry: () => void
+  /** The offer to turn the due-day reminders on (#273), while it stands. */
+  offer?: { onTurnOn: () => void; onNotNow: () => void }
 }) {
   const board = boardOf(tasks, today)
   const clearable = board.completed.some(isChangeable)
@@ -132,6 +136,19 @@ export function BoardScreen({
           </View>
         ) : kept ? (
           <Text style={styles.muted}>{messages.board.loading}</Text>
+        ) : null}
+        {offer ? (
+          <View style={styles.offline}>
+            <Text style={styles.description}>{messages.reminders.offer}</Text>
+            <View style={styles.offerButtons}>
+              <Pressable accessibilityRole="button" style={styles.quietButton} onPress={offer.onNotNow}>
+                <Text style={styles.quietButtonText}>{messages.reminders.notNow}</Text>
+              </Pressable>
+              <Pressable accessibilityRole="button" style={styles.quietButton} onPress={offer.onTurnOn}>
+                <Text style={styles.quietButtonText}>{messages.reminders.turnOn}</Text>
+              </Pressable>
+            </View>
+          </View>
         ) : null}
         {failure ? (
           <Text accessibilityRole="alert" style={styles.notice}>

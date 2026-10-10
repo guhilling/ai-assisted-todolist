@@ -461,6 +461,17 @@ def android_monochrome() -> str:
 """
 
 
+def notification_icon() -> str:
+    """
+    Android's status-bar icon for the reminders (#273): like the themed icon, one colour read only
+    by its alpha -- white, as Android asks -- but filling its square, since the status bar shows it
+    at 24 pixels with nothing cropped.
+    """
+    return android_monochrome().replace(f'viewBox="0 0 {ADAPTIVE} {ADAPTIVE}"', 'viewBox="0 0 128 128"').replace(
+        ADAPTIVE_FIT, "translate(64 64) scale(0.98) translate(-69 -65)"
+    ).replace(f'fill="{INK}"', 'fill="#ffffff"').replace(f'stroke="{INK}"', 'stroke="#ffffff"')
+
+
 def main() -> None:
     per_scheme = {
         "architecture": architecture,
@@ -486,6 +497,7 @@ def main() -> None:
         repo / "mobile/assets/icons/android-icon-foreground.svg": android_foreground,
         repo / "mobile/assets/icons/android-icon-background.svg": android_background,
         repo / "mobile/assets/icons/android-icon-monochrome.svg": android_monochrome,
+        repo / "mobile/assets/icons/notification-icon.svg": notification_icon,
     }
     for path, build in artwork.items():
         path.parent.mkdir(parents=True, exist_ok=True)

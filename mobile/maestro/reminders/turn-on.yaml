@@ -1,0 +1,27 @@
+# Turns the due-day reminders on (#273): with a task due tomorrow on the board, the app offers them,
+# the system asks, and run-on-emulator.sh then checks Android holds the app's alarm. In a folder of
+# its own, run after the others, so the account flow's sign-out cannot clear the reminder first.
+appId: de.hilling.taskfest.dev
+name: Reminders, turn them on
+---
+- runFlow: ../sign-in.yaml
+
+- tapOn: "Add a task"
+- tapOn:
+    id: "task-description"
+- inputText: "Renew the passport"
+- hideKeyboard
+# A new task is due tomorrow, so there is a morning to be reminded on.
+- tapOn: "Add"
+- extendedWaitUntil:
+    visible: "Get a reminder at 08:00 on days tasks are due\\?"
+    timeout: 10000
+- takeScreenshot: 15-reminders-offer
+- tapOn: "Turn on"
+# Android 13 and later ask; the emulator is API 34.
+- extendedWaitUntil:
+    visible: "Allow"
+    timeout: 10000
+- tapOn: "Allow"
+- assertNotVisible: "Get a reminder at 08:00 on days tasks are due\\?"
+- takeScreenshot: 16-reminders-on

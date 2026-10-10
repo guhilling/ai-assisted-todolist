@@ -68,6 +68,7 @@ function dependencies(overrides: Partial<Dependencies> = {}): Dependencies {
     changes: { create: jest.fn(), update: jest.fn(async (_caller, task) => task), remove: jest.fn(), restore: jest.fn() },
     deleteAccount: jest.fn().mockResolvedValue(undefined),
     keptBoard: memoryBoard(null),
+    reminders: { permission: jest.fn().mockResolvedValue('denied'), ask: jest.fn(), replace: jest.fn().mockResolvedValue(undefined), declined: jest.fn().mockResolvedValue(false), decline: jest.fn() },
     appVersion: '1.2.0',
     now: () => NOW,
     ...overrides,
