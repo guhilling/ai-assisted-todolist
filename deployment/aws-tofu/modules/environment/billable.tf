@@ -433,6 +433,8 @@ resource "aws_ecs_task_definition" "backend" {
       { name = "TASKFEST_OIDC_COGNITO_ENABLED", value = "true" },
       { name = "TASKFEST_OIDC_COGNITO_ISSUER", value = "https://${aws_cognito_user_pool.test_accounts[0].endpoint}" },
       { name = "TASKFEST_OIDC_COGNITO_CLIENT_ID", value = aws_cognito_user_pool_client.backend[0].id },
+      # The mobile app's public client, whose ID tokens the backend accepts as bearer tokens (#267).
+      { name = "TASKFEST_OIDC_COGNITO_APP_CLIENT_ID", value = aws_cognito_user_pool_client.app[0].id },
     ] : [])
 
     secrets = concat(local.sign_in_enabled ? [

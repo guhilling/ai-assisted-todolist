@@ -75,6 +75,12 @@ with (#141, #190). Unlike the Google client, all of it is code (`test-sign-in.tf
   the provider's own callback (#143). Cognito generates its secret, so it is in OpenTofu state
   ([the decision](../decisions/deployment-and-aws.md)); ECS injects it from the SSM parameter
   `/taskfest/qa/cognito-client-secret`.
+- **The mobile app's client** (#267) is public — an installed app cannot keep a secret — and returns
+  to the qa build's scheme, `de.hilling.taskfest.qa://oauthredirect`, through the system browser
+  with PKCE. Its refresh tokens last thirty days. The backend accepts its ID tokens as bearer tokens
+  because the task definition names it (`TASKFEST_OIDC_COGNITO_APP_CLIENT_ID`); the qa build of the
+  app is given the issuer and the client id from the outputs `test_accounts_issuer` and
+  `test_accounts_app_client_id`.
 - **No password is stored anywhere.** The accounts are created without one; the live-test run
   sets a fresh random password before signing in, as the role `taskfest-qa-live-test`, which may
   do nothing else (#144).

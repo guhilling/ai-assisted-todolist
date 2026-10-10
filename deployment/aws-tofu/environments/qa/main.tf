@@ -162,3 +162,13 @@ output "test_accounts_user_pool_id" {
   description = "The Cognito pool of the test accounts the live tests sign in with, or null where there is none."
   value       = module.environment.test_accounts_user_pool_id
 }
+
+output "test_accounts_issuer" {
+  description = "The test accounts' issuer, for the mobile app's qa build (TASKFEST_QA_COGNITO_ISSUER)."
+  value       = module.environment.test_accounts_issuer
+}
+
+output "test_accounts_app_client_id" {
+  description = "The mobile app's client among the test accounts, for its qa build (TASKFEST_QA_APP_CLIENT_ID)."
+  value       = module.environment.test_accounts_app_client_id
+}
