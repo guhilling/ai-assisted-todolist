@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+#
+# CodeRabbit, the second review a pull request that closes an issue gets, after Claude's own
+# `/code-review high` (CLAUDE.md, "Workflow"). Free for this public repository.
+#
+# It reviews only when asked -- a comment `@coderabbitai review` -- never on every push: a review
+# wired to every pull request, Renovate's included, is what used up Copilot's quota. The project's
+# rules reach it through the CLAUDE.md files, and what to look for through .github/REVIEW.md.
+language: en-US
+reviews:
+  profile: chill
+  auto_review:
+    enabled: false
+    # Never Renovate's, even if automatic reviews are switched on again.
+    ignore_usernames:
+      - renovate[bot]
+  # The summary goes into CodeRabbit's own comment; the pull request's description stays as written.
+  high_level_summary_in_walkthrough: true
+  poem: false
+knowledge_base:
+  code_guidelines:
+    # Named in full: a list of its own replaces CodeRabbit's defaults, which include CLAUDE.md.
+    filePatterns:
+      - "**/CLAUDE.md"
+      - .github/REVIEW.md
