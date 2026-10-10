@@ -17,6 +17,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.function.UnaryOperator;
 import org.eclipse.microprofile.config.Config;
 import org.eclipse.microprofile.jwt.JsonWebToken;
 
@@ -67,13 +68,13 @@ public class BearerIdToken implements SecurityIdentityAugmentor {
     /** Quarkus' value for "any audience", with which it checks none. */
     private static final String ANY_AUDIENCE = "any";
 
-    private final Function<String, String> clientIdOfTenant;
+    private final UnaryOperator<String> clientIdOfTenant;
 
     private final Predicate<String> tenantNamesItsAudience;
 
     @Inject
     BearerIdToken(Config config) {
-        this(cachedPerTenant(tenant -> clientId(config, tenant)),
+        this(cachedPerTenant(tenant -> clientId(config, tenant))::apply,
             cachedPerTenant(tenant -> namesItsAudience(config, tenant))::apply);
     }
 
@@ -88,7 +89,7 @@ public class BearerIdToken implements SecurityIdentityAugmentor {
      * @param clientIdOfTenant each tenant's client id, by the tenant id Quarkus records
      * @param tenantNamesItsAudience whether a tenant configures {@code token.audience} itself
      */
-    BearerIdToken(Function<String, String> clientIdOfTenant, Predicate<String> tenantNamesItsAudience) {
+    BearerIdToken(UnaryOperator<String> clientIdOfTenant, Predicate<String> tenantNamesItsAudience) {
         this.clientIdOfTenant = clientIdOfTenant;
         this.tenantNamesItsAudience = tenantNamesItsAudience;
     }
