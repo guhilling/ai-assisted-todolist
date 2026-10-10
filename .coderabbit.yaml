@@ -5,7 +5,7 @@
 #
 # It reviews only when asked -- a comment `@coderabbitai review` -- never on every push: a review
 # wired to every pull request, Renovate's included, is what used up Copilot's quota. The project's
-# rules reach it through the CLAUDE.md files, which it reads by default.
+# rules reach it through the CLAUDE.md files, and what to look for through .github/REVIEW.md.
 language: en-US
 reviews:
   profile: chill
@@ -17,3 +17,9 @@ reviews:
   # The summary goes into CodeRabbit's own comment; the pull request's description stays as written.
   high_level_summary_in_walkthrough: true
   poem: false
+knowledge_base:
+  code_guidelines:
+    # Named in full: a list of its own replaces CodeRabbit's defaults, which include CLAUDE.md.
+    filePatterns:
+      - "**/CLAUDE.md"
+      - .github/REVIEW.md

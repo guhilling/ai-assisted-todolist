@@ -46,7 +46,8 @@ slows things down.
 - **The same pull requests get one CodeRabbit review, requested by hand** once `/code-review high`'s
   fixes are pushed: a comment `@coderabbitai review` (`gh pr comment <n> --body "@coderabbitai review"`).
   `.coderabbit.yaml` keeps it from reviewing on its own, because a review on every push of every
-  pull request, Renovate's included, is what used up Copilot's monthly quota before. Its findings
+  pull request, Renovate's included, is what used up Copilot's monthly quota before. What it looks
+  for is in `.github/REVIEW.md`, alongside the CLAUDE.md files it reads. Its findings
   are gone through with Gunnar one by one, like any other review's, and need not hold up the merge.
 - Delete a branch once its pull request is merged — locally and on `origin` —
   unless told otherwise. Because pull requests are squash-merged, a merged
