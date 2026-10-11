@@ -71,16 +71,29 @@ describe('the reminders, as the platform keeps them (#273)', () => {
     const file = memoryFile()
     const scheduler = createReminderScheduler(platform(notAsked), file, CHANNEL)
 
-    await expect(scheduler.declined()).resolves.toBe(false)
+    await expect(scheduler.answered()).resolves.toBe(false)
     await scheduler.decline()
 
-    await expect(createReminderScheduler(platform(notAsked), file, CHANNEL).declined()).resolves.toBe(true)
+    await expect(createReminderScheduler(platform(notAsked), file, CHANNEL).answered()).resolves.toBe(true)
   })
 
-  it('reads a refusal as one even while Android would ask again', async () => {
-    const refusedOnce = { granted: false, canAskAgain: true, status: 'denied' }
+  it('reads Android 13’s not-asked-yet as such, though expo calls its status denied', async () => {
+    // Notifications are switched off until allowed, so expo reports "denied" before any question.
+    const notAskedOnAndroid = { granted: false, canAskAgain: true, status: 'denied' }
 
-    await expect(createReminderScheduler(platform(refusedOnce), memoryFile(), CHANNEL).permission()).resolves.toBe('denied')
+    await expect(createReminderScheduler(platform(notAskedOnAndroid), memoryFile(), CHANNEL).permission()).resolves.toBe(
+      'undetermined',
+    )
+  })
+
+  it('counts the offer as answered once the platform was asked, whatever it said', async () => {
+    const file = memoryFile()
+    const scheduler = createReminderScheduler(platform(notAsked, refused), file, CHANNEL)
+
+    await scheduler.ask()
+
+    // Android would ask a second time after a first refusal; the app does not.
+    await expect(createReminderScheduler(platform(notAsked), file, CHANNEL).answered()).resolves.toBe(true)
   })
 
   it('replaces one set at a time, so overlapping calls never leave two behind', async () => {

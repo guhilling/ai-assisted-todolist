@@ -44,7 +44,7 @@ function scheduler(permission: ReminderPermission, { declined = false, allows = 
       return allows
     }),
     replace: jest.fn().mockResolvedValue(undefined),
-    declined: jest.fn().mockResolvedValue(declined),
+    answered: jest.fn().mockResolvedValue(declined),
     decline: jest.fn().mockResolvedValue(undefined),
   } satisfies ReminderScheduler
 }
@@ -159,7 +159,7 @@ describe('the due-day reminders, from the app (#273)', () => {
       permission: jest.fn().mockResolvedValueOnce('undetermined').mockRejectedValue(new Error('no')),
       ask: jest.fn().mockRejectedValue(new Error('no')),
       replace: jest.fn().mockRejectedValue(new Error('no')),
-      declined: jest.fn().mockResolvedValue(false),
+      answered: jest.fn().mockResolvedValue(false),
       decline: jest.fn().mockRejectedValue(new Error('no')),
     } satisfies ReminderScheduler
     const { user } = await start({ reminders: broken })

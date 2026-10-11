@@ -29,8 +29,12 @@ asks **"Get a reminder at 08:00 on days tasks are due?"**, with **Turn on** and 
 
 - **Turn on** brings up the system's own question, which iOS asks only once; allowed, the
   reminders are scheduled at once.
-- **Not now** is remembered on the phone, and the note is not shown again — nor after a refusal in
-  the system's question, which Android would let the app ask a second time.
+- **Either answer is remembered on the phone**, and the note is not shown again: Not now, and Turn
+  on whatever the system's question then got — Android would let the app ask a second time after
+  a first refusal, and the app does not.
+- Whether the app may still ask is read from expo-notifications' `canAskAgain`, not its `status`:
+  on Android 13 and later notifications are off until allowed, so expo reports `denied` before
+  anyone was asked.
 - Without the permission — refused, or never given — nothing is scheduled and the app works as
   before. Turning them on later is the system settings' job.
 

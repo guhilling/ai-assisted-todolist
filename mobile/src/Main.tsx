@@ -73,7 +73,7 @@ const dependencies: Dependencies = {
   keptBoard: createKeptBoardStore(new File(Paths.cache, 'board.json')),
   reminders: createReminderScheduler(
     notifications,
-    new File(Paths.document, 'reminders-declined'),
+    new File(Paths.document, 'reminders-offer-answered'),
     catalogues[language].reminders.channel,
   ),
   fetchMinimumAppVersion: () => fetchMinimumAppVersion(variant.apiBaseUrl, appVersion),

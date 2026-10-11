@@ -7,7 +7,7 @@ import type { Reminder } from './reminders'
  * tests stand in for it here.
  */
 export type NotificationsApi = {
-  getPermissionsAsync(): Promise<{ granted: boolean; status: string }>
+  getPermissionsAsync(): Promise<{ granted: boolean; canAskAgain: boolean }>
   requestPermissionsAsync(): Promise<{ granted: boolean }>
   cancelAllScheduledNotificationsAsync(): Promise<void>
   /** One notification at a moment, on an Android channel. */
@@ -26,8 +26,12 @@ export type ReminderScheduler = {
   ask(): Promise<boolean>
   /** Replaces every reminder scheduled with these -- none, to clear them. */
   replace(reminders: Reminder[]): Promise<void>
-  /** Whether the app's offer to turn them on was declined ("Not now"), which is not asked again. */
-  declined(): Promise<boolean>
+  /**
+   * Whether the app's offer to turn them on was answered -- "Not now", or "Turn on" and the
+   * platform's question -- after which it is not made again.
+   */
+  answered(): Promise<boolean>
+  /** "Not now". */
   decline(): Promise<void>
 }
 
@@ -44,10 +48,10 @@ const CHANNEL = 'reminders'
  * would otherwise both leave their reminders behind. A replacement with exactly the reminders
  * already scheduled does nothing -- most changes to a board leave them as they were.
  *
- * @param declinedFlag a file whose existence records that the offer was declined
+ * @param answeredFlag a file whose existence records that the offer was answered
  * @param channelName the Android channel's name, in the user's language
  */
-export function createReminderScheduler(api: NotificationsApi, declinedFlag: TextFile, channelName: string): ReminderScheduler {
+export function createReminderScheduler(api: NotificationsApi, answeredFlag: TextFile, channelName: string): ReminderScheduler {
   let queue: Promise<unknown> = Promise.resolve()
   /** What is scheduled now, as JSON; null when that is not known, or nothing could be. */
   let scheduled: string | null = null
@@ -78,14 +82,17 @@ export function createReminderScheduler(api: NotificationsApi, declinedFlag: Tex
 
   return {
     async permission() {
-      const { granted, status } = await api.getPermissionsAsync()
-      // By the status, not by whether it may be asked again: Android asks twice, so a first refusal
-      // still allows asking -- and it is a refusal all the same.
-      return granted ? 'granted' : status === 'undetermined' ? 'undetermined' : 'denied'
+      // By whether it may be asked, not by expo's status: on Android 13 and later notifications are
+      // off until allowed, so expo reports "denied" before anyone was asked. A first refusal there
+      // still allows asking again -- which the answered flag, not this, keeps the app from doing.
+      const { granted, canAskAgain } = await api.getPermissionsAsync()
+      return granted ? 'granted' : canAskAgain ? 'undetermined' : 'denied'
     },
 
     async ask() {
       await api.createChannel(CHANNEL, channelName)
+      // Answered once asked, whatever the answer: the app does not ask a second time.
+      answeredFlag.write('answered')
       return (await api.requestPermissionsAsync()).granted
     },
 
@@ -95,12 +102,12 @@ export function createReminderScheduler(api: NotificationsApi, declinedFlag: Tex
       return run
     },
 
-    async declined() {
-      return declinedFlag.exists
+    async answered() {
+      return answeredFlag.exists
     },
 
     async decline() {
-      declinedFlag.write('declined')
+      answeredFlag.write('declined')
     },
   }
 }

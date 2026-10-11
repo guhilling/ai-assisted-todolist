@@ -148,7 +148,7 @@ export function TaskFestApp({
   const [failure, setFailure] = useState<string>()
   /** Whether a change was refused because the board shown may not be current (#272), until it is. */
   const [refused, setRefused] = useState(false)
-  /** Whether the reminders may be offered (#273): not asked for yet, and the offer not declined. */
+  /** Whether the reminders may be offered (#273): they may be asked for, and the offer was not answered. */
   const [offerReminders, setOfferReminders] = useState(false)
   /** The state as of the last render, for the changes that check it once their await is over. */
   const shown = useRef<State>(state)
@@ -269,12 +269,12 @@ export function TaskFestApp({
     )
   }, [keptBoard, now, sessions])
 
-  /** Offers the reminders while they have not been asked for, nor the offer declined (#273). */
+  /** Offers the reminders while they may be asked for and the offer has not been answered (#273). */
   const offerIfAsked = useCallback(async () => {
     const started = signOuts.current
     let offer: boolean
     try {
-      offer = (await reminders.permission()) === 'undetermined' && !(await reminders.declined())
+      offer = (await reminders.permission()) === 'undetermined' && !(await reminders.answered())
     } catch {
       offer = false
     }
