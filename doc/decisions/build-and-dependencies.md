@@ -12,6 +12,15 @@ directory no longer exists.
 **Why.** Jib needs no Dockerfile and no daemon-side build. The pin is not optional: Jib's
 default base ships JDK 21 and the container exited silently on class file version 69.
 
+**A broken base image download is retried, by the workflow.** Quay ended the base image's
+download early twice on 11 October 2026 (6 MB of 63, 23 MB of 62), failing a build that had
+nothing wrong with it, and Jib has no setting to retry. So every workflow step that builds the
+image with Jib runs through `.github/scripts/retry-on-broken-download.sh`, which runs the build up to
+three times. It retries only when the output shows a download that broke off; a failing test or
+compile stops at the first run, with its own exit status. Re-running is harmless where the step pushes,
+since Jib's image comes out the same. If Quay keeps breaking off, the base image moves to GitHub's
+Container Registry rather than gaining more retries.
+
 **Why the Dockerfiles were deleted rather than left alone.** The two JVM ones were
 `ubi9/openjdk-17` based, so building from either would have failed on class file version 69 in
 exactly the way the pin exists to prevent — a trap for anyone who found them before finding
