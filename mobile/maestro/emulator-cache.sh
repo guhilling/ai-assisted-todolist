@@ -71,9 +71,11 @@ check_private() {
     echo "::error::Could not ask ghcr.io whether ${BUILDCACHE} is private." >&2
     return 1
   }
-  # Only an explicit refusal proves it private. A token that then reads the probe proves it public;
-  # anything else -- no token, another answer -- proves nothing, and nothing is pushed on it.
-  if grep -q '"DENIED"' <<< "$response"; then
+  # Only an explicit refusal proves it private: UNAUTHORIZED is how ghcr.io answers for a private
+  # package, DENIED for one it does not have, which the probe's being there rules out. A token that
+  # then reads the probe proves it public; anything else -- no token, another answer -- proves
+  # nothing, and nothing is pushed on it.
+  if grep -q -E '"code": *"(UNAUTHORIZED|DENIED)"' <<< "$response"; then
     echo "${BUILDCACHE} is private: it refuses an anonymous reader."
     return 0
   fi
