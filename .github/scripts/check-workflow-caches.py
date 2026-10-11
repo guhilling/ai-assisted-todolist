@@ -69,13 +69,22 @@ def problems(text):
         if action in ("actions/setup-java", "actions/setup-node") and _value(step, "cache") is not None:
             found.append(f"{uses}: its own `cache:` saves from every branch; restore with "
                          "actions/cache/restore and save from main with actions/cache/save instead")
-        if action == "actions/cache" and (_value(step, "path") or "").startswith(DEPENDENCY_CACHES):
-            found.append(f"{uses}: saves {_value(step, 'path')} from every branch; restore with "
+        caches = [path for path in (_value(step, "path") or "").split() if path.startswith(DEPENDENCY_CACHES)]
+        if action == "actions/cache" and caches:
+            found.append(f"{uses}: saves {', '.join(caches)} from every branch; restore with "
                          "actions/cache/restore and save from main with actions/cache/save instead")
-        condition = _value(step, "if") or ""
-        if action == "actions/cache/save" and (MAIN_ONLY not in condition or "||" in condition):
-            found.append(f"{uses}: saves from any branch; its `if:` needs {MAIN_ONLY}, and no `||`")
+        if action == "actions/cache/save" and not _main_only(_value(step, "if") or ""):
+            found.append(f"{uses}: saves from any branch; its `if:` needs {MAIN_ONLY} as one of its "
+                         "`&&` parts, and no `||`")
     return found
+
+
+def _main_only(condition):
+    """Whether the condition holds on main alone: MAIN_ONLY is one of its `&&` parts, unwrapped."""
+    condition = condition.strip()
+    if condition.startswith("${{") and condition.endswith("}}"):
+        condition = condition[3:-2]
+    return "||" not in condition and MAIN_ONLY in (part.strip() for part in condition.split("&&"))
 
 
 def differing_keys(workflows):

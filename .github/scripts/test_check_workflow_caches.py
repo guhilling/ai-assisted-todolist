@@ -104,6 +104,25 @@ class CheckTest(unittest.TestCase):
             """))
         self.assertEqual(len(found), 1, found)
 
+    def test_a_negated_condition_is_named(self):
+        found = check.problems(workflow("""
+            - uses: actions/cache/save@v6
+              if: ${{ ! (github.ref == 'refs/heads/main') }}
+              with:
+                path: ~/.npm
+                key: npm-x
+            """))
+        self.assertEqual(len(found), 1, found)
+
+    def test_a_condition_in_an_expression_passes(self):
+        self.assertEqual(check.problems(workflow("""
+            - uses: actions/cache/save@v6
+              if: ${{ github.ref == 'refs/heads/main' && steps.npm-cache.outputs.cache-hit != 'true' }}
+              with:
+                path: ~/.npm
+                key: npm-x
+            """)), [])
+
     def test_a_quoted_action_is_recognised(self):
         found = check.problems(workflow("""
             - uses: 'actions/setup-node@v7'
@@ -121,6 +140,17 @@ class CheckTest(unittest.TestCase):
             """))
         self.assertEqual(len(found), 1, found)
         self.assertIn("actions/cache@v6", found[0])
+
+    def test_the_combined_cache_action_with_a_dependency_cache_among_its_paths_is_named(self):
+        found = check.problems(workflow("""
+            - uses: actions/cache@v6
+              with:
+                path: |
+                  mobile/node_modules
+                  ~/.npm
+                key: npm-x
+            """))
+        self.assertEqual(len(found), 1, found)
 
     def test_the_combined_cache_action_on_something_else_passes(self):
         self.assertEqual(check.problems(workflow("""
