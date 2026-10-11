@@ -43,7 +43,14 @@ jobs:
         with:
           distribution: temurin
           java-version: '25'
-          cache: maven
+      # Read on every branch, saved from main only: see doc/testing/continuous-integration.md.
+      - name: Restore Maven's cache
+        id: maven-cache
+        uses: actions/cache/restore@v6
+        with:
+          path: ~/.m2/repository
+          key: maven-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('**/pom.xml') }}
+          restore-keys: maven-${{ runner.os }}-${{ runner.arch }}-
 
       - name: Build the backend image
         working-directory: backend
@@ -52,8 +59,14 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: '24'
-          cache: npm
-          cache-dependency-path: e2e/package-lock.json
+      # Read on every branch, saved from main only: see doc/testing/continuous-integration.md.
+      - name: Restore npm's cache
+        id: npm-cache
+        uses: actions/cache/restore@v6
+        with:
+          path: ~/.npm
+          key: npm-e2e-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('e2e/package-lock.json') }}
+          restore-keys: npm-e2e-${{ runner.os }}-${{ runner.arch }}-
 
       - name: Build the frontend image
         working-directory: frontend
@@ -107,6 +120,18 @@ jobs:
       - name: Stop the stack
         if: always()
         run: docker compose -f deployment/docker/docker-compose.e2e.yml down -v
+      - name: Save Maven's cache
+        if: github.ref == 'refs/heads/main' && steps.maven-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: ~/.m2/repository
+          key: ${{ steps.maven-cache.outputs.cache-primary-key }}
+      - name: Save npm's cache
+        if: github.ref == 'refs/heads/main' && steps.npm-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: ~/.npm
+          key: ${{ steps.npm-cache.outputs.cache-primary-key }}
 
   e2e-arm64:
     name: e2e (arm64)

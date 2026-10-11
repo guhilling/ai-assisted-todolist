@@ -48,8 +48,14 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: '24'
-          cache: npm
-          cache-dependency-path: e2e/package-lock.json
+      # Read on every branch, saved from main only: see doc/testing/continuous-integration.md.
+      - name: Restore npm's cache
+        id: npm-cache
+        uses: actions/cache/restore@v6
+        with:
+          path: ~/.npm
+          key: npm-e2e-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('e2e/package-lock.json') }}
+          restore-keys: npm-e2e-${{ runner.os }}-${{ runner.arch }}-
 
       - name: Install Playwright
         working-directory: e2e
@@ -69,6 +75,12 @@ jobs:
           name: playwright-report-live
           path: e2e/playwright-report-live
           retention-days: 7
+      - name: Save npm's cache
+        if: github.ref == 'refs/heads/main' && steps.npm-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: ~/.npm
+          key: ${{ steps.npm-cache.outputs.cache-primary-key }}
 
   signed-in:
     name: Signed-in scenarios on ${{ inputs.environment }}
@@ -95,8 +107,14 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: '24'
-          cache: npm
-          cache-dependency-path: e2e/package-lock.json
+      # Read on every branch, saved from main only: see doc/testing/continuous-integration.md.
+      - name: Restore npm's cache
+        id: npm-cache
+        uses: actions/cache/restore@v6
+        with:
+          path: ~/.npm
+          key: npm-e2e-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('e2e/package-lock.json') }}
+          restore-keys: npm-e2e-${{ runner.os }}-${{ runner.arch }}-
 
       - name: Install Playwright
         working-directory: e2e
@@ -161,4 +179,10 @@ jobs:
           name: playwright-report-live-signed-in
           path: e2e/playwright-report-live-signed-in
           retention-days: 7
+      - name: Save npm's cache
+        if: github.ref == 'refs/heads/main' && steps.npm-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: ~/.npm
+          key: ${{ steps.npm-cache.outputs.cache-primary-key }}
 

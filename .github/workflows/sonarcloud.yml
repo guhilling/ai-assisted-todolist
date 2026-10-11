@@ -35,7 +35,14 @@ jobs:
         with:
           distribution: temurin
           java-version: '25'
-          cache: maven
+      # Read on every branch, saved from main only: see doc/testing/continuous-integration.md.
+      - name: Restore Maven's cache
+        id: maven-cache
+        uses: actions/cache/restore@v6
+        with:
+          path: ~/.m2/repository
+          key: maven-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('**/pom.xml') }}
+          restore-keys: maven-${{ runner.os }}-${{ runner.arch }}-
 
       - name: Run backend tests with coverage
         working-directory: backend
@@ -44,8 +51,14 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: '24'
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
+      # Read on every branch, saved from main only: see doc/testing/continuous-integration.md.
+      - name: Restore npm's cache
+        id: npm-cache
+        uses: actions/cache/restore@v6
+        with:
+          path: ~/.npm
+          key: npm-frontend-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('frontend/package-lock.json') }}
+          restore-keys: npm-frontend-${{ runner.os }}-${{ runner.arch }}-
 
       - name: Install frontend dependencies
         working-directory: frontend
@@ -77,3 +90,15 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: python3 .github/scripts/sonar-gate-issue.py
+      - name: Save Maven's cache
+        if: github.ref == 'refs/heads/main' && steps.maven-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: ~/.m2/repository
+          key: ${{ steps.maven-cache.outputs.cache-primary-key }}
+      - name: Save npm's cache
+        if: github.ref == 'refs/heads/main' && steps.npm-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: ~/.npm
+          key: ${{ steps.npm-cache.outputs.cache-primary-key }}
