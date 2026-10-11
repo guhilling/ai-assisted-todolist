@@ -1,4 +1,4 @@
-import { REQUEST_MS, SignedOutError, TimedOutError, createTask, fetchTasks } from './api'
+import { REQUEST_MS, TimedOutError, VERSION_CHECK_MS, createTask, fetchMinimumAppVersion, fetchTasks } from './api'
 
 const BASE = 'https://taskfest.example'
 const caller = { baseUrl: BASE, idToken: 't' }
@@ -27,27 +27,16 @@ describe('a request that gets no answer (#311)', () => {
     expect(REQUEST_MS).toBe(10_000)
   })
 
-  it('is not taken for a refused sign-in', async () => {
-    const loading = fetchTasks(caller, silent())
-    const failed = expect(loading).rejects.not.toBeInstanceOf(SignedOutError)
-
-    jest.advanceTimersByTime(REQUEST_MS)
-
-    await failed
-  })
-
   it('is still waited on until the time is up', async () => {
     let settled = false
-    fetchTasks(caller, silent()).then(
-      () => (settled = true),
-      () => (settled = true),
-    )
+    const loading = fetchTasks(caller, silent()).finally(() => (settled = true))
+    const failed = expect(loading).rejects.toBeInstanceOf(TimedOutError)
 
-    jest.advanceTimersByTime(REQUEST_MS - 1)
-    await Promise.resolve()
-
+    await jest.advanceTimersByTimeAsync(REQUEST_MS - 1)
     expect(settled).toBe(false)
-    jest.advanceTimersByTime(1)
+
+    await jest.advanceTimersByTimeAsync(1)
+    await failed
   })
 
   it('is aborted, so its connection is not left open', async () => {
@@ -77,6 +66,33 @@ describe('a request that gets no answer (#311)', () => {
     jest.advanceTimersByTime(REQUEST_MS)
 
     await failed
+  })
+
+  it('fails with its own error even where the fetch gives up the moment it is aborted', async () => {
+    const fetchImpl = jest.fn(
+      (_input: RequestInfo | URL, init?: RequestInit) =>
+        new Promise<Response>((_, reject) =>
+          init?.signal?.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError'))),
+        ),
+    )
+    const loading = fetchTasks(caller, fetchImpl)
+    const failed = expect(loading).rejects.toBeInstanceOf(TimedOutError)
+
+    jest.advanceTimersByTime(REQUEST_MS)
+
+    await failed
+  })
+
+  it('asks which releases the backend serves for three seconds only, as the start waits no longer', async () => {
+    const fetchImpl = silent()
+    const asking = fetchMinimumAppVersion(BASE, '1.2.0', fetchImpl)
+    const failed = expect(asking).rejects.toBeInstanceOf(TimedOutError)
+
+    jest.advanceTimersByTime(VERSION_CHECK_MS)
+
+    await failed
+    expect(VERSION_CHECK_MS).toBe(3000)
+    expect(fetchImpl.mock.calls[0][1]?.signal?.aborted).toBe(true)
   })
 
   it('leaves no timer behind once answered in time', async () => {
