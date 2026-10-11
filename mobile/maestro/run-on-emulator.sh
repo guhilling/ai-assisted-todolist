@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
-# Runs the Maestro flows on the emulator Mobile CI has just booted (#267), against the end-to-end
-# stack on the runner's localhost.
+# Runs one share of the Maestro flows on the emulator Mobile CI has just booted (#267), against the
+# end-to-end stack on the runner's localhost. Mobile CI runs both shares at once, each on an
+# emulator and a stack of its own, so neither flow sees the other's changes:
+#
+#   board   signing in, and changing the board -- the longest flow
+#   others  the account sheet, the reminders, and the board read offline
 #
 # A script rather than the emulator action's inline lines: each of those runs as a command of its
 # own, which leaves no room for a loop. The emulator reports itself booted a little before adb can
@@ -8,6 +12,7 @@
 set -euo pipefail
 
 apk="$1"
+share="$2"
 
 retry() {
   for attempt in 1 2 3 4 5; do
@@ -28,7 +33,20 @@ retry adb reverse tcp:3000 tcp:3000
 retry adb reverse tcp:8082 tcp:8082
 retry adb install -r "$apk"
 
-maestro test mobile/maestro --format junit --output maestro-report.xml --test-output-dir maestro-output
+case "$share" in
+  board)
+    maestro test mobile/maestro/sign-in.yaml mobile/maestro/change-tasks.yaml \
+      --format junit --output maestro-report.xml --test-output-dir maestro-output
+    exit 0
+    ;;
+  others) ;;
+  *)
+    echo "Unknown share of the flows: '${share}' (board or others)" >&2
+    exit 2
+    ;;
+esac
+
+maestro test mobile/maestro/account.yaml --format junit --output maestro-report.xml --test-output-dir maestro-output
 
 # Reminders (#273): turn them on, then make sure Android holds a pending alarm of the app's
 # (`Alarm{... origWhen <ms> ... <package>}`) set for 08:00 in the emulator's own time zone -- not

@@ -91,19 +91,25 @@ version may be, and the backend logs nothing else as an `app`.
 - **Maestro** flows under `mobile/maestro/` drive the built app on an emulator: `sign-in.yaml`
   signs in and sees the board, `change-tasks.yaml` changes it ([board.md](board.md)), and
   `account.yaml` opens the account sheet and signs out ([account.md](account.md)). The two flows in
-  `offline/` run after them, one at a time: the first loads a board, then `run-on-emulator.sh`
+  `offline/` run after the account flow, one at a time: the first loads a board, then `run-on-emulator.sh`
   removes the `adb reverse` the app reaches the backend through — airplane mode alone does not cut
-  it — and the second reads the kept board and has a change refused ([board.md](board.md)). Before
-  them, `reminders/turn-on.yaml` turns the reminders on, and the script checks Android holds the
+  it — and the second reads the kept board and has a change refused ([board.md](board.md)). Between
+  the two, `reminders/turn-on.yaml` turns the reminders on, and the script checks Android holds the
   app's alarm ([reminders.md](reminders.md)).
 
 `.github/workflows/mobile-ci.yml` runs all of it on every pull request touching the app or what
 it shares with the website: the checks; a release APK of the `dev` variant on Linux; an iOS
 simulator build on macOS; and the Maestro flows on an Android emulator against the end-to-end
-stack, built from the same commit. Its screenshots are the `maestro-output` artifact.
+stack, built from the same commit. The flows run in two shares at once, each on an emulator and a
+stack of its own: `board` signs in and changes the board, `others` has the account, the reminders
+and the offline board. Their screenshots are the `maestro-output-board` and
+`maestro-output-others` artifacts.
 
 The APK the flows run is built for the emulator's x86_64 only, with Gradle's cache kept between
-runs (`gradle/actions/setup-gradle`, written from `main`); the stack starts in the background, so
-it comes up while the emulator is installed and boots, and `maestro/seed-stack.sh` waits for it
-before putting the CI task on the board. Snapshots of the emulator are not cached: they would save about a
+runs (`gradle/actions/setup-gradle`, written from `main`). It is not built at all when nothing it
+is made from has changed — the app, the website's sources it bundles, the workflow; the flows and
+tests aside: the APK of the run that last built it is kept in the Actions cache under a hash of
+those files, so a pull request touching only the backend goes straight to the flows. The stack
+starts in the background, so it comes up while the emulator is installed and boots, and
+`maestro/seed-stack.sh` waits for it before putting the CI task on the board. Snapshots of the emulator are not cached: they would save about a
 minute, and its cold boots are the steadier ones.
