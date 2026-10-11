@@ -130,6 +130,23 @@ on another runner's CPU is a cold boot too. A snapshot may wake with the day it 
 
 It is private because the system image is Google's, under the Android SDK licence. GitHub's API does
 not tell a workflow's own token a package's visibility, so the script asks the registry without
-credentials, which a private package refuses: it pushes a probe and checks that before it pushes the
-setup, and checks again on every run of `emulator-cache.yml`. The Actions cache is no place for it:
-at 10 GB it is full already, and the image would push out the Gradle cache.
+credentials, which a private package refuses: it reads a probe image that way on every run of
+`emulator-cache.yml`, before the emulator boots, and again just before it pushes the setup. The
+Actions cache is no place for it: at 10 GB it is full already, and the image would push out the
+Gradle cache.
+
+The package is created by hand, never by a workflow: one a workflow creates from this public
+repository starts out public, and a public package can never be made private again — the first one
+had to be deleted. To create it, or again after deleting it, push the probe with
+[oras](https://oras.land) and your own token, which needs the `write:packages` scope
+(`gh auth refresh -s write:packages` adds it):
+
+```bash
+gh auth token | oras login ghcr.io --username <your GitHub user> --password-stdin
+GITHUB_REPOSITORY_OWNER=guhilling GITHUB_REPOSITORY=guhilling/ai-assisted-todolist \
+  bash mobile/maestro/emulator-cache.sh probe
+```
+
+It fails unless the new package refuses an anonymous reader. The probe's label links the package to
+this repository; should `emulator-cache.yml` still be refused writing it, add the repository under
+*Manage Actions access* in the package's settings, with the *Write* role.
