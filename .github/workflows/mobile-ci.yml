@@ -31,6 +31,15 @@ on:
 permissions:
   contents: read
 
+# The emulator, in one place for the job that caches its setup and the jobs that run on it: a change
+# here is a new cache tag (mobile/maestro/emulator-cache.sh).
+env:
+  BUILDCACHE: ghcr.io/guhilling/taskfest-buildcache
+  EMULATOR_API_LEVEL: '34'
+  EMULATOR_TARGET: google_apis
+  EMULATOR_ARCH: x86_64
+  EMULATOR_OPTIONS: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+
 # The app is built here, never by EAS (doc/decisions/mobile-app.md): the checks, an Android build on
 # Linux, an iOS simulator build on macOS, and a Maestro run of the Android build against the
 # end-to-end stack. GitHub's hosted runners are free for a public repository, macOS included.
@@ -139,9 +148,71 @@ jobs:
             -configuration Release -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
             CODE_SIGNING_ALLOWED=NO build | tail -n 50
 
+  # The emulator's setup -- system image, AVD and a booted snapshot -- in a private image on GitHub's
+  # Container Registry, for the emulator jobs to start from (#302). Written from main only, as the
+  # Gradle cache is: every pull request reads it, so none may write it. A run whose setup is cached
+  # already only checks the package is still private.
+  emulator-cache:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-26.04
+    permissions:
+      contents: read
+      packages: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oras-project/setup-oras@v2
+
+      - name: Log in to GitHub's Container Registry
+        run: echo "$GH_TOKEN" | oras login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+
+      - name: Find out whether this setup is cached
+        id: cache
+        run: |
+          tag=$(bash mobile/maestro/emulator-cache.sh tag)
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          if bash mobile/maestro/emulator-cache.sh exists "$tag"; then
+            echo "hit=true" >> "$GITHUB_OUTPUT"
+            echo "Cached already: $tag"
+          fi
+
+      - name: Check the cache is private
+        if: steps.cache.outputs.hit == 'true'
+        run: bash mobile/maestro/emulator-cache.sh private
+
+      - name: Let the emulator use KVM
+        if: steps.cache.outputs.hit != 'true'
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Boot the emulator once, for its snapshot
+        # Without -no-snapshot, the emulator saves its booted state when the action stops it. The
+        # animations are turned off by each run instead, as the action's own guide does it.
+        if: steps.cache.outputs.hit != 'true'
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: ${{ env.EMULATOR_API_LEVEL }}
+          target: ${{ env.EMULATOR_TARGET }}
+          arch: ${{ env.EMULATOR_ARCH }}
+          force-avd-creation: false
+          emulator-options: ${{ env.EMULATOR_OPTIONS }}
+          disable-animations: false
+          script: echo "Booted; the emulator saves the snapshot as it stops."
+
+      - name: Cache the setup
+        if: steps.cache.outputs.hit != 'true'
+        run: bash mobile/maestro/emulator-cache.sh save "${{ steps.cache.outputs.tag }}"
+
   maestro:
     needs: android
     runs-on: ubuntu-26.04
+    permissions:
+      contents: read
+      # To read the emulator's cached setup.
+      packages: read
     # The flows in two shares at once, each on an emulator and a stack of its own: together they
     # took nearly five minutes, the longest share takes a little over two. run-on-emulator.sh says
     # which flow is in which.
@@ -153,6 +224,25 @@ jobs:
       MAESTRO_VERSION: 2.11.0
     steps:
       - uses: actions/checkout@v7
+
+      - name: Start the stack's other services
+        # Postgres, Keycloak and LocalStack need nothing built here, so they are pulled and started
+        # first, while the rest of the job runs; Keycloak's start is the slowest part of the stack.
+        run: |
+          nohup docker compose -f deployment/docker/docker-compose.e2e.yml up -d postgres keycloak localstack \
+            > services-start.log 2>&1 &
+          echo $! > services-start.pid
+
+      - uses: oras-project/setup-oras@v2
+
+      - name: Restore the emulator's setup
+        env:
+          GH_TOKEN: ${{ github.token }}
+        # From the cache main keeps (#302); without it, the emulator is set up and booted from
+        # scratch, as before.
+        run: |
+          echo "$GH_TOKEN" | oras login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+          bash mobile/maestro/emulator-cache.sh restore "$(bash mobile/maestro/emulator-cache.sh tag)"
 
       - uses: actions/setup-java@v6
         with:
@@ -171,8 +261,11 @@ jobs:
       - name: Start the stack
         # In the background, while the emulator is installed and boots: `up -d` itself waits for the
         # services the backend depends on to be healthy, which is most of its minute. seed-stack.sh
-        # waits for this to finish, then for the whole stack, before the flows run.
+        # waits for this to finish, then for the whole stack, before the flows run. The other
+        # services' start comes first, so two `compose up` never race.
         run: |
+          while kill -0 "$(cat services-start.pid)" 2>/dev/null; do sleep 1; done
+          cat services-start.log
           nohup docker compose -f deployment/docker/docker-compose.e2e.yml up -d > stack-start.log 2>&1 &
           echo $! > stack-start.pid
 
@@ -195,9 +288,13 @@ jobs:
       - name: Run the flows on an emulator
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 34
-          target: google_apis
-          arch: x86_64
+          api-level: ${{ env.EMULATOR_API_LEVEL }}
+          target: ${{ env.EMULATOR_TARGET }}
+          arch: ${{ env.EMULATOR_ARCH }}
+          # The restored AVD and its snapshot, when there are; a new AVD, booted cold, when not.
+          # Nothing is saved back: every run starts from main's snapshot.
+          force-avd-creation: false
+          emulator-options: -no-snapshot-save ${{ env.EMULATOR_OPTIONS }}
           disable-animations: true
           script: bash mobile/maestro/seed-stack.sh && bash mobile/maestro/run-on-emulator.sh apk/app-release.apk ${{ matrix.share }}
 

@@ -110,6 +110,17 @@ runs (`gradle/actions/setup-gradle`, written from `main`). It is not built at al
 is made from has changed — the app, the website's sources it bundles, the workflow; the flows and
 tests aside: the APK of the run that last built it is kept in the Actions cache under a hash of
 those files, so a pull request touching only the backend goes straight to the flows. The stack
-starts in the background, so it comes up while the emulator is installed and boots, and
-`maestro/seed-stack.sh` waits for it before putting the CI task on the board. Snapshots of the emulator are not cached: they would save about a
-minute, and its cold boots are the steadier ones.
+starts in the background, so it comes up while the emulator is set up and boots — Postgres,
+Keycloak and LocalStack first thing, since they need nothing built — and `maestro/seed-stack.sh`
+waits for it before putting the CI task on the board.
+
+The emulator's setup is cached (#302): the API 34 system image and an AVD with a booted snapshot,
+in a private image on GitHub's Container Registry, `ghcr.io/guhilling/taskfest-buildcache`, tagged
+`avd-<API level>-<image>-<arch>-emu<emulator version>-<hash>`. The hash covers the emulator settings
+in `mobile-ci.yml` and `maestro/emulator-cache.sh` itself, so a change to either, or a new emulator,
+is a new tag. Only the `emulator-cache` job on `main` writes it; the emulator jobs restore it, boot
+from the snapshot and save nothing back. Without it — a new tag before `main` has built it, or the
+registry out of reach — they set the emulator up and boot it cold, as before. It is private because
+the system image is Google's, under the Android SDK licence: the script refuses to push the setup
+into a package that is not private, and checks again on every run on `main`. The Actions cache is
+no place for it: at 10 GB it is full already, and the image would push out the Gradle cache.
