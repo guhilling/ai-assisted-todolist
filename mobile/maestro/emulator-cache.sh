@@ -8,6 +8,7 @@
 #   emulator-cache.sh restore        unpacks this setup's cache; never fails, so a miss is a cold start
 #   emulator-cache.sh save TAG       packs the setup and pushes it; emulator-cache.yml only
 #   emulator-cache.sh private        fails unless the cache's package is provably private
+#   emulator-cache.sh probe          creates the package, private; by hand, once, with your own token
 #
 # The emulator's settings are in emulator.env beside this script, for the workflows to read too. The
 # tag names them, the emulator version and the system image revision -- a snapshot loads only into
@@ -18,8 +19,12 @@
 # Private, because the system image and the snapshot are Google's software under the Android SDK
 # licence, not ours to publish. GitHub's API will not tell a workflow's own token a package's
 # visibility, so `private` asks the registry instead, without credentials: a private package refuses
-# an anonymous reader, a public one serves it. `save` pushes a probe first and pushes the setup only
-# once that check has passed, since an image pushed from a public repository may start out public.
+# an anonymous reader, a public one serves it, so a probe image in the package is what gets read.
+#
+# A person creates the package, with `probe`: a package a workflow creates from a public repository
+# of a personal account starts out public, and a public package can never be made private again --
+# the first one had to be deleted. So the workflows never create it: `save` checks the probe is there
+# and private before it pushes anything, and fails when it is missing.
 #
 # Needs an `oras login` to ghcr.io for everything but `tag` and `private`; `restore` logs in itself
 # with GH_TOKEN, so that a failed login is a cold start too.
@@ -31,8 +36,9 @@ repository_root="$(cd "$here/../.." && pwd)"
 source "$here/emulator.env"
 
 owner="${GITHUB_REPOSITORY_OWNER:?}"
-BUILDCACHE="ghcr.io/${owner,,}/taskfest-buildcache"
-sdk="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
+BUILDCACHE="ghcr.io/$(tr '[:upper:]' '[:lower:]' <<< "$owner")/taskfest-buildcache"
+# Empty where there is no SDK, as for `probe` on a laptop.
+sdk="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
 image_path="system-images;android-${EMULATOR_API_LEVEL};${EMULATOR_TARGET};${EMULATOR_ARCH}"
 image_dir="$sdk/system-images/android-${EMULATOR_API_LEVEL}/${EMULATOR_TARGET}/${EMULATOR_ARCH}"
 # The AVD, and adb's key the snapshot's device already trusts.
@@ -58,7 +64,7 @@ check_private() {
   local repository="${BUILDCACHE#ghcr.io/}" response token status
   # What is checked must exist, or a refusal would prove nothing.
   if ! oras manifest fetch "${BUILDCACHE}:visibility-probe" > /dev/null 2>&1; then
-    echo "::error::${BUILDCACHE}:visibility-probe is missing, so its visibility cannot be checked." >&2
+    echo "::error::${BUILDCACHE}:visibility-probe is missing, so its visibility cannot be checked. Is the package there? A person creates it with \`emulator-cache.sh probe\`; doc/mobile/development.md says how." >&2
     return 1
   fi
   response=$(curl -sS "https://ghcr.io/token?scope=repository:${repository}:pull") || {
@@ -127,11 +133,17 @@ case "${1:-}" in
     check_private
     ;;
 
-  save)
+  probe)
     work=$(mktemp -d)
     echo "Only checks this package is private; it holds nothing." > "$work/probe.txt"
     (cd "$work" && oras push --annotation "$source_annotation" "${BUILDCACHE}:visibility-probe" probe.txt > /dev/null)
+    rm -rf "$work"
     check_private
+    ;;
+
+  save)
+    check_private
+    work=$(mktemp -d)
     tar -C / -cf - "${paths[@]#/}" | zstd -T0 -3 -q -o "$work/$archive"
     echo "Pushing $(du -h "$work/$archive" | cut -f1) as ${BUILDCACHE}:$2."
     (cd "$work" && oras push --annotation "$source_annotation" "${BUILDCACHE}:$2" \
@@ -140,7 +152,7 @@ case "${1:-}" in
     ;;
 
   *)
-    echo "usage: $0 tag | exists TAG | restore | save TAG | private" >&2
+    echo "usage: $0 tag | exists TAG | restore | save TAG | private | probe" >&2
     exit 2
     ;;
 esac

@@ -6,8 +6,9 @@ name: Emulator cache
 #
 # Written from main only, as the Gradle cache is: every pull request reads it, so none may write it.
 # Daily too, because Google's next emulator or system image is a new tag that no push to main would
-# build, and every pull request would boot cold until one did; and the daily run checks the package
-# is still private, which a run with its setup cached already does and nothing more.
+# build, and every pull request would boot cold until one did; and every run checks the package is
+# still private, which a run with its setup cached already does and nothing more. It never creates
+# the package: one made by a workflow here starts out public, for good (emulator-cache.sh).
 on:
   push:
     branches: [main]
@@ -60,7 +61,6 @@ jobs:
           fi
 
       - name: Check the cache is private
-        if: steps.cache.outputs.hit == 'true'
         run: bash mobile/maestro/emulator-cache.sh private
 
       - name: Let the emulator use KVM
