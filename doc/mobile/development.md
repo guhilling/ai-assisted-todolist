@@ -116,11 +116,20 @@ waits for it before putting the CI task on the board.
 
 The emulator's setup is cached (#302): the API 34 system image and an AVD with a booted snapshot,
 in a private image on GitHub's Container Registry, `ghcr.io/guhilling/taskfest-buildcache`, tagged
-`avd-<API level>-<image>-<arch>-emu<emulator version>-<hash>`. The hash covers the emulator settings
-in `mobile-ci.yml` and `maestro/emulator-cache.sh` itself, so a change to either, or a new emulator,
-is a new tag. Only the `emulator-cache` job on `main` writes it; the emulator jobs restore it, boot
-from the snapshot and save nothing back. Without it — a new tag before `main` has built it, or the
-registry out of reach — they set the emulator up and boot it cold, as before. It is private because
-the system image is Google's, under the Android SDK licence: the script refuses to push the setup
-into a package that is not private, and checks again on every run on `main`. The Actions cache is
-no place for it: at 10 GB it is full already, and the image would push out the Gradle cache.
+`avd-<API level>-<image>-<arch>-emu<emulator version>-img<image revision>-<hash>`. The emulator's
+settings live in `maestro/emulator.env` for both workflows; the hash covers that file and
+`maestro/emulator-cache.sh`, and the versions are the newest stable ones in Google's package index
+(`.github/scripts/android-revisions.py`), since the emulator action always installs those and a
+snapshot only loads into the pair that saved it. `emulator-cache.yml` writes it, from `main` only:
+on a push that changes the setup, daily — so a new emulator from Google is cached before many pull
+requests boot cold — and from the Actions tab. The emulator jobs restore it, boot from the snapshot
+and save nothing back. Without it — a tag not built yet, the registry out of reach, a broken
+download — they set the emulator up and boot it cold, as before; a snapshot the emulator cannot load
+on another runner's CPU is a cold boot too. A snapshot may wake with the day it was saved, so
+`run-on-emulator.sh` sets the emulator's clock from the runner's when they differ.
+
+It is private because the system image is Google's, under the Android SDK licence. GitHub's API does
+not tell a workflow's own token a package's visibility, so the script asks the registry without
+credentials, which a private package refuses: it pushes a probe and checks that before it pushes the
+setup, and checks again on every run of `emulator-cache.yml`. The Actions cache is no place for it:
+at 10 GB it is full already, and the image would push out the Gradle cache.

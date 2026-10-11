@@ -1,0 +1,89 @@
+name: Emulator cache
+
+# The emulator's setup -- system image, AVD and a booted snapshot -- in a private image on GitHub's
+# Container Registry, for Mobile CI's emulator jobs to start from (#302). mobile/maestro/
+# emulator-cache.sh does the work and says how the cache is tagged and why it is private.
+#
+# Written from main only, as the Gradle cache is: every pull request reads it, so none may write it.
+# Daily too, because Google's next emulator or system image is a new tag that no push to main would
+# build, and every pull request would boot cold until one did; and the daily run checks the package
+# is still private, which a run with its setup cached already does and nothing more.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'mobile/maestro/emulator.env'
+      - 'mobile/maestro/emulator-cache.sh'
+      - '.github/scripts/android-revisions.py'
+      - '.github/workflows/emulator-cache.yml'
+  schedule:
+    - cron: '17 4 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One writer at a time.
+concurrency:
+  group: emulator-cache
+  cancel-in-progress: false
+
+jobs:
+  cache:
+    name: Cache the emulator's setup
+    # A start from the Actions tab may name any branch; only main writes.
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-26.04
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oras-project/setup-oras@v2
+
+      - name: Log in to GitHub's Container Registry
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: echo "$GH_TOKEN" | oras login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+
+      - name: Find out whether this setup is cached
+        id: cache
+        run: |
+          (set -a && source mobile/maestro/emulator.env && env | grep '^EMULATOR_') >> "$GITHUB_ENV"
+          tag=$(bash mobile/maestro/emulator-cache.sh tag)
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          if bash mobile/maestro/emulator-cache.sh exists "$tag"; then
+            echo "hit=true" >> "$GITHUB_OUTPUT"
+            echo "Cached already: $tag"
+          else
+            echo "Not cached yet: $tag"
+          fi
+
+      - name: Check the cache is private
+        if: steps.cache.outputs.hit == 'true'
+        run: bash mobile/maestro/emulator-cache.sh private
+
+      - name: Let the emulator use KVM
+        if: steps.cache.outputs.hit != 'true'
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Boot the emulator once, for its snapshot
+        # Without -no-snapshot, the emulator saves its booted state when the action stops it. The
+        # animations are turned off by each run instead, as the action's own guide does it.
+        if: steps.cache.outputs.hit != 'true'
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: ${{ env.EMULATOR_API_LEVEL }}
+          target: ${{ env.EMULATOR_TARGET }}
+          arch: ${{ env.EMULATOR_ARCH }}
+          force-avd-creation: false
+          emulator-options: ${{ env.EMULATOR_OPTIONS }}
+          disable-animations: false
+          script: echo "Booted; the emulator saves the snapshot as it stops."
+
+      - name: Cache the setup
+        if: steps.cache.outputs.hit != 'true'
+        run: bash mobile/maestro/emulator-cache.sh save "${{ steps.cache.outputs.tag }}"

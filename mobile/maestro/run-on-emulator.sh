@@ -27,6 +27,19 @@ adb wait-for-device
 until [ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1" ]; do sleep 2; done
 until adb shell pm path android >/dev/null 2>&1; do sleep 2; done
 
+# An emulator woken from main's snapshot (#302) may still keep the day it was saved, and the flows
+# depend on today: the seeded task is due today, a new one tomorrow. Set its clock from the runner's
+# when they differ by more than half a minute; google_apis images let adb be root for that.
+drift=$(( $(date +%s) - $(adb shell date +%s | tr -d '\r') ))
+echo "The emulator's clock is ${drift} s behind the runner's."
+if (( drift > 30 || drift < -30 )); then
+  retry adb root
+  adb wait-for-device
+  retry adb shell date "@$(date +%s)"
+  adb unroot || true
+  adb wait-for-device
+fi
+
 # The emulator's localhost is not the runner's: give it the stack's ports under the same numbers,
 # so the app and Keycloak's issuer use the addresses the browser does.
 retry adb reverse tcp:3000 tcp:3000
