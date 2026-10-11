@@ -158,6 +158,22 @@ a copy of the backend's, small, and only ever read whole, so a database or a per
 would add a dependency for nothing. It names its account, is removed on sign-out, and while it is
 shown — before the load, or after one failed — every change is refused rather than sent.
 
+**A connection that hangs counts as none (#311).** Every request the app makes over the network
+fails after 10 seconds, its answer read in full, and is aborted (`withinLimit` and `REQUEST_MS` in
+`mobile/src/timeLimit.ts`): the backend's, and the identity provider's -- its discovery document,
+the code exchange after signing in, and renewing the tokens. Without that, a connection that hangs
+rather than drops was waited on without end: the board said it was loading instead of showing the
+kept one with "No connection", and a change neither went through nor failed. Ten seconds is long
+for an answer the backend gives in well under one, and short enough that nobody gives up on the app
+first. Two exceptions: the sign-in in the browser takes as long as its user does, and the version
+check at start gives up after three seconds (`VERSION_CHECK_MS`), since the start waits for it.
+
+A change that got no answer in time may have reached the backend all the same, its answer only slow.
+So it is reported as failed, as before, and the board is loaded again at once: it shows whether the
+change arrived, and until a load works the board counts as possibly out of date and refuses changes
+(see above), so a second try is never sent blind and cannot add a task twice. That holds for an undo
+too, whose restore is two requests and may have done only the first.
+
 **Why not more.** Editing offline means queueing changes. Because an update sends the whole task,
 a queued change would silently overwrite a newer one. That needs a version per task, optimistic
 locking, before it can be built, and it is worth its own story, which would help the website too.

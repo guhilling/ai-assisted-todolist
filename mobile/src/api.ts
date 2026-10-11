@@ -8,6 +8,9 @@ import {
   type TaskInput,
   type TaskState,
 } from './web'
+import { REQUEST_MS, withinLimit } from './timeLimit'
+
+export { REQUEST_MS, TimedOutError } from './timeLimit'
 
 /**
  * The app's side of the REST API (#267): every request carries the ID token as a bearer token
@@ -20,6 +23,9 @@ export type Caller = { baseUrl: string; idToken: string; appVersion?: string }
 
 /** The header the app names its release in, so the backend's log can tell who still calls what. */
 const APP_VERSION_HEADER = 'X-TaskFest-App'
+
+/** How long the start waits to hear which releases the backend serves, before carrying on. */
+export const VERSION_CHECK_MS = 3000
 
 /**
  * A task as the board holds it: as sent, except that an importance or state this release does not
@@ -67,7 +73,7 @@ export class ContractBreachError extends Error {
 
 /** The signed-in user's tasks. */
 export async function fetchTasks(caller: Caller, fetchImpl: typeof fetch = fetch): Promise<BoardTask[]> {
-  const data = await get(caller, '/api/tasks', fetchImpl)
+  const data = await send(caller, 'GET', '/api/tasks', fetchImpl)
   if (!Array.isArray(data)) {
     throw new ContractBreachError('a task list')
   }
@@ -114,7 +120,7 @@ export async function fetchMinimumAppVersion(
   appVersion: string,
   fetchImpl: typeof fetch = fetch,
 ): Promise<string> {
-  const data = await get({ baseUrl, appVersion }, '/api/version', fetchImpl)
+  const data = await send({ baseUrl, appVersion }, 'GET', '/api/version', fetchImpl, undefined, VERSION_CHECK_MS)
   if (!validateVersionResponse(data)) {
     throw new ContractBreachError('the running version')
   }
@@ -123,8 +129,7 @@ export async function fetchMinimumAppVersion(
 
 /** Creates a task and hands it back as the backend stored it, with its new id. */
 export async function createTask(caller: Caller, input: TaskInput, fetchImpl: typeof fetch = fetch): Promise<BoardTask> {
-  const response = await send(caller, 'POST', '/api/tasks', fetchImpl, input)
-  return readTask(await response.json())
+  return readTask(await send(caller, 'POST', '/api/tasks', fetchImpl, input))
 }
 
 /**
@@ -133,8 +138,7 @@ export async function createTask(caller: Caller, input: TaskInput, fetchImpl: ty
  */
 export async function updateTask(caller: Caller, task: Task, fetchImpl: typeof fetch = fetch): Promise<BoardTask> {
   const { description, dueDate, importance, state } = task
-  const response = await send(caller, 'PUT', `/api/tasks/${task.id}`, fetchImpl, { description, dueDate, importance, state })
-  return readTask(await response.json())
+  return readTask(await send(caller, 'PUT', `/api/tasks/${task.id}`, fetchImpl, { description, dueDate, importance, state }))
 }
 
 /** Deletes a task. Its files stay detached on the backend for a while, for an undo. */
@@ -164,23 +168,18 @@ export async function restoreTask(
   return needsDatingBack(created, task) ? updateTask(caller, { ...created, dueDate: task.dueDate }, fetchImpl) : created
 }
 
-/** One GET, signed in when there is an ID token. */
-async function get(
-  caller: Omit<Caller, 'idToken'> & { idToken?: string },
-  path: string,
-  fetchImpl: typeof fetch,
-): Promise<unknown> {
-  return (await send(caller, 'GET', path, fetchImpl)).json()
-}
-
-/** One request, and the one place requests are made and their failures read. */
+/**
+ * One request, signed in when there is an ID token, and the one place requests are made and their
+ * failures read: the answer's body, none for a DELETE, within `ms` or a `TimedOutError`.
+ */
 async function send(
   caller: Omit<Caller, 'idToken'> & { idToken?: string },
   method: 'GET' | 'POST' | 'PUT' | 'DELETE',
   path: string,
   fetchImpl: typeof fetch,
   body?: object,
-): Promise<Response> {
+  ms = REQUEST_MS,
+): Promise<unknown> {
   const headers: Record<string, string> = { Accept: 'application/json' }
   if (caller.idToken) {
     headers.Authorization = `Bearer ${caller.idToken}`
@@ -191,14 +190,20 @@ async function send(
   if (body) {
     headers['Content-Type'] = 'application/json'
   }
-  const init: RequestInit =
-    method === 'GET' ? { headers } : body ? { method, headers, body: JSON.stringify(body) } : { method, headers }
-  const response = await fetchImpl(`${caller.baseUrl}${path}`, init)
-  if (response.status === 401) {
-    throw new SignedOutError()
-  }
-  if (!response.ok) {
-    throw new RequestFailedError(response.status)
-  }
-  return response
+  return withinLimit(async (signal) => {
+    const init: RequestInit =
+      method === 'GET'
+        ? { headers, signal }
+        : body
+          ? { method, headers, body: JSON.stringify(body), signal }
+          : { method, headers, signal }
+    const response = await fetchImpl(`${caller.baseUrl}${path}`, init)
+    if (response.status === 401) {
+      throw new SignedOutError()
+    }
+    if (!response.ok) {
+      throw new RequestFailedError(response.status)
+    }
+    return method === 'DELETE' ? undefined : response.json()
+  }, ms)
 }

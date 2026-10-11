@@ -20,6 +20,7 @@ describe('the backend, as the app asks it', () => {
 
     expect(fetchImpl).toHaveBeenCalledWith(`${BASE}/api/tasks`, {
       headers: { Accept: 'application/json', Authorization: 'Bearer the-token' },
+      signal: expect.any(AbortSignal),
     })
   })
 
@@ -75,6 +76,7 @@ describe('the backend, as the app asks it', () => {
     await expect(fetchMinimumAppVersion(BASE, '1.2.0', fetchImpl)).resolves.toBe('1.1.0')
     expect(fetchImpl).toHaveBeenCalledWith(`${BASE}/api/version`, {
       headers: { Accept: 'application/json', 'X-TaskFest-App': '1.2.0' },
+      signal: expect.any(AbortSignal),
     })
   })
 

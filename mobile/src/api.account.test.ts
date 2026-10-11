@@ -15,6 +15,7 @@ describe('deleting the account, as the app asks the backend (#275)', () => {
     expect(fetchImpl).toHaveBeenCalledWith(`${BASE}/api/account`, {
       method: 'DELETE',
       headers: { Accept: 'application/json', Authorization: 'Bearer the-token', 'X-TaskFest-App': '1.4.0' },
+      signal: expect.any(AbortSignal),
     })
   })
 

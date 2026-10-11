@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ActivityIndicator, AppState, Modal, Pressable, Text, useColorScheme, View } from 'react-native'
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context'
-import { SignedOutError, type BoardTask, type Caller } from './api'
+import { SignedOutError, TimedOutError, VERSION_CHECK_MS, type BoardTask, type Caller } from './api'
 import { AccountScreen } from './AccountScreen'
 import { isTooOld } from './appVersion'
 import { isChangeable } from './board'
@@ -52,9 +52,6 @@ export type Dependencies = {
   appVersion: string
   now(): number
 }
-
-/** How long the start waits to hear which releases the backend serves before carrying on. */
-const VERSION_CHECK_MS = 3000
 
 /** The form over the board: adding a task, or editing one. */
 type Form = { task?: BoardTask; failure?: string }
@@ -494,6 +491,10 @@ export function TaskFestApp({
    * What a failed change leads to: the sign-in, when the session has ended -- that is no failure
    * of the change -- and otherwise the text that says what did not work.
    *
+   * A change that got no answer in time may have arrived all the same (#311), so the board is
+   * loaded again: it shows whether it did, and until a load works the board counts as possibly out
+   * of date and refuses changes (#272) -- a second try sent blind could add the task twice.
+   *
    * @returns the text, or null once the app has signed out or said why nothing could be changed
    */
   const failed = async (cause: unknown, text: string): Promise<string | null> => {
@@ -506,6 +507,9 @@ export function TaskFestApp({
       return null
     }
     console.warn('A change was not saved', cause)
+    if (cause instanceof TimedOutError) {
+      reload()
+    }
     return text
   }
 

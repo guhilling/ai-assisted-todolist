@@ -1,5 +1,6 @@
 import { AuthRequest, exchangeCodeAsync, fetchDiscoveryAsync, makeRedirectUri, refreshAsync } from 'expo-auth-session'
 import type { Tokens } from './staySignedIn'
+import { withinLimit } from './timeLimit'
 import type { SignIn } from './variants'
 
 /**
@@ -9,13 +10,16 @@ import type { SignIn } from './variants'
  *
  * Google's sign-in will not go this way -- Google wants its own SDKs on phones -- and comes with
  * #280. This is for OpenID Connect providers that allow it: the local Keycloak and qa's Cognito.
+ *
+ * Every call to the provider gives up after `REQUEST_MS` (#311), as the backend's do -- all but the
+ * sign-in in the browser, which takes as long as its user does.
  */
 export function providerFor(signIn: SignIn, scheme: string) {
   const redirectUri = makeRedirectUri({ scheme, path: 'oauthredirect' })
   // Asked for once and kept, unless asking failed: renewing should not cost a round trip more.
   let document: ReturnType<typeof fetchDiscoveryAsync> | null = null
   const discovery = () => {
-    document ??= fetchDiscoveryAsync(signIn.issuer).catch((failure: unknown) => {
+    document ??= withinLimit(() => fetchDiscoveryAsync(signIn.issuer)).catch((failure: unknown) => {
       document = null
       throw failure
     })
@@ -34,21 +38,24 @@ export function providerFor(signIn: SignIn, scheme: string) {
       if (result.type !== 'success') {
         return null
       }
-      const tokens = await exchangeCodeAsync(
-        {
-          clientId: signIn.clientId,
-          code: result.params.code,
-          redirectUri,
-          extraParams: { code_verifier: request.codeVerifier ?? '' },
-        },
-        document,
+      const tokens = await withinLimit(() =>
+        exchangeCodeAsync(
+          {
+            clientId: signIn.clientId,
+            code: result.params.code,
+            redirectUri,
+            extraParams: { code_verifier: request.codeVerifier ?? '' },
+          },
+          document,
+        ),
       )
       return { idToken: tokens.idToken, refreshToken: tokens.refreshToken }
     },
 
     /** Renews the tokens; rejects when the provider will not. */
     async refresh(refreshToken: string): Promise<Tokens> {
-      const tokens = await refreshAsync({ clientId: signIn.clientId, refreshToken }, await discovery())
+      const document = await discovery()
+      const tokens = await withinLimit(() => refreshAsync({ clientId: signIn.clientId, refreshToken }, document))
       return { idToken: tokens.idToken, refreshToken: tokens.refreshToken }
     },
   }
