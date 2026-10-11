@@ -9,6 +9,9 @@ on:
     tags:
       - 'v[0-9]+.[0-9]+.[0-9]+'
       - 'v[0-9]+.[0-9]+.[0-9]+-*'
+  # Started for a tag by cut-release.yml (#297): the tag it pushes with its own token starts no
+  # workflow by itself. Started by hand, it must be for a release tag too, which gate checks.
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -27,7 +30,13 @@ jobs:
 
       - name: Derive the version from the tag
         id: version
+        # A push matches the trigger's tag patterns already; a start from the Actions tab may name
+        # any branch or tag, and only a release tag is one.
         run: |
+          if [ "$GITHUB_REF_TYPE" != tag ] || ! [[ "$GITHUB_REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-.+)?$ ]]; then
+            echo "::error::A release is made for a tag vX.Y.Z, not for $GITHUB_REF_NAME."
+            exit 1
+          fi
           version="${GITHUB_REF_NAME#v}"
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "Releasing $version from tag $GITHUB_REF_NAME"
