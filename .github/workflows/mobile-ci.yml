@@ -31,9 +31,6 @@ on:
 permissions:
   contents: read
 
-# The app is built here, never by EAS (doc/decisions/mobile-app.md): the checks, an Android build on
-# Linux, an iOS simulator build on macOS, and a Maestro run of the Android build against the
-# end-to-end stack. GitHub's hosted runners are free for a public repository, macOS included.
 jobs:
   checks:
     runs-on: ubuntu-26.04
@@ -142,6 +139,10 @@ jobs:
   maestro:
     needs: android
     runs-on: ubuntu-26.04
+    permissions:
+      contents: read
+      # To read the emulator's cached setup.
+      packages: read
     # The flows in two shares at once, each on an emulator and a stack of its own: together they
     # took nearly five minutes, the longest share takes a little over two. run-on-emulator.sh says
     # which flow is in which.
@@ -153,6 +154,26 @@ jobs:
       MAESTRO_VERSION: 2.11.0
     steps:
       - uses: actions/checkout@v7
+
+      - name: Start the stack's other services
+        # Postgres, Keycloak and LocalStack need nothing built here, so they are pulled and started
+        # first, while the rest of the job runs; Keycloak's start is the slowest part of the stack.
+        run: |
+          nohup docker compose -f deployment/docker/docker-compose.e2e.yml up -d postgres keycloak localstack \
+            > services-start.log 2>&1 &
+          echo $! > services-start.pid
+
+      - uses: oras-project/setup-oras@v2
+
+      - name: Restore the emulator's setup
+        env:
+          GH_TOKEN: ${{ github.token }}
+        # From the cache emulator-cache.yml keeps (#302). Without it -- not built yet, or the
+        # registry out of reach -- the emulator is set up and booted from scratch, as before: the
+        # script never fails this step. The settings go to the environment for the action below.
+        run: |
+          (set -a && source mobile/maestro/emulator.env && env | grep '^EMULATOR_') >> "$GITHUB_ENV"
+          bash mobile/maestro/emulator-cache.sh restore
 
       - uses: actions/setup-java@v6
         with:
@@ -171,8 +192,11 @@ jobs:
       - name: Start the stack
         # In the background, while the emulator is installed and boots: `up -d` itself waits for the
         # services the backend depends on to be healthy, which is most of its minute. seed-stack.sh
-        # waits for this to finish, then for the whole stack, before the flows run.
+        # waits for this to finish, then for the whole stack, before the flows run. The other
+        # services' start comes first, so two `compose up` never race.
         run: |
+          while kill -0 "$(cat services-start.pid)" 2>/dev/null; do sleep 1; done
+          cat services-start.log
           nohup docker compose -f deployment/docker/docker-compose.e2e.yml up -d > stack-start.log 2>&1 &
           echo $! > stack-start.pid
 
@@ -195,9 +219,13 @@ jobs:
       - name: Run the flows on an emulator
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 34
-          target: google_apis
-          arch: x86_64
+          api-level: ${{ env.EMULATOR_API_LEVEL }}
+          target: ${{ env.EMULATOR_TARGET }}
+          arch: ${{ env.EMULATOR_ARCH }}
+          # The restored AVD and its snapshot, when there are; a new AVD, booted cold, when not.
+          # Nothing is saved back: every run starts from main's snapshot.
+          force-avd-creation: false
+          emulator-options: -no-snapshot-save ${{ env.EMULATOR_OPTIONS }}
           disable-animations: true
           script: bash mobile/maestro/seed-stack.sh && bash mobile/maestro/run-on-emulator.sh apk/app-release.apk ${{ matrix.share }}
 
