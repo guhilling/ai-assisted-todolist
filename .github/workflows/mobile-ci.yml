@@ -42,14 +42,27 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: '24'
-          cache: npm
-          cache-dependency-path: mobile/package-lock.json
+      # Read on every branch, saved from main only, with no fallback there so that a new entry starts
+      # clean: see doc/testing/continuous-integration.md.
+      - name: Restore npm's cache
+        id: npm-cache
+        uses: actions/cache/restore@v6
+        with:
+          path: ~/.npm
+          key: npm-mobile-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('mobile/package-lock.json') }}
+          restore-keys: ${{ github.ref != 'refs/heads/main' && format('npm-mobile-{0}-{1}-', runner.os, runner.arch) || '' }}
       - run: npm ci
       - name: No pre-release dependencies
         run: npm run check:deps
       - run: npm run lint
       - run: npm run typecheck
       - run: npm run test:coverage
+      - name: Save npm's cache
+        if: github.ref == 'refs/heads/main' && steps.npm-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: ~/.npm
+          key: ${{ steps.npm-cache.outputs.cache-primary-key }}
 
   android:
     runs-on: ubuntu-26.04
@@ -76,8 +89,16 @@ jobs:
         if: steps.apk.outputs.cache-hit != 'true'
         with:
           node-version: '24'
-          cache: npm
-          cache-dependency-path: mobile/package-lock.json
+      # Read on every branch, saved from main only, with no fallback there so that a new entry starts
+      # clean: see doc/testing/continuous-integration.md.
+      - name: Restore npm's cache
+        id: npm-cache
+        if: steps.apk.outputs.cache-hit != 'true'
+        uses: actions/cache/restore@v6
+        with:
+          path: ~/.npm
+          key: npm-mobile-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('mobile/package-lock.json') }}
+          restore-keys: ${{ github.ref != 'refs/heads/main' && format('npm-mobile-{0}-{1}-', runner.os, runner.arch) || '' }}
       - uses: actions/setup-java@v6
         if: steps.apk.outputs.cache-hit != 'true'
         with:
@@ -118,8 +139,15 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: '24'
-          cache: npm
-          cache-dependency-path: mobile/package-lock.json
+      # Read on every branch, saved from main only, with no fallback there so that a new entry starts
+      # clean: see doc/testing/continuous-integration.md.
+      - name: Restore npm's cache
+        id: npm-cache
+        uses: actions/cache/restore@v6
+        with:
+          path: ~/.npm
+          key: npm-mobile-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('mobile/package-lock.json') }}
+          restore-keys: ${{ github.ref != 'refs/heads/main' && format('npm-mobile-{0}-{1}-', runner.os, runner.arch) || '' }}
       - name: Install dependencies
         working-directory: mobile
         run: npm ci
@@ -135,6 +163,12 @@ jobs:
           xcodebuild -workspace "$workspace" -scheme "${workspace%.xcworkspace}" \
             -configuration Release -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
             CODE_SIGNING_ALLOWED=NO build | tail -n 50
+      - name: Save npm's cache
+        if: github.ref == 'refs/heads/main' && steps.npm-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: ~/.npm
+          key: ${{ steps.npm-cache.outputs.cache-primary-key }}
 
   maestro:
     needs: android
@@ -179,7 +213,15 @@ jobs:
         with:
           distribution: temurin
           java-version: '25'
-          cache: maven
+      # Read on every branch, saved from main only, with no fallback there so that a new entry starts
+      # clean: see doc/testing/continuous-integration.md.
+      - name: Restore Maven's cache
+        id: maven-cache
+        uses: actions/cache/restore@v6
+        with:
+          path: ~/.m2/repository
+          key: maven-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('**/pom.xml') }}
+          restore-keys: ${{ github.ref != 'refs/heads/main' && format('maven-{0}-{1}-', runner.os, runner.arch) || '' }}
 
       - name: Build the backend image
         working-directory: backend

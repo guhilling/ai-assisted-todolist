@@ -34,8 +34,15 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: '24'
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
+      # Read on every branch, saved from main only, with no fallback there so that a new entry starts
+      # clean: see doc/testing/continuous-integration.md.
+      - name: Restore npm's cache
+        id: npm-cache
+        uses: actions/cache/restore@v6
+        with:
+          path: ~/.npm
+          key: npm-frontend-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('frontend/package-lock.json') }}
+          restore-keys: ${{ github.ref != 'refs/heads/main' && format('npm-frontend-{0}-{1}-', runner.os, runner.arch) || '' }}
       - name: Install dependencies
         run: npm ci
       - name: Check the generated wire types and validators are current
@@ -91,3 +98,9 @@ jobs:
 
       - name: Build frontend container image
         run: docker build -f docker/Dockerfile -t taskfest-frontend:test .
+      - name: Save npm's cache
+        if: github.ref == 'refs/heads/main' && steps.npm-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: ~/.npm
+          key: ${{ steps.npm-cache.outputs.cache-primary-key }}

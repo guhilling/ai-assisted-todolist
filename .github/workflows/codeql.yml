@@ -40,7 +40,16 @@ jobs:
         with:
           distribution: temurin
           java-version: '25'
-          cache: maven
+      # Read on every branch, saved from main only, with no fallback there so that a new entry starts
+      # clean: see doc/testing/continuous-integration.md.
+      - name: Restore Maven's cache
+        id: maven-cache
+        if: matrix.language == 'java-kotlin'
+        uses: actions/cache/restore@v6
+        with:
+          path: ~/.m2/repository
+          key: maven-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('**/pom.xml') }}
+          restore-keys: ${{ github.ref != 'refs/heads/main' && format('maven-{0}-{1}-', runner.os, runner.arch) || '' }}
 
       - name: Initialise CodeQL
         uses: github/codeql-action/init@v4
