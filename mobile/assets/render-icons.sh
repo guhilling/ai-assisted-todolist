@@ -9,3 +9,4 @@ rsvg-convert -w 1024 -h 1024 -o icon.png icons/icon.svg
 rsvg-convert -w 512 -h 512 -o android-icon-foreground.png icons/android-icon-foreground.svg
 rsvg-convert -w 512 -h 512 -o android-icon-background.png icons/android-icon-background.svg
 rsvg-convert -w 432 -h 432 -o android-icon-monochrome.png icons/android-icon-monochrome.svg
+rsvg-convert -w 96 -h 96 -o notification-icon.png icons/notification-icon.svg

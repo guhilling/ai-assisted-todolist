@@ -50,6 +50,7 @@ function dependencies(changes: TaskChanges, overrides: Partial<Dependencies> = {
     changes,
     deleteAccount: jest.fn(),
     keptBoard: { load: jest.fn().mockResolvedValue(null), save: jest.fn().mockResolvedValue(undefined), clear: jest.fn().mockResolvedValue(undefined) },
+    reminders: { permission: jest.fn().mockResolvedValue('denied'), ask: jest.fn(), replace: jest.fn().mockResolvedValue(undefined), answered: jest.fn().mockResolvedValue(false), decline: jest.fn() },
     ...overrides,
   }
 }

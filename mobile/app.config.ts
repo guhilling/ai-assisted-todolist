@@ -41,6 +41,8 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       'expo-secure-store',
       'expo-localization',
       'expo-web-browser',
+      // The due-day reminders (#273): Android shows the mark's single-colour form in the status bar.
+      ['expo-notifications', { icon: './assets/notification-icon.png', color: '#7fae1c' }],
       [
         'expo-build-properties',
         // Only the dev build talks plain HTTP, to the end-to-end stack on localhost.

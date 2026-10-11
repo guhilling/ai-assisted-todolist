@@ -40,6 +40,17 @@ export const en = {
     readOnly: 'Nothing can be changed without a connection. Try again once you are online.',
     wait: 'Just a moment: your tasks are being loaded.',
   },
+  /**
+   * The mobile app's due-day reminders (#273): the notification, the offer to turn them on, and
+   * the name Android shows for them in its settings.
+   */
+  reminders: {
+    dueToday: (count: number) => (count === 1 ? '1 task due today' : `${count} tasks due today`),
+    offer: 'Get a reminder at 08:00 on days tasks are due?',
+    turnOn: 'Turn on',
+    notNow: 'Not now',
+    channel: 'Due today',
+  },
   /** The mobile app's, when the backend no longer serves its release (#268). */
   update: {
     required: 'This version of the app is too old for TaskFest. Update it to carry on.',
@@ -231,6 +242,13 @@ export const de: Messages = {
     note: (when: string) => `Keine Verbindung. Das sind deine Aufgaben, Stand ${when}; sie sind vielleicht nicht mehr aktuell.`,
     readOnly: 'Ohne Verbindung lässt sich nichts ändern. Versuch es wieder, sobald du online bist.',
     wait: 'Einen Moment: deine Aufgaben werden geladen.',
+  },
+  reminders: {
+    dueToday: (count: number) => (count === 1 ? '1 Aufgabe heute fällig' : `${count} Aufgaben heute fällig`),
+    offer: 'Eine Erinnerung um 8:00 an Tagen, an denen Aufgaben fällig sind?',
+    turnOn: 'Einschalten',
+    notNow: 'Nicht jetzt',
+    channel: 'Heute fällig',
   },
   update: {
     required: 'Diese Version der App ist zu alt für TaskFest. Aktualisiere sie, um weiterzumachen.',

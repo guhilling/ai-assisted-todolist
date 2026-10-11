@@ -8,6 +8,8 @@ import { isChangeable } from './board'
 import { BoardScreen } from './BoardScreen'
 import type { KeptBoardStore } from './keptBoard'
 import { LegalLinks } from './LegalLinks'
+import type { ReminderScheduler } from './notifications'
+import { remindersFor } from './reminders'
 import { emailOf, isInactive, type Session } from './session'
 import {
   RenewalUnavailableError,
@@ -42,6 +44,8 @@ export type Dependencies = {
   deleteAccount(caller: Caller): Promise<void>
   /** The last board loaded, kept on the phone to be read without a connection (#272). */
   keptBoard: KeptBoardStore
+  /** The due-day reminders on the phone, and the permission they need (#273). */
+  reminders: ReminderScheduler
   /** The oldest app release the backend serves (#268). */
   fetchMinimumAppVersion(): Promise<string>
   /** This build's release: the tag's, or 0.0.0 from a branch. */
@@ -123,8 +127,18 @@ export function TaskFestApp({
   language: Language
   dependencies: Dependencies
 }) {
-  const { sessions, provider, fetchTasks, fetchMinimumAppVersion, appVersion, now, changes, deleteAccount, keptBoard } =
-    dependencies
+  const {
+    sessions,
+    provider,
+    fetchTasks,
+    fetchMinimumAppVersion,
+    appVersion,
+    now,
+    changes,
+    deleteAccount,
+    keptBoard,
+    reminders,
+  } = dependencies
   const messages = catalogues[language]
   const theme = useColorScheme() === 'dark' ? dark : light
   const styles = useMemo(() => stylesFor(theme), [theme])
@@ -134,6 +148,8 @@ export function TaskFestApp({
   const [failure, setFailure] = useState<string>()
   /** Whether a change was refused because the board shown may not be current (#272), until it is. */
   const [refused, setRefused] = useState(false)
+  /** Whether the reminders may be offered (#273): they may be asked for, and the offer was not answered. */
+  const [offerReminders, setOfferReminders] = useState(false)
   /** The state as of the last render, for the changes that check it once their await is over. */
   const shown = useRef<State>(state)
   useEffect(() => {
@@ -193,6 +209,11 @@ export function TaskFestApp({
         // Never shown to anyone else regardless: it names its account.
         console.warn('The kept board could not be forgotten', failure)
       })
+      // No reminder outlives the session it was scheduled for.
+      await reminders.replace([]).catch((failure: unknown) => {
+        console.warn('The reminders could not be cleared', failure)
+      })
+      setOfferReminders(false)
       setForm(null)
       setAccount(null)
       undoable.current = null
@@ -201,7 +222,7 @@ export function TaskFestApp({
       setRefused(false)
       setState({ kind: 'signedOut', notice })
     },
-    [keptBoard, sessions],
+    [keptBoard, reminders, sessions],
   )
 
   /** Keeps the backend's view of the board on the phone, after applying what it just agreed to. */
@@ -213,11 +234,16 @@ export function TaskFestApp({
       }
       change?.(view.tasks)
       // "As of" the load: every task the backend has not answered for since is that old.
-      keptBoard.save({ account: view.account, savedAt: view.loadedAt, tasks: [...view.tasks.values()] }).catch((failure: unknown) => {
+      const tasks = [...view.tasks.values()]
+      keptBoard.save({ account: view.account, savedAt: view.loadedAt, tasks }).catch((failure: unknown) => {
         console.warn('The board could not be kept', failure)
       })
+      // The reminders follow the same view, so a task completed or moved never reminds (#273).
+      reminders.replace(remindersFor(tasks, now(), messages)).catch((failure: unknown) => {
+        console.warn('The reminders could not be scheduled', failure)
+      })
     },
-    [keptBoard],
+    [keptBoard, messages, now, reminders],
   )
 
   /**
@@ -243,6 +269,21 @@ export function TaskFestApp({
     )
   }, [keptBoard, now, sessions])
 
+  /** Offers the reminders while they may be asked for and the offer has not been answered (#273). */
+  const offerIfAsked = useCallback(async () => {
+    const started = signOuts.current
+    let offer: boolean
+    try {
+      offer = (await reminders.permission()) === 'undetermined' && !(await reminders.answered())
+    } catch {
+      offer = false
+    }
+    // An answer arriving after a sign-out is the old session's, and the sign-out has reset it.
+    if (signOuts.current === started) {
+      setOfferReminders(offer)
+    }
+  }, [reminders])
+
   /** A load that did not work: a board shown stays, marked as possibly out of date. */
   const loadFailed = useCallback(
     () => setState((current) => (current.kind === 'board' ? { ...current, kept: 'failed' } : { kind: 'failed' })),
@@ -264,6 +305,7 @@ export function TaskFestApp({
           setRefused(false)
           agreed.current = email ? { account: email, loadedAt, tasks: new Map(tasks.map((task) => [task.id, task])) } : null
           keep()
+          void offerIfAsked()
         }
       } catch (failure) {
         if (signOuts.current !== started) {
@@ -276,7 +318,7 @@ export function TaskFestApp({
         }
       }
     },
-    [fetchTasks, keep, loadFailed, now, signOut, variant.apiBaseUrl],
+    [fetchTasks, keep, loadFailed, now, offerIfAsked, signOut, variant.apiBaseUrl],
   )
 
   /** How often the start has been tried: "try again" raises it, and the effect below runs anew. */
@@ -340,18 +382,33 @@ export function TaskFestApp({
       if (session) {
         await showBoard(session)
       } else {
-        // The session ran out unused: its board goes with it.
+        // The session ran out unused: its board and its reminders go with it.
         await keptBoard.clear().catch(() => undefined)
+        await reminders.replace([]).catch(() => undefined)
         // Already at the sign-in, it stays as it is, with whatever it says -- "account deleted", say.
         setState((current) => (current.kind === 'signedOut' ? current : { kind: 'signedOut' }))
       }
     }
     void start()
-  }, [appVersion, attempt, fetchMinimumAppVersion, keptBoard, loadFailed, sessionNow, showBoard, showKept, signOut])
+  }, [appVersion, attempt, fetchMinimumAppVersion, keptBoard, loadFailed, reminders, sessionNow, showBoard, showKept, signOut])
 
   const retry = () => {
     setState({ kind: 'starting' })
     setAttempt((count) => count + 1)
+  }
+
+  /** Asks the platform for the reminders' permission, and schedules them once it is given. */
+  const turnOnReminders = async () => {
+    setOfferReminders(false)
+    if (await reminders.ask().catch(() => false)) {
+      keep()
+    }
+  }
+
+  /** "Not now": the offer is not made again. */
+  const declineReminders = () => {
+    setOfferReminders(false)
+    reminders.decline().catch((failure: unknown) => console.warn('The declined offer could not be kept', failure))
   }
 
   /** Loads the board again, keeping the one shown until the new one is there. */
@@ -396,6 +453,12 @@ export function TaskFestApp({
   }
 
   const today = todayIso(new Date(now()))
+
+  /** Whether the board has anything to be reminded of: the offer explains itself by it (#273). */
+  const remindable = useMemo(
+    () => state.kind === 'board' && remindersFor(state.tasks, now(), messages).length > 0,
+    [messages, now, state],
+  )
 
   /** Applies a change to the board's tasks, if the board is what is shown. */
   const setTasks = (change: (tasks: BoardTask[]) => BoardTask[]) =>
@@ -657,6 +720,11 @@ export function TaskFestApp({
                     : undefined
               }
               onRetry={reload}
+              offer={
+                offerReminders && !state.kept && remindable
+                  ? { onTurnOn: () => void turnOnReminders(), onNotNow: declineReminders }
+                  : undefined
+              }
             />
             <Modal
               visible={form !== null}

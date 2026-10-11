@@ -1,14 +1,16 @@
 import Constants from 'expo-constants'
 import { File, Paths } from 'expo-file-system'
 import { getLocales } from 'expo-localization'
+import * as Notifications from 'expo-notifications'
 import * as SecureStore from 'expo-secure-store'
 import { createTask, deleteAccount, deleteTask, fetchMinimumAppVersion, fetchTasks, restoreTask, updateTask } from './api'
 import { createKeptBoardStore } from './keptBoard'
+import { createReminderScheduler, type NotificationsApi } from './notifications'
 import { providerFor } from './provider'
 import { createSessionStore } from './staySignedIn'
 import { TaskFestApp, type Dependencies } from './TaskFestApp'
 import type { Variant } from './variants'
-import { chooseLanguage } from './web'
+import { catalogues, chooseLanguage } from './web'
 
 /** The variant this build was made as: `app.config.ts` put it into the app's configuration. */
 const variant = Constants.expoConfig?.extra?.variant as Variant
@@ -25,6 +27,37 @@ const noProvider: Dependencies['provider'] = {
  */
 const appVersion = Constants.expoConfig?.version ?? '0.0.0'
 
+/** The phone's language, chosen once: the app and the reminders' channel speak it. */
+const language = chooseLanguage(null, getLocales().map((locale) => locale.languageTag))
+
+// A reminder arriving while the app is open is shown as it would be outside it.
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+    shouldShowBanner: true,
+    shouldShowList: true,
+  }),
+})
+
+/**
+ * expo-notifications, adapted to what the reminders need. Written out rather than cast, so the
+ * compiler checks every call against the library's own types after an SDK update.
+ */
+const notifications: NotificationsApi = {
+  getPermissionsAsync: () => Notifications.getPermissionsAsync(),
+  requestPermissionsAsync: () => Notifications.requestPermissionsAsync(),
+  cancelAllScheduledNotificationsAsync: () => Notifications.cancelAllScheduledNotificationsAsync(),
+  scheduleNotificationAsync: ({ content, trigger }) =>
+    Notifications.scheduleNotificationAsync({
+      content,
+      trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: trigger.date, channelId: trigger.channelId },
+    }),
+  createChannel: async (id, name) => {
+    await Notifications.setNotificationChannelAsync(id, { name, importance: Notifications.AndroidImportance.DEFAULT })
+  },
+}
+
 const dependencies: Dependencies = {
   sessions: createSessionStore(SecureStore),
   provider: variant.signIn ? providerFor(variant.signIn, variant.scheme) : noProvider,
@@ -38,6 +71,11 @@ const dependencies: Dependencies = {
   },
   deleteAccount: (caller) => deleteAccount({ ...caller, appVersion }),
   keptBoard: createKeptBoardStore(new File(Paths.cache, 'board.json')),
+  reminders: createReminderScheduler(
+    notifications,
+    new File(Paths.document, 'reminders-offer-answered'),
+    catalogues[language].reminders.channel,
+  ),
   fetchMinimumAppVersion: () => fetchMinimumAppVersion(variant.apiBaseUrl, appVersion),
   appVersion,
   now: Date.now,
@@ -51,6 +89,5 @@ const dependencies: Dependencies = {
  * Navigation comes back with the screens that need it.
  */
 export default function Main() {
-  const language = chooseLanguage(null, getLocales().map((locale) => locale.languageTag))
   return <TaskFestApp variant={variant} language={language} dependencies={dependencies} />
 }

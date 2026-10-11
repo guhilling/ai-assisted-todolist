@@ -7,7 +7,7 @@
  * identical to a correct render unless it is asserted.
  */
 import { describe, expect, it } from 'vitest'
-import { addDays, bucketOf, daysBetween, describeDueDate, quickDates, todayIso } from './dates'
+import { addDays, bucketOf, daysBetween, describeDueDate, quickDates, todayIso, calendarParts } from './dates'
 import { de } from './i18n/messages'
 
 /** A Thursday, chosen so "within this week" crosses a weekend and a month end. */
@@ -125,5 +125,11 @@ describe('due dates in another language', () => {
 
   it('offer the quick dates in that language', () => {
     expect(quickDates(today, de.dates).map((quick) => quick.label)).toEqual(['Heute', 'Morgen', 'In 1 Woche', 'In 2 Wochen'])
+  })
+})
+
+describe('a calendar date written as ISO (#273)', () => {
+  it('is its year, month and day', () => {
+    expect(calendarParts('2026-10-09')).toEqual({ year: 2026, month: 10, day: 9 })
   })
 })
