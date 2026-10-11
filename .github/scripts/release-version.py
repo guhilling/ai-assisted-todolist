@@ -15,8 +15,10 @@ from 1.0.0 on lets it decide the step:
 - any other change: an addition, or a warning such as a new enum value  -> minor
 - no change                                                             -> patch
 
-A larger step than that may be asked for, a smaller one is refused. Under 0.x `auto` gives a minor,
-and 1.0.0 is not this script's to give: it is released by hand.
+A larger step than that may be asked for, a smaller one is refused. A major for a break of the API
+is refused, too, until the two changes it needs have been made since the newest release:
+doc/api/oldest-supported-release moved forward and taskfest.minimum-app-version raised (#297).
+Under 0.x `auto` gives a minor, and 1.0.0 is not this script's to give: it is released by hand.
 
 `decide` writes its reasons to GITHUB_STEP_SUMMARY and the version to GITHUB_OUTPUT, both set by
 Actions, and to stdout when they are not set; it exits 1 when it refuses.
@@ -27,6 +29,7 @@ import dataclasses
 import json
 import os
 import re
+import subprocess
 import sys
 
 STEPS = ("patch", "minor", "major")
@@ -36,6 +39,10 @@ ERROR = 3
 # Says the document's info.version did not change with a breaking change. main's is always
 # 1.0.0-SNAPSHOT (doc/releasing.md), so this is no news about the API itself.
 NOT_ABOUT_THE_API = {"api-version-not-bumped"}
+# Where the two changes a major needs are made (doc/releasing.md).
+OLDEST_SUPPORTED = "doc/api/oldest-supported-release"
+APPLICATION_PROPERTIES = "backend/src/main/resources/application.properties"
+MINIMUM_APP_VERSION = re.compile(r"^taskfest\.minimum-app-version=.*$", re.MULTILINE)
 
 
 @dataclasses.dataclass
@@ -78,8 +85,34 @@ def raise_by(version, step):
     return f"{major}.{minor}.{patch + 1}"
 
 
-def decide(bump, latest, changes):
-    """The next version after `latest` for the step asked for (`auto` or one of STEPS)."""
+def missing_prerequisites(read, latest_tag):
+    """The changes a major needs that main has not made since `latest_tag`, described.
+
+    `read(ref, path)` gives a file's text at a ref, empty when the ref has no such file; only the
+    values count, not the comments around them.
+    """
+    def oldest(ref):
+        lines = [line.strip() for line in read(ref, OLDEST_SUPPORTED).splitlines()]
+        return [line for line in lines if line and not line.startswith("#")]
+
+    def minimum(ref):
+        return MINIMUM_APP_VERSION.findall(read(ref, APPLICATION_PROPERTIES))
+
+    missing = []
+    if oldest(latest_tag) == oldest("HEAD"):
+        missing.append(f"`{OLDEST_SUPPORTED}` is where it was at {latest_tag}")
+    if minimum(latest_tag) == minimum("HEAD"):
+        missing.append(f"`taskfest.minimum-app-version` in `{APPLICATION_PROPERTIES}` is what it "
+                       f"was at {latest_tag}")
+    return missing
+
+
+def decide(bump, latest, changes, missing=()):
+    """The next version after `latest` for the step asked for (`auto` or one of STEPS).
+
+    `missing` is what missing_prerequisites found: a break of the API is not released without
+    those changes.
+    """
     changes = about_the_api(changes)
     needed = required_step(changes)
     reasons = _reasons(changes, tag(latest))
@@ -106,6 +139,11 @@ def decide(bump, latest, changes):
     else:
         step = bump
         why = f"A **{step}** was asked for; the API alone would have needed a {needed}."
+
+    if needed == "major" and latest[0] > 0 and missing:
+        return Decision(None, _refusal(
+            "The API needs a **major**, but its pull request has not made the changes a major "
+            "needs:\n\n" + "".join(f"- {item}\n" for item in missing), reasons + _MAJOR_STEPS))
 
     version = raise_by(latest, step)
     summary = f"## Release {version}\n\n{why}\n\n{reasons}"
@@ -147,6 +185,15 @@ def _write(variable, text):
         print(text)
 
 
+def _git_show(ref, path):
+    """A file's text at a ref, empty when the ref has no such file -- releases before #268 had no
+    doc/api/oldest-supported-release."""
+    if subprocess.run(["git", "cat-file", "-e", f"{ref}:{path}"], capture_output=True).returncode:
+        return ""
+    return subprocess.run(["git", "show", f"{ref}:{path}"], check=True, capture_output=True,
+                          text=True).stdout
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[1])
     commands = parser.add_subparsers(dest="command", required=True)
@@ -170,7 +217,8 @@ def main(argv=None):
         print(f"::error::{args.latest} is not a release tag vX.Y.Z.", file=sys.stderr)
         return 1
     with open(args.changes, encoding="utf-8") as changes:
-        decision = decide(args.bump, latest, json.load(changes) or [])
+        decision = decide(args.bump, latest, json.load(changes) or [],
+                          missing_prerequisites(_git_show, args.latest))
     _write("GITHUB_STEP_SUMMARY", decision.summary)
     if decision.version is None:
         print("::error::No release: see the run's summary.", file=sys.stderr)

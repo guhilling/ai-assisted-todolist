@@ -88,6 +88,63 @@ class AfterOneTest(unittest.TestCase):
         self.assertIsNone(release.decide("patch", (1, 4, 2), ADDED).version)
 
 
+class MajorPrerequisitesTest(unittest.TestCase):
+    """A break of the API is released only with the two changes it needs (doc/releasing.md)."""
+
+    def test_a_breaking_change_without_them_is_refused(self):
+        refused = release.decide("auto", (1, 4, 2), REMOVED, missing=["oldest", "minimum"])
+        self.assertIsNone(refused.version)
+        self.assertIn("oldest", refused.summary)
+        self.assertIn("minimum", refused.summary)
+
+    def test_a_breaking_change_with_them_is_a_major(self):
+        self.assertEqual(release.decide("auto", (1, 4, 2), REMOVED, missing=[]).version, "2.0.0")
+
+    def test_a_major_asked_for_without_a_break_needs_neither(self):
+        decided = release.decide("major", (1, 4, 2), ADDED, missing=["oldest", "minimum"])
+        self.assertEqual(decided.version, "2.0.0")
+
+    def test_under_0_x_they_are_not_asked_for(self):
+        decided = release.decide("auto", (0, 17, 0), REMOVED, missing=["oldest", "minimum"])
+        self.assertEqual(decided.version, "0.18.0")
+
+
+class MissingPrerequisitesTest(unittest.TestCase):
+    """Which of the two changes a major needs have not been made since the newest release."""
+
+    PROPERTIES = """# a comment
+taskfest.post-login-redirect-uri=${TASKFEST_AUTH_POST_LOGIN_REDIRECT_URI:/}
+taskfest.minimum-app-version=${TASKFEST_MINIMUM_APP_VERSION:%s}
+"""
+    OLDEST = "# The oldest release whose API every newer backend still serves.\n%s\n"
+
+    def files(self, oldest, minimum):
+        return {release.OLDEST_SUPPORTED: self.OLDEST % oldest,
+                release.APPLICATION_PROPERTIES: self.PROPERTIES % minimum}
+
+    def missing(self, then, now):
+        return release.missing_prerequisites(lambda ref, path: (then if ref == "v1.4.2" else now)[path],
+                                             "v1.4.2")
+
+    def test_both_changed_leaves_nothing_missing(self):
+        self.assertEqual(self.missing(self.files("v1.0.0", "1.0.0"), self.files("v1.4.0", "1.4.0")), [])
+
+    def test_neither_changed_leaves_both_missing(self):
+        missing = self.missing(self.files("v1.0.0", "1.0.0"), self.files("v1.0.0", "1.0.0"))
+        self.assertEqual(len(missing), 2)
+        self.assertIn(release.OLDEST_SUPPORTED, missing[0])
+        self.assertIn("taskfest.minimum-app-version", missing[1])
+
+    def test_a_file_the_release_did_not_have_yet_counts_as_changed(self):
+        then = {release.OLDEST_SUPPORTED: "", release.APPLICATION_PROPERTIES: ""}
+        self.assertEqual(self.missing(then, self.files("v1.0.0", "1.0.0")), [])
+
+    def test_only_the_values_count_not_the_comments_around_them(self):
+        then = self.files("v1.0.0", "1.0.0")
+        now = {path: "# reworded\n" + text for path, text in self.files("v1.0.0", "1.4.0").items()}
+        self.assertEqual(len(self.missing(then, now)), 1)
+
+
 class BeforeOneTest(unittest.TestCase):
     """Under 0.x `auto` gives a minor, and 1.0.0 is released by hand (#297)."""
 

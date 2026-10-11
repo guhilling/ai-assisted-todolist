@@ -82,8 +82,12 @@ its tests pin the rule down.
 | `bump` | `auto` (the default) lets the API decide. `patch`, `minor` or `major` ask for a step: a larger one than the API needs is taken, a smaller one refused |
 | `dry-run` | Decide and report only; nothing is tagged |
 
-The run's summary says the version, the step and oasdiff's reasons, in a dry run too; for a major
-it lists the two changes that pull request needed. A real run then tags `main` and starts
+The run's summary says the version, the step and oasdiff's reasons, in a dry run too. **A major for
+a break of the API is refused** until the two changes it needs have been made since the newest
+release: `doc/api/oldest-supported-release` moved forward and `taskfest.minimum-app-version` raised
+(their values, not the comments around them). Backend CI cannot insist on them alone: it compares
+with the oldest supported release only, so removing something added after that one passes it. A
+major asked for without a break needs neither. A real run then tags `main` and starts
 `release.yml` for the tag. It has to start it explicitly: a tag pushed with a workflow's own token
 starts no workflow, GitHub's guard against runs starting runs. `release.yml` therefore also has a
 `workflow_dispatch` trigger, and refuses to run for anything but a tag `vX.Y.Z`. Its `announce`
@@ -96,7 +100,7 @@ under 0.x is refused. From then on, the API decides.
 The workflow refuses to run on any branch but `main`, and when `main` is already a final release;
 a pre-release (`-rc.1`, tagged by hand) on the same commit does not count. `release.yml` in turn
 refuses a tag that already has a GitHub Release, so starting it again by hand cannot push new
-images over a released version.
+images over a released version; when GitHub cannot say, it refuses as well.
 
 ## What the workflow does
 

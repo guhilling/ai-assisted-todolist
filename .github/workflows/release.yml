@@ -45,14 +45,19 @@ jobs:
         # A pushed tag cannot be pushed again, but release.yml can be started again for one from the
         # Actions tab: publish would then push new images over the released version's before
         # announce found the Release there. A failed release is retried by deleting its Release and
-        # its tag first, as "If a release fails" in doc/releasing.md says.
+        # its tag first, as "If a release fails" in doc/releasing.md says. Only a lookup GitHub
+        # answers with 404 means "not released": any other failure stops the release too.
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+          if gh api "repos/$GITHUB_REPOSITORY/releases/tags/$GITHUB_REF_NAME" > /dev/null 2> "$RUNNER_TEMP/lookup.err"; then
             echo "::error::$GITHUB_REF_NAME is released already."
             exit 1
+          elif ! grep -q 'HTTP 404' "$RUNNER_TEMP/lookup.err"; then
+            echo "::error::Could not find out whether $GITHUB_REF_NAME is released already: $(cat "$RUNNER_TEMP/lookup.err")"
+            exit 1
           fi
+          echo "$GITHUB_REF_NAME is not released yet."
 
       - name: Refuse a tag that is not on main
         # A tag on a side branch would publish code that never went through a pull request.
