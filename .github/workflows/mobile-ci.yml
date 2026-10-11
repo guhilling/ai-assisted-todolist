@@ -144,9 +144,12 @@ jobs:
         run: docker build -f docker/Dockerfile -t taskfest-frontend:e2e .
 
       - name: Start the stack
-        # Without waiting: it comes up while the emulator is installed and boots, and
-        # seed-stack.sh waits for it to be healthy before the flows run.
-        run: docker compose -f deployment/docker/docker-compose.e2e.yml up -d
+        # In the background, while the emulator is installed and boots: `up -d` itself waits for the
+        # services the backend depends on to be healthy, which is most of its minute. seed-stack.sh
+        # waits for this to finish, then for the whole stack, before the flows run.
+        run: |
+          nohup docker compose -f deployment/docker/docker-compose.e2e.yml up -d > stack-start.log 2>&1 &
+          echo $! > stack-start.pid
 
       - uses: actions/download-artifact@v8
         with:

@@ -103,7 +103,7 @@ simulator build on macOS; and the Maestro flows on an Android emulator against t
 stack, built from the same commit. Its screenshots are the `maestro-output` artifact.
 
 The APK the flows run is built for the emulator's x86_64 only, with Gradle's cache kept between
-runs (`gradle/actions/setup-gradle`, written from `main`); the stack starts without waiting, so it
-comes up while the emulator is installed and boots, and `maestro/seed-stack.sh` waits for it before
-putting the CI task on the board. Snapshots of the emulator are not cached: they would save about a
+runs (`gradle/actions/setup-gradle`, written from `main`); the stack starts in the background, so
+it comes up while the emulator is installed and boots, and `maestro/seed-stack.sh` waits for it
+before putting the CI task on the board. Snapshots of the emulator are not cached: they would save about a
 minute, and its cold boots are the steadier ones.
