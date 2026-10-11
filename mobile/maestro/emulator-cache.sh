@@ -27,7 +27,7 @@ set -euo pipefail
 
 here="$(cd "$(dirname "$0")" && pwd)"
 repository_root="$(cd "$here/../.." && pwd)"
-# shellcheck source=emulator.env
+# shellcheck source=SCRIPTDIR/emulator.env
 source "$here/emulator.env"
 
 owner="${GITHUB_REPOSITORY_OWNER:?}"
@@ -65,27 +65,26 @@ check_private() {
     echo "::error::Could not ask ghcr.io whether ${BUILDCACHE} is private." >&2
     return 1
   }
+  # Only an explicit refusal proves it private. A token that then reads the probe proves it public;
+  # anything else -- no token, another answer -- proves nothing, and nothing is pushed on it.
   if grep -q '"DENIED"' <<< "$response"; then
     echo "${BUILDCACHE} is private: it refuses an anonymous reader."
     return 0
   fi
-  token=$(jq -r '.token // empty' <<< "$response")
+  token=$(jq -r '.token // empty' <<< "$response" 2>/dev/null) || token=
+  if [[ -z "$token" ]]; then
+    echo "::error::ghcr.io neither refused an anonymous reader of ${BUILDCACHE} nor gave one a token, so its visibility is unknown." >&2
+    return 1
+  fi
   status=$(curl -sS -o /dev/null -w '%{http_code}' -H "Authorization: Bearer ${token}" \
-    -H 'Accept: application/vnd.oci.image.manifest.v1+json' \
+    -H 'Accept: application/vnd.oci.image.manifest.v1+json, application/vnd.oci.image.index.v1+json' \
     "https://ghcr.io/v2/${repository}/manifests/visibility-probe") || status=unknown
-  case "$status" in
-    401 | 403 | 404)
-      echo "${BUILDCACHE} is private: it refuses an anonymous reader."
-      ;;
-    200)
-      echo "::error::${BUILDCACHE} is PUBLIC: set it to private in its package settings, on GitHub, before the emulator's setup goes there." >&2
-      return 1
-      ;;
-    *)
-      echo "::error::ghcr.io answered ${status} for an anonymous read of ${BUILDCACHE}, so its visibility is unknown." >&2
-      return 1
-      ;;
-  esac
+  if [[ "$status" == 200 ]]; then
+    echo "::error::${BUILDCACHE} is PUBLIC: set it to private in its package settings, on GitHub, before the emulator's setup goes there." >&2
+  else
+    echo "::error::ghcr.io gave an anonymous reader of ${BUILDCACHE} a token, then answered ${status}, so its visibility is unknown." >&2
+  fi
+  return 1
 }
 
 restore() {
