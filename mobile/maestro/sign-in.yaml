@@ -4,11 +4,17 @@
 appId: de.hilling.taskfest.dev
 name: Sign in and see the board
 ---
-- launchApp:
-    clearState: true
-- extendedWaitUntil:
-    visible: "Sign in with Keycloak"
-    timeout: 30000
+# Clearing the app's data closes its last task, and Android has once killed the newly launched
+# process while still closing that task: the app never attached and the screen stayed white, however
+# long the wait. Launched again, it comes up.
+- retry:
+    maxRetries: 2
+    commands:
+      - launchApp:
+          clearState: true
+      - extendedWaitUntil:
+          visible: "Sign in with Keycloak"
+          timeout: 30000
 - takeScreenshot: 01-signed-out
 - tapOn: "Sign in with Keycloak"
 # A fresh emulator's Chrome greets its first user; none of this is TaskFest's.

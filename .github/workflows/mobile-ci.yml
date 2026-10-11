@@ -63,25 +63,43 @@ jobs:
       APP_VARIANT: dev
     steps:
       - uses: actions/checkout@v7
+      # The APK of an earlier run, when nothing it is built from has changed since: the app, the
+      # website's sources it bundles, and this workflow; not the flows or the tests, which are not
+      # in it. A pull request touching only the backend runs the flows without building the app
+      # again. Looked up before anything is installed, so the key covers the checkout alone.
+      - name: Reuse the APK if the app is unchanged
+        id: apk
+        uses: actions/cache@v6
+        with:
+          path: mobile/android/app/build/outputs/apk/release/app-release.apk
+          key: >-
+            taskfest-dev-apk-${{ hashFiles('mobile/**', 'frontend/src/**', '.github/workflows/mobile-ci.yml',
+            '!mobile/maestro/**', '!**/*.test.ts', '!**/*.test.tsx') }}
       - uses: actions/setup-node@v7
+        if: steps.apk.outputs.cache-hit != 'true'
         with:
           node-version: '24'
           cache: npm
           cache-dependency-path: mobile/package-lock.json
       - uses: actions/setup-java@v6
+        if: steps.apk.outputs.cache-hit != 'true'
         with:
           distribution: temurin
           java-version: '17'
       # Gradle's own cache: the dependencies and the wrapper, kept between runs. Written from main
       # only, read everywhere, so a pull request starts from main's.
       - uses: gradle/actions/setup-gradle@v6
+        if: steps.apk.outputs.cache-hit != 'true'
       - name: Install dependencies
+        if: steps.apk.outputs.cache-hit != 'true'
         working-directory: mobile
         run: npm ci
       - name: Generate the Android project
+        if: steps.apk.outputs.cache-hit != 'true'
         working-directory: mobile
         run: npx expo prebuild --platform android --no-install
       - name: Build the release APK
+        if: steps.apk.outputs.cache-hit != 'true'
         # Signed with the debug key, as the generated project does for a release build; a store
         # build is signed for real by the distribution story (#276). For the emulator's x86_64 only:
         # this APK exists for the Maestro flows, and the native code for the other three
@@ -124,6 +142,13 @@ jobs:
   maestro:
     needs: android
     runs-on: ubuntu-26.04
+    # The flows in two shares at once, each on an emulator and a stack of its own: together they
+    # took nearly five minutes, the longest share takes a little over two. run-on-emulator.sh says
+    # which flow is in which.
+    strategy:
+      fail-fast: false
+      matrix:
+        share: [board, others]
     env:
       MAESTRO_VERSION: 2.11.0
     steps:
@@ -174,12 +199,12 @@ jobs:
           target: google_apis
           arch: x86_64
           disable-animations: true
-          script: bash mobile/maestro/seed-stack.sh && bash mobile/maestro/run-on-emulator.sh apk/app-release.apk
+          script: bash mobile/maestro/seed-stack.sh && bash mobile/maestro/run-on-emulator.sh apk/app-release.apk ${{ matrix.share }}
 
       - uses: actions/upload-artifact@v7
         if: always()
         with:
-          name: maestro-output
+          name: maestro-output-${{ matrix.share }}
           path: |
             maestro-output
             maestro-report.xml
