@@ -179,6 +179,23 @@ this field. It is fixed by the next decision; the guard in `taskUrl` stays anywa
 `putTask` and `deleteTask` take a `Task` from a caller and a caller can build one.
 
 
+## A storage link is checked before a file goes to it
+
+**Decision.** The signed links the backend hands out — to upload a file or its thumbnail, and to
+open one — go through `storageUrl` in `api.ts` before anything is sent or opened. A link must be
+HTTPS, or plain HTTP only to this machine (`localhost`, `*.localhost`, `127.0.0.1`), which is
+where the local stacks keep their storage. Any other link is a broken answer, and the upload or
+the opening fails as one. The link is used exactly as it came, because a signed link must not be
+rewritten.
+
+**Why.** SonarCloud's taint analysis counts every response as forged input, and it reported the
+upload as client-side request forgery (`tssecurity:S8476`) three times. That was twice under keys
+that later closed, and once marked a false positive (Gunnar, 8 October 2026), which a restructured
+`api.ts` would lose again under a new key. As with the task id above, the risk is small, because
+the source is this application's own backend. The check costs a few lines, and it keeps a user's
+file from going anywhere but HTTPS storage.
+
+
 ## Responses are validated against the schema the backend publishes
 
 **Decision.** `api.ts` declares none of the shapes it receives. The types and the runtime

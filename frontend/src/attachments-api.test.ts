@@ -366,3 +366,51 @@ describe('a preview thumbnail (#236)', () => {
   })
 })
 
+
+describe('where a storage link may lead', () => {
+  it('uploads only over HTTPS, refusing any other link as a broken answer, and sends nothing', async () => {
+    vi.stubGlobal('XMLHttpRequest', FakeXhr)
+    for (const url of ['http://bucket.example.com/key', 'javascript:alert(1)', 'not a url', '/api/tasks']) {
+      backend([['POST', '/api/tasks/3/attachments', 201, { ...UPLOAD, url }]])
+
+      await expect(uploadAttachment(3, file('Rechnung.pdf', 'application/pdf'), () => {})).rejects.toEqual(
+        new ContractBreachError('attachment'),
+      )
+    }
+    expect(storage.sent).toEqual([])
+  })
+
+  it('takes plain HTTP from the local stack, whose storage is on this machine', async () => {
+    vi.stubGlobal('XMLHttpRequest', FakeXhr)
+    for (const url of ['http://s3.localhost:4566/bucket/key', 'http://localhost:4566/bucket/key', 'http://127.0.0.1:4566/b/k']) {
+      backend([
+        ['POST', '/api/tasks/3/attachments/7/confirm', 200, PDF_ATTACHMENT],
+        ['POST', '/api/tasks/3/attachments', 201, { ...UPLOAD, url }],
+      ])
+
+      await expect(uploadAttachment(3, file('Rechnung.pdf', 'application/pdf'), () => {})).resolves.toEqual(PDF_ATTACHMENT)
+    }
+    expect(storage.sent.map((sent) => sent.url)).toEqual([
+      'http://s3.localhost:4566/bucket/key',
+      'http://localhost:4566/bucket/key',
+      'http://127.0.0.1:4566/b/k',
+    ])
+  })
+
+  it('refuses a thumbnail upload link that leads elsewhere, and so the whole upload', async () => {
+    vi.stubGlobal('XMLHttpRequest', FakeXhr)
+    const thumbnailUpload = { url: 'ftp://bucket.example.com/thumb', headers: {} }
+    backend([['POST', '/api/tasks/3/attachments', 201, { ...UPLOAD, thumbnailUpload }]])
+
+    await expect(uploadAttachment(3, file('Rechnung.pdf', 'application/pdf'), () => {})).rejects.toEqual(
+      new ContractBreachError('attachment'),
+    )
+    expect(storage.sent).toEqual([])
+  })
+
+  it('opens only an HTTPS link', async () => {
+    backend([['GET', '/api/tasks/3/attachments/7/link', 200, { url: 'javascript:alert(1)', expiresAt: UPLOAD.expiresAt }]])
+
+    await expect(attachmentLink(3, 7)).rejects.toEqual(new ContractBreachError('attachmentLink'))
+  })
+})

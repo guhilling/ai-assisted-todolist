@@ -30,6 +30,7 @@ Decisions with consequences, why they were taken, and what was rejected. Newest 
 - [Undo instead of a confirmation, and what it costs](frontend.md#undo-instead-of-a-confirmation-and-what-it-costs)
 - [Importance is a dot, and the word is still there](frontend.md#importance-is-a-dot-and-the-word-is-still-there)
 - [A task id is checked before it is put in a URL](frontend.md#a-task-id-is-checked-before-it-is-put-in-a-url)
+- [A storage link is checked before a file goes to it](frontend.md#a-storage-link-is-checked-before-a-file-goes-to-it)
 - [Responses are validated against the schema the backend publishes](frontend.md#responses-are-validated-against-the-schema-the-backend-publishes)
 - [Spacing and type are scales, not values](frontend.md#spacing-and-type-are-scales-not-values)
 - [The mark is a panda with a ticked ear](frontend.md#the-mark-is-a-panda-with-a-ticked-ear)

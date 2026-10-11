@@ -533,6 +533,30 @@ async function ensureNotRefused(response: Response) {
 }
 
 /**
+ * A link to storage, checked before a file is sent to it or it is opened: HTTPS, or plain HTTP only
+ * to this machine -- the local stack's storage, `s3.localhost` or `localhost`. Anything else is a
+ * broken answer, not somewhere to send a user's file or to open.
+ *
+ * The link comes from this application's own backend, which signed it; SonarCloud's taint analysis
+ * still counts every response as forged input (S8476, client-side request forgery), as it did a
+ * task id (`taskUrl`). The check is a few lines, so the link is checked rather than the finding
+ * waved through each time it comes back under a new key (`doc/decisions/frontend.md`).
+ *
+ * @returns the link exactly as it came -- a signed link must not be rewritten, not even by the URL
+ *   parser's normalising -- or null when it may not be used
+ */
+function storageUrl(link: string): string | null {
+  let url: URL
+  try {
+    url = new URL(link)
+  } catch {
+    return null
+  }
+  const local = url.hostname === 'localhost' || url.hostname.endsWith('.localhost') || url.hostname === '127.0.0.1'
+  return url.protocol === 'https:' || (url.protocol === 'http:' && local) ? link : null
+}
+
+/**
  * PUTs the file to the signed link, reporting progress as a fraction.
  *
  * `XMLHttpRequest` rather than `fetch`, because only it reports how much of an upload has gone.
@@ -603,11 +627,16 @@ export async function uploadAttachment(
       if (!validateUploadResponse(data)) {
         throw new ContractBreachError('attachment')
       }
+      const url = storageUrl(data.url)
+      const thumbnailUrl = data.thumbnailUpload && storageUrl(data.thumbnailUpload.url)
+      if (!url || thumbnailUrl === null) {
+        throw new ContractBreachError('attachment')
+      }
       return {
         attachment: toAttachment(data.attachment, 'attachment'),
-        url: data.url,
+        url,
         headers: data.headers,
-        thumbnailUpload: data.thumbnailUpload,
+        thumbnailUpload: data.thumbnailUpload && thumbnailUrl ? { ...data.thumbnailUpload, url: thumbnailUrl } : undefined,
       }
     },
     'uploadAttachment',
@@ -663,10 +692,11 @@ async function linkTo(taskId: Task['id'], attachmentId: Attachment['id'], which:
   return readJson(
     response,
     (data) => {
-      if (!validateLinkResponse(data)) {
+      const url = validateLinkResponse(data) ? storageUrl(data.url) : null
+      if (!url) {
         throw new ContractBreachError('attachmentLink')
       }
-      return data.url
+      return url
     },
     'openAttachment',
   )
