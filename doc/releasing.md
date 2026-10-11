@@ -90,12 +90,13 @@ starts no workflow, GitHub's guard against runs starting runs. `release.yml` the
 job creates the GitHub Release with the generated notes, as for a tag pushed by hand, so no
 Release exists before both images do.
 
-**Under 0.x** a release is a minor, as every one so far was, whatever the API did; a patch may be
-asked for. **1.0.0 is not cut here**: it is released by hand, together, and a `major` asked for
+**Under 0.x** `auto` gives a minor, whatever the API did; a patch may be asked for. **1.0.0 is not cut here**: it is released by hand, together, and a `major` asked for
 under 0.x is refused. From then on, the API decides.
 
-The workflow refuses to run on any branch but `main`, and when `main` is already a release.
-Pre-releases (`-rc.1`) are tagged by hand.
+The workflow refuses to run on any branch but `main`, and when `main` is already a final release;
+a pre-release (`-rc.1`, tagged by hand) on the same commit does not count. `release.yml` in turn
+refuses a tag that already has a GitHub Release, so starting it again by hand cannot push new
+images over a released version.
 
 ## What the workflow does
 

@@ -41,6 +41,19 @@ jobs:
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "Releasing $version from tag $GITHUB_REF_NAME"
 
+      - name: Refuse a tag that is already released
+        # A pushed tag cannot be pushed again, but release.yml can be started again for one from the
+        # Actions tab: publish would then push new images over the released version's before
+        # announce found the Release there. A failed release is retried by deleting its Release and
+        # its tag first, as "If a release fails" in doc/releasing.md says.
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            echo "::error::$GITHUB_REF_NAME is released already."
+            exit 1
+          fi
+
       - name: Refuse a tag that is not on main
         # A tag on a side branch would publish code that never went through a pull request.
         # main is fetched explicitly rather than relying on the checkout of a tag ref

@@ -24,6 +24,7 @@ permissions:
   contents: read
 
 # One release at a time: two runs at once would both take the same newest release as their start.
+# GitHub keeps one waiting run per group, so a third start replaces a second that is still waiting.
 concurrency:
   group: cut-release
   cancel-in-progress: false
@@ -55,7 +56,9 @@ jobs:
         run: |
           latest=$(git tag --list 'v*' | python3 .github/scripts/release-version.py latest)
           echo "tag=$latest" >> "$GITHUB_OUTPUT"
-          released=$(git tag --points-at HEAD --list 'v*')
+          # Final releases only: a pre-release (v1.3.0-rc.1) on the same commit is what a final
+          # release of it follows.
+          released=$(git tag --points-at HEAD --list 'v*' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' || true)
           if [ -n "$released" ]; then
             echo "::error::main is already released as $released; there is nothing new to release."
             exit 1

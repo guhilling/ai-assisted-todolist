@@ -15,8 +15,8 @@ from 1.0.0 on lets it decide the step:
 - any other change: an addition, or a warning such as a new enum value  -> minor
 - no change                                                             -> patch
 
-A larger step than that may be asked for, a smaller one is refused. Under 0.x a release is a minor,
-as every one so far was, and 1.0.0 is not this script's to give: it is released by hand.
+A larger step than that may be asked for, a smaller one is refused. Under 0.x `auto` gives a minor,
+and 1.0.0 is not this script's to give: it is released by hand.
 
 `decide` writes its reasons to GITHUB_STEP_SUMMARY and the version to GITHUB_OUTPUT, both set by
 Actions, and to stdout when they are not set; it exits 1 when it refuses.
@@ -45,6 +45,16 @@ class Decision:
     summary: str
 
 
+def tag(version):
+    """The tag of a version given as (major, minor, patch)."""
+    return "v" + ".".join(str(part) for part in version)
+
+
+def about_the_api(changes):
+    """oasdiff's changes without those that are not about the API itself."""
+    return [change for change in changes if change["id"] not in NOT_ABOUT_THE_API]
+
+
 def latest_release(tags):
     """The highest final release among the tags, as (major, minor, patch), or None."""
     versions = [tuple(int(part) for part in match.groups())
@@ -53,11 +63,10 @@ def latest_release(tags):
 
 
 def required_step(changes):
-    """The step the API's changes need, from oasdiff's changelog."""
-    about_the_api = [change for change in changes if change["id"] not in NOT_ABOUT_THE_API]
-    if any(change["level"] >= ERROR for change in about_the_api):
+    """The step the API's changes need, from oasdiff's changelog filtered by about_the_api."""
+    if any(change["level"] >= ERROR for change in changes):
         return "major"
-    return "minor" if about_the_api else "patch"
+    return "minor" if changes else "patch"
 
 
 def raise_by(version, step):
@@ -71,18 +80,22 @@ def raise_by(version, step):
 
 def decide(bump, latest, changes):
     """The next version after `latest` for the step asked for (`auto` or one of STEPS)."""
-    latest_tag = "v" + ".".join(str(part) for part in latest)
+    changes = about_the_api(changes)
     needed = required_step(changes)
-    reasons = _reasons(changes, latest_tag)
+    reasons = _reasons(changes, tag(latest))
 
     if latest[0] == 0:
         if bump == "major":
             return Decision(None, _refusal(
                 "1.0.0 is released by hand, together, not by this workflow; under 0.x ask for "
                 "`auto`, `minor` or `patch` (doc/releasing.md).", reasons))
-        step = "minor" if bump == "auto" else bump
-        why = (f"Under 0.x a release is a **{step}**: the API decides from 1.0.0 on. "
-               f"By the API's rule it would have been a {needed}.")
+        if bump == "auto":
+            step = "minor"
+            why = "Under 0.x `auto` gives a **minor**: the API decides from 1.0.0 on."
+        else:
+            step = bump
+            why = f"A **{step}** was asked for; under 0.x the API does not decide yet."
+        why += f" By the API's rule it would have been a {needed}."
     elif bump == "auto":
         step = needed
         why = f"The API decides: a **{step}**."
@@ -110,12 +123,11 @@ A major also needs, in the pull request that broke the API (doc/releasing.md):
 
 
 def _reasons(changes, latest_tag):
-    about_the_api = [change for change in changes if change["id"] not in NOT_ABOUT_THE_API]
-    if not about_the_api:
+    if not changes:
         return f"No change to the API since {latest_tag}, by oasdiff.\n"
     names = {1: "information", 2: "warning", ERROR: "error"}
     lines = [f"oasdiff, against {latest_tag}:\n"]
-    for change in about_the_api:
+    for change in changes:
         where = " ".join(part for part in (change.get("operation"), change.get("path")) if part)
         lines.append(f"- {names.get(change['level'], change['level'])}: "
                      f"{where + ': ' if where else ''}{change['text']}")
@@ -150,7 +162,7 @@ def main(argv=None):
         if latest is None:
             print("::error::No release tag vX.Y.Z to start from.", file=sys.stderr)
             return 1
-        print("v" + ".".join(str(part) for part in latest))
+        print(tag(latest))
         return 0
 
     latest = latest_release([args.latest])

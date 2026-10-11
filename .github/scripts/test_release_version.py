@@ -89,7 +89,7 @@ class AfterOneTest(unittest.TestCase):
 
 
 class BeforeOneTest(unittest.TestCase):
-    """Under 0.x a release is a minor, as so far, and 1.0.0 is released by hand (#297)."""
+    """Under 0.x `auto` gives a minor, and 1.0.0 is released by hand (#297)."""
 
     def test_auto_gives_a_minor_whatever_the_api_did(self):
         for changes in (REMOVED, ADDED, UNCHANGED):
@@ -118,10 +118,15 @@ class SummaryTest(unittest.TestCase):
     def test_an_unchanged_api_says_so(self):
         self.assertIn("No change to the API", release.decide("auto", (1, 4, 2), UNCHANGED).summary)
 
-    def test_a_major_points_to_the_three_steps_it_needs(self):
+    def test_a_major_points_to_the_steps_its_pull_request_needed(self):
         summary = release.decide("auto", (1, 4, 2), REMOVED).summary
         self.assertIn("doc/api/oldest-supported-release", summary)
         self.assertIn("taskfest.minimum-app-version", summary)
+
+    def test_a_step_asked_for_under_0_x_is_not_called_the_rule(self):
+        summary = release.decide("patch", (0, 17, 0), ADDED).summary
+        self.assertIn("A **patch** was asked for", summary)
+        self.assertNotIn("a release is a **patch**", summary)
 
     def test_under_0_x_it_still_reports_what_the_api_did(self):
         summary = release.decide("auto", (0, 17, 0), REMOVED).summary
