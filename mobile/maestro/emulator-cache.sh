@@ -41,7 +41,8 @@ BUILDCACHE="ghcr.io/$(tr '[:upper:]' '[:lower:]' <<< "$owner")/taskfest-buildcac
 sdk="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
 image_path="system-images;android-${EMULATOR_API_LEVEL};${EMULATOR_TARGET};${EMULATOR_ARCH}"
 image_dir="$sdk/system-images/android-${EMULATOR_API_LEVEL}/${EMULATOR_TARGET}/${EMULATOR_ARCH}"
-# The AVD, and adb's key the snapshot's device already trusts.
+# The AVD, and adb's key the snapshot's device already trusts; adb writes adbkey.pub only in some
+# versions, deriving it from adbkey otherwise, so the keys are packed where they are there.
 paths=("$image_dir" "$HOME/.android/avd" "$HOME/.android/adbkey" "$HOME/.android/adbkey.pub")
 archive=emulator.tar.zst
 # Links the package to this repository, which is what lets the workflows' own token read it.
@@ -145,8 +146,15 @@ case "${1:-}" in
 
   save)
     check_private
+    for required in "$image_dir" "$HOME/.android/avd" "$HOME/.android/adbkey"; do
+      [[ -e "$required" ]] || { echo "::error::$required is missing, so there is no setup to cache." >&2; exit 1; }
+    done
+    present=()
+    for path in "${paths[@]}"; do
+      if [[ -e "$path" ]]; then present+=("${path#/}"); fi
+    done
     work=$(mktemp -d)
-    tar -C / -cf - "${paths[@]#/}" | zstd -T0 -3 -q -o "$work/$archive"
+    tar -C / -cf - "${present[@]}" | zstd -T0 -3 -q -o "$work/$archive"
     echo "Pushing $(du -h "$work/$archive" | cut -f1) as ${BUILDCACHE}:$2."
     (cd "$work" && oras push --annotation "$source_annotation" "${BUILDCACHE}:$2" \
       "$archive:application/vnd.taskfest.emulator.tar+zstd" > /dev/null)
