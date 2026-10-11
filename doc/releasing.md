@@ -1,11 +1,14 @@
 # Releasing
 
+From GitHub: **Actions → Cut a release → Run workflow**, on `main`, which picks the version
+([below](#cutting-a-release-from-github)). Or by hand, with a version of your choosing:
+
 ```bash
 git tag v1.0.0
 git push origin v1.0.0
 ```
 
-That is the whole procedure. Everything else is `.github/workflows/release.yml`.
+That is the whole procedure either way: a tag. Everything else is `.github/workflows/release.yml`.
 
 ## The version lives in the tag and nowhere else
 
@@ -65,6 +68,39 @@ version 1. A breaking change would add `/api/v2/...` beside them, from records o
 own OpenAPI document and its own baseline, and v1 would stay served until
 `taskfest.minimum-app-version` no longer admits an app that uses it. Path versioning keeps the
 CloudFront routing and the generated documents simple. None exists yet.
+
+## Cutting a release from GitHub
+
+`.github/workflows/cut-release.yml` takes the newest release — the highest `vX.Y.Z` tag, pre-releases
+aside — compares its `doc/api/openapi.yaml` with `main`'s using the oasdiff Backend CI gates with,
+and raises the version as the table above says: an error is a **major**, any other change, a
+warning included, a **minor**, none a **patch**. `.github/scripts/release-version.py` decides, and
+its tests pin the rule down.
+
+| Input | Meaning |
+| --- | --- |
+| `bump` | `auto` (the default) lets the API decide. `patch`, `minor` or `major` ask for a step: a larger one than the API needs is taken, a smaller one refused |
+| `dry-run` | Decide and report only; nothing is tagged |
+
+The run's summary says the version, the step and oasdiff's reasons, in a dry run too. **A major for
+a break of the API is refused** until the two changes it needs have been made since the newest
+release: `doc/api/oldest-supported-release` moved forward and `taskfest.minimum-app-version` raised
+(their values, not the comments around them). Backend CI cannot insist on them alone: it compares
+with the oldest supported release only, so removing something added after that one passes it. A
+major asked for without a break needs neither. A real run then tags `main` and starts
+`release.yml` for the tag. It has to start it explicitly: a tag pushed with a workflow's own token
+starts no workflow, GitHub's guard against runs starting runs. `release.yml` therefore also has a
+`workflow_dispatch` trigger, and refuses to run for anything but a tag `vX.Y.Z`. Its `announce`
+job creates the GitHub Release with the generated notes, as for a tag pushed by hand, so no
+Release exists before both images do.
+
+**Under 0.x** `auto` gives a minor, whatever the API did; a patch may be asked for. **1.0.0 is not cut here**: it is released by hand, together, and a `major` asked for
+under 0.x is refused. From then on, the API decides.
+
+The workflow refuses to run on any branch but `main`, and when `main` is already a final release;
+a pre-release (`-rc.1`, tagged by hand) on the same commit does not count. `release.yml` in turn
+refuses a tag that already has a GitHub Release, so starting it again by hand cannot push new
+images over a released version; when GitHub cannot say, it refuses as well.
 
 ## What the workflow does
 

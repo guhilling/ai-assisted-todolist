@@ -9,6 +9,9 @@ on:
     tags:
       - 'v[0-9]+.[0-9]+.[0-9]+'
       - 'v[0-9]+.[0-9]+.[0-9]+-*'
+  # Started for a tag by cut-release.yml (#297): the tag it pushes with its own token starts no
+  # workflow by itself. Started by hand, it must be for a release tag too, which gate checks.
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -27,10 +30,34 @@ jobs:
 
       - name: Derive the version from the tag
         id: version
+        # A push matches the trigger's tag patterns already; a start from the Actions tab may name
+        # any branch or tag, and only a release tag is one.
         run: |
+          if [ "$GITHUB_REF_TYPE" != tag ] || ! [[ "$GITHUB_REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-.+)?$ ]]; then
+            echo "::error::A release is made for a tag vX.Y.Z, not for $GITHUB_REF_NAME."
+            exit 1
+          fi
           version="${GITHUB_REF_NAME#v}"
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "Releasing $version from tag $GITHUB_REF_NAME"
+
+      - name: Refuse a tag that is already released
+        # A pushed tag cannot be pushed again, but release.yml can be started again for one from the
+        # Actions tab: publish would then push new images over the released version's before
+        # announce found the Release there. A failed release is retried by deleting its Release and
+        # its tag first, as "If a release fails" in doc/releasing.md says. Only a lookup GitHub
+        # answers with 404 means "not released": any other failure stops the release too.
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh api "repos/$GITHUB_REPOSITORY/releases/tags/$GITHUB_REF_NAME" > /dev/null 2> "$RUNNER_TEMP/lookup.err"; then
+            echo "::error::$GITHUB_REF_NAME is released already."
+            exit 1
+          elif ! grep -q 'HTTP 404' "$RUNNER_TEMP/lookup.err"; then
+            echo "::error::Could not find out whether $GITHUB_REF_NAME is released already: $(cat "$RUNNER_TEMP/lookup.err")"
+            exit 1
+          fi
+          echo "$GITHUB_REF_NAME is not released yet."
 
       - name: Refuse a tag that is not on main
         # A tag on a side branch would publish code that never went through a pull request.

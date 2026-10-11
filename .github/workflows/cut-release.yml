@@ -1,0 +1,117 @@
+name: Cut a release
+
+# The next release, from the Actions tab (#297): decides its version, tags main with it, and starts
+# release.yml for the tag, which builds, publishes and announces it as it does for a tag pushed by
+# hand (doc/releasing.md). The version is still written down in the tag alone.
+#
+# From 1.0.0 the API decides the step: release-version.py compares main's doc/api/openapi.yaml with
+# the newest release's, using the oasdiff Backend CI gates with. Under 0.x a release is a minor,
+# and 1.0.0 itself is released by hand.
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: 'The step: auto lets the API decide; a larger one may be asked for, a smaller one is refused'
+        type: choice
+        options: [auto, patch, minor, major]
+        default: auto
+      dry-run:
+        description: 'Only decide and report the version; tag nothing'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+# One release at a time: two runs at once would both take the same newest release as their start.
+# GitHub keeps one waiting run per group, so a third start replaces a second that is still waiting.
+concurrency:
+  group: cut-release
+  cancel-in-progress: false
+
+jobs:
+  cut:
+    name: Cut a release
+    runs-on: ubuntu-26.04
+    permissions:
+      # To create the tag.
+      contents: write
+      # To start release.yml for it.
+      actions: write
+    steps:
+      - name: Refuse anything but main
+        # A release is cut from main, as release.yml also insists for a tag.
+        if: github.ref != 'refs/heads/main'
+        run: |
+          echo "::error::A release is cut from main, not from $GITHUB_REF_NAME."
+          exit 1
+
+      - uses: actions/checkout@v7
+        with:
+          # Every tag, to find the newest release and its API.
+          fetch-depth: 0
+
+      - name: Find the newest release
+        id: latest
+        run: |
+          latest=$(git tag --list 'v*' | python3 .github/scripts/release-version.py latest)
+          echo "tag=$latest" >> "$GITHUB_OUTPUT"
+          # Final releases only: a pre-release (v1.3.0-rc.1) on the same commit is what a final
+          # release of it follows.
+          released=$(git tag --points-at HEAD --list 'v*' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' || true)
+          if [ -n "$released" ]; then
+            echo "::error::main is already released as $released; there is nothing new to release."
+            exit 1
+          fi
+          mkdir -p .oasdiff
+          git show "$latest:doc/api/openapi.yaml" > .oasdiff/latest.yaml
+
+      - name: Compare the API with the newest release's
+        # The same oasdiff as Backend CI, which test_release_version.py holds it to. Through a shell,
+        # because the changelog goes to a file rather than to the log.
+        uses: docker://tufin/oasdiff:v1.33.0
+        with:
+          entrypoint: sh
+          args: -c "oasdiff changelog .oasdiff/latest.yaml doc/api/openapi.yaml --format json > .oasdiff/changes.json"
+
+      - name: Decide the version
+        id: version
+        env:
+          BUMP: ${{ inputs.bump }}
+          LATEST: ${{ steps.latest.outputs.tag }}
+        run: >
+          python3 .github/scripts/release-version.py decide
+          --bump "$BUMP" --latest "$LATEST" --changes .oasdiff/changes.json
+
+      - name: Tag main
+        if: ${{ !inputs.dry-run }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: v${{ steps.version.outputs.version }}
+        # A lightweight tag, as `git tag vX.Y.Z` makes one by hand. The API refuses a tag that
+        # already exists.
+        run: |
+          gh api "repos/$GITHUB_REPOSITORY/git/refs" -f ref="refs/tags/$TAG" -f sha="$GITHUB_SHA" > /dev/null
+          echo "Tagged $GITHUB_SHA as $TAG."
+
+      - name: Start the release
+        if: ${{ !inputs.dry-run }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: v${{ steps.version.outputs.version }}
+        # A tag pushed with this workflow's own token starts no workflow -- GitHub's guard against
+        # one run starting the next forever -- so release.yml is started for the tag explicitly.
+        run: |
+          gh workflow run release.yml --ref "$TAG"
+          {
+            echo
+            echo "Tagged \`$TAG\` and started [release.yml]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/workflows/release.yml) for it."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Say it was a dry run
+        if: ${{ inputs.dry-run }}
+        run: |
+          {
+            echo
+            echo "A dry run: nothing was tagged."
+          } >> "$GITHUB_STEP_SUMMARY"
