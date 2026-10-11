@@ -14,6 +14,9 @@ reviews:
     # Never Renovate's, even if automatic reviews are switched on again.
     ignore_usernames:
       - renovate[bot]
+  # No "Review skipped" comment on every pull request it was not asked to review: each one was an
+  # email to Gunnar, and saying nothing is what auto_review off already means.
+  review_status: false
   # The summary goes into CodeRabbit's own comment; the pull request's description stays as written.
   high_level_summary_in_walkthrough: true
   poem: false
