@@ -44,14 +44,16 @@ jobs:
         with:
           distribution: temurin
           java-version: '25'
-      # Read on every branch, saved from main only: see doc/testing/continuous-integration.md.
+      # Read on every branch, saved from main only, with no fallback there so that a new entry starts
+      # clean: see doc/testing/continuous-integration.md.
       - name: Restore Maven's cache
         id: maven-cache
+        if: matrix.name == 'backend'
         uses: actions/cache/restore@v6
         with:
           path: ~/.m2/repository
           key: maven-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('**/pom.xml') }}
-          restore-keys: maven-${{ runner.os }}-${{ runner.arch }}-
+          restore-keys: ${{ github.ref != 'refs/heads/main' && format('maven-{0}-{1}-', runner.os, runner.arch) || '' }}
       - name: Publish image
         env:
           IMAGE_TAG: latest
@@ -62,9 +64,3 @@ jobs:
       - name: Check the image is published for every platform
         working-directory: .
         run: python3 .github/scripts/check-image-platforms.py "${{ matrix.image }}:latest" "$PLATFORMS"
-      - name: Save Maven's cache
-        if: github.ref == 'refs/heads/main' && steps.maven-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v6
-        with:
-          path: ~/.m2/repository
-          key: ${{ steps.maven-cache.outputs.cache-primary-key }}

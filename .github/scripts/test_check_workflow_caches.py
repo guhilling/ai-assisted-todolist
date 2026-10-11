@@ -94,10 +94,86 @@ class CheckTest(unittest.TestCase):
         self.assertEqual(len(found), 1, found)
         self.assertIn("actions/cache/save", found[0])
 
+    def test_a_condition_that_adds_other_refs_is_named(self):
+        found = check.problems(workflow("""
+            - uses: actions/cache/save@v6
+              if: github.ref == 'refs/heads/main' || github.event_name == 'pull_request'
+              with:
+                path: ~/.npm
+                key: npm-x
+            """))
+        self.assertEqual(len(found), 1, found)
+
+    def test_a_quoted_action_is_recognised(self):
+        found = check.problems(workflow("""
+            - uses: 'actions/setup-node@v7'
+              with:
+                cache: npm
+            """))
+        self.assertEqual(len(found), 1, found)
+
+    def test_the_combined_cache_action_on_maven_s_repository_is_named(self):
+        found = check.problems(workflow("""
+            - uses: actions/cache@v6
+              with:
+                path: ~/.m2/repository
+                key: maven-x
+            """))
+        self.assertEqual(len(found), 1, found)
+        self.assertIn("actions/cache@v6", found[0])
+
+    def test_the_combined_cache_action_on_something_else_passes(self):
+        self.assertEqual(check.problems(workflow("""
+            - uses: actions/cache@v6
+              with:
+                path: mobile/android/app/build/outputs/apk/release/app-release.apk
+                key: taskfest-dev-apk-x
+            """)), [])
+
+    def test_restores_of_one_cache_with_the_same_keys_pass(self):
+        restore = """
+            - uses: actions/cache/restore@v6
+              with:
+                path: ~/.npm
+                key: npm-frontend-${{ hashFiles('frontend/package-lock.json') }}
+                restore-keys: npm-frontend-
+            """
+        self.assertEqual(check.differing_keys({"a.yml": workflow(restore), "b.yml": workflow(restore)}), [])
+
+    def test_restores_of_one_cache_with_differing_keys_are_named(self):
+        found = check.differing_keys({
+            "a.yml": workflow("""
+                - uses: actions/cache/restore@v6
+                  with:
+                    path: ~/.m2/repository
+                    key: maven-${{ runner.os }}-${{ hashFiles('**/pom.xml') }}
+                """),
+            "b.yml": workflow("""
+                - uses: actions/cache/restore@v6
+                  with:
+                    path: ~/.m2/repository
+                    key: maven-${{ runner.os }}-${{ hashFiles('backend/pom.xml') }}
+                """),
+        })
+        self.assertEqual(len(found), 1, found)
+        self.assertIn("maven", found[0])
+
+    def test_npm_caches_of_different_projects_may_differ(self):
+        def restore(project):
+            return workflow(f"""
+                - uses: actions/cache/restore@v6
+                  with:
+                    path: ~/.npm
+                    key: npm-{project}-${{{{ hashFiles('{project}/package-lock.json') }}}}
+                """)
+        self.assertEqual(check.differing_keys({"a.yml": restore("frontend"), "b.yml": restore("e2e")}), [])
+
     def test_every_workflow_here_keeps_the_rule(self):
         workflows = pathlib.Path(__file__).parents[1] / "workflows"
-        found = {path.name: check.problems(path.read_text()) for path in sorted(workflows.glob("*.yml"))}
+        texts = {path.name: path.read_text() for path in sorted(workflows.glob("*.yml"))}
+        found = {name: check.problems(text) for name, text in texts.items()}
         self.assertEqual({name: problems for name, problems in found.items() if problems}, {})
+        self.assertEqual(check.differing_keys(texts), [])
 
 
 if __name__ == "__main__":

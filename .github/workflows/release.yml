@@ -75,14 +75,15 @@ jobs:
         with:
           distribution: temurin
           java-version: '25'
-      # Read on every branch, saved from main only: see doc/testing/continuous-integration.md.
+      # Read on every branch, saved from main only, with no fallback there so that a new entry starts
+      # clean: see doc/testing/continuous-integration.md.
       - name: Restore Maven's cache
         id: maven-cache
         uses: actions/cache/restore@v6
         with:
           path: ~/.m2/repository
           key: maven-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('**/pom.xml') }}
-          restore-keys: maven-${{ runner.os }}-${{ runner.arch }}-
+          restore-keys: ${{ github.ref != 'refs/heads/main' && format('maven-{0}-{1}-', runner.os, runner.arch) || '' }}
 
       - name: Verify the backend at the release version
         working-directory: backend
@@ -109,14 +110,15 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: '24'
-      # Read on every branch, saved from main only: see doc/testing/continuous-integration.md.
+      # Read on every branch, saved from main only, with no fallback there so that a new entry starts
+      # clean: see doc/testing/continuous-integration.md.
       - name: Restore npm's cache
         id: npm-cache
         uses: actions/cache/restore@v6
         with:
           path: ~/.npm
           key: npm-frontend-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('frontend/package-lock.json') }}
-          restore-keys: npm-frontend-${{ runner.os }}-${{ runner.arch }}-
+          restore-keys: ${{ github.ref != 'refs/heads/main' && format('npm-frontend-{0}-{1}-', runner.os, runner.arch) || '' }}
 
       - name: Install frontend dependencies
         working-directory: frontend
@@ -185,14 +187,16 @@ jobs:
         with:
           distribution: temurin
           java-version: '25'
-      # Read on every branch, saved from main only: see doc/testing/continuous-integration.md.
+      # Read on every branch, saved from main only, with no fallback there so that a new entry starts
+      # clean: see doc/testing/continuous-integration.md.
       - name: Restore Maven's cache
         id: maven-cache
+        if: matrix.name == 'backend'
         uses: actions/cache/restore@v6
         with:
           path: ~/.m2/repository
           key: maven-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('**/pom.xml') }}
-          restore-keys: maven-${{ runner.os }}-${{ runner.arch }}-
+          restore-keys: ${{ github.ref != 'refs/heads/main' && format('maven-{0}-{1}-', runner.os, runner.arch) || '' }}
 
       - name: Publish the backend image
         if: matrix.name == 'backend'
