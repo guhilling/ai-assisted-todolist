@@ -225,7 +225,8 @@ jobs:
 
       - name: Build the backend image
         working-directory: backend
-        run: ./mvnw -B package -DskipTests -Dquarkus.container-image.build=true
+        # Jib cannot retry a base image download that breaks off; the script can, and only that.
+        run: $GITHUB_WORKSPACE/.github/scripts/retry-on-broken-download.sh ./mvnw -B package -DskipTests -Dquarkus.container-image.build=true
 
       - name: Build the frontend image
         working-directory: frontend

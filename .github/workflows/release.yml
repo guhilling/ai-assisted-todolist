@@ -203,7 +203,9 @@ jobs:
         env:
           # application.properties reads the tag from here.
           IMAGE_TAG: ${{ needs.gate.outputs.version }}
+        # Jib cannot retry a base image download that breaks off; the script can, and only that.
         run: >
+          $GITHUB_WORKSPACE/.github/scripts/retry-on-broken-download.sh
           ./mvnw -B -Prelease -Drevision=${{ needs.gate.outputs.version }}
           package -DskipTests
           -Dquarkus.container-image.build=true

@@ -47,7 +47,8 @@ jobs:
         # coverage drops below the minimum in pom.xml. The image is built in the same run,
         # from the package verify has just made: a second `package` used to rebuild it all
         # for the image alone, about 19 s of every backend run (#134).
-        run: ./mvnw -B verify -Dquarkus.container-image.build=true
+        # Jib cannot retry a base image download that breaks off; the script can, and only that.
+        run: $GITHUB_WORKSPACE/.github/scripts/retry-on-broken-download.sh ./mvnw -B verify -Dquarkus.container-image.build=true
       - name: Check the committed API contract is current
         working-directory: .
         # verify has just written target/openapi. Regenerating and diffing is what keeps
