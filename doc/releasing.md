@@ -31,7 +31,7 @@ trigger matches those two shapes only, so an unrelated tag does not start a rele
 
 Installed mobile apps lag behind the backend by weeks, so a release's number says what an app can
 rely on (#268, [decisions/mobile-app.md](decisions/mobile-app.md)). From **1.0.0**, the first
-release with an app build, the API decides:
+release apps are built against, the API decides (the app builds follow during 1.x):
 
 | Change | Release |
 | --- | --- |

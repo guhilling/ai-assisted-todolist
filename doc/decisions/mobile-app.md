@@ -174,11 +174,13 @@ locking, before it can be built, and it is worth its own story, which would help
 - **Too-old apps are told to update.** The backend announces a minimum app version.
 - **Breaking changes get a new path.** `/api/v2/...` would be served beside today's paths for as
   long as supported apps need them.
-- **The first release with an app build is 1.0.0.**
+- **The first release apps are built against is 1.0.0** (11 October 2026). The app builds
+  themselves follow during the 1.x cycle, with distribution (#276).
 
 **Why.** Until now the website was the only client and always deployed with its backend, so the
 API could change in one step. An installed app is weeks old and must keep working. Under 0.x,
-semantic versioning promises nothing, so the promise starts with the first app.
+semantic versioning promises nothing, so the promise starts with the release the first apps are
+built against, before any is out: an app shipped later in 1.x can rely on it from the start.
 
 
 ## Testers only, one app per environment
