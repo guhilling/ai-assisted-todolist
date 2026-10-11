@@ -10,6 +10,11 @@ The sync works because a library build was added for it, not because one already
 - `frontend/src/design-system.ts` is the library entry; `npm run build:ds` produces
   `frontend/dist-ds/` (the ES bundle, the combined stylesheet, and the `.d.ts` tree).
   **Run it before the converter** — `cfg.buildCmd` records this.
+- **The driver needs the entry named**, because npm never installs a package into its own
+  `node_modules`: from the repo root, `node .ds-sync/resync.mjs --config .design-sync/config.json
+  --node-modules frontend/node_modules --entry ./frontend/dist-ds/index.js --out ./ds-bundle
+  --remote .design-sync/.cache/remote-sync.json`. Without `--entry` the build stops with
+  `ENOENT ... frontend/node_modules/frontend/package.json`.
 - The app's own `frontend/dist/` is a bundled SPA and exports nothing. Never point the
   converter at it.
 - `frontend` is `private: true` and stays unpublished. The `module`/`types`/`exports` keys
@@ -45,6 +50,22 @@ into it. If a future sync fails with `Executable doesn't exist`, re-check that t
 - **Previews fix `today` and the due dates together.** The app's own fixtures compute dates
   from the real today on purpose (the board groups by distance); a preview wants both sides
   fixed so the words it prints never change.
+- **`TaskEditor` is shown in its editing row**, `<li class="task-row task-row--editing">` in a
+  `.task-list`, the only place the app puts it. Its attachment stories pass `attachments`
+  actions that do nothing; without them the editor offers no files at all.
+- **`DueDateField`'s calendar is opened by clicking its button on mount.** There is no prop for
+  it. The calendar is lazy-loaded, which still resolves in the card because the library build
+  keeps `CalendarPanel` in the one bundle (the `[INEFFECTIVE_DYNAMIC_IMPORT]` line of
+  `npm run build:ds` says so). If that build ever splits it into a chunk of its own, the
+  `CalendarOpen` cell will show "Loading calendar" or nothing.
+- **`CalendarPanel` is wrapped in `.date-field` and `.date-field-popover`.** Its colours come
+  from react-day-picker's CSS variables, which `App.css` sets under `.date-field`; outside it
+  the calendar would wear the library's defaults. The popover is made static and inline-block so
+  it sits in the card at the month's width.
+- **`AttachmentList`'s image is a data URI**, for the same reason as `UserAvatar`'s: the list
+  asks for a link and shows an empty box until one loads.
+- **Not shown, because only an interaction reaches them:** an upload's progress bar, a refused
+  file's sentence (both in `AttachmentPicker`), and `FileDrop` while a file is dragged over it.
 
 ## The sync cannot run in CI, and that is upstream
 
@@ -52,9 +73,20 @@ Checked rather than assumed, 2026-09-30:
 [anthropics/claude-code#91063](https://github.com/anthropics/claude-code/issues/91063) — open,
 no maintainer response, several teams asking for the same thing.
 
-`/design-login` is the only way to obtain design-system authorization and it **requires an
-interactive terminal**. Without a TTY the `DesignSync` tool is unavailable, so a GitHub Actions
-runner, a scheduled job and an agent sandbox are all blocked.
+`/design-login` **requires an interactive terminal**, and a session with nothing else to
+authorize the `DesignSync` tool is blocked without one -- a GitHub Actions runner, a scheduled
+job, an agent sandbox.
+
+**A claude.ai login is the other way in, and it needs no terminal.** Corrected 2026-10-12: a
+session on Gunnar's Mac, steered remotely and with no TTY, read and wrote the project through
+the claude.ai login it was signed in with, and `/design-login` was never run. So what decides is
+the login the session has, not the terminal. A CI runner has neither, so the conclusion below
+stands; it was not tried again.
+
+**But the upload's approval does not reach a remote steerer.** In that same session the reads
+worked and `finalize_plan` was rejected twice without Gunnar ever seeing a prompt, so nothing
+could be written. Build and verify remotely if convenient, but approve the upload at the Mac
+itself.
 
 Two consequences worth knowing before anyone tries again:
 
