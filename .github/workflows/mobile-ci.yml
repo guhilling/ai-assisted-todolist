@@ -72,6 +72,9 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
+      # Gradle's own cache: the dependencies and the wrapper, kept between runs. Written from main
+      # only, read everywhere, so a pull request starts from main's.
+      - uses: gradle/actions/setup-gradle@v6
       - name: Install dependencies
         working-directory: mobile
         run: npm ci
@@ -80,9 +83,11 @@ jobs:
         run: npx expo prebuild --platform android --no-install
       - name: Build the release APK
         # Signed with the debug key, as the generated project does for a release build; a store
-        # build is signed for real by the distribution story (#276).
+        # build is signed for real by the distribution story (#276). For the emulator's x86_64 only:
+        # this APK exists for the Maestro flows, and the native code for the other three
+        # architectures was most of the build's time.
         working-directory: mobile/android
-        run: ./gradlew assembleRelease --no-daemon
+        run: ./gradlew assembleRelease --no-daemon -PreactNativeArchitectures=x86_64
       - uses: actions/upload-artifact@v7
         with:
           name: taskfest-dev-apk
@@ -139,18 +144,9 @@ jobs:
         run: docker build -f docker/Dockerfile -t taskfest-frontend:e2e .
 
       - name: Start the stack
-        run: docker compose -f deployment/docker/docker-compose.e2e.yml up -d --wait
-
-      - name: Put a task on gunnar's board
-        # With a bearer token, as the app sends one (#266): Keycloak's password grant stands in for
-        # the browser sign-in the Maestro flow then does for real.
-        run: |
-          token=$(curl -sS --fail http://localhost:8082/realms/taskfest/protocol/openid-connect/token \
-            -d grant_type=password -d scope=openid -d client_id=taskfest-backend -d client_secret=taskfest-secret \
-            -d username=gunnar -d password=gunnar | jq -r .id_token)
-          curl -sS --fail http://localhost:3000/api/tasks -H "Authorization: Bearer $token" \
-            -H 'Content-Type: application/json' \
-            -d "{\"description\":\"Seeded by CI for the app\",\"dueDate\":\"$(date -u +%F)\",\"importance\":\"HIGH\",\"state\":\"TODO\"}"
+        # Without waiting: it comes up while the emulator is installed and boots, and
+        # seed-stack.sh waits for it to be healthy before the flows run.
+        run: docker compose -f deployment/docker/docker-compose.e2e.yml up -d
 
       - uses: actions/download-artifact@v8
         with:
@@ -175,7 +171,7 @@ jobs:
           target: google_apis
           arch: x86_64
           disable-animations: true
-          script: bash mobile/maestro/run-on-emulator.sh apk/app-release.apk
+          script: bash mobile/maestro/seed-stack.sh && bash mobile/maestro/run-on-emulator.sh apk/app-release.apk
 
       - uses: actions/upload-artifact@v7
         if: always()
