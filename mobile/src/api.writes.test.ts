@@ -33,6 +33,7 @@ describe('changing tasks, as the app asks the backend (#271)', () => {
       method: 'POST',
       headers: signedIn,
       body: JSON.stringify(input),
+      signal: expect.any(AbortSignal),
     })
   })
 
@@ -44,6 +45,7 @@ describe('changing tasks, as the app asks the backend (#271)', () => {
       method: 'PUT',
       headers: signedIn,
       body: JSON.stringify({ description: 'Water the plants', dueDate: '2026-10-12', importance: 'HIGH', state: 'DONE' }),
+      signal: expect.any(AbortSignal),
     })
   })
 
@@ -55,6 +57,7 @@ describe('changing tasks, as the app asks the backend (#271)', () => {
     expect(fetchImpl).toHaveBeenCalledWith(`${BASE}/api/tasks/7`, {
       method: 'DELETE',
       headers: { Accept, Authorization, 'X-TaskFest-App': '1.4.0' },
+      signal: expect.any(AbortSignal),
     })
   })
 

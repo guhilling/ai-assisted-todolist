@@ -22,6 +22,13 @@ export type Caller = { baseUrl: string; idToken: string; appVersion?: string }
 const APP_VERSION_HEADER = 'X-TaskFest-App'
 
 /**
+ * How long a request may take, its answer read in full, before it counts as failed (#311): a
+ * connection that hangs rather than drops would otherwise be waited on without end, and the board
+ * would say it is loading instead of showing the kept one with "No connection".
+ */
+export const REQUEST_MS = 10_000
+
+/**
  * A task as the board holds it: as sent, except that an importance or state this release does not
  * know is listed in `unknown` and stands in as the least important, open value meanwhile (#268).
  */
@@ -43,6 +50,14 @@ export class SignedOutError extends Error {
   constructor() {
     super('The backend no longer accepts this sign-in.')
     this.name = 'SignedOutError'
+  }
+}
+
+/** No answer came within {@link REQUEST_MS}; the request is aborted. To the app, no connection. */
+export class TimedOutError extends Error {
+  constructor() {
+    super(`The backend did not answer within ${REQUEST_MS / 1000} s.`)
+    this.name = 'TimedOutError'
   }
 }
 
@@ -123,8 +138,7 @@ export async function fetchMinimumAppVersion(
 
 /** Creates a task and hands it back as the backend stored it, with its new id. */
 export async function createTask(caller: Caller, input: TaskInput, fetchImpl: typeof fetch = fetch): Promise<BoardTask> {
-  const response = await send(caller, 'POST', '/api/tasks', fetchImpl, input)
-  return readTask(await response.json())
+  return readTask(await send(caller, 'POST', '/api/tasks', fetchImpl, input))
 }
 
 /**
@@ -133,8 +147,7 @@ export async function createTask(caller: Caller, input: TaskInput, fetchImpl: ty
  */
 export async function updateTask(caller: Caller, task: Task, fetchImpl: typeof fetch = fetch): Promise<BoardTask> {
   const { description, dueDate, importance, state } = task
-  const response = await send(caller, 'PUT', `/api/tasks/${task.id}`, fetchImpl, { description, dueDate, importance, state })
-  return readTask(await response.json())
+  return readTask(await send(caller, 'PUT', `/api/tasks/${task.id}`, fetchImpl, { description, dueDate, importance, state }))
 }
 
 /** Deletes a task. Its files stay detached on the backend for a while, for an undo. */
@@ -170,17 +183,20 @@ async function get(
   path: string,
   fetchImpl: typeof fetch,
 ): Promise<unknown> {
-  return (await send(caller, 'GET', path, fetchImpl)).json()
+  return send(caller, 'GET', path, fetchImpl)
 }
 
-/** One request, and the one place requests are made and their failures read. */
+/**
+ * One request, and the one place requests are made and their failures read: the answer's body,
+ * none for a DELETE, within {@link REQUEST_MS} or a {@link TimedOutError}.
+ */
 async function send(
   caller: Omit<Caller, 'idToken'> & { idToken?: string },
   method: 'GET' | 'POST' | 'PUT' | 'DELETE',
   path: string,
   fetchImpl: typeof fetch,
   body?: object,
-): Promise<Response> {
+): Promise<unknown> {
   const headers: Record<string, string> = { Accept: 'application/json' }
   if (caller.idToken) {
     headers.Authorization = `Bearer ${caller.idToken}`
@@ -191,14 +207,35 @@ async function send(
   if (body) {
     headers['Content-Type'] = 'application/json'
   }
+  const abort = new AbortController()
+  const { signal } = abort
   const init: RequestInit =
-    method === 'GET' ? { headers } : body ? { method, headers, body: JSON.stringify(body) } : { method, headers }
-  const response = await fetchImpl(`${caller.baseUrl}${path}`, init)
-  if (response.status === 401) {
-    throw new SignedOutError()
+    method === 'GET'
+      ? { headers, signal }
+      : body
+        ? { method, headers, body: JSON.stringify(body), signal }
+        : { method, headers, signal }
+  const exchange = async () => {
+    const response = await fetchImpl(`${caller.baseUrl}${path}`, init)
+    if (response.status === 401) {
+      throw new SignedOutError()
+    }
+    if (!response.ok) {
+      throw new RequestFailedError(response.status)
+    }
+    return method === 'DELETE' ? undefined : response.json()
   }
-  if (!response.ok) {
-    throw new RequestFailedError(response.status)
+  // Raced rather than left to the abort alone, which a fetch may be slow to honour.
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const timeUp = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => {
+      abort.abort()
+      reject(new TimedOutError())
+    }, REQUEST_MS)
+  })
+  try {
+    return await Promise.race([exchange(), timeUp])
+  } finally {
+    clearTimeout(timer)
   }
-  return response
 }

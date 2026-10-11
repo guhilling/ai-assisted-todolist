@@ -158,6 +158,14 @@ a copy of the backend's, small, and only ever read whole, so a database or a per
 would add a dependency for nothing. It names its account, is removed on sign-out, and while it is
 shown — before the load, or after one failed — every change is refused rather than sent.
 
+**A connection that hangs counts as none (#311).** Every request the app makes fails after 10
+seconds, its answer read in full, and is aborted (`REQUEST_MS` in `mobile/src/api.ts`). Without
+that, a connection that hangs rather than drops was waited on without end: the board said it was
+loading instead of showing the kept one with "No connection", and a change neither went through
+nor failed. Ten seconds is long for an answer the backend gives in well under one, and short
+enough that nobody gives up on the app first. The version check at start keeps its own three
+seconds, since it holds up the start.
+
 **Why not more.** Editing offline means queueing changes. Because an update sends the whole task,
 a queued change would silently overwrite a newer one. That needs a version per task, optimistic
 locking, before it can be built, and it is worth its own story, which would help the website too.
