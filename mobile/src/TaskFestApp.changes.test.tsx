@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen, userEvent, within } from '@testing-library/react-native'
 import { AppState } from 'react-native'
-import { RequestFailedError, SignedOutError, type BoardTask } from './api'
+import { RequestFailedError, SignedOutError, TimedOutError, type BoardTask } from './api'
 import type { Session } from './session'
 import type { SessionStore } from './staySignedIn'
 import { TaskFestApp, type Dependencies, type TaskChanges } from './TaskFestApp'
@@ -453,5 +453,50 @@ describe('changing the board from the app (#271)', () => {
 
     expect(await screen.findByText('Nothing here yet.')).toBeOnTheScreen()
     expect(screen.getByRole('button', { name: 'Add a task' })).toBeOnTheScreen()
+  })
+})
+
+describe('a change that gets no answer in time (#311)', () => {
+  const passport: BoardTask = { id: 10, description: 'Renew the passport', dueDate: '2026-10-11', importance: 'MEDIUM', state: 'TODO' }
+
+  async function addPassport(user: ReturnType<typeof userEvent.setup>) {
+    await user.press(screen.getByRole('button', { name: 'Add a task' }))
+    await user.type(screen.getByLabelText('What needs doing'), 'Renew the passport')
+    await user.press(screen.getByRole('button', { name: 'Add' }))
+  }
+
+  it('loads the board again, which shows whether it arrived after all', async () => {
+    const changes = backend({ create: jest.fn().mockRejectedValue(new TimedOutError(10_000)) })
+    const fetchTasks = jest.fn().mockResolvedValueOnce([water, train, rent]).mockResolvedValue([water, train, rent, passport])
+    const user = await showBoard(changes, { fetchTasks })
+
+    await addPassport(user)
+
+    expect(await screen.findByText('Unable to create task.')).toBeOnTheScreen()
+    expect(fetchTasks).toHaveBeenCalledTimes(2)
+    expect(await screen.findByText('Renew the passport')).toBeOnTheScreen()
+  })
+
+  it('refuses the next change until a load has worked, so it is not sent twice blind', async () => {
+    const changes = backend({ create: jest.fn().mockRejectedValue(new TimedOutError(10_000)) })
+    const fetchTasks = jest.fn().mockResolvedValueOnce([water, train, rent]).mockRejectedValue(new TimedOutError(10_000))
+    const user = await showBoard(changes, { fetchTasks })
+
+    await addPassport(user)
+    expect(await screen.findByText(/No connection/)).toBeOnTheScreen()
+    await user.press(screen.getByRole('button', { name: 'Add' }))
+
+    expect(changes.create).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not load the board again for a change the backend refused', async () => {
+    const changes = backend({ create: jest.fn().mockRejectedValue(new RequestFailedError(500)) })
+    const fetchTasks = jest.fn().mockResolvedValue([water, train, rent])
+    const user = await showBoard(changes, { fetchTasks })
+
+    await addPassport(user)
+
+    expect(await screen.findByText('Unable to create task.')).toBeOnTheScreen()
+    expect(fetchTasks).toHaveBeenCalledTimes(1)
   })
 })

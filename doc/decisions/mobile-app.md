@@ -168,6 +168,12 @@ for an answer the backend gives in well under one, and short enough that nobody 
 first. Two exceptions: the sign-in in the browser takes as long as its user does, and the version
 check at start gives up after three seconds (`VERSION_CHECK_MS`), since the start waits for it.
 
+A change that got no answer in time may have reached the backend all the same, its answer only slow.
+So it is reported as failed, as before, and the board is loaded again at once: it shows whether the
+change arrived, and until a load works the board counts as possibly out of date and refuses changes
+(see above), so a second try is never sent blind and cannot add a task twice. That holds for an undo
+too, whose restore is two requests and may have done only the first.
+
 **Why not more.** Editing offline means queueing changes. Because an update sends the whole task,
 a queued change would silently overwrite a newer one. That needs a version per task, optimistic
 locking, before it can be built, and it is worth its own story, which would help the website too.
