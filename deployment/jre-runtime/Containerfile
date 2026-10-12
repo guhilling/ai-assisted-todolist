@@ -15,7 +15,7 @@
 # grep and no curl -- anything that runs inside the container has to make do with bash and
 # coreutils.
 
-FROM docker.io/library/eclipse-temurin:25.0.4.1_1-jre-ubi10-minimal@sha256:e961af01f4a1a3ec3ca71a3063739a33da943cf71734a8a747856d9385846544 AS jre
+FROM docker.io/library/eclipse-temurin:25.0.4.1_1-jre-ubi10-minimal@sha256:0de887afd59ab76bc42e7277a8196b4a7677981a5345d76473326a3d0218628c AS jre
 
 FROM registry.access.redhat.com/ubi10/ubi-micro:10.2-1787684489@sha256:37fadb004c6bea628fcdd81376c8fb77bd8d9fd432d90503af4d9e76b1ff7191
 
