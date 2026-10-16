@@ -101,8 +101,11 @@ registered for apps outside Play, is not needed: Play registers its own apps.
    base64 -i taskfest-upload.jks | pbcopy    # -> ANDROID_UPLOAD_KEYSTORE
    ```
 
-   The keystore and both passwords go into the password manager, and the four `ANDROID_UPLOAD_*`
-   secrets.
+   keytool asks for one password: a PKCS12 keystore, the default since JDK 9, has no separate
+   password for the key. The keystore and that password go into the password manager. The four
+   `ANDROID_UPLOAD_*` secrets are what the build signs with: the base64 text,
+   `ANDROID_UPLOAD_KEY_ALIAS` `upload`, and the password twice — Gradle asks for the keystore's
+   and the key's separately, and here they are the same.
 
 2. **Google Cloud, without a stored key.** The upload signs in to Google through Workload Identity
    Federation: GitHub's OIDC token for a job in `app-stores`, exchanged for a short-lived token of
@@ -112,7 +115,8 @@ registered for apps outside Play, is not needed: Play registers its own apps.
    ```bash
    gcloud projects create taskfest-releases          # or any free project ID
    gcloud config set project taskfest-releases
-   gcloud services enable androidpublisher.googleapis.com iamcredentials.googleapis.com sts.googleapis.com
+   gcloud services enable androidpublisher.googleapis.com iam.googleapis.com \
+     iamcredentials.googleapis.com sts.googleapis.com
    gcloud iam service-accounts create play-release --display-name "TaskFest Play releases"
 
    gcloud iam workload-identity-pools create github --location global --display-name GitHub
@@ -133,7 +137,8 @@ registered for apps outside Play, is not needed: Play registers its own apps.
    The condition admits jobs in the `app-stores` environment of this repository and nothing else.
    The last line is `GOOGLE_WORKLOAD_IDENTITY_PROVIDER`; the service account's email
    (`play-release@taskfest-releases.iam.gserviceaccount.com`) is `GOOGLE_PLAY_SERVICE_ACCOUNT`.
-   None of it costs anything.
+   None of it costs anything. A project only just created may refuse the pool for a few minutes,
+   until its owner's role has reached every Google service: wait, and run the command again.
 
 3. **Play lets the service account release.** Play Console → *Users and permissions → Invite new
    users*: the service account's email; under *App permissions* both apps, with **Release to
