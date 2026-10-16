@@ -90,7 +90,7 @@ def upload(api, package, bundle, release_name):
     try:
         return _release(api, package, bundle, release_name, "completed")
     except ApiError as error:
-        if DRAFT_ONLY not in error.message:
+        if error.status != 400 or DRAFT_ONLY not in error.message:
             raise
     # A new edit: the refused one may be gone, if it was the commit Play refused.
     return _release(api, package, bundle, release_name, "draft")

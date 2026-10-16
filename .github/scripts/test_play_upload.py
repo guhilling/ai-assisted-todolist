@@ -87,6 +87,13 @@ class UploadTest(unittest.TestCase):
         self.assertEqual(api.calls[5][2], internal_release("draft"))
         self.assertEqual(result.status, "draft")
 
+    def test_the_draft_wording_in_any_other_refusal_is_reported_as_it_is(self):
+        api = FakePlay({"id": "e1"}, {"versionCode": 57}, {},
+                       play.ApiError(500, "Internal error while committing to draft app."))
+        with self.assertRaisesRegex(play.ApiError, "Internal error"):
+            play.upload(api, PACKAGE, b"bundle", "1.4.0")
+        self.assertEqual(len(api.calls), 4)
+
 
 class MainTest(unittest.TestCase):
     """The first upload is a person's step, expected once per app: a warning, not a failed release."""

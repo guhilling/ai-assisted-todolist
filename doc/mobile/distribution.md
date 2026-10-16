@@ -38,9 +38,10 @@ committed.
 
 ### GitHub: the `app-stores` environment
 
-The store credentials are **environment secrets** of `app-stores`, which admits **release tags
-only**. The App Store Connect key is an Admin key, so no branch or pull request may reach it; and
-the workflow builds only tags that have a GitHub Release.
+The store credentials are **environment secrets** of `app-stores`, which admits **tags beginning
+with `v`** and no branch or pull request: the App Store Connect key is an Admin key. That rule is
+coarse; the `numbers` job, which runs before any job enters the environment, accepts only exact
+`vX.Y.Z` tags, and only those with a GitHub Release.
 
 1. *Settings → Environments → New environment*: `app-stores`.
 2. *Deployment branches and tags → Selected branches and tags → Add rule*: type **Tag**, pattern
