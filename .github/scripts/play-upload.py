@@ -12,10 +12,12 @@ it on the internal track as the only release there, commit. Two refusals have a 
 get a sentence instead of an error code:
 
 - **Play has never had a build of the app.** The API cannot make an app's first upload; that one
-  is made by hand in Play Console (doc/mobile/distribution.md), and every later one works.
+  is made by hand in Play Console (doc/mobile/distribution.md), and every later one works. It is
+  expected once per app, so it warns rather than failing a release that is otherwise done.
 - **The app is still a draft in Play Console** -- its setup tasks are not done -- and a draft app
   takes only draft releases. The bundle is then released as a draft, which a person rolls out
-  in Play Console; the run still succeeds, with a warning.
+  in Play Console; the run still succeeds, with a warning. A refused commit may end its edit, so
+  the draft is a new edit, with the bundle uploaded again.
 
 Needs GOOGLE_ACCESS_TOKEN, a token for the androidpublisher scope -- google-github-actions/auth
 mints it through Workload Identity Federation, so no key is stored anywhere -- and
@@ -84,7 +86,18 @@ def _message(text):
 
 
 def upload(api, package, bundle, release_name):
-    """Uploads the bundle in one edit and releases it on the internal track."""
+    """Uploads the bundle and releases it on the internal track, as a draft if Play takes no more."""
+    try:
+        return _release(api, package, bundle, release_name, "completed")
+    except ApiError as error:
+        if DRAFT_ONLY not in error.message:
+            raise
+    # A new edit: the refused one may be gone, if it was the commit Play refused.
+    return _release(api, package, bundle, release_name, "draft")
+
+
+def _release(api, package, bundle, release_name, status):
+    """One edit: open it, upload the bundle, make it the internal track's release, commit."""
     edits = f"{API}/{package}/edits"
     try:
         edit = api.request("POST", edits)["id"]
@@ -98,22 +111,12 @@ def upload(api, package, bundle, release_name):
     uploaded = api.request("POST", f"{UPLOAD_API}/{package}/edits/{edit}/bundles?uploadType=media",
                            bundle, "application/octet-stream")
     version_code = int(uploaded["versionCode"])
-
-    def release(status):
-        api.request("PUT", f"{edits}/{edit}/tracks/{TRACK}", {
-            "track": TRACK,
-            "releases": [{"name": release_name, "versionCodes": [str(version_code)], "status": status}],
-        })
-        api.request("POST", f"{edits}/{edit}:commit")
-
-    try:
-        release("completed")
-        return Result(version_code=version_code, status="completed")
-    except ApiError as error:
-        if DRAFT_ONLY not in error.message:
-            raise
-    release("draft")
-    return Result(version_code=version_code, status="draft")
+    api.request("PUT", f"{edits}/{edit}/tracks/{TRACK}", {
+        "track": TRACK,
+        "releases": [{"name": release_name, "versionCodes": [str(version_code)], "status": status}],
+    })
+    api.request("POST", f"{edits}/{edit}:commit")
+    return Result(version_code=version_code, status=status)
 
 
 def summary(package, release_name, result):
@@ -125,27 +128,40 @@ def summary(package, release_name, result):
             "there by hand, and finish the app's setup tasks so the next release goes out by itself.")
 
 
+def run(api, package, bundle_path, release_name):
+    """Uploads and reports; the exit status. The first upload, a person's step, only warns."""
+    try:
+        result = upload(api, package, bundle_path.read_bytes(), release_name)
+    except FirstUploadByHand as error:
+        line = str(error)
+        print(f"::warning::{line}")
+        _summarise(line)
+        return 0
+    except ApiError as error:
+        print(f"::error::{error}")
+        return 1
+    line = summary(package, release_name, result)
+    if result.status == "draft":
+        print(f"::warning::{line}")
+    print(line)
+    _summarise(line)
+    return 0
+
+
+def _summarise(line):
+    """Adds the line to the run's summary, when there is one."""
+    if os.environ.get("GITHUB_STEP_SUMMARY"):
+        with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as out:
+            out.write(line + "\n")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--package", required=True)
     parser.add_argument("--bundle", required=True, type=pathlib.Path)
     parser.add_argument("--release-name", required=True)
     args = parser.parse_args()
-
-    api = Play(os.environ["GOOGLE_ACCESS_TOKEN"])
-    try:
-        result = upload(api, args.package, args.bundle.read_bytes(), args.release_name)
-    except (FirstUploadByHand, ApiError) as error:
-        print(f"::error::{error}")
-        return 1
-    line = summary(args.package, args.release_name, result)
-    if result.status == "draft":
-        print(f"::warning::{line}")
-    print(line)
-    if os.environ.get("GITHUB_STEP_SUMMARY"):
-        with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as out:
-            out.write(line + "\n")
-    return 0
+    return run(Play(os.environ["GOOGLE_ACCESS_TOKEN"]), args.package, args.bundle, args.release_name)
 
 
 if __name__ == "__main__":

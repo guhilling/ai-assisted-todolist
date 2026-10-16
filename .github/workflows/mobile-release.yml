@@ -4,18 +4,25 @@ name: Mobile release
 # testers on iOS, Google Play's internal testing on Android. doc/mobile/distribution.md has the
 # accounts, keys and settings behind it, and what a person does by hand.
 #
-# Called by release.yml for every final release, on the release tag. Started by hand from the
-# Actions tab, it builds the tag chosen under "Use workflow from" again -- for a failed upload, or
-# for Android's first bundle, which Play's API cannot upload and a person does once.
+# Called by release.yml for every final release, on the release tag, once the GitHub Release
+# exists. Started by hand from the Actions tab, it builds the tag chosen under "Use workflow from"
+# again -- for a failed upload, or for Android's first bundle, which Play's API cannot upload and
+# a person does once -- and only a tag that is released: release.yml checked that it is on main.
 #
 # The store credentials live in the app-stores environment, which admits release tags only: the
-# App Store Connect key is an Admin key (Apple's cloud signing needs one), so no branch, pull
-# request or other workflow gets near it. A platform whose repository variable is not set yet is
-# skipped, so releases go on before the accounts are set up.
+# App Store Connect key is an Admin key (Apple's cloud signing needs one), so no branch or pull
+# request gets near it. A platform whose repository variable is not set yet is skipped, so
+# releases go on before the accounts are set up.
 
 on:
   workflow_call:
   workflow_dispatch:
+    inputs:
+      platform:
+        description: Which platform to build again
+        type: choice
+        options: [both, android, ios]
+        default: both
 
 permissions:
   contents: read
@@ -30,7 +37,11 @@ jobs:
     steps:
       - name: Version from the tag, build number from the clock
         id: numbers
-        # A store version is three numbers; a pre-release is not built (release.yml skips them).
+        env:
+          GH_TOKEN: ${{ github.token }}
+        # A store version is three numbers; a pre-release is not built (release.yml skips them),
+        # so this is stricter than release.yml's own check on purpose. Only a released tag is
+        # built: its release went through release.yml's gate, which refused a tag off main.
         # The build number is the minutes since 2026-01-01 UTC: it rises with every run, whichever
         # workflow starts it, which a run number would not -- release.yml and this workflow count
         # separately. Both platforms of a run share it; they are separate apps in each store.
@@ -39,13 +50,17 @@ jobs:
             echo "::error::The apps are built for a release tag vX.Y.Z, not for $GITHUB_REF_NAME."
             exit 1
           fi
+          if ! gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" > /dev/null; then
+            echo "::error::$GITHUB_REF_NAME has no GitHub Release; the apps are built for released tags only."
+            exit 1
+          fi
           echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
           echo "build=$(( ($(date -u +%s) - 1767225600) / 60 ))" >> "$GITHUB_OUTPUT"
 
   android:
     name: Android ${{ matrix.variant }}
     needs: numbers
-    if: ${{ vars.GOOGLE_PLAY_SERVICE_ACCOUNT != '' }}
+    if: ${{ vars.GOOGLE_PLAY_SERVICE_ACCOUNT != '' && inputs.platform != 'ios' }}
     runs-on: ubuntu-26.04
     environment: app-stores
     timeout-minutes: 60
@@ -69,14 +84,16 @@ jobs:
       TASKFEST_QA_APP_CLIENT_ID: ${{ vars.TASKFEST_QA_APP_CLIENT_ID }}
     steps:
       - uses: actions/checkout@v7
-      - name: The qa build knows its test accounts
-        if: matrix.variant == 'qa'
-        # Without them the qa app would install and offer no way to sign in.
-        run: |
-          if [ -z "$TASKFEST_QA_COGNITO_ISSUER" ] || [ -z "$TASKFEST_QA_APP_CLIENT_ID" ]; then
-            echo "::error::Set the repository variables TASKFEST_QA_COGNITO_ISSUER and TASKFEST_QA_APP_CLIENT_ID from qa's tofu outputs (doc/mobile/distribution.md)."
-            exit 1
-          fi
+      - name: Everything the build needs is set
+        # Seconds here rather than a failure after twenty minutes of building. The qa app also
+        # needs its test accounts: without them it would install and offer no way to sign in.
+        env:
+          UPLOAD_KEYSTORE: ${{ secrets.ANDROID_UPLOAD_KEYSTORE }}
+          UPLOAD_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_PASSWORD }}
+          UPLOAD_KEY_ALIAS: ${{ secrets.ANDROID_UPLOAD_KEY_ALIAS }}
+          UPLOAD_KEY_PASSWORD: ${{ secrets.ANDROID_UPLOAD_KEY_PASSWORD }}
+          WORKLOAD_IDENTITY_PROVIDER: ${{ vars.GOOGLE_WORKLOAD_IDENTITY_PROVIDER }}
+        run: bash .github/scripts/check-mobile-release-settings.sh android ${{ matrix.variant }}
       - uses: actions/setup-node@v7
         with:
           node-version: '24'
@@ -146,7 +163,7 @@ jobs:
   ios:
     name: iOS ${{ matrix.variant }}
     needs: numbers
-    if: ${{ vars.APPLE_TEAM_ID != '' }}
+    if: ${{ vars.APPLE_TEAM_ID != '' && inputs.platform != 'android' }}
     runs-on: macos-26
     environment: app-stores
     timeout-minutes: 60
@@ -163,13 +180,12 @@ jobs:
       APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
     steps:
       - uses: actions/checkout@v7
-      - name: The qa build knows its test accounts
-        if: matrix.variant == 'qa'
-        run: |
-          if [ -z "$TASKFEST_QA_COGNITO_ISSUER" ] || [ -z "$TASKFEST_QA_APP_CLIENT_ID" ]; then
-            echo "::error::Set the repository variables TASKFEST_QA_COGNITO_ISSUER and TASKFEST_QA_APP_CLIENT_ID from qa's tofu outputs (doc/mobile/distribution.md)."
-            exit 1
-          fi
+      - name: Everything the build needs is set
+        env:
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER_ID }}
+        run: bash .github/scripts/check-mobile-release-settings.sh ios ${{ matrix.variant }}
       - uses: actions/setup-node@v7
         with:
           node-version: '24'

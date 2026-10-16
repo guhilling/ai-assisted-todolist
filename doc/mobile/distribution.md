@@ -8,12 +8,12 @@ up once.
 
 ## What a release does
 
-`release.yml` calls `mobile-release.yml` for a final release (`v1.4.0`, not `v1.4.0-rc.1`), beside
-publishing the images:
+`release.yml` calls `mobile-release.yml` for a final release (`v1.4.0`, not `v1.4.0-rc.1`) once the
+GitHub Release exists, so a release that fails on the way never reaches a phone:
 
 | Job | What it does |
 | --- | --- |
-| `numbers` | The version from the tag (`1.4.0`), and the build number: minutes since 2026-01-01 UTC |
+| `numbers` | Refuses a tag without a GitHub Release; the version from the tag (`1.4.0`), and the build number: minutes since 2026-01-01 UTC |
 | `android` (qa, prod) | `expo prebuild`, a bundle signed with the upload key, kept as the run's artifact for 30 days, then uploaded to Play's internal track by `.github/scripts/play-upload.py` |
 | `ios` (qa, prod) | `expo prebuild`, an unsigned archive, then `xcodebuild -exportArchive`, which signs with Apple's cloud-managed distribution certificate and uploads to App Store Connect |
 
@@ -21,10 +21,13 @@ publishing the images:
   and the workflow can also be started by hand, which has a run counter of its own. Both platforms
   and both variants of one run share it; each is a separate app in its store.
 - **A platform not yet set up is skipped:** `android` until `GOOGLE_PLAY_SERVICE_ACCOUNT` is set,
-  `ios` until `APPLE_TEAM_ID` is. Releases go on without them.
+  `ios` until `APPLE_TEAM_ID` is. Releases go on without them. Once a platform is on, each build
+  first checks that every secret and variable it needs is set, and names all that are missing
+  (`.github/scripts/check-mobile-release-settings.sh`).
 - **To build a release again** — an upload that failed, or Android's first bundle — start *Mobile
-  release* from the Actions tab and choose the release's tag under *Use workflow from*. It refuses
-  a branch.
+  release* from the Actions tab, choose the release's tag under *Use workflow from*, and the
+  platform, or both. It refuses a branch, and a tag that has no GitHub Release: only a release
+  went through `release.yml`'s checks, which refuse a tag off `main`.
 - **The prod app has no sign-in yet.** It comes with Google's (#280); until then the prod build
   installs and shows its sign-in screen without a provider.
 
@@ -36,8 +39,8 @@ committed.
 ### GitHub: the `app-stores` environment
 
 The store credentials are **environment secrets** of `app-stores`, which admits **release tags
-only**. The App Store Connect key is an Admin key, so no branch, pull request or other workflow
-may reach it.
+only**. The App Store Connect key is an Admin key, so no branch or pull request may reach it; and
+the workflow builds only tags that have a GitHub Release.
 
 1. *Settings → Environments → New environment*: `app-stores`.
 2. *Deployment branches and tags → Selected branches and tags → Add rule*: type **Tag**, pattern
@@ -138,7 +141,7 @@ registered for apps outside Play, is not needed: Play registers its own apps.
 4. **Testers**, per app: *Test and release → Testing → Internal testing → Testers*, an email list
    of Google accounts (up to 100). Each tester opens the opt-in link shown there once.
 5. **The first bundle, by hand.** Play's API cannot upload an app's first build; the upload step
-   says so and fails. Download the bundle from that run (*taskfest-qa-1.4.0-aab*, say), then
+   says so with a warning, and the release still succeeds. Download the bundle from that run (*taskfest-qa-1.4.0-aab*, say), then
    *Internal testing → Create new release*, accept **Play App Signing** with a key Google
    generates, upload it and roll it out. From the next release on the workflow uploads by itself.
 

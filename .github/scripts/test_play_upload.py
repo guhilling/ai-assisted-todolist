@@ -7,8 +7,11 @@ the order of its calls, or in what it does when Play refuses, would first show o
 Run with:  python3 -m unittest discover -s .github/scripts -p 'test_*.py'
 """
 
+import contextlib
 import importlib.util
+import io
 import pathlib
+import tempfile
 import unittest
 
 _spec = importlib.util.spec_from_file_location(
@@ -63,22 +66,47 @@ class UploadTest(unittest.TestCase):
         with self.assertRaisesRegex(play.ApiError, "permission"):
             play.upload(api, PACKAGE, b"bundle", "1.4.0")
 
-    def test_an_app_still_in_draft_gets_a_draft_release_to_roll_out_by_hand(self):
+    def test_an_app_still_in_draft_gets_a_draft_release_in_a_new_edit(self):
+        # A refused commit may have ended its edit, so the draft starts over rather than reuse it.
         draft_only = play.ApiError(400, "Only releases with status draft may be created on draft app.")
-        api = FakePlay({"id": "e1"}, {"versionCode": 57}, {}, draft_only, {}, {})
+        api = FakePlay({"id": "e1"}, {"versionCode": 57}, {}, draft_only,
+                       {"id": "e2"}, {"versionCode": 57}, {}, {})
         result = play.upload(api, PACKAGE, b"bundle", "1.4.0")
         self.assertEqual(api.calls[4:], [
-            ("PUT", f"{EDITS}/e1/tracks/internal", internal_release("draft"), "application/json"),
-            ("POST", f"{EDITS}/e1:commit", None, "application/json"),
+            ("POST", EDITS, None, "application/json"),
+            ("POST", f"{UPLOAD}/e2/bundles?uploadType=media", b"bundle", "application/octet-stream"),
+            ("PUT", f"{EDITS}/e2/tracks/internal", internal_release("draft"), "application/json"),
+            ("POST", f"{EDITS}/e2:commit", None, "application/json"),
         ])
         self.assertEqual(result, play.Result(version_code=57, status="draft"))
 
     def test_the_draft_refusal_may_come_with_the_track_as_well(self):
         draft_only = play.ApiError(400, "Only releases with status draft may be created on draft app.")
-        api = FakePlay({"id": "e1"}, {"versionCode": 57}, draft_only, {}, {})
+        api = FakePlay({"id": "e1"}, {"versionCode": 57}, draft_only, {"id": "e2"}, {"versionCode": 57}, {}, {})
         result = play.upload(api, PACKAGE, b"bundle", "1.4.0")
-        self.assertEqual(api.calls[3][2], internal_release("draft"))
+        self.assertEqual(api.calls[5][2], internal_release("draft"))
         self.assertEqual(result.status, "draft")
+
+
+class MainTest(unittest.TestCase):
+    """The first upload is a person's step, expected once per app: a warning, not a failed release."""
+
+    def test_an_app_without_a_build_is_a_warning_and_the_run_succeeds(self):
+        with tempfile.NamedTemporaryFile() as bundle:
+            api = FakePlay(play.ApiError(404, "Package not found: de.hilling.taskfest.qa."))
+            out = io.StringIO()
+            with contextlib.redirect_stdout(out):
+                status = play.run(api, PACKAGE, pathlib.Path(bundle.name), "1.4.0")
+        self.assertEqual(status, 0)
+        self.assertIn("::warning::", out.getvalue())
+        self.assertIn("by hand", out.getvalue())
+
+    def test_any_other_refusal_fails_the_run(self):
+        with tempfile.NamedTemporaryFile() as bundle:
+            api = FakePlay(play.ApiError(403, "The caller does not have permission"))
+            with contextlib.redirect_stdout(io.StringIO()):
+                status = play.run(api, PACKAGE, pathlib.Path(bundle.name), "1.4.0")
+        self.assertEqual(status, 1)
 
 
 class SummaryTest(unittest.TestCase):
