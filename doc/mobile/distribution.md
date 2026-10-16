@@ -1,0 +1,167 @@
+# Distribution to testers
+
+Every final release puts the app on testers' phones (#276): the qa and prod builds, signed, go to
+**TestFlight's internal testers** on iOS and **Google Play's internal testing** on Android. Testers
+only, no public store release ([decisions/mobile-app.md](../decisions/mobile-app.md)).
+`.github/workflows/mobile-release.yml` does it; this page says what it does, and what a person sets
+up once.
+
+## What a release does
+
+`release.yml` calls `mobile-release.yml` for a final release (`v1.4.0`, not `v1.4.0-rc.1`) once the
+GitHub Release exists, so a release that fails on the way never reaches a phone:
+
+| Job | What it does |
+| --- | --- |
+| `numbers` | Refuses a tag without a GitHub Release; the version from the tag (`1.4.0`), and the build number: minutes since 2026-01-01 UTC |
+| `android` (qa, prod) | `expo prebuild`, a bundle signed with the upload key, kept as the run's artifact for 30 days, then uploaded to Play's internal track by `.github/scripts/play-upload.py` |
+| `ios` (qa, prod) | `expo prebuild`, an unsigned archive, then `xcodebuild -exportArchive`, which signs with Apple's cloud-managed distribution certificate and uploads to App Store Connect |
+
+- **The build number counts minutes, not runs.** Each store wants it to rise with every upload,
+  and the workflow can also be started by hand, which has a run counter of its own. Both platforms
+  and both variants of one run share it; each is a separate app in its store.
+- **A platform not yet set up is skipped:** `android` until `GOOGLE_PLAY_SERVICE_ACCOUNT` is set,
+  `ios` until `APPLE_TEAM_ID` is. Releases go on without them. Once a platform is on, each build
+  first checks that every secret and variable it needs is set, and names all that are missing
+  (`.github/scripts/check-mobile-release-settings.sh`).
+- **To build a release again** — an upload that failed, or Android's first bundle — start *Mobile
+  release* from the Actions tab, choose the release's tag under *Use workflow from*, and the
+  platform, or both. It refuses a branch, and a tag that has no GitHub Release: only a release
+  went through `release.yml`'s checks, which refuse a tag off `main`.
+- **The prod app has no sign-in yet.** It comes with Google's (#280); until then the prod build
+  installs and shows its sign-in screen without a provider.
+
+## Setting it up, once
+
+Everything below is a person's step: the accounts are Hilling IT GmbH's, and no credential is ever
+committed.
+
+### GitHub: the `app-stores` environment
+
+The store credentials are **environment secrets** of `app-stores`, which admits **tags beginning
+with `v`** and no branch or pull request: the App Store Connect key is an Admin key. That rule is
+coarse; the `numbers` job, which runs before any job enters the environment, accepts only exact
+`vX.Y.Z` tags, and only those with a GitHub Release.
+
+1. *Settings → Environments → New environment*: `app-stores`.
+2. *Deployment branches and tags → Selected branches and tags → Add rule*: type **Tag**, pattern
+   `v*`.
+3. Its secrets are added in the steps below. The **repository variables** (*Settings → Secrets and
+   variables → Actions → Variables*) are not secret, and a job's `if` can read only those.
+
+| Name | Kind | Value |
+| --- | --- | --- |
+| `APPLE_TEAM_ID` | repository variable | the team ID |
+| `APPLE_API_KEY` | `app-stores` secret | the `.p8` file's whole text |
+| `APPLE_API_KEY_ID` | `app-stores` secret | the key's ID |
+| `APPLE_API_ISSUER_ID` | `app-stores` secret | the issuer ID |
+| `ANDROID_UPLOAD_KEYSTORE` | `app-stores` secret | the keystore, base64 |
+| `ANDROID_UPLOAD_KEYSTORE_PASSWORD` | `app-stores` secret | its password |
+| `ANDROID_UPLOAD_KEY_ALIAS` | `app-stores` secret | `upload` |
+| `ANDROID_UPLOAD_KEY_PASSWORD` | `app-stores` secret | the key's password |
+| `GOOGLE_WORKLOAD_IDENTITY_PROVIDER` | repository variable | `projects/<number>/locations/global/workloadIdentityPools/github/providers/github` |
+| `GOOGLE_PLAY_SERVICE_ACCOUNT` | repository variable | the service account's email |
+| `TASKFEST_QA_COGNITO_ISSUER` | repository variable | qa's tofu output `test_accounts_issuer` |
+| `TASKFEST_QA_APP_CLIENT_ID` | repository variable | qa's tofu output `test_accounts_app_client_id` |
+
+The last two come from qa once #283 is applied (`tofu output` in `deployment/aws-tofu/environments/qa`).
+The qa build refuses to start without them, since it would offer no way to sign in.
+
+### Apple
+
+The App IDs `de.hilling.taskfest` and `de.hilling.taskfest.qa` and their apps in App Store
+Connect already exist ("TaskFest AI Demo", "TaskFest AI Demo QA").
+
+1. **The team ID**: developer.apple.com → *Account → Membership details*. Repository variable
+   `APPLE_TEAM_ID`.
+2. **The API key**: App Store Connect → *Users and Access → Integrations → App Store Connect API
+   → Team Keys → +*. Name it after its use (*GitHub releases*), access **Admin**: cloud signing
+   refuses any lower role. Download the `.p8` — Apple offers it once — and put its text into
+   `APPLE_API_KEY`, the *Key ID* into `APPLE_API_KEY_ID` and the *Issuer ID* above the list into
+   `APPLE_API_ISSUER_ID`. Keep the file in the password manager, or delete it; a lost key is
+   revoked and replaced, nothing more.
+3. **Testers**, per app: *TestFlight → Internal Testing → +*, a group with **automatic
+   distribution** on, and its members — people in the App Store Connect team (*Users and Access*).
+   A build reaches them once Apple has processed it, usually within half an hour.
+
+Export compliance needs no answer per build: the app declares that it uses no non-exempt
+encryption (`usesNonExemptEncryption: false` in `app.config.ts`).
+
+### Google Play
+
+The two apps exist in Play Console. The Android Developer Console, where package names are
+registered for apps outside Play, is not needed: Play registers its own apps.
+
+1. **The upload key.** Play keeps the key the app is signed with (Play App Signing); the build
+   signs with an upload key, which Google can reset if it is lost. One key serves both apps:
+
+   ```bash
+   keytool -genkeypair -v -keystore taskfest-upload.jks -alias upload \
+     -keyalg RSA -keysize 4096 -validity 10000 \
+     -dname "CN=Hilling IT GmbH, O=Hilling IT GmbH, C=DE"
+   base64 -i taskfest-upload.jks | pbcopy    # -> ANDROID_UPLOAD_KEYSTORE
+   ```
+
+   keytool asks for one password: a PKCS12 keystore, the default since JDK 9, has no separate
+   password for the key. The keystore and that password go into the password manager. The four
+   `ANDROID_UPLOAD_*` secrets are what the build signs with: the base64 text,
+   `ANDROID_UPLOAD_KEY_ALIAS` `upload`, and the password twice — Gradle asks for the keystore's
+   and the key's separately, and here they are the same.
+
+2. **Google Cloud, without a stored key.** The upload signs in to Google through Workload Identity
+   Federation: GitHub's OIDC token for a job in `app-stores`, exchanged for a short-lived token of
+   a service account. Nothing to leak or rotate, and new Google Cloud organizations refuse
+   service-account keys by default anyway. With `gcloud`, in a project of its own:
+
+   ```bash
+   gcloud projects create taskfest-releases          # or any free project ID
+   gcloud config set project taskfest-releases
+   gcloud services enable androidpublisher.googleapis.com iam.googleapis.com \
+     iamcredentials.googleapis.com sts.googleapis.com
+   gcloud iam service-accounts create play-release --display-name "TaskFest Play releases"
+
+   gcloud iam workload-identity-pools create github --location global --display-name GitHub
+   gcloud iam workload-identity-pools providers create-oidc github \
+     --location global --workload-identity-pool github \
+     --issuer-uri https://token.actions.githubusercontent.com \
+     --attribute-mapping google.subject=assertion.sub \
+     --attribute-condition "assertion.sub == 'repo:guhilling/ai-assisted-todolist:environment:app-stores'"
+
+   number=$(gcloud projects describe taskfest-releases --format 'value(projectNumber)')
+   gcloud iam service-accounts add-iam-policy-binding \
+     play-release@taskfest-releases.iam.gserviceaccount.com \
+     --role roles/iam.workloadIdentityUser \
+     --member "principal://iam.googleapis.com/projects/$number/locations/global/workloadIdentityPools/github/subject/repo:guhilling/ai-assisted-todolist:environment:app-stores"
+   echo "projects/$number/locations/global/workloadIdentityPools/github/providers/github"
+   ```
+
+   The condition admits jobs in the `app-stores` environment of this repository and nothing else.
+   The last line is `GOOGLE_WORKLOAD_IDENTITY_PROVIDER`; the service account's email
+   (`play-release@taskfest-releases.iam.gserviceaccount.com`) is `GOOGLE_PLAY_SERVICE_ACCOUNT`.
+   None of it costs anything. A project only just created may refuse the pool for a few minutes,
+   until its owner's role has reached every Google service: wait, and run the command again.
+
+3. **Play lets the service account release.** Play Console → *Users and permissions → Invite new
+   users*: the service account's email; under *App permissions* both apps, with **Release to
+   testing tracks**. No account-wide permission.
+4. **Testers**, per app: *Test and release → Testing → Internal testing → Testers*, an email list
+   of Google accounts (up to 100). Each tester opens the opt-in link shown there once.
+5. **The first bundle, by hand.** Play's API cannot upload an app's first build; the upload step
+   says so with a warning, and the release still succeeds. Download the bundle from that run (*taskfest-qa-1.4.0-aab*, say), then
+   *Internal testing → Create new release*, accept **Play App Signing** with a key Google
+   generates, upload it and roll it out. From the next release on the workflow uploads by itself.
+
+**While an app is still a draft** in Play Console — its setup tasks under *Dashboard* not done —
+Play takes only draft releases. The upload then leaves the build as a draft on the internal track
+and warns; roll it out in Play Console by hand, and finish the setup tasks so the next one goes out
+by itself.
+
+## What only a real release shows
+
+The workflow cannot run without the accounts, so its first run is the test. Two things to look at
+then:
+
+- **iOS entitlements.** The archive is unsigned and the export signs it. That is the usual way with
+  cloud signing, but whether `expo-notifications`' push entitlement survives it only matters for
+  push (#277), and is to be checked there.
+- **Play's draft state**, above: whether the internal release went out or waits as a draft.

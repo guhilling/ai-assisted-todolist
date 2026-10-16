@@ -119,7 +119,7 @@ jobs:
       - name: Build the release APK
         if: steps.apk.outputs.cache-hit != 'true'
         # Signed with the debug key, as the generated project does for a release build; a store
-        # build is signed for real by the distribution story (#276). For the emulator's x86_64 only:
+        # build is signed for real by mobile-release.yml (#276). For the emulator's x86_64 only:
         # this APK exists for the Maestro flows, and the native code for the other three
         # architectures was most of the build's time.
         working-directory: mobile/android

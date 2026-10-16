@@ -217,6 +217,26 @@ would be a decision, not a project.
 closed test of 12 testers for 14 days that a personal one needs before a public release.
 
 
+## Uploads with the plain tools: cloud signing on iOS, no stored Google key
+
+**Decision.** The release workflow uploads with the platforms' own tools, not fastlane:
+`xcodebuild` signs and uploads to TestFlight, Gradle signs the bundle and a small script calls
+Google Play's publishing API. iOS signs with Apple's **cloud-managed distribution certificate**,
+through an App Store Connect API key with the Admin role (Gunnar, #276, 16 October 2026). Google
+is reached through **Workload Identity Federation**, with no service-account key. The store
+credentials are secrets of an environment that admits release tags only.
+
+**Why.** fastlane would bring Ruby and a Gemfile for two steps that the platforms' tools do in one
+call each, and its own layer to debug when they fail. Cloud signing leaves nothing to renew: no
+certificate or provisioning profile to export, store and replace every year. The price is a key
+with the Admin role, which could do far more in App Store Connect than upload; keeping it in a
+tag-only environment is what makes that acceptable. Workload Identity Federation is the same idea
+as the AWS deploy roles: GitHub's OIDC token buys a short-lived one, so there is no key to leak,
+and new Google Cloud organizations refuse service-account keys by default anyway.
+
+**Rejected: a certificate and profiles as secrets.** It would need only an App Manager key, but
+a certificate made on a Mac, two profiles, and their renewal every year.
+
 ## No crash reporting, for now
 
 **Decision.** No Sentry, Crashlytics or similar.

@@ -23,7 +23,7 @@ const noProvider: Dependencies['provider'] = {
 
 /**
  * This build's release, from `TASKFEST_VERSION` through app.config.ts. The release build sets it
- * from the tag (#276); every other build, and every build until then, is 0.0.0.
+ * from the tag (#276); every other build is 0.0.0.
  */
 const appVersion = Constants.expoConfig?.version ?? '0.0.0'
 
