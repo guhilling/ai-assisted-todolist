@@ -1,4 +1,5 @@
 import type { ConfigContext, ExpoConfig } from 'expo/config'
+import { releaseOf } from './src/release.ts'
 import { variantOf } from './src/variants.ts'
 
 /**
@@ -10,18 +11,23 @@ import { variantOf } from './src/variants.ts'
 export default ({ config }: ConfigContext): ExpoConfig => {
   const variant = variantOf(process.env.APP_VARIANT, process.env)
   const dev = variant.bundleId.endsWith('.dev')
+  const release = releaseOf(process.env)
   return {
     ...config,
     name: variant.name,
     slug: 'taskfest',
     scheme: variant.scheme,
-    // The release tag sets the version (doc/releasing.md); a build from a branch is 0.0.0.
-    version: process.env.TASKFEST_VERSION ?? '0.0.0',
+    // The release tag sets the version (doc/releasing.md), the release run the build number
+    // (doc/mobile/distribution.md); a build from a branch is 0.0.0, build 1.
+    version: release.version,
     orientation: 'portrait',
     icon: './assets/icon.png',
     userInterfaceStyle: 'automatic',
     ios: {
       bundleIdentifier: variant.bundleId,
+      buildNumber: String(release.buildNumber),
+      // Only a signed build needs the team; the simulator builds sign nothing.
+      ...(process.env.APPLE_TEAM_ID ? { appleTeamId: process.env.APPLE_TEAM_ID } : {}),
       supportsTablet: true,
       config: { usesNonExemptEncryption: false },
       // The dev build's plain HTTP to localhost; App Transport Security allows nothing else.
@@ -29,6 +35,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     },
     android: {
       package: variant.bundleId,
+      versionCode: release.buildNumber,
       adaptiveIcon: {
         backgroundColor: '#E9F5E1',
         foregroundImage: './assets/android-icon-foreground.png',

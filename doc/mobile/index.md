@@ -8,10 +8,12 @@ the same words and colours, and signs in the way a native app should.
 So far it signs in, shows the board — readable offline too — adds, edits, completes and deletes
 tasks, reminds at 08:00 on days tasks are due, and signs out or deletes the account, with the legal
 pages one tap away (#267, #271, #272, #273, #275).
-Attachments, push and distribution are the further stories of #264.
+Every final release goes to testers through TestFlight and Play internal testing (#276).
+Attachments and push are the further stories of #264.
 
 - [Development](development.md) — the variants, running the app, the tests and CI
 - [Sign-in](sign-in.md) — how the app signs in, and how long it stays signed in
 - [The board](board.md) — what the app does with tasks, and how a change behaves
 - [The account](account.md) — signing out, deleting the account, and the legal pages
 - [Due-day reminders](reminders.md) — the 08:00 reminder, and asking for its permission
+- [Distribution to testers](distribution.md) — what a release uploads, and the accounts and keys behind it

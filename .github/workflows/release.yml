@@ -292,6 +292,18 @@ jobs:
         # build-api-site.py picks the new version up.
         run: gh workflow run pages.yml --ref main
 
+  # Every final release goes to the testers as an app too, qa's and prod's builds alike (#276). A
+  # pre-release is not built: the stores take three numbers for a version, nothing more.
+  mobile:
+    name: Mobile apps
+    needs: gate
+    if: ${{ !contains(github.ref_name, '-') }}
+    permissions:
+      contents: read
+      id-token: write
+    uses: ./.github/workflows/mobile-release.yml
+    secrets: inherit
+
   # Every final release goes to qa; prod only ever by hand, through its protected environment.
   # Pre-releases (v1.2.3-rc.1) are deployed by hand when wanted: `env.sh up qa` starts the newest
   # *final* release, so one deployed automatically would quietly be undone by a down/up cycle.
