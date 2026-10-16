@@ -125,17 +125,22 @@ registered for apps outside Play, is not needed: Play registers its own apps.
      --location global --workload-identity-pool github \
      --issuer-uri https://token.actions.githubusercontent.com \
      --attribute-mapping google.subject=assertion.sub \
-     --attribute-condition "assertion.sub == 'repo:guhilling/ai-assisted-todolist:environment:app-stores'"
+     --attribute-condition "assertion.sub == 'repo:guhilling@2537533/ai-assisted-todolist@1383592232:environment:app-stores'"
 
    number=$(gcloud projects describe taskfest-releases --format 'value(projectNumber)')
    gcloud iam service-accounts add-iam-policy-binding \
      play-release@taskfest-releases.iam.gserviceaccount.com \
      --role roles/iam.workloadIdentityUser \
-     --member "principal://iam.googleapis.com/projects/$number/locations/global/workloadIdentityPools/github/subject/repo:guhilling/ai-assisted-todolist:environment:app-stores"
+     --member "principal://iam.googleapis.com/projects/$number/locations/global/workloadIdentityPools/github/subject/repo:guhilling@2537533/ai-assisted-todolist@1383592232:environment:app-stores"
    echo "projects/$number/locations/global/workloadIdentityPools/github/providers/github"
    ```
 
    The condition admits jobs in the `app-stores` environment of this repository and nothing else.
+   The repository uses GitHub's *immutable subject*, so the token names owner and repository by
+   name *and* id (`guhilling@2537533/ai-assisted-todolist@1383592232`), as the AWS deploy roles
+   expect too; `gh api repos/guhilling/ai-assisted-todolist/actions/oidc/customization/sub` shows
+   the prefix. A condition with the plain `owner/name` refuses every token ("rejected by the
+   attribute condition").
    The last line is `GOOGLE_WORKLOAD_IDENTITY_PROVIDER`; the service account's email
    (`play-release@taskfest-releases.iam.gserviceaccount.com`) is `GOOGLE_PLAY_SERVICE_ACCOUNT`.
    None of it costs anything. A project only just created may refuse the pool for a few minutes,
