@@ -9,6 +9,9 @@
  * Every text the app shows is in the website's catalogue, the app's own ones included, and the
  * catalogue's test counts the app's code as a use.
  */
+import googleSignInDark from '../../frontend/src/assets/google-sign-in-dark.png'
+import googleSignInLight from '../../frontend/src/assets/google-sign-in-light.png'
+
 export type {
   TaskCreateRequest as TaskInput,
   TaskImportance,
@@ -23,3 +26,10 @@ export { chooseLanguage, localeOf, type Language } from '../../frontend/src/i18n
 export { needsDatingBack, restoreInput } from '../../frontend/src/restore'
 export { imprintUrl, privacyUrls, termsUrls } from '../../frontend/src/links'
 export { confirmsEmail } from '../../frontend/src/confirmsEmail'
+
+/**
+ * Google's official "Sign in with Google" button, the images the website shows (#325): Google's
+ * rules allow its "G" only inside its own button, in its own light or dark theme, so the image is
+ * the button. 180 by 40, in Google's English whatever the app speaks, as on the website.
+ */
+export const googleSignInButton = { light: googleSignInLight, dark: googleSignInDark, width: 180, height: 40 }

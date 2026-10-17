@@ -108,6 +108,12 @@ widely used `@react-native-google-signin/google-signin` was the obvious alternat
 version still uses Google's deprecated Android sign-in SDK; Credential Manager is in its paid
 edition. A module of our own over the two SDKs stays the fallback if the library falls behind.
 
+**Google's button is the website's image, not the library's native one (#325).** The library
+offers Google's native button (`GIDSignInButton` on iOS, Play services' assets on Android), but it
+is a native view the Jest tests cannot render, and its words follow the phone's language where the
+website's are always Google's English. The website's PNGs are Google's official button too,
+already in use, the same on both platforms, and testable like any other image.
+
 **One web client for qa and prod** (Gunnar, #280). Both apps ask for ID tokens for the web client
 the website uses, so a qa token would be accepted by prod as well. That gives no one more than a
 sign-in to prod gives them already, and separate clients would only pay off with separate users or
