@@ -70,8 +70,9 @@ Client ids are not secrets: every app and web page that signs in with Google car
 
 And for the backend, each environment's iOS client in its `terraform.tfvars`
 (`google_ios_client_id`), applied as usual; until then, an iOS sign-in is refused with 401. prod's
-`google_client_id` is still empty — prod's web sign-in is not set up yet — and is the same web
-client as qa's, as decided ([decisions/mobile-app.md](../decisions/mobile-app.md)).
+`google_client_id` is the same web client as qa's, as decided
+([decisions/mobile-app.md](../decisions/mobile-app.md)), so its client secret in Secrets Manager is
+the same value as qa's ([deployment/names-and-certificates.md](../deployment/names-and-certificates.md)).
 
 ## Where the session lives
 
