@@ -69,6 +69,11 @@
       "description": "Test tooling churns often and cannot break production, so it travels together.",
       "matchPackageNames": ["vitest", "@vitest/**", "@testing-library/**", "jsdom", "@playwright/test"],
       "groupName": "frontend test tooling"
+    },
+    {
+      "description": "The base-image chain at any time, not in the Monday batch: a fixed vulnerability in the backend image (#315) arrives as a new ubi-micro or Temurin, becomes a jre-runtime build, and only then reaches the backend's pin. Each step waiting for a Monday is what kept a fix that existed on Friday out of the backend. Everything else stays weekly.",
+      "matchPackageNames": ["registry.access.redhat.com/ubi10/ubi-micro", "docker.io/library/eclipse-temurin", "quay.io/ghilling/jre-runtime"],
+      "schedule": ["at any time"]
     }
   ]
 }
