@@ -1,0 +1,9 @@
+appId: de.hilling.taskfest.dev
+name: Spike dark
+---
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible: "Sign in with Keycloak"
+    timeout: 60000
+- takeScreenshot: google-button-dark

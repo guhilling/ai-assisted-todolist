@@ -48,8 +48,9 @@ retry adb install -r "$apk"
 
 case "$share" in
   board)
-    maestro test mobile/maestro/sign-in.yaml mobile/maestro/change-tasks.yaml \
-      --format junit --output maestro-report.xml --test-output-dir maestro-output
+    maestro test mobile/maestro/spike-light.yaml --test-output-dir maestro-output
+    adb shell cmd uimode night yes
+    maestro test mobile/maestro/spike-dark.yaml --test-output-dir maestro-output
     exit 0
     ;;
   others) ;;

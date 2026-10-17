@@ -94,7 +94,7 @@ export function variantOf(name: string | undefined, env: BuildEnvironment): Vari
         issuer: 'http://localhost:8082/realms/taskfest',
         clientId: 'taskfest-app',
         scopes: [...OPENID_SCOPES, 'offline_access'],
-      })
+      }, { webClientId: '1-spike.apps.googleusercontent.com', iosClientId: '1-spike.apps.googleusercontent.com' })
     case 'qa':
       // Google, and the test accounts beside it: the end-to-end runs sign in with those.
       return variant('TaskFest QA', `${BUNDLE_ID}.qa`, 'https://taskfest-qa.cloud.hilling.de', qaSignIn(env), googleSignIn(env, 'QA'))
