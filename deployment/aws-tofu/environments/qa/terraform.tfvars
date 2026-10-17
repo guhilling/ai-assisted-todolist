@@ -17,9 +17,9 @@ hostname = "taskfest-qa.cloud.hilling.de"
 # Created by hand in the Google console; not a secret. The client secret is in Secrets Manager.
 google_client_id = "284066835041-jfetldf4tlh0hei4c54rdch0c0jn8qdk.apps.googleusercontent.com"
 
-# The iOS app's Google client (#280), from the Google console like the web client; empty until it
-# exists. doc/mobile/sign-in.md says how it is made.
-google_ios_client_id = ""
+# The iOS app's Google client (#280), created by hand in the Google console like the web client;
+# not a secret. doc/mobile/sign-in.md says how it is made.
+google_ios_client_id = "284066835041-9mkopigj4vltdejq0j5r7fib714p0ef0.apps.googleusercontent.com"
 
 # The Cognito test accounts the live tests sign in with (#190). qa only.
 test_sign_in = true

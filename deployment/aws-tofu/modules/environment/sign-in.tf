@@ -15,8 +15,8 @@
 locals {
   google_client_secret = "${local.name}-google-client-secret"
 
-  # Sign-in is on only where a Google client exists. An environment without one -- prod, until it
-  # is set up -- starts with sign-in off rather than failing on a secret with no value.
+  # Sign-in is on only where a Google client exists. An environment without one starts with
+  # sign-in off rather than failing on a secret with no value.
   sign_in_enabled = var.google_client_id != ""
 }
 
