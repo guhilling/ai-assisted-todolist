@@ -17,9 +17,9 @@ hostname = "taskfest.cloud.hilling.de"
 # No Google client for prod yet, so sign-in stays off there.
 google_client_id = ""
 
-# The iOS app's Google client (#280), from the Google console like the web client; empty until it
-# exists. doc/mobile/sign-in.md says how it is made.
-google_ios_client_id = ""
+# The iOS app's Google client (#280), created by hand in the Google console like the web client;
+# not a secret. doc/mobile/sign-in.md says how it is made.
+google_ios_client_id = "284066835041-2jslp8n0p5o0p7c94220urrdo3eag4cr.apps.googleusercontent.com"
 
 # No test accounts in prod: it signs in with Google alone.
 test_sign_in = false
