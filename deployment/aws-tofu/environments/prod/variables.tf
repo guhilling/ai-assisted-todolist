@@ -64,6 +64,12 @@ variable "hostname" {
   type        = string
 }
 
+variable "google_ios_client_id" {
+  description = "The Google OAuth client of this environment's iOS app (#280); empty while there is none."
+  type        = string
+  default     = ""
+}
+
 variable "google_client_id" {
   description = "The Google OAuth client id; empty keeps sign-in off. The secret is not here -- see sign-in.tf."
   type        = string

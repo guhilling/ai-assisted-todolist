@@ -102,6 +102,17 @@ the session does.
 automated sign-in for the app's tests. The app signs them in with code + PKCE through the system
 browser.
 
+**The library: react-native-nitro-google-signin (#280).** It wraps Credential Manager and the
+Google Sign-In SDK, as decided, under the MIT licence, and comes with an Expo config plugin. The
+widely used `@react-native-google-signin/google-signin` was the obvious alternative, but its free
+version still uses Google's deprecated Android sign-in SDK; Credential Manager is in its paid
+edition. A module of our own over the two SDKs stays the fallback if the library falls behind.
+
+**One web client for qa and prod** (Gunnar, #280). Both apps ask for ID tokens for the web client
+the website uses, so a qa token would be accepted by prod as well. That gives no one more than a
+sign-in to prod gives them already, and separate clients would only pay off with separate users or
+consent screens.
+
 
 ## Sign in with Apple comes later; a hidden address is a separate account
 

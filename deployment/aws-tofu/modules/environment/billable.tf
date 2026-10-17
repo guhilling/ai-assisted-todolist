@@ -427,7 +427,11 @@ resource "aws_ecs_task_definition" "backend" {
       { name = "QUARKUS_HTTP_PROXY_PROXY_ADDRESS_FORWARDING", value = "true" },
       { name = "QUARKUS_HTTP_PROXY_ALLOW_X_FORWARDED", value = "true" },
       { name = "QUARKUS_HTTP_PROXY_TRUSTED_PROXIES", value = var.vpc_cidr },
-      ], var.test_sign_in ? [
+      ], var.google_ios_client_id != "" ? [
+      # The iOS app's own Google client, whose ID tokens the backend accepts beside the web
+      # client's (#280). Left out while empty: application.properties then names a placeholder.
+      { name = "TASKFEST_OIDC_GOOGLE_IOS_CLIENT_ID", value = var.google_ios_client_id },
+      ] : [], var.test_sign_in ? [
       # The test accounts' provider (test-sign-in.tf), declared in application.properties and
       # switched on here, where the pool exists.
       { name = "TASKFEST_OIDC_COGNITO_ENABLED", value = "true" },

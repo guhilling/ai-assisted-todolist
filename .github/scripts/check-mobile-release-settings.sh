@@ -35,6 +35,12 @@ case "$platform" in
     ;;
 esac
 
+# Google's sign-in (#280): the web client and the variant's iOS client, on both platforms -- the
+# app enables Google only with both, and without it the prod app has no way to sign in at all.
+need TASKFEST_GOOGLE_WEB_CLIENT_ID TASKFEST_GOOGLE_WEB_CLIENT_ID
+ios_client="TASKFEST_$(echo "$variant" | tr '[:lower:]' '[:upper:]')_GOOGLE_IOS_CLIENT_ID"
+need "$ios_client" "$ios_client"
+
 # Without them the qa app would install and offer no way to sign in.
 if [[ "$variant" == qa ]]; then
   need TASKFEST_QA_COGNITO_ISSUER TASKFEST_QA_COGNITO_ISSUER

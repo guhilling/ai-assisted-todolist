@@ -18,6 +18,9 @@ ANDROID = {
 }
 IOS = {"APPLE_API_KEY": "-----BEGIN PRIVATE KEY-----", "APPLE_API_KEY_ID": "K", "APPLE_API_ISSUER_ID": "I"}
 QA = {"TASKFEST_QA_COGNITO_ISSUER": "https://cognito-idp.example.com/pool", "TASKFEST_QA_APP_CLIENT_ID": "c"}
+# Google's client ids (#280): every build signs in with Google, and needs the web client and its
+# variant's iOS client -- the app enables Google only with both.
+GOOGLE = {"TASKFEST_GOOGLE_WEB_CLIENT_ID": "w", "TASKFEST_QA_GOOGLE_IOS_CLIENT_ID": "q", "TASKFEST_PROD_GOOGLE_IOS_CLIENT_ID": "p"}
 
 
 def check(platform, variant, env):
@@ -28,10 +31,10 @@ def check(platform, variant, env):
 class CheckTest(unittest.TestCase):
 
     def test_a_complete_android_prod_build_passes(self):
-        self.assertEqual(check("android", "prod", ANDROID).returncode, 0)
+        self.assertEqual(check("android", "prod", {**ANDROID, **GOOGLE}).returncode, 0)
 
     def test_a_complete_ios_qa_build_passes(self):
-        self.assertEqual(check("ios", "qa", {**IOS, **QA}).returncode, 0)
+        self.assertEqual(check("ios", "qa", {**IOS, **QA, **GOOGLE}).returncode, 0)
 
     def test_names_every_missing_setting_at_once(self):
         result = check("android", "prod", {"UPLOAD_KEYSTORE": "a2V5"})
@@ -48,7 +51,14 @@ class CheckTest(unittest.TestCase):
         self.assertIn("TASKFEST_QA_APP_CLIENT_ID", result.stdout)
 
     def test_the_prod_build_does_not(self):
-        self.assertEqual(check("ios", "prod", IOS).returncode, 0)
+        self.assertEqual(check("ios", "prod", {**IOS, **GOOGLE}).returncode, 0)
+
+    def test_every_build_needs_google_s_client_ids_for_its_variant(self):
+        result = check("android", "qa", {**ANDROID, **QA, "TASKFEST_PROD_GOOGLE_IOS_CLIENT_ID": "p"})
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("TASKFEST_GOOGLE_WEB_CLIENT_ID", result.stdout)
+        self.assertIn("TASKFEST_QA_GOOGLE_IOS_CLIENT_ID", result.stdout)
+        self.assertNotIn("TASKFEST_PROD_GOOGLE_IOS_CLIENT_ID", result.stdout)
 
     def test_refuses_a_platform_it_does_not_know(self):
         self.assertEqual(check("windows", "prod", {}).returncode, 2)

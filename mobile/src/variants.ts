@@ -17,6 +17,14 @@ export type SignIn = { label: string; issuer: string; clientId: string; scopes: 
 
 const OPENID_SCOPES = ['openid', 'email', 'profile']
 
+/**
+ * Signing in with Google (#280), through Google's own SDKs rather than the browser. The ID tokens
+ * are asked for on behalf of the web client, whose id is the audience the backend accepts; the
+ * iOS SDK needs the iOS client of the app's bundle id besides. Android's client is registered with
+ * Google by package name and signing key, and never named in the app.
+ */
+export type GoogleSignIn = { webClientId: string; iosClientId: string }
+
 /** Everything that differs between the builds. */
 export type Variant = {
   name: string
@@ -25,18 +33,26 @@ export type Variant = {
   apiBaseUrl: string
   /** Null where no provider is available to the app yet. */
   signIn: SignIn | null
+  /** Google's sign-in, where the build knows its client ids; absent or null elsewhere. */
+  google?: GoogleSignIn | null
 }
 
 /** The variant names `APP_VARIANT` accepts. */
 export type VariantName = 'dev' | 'qa' | 'prod'
 
-/** Build-time values a variant may need; only qa's test accounts come from here. */
+/** Build-time values a variant may need: qa's test accounts and Google's client ids come from here. */
 export type BuildEnvironment = Record<string, string | undefined>
 
 const BUNDLE_ID = 'de.hilling.taskfest'
 
-function variant(name: string, bundleId: string, apiBaseUrl: string, signIn: SignIn | null): Variant {
-  return { name, bundleId, scheme: bundleId, apiBaseUrl, signIn }
+function variant(
+  name: string,
+  bundleId: string,
+  apiBaseUrl: string,
+  signIn: SignIn | null,
+  google: GoogleSignIn | null = null,
+): Variant {
+  return { name, bundleId, scheme: bundleId, apiBaseUrl, signIn, google }
 }
 
 /**
@@ -47,6 +63,24 @@ function qaSignIn(env: BuildEnvironment): SignIn | null {
   const issuer = env.TASKFEST_QA_COGNITO_ISSUER
   const clientId = env.TASKFEST_QA_APP_CLIENT_ID
   return issuer && clientId ? { label: 'TaskFest test account', issuer, clientId, scopes: OPENID_SCOPES } : null
+}
+
+/**
+ * Google's client ids for qa or prod: one web client for both, an iOS client per bundle id. Like
+ * qa's test accounts, they are the build's to supply -- repository variables, not this file.
+ */
+function googleSignIn(env: BuildEnvironment, prefix: 'QA' | 'PROD'): GoogleSignIn | null {
+  const webClientId = env.TASKFEST_GOOGLE_WEB_CLIENT_ID
+  const iosClientId = env[`TASKFEST_${prefix}_GOOGLE_IOS_CLIENT_ID`]
+  return webClientId && iosClientId ? { webClientId, iosClientId } : null
+}
+
+/**
+ * The URL scheme Google's iOS SDK returns to the app by: the iOS client id reversed, as Google's
+ * own configuration file calls it `REVERSED_CLIENT_ID`.
+ */
+export function googleUrlScheme(google: GoogleSignIn): string {
+  return google.iosClientId.split('.').reverse().join('.')
 }
 
 /** The variant of a name, with what the build environment supplies. */
@@ -62,13 +96,25 @@ export function variantOf(name: string | undefined, env: BuildEnvironment): Vari
         scopes: [...OPENID_SCOPES, 'offline_access'],
       })
     case 'qa':
-      return variant('TaskFest QA', `${BUNDLE_ID}.qa`, 'https://taskfest-qa.cloud.hilling.de', qaSignIn(env))
+      // Google, and the test accounts beside it: the end-to-end runs sign in with those.
+      return variant('TaskFest QA', `${BUNDLE_ID}.qa`, 'https://taskfest-qa.cloud.hilling.de', qaSignIn(env), googleSignIn(env, 'QA'))
     case 'prod':
-      // Google sign-in comes with #280.
-      return variant('TaskFest', BUNDLE_ID, 'https://taskfest.cloud.hilling.de', null)
+      return variant('TaskFest', BUNDLE_ID, 'https://taskfest.cloud.hilling.de', null, googleSignIn(env, 'PROD'))
     default:
       throw new Error(`APP_VARIANT is ${name}; it must be dev, qa or prod.`)
   }
+}
+
+/**
+ * The variant as the app reads it back from its configuration (`Main.tsx`). Expo's config loader
+ * turns a null into an empty object on the way, and an empty object is truthy: a prod build
+ * without sign-in offered a button for a provider of no name. So a provider counts only with the
+ * fields it is made of.
+ */
+export function variantFromConfig(variant: Omit<Variant, 'signIn' | 'google'> & { signIn?: object | null; google?: object | null }): Variant {
+  const signIn = variant.signIn && 'issuer' in variant.signIn ? (variant.signIn as SignIn) : null
+  const google = variant.google && 'webClientId' in variant.google ? (variant.google as GoogleSignIn) : null
+  return { ...variant, signIn, google }
 }
 
 /** Every variant as a build without extra environment would make it. */

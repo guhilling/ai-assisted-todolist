@@ -168,6 +168,16 @@ variable "dns_zone" {
   default     = "cloud.hilling.de"
 }
 
+variable "google_ios_client_id" {
+  description = <<-EOT
+    The Google OAuth client of this environment's iOS app (#280). Google's iOS SDK issues ID tokens
+    for it rather than for the web client, so the backend accepts it as an audience too. Not a
+    secret: it is in the app. Empty leaves the backend accepting no iOS app's tokens.
+  EOT
+  type        = string
+  default     = ""
+}
+
 variable "google_client_id" {
   description = <<-EOT
     The Google OAuth client this environment signs in with, from the Google console. Not a

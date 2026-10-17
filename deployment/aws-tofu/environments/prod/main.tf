@@ -66,6 +66,7 @@ module "environment" {
   log_retention_days   = var.log_retention_days
   hostname             = var.hostname
   google_client_id     = var.google_client_id
+  google_ios_client_id = var.google_ios_client_id
   test_sign_in         = var.test_sign_in
 
   blue_green_bake_minutes      = var.blue_green_bake_minutes

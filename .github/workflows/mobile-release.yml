@@ -101,6 +101,10 @@ jobs:
       TASKFEST_BUILD_NUMBER: ${{ needs.numbers.outputs.build }}
       TASKFEST_QA_COGNITO_ISSUER: ${{ vars.TASKFEST_QA_COGNITO_ISSUER }}
       TASKFEST_QA_APP_CLIENT_ID: ${{ vars.TASKFEST_QA_APP_CLIENT_ID }}
+      # Google's sign-in (#280): one web client for both variants, an iOS client per bundle id.
+      TASKFEST_GOOGLE_WEB_CLIENT_ID: ${{ vars.TASKFEST_GOOGLE_WEB_CLIENT_ID }}
+      TASKFEST_QA_GOOGLE_IOS_CLIENT_ID: ${{ vars.TASKFEST_QA_GOOGLE_IOS_CLIENT_ID }}
+      TASKFEST_PROD_GOOGLE_IOS_CLIENT_ID: ${{ vars.TASKFEST_PROD_GOOGLE_IOS_CLIENT_ID }}
     steps:
       - uses: actions/checkout@v7
       - name: Everything the build needs is set
@@ -196,6 +200,10 @@ jobs:
       TASKFEST_BUILD_NUMBER: ${{ needs.numbers.outputs.build }}
       TASKFEST_QA_COGNITO_ISSUER: ${{ vars.TASKFEST_QA_COGNITO_ISSUER }}
       TASKFEST_QA_APP_CLIENT_ID: ${{ vars.TASKFEST_QA_APP_CLIENT_ID }}
+      # Google's sign-in (#280): one web client for both variants, an iOS client per bundle id.
+      TASKFEST_GOOGLE_WEB_CLIENT_ID: ${{ vars.TASKFEST_GOOGLE_WEB_CLIENT_ID }}
+      TASKFEST_QA_GOOGLE_IOS_CLIENT_ID: ${{ vars.TASKFEST_QA_GOOGLE_IOS_CLIENT_ID }}
+      TASKFEST_PROD_GOOGLE_IOS_CLIENT_ID: ${{ vars.TASKFEST_PROD_GOOGLE_IOS_CLIENT_ID }}
       APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
     steps:
       - uses: actions/checkout@v7

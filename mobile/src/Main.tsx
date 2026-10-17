@@ -3,17 +3,20 @@ import { File, Paths } from 'expo-file-system'
 import { getLocales } from 'expo-localization'
 import * as Notifications from 'expo-notifications'
 import * as SecureStore from 'expo-secure-store'
+import { Platform } from 'react-native'
+import { GoogleOneTapSignIn } from 'react-native-nitro-google-signin'
 import { createTask, deleteAccount, deleteTask, fetchMinimumAppVersion, fetchTasks, restoreTask, updateTask } from './api'
+import { googleProviderFor } from './google'
 import { createKeptBoardStore } from './keptBoard'
 import { createReminderScheduler, type NotificationsApi } from './notifications'
 import { providerFor } from './provider'
 import { createSessionStore } from './staySignedIn'
 import { TaskFestApp, type Dependencies } from './TaskFestApp'
-import type { Variant } from './variants'
+import { variantFromConfig } from './variants'
 import { catalogues, chooseLanguage } from './web'
 
 /** The variant this build was made as: `app.config.ts` put it into the app's configuration. */
-const variant = Constants.expoConfig?.extra?.variant as Variant
+const variant = variantFromConfig(Constants.expoConfig?.extra?.variant)
 
 /** No provider at all, for a variant without sign-in: nothing to sign in with or renew. */
 const noProvider: Dependencies['provider'] = {
@@ -61,6 +64,7 @@ const notifications: NotificationsApi = {
 const dependencies: Dependencies = {
   sessions: createSessionStore(SecureStore),
   provider: variant.signIn ? providerFor(variant.signIn, variant.scheme) : noProvider,
+  google: variant.google ? googleProviderFor(variant.google, GoogleOneTapSignIn, Platform.OS) : undefined,
   // Every request names the app's release (#268).
   fetchTasks: (caller) => fetchTasks({ ...caller, appVersion }),
   changes: {

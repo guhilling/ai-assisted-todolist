@@ -15,6 +15,11 @@ export type Session = {
   expiresAt: number
   /** When the session was last used, in milliseconds since the epoch. */
   lastUsedAt: number
+  /**
+   * Set when the session came from Google's sign-in (#280): Google gives the app no refresh token,
+   * and its own SDK renews the ID token instead. Absent for the OpenID Connect providers.
+   */
+  via?: 'google'
 }
 
 /** How long a session lasts without being used: thirty days. */
@@ -44,6 +49,15 @@ export function expiryOf(token: string): number | null {
 export function emailOf(token: string): string | null {
   const email = claimsOf(token)?.email
   return typeof email === 'string' ? email : null
+}
+
+/**
+ * Whom a token is about, from its `sub` claim: a renewal must come back for the same account, or
+ * it is no renewal of this session (#280).
+ */
+export function subjectOf(token: string): string | null {
+  const sub = claimsOf(token)?.sub
+  return typeof sub === 'string' ? sub : null
 }
 
 /** A token's claims, unverified, or null when they cannot be read. They are UTF-8, which `atob` alone is not. */
