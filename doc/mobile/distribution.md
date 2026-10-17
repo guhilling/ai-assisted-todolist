@@ -69,18 +69,23 @@ The qa build refuses to start without them, since it would offer no way to sign 
 
 ### Apple
 
-The App IDs `de.hilling.taskfest` and `de.hilling.taskfest.qa` and their apps in App Store
-Connect already exist ("TaskFest AI Demo", "TaskFest AI Demo QA").
+An App ID under developer.apple.com's *Identifiers* is not yet an app: the upload also needs an
+**app record in App Store Connect** for each bundle ID, or the export stops with "Error
+Downloading App Information".
 
-1. **The team ID**: developer.apple.com → *Account → Membership details*. Repository variable
+1. **The apps**: App Store Connect → *Apps → + → New App*, iOS, once for `de.hilling.taskfest`
+   ("TaskFest AI Demo") and once for `de.hilling.taskfest.qa` ("TaskFest AI Demo QA"). The bundle
+   ID is picked from the App IDs; the SKU is any internal name (`taskfest`, `taskfest-qa`). The
+   name is unique across the whole App Store, so a taken one needs another.
+2. **The team ID**: developer.apple.com → *Account → Membership details*. Repository variable
    `APPLE_TEAM_ID`.
-2. **The API key**: App Store Connect → *Users and Access → Integrations → App Store Connect API
+3. **The API key**: App Store Connect → *Users and Access → Integrations → App Store Connect API
    → Team Keys → +*. Name it after its use (*GitHub releases*), access **Admin**: cloud signing
    refuses any lower role. Download the `.p8` — Apple offers it once — and put its text into
    `APPLE_API_KEY`, the *Key ID* into `APPLE_API_KEY_ID` and the *Issuer ID* above the list into
    `APPLE_API_ISSUER_ID`. Keep the file in the password manager, or delete it; a lost key is
    revoked and replaced, nothing more.
-3. **Testers**, per app: *TestFlight → Internal Testing → +*, a group with **automatic
+4. **Testers**, per app: *TestFlight → Internal Testing → +*, a group with **automatic
    distribution** on, and its members — people in the App Store Connect team (*Users and Access*).
    A build reaches them once Apple has processed it, usually within half an hour.
 

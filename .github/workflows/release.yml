@@ -295,7 +295,8 @@ jobs:
   # Every final release goes to the testers as an app too, qa's and prod's builds alike (#276) --
   # once it is released, so a release that fails on the way never reaches a phone. A pre-release
   # is not built: the stores take three numbers for a version, nothing more. The store
-  # credentials are app-stores environment secrets, which the called jobs read themselves.
+  # credentials are app-stores environment secrets: named here so the called jobs may read them,
+  # though this job has no values to give (mobile-release.yml says why).
   mobile:
     name: Mobile apps
     needs: announce
@@ -304,6 +305,14 @@ jobs:
       contents: read
       id-token: write
     uses: ./.github/workflows/mobile-release.yml
+    secrets:
+      ANDROID_UPLOAD_KEYSTORE: ${{ secrets.ANDROID_UPLOAD_KEYSTORE }}
+      ANDROID_UPLOAD_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_PASSWORD }}
+      ANDROID_UPLOAD_KEY_ALIAS: ${{ secrets.ANDROID_UPLOAD_KEY_ALIAS }}
+      ANDROID_UPLOAD_KEY_PASSWORD: ${{ secrets.ANDROID_UPLOAD_KEY_PASSWORD }}
+      APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+      APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+      APPLE_API_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER_ID }}
 
   # Every final release goes to qa; prod only ever by hand, through its protected environment.
   # Pre-releases (v1.2.3-rc.1) are deployed by hand when wanted: `env.sh up qa` starts the newest
