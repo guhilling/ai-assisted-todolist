@@ -141,7 +141,8 @@ export function TaskFestApp({
     reminders,
   } = dependencies
   const messages = catalogues[language]
-  const theme = useColorScheme() === 'dark' ? dark : light
+  const darkMode = useColorScheme() === 'dark'
+  const theme = darkMode ? dark : light
   const styles = useMemo(() => stylesFor(theme), [theme])
   const [state, setState] = useState<State>({ kind: 'starting' })
   const [form, setForm] = useState<Form | null>(null)
@@ -456,6 +457,10 @@ export function TaskFestApp({
 
   /** Signs in with the variant's provider, or with Google: a Google session says so, to be renewed by Google. */
   const signIn = async (withGoogle = false) => {
+    // One at a time: a second tap while the first sign-in is still under way would start another.
+    if (signingIn.current) {
+      return
+    }
     signingIn.current = true
     try {
       const tokens = withGoogle && google ? await google.signIn() : await provider.signIn()
@@ -711,6 +716,7 @@ export function TaskFestApp({
         {state.kind === 'signedOut' ? (
           <SignedOutScreen
             variant={variant}
+            darkMode={darkMode}
             language={language}
             appVersion={appVersion}
             messages={messages}
@@ -845,6 +851,7 @@ function SignedOutScreen({
   messages,
   styles,
   notice,
+  darkMode,
   onSignIn,
   onSignInWithGoogle,
 }: {
@@ -854,11 +861,12 @@ function SignedOutScreen({
   messages: Messages
   styles: Styles
   notice?: SignedOutNotice
+  /** Whether the phone is in dark mode, which Google's button follows. */
+  darkMode: boolean
   onSignIn: () => void
   /** Present where the variant signs in with Google and the app can (#280). */
   onSignInWithGoogle?: () => void
 }) {
-  const dark = useColorScheme() === 'dark'
   return (
     <View style={styles.board}>
       <View style={styles.signedOut}>
@@ -867,7 +875,9 @@ function SignedOutScreen({
         {notice ? (
           <Text style={notice === 'accountDeleted' ? styles.muted : styles.notice}>{noticeText(notice, messages)}</Text>
         ) : null}
-        {onSignInWithGoogle ? <GoogleButton dark={dark} styles={styles} onPress={onSignInWithGoogle} /> : null}
+        {onSignInWithGoogle ? (
+          <GoogleButton darkMode={darkMode} label={messages.signedOut.google} styles={styles} onPress={onSignInWithGoogle} />
+        ) : null}
         {variant.signIn ? (
           <Pressable accessibilityRole="button" style={styles.button} onPress={onSignIn}>
             <Text style={styles.buttonText}>{messages.signedOut.signInWith(variant.signIn.label)}</Text>
@@ -884,22 +894,31 @@ function SignedOutScreen({
 /**
  * Google's official sign-in button, as the website shows it (#325): Google's rules allow its "G"
  * only inside its own button, in its own light or dark theme, so the image is the button. Its
- * words are Google's English whatever the app speaks, and a screen reader is told so.
+ * words are Google's English whatever the app speaks, and the screen reader is told so on iOS;
+ * Android's has no way to be told.
  */
-function GoogleButton({ dark, styles, onPress }: { dark: boolean; styles: Styles; onPress: () => void }) {
+function GoogleButton({
+  darkMode,
+  label,
+  styles,
+  onPress,
+}: {
+  darkMode: boolean
+  label: string
+  styles: Styles
+  onPress: () => void
+}) {
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel="Sign in with Google"
+      accessibilityLabel={label}
       accessibilityLanguage="en"
-      style={styles.googleButton}
+      // Google draws it 40 high; the finger gets the 48 a touch target should have.
+      hitSlop={{ top: 4, bottom: 4 }}
+      style={({ pressed }) => [styles.googleButton, pressed && styles.pressed]}
       onPress={onPress}
     >
-      <Image
-        testID="google-sign-in-image"
-        source={dark ? googleSignInButton.dark : googleSignInButton.light}
-        style={{ width: googleSignInButton.width, height: googleSignInButton.height }}
-      />
+      <Image testID="google-sign-in-image" source={darkMode ? googleSignInButton.dark : googleSignInButton.light} style={styles.googleImage} />
     </Pressable>
   )
 }

@@ -197,6 +197,8 @@ export const en = {
     tagline: 'Your own list, private to whoever signs in.',
     notConfigured: 'Sign-in is not configured for this deployment.',
     signInWith: (provider: string) => `Sign in with ${provider}`,
+    /** Google's official button's words: Google's English in either language (D3 on #203). */
+    google: 'Sign in with Google',
     /** The mobile app's, when its sign-in in the browser did not complete. */
     failed: 'Signing in did not work. Try again.',
   },
@@ -385,6 +387,7 @@ export const de: Messages = {
     tagline: 'Deine eigene Liste – privat für alle, die sich anmelden.',
     notConfigured: 'Für diese Installation ist keine Anmeldung eingerichtet.',
     signInWith: (provider: string) => `Mit ${provider} anmelden`,
+    google: 'Sign in with Google',
     failed: 'Die Anmeldung hat nicht geklappt. Versuch es noch einmal.',
   },
   paused: {

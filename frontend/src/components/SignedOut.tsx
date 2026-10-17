@@ -75,7 +75,7 @@ function SignedOut({ providers, apiBaseUrl }: Readonly<SignedOutProps>) {
                     <img
                       src={googleLight}
                       srcSet={`${googleLight} 1x, ${googleLight2x} 2x, ${googleLight3x} 3x`}
-                      alt="Sign in with Google"
+                      alt={messages.signedOut.google}
                       width={180}
                       height={40}
                     />

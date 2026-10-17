@@ -30,8 +30,10 @@ instead, so the backend accepts that one too: `google_ios_client_id` in the envi
 `-dark.png` from `frontend/src/assets/` with their `@2x` and `@3x`, following the phone's light or
 dark mode. Google's [branding guidelines](https://developers.google.com/identity/branding-guidelines)
 allow its "G" only inside its own button, so the image is the whole button, in Google's English
-whatever the app speaks, as on the website; a screen reader is told it is English. qa's
-test-account button keeps the app's own style.
+whatever the app speaks, as on the website (`signedOut.google` in the catalogue, the same in both
+languages). VoiceOver is told it is English; Android has no way to tell TalkBack. Google draws it
+40 points high, so it takes 4 more above and below for the finger. qa's test-account button keeps
+the app's own style.
 
 **Renewing.** Google gives the app no refresh token; its SDK keeps what it needs. A Google session
 says so (`via: 'google'`) and is renewed through the SDK instead: on Android by signing in again
