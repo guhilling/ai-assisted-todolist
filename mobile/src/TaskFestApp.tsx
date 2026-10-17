@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { ActivityIndicator, AppState, Modal, Pressable, Text, useColorScheme, View } from 'react-native'
+import { ActivityIndicator, AppState, Image, Modal, Pressable, Text, useColorScheme, View } from 'react-native'
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context'
 import { SignedOutError, TimedOutError, VERSION_CHECK_MS, type BoardTask, type Caller } from './api'
 import { AccountScreen } from './AccountScreen'
@@ -24,7 +24,7 @@ import { stylesFor, type Styles } from './styles'
 import { TaskForm, type TaskValues } from './TaskForm'
 import { dark, light } from './theme'
 import type { Variant } from './variants'
-import { catalogues, localeOf, todayIso, type Language, type Messages, type Task, type TaskInput } from './web'
+import { catalogues, googleSignInButton, localeOf, todayIso, type Language, type Messages, type Task, type TaskInput } from './web'
 
 /** How the app changes tasks on the backend (#271), each as the signed-in user. */
 export type TaskChanges = {
@@ -858,6 +858,7 @@ function SignedOutScreen({
   /** Present where the variant signs in with Google and the app can (#280). */
   onSignInWithGoogle?: () => void
 }) {
+  const dark = useColorScheme() === 'dark'
   return (
     <View style={styles.board}>
       <View style={styles.signedOut}>
@@ -866,11 +867,7 @@ function SignedOutScreen({
         {notice ? (
           <Text style={notice === 'accountDeleted' ? styles.muted : styles.notice}>{noticeText(notice, messages)}</Text>
         ) : null}
-        {onSignInWithGoogle ? (
-          <Pressable accessibilityRole="button" style={styles.button} onPress={onSignInWithGoogle}>
-            <Text style={styles.buttonText}>{messages.signedOut.signInWith('Google')}</Text>
-          </Pressable>
-        ) : null}
+        {onSignInWithGoogle ? <GoogleButton dark={dark} styles={styles} onPress={onSignInWithGoogle} /> : null}
         {variant.signIn ? (
           <Pressable accessibilityRole="button" style={styles.button} onPress={onSignIn}>
             <Text style={styles.buttonText}>{messages.signedOut.signInWith(variant.signIn.label)}</Text>
@@ -881,6 +878,29 @@ function SignedOutScreen({
       </View>
       <LegalLinks language={language} messages={messages} styles={styles} appVersion={appVersion} />
     </View>
+  )
+}
+
+/**
+ * Google's official sign-in button, as the website shows it (#325): Google's rules allow its "G"
+ * only inside its own button, in its own light or dark theme, so the image is the button. Its
+ * words are Google's English whatever the app speaks, and a screen reader is told so.
+ */
+function GoogleButton({ dark, styles, onPress }: { dark: boolean; styles: Styles; onPress: () => void }) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel="Sign in with Google"
+      accessibilityLanguage="en"
+      style={styles.googleButton}
+      onPress={onPress}
+    >
+      <Image
+        testID="google-sign-in-image"
+        source={dark ? googleSignInButton.dark : googleSignInButton.light}
+        style={{ width: googleSignInButton.width, height: googleSignInButton.height }}
+      />
+    </Pressable>
   )
 }
 

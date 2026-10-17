@@ -11,6 +11,8 @@ export function stylesFor(theme: Theme) {
     notice: { color: theme.danger },
     button: { backgroundColor: theme.accent, borderRadius: 6, paddingVertical: 12, paddingHorizontal: 16 },
     buttonText: { color: theme.accentContrast, fontWeight: '600', textAlign: 'center' },
+    // Google's button is its image, rounded as Google draws it, at its own size (#325).
+    googleButton: { alignSelf: 'center', borderRadius: 20, overflow: 'hidden' },
     quietButton: { borderRadius: 6, paddingVertical: 12, paddingHorizontal: 16 },
     quietButtonText: { color: theme.accent, fontWeight: '600', textAlign: 'center' },
     dangerText: { color: theme.danger, fontWeight: '600', textAlign: 'center' },
