@@ -141,6 +141,11 @@ automatically**: both workflows are started by hand for it, from the Actions tab
 rolls it back. **After every deploy to qa the [live checks](../testing/live.md) run** against the
 environment itself; a failure fails the deploying run, and rolls nothing back.
 
+**The approval gate is settings, not code**: *Settings → Environments → `prod`*, with Gunnar as
+required reviewer and deployments allowed from `main` and `v*` tags only. Nothing creates it — a
+job naming an environment that does not exist gets one made on the spot, unprotected — so the
+first prod deploy, on 2026-10-18, ran ungated before the rules were added.
+
 **Deep links** are a CloudFront Function on the default behaviour (`spa-routing.js`): a path whose
 last segment has no dot gets `index.html`, and a path that names a file is passed through, so a
 missing asset is still the bucket's 403. It replaces httpd's `FallbackResource`. CloudFront's
