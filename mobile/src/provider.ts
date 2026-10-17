@@ -8,8 +8,8 @@ import type { SignIn } from './variants'
  * client, PKCE, and the tokens kept on the device. The ID token is what the backend is sent; the
  * access token is never used.
  *
- * Google's sign-in will not go this way -- Google wants its own SDKs on phones -- and comes with
- * #280. This is for OpenID Connect providers that allow it: the local Keycloak and qa's Cognito.
+ * Google's sign-in does not go this way -- Google wants its own SDKs on phones -- and is in
+ * `google.ts` (#280). This is for OpenID Connect providers that allow it: the local Keycloak and qa's Cognito.
  *
  * Every call to the provider gives up after `REQUEST_MS` (#311), as the backend's do -- all but the
  * sign-in in the browser, which takes as long as its user does.

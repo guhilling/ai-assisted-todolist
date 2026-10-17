@@ -22,6 +22,12 @@ export type Tokens = { idToken?: string; refreshToken?: string }
 export type Refresh = (refreshToken: string) => Promise<Tokens>
 
 /**
+ * Renews a Google sign-in through Google's SDK (#280), which keeps what it needs itself; rejects
+ * with the code `invalid_grant` when Google will not, as a provider refusing a refresh token does.
+ */
+export type RenewGoogle = () => Promise<Tokens>
+
+/**
  * The session could not be renewed for now -- no connection, the provider unreachable -- and is
  * kept: being offline for a moment must not undo a sign-in meant to last a month.
  */
@@ -51,6 +57,7 @@ export function sessionFromTokens(tokens: Tokens, now: number, previous?: Sessio
     refreshToken: tokens.refreshToken ?? previous?.refreshToken ?? null,
     expiresAt,
     lastUsedAt: now,
+    ...(previous?.via ? { via: previous.via } : {}),
   }
 }
 
@@ -64,7 +71,11 @@ export function createSessionStore(store: KeyValueStore) {
       } else {
         await store.deleteItemAsync(REFRESH_TOKEN)
       }
-      await store.setItemAsync(TIMES, JSON.stringify({ expiresAt: session.expiresAt, lastUsedAt: session.lastUsedAt }))
+      // Where the session came from travels with its times: the one small record kept beside the tokens.
+      await store.setItemAsync(
+        TIMES,
+        JSON.stringify({ expiresAt: session.expiresAt, lastUsedAt: session.lastUsedAt, via: session.via }),
+      )
     },
 
     async load(): Promise<Session | null> {
@@ -73,8 +84,9 @@ export function createSessionStore(store: KeyValueStore) {
       if (!idToken || !times) {
         return null
       }
-      const { expiresAt, lastUsedAt } = JSON.parse(times) as Pick<Session, 'expiresAt' | 'lastUsedAt'>
-      return { idToken, refreshToken: await store.getItemAsync(REFRESH_TOKEN), expiresAt, lastUsedAt }
+      const { expiresAt, lastUsedAt, via } = JSON.parse(times) as Pick<Session, 'expiresAt' | 'lastUsedAt' | 'via'>
+      const session: Session = { idToken, refreshToken: await store.getItemAsync(REFRESH_TOKEN), expiresAt, lastUsedAt }
+      return via ? { ...session, via } : session
     },
 
     async clear() {
@@ -92,15 +104,20 @@ export type SessionStore = ReturnType<typeof createSessionStore>
  * Ends a session unused for thirty days, renews an ID token about to run out, and ends the
  * session when the provider refuses to renew it. When the provider cannot be asked, the session is
  * kept and a {@link RenewalUnavailableError} says so. Every session handed out is recorded as used
- * now.
+ * now. A Google session is renewed with `renewGoogle`, and ends when there is none to renew it.
  */
-export async function currentSession(sessions: SessionStore, refresh: Refresh, now: number): Promise<Session | null> {
+export async function currentSession(
+  sessions: SessionStore,
+  refresh: Refresh,
+  now: number,
+  renewGoogle?: RenewGoogle,
+): Promise<Session | null> {
   let session = await sessions.load()
   if (session && isInactive(session, now)) {
     session = null
   }
   if (session && needsRefresh(session, now)) {
-    session = await renewed(session, refresh, now)
+    session = await renewed(session, renewalOf(session, refresh, renewGoogle), now)
   }
   if (!session) {
     await sessions.clear()
@@ -111,13 +128,22 @@ export async function currentSession(sessions: SessionStore, refresh: Refresh, n
   return current
 }
 
-async function renewed(session: Session, refresh: Refresh, now: number): Promise<Session | null> {
-  if (!session.refreshToken) {
+/** What renews this session, or null when nothing can. */
+function renewalOf(session: Session, refresh: Refresh, renewGoogle?: RenewGoogle): (() => Promise<Tokens>) | null {
+  if (session.via === 'google') {
+    return renewGoogle ?? null
+  }
+  const refreshToken = session.refreshToken
+  return refreshToken ? () => refresh(refreshToken) : null
+}
+
+async function renewed(session: Session, renew: (() => Promise<Tokens>) | null, now: number): Promise<Session | null> {
+  if (!renew) {
     return null
   }
   let tokens: Tokens
   try {
-    tokens = await refresh(session.refreshToken)
+    tokens = await renew()
   } catch (failure) {
     if ((failure as { code?: unknown }).code === REFUSED) {
       return null

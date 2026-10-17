@@ -1,6 +1,6 @@
 import type { ConfigContext, ExpoConfig } from 'expo/config'
 import { releaseOf } from './src/release.ts'
-import { variantOf } from './src/variants.ts'
+import { googleUrlScheme, variantOf } from './src/variants.ts'
 
 /**
  * The app's configuration, made per build from the variant `APP_VARIANT` names (#267).
@@ -55,6 +55,9 @@ export default ({ config }: ConfigContext): ExpoConfig => {
         // Only the dev build talks plain HTTP, to the end-to-end stack on localhost.
         dev ? { android: { usesCleartextTraffic: true }, ios: {} } : { android: {}, ios: {} },
       ],
+      // Google's sign-in (#280), only in a build that knows its client ids: the plugin refuses to
+      // run without the iOS one, whose reversed form is the URL scheme Google returns to the app by.
+      ...(variant.google ? [['react-native-nitro-google-signin', { iosUrlScheme: googleUrlScheme(variant.google) }] as [string, object]] : []),
     ],
     extra: { variant },
   }

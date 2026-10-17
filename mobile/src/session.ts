@@ -15,6 +15,11 @@ export type Session = {
   expiresAt: number
   /** When the session was last used, in milliseconds since the epoch. */
   lastUsedAt: number
+  /**
+   * Set when the session came from Google's sign-in (#280): Google gives the app no refresh token,
+   * and its own SDK renews the ID token instead. Absent for the OpenID Connect providers.
+   */
+  via?: 'google'
 }
 
 /** How long a session lasts without being used: thirty days. */

@@ -16,6 +16,7 @@ import {
   currentSession,
   sessionFromTokens,
   type Refresh,
+  type RenewGoogle,
   type SessionStore,
   type Tokens,
 } from './staySignedIn'
@@ -38,6 +39,8 @@ export type TaskChanges = {
 export type Dependencies = {
   sessions: SessionStore
   provider: { signIn(): Promise<Tokens | null>; refresh: Refresh }
+  /** Google's sign-in (#280), where the variant has it. */
+  google?: { signIn(): Promise<Tokens | null>; renew: RenewGoogle; signOut(): Promise<void> }
   fetchTasks(caller: Caller): Promise<BoardTask[]>
   changes: TaskChanges
   /** Deletes the signed-in user's account with everything in it (#275). */
@@ -127,6 +130,7 @@ export function TaskFestApp({
   const {
     sessions,
     provider,
+    google,
     fetchTasks,
     fetchMinimumAppVersion,
     appVersion,
@@ -179,11 +183,11 @@ export function TaskFestApp({
   const renewal = useRef<Promise<Session | null> | null>(null)
 
   const sessionNow = useCallback(() => {
-    renewal.current ??= currentSession(sessions, provider.refresh, now()).finally(() => {
+    renewal.current ??= currentSession(sessions, provider.refresh, now(), google?.renew).finally(() => {
       renewal.current = null
     })
     return renewal.current
-  }, [now, provider, sessions])
+  }, [google, now, provider, sessions])
 
   /**
    * Forgets the session on the phone and everything shown for it, and goes back to the sign-in.
@@ -202,6 +206,10 @@ export function TaskFestApp({
         // The screen signs out regardless; the next start finds the session again, at worst.
         console.warn('The kept session could not be forgotten', failure)
       })
+      // Google's SDK remembers the account too; forgotten, the next sign-in asks which one.
+      await google?.signOut().catch((failure: unknown) => {
+        console.warn('Google could not be signed out of', failure)
+      })
       await keptBoard.clear().catch((failure: unknown) => {
         // Never shown to anyone else regardless: it names its account.
         console.warn('The kept board could not be forgotten', failure)
@@ -219,7 +227,7 @@ export function TaskFestApp({
       setRefused(false)
       setState({ kind: 'signedOut', notice })
     },
-    [keptBoard, reminders, sessions],
+    [google, keptBoard, reminders, sessions],
   )
 
   /** Keeps the backend's view of the board on the phone, after applying what it just agreed to. */
@@ -427,17 +435,19 @@ export function TaskFestApp({
     return true
   }
 
-  const signIn = async () => {
+  /** Signs in with the variant's provider, or with Google: a Google session says so, to be renewed by Google. */
+  const signIn = async (withGoogle = false) => {
     signingIn.current = true
     try {
-      const tokens = await provider.signIn()
+      const tokens = withGoogle && google ? await google.signIn() : await provider.signIn()
       if (!tokens) {
         return
       }
-      const session = sessionFromTokens(tokens, now())
-      if (!session) {
+      const issued = sessionFromTokens(tokens, now())
+      if (!issued) {
         throw new Error('The provider issued no ID token the app can use.')
       }
+      const session: Session = withGoogle ? { ...issued, via: 'google' } : issued
       await sessions.save(session)
       await showBoard(session)
     } catch (failure) {
@@ -687,7 +697,8 @@ export function TaskFestApp({
             messages={messages}
             styles={styles}
             notice={state.notice}
-            onSignIn={signIn}
+            onSignIn={() => signIn()}
+            onSignInWithGoogle={google ? () => signIn(true) : undefined}
           />
         ) : state.kind === 'board' ? (
           <>
@@ -816,6 +827,7 @@ function SignedOutScreen({
   styles,
   notice,
   onSignIn,
+  onSignInWithGoogle,
 }: {
   variant: Variant
   language: Language
@@ -824,7 +836,10 @@ function SignedOutScreen({
   styles: Styles
   notice?: SignedOutNotice
   onSignIn: () => void
+  /** Present where the variant signs in with Google (#280). */
+  onSignInWithGoogle?: () => void
 }) {
+  const withGoogle = variant.google && onSignInWithGoogle
   return (
     <View style={styles.board}>
       <View style={styles.signedOut}>
@@ -833,11 +848,16 @@ function SignedOutScreen({
         {notice ? (
           <Text style={notice === 'accountDeleted' ? styles.muted : styles.notice}>{noticeText(notice, messages)}</Text>
         ) : null}
+        {withGoogle ? (
+          <Pressable accessibilityRole="button" style={styles.button} onPress={onSignInWithGoogle}>
+            <Text style={styles.buttonText}>{messages.signedOut.signInWith('Google')}</Text>
+          </Pressable>
+        ) : null}
         {variant.signIn ? (
           <Pressable accessibilityRole="button" style={styles.button} onPress={onSignIn}>
             <Text style={styles.buttonText}>{messages.signedOut.signInWith(variant.signIn.label)}</Text>
           </Pressable>
-        ) : (
+        ) : withGoogle ? null : (
           <Text style={styles.muted}>{messages.signedOut.notConfigured}</Text>
         )}
       </View>
