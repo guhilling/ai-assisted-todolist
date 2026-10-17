@@ -40,8 +40,9 @@ This is manual configuration in the Google console and cannot be automated here.
 **What is built** (#120), per environment:
 
 - **The client id** is in `terraform.tfvars` (`google_client_id`). It is not a secret — it travels
-  in every sign-in redirect. qa and prod share one web client, so both name the same id, and
-  their secrets below hold the same value ([decisions/mobile-app.md](../decisions/mobile-app.md)).
+  in every sign-in redirect. qa and prod share one web client, so both name the same id
+  ([decisions/mobile-app.md](../decisions/mobile-app.md)). A Google client can have two secrets at
+  once, and each environment has its own, so either can be replaced without touching the other.
   An empty id keeps sign-in off in that environment.
 - **The client secret** is `taskfest-<env>-google-client-secret` in Secrets Manager. OpenTofu
   creates it **empty**; a person puts the value in, so it never passes through the repository or
