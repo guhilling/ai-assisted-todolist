@@ -98,4 +98,43 @@ describe('signing in with Google (#280)', () => {
     expect(google.configure).toHaveBeenCalledTimes(1)
     expect(google.signOut).toHaveBeenCalled()
   })
+
+  it('keeps the session when the user only turned the account sheet away: Google did not refuse', async () => {
+    const provider = googleProviderFor(
+      { webClientId: WEB, iosClientId: IOS },
+      sdk({ signIn: jest.fn().mockResolvedValue({ type: 'cancelled', data: null }) }),
+      'android',
+    )
+
+    const failure = await provider.renew().catch((error: unknown) => error)
+
+    expect(failure).toBeInstanceOf(Error)
+    expect((failure as { code?: string }).code).not.toBe('invalid_grant')
+  })
+
+  it('takes a revoked grant on iOS for a refusal, though the SDK reports it as a general failure', async () => {
+    const revoked = Object.assign(new Error('invalid_grant: Token has been expired or revoked.'), { code: 'ONE_TAP_START_FAILED' })
+    const provider = googleProviderFor(
+      { webClientId: WEB, iosClientId: IOS },
+      sdk({ signIn: jest.fn().mockResolvedValue(success('id')), getTokens: jest.fn().mockRejectedValue(revoked) }),
+      'ios',
+    )
+
+    await expect(provider.renew()).rejects.toMatchObject({ code: 'invalid_grant' })
+  })
+
+  it('gives an Android renewal time for the account sheet, which may come up', async () => {
+    jest.useFakeTimers()
+    try {
+      const slow = new Promise((resolve) => setTimeout(() => resolve(success('id-late')), 30_000))
+      const renewal = googleProviderFor({ webClientId: WEB, iosClientId: IOS }, sdk({ signIn: jest.fn().mockReturnValue(slow) }), 'android').renew()
+
+      await jest.advanceTimersByTimeAsync(30_000)
+
+      await expect(renewal).resolves.toEqual({ idToken: 'id-late' })
+    } finally {
+      jest.useRealTimers()
+    }
+  })
 })
+

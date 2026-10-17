@@ -24,6 +24,23 @@ const REFUSED = 'invalid_grant'
 /** The library's code for "nobody is signed in with Google on this phone". */
 const SIGN_IN_REQUIRED = 'SIGN_IN_REQUIRED'
 
+/**
+ * How long an Android renewal may take. Credential Manager signs in without asking only when one
+ * account has been used with the app; otherwise its account sheet comes up, and the user answering
+ * it is no network wait to cut short after `REQUEST_MS`.
+ */
+export const ANDROID_RENEWAL_MS = 120_000
+
+/**
+ * Whether a failure is Google refusing the grant. The iOS SDK reports a revoked or expired grant as
+ * a general failure (`ONE_TAP_START_FAILED`), and only its message, passed on from Google's token
+ * endpoint, tells it from having no connection.
+ */
+function isRefusal(failure: unknown) {
+  const { code, message } = failure as { code?: unknown; message?: unknown }
+  return code === SIGN_IN_REQUIRED || (typeof message === 'string' && message.includes(REFUSED))
+}
+
 function refused(reason: string) {
   return Object.assign(new Error(`Google will not renew the sign-in: ${reason}.`), { code: REFUSED })
 }
@@ -48,25 +65,33 @@ export function googleProviderFor(google: GoogleSignIn, sdk: GoogleSdk, platform
       return response.type === 'success' && response.data ? { idToken: response.data.idToken } : null
     },
 
-    /** A fresh ID token for the account signed in; rejects with `invalid_grant` when Google refuses. */
+    /**
+     * A fresh ID token for the account signed in; rejects with `invalid_grant` when Google refuses.
+     *
+     * No saved credential means the grant is gone -- revoked, or the account removed -- and the
+     * session ends; at worst the user signs in again. The user turning the account sheet away is
+     * no refusal: the session is kept, and renewed on the next try.
+     */
     async renew(): Promise<Tokens> {
-      let response
       try {
-        response = await withinLimit(() => ready().signIn())
+        const response = await withinLimit(() => ready().signIn(), platform === 'ios' ? undefined : ANDROID_RENEWAL_MS)
+        if (response.type === 'noSavedCredentialFound') {
+          throw refused('no saved credential')
+        }
+        if (response.type !== 'success' || !response.data) {
+          throw new Error(`The renewal was ${response.type}.`)
+        }
+        if (platform === 'ios') {
+          const tokens = await withinLimit(() => sdk.getTokens())
+          return { idToken: tokens.idToken }
+        }
+        return { idToken: response.data.idToken }
       } catch (failure) {
-        if ((failure as { code?: unknown }).code === SIGN_IN_REQUIRED) {
-          throw refused('nobody is signed in')
+        if ((failure as { code?: unknown }).code !== REFUSED && isRefusal(failure)) {
+          throw refused((failure as Error).message)
         }
         throw failure
       }
-      if (response.type !== 'success' || !response.data) {
-        throw refused(response.type)
-      }
-      if (platform === 'ios') {
-        const tokens = await withinLimit(() => sdk.getTokens())
-        return { idToken: tokens.idToken }
-      }
-      return { idToken: response.data.idToken }
     },
 
     /** Forgets the account on the phone too, so the next sign-in asks which one. */

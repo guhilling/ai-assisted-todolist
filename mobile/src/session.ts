@@ -51,6 +51,15 @@ export function emailOf(token: string): string | null {
   return typeof email === 'string' ? email : null
 }
 
+/**
+ * Whom a token is about, from its `sub` claim: a renewal must come back for the same account, or
+ * it is no renewal of this session (#280).
+ */
+export function subjectOf(token: string): string | null {
+  const sub = claimsOf(token)?.sub
+  return typeof sub === 'string' ? sub : null
+}
+
 /** A token's claims, unverified, or null when they cannot be read. They are UTF-8, which `atob` alone is not. */
 function claimsOf(token: string): Record<string, unknown> | null {
   const payload = token.split('.')[1]

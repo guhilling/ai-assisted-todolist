@@ -177,9 +177,10 @@ Backend  tenant by the token's issuer → signature, issuer, expiry (Quarkus)
   the web client id, which the website and Android's Credential Manager both issue tokens for,
   and the iOS client id from `TASKFEST_OIDC_GOOGLE_IOS_CLIENT_ID`, which Google's iOS SDK may use
   instead. qa's test accounts list theirs too: the backend's client and the app's own public one
-  (`TASKFEST_OIDC_COGNITO_APP_CLIENT_ID`), since an installed app cannot keep a secret. Neither
-  variable is set by a deployment yet: the app's Cognito client comes with #267, the iOS client id
-  with #280, and until then each list names a placeholder that matches no token.
+  (`TASKFEST_OIDC_COGNITO_APP_CLIENT_ID`), since an installed app cannot keep a secret. The
+  deployment sets both: the app's Cognito client from #267, and the iOS client id from the
+  environment's `google_ios_client_id` (#280). Until one is set, its list names a placeholder that
+  matches no token.
 - **Only an ID token is a way in.** A bearer token Quarkus could verify only by introspection — an
   opaque one — is refused, since there are no claims to check; so is a token declaring itself an
   access token (Keycloak's `typ`, Cognito's `token_use`). `token.audience=any`, with which Quarkus

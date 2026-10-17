@@ -1,4 +1,4 @@
-import { expiryOf, isInactive, needsRefresh, used, type Session } from './session'
+import { expiryOf, isInactive, needsRefresh, subjectOf, used, type Session } from './session'
 
 /**
  * Keeping a sign-in on the phone, and handing out a session fit to send (#267).
@@ -149,6 +149,13 @@ async function renewed(session: Session, renew: (() => Promise<Tokens>) | null, 
       return null
     }
     throw new RenewalUnavailableError(failure)
+  }
+  // Android's account sheet may come up during a renewal, and another account may be picked in it:
+  // that is a sign-in of someone else, not this session going on.
+  const before = subjectOf(session.idToken)
+  const after = tokens.idToken ? subjectOf(tokens.idToken) : null
+  if (before && after && before !== after) {
+    return null
   }
   return sessionFromTokens(tokens, now, session)
 }

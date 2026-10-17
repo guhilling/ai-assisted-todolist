@@ -73,4 +73,16 @@ describe('staying signed in with Google', () => {
 
     await expect(currentSession(sessions, jest.fn(), NOW + HOUR)).resolves.toBeNull()
   })
+
+  it('ends the session when the renewal comes back for someone else', async () => {
+    const sessions = createSessionStore(memoryStore())
+    await sessions.save({ ...google, idToken: tokenWith({ exp: (NOW + HOUR) / 1000, sub: 'ada' }) })
+    const someoneElse = tokenWith({ exp: (NOW + 2 * HOUR) / 1000, sub: 'bob' })
+
+    await expect(
+      currentSession(sessions, jest.fn(), NOW + HOUR, jest.fn().mockResolvedValue({ idToken: someoneElse })),
+    ).resolves.toBeNull()
+    await expect(sessions.load()).resolves.toBeNull()
+  })
 })
+

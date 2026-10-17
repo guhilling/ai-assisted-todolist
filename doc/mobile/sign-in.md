@@ -21,23 +21,28 @@ sign in with (#280). `mobile/src/google.ts` uses
 [react-native-nitro-google-signin](https://github.com/react-native-nitro-google-sign-in/google-signin):
 **Credential Manager** on Android and **Google's Sign-In SDK** on iOS, as S1 on #264 decided. The
 older `@react-native-google-signin/google-signin` uses Google's deprecated Android SDK unless paid
-for. The ID tokens are asked for on behalf of the **web client** the website signs in with, so
-their audience is what the backend already accepts; `TASKFEST_OIDC_GOOGLE_IOS_CLIENT_ID` on the
-backend is not needed for them.
+for. Android's ID tokens are issued for the **web client** the website signs in with, an audience
+the backend already accepts. Google's iOS SDK may issue them for the app's own **iOS client**
+instead, so the backend accepts that one too: `google_ios_client_id` in the environment's `terraform.tfvars` becomes
+`TASKFEST_OIDC_GOOGLE_IOS_CLIENT_ID` in its task ([authentication.md](../authentication.md)).
 
 **Renewing.** Google gives the app no refresh token; its SDK keeps what it needs. A Google session
 says so (`via: 'google'`) and is renewed through the SDK instead: on Android by signing in again
 silently — Credential Manager picks the account already chosen, without asking, since the ID token
 the library keeps is never renewed — and on iOS by restoring the sign-in and asking for fresh
-tokens. Google refusing ends the session as a refused refresh token does; anything else, such as
-no connection, keeps it. Signing out signs out of the SDK too, so the next sign-in asks which
-account.
+tokens. Google refusing ends the session as a refused refresh token does — no saved credential on
+Android, or an `invalid_grant` passed on from Google on iOS, where the SDK has no code of its own
+for it. Anything else keeps the session: no connection, or the user turning away an account sheet
+that came up because more than one account has been used with the app. An Android renewal may
+take up to two minutes for that sheet, and one that comes back for another account ends the
+session rather than switching it. Signing out of a Google session signs out of the SDK too, so the
+next sign-in asks which account.
 
 **Only a build that knows the client ids has it.** They are repository variables, read by
 `mobile-release.yml`; without them qa offers its test accounts only and prod says sign-in is not
-configured, and the Expo config plugin is left out, since it refuses to run without the iOS client.
-On iOS, the plugin registers the iOS client id reversed as a URL scheme, which Google's SDK
-returns to the app by.
+configured. The library's Expo config plugin is in every build all the same: its pods only build
+with what it adds to the Podfile. It also registers the iOS client id reversed as a URL scheme,
+which Google's SDK returns to the app by — a placeholder in a build without Google.
 
 ### Setting it up, once
 
@@ -60,6 +65,11 @@ Then the repository variables (*Settings → Secrets and variables → Actions �
 | `TASKFEST_PROD_GOOGLE_IOS_CLIENT_ID` | the iOS client of `de.hilling.taskfest` |
 
 Client ids are not secrets: every app and web page that signs in with Google carries one.
+
+And for the backend, each environment's iOS client in its `terraform.tfvars`
+(`google_ios_client_id`), applied as usual; until then, an iOS sign-in is refused with 401. prod's
+`google_client_id` is still empty — prod's web sign-in is not set up yet — and is the same web
+client as qa's, as decided ([decisions/mobile-app.md](../decisions/mobile-app.md)).
 
 ## Where the session lives
 
