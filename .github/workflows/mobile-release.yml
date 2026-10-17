@@ -16,6 +16,25 @@ name: Mobile release
 
 on:
   workflow_call:
+    # A called workflow sees only the secrets its caller names, its own environment's included:
+    # without these, every one of them read empty in v1.1.0's release. Named rather than
+    # inherited, so the repository's other secrets stay out. The caller has none of them and
+    # passes nothing; the app-stores environment's value is what the jobs get.
+    secrets:
+      ANDROID_UPLOAD_KEYSTORE:
+        required: false
+      ANDROID_UPLOAD_KEYSTORE_PASSWORD:
+        required: false
+      ANDROID_UPLOAD_KEY_ALIAS:
+        required: false
+      ANDROID_UPLOAD_KEY_PASSWORD:
+        required: false
+      APPLE_API_KEY:
+        required: false
+      APPLE_API_KEY_ID:
+        required: false
+      APPLE_API_ISSUER_ID:
+        required: false
   workflow_dispatch:
     inputs:
       platform:
@@ -251,3 +270,12 @@ jobs:
             -authenticationKeyID "$APPLE_API_KEY_ID" \
             -authenticationKeyIssuerID "$APPLE_API_ISSUER_ID" | tail -n 50
           rm "$RUNNER_TEMP/AuthKey.p8"
+      - name: Why the export failed
+        # xcodebuild says only "Error Downloading App Information" or the like; the reason, what
+        # App Store Connect answered, is in the distribution logs it leaves in the temp directory.
+        if: failure()
+        run: |
+          for log in "$TMPDIR"/*.xcdistributionlogs/IDEDistribution.critical.log; do
+            [[ -f "$log" ]] && tail -n 60 "$log"
+          done
+          true

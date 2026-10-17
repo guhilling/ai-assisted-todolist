@@ -69,18 +69,23 @@ The qa build refuses to start without them, since it would offer no way to sign 
 
 ### Apple
 
-The App IDs `de.hilling.taskfest` and `de.hilling.taskfest.qa` and their apps in App Store
-Connect already exist ("TaskFest AI Demo", "TaskFest AI Demo QA").
+An App ID under developer.apple.com's *Identifiers* is not yet an app: the upload also needs an
+**app record in App Store Connect** for each bundle ID, or the export stops with "Error
+Downloading App Information".
 
-1. **The team ID**: developer.apple.com → *Account → Membership details*. Repository variable
+1. **The apps**: App Store Connect → *Apps → + → New App*, iOS, once for `de.hilling.taskfest`
+   ("TaskFest AI Demo") and once for `de.hilling.taskfest.qa` ("TaskFest AI Demo QA"). The bundle
+   ID is picked from the App IDs; the SKU is any internal name (`taskfest`, `taskfest-qa`). The
+   name is unique across the whole App Store, so a taken one needs another.
+2. **The team ID**: developer.apple.com → *Account → Membership details*. Repository variable
    `APPLE_TEAM_ID`.
-2. **The API key**: App Store Connect → *Users and Access → Integrations → App Store Connect API
+3. **The API key**: App Store Connect → *Users and Access → Integrations → App Store Connect API
    → Team Keys → +*. Name it after its use (*GitHub releases*), access **Admin**: cloud signing
    refuses any lower role. Download the `.p8` — Apple offers it once — and put its text into
    `APPLE_API_KEY`, the *Key ID* into `APPLE_API_KEY_ID` and the *Issuer ID* above the list into
    `APPLE_API_ISSUER_ID`. Keep the file in the password manager, or delete it; a lost key is
    revoked and replaced, nothing more.
-3. **Testers**, per app: *TestFlight → Internal Testing → +*, a group with **automatic
+4. **Testers**, per app: *TestFlight → Internal Testing → +*, a group with **automatic
    distribution** on, and its members — people in the App Store Connect team (*Users and Access*).
    A build reaches them once Apple has processed it, usually within half an hour.
 
@@ -125,17 +130,22 @@ registered for apps outside Play, is not needed: Play registers its own apps.
      --location global --workload-identity-pool github \
      --issuer-uri https://token.actions.githubusercontent.com \
      --attribute-mapping google.subject=assertion.sub \
-     --attribute-condition "assertion.sub == 'repo:guhilling/ai-assisted-todolist:environment:app-stores'"
+     --attribute-condition "assertion.sub == 'repo:guhilling@2537533/ai-assisted-todolist@1383592232:environment:app-stores'"
 
    number=$(gcloud projects describe taskfest-releases --format 'value(projectNumber)')
    gcloud iam service-accounts add-iam-policy-binding \
      play-release@taskfest-releases.iam.gserviceaccount.com \
      --role roles/iam.workloadIdentityUser \
-     --member "principal://iam.googleapis.com/projects/$number/locations/global/workloadIdentityPools/github/subject/repo:guhilling/ai-assisted-todolist:environment:app-stores"
+     --member "principal://iam.googleapis.com/projects/$number/locations/global/workloadIdentityPools/github/subject/repo:guhilling@2537533/ai-assisted-todolist@1383592232:environment:app-stores"
    echo "projects/$number/locations/global/workloadIdentityPools/github/providers/github"
    ```
 
    The condition admits jobs in the `app-stores` environment of this repository and nothing else.
+   The repository uses GitHub's *immutable subject*, so the token names owner and repository by
+   name *and* id (`guhilling@2537533/ai-assisted-todolist@1383592232`), as the AWS deploy roles
+   expect too; `gh api repos/guhilling/ai-assisted-todolist/actions/oidc/customization/sub` shows
+   the prefix. A condition with the plain `owner/name` refuses every token ("rejected by the
+   attribute condition").
    The last line is `GOOGLE_WORKLOAD_IDENTITY_PROVIDER`; the service account's email
    (`play-release@taskfest-releases.iam.gserviceaccount.com`) is `GOOGLE_PLAY_SERVICE_ACCOUNT`.
    None of it costs anything. A project only just created may refuse the pool for a few minutes,
