@@ -39,8 +39,10 @@ session rather than switching it. Signing out of a Google session signs out of t
 next sign-in asks which account.
 
 **Only a build that knows the client ids has it.** They are repository variables, read by
-`mobile-release.yml`; without them qa offers its test accounts only and prod says sign-in is not
-configured. The library's Expo config plugin is in every build all the same: its pods only build
+`mobile-release.yml`, and a release refuses to build without them
+(`.github/scripts/check-mobile-release-settings.sh`): a prod app without Google has no way in. A
+build without them elsewhere — the dev build, CI's — offers its other sign-in, or says sign-in is
+not configured. The library's Expo config plugin is in every build all the same: its pods only build
 with what it adds to the Podfile. It also registers the iOS client id reversed as a URL scheme,
 which Google's SDK returns to the app by — a placeholder in a build without Google.
 

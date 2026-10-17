@@ -66,7 +66,8 @@ coarse; the `numbers` job, which runs before any job enters the environment, acc
 | `TASKFEST_GOOGLE_WEB_CLIENT_ID`, `TASKFEST_QA_GOOGLE_IOS_CLIENT_ID`, `TASKFEST_PROD_GOOGLE_IOS_CLIENT_ID` | repository variables | Google's client ids, from [sign-in.md](sign-in.md) |
 
 `TASKFEST_QA_COGNITO_ISSUER` and `TASKFEST_QA_APP_CLIENT_ID` come from qa once #283 is applied (`tofu output` in `deployment/aws-tofu/environments/qa`).
-The qa build refuses to start without them, since it would offer no way to sign in.
+The qa build refuses to start without them, since it would offer no way to sign in; every build
+refuses to start without Google's client ids, for the same reason.
 
 ### Apple
 
