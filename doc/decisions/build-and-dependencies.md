@@ -161,6 +161,14 @@ trickling in. It does not gate merging: Renovate reports `Automerge: At any time
 defined)` in every pull request body, and an already-open pull request merges as soon as its
 checks go green regardless of the day.
 
+**The base-image chain is the exception and comes at any time.** ubi-micro, Temurin and the
+backend's `jre-runtime` pin have a `packageRule` with `"schedule": ["at any time"]`. A fixed
+vulnerability in the backend image travels that chain in three steps — a new ubi-micro or Temurin,
+a `jre-runtime` build from it, the backend's pin moving to that build — and in #315 a fix that
+existed on a Friday would have waited for Monday's batch before the last step. Everything else
+stays weekly: a few days do not matter for an npm patch, and every Renovate pull request runs
+the full CI, macOS builds included.
+
 **A Renovate run outside that window is not a broken schedule.** The first 25 pull requests
 appeared on a Saturday, which looked like the setting being ignored. It was not: Renovate can
 be told to run directly from the Mend dashboard, and that is what happened. Two cheaper
