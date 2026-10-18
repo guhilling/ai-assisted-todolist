@@ -155,7 +155,7 @@ export function BoardScreen({
           <Text style={styles.muted}>{messages.board.loading}</Text>
         ) : null}
         {offer ? (
-          <View style={styles.offline}>
+          <View style={styles.offer}>
             <Text style={styles.description}>{messages.reminders.offer}</Text>
             {/* What comes, and that the phone asks next: its question alone did not say why (#336). */}
             <Text style={styles.muted}>{messages.reminders.explain}</Text>

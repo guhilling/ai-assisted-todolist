@@ -96,6 +96,8 @@ export function stylesFor(theme: Theme) {
     dangerButton: { borderWidth: 1, borderColor: theme.danger, borderRadius: 6, paddingVertical: 12, paddingHorizontal: 16 },
     offerButtons: { flexDirection: 'row', justifyContent: 'flex-end' },
     offline: { backgroundColor: theme.surfaceRaised, borderRadius: 6, paddingLeft: 16, gap: 4, paddingTop: 12 },
+    /** The reminders' offer: the offline note's box, with room on the right for its wrapped explanation (#336). */
+    offer: { backgroundColor: theme.surfaceRaised, borderRadius: 6, paddingHorizontal: 16, gap: 4, paddingTop: 12 },
     confirm: { backgroundColor: theme.surfaceRaised, borderRadius: 6, padding: 16, gap: 12 },
     // Stacked: side by side, the two answers do not fit a phone's width.
     confirmButtons: { gap: 8 },

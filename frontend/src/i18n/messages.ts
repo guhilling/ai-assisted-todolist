@@ -41,14 +41,17 @@ export const en = {
     wait: 'Just a moment: your tasks are being loaded.',
   },
   /**
-   * The mobile app's due-day reminders (#273): the notification, the offer to turn them on, and
-   * the name Android shows for them in its settings.
+   * The mobile app's due-day reminders (#273): the notification, the offer to turn them on with
+   * the line explaining it (#336), and the name Android shows for them in its settings.
    */
   reminders: {
     dueToday: (count: number) => (count === 1 ? '1 task due today' : `${count} tasks due today`),
     offer: 'Get a reminder at 08:00 on days tasks are due?',
-    /** Under the offer, so the phone's own question that follows Turn on is expected (#336). */
-    explain: 'One notification on those mornings, saying how many tasks are due, not which. Your phone asks next whether TaskFest may send it.',
+    /**
+     * Under the offer, so the phone's own question that may follow Turn on is expected (#336). "If":
+     * Android 12 and older never ask; and the app is not named, since the phone names the variant.
+     */
+    explain: 'One notification at 08:00 on those days: how many tasks are due, not which. If your phone asks next, allow it.',
     turnOn: 'Turn on',
     notNow: 'Not now',
     channel: 'Due today',
@@ -260,7 +263,7 @@ export const de: Messages = {
   reminders: {
     dueToday: (count: number) => (count === 1 ? '1 Aufgabe heute fällig' : `${count} Aufgaben heute fällig`),
     offer: 'Eine Erinnerung um 8:00 an Tagen, an denen Aufgaben fällig sind?',
-    explain: 'Eine Mitteilung an diesen Morgen: wie viele Aufgaben fällig sind, nicht welche. Dein Telefon fragt gleich, ob TaskFest sie schicken darf.',
+    explain: 'An solchen Tagen um 8:00 eine Mitteilung: wie viele Aufgaben fällig sind, nicht welche. Fragt dein Telefon gleich danach, erlaube sie.',
     turnOn: 'Einschalten',
     notNow: 'Nicht jetzt',
     channel: 'Heute fällig',
