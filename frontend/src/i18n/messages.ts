@@ -167,6 +167,14 @@ export const en = {
     remove: (fileName: string) => `Remove ${fileName}`,
     /** The mobile app's, closing an image it shows (#274). */
     close: 'Close',
+    /** The mobile app's ways to attach a file (#274). */
+    takePhoto: 'Take a photo',
+    choosePhoto: 'Choose a photo',
+    chooseFile: 'Choose a file',
+    /** The mobile app's, when it may not use the camera (#274). */
+    cameraRefused: "TaskFest may not use the camera. Allow it in the phone's settings.",
+    /** The mobile app's, how far an upload has got (#274). */
+    progress: (percent: number) => `${percent}%`,
     uploadFailed: (fileName: string) => `${fileName} could not be uploaded. Try again.`,
     /** Why a file was refused, by the backend's reason; typed by it, so none is missing. */
     refusals: {
@@ -358,6 +366,11 @@ export const de: Messages = {
     open: (fileName: string) => `${fileName} öffnen`,
     remove: (fileName: string) => `${fileName} entfernen`,
     close: 'Schließen',
+    takePhoto: 'Foto aufnehmen',
+    choosePhoto: 'Foto auswählen',
+    chooseFile: 'Datei auswählen',
+    cameraRefused: 'TaskFest darf die Kamera nicht verwenden. Erlaube es in den Einstellungen des Telefons.',
+    progress: (percent: number) => `${percent} %`,
     uploadFailed: (fileName: string) => `${fileName} konnte nicht hochgeladen werden. Versuch es noch einmal.`,
     refusals: {
       UNSUPPORTED_TYPE: (fileName: string) => `${fileName} ist weder ein PDF noch ein Bild.`,
