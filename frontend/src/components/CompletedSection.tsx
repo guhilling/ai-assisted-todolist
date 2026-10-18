@@ -1,4 +1,4 @@
-import type { Task, TaskState } from '../api'
+import type { Task } from '../api'
 import type { AttachmentActions } from './AttachmentList'
 import TaskRow from './TaskRow'
 import { useI18n } from '../i18n/context'
@@ -7,7 +7,6 @@ type CompletedSectionProps = {
   tasks: Task[]
   today: string
   onToggleDone: (task: Task) => void
-  onSetState: (task: Task, state: TaskState) => void
   onDelete: (task: Task) => void
   onClear: () => void
   attachments?: AttachmentActions
@@ -24,7 +23,6 @@ function CompletedSection({
   tasks,
   today,
   onToggleDone,
-  onSetState,
   onDelete,
   onClear,
   attachments,
@@ -51,7 +49,6 @@ function CompletedSection({
             task={task}
             today={today}
             onToggleDone={onToggleDone}
-            onSetState={onSetState}
             onDelete={onDelete}
             attachments={attachments}
           />

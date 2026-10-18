@@ -1,5 +1,5 @@
 import { useId } from 'react'
-import type { Task, TaskState } from '../api'
+import type { Task } from '../api'
 import type { AttachmentActions } from './AttachmentList'
 import type { TaskEdit } from './TaskEditor'
 import TaskRow from './TaskRow'
@@ -12,7 +12,6 @@ type TaskSectionProps = {
   today: string
   overdue?: boolean
   onToggleDone: (task: Task) => void
-  onSetState: (task: Task, state: TaskState) => void
   onDelete: (task: Task) => void
   onEdit: (task: Task, changes: TaskEdit) => Promise<boolean>
   attachments?: AttachmentActions
@@ -32,7 +31,6 @@ function TaskSection({
   today,
   overdue,
   onToggleDone,
-  onSetState,
   onDelete,
   onEdit,
   attachments,
@@ -68,7 +66,6 @@ function TaskSection({
             task={task}
             today={today}
             onToggleDone={onToggleDone}
-            onSetState={onSetState}
             onDelete={onDelete}
             onEdit={onEdit}
             attachments={attachments}

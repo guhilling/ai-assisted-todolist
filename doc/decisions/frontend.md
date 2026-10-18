@@ -25,6 +25,10 @@ costs nothing.
 
 ## A checkbox for done, a quiet marker for in progress
 
+**Since #334, there is no marker.** Testing the app showed "in progress" was unclear, so a task is
+now open or done: the menu item and the `doing` chip are gone, and tasks in progress became open.
+The checkbox below is unchanged; the rest of this section is why the marker was ever made quiet.
+
 **Decision.** The round checkbox on each row toggles `TODO` and `DONE`. `WORKING` is set from
 the row's overflow menu and shows as a `doing` chip. The enum is unchanged.
 

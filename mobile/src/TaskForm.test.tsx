@@ -108,14 +108,14 @@ describe('the task form (#271)', () => {
     await user.type(screen.getByLabelText('Description'), 'Book the night train')
     await user.press(screen.getByRole('button', { name: 'Today' }))
     await user.press(screen.getByRole('button', { name: 'High' }))
-    await user.press(screen.getByRole('button', { name: 'In progress' }))
+    await user.press(screen.getByRole('button', { name: 'Done' }))
     await user.press(screen.getByRole('button', { name: 'Save' }))
 
     expect(onSave).toHaveBeenCalledWith({
       description: 'Book the night train',
       dueDate: TODAY,
       importance: 'HIGH',
-      state: 'WORKING',
+      state: 'DONE',
     })
   })
 
@@ -184,7 +184,27 @@ describe('the task form (#271)', () => {
     await render(form({ language: 'de', messages: catalogues.de, task, onDelete: jest.fn() }))
 
     expect(screen.getByRole('button', { name: 'Speichern' })).toBeOnTheScreen()
-    expect(screen.getByRole('button', { name: 'In Arbeit' })).toBeOnTheScreen()
+    expect(screen.getByRole('button', { name: 'Erledigt' })).toBeOnTheScreen()
     expect(screen.getByRole('button', { name: 'Anderes Datum' })).toBeOnTheScreen()
+  })
+})
+
+describe('a task is open or done (#334)', () => {
+  it('offers Not started and Done, and no In progress', async () => {
+    await render(form({ task, onDelete: jest.fn() }))
+
+    expect(screen.getByRole('button', { name: 'Not started', selected: true })).toBeOnTheScreen()
+    expect(screen.getByRole('button', { name: 'Done' })).toBeOnTheScreen()
+    expect(screen.queryByRole('button', { name: 'In progress' })).toBeNull()
+  })
+
+  it('shows a task still in progress, from an older app, as not started, and saves it so', async () => {
+    const onSave = jest.fn().mockResolvedValue(true)
+    await render(form({ task: { ...task, state: 'WORKING' }, onSave, onDelete: jest.fn() }))
+
+    expect(screen.getByRole('button', { name: 'Not started', selected: true })).toBeOnTheScreen()
+    await userEvent.setup().press(screen.getByRole('button', { name: 'Save' }))
+
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ state: 'TODO' }))
   })
 })

@@ -25,7 +25,6 @@ name: Change the board
 - eraseText: 30
 - inputText: "Water the orchids"
 - hideKeyboard
-- tapOn: "In progress"
 - takeScreenshot: 06-edit
 - tapOn: "Save"
 - extendedWaitUntil:

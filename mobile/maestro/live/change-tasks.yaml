@@ -25,7 +25,6 @@ name: Change the board on qa
 - eraseText: 30
 - inputText: "Water the orchids"
 - hideKeyboard
-- tapOn: "In progress"
 - tapOn: "Save"
 - extendedWaitUntil:
     visible: "Water the orchids"

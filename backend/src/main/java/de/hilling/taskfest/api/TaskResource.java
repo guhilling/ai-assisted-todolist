@@ -176,7 +176,9 @@ public class TaskResource {
         task.description = request.description();
         task.dueDate = request.dueDate();
         task.importance = request.importance();
-        task.state = request.state();
+        // A task is open or done (#334). Apps installed before then can still send WORKING, which
+        // the API accepts until #345, and it is stored as the open task it now is.
+        task.state = request.state() == TaskState.WORKING ? TaskState.TODO : request.state();
     }
 
     private TaskResponse toResponse(Task task) {

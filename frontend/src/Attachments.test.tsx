@@ -363,7 +363,6 @@ describe('without attachment actions', () => {
           task={plain}
           today={todayIso()}
           onToggleDone={() => {}}
-          onSetState={() => {}}
           onDelete={() => {}}
           onEdit={() => Promise.resolve(true)}
         />

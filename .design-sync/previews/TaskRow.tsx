@@ -25,7 +25,7 @@ function List({ children }: { children: React.ReactNode }) {
   return <ul className="task-list">{children}</ul>
 }
 
-const handlers = { onToggleDone: noop, onSetState: noop, onDelete: noop }
+const handlers = { onToggleDone: noop, onDelete: noop }
 
 export function Default() {
   return (
@@ -52,18 +52,6 @@ export function Done() {
     <List>
       <TaskRow
         task={task({ id: 3, description: 'Book the dentist', state: 'DONE', importance: 'LOW' })}
-        today={TODAY}
-        {...handlers}
-      />
-    </List>
-  )
-}
-
-export function InProgress() {
-  return (
-    <List>
-      <TaskRow
-        task={task({ id: 4, description: 'Draft the migration plan', state: 'WORKING' })}
         today={TODAY}
         {...handlers}
       />

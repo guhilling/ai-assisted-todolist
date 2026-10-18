@@ -129,7 +129,7 @@ All endpoints require a session except `/api/auth/providers` and `/api/version`.
 | `GET` | `/api/version` | the running release, for the prod approval |
 
 A task has a description, a due date, an importance (`LOW`, `MEDIUM`, `HIGH`) and a state
-(`TODO`, `WORKING`, `DONE`). OpenAPI is at `/q/openapi`, Swagger UI at `/q/swagger-ui`,
+(`TODO` or `DONE`; `WORKING` is no longer offered, see `doc/domain-model.md`). OpenAPI is at `/q/openapi`, Swagger UI at `/q/swagger-ui`,
 Prometheus metrics at `/q/metrics`.
 
 The contract is **published**, not only served:

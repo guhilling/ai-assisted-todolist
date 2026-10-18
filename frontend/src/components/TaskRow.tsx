@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import type { Task, TaskState } from '../api'
+import type { Task } from '../api'
 import { bucketOf, describeDueDate, daysBetween, weekdayBeside } from '../dates'
 import AttachmentList, { type AttachmentActions } from './AttachmentList'
 import TaskEditor, { type TaskEdit } from './TaskEditor'
@@ -9,7 +9,6 @@ type TaskRowProps = {
   task: Task
   today: string
   onToggleDone: (task: Task) => void
-  onSetState: (task: Task, state: TaskState) => void
   onDelete: (task: Task) => void
   /**
    * Saves an edit and says whether it went, so the row knows whether to close its editor.
@@ -28,7 +27,7 @@ type TaskRowProps = {
  * name carries the description, because a board of identically-named checkboxes is unusable
  * to anyone not looking at it.
  */
-function TaskRow({ task, today, onToggleDone, onSetState, onDelete, onEdit, attachments }: Readonly<TaskRowProps>) {
+function TaskRow({ task, today, onToggleDone, onDelete, onEdit, attachments }: Readonly<TaskRowProps>) {
   const { messages, locale } = useI18n()
   const done = task.state === 'DONE'
   const overdue = !done && daysBetween(today, task.dueDate) < 0
@@ -155,7 +154,6 @@ function TaskRow({ task, today, onToggleDone, onSetState, onDelete, onEdit, atta
               {weekday ? <span>{weekday}</span> : null}
             </>
           )}
-          {task.state === 'WORKING' ? <span className="task-chip">{messages.row.inProgress}</span> : null}
         </p>
         {attachments ? <AttachmentList task={task} actions={attachments} removable={editable} /> : null}
       </div>
@@ -184,27 +182,6 @@ function TaskRow({ task, today, onToggleDone, onSetState, onDelete, onEdit, atta
               {messages.row.edit}
             </button>
           ) : null}
-          {task.state === 'WORKING' ? (
-            <button
-              type="button"
-              onClick={() => {
-                setMenuOpen(false)
-                onSetState(task, 'TODO')
-              }}
-            >
-              {messages.row.markNotStarted}
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={() => {
-                setMenuOpen(false)
-                onSetState(task, 'WORKING')
-              }}
-            >
-              {messages.row.markInProgress}
-            </button>
-          )}
           <button
             type="button"
             className="task-menu-danger"
