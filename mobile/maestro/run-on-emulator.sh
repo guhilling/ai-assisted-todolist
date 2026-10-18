@@ -41,9 +41,11 @@ if (( drift > 30 || drift < -30 )); then
 fi
 
 # The emulator's localhost is not the runner's: give it the stack's ports under the same numbers,
-# so the app and Keycloak's issuer use the addresses the browser does.
+# so the app and Keycloak's issuer use the addresses the browser does -- and storage's, which the
+# backend signs links to as s3.localhost:4566 (#274); Android resolves *.localhost to itself.
 retry adb reverse tcp:3000 tcp:3000
 retry adb reverse tcp:8082 tcp:8082
+retry adb reverse tcp:4566 tcp:4566
 retry adb install -r "$apk"
 
 case "$share" in
@@ -82,6 +84,22 @@ if [[ "$scheduled" != true ]]; then
   grep -n -A2 "de.hilling.taskfest.dev" <<< "$alarms" | head -40 >&2 || true
   exit 1
 fi
+
+# Attaching (#274): an image in the emulator's Downloads, for the file picker to offer. Generated
+# here rather than kept in the repository: a few lines of Python make a valid PNG. Android's media
+# store is told of it, which the picker's Downloads go by.
+python3 - <<'PY'
+import struct, zlib
+w, h = 320, 200
+rows = b''.join(b'\x00' + b''.join(bytes([x * 255 // w, y * 255 // h, 160]) for x in range(w)) for y in range(h))
+def chunk(kind, data):
+    return struct.pack('>I', len(data)) + kind + data + struct.pack('>I', zlib.crc32(kind + data) & 0xffffffff)
+png = b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR', struct.pack('>IIBBBBB', w, h, 8, 2, 0, 0, 0)) + chunk(b'IDAT', zlib.compress(rows)) + chunk(b'IEND', b'')
+open('attach-me.png', 'wb').write(png)
+PY
+retry adb push attach-me.png /sdcard/Download/attach-me.png
+adb shell content call --uri content://media --method scan_volume --arg external_primary >/dev/null || true
+maestro test mobile/maestro/attach.yaml --format junit --output maestro-attach.xml --test-output-dir maestro-output
 
 # Offline (#272): keep a board, take the backend away -- the app reaches it through adb reverse,
 # which airplane mode does not cut -- and read the kept board.

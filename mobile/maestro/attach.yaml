@@ -1,0 +1,31 @@
+# Attaches an image to the task CI seeded, through Android's file picker, and sees it on the board
+# (#274): announced, uploaded straight to the stack's storage, confirmed, and shown from there.
+appId: de.hilling.taskfest.dev
+name: Attach an image
+---
+- runFlow: sign-in.yaml
+
+- tapOn: 'Edit "Seeded by CI for the app"'
+- tapOn: "Choose a file"
+# Android's file picker opens on recent files; the image is in Downloads.
+- extendedWaitUntil:
+    visible: "Show roots"
+    timeout: 15000
+- runFlow:
+    when:
+      notVisible: "attach-me.png"
+    commands:
+      - tapOn: "Show roots"
+      - tapOn: "Downloads"
+- takeScreenshot: 20-file-picker
+- tapOn: "attach-me.png"
+
+- extendedWaitUntil:
+    visible: "Remove attach-me.png"
+    timeout: 30000
+- takeScreenshot: 21-attached
+- tapOn: "Cancel"
+- extendedWaitUntil:
+    visible: "Open attach-me.png"
+    timeout: 15000
+- takeScreenshot: 22-attached-on-board
