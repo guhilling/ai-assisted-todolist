@@ -96,14 +96,17 @@ since that is all an iOS app's version may be, and the backend logs nothing else
   removes the `adb reverse` the app reaches the backend through — airplane mode alone does not cut
   it — and the second reads the kept board and has a change refused ([board.md](board.md)). Between
   the two, `reminders/turn-on.yaml` turns the reminders on, and the script checks Android holds the
-  app's alarm ([reminders.md](reminders.md)).
+  app's alarm ([reminders.md](reminders.md)); then `attach.yaml` attaches an image the script put in
+  the emulator's Downloads, through Android's file picker, and sees it on the board
+  ([files.md](files.md)). The app reaches the stack's storage as the browser does, at
+  `s3.localhost:4566`, through one more `adb reverse`.
 
 `.github/workflows/mobile-ci.yml` runs all of it on every pull request touching the app or what
 it shares with the website: the checks; a release APK of the `dev` variant on Linux; an iOS
 simulator build on macOS; and the Maestro flows on an Android emulator against the end-to-end
 stack, built from the same commit. The flows run in two shares at once, each on an emulator and a
-stack of its own: `board` signs in and changes the board, `others` has the account, the reminders
-and the offline board. Their screenshots are the `maestro-output-board` and
+stack of its own: `board` signs in and changes the board, `others` has the account, the reminders,
+attaching a file and the offline board. Their screenshots are the `maestro-output-board` and
 `maestro-output-others` artifacts.
 
 The APK the flows run is built for the emulator's x86_64 only, with Gradle's cache kept between

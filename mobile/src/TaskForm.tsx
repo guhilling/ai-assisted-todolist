@@ -1,7 +1,9 @@
 import { useState } from 'react'
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native'
 import type { BoardTask } from './api'
-import { EditorFiles } from './Attachments'
+import { AttachFiles, EditorFiles, PendingFiles } from './Attachments'
+import type { PickSource } from './pick'
+import type { PickedFile } from './upload'
 import { DueDatePicker } from './DueDatePicker'
 import type { Styles } from './styles'
 import type { Theme } from './theme'
@@ -44,6 +46,10 @@ export function TaskForm({
   onDelete,
   onRemoveFile,
   busy = false,
+  pending,
+  uploading = null,
+  onAttach,
+  onUnpick,
   onCancel,
 }: {
   /** The task to edit; none to add one. */
@@ -62,6 +68,14 @@ export function TaskForm({
   onRemoveFile?: (attachment: Attachment) => void
   /** Whether a change to the task is on its way; its files wait for it before another. */
   busy?: boolean
+  /** Files picked while adding the task, attached once it exists (#274). */
+  pending?: PickedFile[]
+  /** The file uploading, and how far it has got. */
+  uploading?: { name: string; fraction: number } | null
+  /** Attaches a file from the source (#274); none where files cannot be attached here. */
+  onAttach?: (source: PickSource) => void
+  /** Lets a file picked while adding go again. */
+  onUnpick?: (file: PickedFile) => void
   onCancel: () => void
 }) {
   const editing = task !== undefined
@@ -82,6 +96,12 @@ export function TaskForm({
     DONE: messages.taskState.done,
   }
   const trimmed = description.trim()
+  /** The task's files, and those picked to go with it. */
+  const files = [...(task?.attachments ?? []), ...(pending ?? [])]
+  // Nothing is attached to a completed task, as on the website.
+  const attachable = onAttach !== undefined && task?.state !== 'DONE'
+  // A change to the task on its way -- a file uploading, say -- is waited for before saving or deleting.
+  const waiting = busy || uploading !== null
 
   const save = async () => {
     setSaving(true)
@@ -151,6 +171,7 @@ export function TaskForm({
         </>
       ) : null}
 
+      {files.length > 0 || attachable ? <Text style={styles.label}>{messages.attachments.title}</Text> : null}
       {task?.attachments ? (
         <EditorFiles
           attachments={task.attachments}
@@ -162,15 +183,28 @@ export function TaskForm({
           onRemove={(attachment) => onRemoveFile?.(attachment)}
         />
       ) : null}
+      {pending ? (
+        <PendingFiles files={pending} disabled={saving} messages={messages} styles={styles} onUnpick={(file) => onUnpick?.(file)} />
+      ) : null}
+      {attachable ? (
+        <AttachFiles
+          count={files.length}
+          uploading={uploading}
+          disabled={busy || uploading !== null || saving}
+          messages={messages}
+          styles={styles}
+          onAttach={(source) => onAttach?.(source)}
+        />
+      ) : null}
       {failure ? <Text style={styles.notice}>{failure}</Text> : null}
 
       <View style={styles.formButtons}>
         {onDelete ? (
           <Pressable
             accessibilityRole="button"
-            accessibilityState={{ disabled: saving }}
-            disabled={saving}
-            style={[styles.quietButton, { marginRight: 'auto' }, saving && styles.disabled]}
+            accessibilityState={{ disabled: saving || waiting }}
+            disabled={saving || waiting}
+            style={[styles.quietButton, { marginRight: 'auto' }, (saving || waiting) && styles.disabled]}
             onPress={onDelete}
           >
             <Text style={styles.dangerText}>{messages.row.delete}</Text>
@@ -181,9 +215,9 @@ export function TaskForm({
         </Pressable>
         <Pressable
           accessibilityRole="button"
-          accessibilityState={{ disabled: saving || trimmed === '' }}
-          disabled={saving || trimmed === ''}
-          style={[styles.button, (saving || trimmed === '') && styles.disabled]}
+          accessibilityState={{ disabled: saving || waiting || trimmed === '' }}
+          disabled={saving || waiting || trimmed === ''}
+          style={[styles.button, (saving || waiting || trimmed === '') && styles.disabled]}
           onPress={save}
         >
           <Text style={styles.buttonText}>

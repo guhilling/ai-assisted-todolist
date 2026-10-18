@@ -19,7 +19,14 @@ export type {
   TaskResponse as Task,
   TaskState,
 } from '../../frontend/src/generated/types'
-export { validateLinkResponse, validateTaskResponse, validateVersionResponse } from '../../frontend/src/generated/validators'
+export {
+  validateAttachmentResponse,
+  validateLinkResponse,
+  validateRefusalResponse,
+  validateTaskResponse,
+  validateUploadResponse,
+  validateVersionResponse,
+} from '../../frontend/src/generated/validators'
 export { compareCompleted, compareOpen, importanceLevels, importanceRank } from '../../frontend/src/importance'
 export { addDays, bucketOf, calendarParts, describeDueDate, quickDates, todayIso, type DueBucket } from '../../frontend/src/dates'
 export { catalogues, type Messages } from '../../frontend/src/i18n/messages'
@@ -28,6 +35,8 @@ export { needsDatingBack, restoreInput } from '../../frontend/src/restore'
 export { imprintUrl, privacyUrls, termsUrls } from '../../frontend/src/links'
 export { confirmsEmail } from '../../frontend/src/confirmsEmail'
 export { storageUrl } from '../../frontend/src/storage'
+export { attachmentLimits, attachmentTypes, checkFile, type AttachmentRefusal } from '../../frontend/src/attachmentPolicy'
+export { MAX_THUMBNAIL_BYTES, thumbnailCrop, thumbnailSize } from '../../frontend/src/thumbnail'
 
 /**
  * Google's official "Sign in with Google" button, the images the website shows (#325): Google's

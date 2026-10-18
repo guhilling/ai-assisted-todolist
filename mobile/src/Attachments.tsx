@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
 import { Image, Modal, Pressable, Text, View } from 'react-native'
-import { isImage } from './files'
+import { isImage, isImageType } from './files'
+import type { PickSource } from './pick'
+import type { PickedFile } from './upload'
 import type { Styles } from './styles'
-import type { Attachment, Messages, Task } from './web'
+import { attachmentLimits, type Attachment, type Messages, type Task } from './web'
 
 /**
  * A task's files in the app (#274), as the website shows them (`frontend/src/components/AttachmentList.tsx`):
@@ -166,12 +168,8 @@ export function EditorFiles({
   styles: Styles
   onRemove: (attachment: Attachment) => void
 }) {
-  if (attachments.length === 0) {
-    return null
-  }
   return (
     <>
-      <Text style={styles.label}>{messages.attachments.title}</Text>
       {attachments.map((attachment) => (
         <View key={attachment.id} style={styles.editorFile}>
           <Text aria-hidden>{isImage(attachment) ? '🖼' : '📄'}</Text>
@@ -193,6 +191,102 @@ export function EditorFiles({
           ) : null}
         </View>
       ))}
+    </>
+  )
+}
+
+/**
+ * Files picked while adding a task, held until it exists (#274), each of which may go again first.
+ */
+export function PendingFiles({
+  files,
+  disabled,
+  messages,
+  styles,
+  onUnpick,
+}: {
+  files: PickedFile[]
+  /** While the task is being added, and its files with it, none may go. */
+  disabled: boolean
+  messages: Messages
+  styles: Styles
+  onUnpick: (file: PickedFile) => void
+}) {
+  return files.map((file) => (
+    <View key={file.uri} style={styles.editorFile}>
+      <Text aria-hidden>{isImageType(file.type) ? '🖼' : '📄'}</Text>
+      <Text style={styles.description} numberOfLines={1}>
+        {file.name}
+      </Text>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={messages.attachments.remove(file.name)}
+        accessibilityState={{ disabled }}
+        disabled={disabled}
+        hitSlop={8}
+        style={[styles.quietButton, disabled && styles.disabled]}
+        onPress={() => onUnpick(file)}
+      >
+        <Text style={styles.dangerText}>×</Text>
+      </Pressable>
+    </View>
+  ))
+}
+
+/**
+ * The ways to attach a file (#274) -- the camera, the photo library, the files -- with the
+ * website's limits, or why there is none: the task holds as many files as it can. While a file
+ * uploads, how far it has got.
+ */
+export function AttachFiles({
+  count,
+  uploading,
+  disabled,
+  messages,
+  styles,
+  onAttach,
+}: {
+  /** How many files the task holds, or will hold once added. */
+  count: number
+  uploading: { name: string; fraction: number } | null
+  disabled: boolean
+  messages: Messages
+  styles: Styles
+  onAttach: (source: PickSource) => void
+}) {
+  const { maxSizeBytes, perTask, perUser } = attachmentLimits
+  const way = (source: PickSource, label: string) => (
+    <Pressable
+      key={source}
+      accessibilityRole="button"
+      accessibilityState={{ disabled }}
+      disabled={disabled}
+      style={[styles.chip, disabled && styles.disabled]}
+      onPress={() => onAttach(source)}
+    >
+      <Text style={styles.chipText}>{label}</Text>
+    </Pressable>
+  )
+  return (
+    <>
+      {uploading ? (
+        <View style={styles.editorFile}>
+          <Text style={styles.description}>{messages.attachments.uploading(uploading.name)}</Text>
+          <Text style={styles.muted}>{messages.attachments.progress(Math.round(uploading.fraction * 100))}</Text>
+        </View>
+      ) : null}
+      {count >= perTask ? (
+        <Text style={styles.muted}>{messages.attachments.full(perTask)}</Text>
+      ) : (
+        <>
+          <View style={styles.chips}>
+            {way('camera', messages.attachments.takePhoto)}
+            {way('library', messages.attachments.choosePhoto)}
+            {way('files', messages.attachments.chooseFile)}
+          </View>
+          <Text style={styles.muted}>{messages.attachments.limits(maxSizeBytes / (1024 * 1024), perTask, perUser)}</Text>
+        </>
+      )}
     </>
   )
 }

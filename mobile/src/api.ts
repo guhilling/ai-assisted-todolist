@@ -3,10 +3,14 @@ import {
   needsDatingBack,
   restoreInput,
   storageUrl,
+  validateAttachmentResponse,
   validateLinkResponse,
+  validateRefusalResponse,
   validateTaskResponse,
+  validateUploadResponse,
   validateVersionResponse,
   type Attachment,
+  type AttachmentRefusal,
   type Task,
   type TaskInput,
   type TaskState,
@@ -63,6 +67,17 @@ export class RequestFailedError extends Error {
     super(`The backend answered ${status}.`)
     this.name = 'RequestFailedError'
     this.status = status
+  }
+}
+
+/** A file refused, for the app to say why in the user's language. */
+export class AttachmentRefusedError extends Error {
+  readonly refusal: AttachmentRefusal
+
+  constructor(refusal: AttachmentRefusal) {
+    super(`The file was refused: ${refusal}.`)
+    this.name = 'AttachmentRefusedError'
+    this.refusal = refusal
   }
 }
 
@@ -195,6 +210,66 @@ export async function attachmentLink(
   return url
 }
 
+/** Where to upload a file announced, and its thumbnail, signed for the upload alone. */
+export type Announcement = {
+  attachment: Attachment
+  url: string
+  headers: Record<string, string>
+  thumbnailUpload?: { url: string; headers: Record<string, string> }
+}
+
+/** What is announced of a file before it is uploaded. */
+export type FileAnnouncement = { fileName: string; contentType: string; sizeBytes: number; thumbnailSizeBytes?: number }
+
+/**
+ * Announces a file for a task (#274), and hands back where to upload it -- and its thumbnail, when
+ * one was announced -- with the headers the links were signed for. Both links must pass the
+ * website's rule for links to storage.
+ *
+ * @throws AttachmentRefusedError when the backend refuses the file, saying why
+ */
+export async function announceAttachment(
+  caller: Caller,
+  taskId: Task['id'],
+  file: FileAnnouncement,
+  fetchImpl: typeof fetch = fetch,
+): Promise<Announcement> {
+  const data = await send(caller, 'POST', `/api/tasks/${taskId}/attachments`, fetchImpl, file)
+  if (!validateUploadResponse(data)) {
+    throw new ContractBreachError('an upload')
+  }
+  const url = storageUrl(data.url)
+  const thumbnailUrl = data.thumbnailUpload ? storageUrl(data.thumbnailUpload.url) : undefined
+  if (!url || thumbnailUrl === null) {
+    throw new ContractBreachError('an upload')
+  }
+  return {
+    attachment: data.attachment,
+    url,
+    headers: data.headers,
+    ...(data.thumbnailUpload && thumbnailUrl ? { thumbnailUpload: { url: thumbnailUrl, headers: data.thumbnailUpload.headers } } : {}),
+  }
+}
+
+/**
+ * Says a file announced has been uploaded; the backend checks it arrived as announced and lists it
+ * from then on.
+ *
+ * @throws AttachmentRefusedError when it did not arrive as announced (`MISMATCH`)
+ */
+export async function confirmAttachment(
+  caller: Caller,
+  taskId: Task['id'],
+  attachmentId: Attachment['id'],
+  fetchImpl: typeof fetch = fetch,
+): Promise<Attachment> {
+  const data = await send(caller, 'POST', `/api/tasks/${taskId}/attachments/${attachmentId}/confirm`, fetchImpl)
+  if (!validateAttachmentResponse(data)) {
+    throw new ContractBreachError('an attachment')
+  }
+  return data
+}
+
 /** Removes a file from its task, for good: unlike a task, a removed file has no undo. */
 export async function removeAttachment(
   caller: Caller,
@@ -237,6 +312,13 @@ async function send(
     const response = await fetchImpl(`${caller.baseUrl}${path}`, init)
     if (response.status === 401) {
       throw new SignedOutError()
+    }
+    if (response.status === 422) {
+      // A file refused, with the backend's reason (#274).
+      const refusal: unknown = await response.json().catch(() => null)
+      if (validateRefusalResponse(refusal)) {
+        throw new AttachmentRefusedError(refusal.refusal)
+      }
     }
     if (!response.ok) {
       throw new RequestFailedError(response.status)

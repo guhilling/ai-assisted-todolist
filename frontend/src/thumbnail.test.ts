@@ -3,7 +3,7 @@
  * stubbed `createImageBitmap` and canvas, since jsdom has neither; the e2e suite makes real ones.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { makeThumbnail, thumbnailSize } from './thumbnail'
+import { makeThumbnail, thumbnailCrop, thumbnailSize } from './thumbnail'
 
 describe('the size of a thumbnail', () => {
   it('covers the preview box twice over, for sharp pixels on a high-density screen', () => {
@@ -107,5 +107,24 @@ describe('making a thumbnail', () => {
     vi.restoreAllMocks()
     browser({ written: null })
     expect(await makeThumbnail(photo)).toBeNull()
+  })
+})
+
+describe('the part of an image a thumbnail shows (#274, shared with the mobile app)', () => {
+  it('is the whole image when the thumbnail keeps its proportions, to within rounding its size', () => {
+    const crop = thumbnailCrop(4000, 3000, thumbnailSize(4000, 3000))
+
+    expect(crop.originX).toBeCloseTo(0)
+    expect(crop.width).toBeCloseTo(4000)
+    // 171 by 128 is not quite 4:3: a row of pixels' worth is cut from top and bottom.
+    expect(crop.originY).toBeCloseTo(2.92, 2)
+    expect(crop.height).toBeCloseTo(2994.15, 2)
+  })
+
+  it("is a panorama's middle when its thumbnail would be too long", () => {
+    const crop = thumbnailCrop(12800, 1280, thumbnailSize(12800, 1280))
+
+    // Drawn 512 by 128 at a tenth: the middle 5120 of its 12800.
+    expect(crop).toEqual({ originX: 3840, originY: 0, width: 5120, height: 1280 })
   })
 })

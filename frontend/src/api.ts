@@ -16,7 +16,6 @@ import type {
   AuthProvidersResponse as WireAuthProvidersResponse,
   CurrentUserResponse,
   TaskCreateRequest,
-  RefusalResponse,
   TaskResponse,
 } from './generated/types'
 import { needsDatingBack, restoreInput } from './restore'
@@ -30,6 +29,7 @@ import {
   validateTaskResponse,
   validateUploadResponse,
 } from './generated/validators'
+import { checkFile, type AttachmentRefusal } from './attachmentPolicy'
 import { storageUrl } from './storage'
 
 /**
@@ -58,7 +58,7 @@ export type Task = TaskResponse
 export type Attachment = AttachmentResponse
 
 /** Why an attachment was refused, as the backend names it; the board words it (#203). */
-export type AttachmentRefusal = RefusalResponse['refusal']
+export type { AttachmentRefusal } from './attachmentPolicy'
 
 /** The fields a client may set. The backend's create request, generated from its schema. */
 export type TaskInput = TaskCreateRequest
@@ -474,30 +474,7 @@ export async function restoreTask(task: Task, today: string) {
   return putTask({ ...created, dueDate: task.dueDate })
 }
 
-/** The types the backend accepts (D2 on #204): PDFs, and the images every browser shows inline. */
-export const attachmentTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp', 'image/gif']
-
-/**
- * The limits the backend enforces (D1 on #204), here only to say them before an upload and to spare
- * one the backend would refuse anyway. The backend's configuration is the authority
- * (`taskfest.attachments.*`); should the two differ, its refusal is what the board shows.
- */
-export const attachmentLimits = { maxSizeBytes: 10 * 1024 * 1024, perTask: 2, perUser: 5 }
-
-/**
- * Why the backend would refuse this file, as far as the browser can tell without asking: its type,
- * or its size. Null when it may be sent. The add row checks with it the moment a file is chosen
- * (#216), and `uploadAttachment` before announcing one, so both refuse alike.
- */
-export function checkFile(file: File): AttachmentRefusal | null {
-  if (!attachmentTypes.includes(file.type)) {
-    return 'UNSUPPORTED_TYPE'
-  }
-  if (file.size === 0) {
-    return 'EMPTY'
-  }
-  return file.size > attachmentLimits.maxSizeBytes ? 'TOO_LARGE' : null
-}
+export { attachmentLimits, attachmentTypes, checkFile } from './attachmentPolicy'
 
 /** An attachment refused, for the board to say why in the visitor's language. */
 export class AttachmentRefusedError extends Error {

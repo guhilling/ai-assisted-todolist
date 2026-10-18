@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ActivityIndicator, AppState, Image, Modal, Pressable, Text, useColorScheme, View } from 'react-native'
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context'
-import { SignedOutError, TimedOutError, VERSION_CHECK_MS, type BoardTask, type Caller } from './api'
+import { AttachmentRefusedError, SignedOutError, TimedOutError, VERSION_CHECK_MS, type BoardTask, type Caller } from './api'
 import { FileViewer } from './Attachments'
 import { isImage } from './files'
+import { CameraRefusedError, type PickSource } from './pick'
+import type { PickedFile } from './upload'
 import { AccountScreen } from './AccountScreen'
 import { isTooOld } from './appVersion'
 import { isChangeable } from './board'
@@ -27,7 +29,9 @@ import { TaskForm, type TaskValues } from './TaskForm'
 import { dark, light } from './theme'
 import type { Variant } from './variants'
 import {
+  attachmentLimits,
   catalogues,
+  checkFile,
   googleSignInButton,
   localeOf,
   todayIso,
@@ -59,7 +63,11 @@ export type Dependencies = {
   attachments?: {
     link(caller: Caller, taskId: Task['id'], attachmentId: Attachment['id'], thumbnail: boolean): Promise<string>
     remove(caller: Caller, taskId: Task['id'], attachmentId: Attachment['id']): Promise<void>
+    /** Attaches a picked file to a task, reporting the upload's progress as a fraction (#274). */
+    upload?(caller: Caller, taskId: Task['id'], file: PickedFile, onProgress: (fraction: number) => void): Promise<Attachment>
   }
+  /** Picks a file to attach (#274); null when the user turned back. */
+  pickFile?(source: PickSource): Promise<PickedFile | null>
   /** Files other than images, opened in the phone's own viewer, and the copies that takes forgotten (#274). */
   documents?: {
     open(url: string, fileName: string, contentType: string): Promise<void>
@@ -82,7 +90,12 @@ export type Dependencies = {
 const LINK_KEPT_MS = 5 * 60 * 1000
 
 /** The form over the board: adding a task, or editing one. */
-type Form = { task?: BoardTask; failure?: string }
+type Form = {
+  task?: BoardTask
+  failure?: string
+  /** Files picked while adding a task, attached once it exists (#274). */
+  pending?: PickedFile[]
+}
 
 /** The promise's value, or null once the time is up -- never a wait without end. */
 function withinTime<T>(promise: Promise<T | null>, ms = VERSION_CHECK_MS): Promise<T | null> {
@@ -162,6 +175,7 @@ export function TaskFestApp({
     now,
     changes,
     attachments: files,
+    pickFile,
     documents,
     deleteAccount,
     keptBoard,
@@ -183,6 +197,13 @@ export function TaskFestApp({
    * so a preview does not ask on every render, and two asking at once share one request.
    */
   const links = useRef(new Map<string, { link: Promise<string>; until: number }>())
+  /** The file uploading, to which task -- or the one being added -- and how far it has got (#274). */
+  const [uploading, setUploading] = useState<{ taskId: Task['id'] | 'new'; name: string; fraction: number } | null>(null)
+  /** The form open now, for an answer that arrives after it may have closed. */
+  const formNow = useRef<Form | null>(null)
+  useEffect(() => {
+    formNow.current = form
+  }, [form])
   /** Whether a file is being opened: a second tap meanwhile opens nothing more. */
   const opening = useRef(false)
   /** Whether a change was refused because the board shown may not be current (#272), until it is. */
@@ -243,13 +264,6 @@ export function TaskFestApp({
   }, [google, now, provider, renewWithGoogle, sessions])
 
   /**
-   * Forgets the session on the phone and everything shown for it, and goes back to the sign-in.
-   * The one way out: whatever the app keeps for a signed-in user goes here.
-   *
-   * A renewal under way would save its session after the keychain was cleared, so it is waited for
-   * first; and a start or a load begun before the sign-out finds it counted and gives up.
-   */
-  /**
    * Forgets every file of the session: the image open, the links asked for, and the copies opened
    * in the phone's viewer -- none of it is for whoever signs in next.
    */
@@ -261,6 +275,13 @@ export function TaskFestApp({
     })
   }, [documents])
 
+  /**
+   * Forgets the session on the phone and everything shown for it, and goes back to the sign-in.
+   * The one way out: whatever the app keeps for a signed-in user goes here.
+   *
+   * A renewal under way would save its session after the keychain was cleared, so it is waited for
+   * first; and a start or a load begun before the sign-out finds it counted and gives up.
+   */
   const signOut = useCallback(
     async (notice?: SignedOutNotice) => {
       signOuts.current += 1
@@ -407,7 +428,8 @@ export function TaskFestApp({
   // yet and could forget the one the sign-in is about to save.
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (next) => {
-      if (next === 'active' && !sheetOpen.current && !signingIn.current && inFlight.current === 0) {
+      // Not while a file is open in another app, or being opened: coming back from it is no reason.
+      if (next === 'active' && !sheetOpen.current && !signingIn.current && !opening.current && inFlight.current === 0) {
         // A board that could not be loaded says it is being loaded again, as "Try again" does.
         setState((current) => (current.kind === 'board' && current.kept ? { ...current, kept: 'loading' } : current))
         setAttempt((count) => count + 1)
@@ -651,6 +673,7 @@ export function TaskFestApp({
   const save = async (values: TaskValues): Promise<boolean> => {
     const started = form
     const task = started?.task
+    let attachLater: { task: BoardTask; files: PickedFile[] } | undefined
     setFailure(undefined)
     if (task && !markBusy(task, true)) {
       return false
@@ -665,8 +688,12 @@ export function TaskFestApp({
           const created = await changes.create(await caller(), { ...values, state: 'TODO' })
           setTasks((tasks) => [...tasks, created])
           keep((kept) => kept.set(created.id, created))
+          attachLater = { task: created, files: started?.pending ?? [] }
         }
       })
+      if (attachLater) {
+        await attachPending(attachLater.task, attachLater.files)
+      }
       setForm((current) => (current === started ? null : current))
       return true
     } catch (cause) {
@@ -679,6 +706,122 @@ export function TaskFestApp({
       if (task) {
         markBusy(task, false)
       }
+    }
+  }
+
+  /** The website's words for why a file was not attached, or null when it was no refusal. */
+  const refusalText = (cause: unknown, fileName: string) =>
+    cause instanceof AttachmentRefusedError ? messages.attachments.refusals[cause.refusal](fileName) : null
+
+  /** Adds a file just attached to its task: on the board, in the editor and in the board kept. */
+  const addFile = (taskId: Task['id'], attachment: Attachment) => {
+    const withFile = (each: BoardTask): BoardTask =>
+      each.id === taskId ? { ...each, attachments: [...(each.attachments ?? []), attachment] } : each
+    setTasks((tasks) => tasks.map(withFile))
+    keep((kept) => {
+      const stored = kept.get(taskId)
+      if (stored) {
+        kept.set(taskId, withFile(stored))
+      }
+    })
+    setForm((current) => (current?.task?.id === taskId ? { ...current, task: withFile(current.task) } : current))
+  }
+
+  /** Uploads a file to a task, saying how far it has got; resolves to why not, or null once attached. */
+  const uploadTo = async (task: BoardTask, file: PickedFile, adding = false): Promise<string | null> => {
+    const upload = files?.upload
+    if (!upload) {
+      return null
+    }
+    const taskId = adding ? 'new' : task.id
+    setUploading({ taskId, name: file.name, fraction: 0 })
+    try {
+      const attachment = await sending(async () =>
+        upload(await caller(), task.id, file, (fraction) => setUploading({ taskId, name: file.name, fraction })),
+      )
+      addFile(task.id, attachment)
+      return null
+    } catch (cause) {
+      if (cause instanceof KeptBoardShownError) {
+        setRefused(true)
+        return messages.offline.readOnly
+      }
+      return refusalText(cause, file.name) ?? (await failed(cause, messages.attachments.uploadFailed(file.name))) ?? ''
+    } finally {
+      setUploading(null)
+    }
+  }
+
+  /**
+   * Picks a file and attaches it (#274): at once to the task being edited, or, while adding one,
+   * held until it exists -- refused at once, as the website's add row does, when the backend would
+   * refuse it anyway.
+   */
+  const attach = async (source: PickSource) => {
+    const task = form?.task
+    if (!pickFile || (task && !markBusy(task, true))) {
+      return
+    }
+    const sameForm = (current: Form | null) => current !== null && current.task?.id === task?.id
+    const say = (failure: string | undefined) => setForm((current) => (sameForm(current) ? { ...current!, failure } : current))
+    try {
+      if (task && refusedWhileKept()) {
+        say(messages.offline.readOnly)
+        return
+      }
+      say(undefined)
+      let file: PickedFile | null
+      try {
+        file = await pickFile(source)
+      } catch (cause) {
+        console.warn('No file could be picked', cause)
+        say(cause instanceof CameraRefusedError ? messages.attachments.cameraRefused : messages.errors.uploadAttachment)
+        return
+      }
+      if (!file) {
+        return
+      }
+      if (task) {
+        const failure = await uploadTo(task, file)
+        if (failure) {
+          // The editor may have been closed meanwhile: then the board says it.
+          if (sameForm(formNow.current)) {
+            say(failure)
+          } else {
+            setFailure(failure)
+          }
+        }
+        return
+      }
+      const refusal = checkFile(file)
+      if (refusal) {
+        say(messages.attachments.refusals[refusal](file.name))
+        return
+      }
+      const picked = file
+      setForm((current) =>
+        sameForm(current) && (current!.pending?.length ?? 0) < attachmentLimits.perTask
+          ? { ...current!, pending: [...(current!.pending ?? []), picked] }
+          : current,
+      )
+    } finally {
+      if (task) {
+        markBusy(task, false)
+      }
+    }
+  }
+
+  /** Attaches the files picked while a task was added, now that it exists; says which could not be. */
+  const attachPending = async (task: BoardTask, picked: PickedFile[]) => {
+    const failures: string[] = []
+    for (const file of picked) {
+      const failure = await uploadTo(task, file, true)
+      if (failure) {
+        failures.push(failure)
+      }
+    }
+    if (failures.length > 0) {
+      setFailure(failures.join('\n'))
     }
   }
 
@@ -950,6 +1093,12 @@ export function TaskFestApp({
                   onDelete={form.task ? () => void remove([form.task!]) : undefined}
                   onRemoveFile={files && form.task ? (attachment) => void removeFile(form.task!, attachment) : undefined}
                   busy={form.task ? busy.has(form.task.id) : false}
+                  pending={form.task ? undefined : (form.pending ?? [])}
+                  uploading={uploading?.taskId === (form.task?.id ?? 'new') ? uploading : null}
+                  onAttach={files?.upload && pickFile ? (source) => void attach(source) : undefined}
+                  onUnpick={(file) =>
+                    setForm((current) => current && { ...current, pending: current.pending?.filter((each) => each !== file) })
+                  }
                   onCancel={() => setForm(null)}
                 />
               ) : null}

@@ -114,6 +114,14 @@ is a native view the Jest tests cannot render, and its words follow the phone's 
 website's are always Google's English. The website's PNGs are Google's official button too,
 already in use, the same on both platforms, and testable like any other image.
 
+**Attaching files: Expo's own modules (#274).** expo-image-picker for the camera and the photo
+library, expo-document-picker for any file — not expo-file-system's own `File.pickFileAsync`,
+whose file Android names after its content URI (`image:1000000018`, as the Maestro flow showed)
+rather than the name the user sees — expo-file-system's `File.upload` for the PUT to storage, with
+progress, expo-image-manipulator for thumbnails and HEIC, and expo-intent-launcher to
+hand a PDF to Android's viewer. All are Expo SDK modules, versioned with the SDK, so an SDK update
+moves them together; none needs a native module of our own.
+
 **One web client for qa and prod** (Gunnar, #280). Both apps ask for ID tokens for the web client
 the website uses, so a qa token would be accepted by prod as well. That gives no one more than a
 sign-in to prod gives them already, and separate clients would only pay off with separate users or
