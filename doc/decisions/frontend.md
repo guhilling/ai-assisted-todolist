@@ -29,8 +29,8 @@ costs nothing.
 now open or done: the menu item and the `doing` chip are gone, and tasks in progress became open.
 The checkbox below is unchanged; the rest of this section is why the marker was ever made quiet.
 
-**Decision.** The round checkbox on each row toggles `TODO` and `DONE`. `WORKING` is set from
-the row's overflow menu and shows as a `doing` chip. The enum is unchanged.
+**Decision (superseded by #334).** The round checkbox on each row toggles `TODO` and `DONE`.
+`WORKING` was set from the row's overflow menu and showed as a `doing` chip. The enum is unchanged.
 
 **Why.** Completing a task is overwhelmingly the common action and it should cost one click; a
 three-value `<select>` charged three interactions for it. `WORKING` is real but rare, so it
