@@ -7,7 +7,7 @@ import DueDateField from './DueDateField'
 import { useEscapeWithin } from '../escape'
 import { useI18n } from '../i18n/context'
 
-/** What editing may change. The state has its own controls: the checkbox and the row menu. */
+/** What editing may change. The state has its own control: the row's checkbox. */
 export type TaskEdit = Pick<Task, 'description' | 'dueDate' | 'importance'>
 
 type TaskEditorProps = {

@@ -2,7 +2,7 @@
 <!--
   Tasks are open or done (#334): the website and the app stop offering "in progress", and the tasks
   that were in progress become open. WORKING itself stays in the task_state type and the API until
-  #345, because apps installed before this release can still send it; this moves only what is there.
+  #345, because apps installed before this release can still send it, and the API stores it as TODO.
   No rollback: which tasks were in progress is not kept anywhere.
 -->
 <databaseChangeLog
@@ -12,7 +12,7 @@
         http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
     <changeSet id="004-in-progress-becomes-open" author="guhilling">
-        <sql>UPDATE task SET state = 'TODO' WHERE state = 'WORKING'</sql>
+        <sql>UPDATE task SET state = 'TODO', updated_at = now() WHERE state = 'WORKING'</sql>
         <rollback/>
     </changeSet>
 

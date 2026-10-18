@@ -182,13 +182,14 @@ function Board() {
     setTasks((current) => current.map((task) => (task.id === updated.id ? updated : task)))
 
   /**
-   * Saves a state change, showing it before the server has agreed.
+   * Saves a tick or an untick, showing it before the server has agreed. A task is open or done
+   * (#334), so those are the only states the board sets.
    *
    * Ticking a checkbox has to feel immediate, and a round trip does not. The previous task is
    * put back if the save fails, so a rejected change never leaves the board claiming something
    * untrue.
    */
-  const saveState = async (task: Task, nextState: TaskState) => {
+  const saveState = async (task: Task, nextState: Extract<TaskState, 'TODO' | 'DONE'>) => {
     const previous = task
     setError(null)
     replaceTask({ ...task, state: nextState })
