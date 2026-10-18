@@ -15,6 +15,15 @@ export function stylesFor(theme: Theme) {
     // Google's button is its image, rounded as Google draws it, at its own size (#325).
     googleButton: { alignSelf: 'center', borderRadius: 20, overflow: 'hidden' },
     googleImage: { width: googleSignInButton.width, height: googleSignInButton.height },
+    // A task's files (#274): on its row as the website's 64 px previews, in the editor as a list.
+    // Indented as far as the row's description, past its tick and importance dot.
+    fileStrip: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingLeft: 48 },
+    fileName: { flexDirection: 'row', alignItems: 'center', gap: 4, maxWidth: 200 },
+    preview: { width: 64, height: 64, borderRadius: 6 },
+    previewLoading: { backgroundColor: theme.border },
+    viewer: { flex: 1, backgroundColor: '#000', justifyContent: 'center', paddingVertical: 48 },
+    viewedImage: { flex: 1, width: '100%' },
+    editorFile: { flexDirection: 'row', alignItems: 'center', gap: 8 },
     pressed: { opacity: 0.7 },
     quietButton: { borderRadius: 6, paddingVertical: 12, paddingHorizontal: 16 },
     quietButtonText: { color: theme.accent, fontWeight: '600', textAlign: 'center' },
@@ -26,14 +35,14 @@ export function stylesFor(theme: Theme) {
     sectionHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
     heading: { fontSize: 18, fontWeight: '700', color: theme.text },
     overdue: { color: theme.danger },
-    row: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 8,
+    // A task's row, and its files below it (#274), between one line and the next.
+    rowWithFiles: {
+      gap: 6,
       paddingVertical: 8,
       borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: theme.border,
     },
+    row: { flexDirection: 'row', alignItems: 'center', gap: 8 },
     rowBody: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 },
     check: {
       width: 24,

@@ -2,8 +2,11 @@ import {
   importanceRank,
   needsDatingBack,
   restoreInput,
+  storageUrl,
+  validateLinkResponse,
   validateTaskResponse,
   validateVersionResponse,
+  type Attachment,
   type Task,
   type TaskInput,
   type TaskState,
@@ -166,6 +169,40 @@ export async function restoreTask(
 ): Promise<BoardTask> {
   const created = await createTask(caller, restoreInput(task, today), fetchImpl)
   return needsDatingBack(created, task) ? updateTask(caller, { ...created, dueDate: task.dueDate }, fetchImpl) : created
+}
+
+/**
+ * A link that shows one of a task's files (#274), or its preview thumbnail, signed by the backend
+ * for a limited time. It is handed back exactly as it came: a signed link must not be rewritten.
+ *
+ * It must pass the website's rule for links to storage (`storageUrl`): HTTPS, or plain HTTP to this
+ * machine -- the end-to-end stack's storage. Anything else is a broken answer, not somewhere to send
+ * the user.
+ */
+export async function attachmentLink(
+  caller: Caller,
+  taskId: Task['id'],
+  attachmentId: Attachment['id'],
+  thumbnail: boolean,
+  fetchImpl: typeof fetch = fetch,
+): Promise<string> {
+  const which = thumbnail ? 'thumbnail-link' : 'link'
+  const data = await send(caller, 'GET', `/api/tasks/${taskId}/attachments/${attachmentId}/${which}`, fetchImpl)
+  const url = validateLinkResponse(data) ? storageUrl(data.url) : null
+  if (!url) {
+    throw new ContractBreachError('a link to a file')
+  }
+  return url
+}
+
+/** Removes a file from its task, for good: unlike a task, a removed file has no undo. */
+export async function removeAttachment(
+  caller: Caller,
+  taskId: Task['id'],
+  attachmentId: Attachment['id'],
+  fetchImpl: typeof fetch = fetch,
+): Promise<void> {
+  await send(caller, 'DELETE', `/api/tasks/${taskId}/attachments/${attachmentId}`, fetchImpl)
 }
 
 /**

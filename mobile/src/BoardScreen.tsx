@@ -1,9 +1,10 @@
 import { useEffect } from 'react'
 import { Pressable, ScrollView, Text, View } from 'react-native'
 import type { BoardTask } from './api'
+import { FileStrip, type FileLinkSource } from './Attachments'
 import { boardOf, isChangeable } from './board'
 import type { Styles } from './styles'
-import { describeDueDate, localeOf, type Language, type Messages } from './web'
+import { describeDueDate, localeOf, type Attachment, type Language, type Messages } from './web'
 
 /** How long the offer to undo a delete stands: the website's eight seconds. */
 const UNDO_FOR_MS = 8000
@@ -37,6 +38,7 @@ export function BoardScreen({
   onAccount,
   kept,
   onRetry,
+  files,
   offer,
 }: {
   tasks: BoardTask[]
@@ -65,6 +67,8 @@ export function BoardScreen({
   kept?: { failed: false } | { failed: true; since: string }
   /** Loads the board again, after a failed load. */
   onRetry: () => void
+  /** A task's files on its row (#274): their links, and opening one. */
+  files?: { link: FileLinkSource; onOpen: (task: BoardTask, attachment: Attachment) => void }
   /** The offer to turn the due-day reminders on (#273), while it stands. */
   offer?: { onTurnOn: () => void; onNotNow: () => void }
 }) {
@@ -75,45 +79,58 @@ export function BoardScreen({
     const changeable = isChangeable(task)
     const done = task.state === 'DONE'
     return (
-      <View key={task.id} testID={`task-${task.id}`} style={styles.row}>
-        {changeable ? (
+      // The files stand below the row's button, not inside it: a button's contents are one element
+      // to a screen reader, and each file must be reachable on its own.
+      <View key={task.id} testID={`task-${task.id}`} style={styles.rowWithFiles}>
+        <View style={styles.row}>
+          {changeable ? (
+            <Pressable
+              accessibilityRole="checkbox"
+              accessibilityLabel={messages.row.markDone(task.description)}
+              accessibilityState={{ checked: done, disabled: busy.has(task.id) }}
+              disabled={busy.has(task.id)}
+              hitSlop={8}
+              style={[styles.check, done && styles.checked]}
+              onPress={() => onToggle(task)}
+            >
+              {done ? <Text style={styles.tick}>✓</Text> : null}
+            </Pressable>
+          ) : null}
           <Pressable
-            accessibilityRole="checkbox"
-            accessibilityLabel={messages.row.markDone(task.description)}
-            accessibilityState={{ checked: done, disabled: busy.has(task.id) }}
-            disabled={busy.has(task.id)}
-            hitSlop={8}
-            style={[styles.check, done && styles.checked]}
-            onPress={() => onToggle(task)}
+            accessibilityRole={changeable ? 'button' : undefined}
+            accessibilityLabel={changeable ? messages.editor.label(task.description) : undefined}
+            disabled={!changeable}
+            style={styles.rowBody}
+            onPress={() => onOpen(task)}
           >
-            {done ? <Text style={styles.tick}>✓</Text> : null}
+            {task.unknown?.includes('importance') ? (
+              // An importance a newer backend added (#268): marked, not guessed.
+              <View accessibilityLabel={messages.row.unknown} style={[styles.dot, styles.unknownDot]} />
+            ) : (
+              <View style={[styles.dot, styles[`importance${task.importance}`]]} />
+            )}
+            <View style={styles.description}>
+              <Text style={[styles.description, done && styles.done]}>{task.description}</Text>
+              {changeable ? null : <Text style={styles.muted}>{messages.row.updateToChange}</Text>}
+            </View>
+            {task.unknown?.includes('state') ? (
+              // A state a newer backend added (#268): kept open, and said to be unknown.
+              <Text style={styles.muted}>{messages.row.unknown}</Text>
+            ) : null}
+            {sayWhen ? (
+              <Text style={styles.muted}>{describeDueDate(task.dueDate, today, messages.dates, localeOf(language))}</Text>
+            ) : null}
           </Pressable>
+        </View>
+        {files ? (
+          <FileStrip
+            task={task}
+            link={files.link}
+            messages={messages}
+            styles={styles}
+            onOpen={(attachment) => files.onOpen(task, attachment)}
+          />
         ) : null}
-        <Pressable
-          accessibilityRole={changeable ? 'button' : undefined}
-          accessibilityLabel={changeable ? messages.editor.label(task.description) : undefined}
-          disabled={!changeable}
-          style={styles.rowBody}
-          onPress={() => onOpen(task)}
-        >
-          {task.unknown?.includes('importance') ? (
-            // An importance a newer backend added (#268): marked, not guessed.
-            <View accessibilityLabel={messages.row.unknown} style={[styles.dot, styles.unknownDot]} />
-          ) : (
-            <View style={[styles.dot, styles[`importance${task.importance}`]]} />
-          )}
-          <View style={styles.description}>
-            <Text style={[styles.description, done && styles.done]}>{task.description}</Text>
-            {changeable ? null : <Text style={styles.muted}>{messages.row.updateToChange}</Text>}
-          </View>
-          {task.unknown?.includes('state') ? (
-            // A state a newer backend added (#268): kept open, and said to be unknown.
-            <Text style={styles.muted}>{messages.row.unknown}</Text>
-          ) : null}
-          {sayWhen ? (
-            <Text style={styles.muted}>{describeDueDate(task.dueDate, today, messages.dates, localeOf(language))}</Text>
-          ) : null}
-        </Pressable>
       </View>
     )
   }

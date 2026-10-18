@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native'
 import type { BoardTask } from './api'
+import { EditorFiles } from './Attachments'
 import { DueDatePicker } from './DueDatePicker'
 import type { Styles } from './styles'
 import type { Theme } from './theme'
@@ -15,6 +16,7 @@ import {
   type Task,
   type TaskImportance,
   type TaskState,
+  type Attachment,
 } from './web'
 
 /** What the form sets: everything about a task but its id and its files. */
@@ -40,6 +42,8 @@ export function TaskForm({
   failure,
   onSave,
   onDelete,
+  onRemoveFile,
+  busy = false,
   onCancel,
 }: {
   /** The task to edit; none to add one. */
@@ -54,6 +58,10 @@ export function TaskForm({
   /** Saves the values; true once they are saved. */
   onSave: (values: TaskValues) => Promise<boolean>
   onDelete?: () => void
+  /** Removes one of the task's files (#274); none where files cannot be removed here. */
+  onRemoveFile?: (attachment: Attachment) => void
+  /** Whether a change to the task is on its way; its files wait for it before another. */
+  busy?: boolean
   onCancel: () => void
 }) {
   const editing = task !== undefined
@@ -143,6 +151,17 @@ export function TaskForm({
         </>
       ) : null}
 
+      {task?.attachments ? (
+        <EditorFiles
+          attachments={task.attachments}
+          // A completed task's files may only be opened, as on the website.
+          removable={onRemoveFile !== undefined && task.state !== 'DONE'}
+          busy={busy}
+          messages={messages}
+          styles={styles}
+          onRemove={(attachment) => onRemoveFile?.(attachment)}
+        />
+      ) : null}
       {failure ? <Text style={styles.notice}>{failure}</Text> : null}
 
       <View style={styles.formButtons}>
