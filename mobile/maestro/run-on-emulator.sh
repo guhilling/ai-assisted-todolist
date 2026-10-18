@@ -44,11 +44,13 @@ fi
 # so the app and Keycloak's issuer use the addresses the browser does.
 retry adb reverse tcp:3000 tcp:3000
 retry adb reverse tcp:8082 tcp:8082
+retry adb reverse tcp:4566 tcp:4566
+adb shell ping -c 1 s3.localhost || echo 's3.localhost does not resolve on the emulator'
 retry adb install -r "$apk"
 
 case "$share" in
   board)
-    maestro test mobile/maestro/sign-in.yaml mobile/maestro/change-tasks.yaml \
+    maestro test mobile/maestro/sign-in.yaml mobile/maestro/spike-files.yaml \
       --format junit --output maestro-report.xml --test-output-dir maestro-output
     exit 0
     ;;

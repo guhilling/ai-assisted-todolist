@@ -1,0 +1,21 @@
+appId: de.hilling.taskfest.dev
+name: Spike files
+---
+- extendedWaitUntil:
+    visible: "Seeded by CI for the app"
+    timeout: 30000
+- waitForAnimationToEnd:
+    timeout: 5000
+- takeScreenshot: spike-board
+- tapOn: "Open photo.png"
+- extendedWaitUntil:
+    visible: "Close"
+    timeout: 20000
+- waitForAnimationToEnd:
+    timeout: 5000
+- takeScreenshot: spike-viewer
+- tapOn: "Close"
+- tapOn: 'Edit "Seeded by CI for the app"'
+- waitForAnimationToEnd:
+    timeout: 5000
+- takeScreenshot: spike-editor
