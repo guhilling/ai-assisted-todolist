@@ -9,7 +9,7 @@
  * clock once on mount and groups rows by how far away they are. The arithmetic comes from
  * `dates.ts`, whose own tests pin it down directly.
  */
-import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
 import { addDays, todayIso } from './dates'
@@ -1578,3 +1578,32 @@ function dayLabel(iso: string) {
   const suffix = day % 10 === 1 && day !== 11 ? 'st' : day % 10 === 2 && day !== 12 ? 'nd' : day % 10 === 3 && day !== 13 ? 'rd' : 'th'
   return `${monthName} ${day}${suffix}, ${year}`
 }
+
+describe('the colours, explained on first use (#335)', () => {
+  afterEach(() => localStorage.removeItem('taskfest.coloursExplained'))
+
+  it('explains the importance dots and the red date above the first board with tasks', async () => {
+    await renderSignedIn(mockApi({ me: ALICE, tasks: [task({ id: 1, description: 'Pack the suitcase' })] }))
+
+    const legend = screen.getByRole('complementary', { name: 'What the colours mean' })
+    expect(legend).toHaveTextContent('Importance: High Medium Low. A date in red is overdue.')
+    expect(legend.querySelectorAll('.task-importance')).toHaveLength(3)
+  })
+
+  it('goes once dismissed, and stays gone', async () => {
+    await renderSignedIn(mockApi({ me: ALICE, tasks: [task({ id: 1, description: 'Pack the suitcase' })] }))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Got it' }))
+
+    expect(screen.queryByRole('complementary', { name: 'What the colours mean' })).toBeNull()
+    cleanup()
+    await renderSignedIn(mockApi({ me: ALICE, tasks: [task({ id: 1, description: 'Pack the suitcase' })] }))
+    expect(screen.queryByRole('complementary', { name: 'What the colours mean' })).toBeNull()
+  })
+
+  it('waits while there are no tasks to explain', async () => {
+    await renderSignedIn(mockApi({ me: ALICE, tasks: [] }))
+
+    expect(screen.queryByRole('complementary', { name: 'What the colours mean' })).toBeNull()
+  })
+})

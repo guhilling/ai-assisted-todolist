@@ -1,10 +1,13 @@
-import { useEffect } from 'react'
+import { Fragment, useEffect } from 'react'
 import { Pressable, ScrollView, Text, View } from 'react-native'
 import type { BoardTask } from './api'
 import { FileStrip, type FileLinkSource } from './Attachments'
 import { boardOf, isChangeable } from './board'
 import type { Styles } from './styles'
-import { describeDueDate, localeOf, type Attachment, type Language, type Messages } from './web'
+import { describeDueDate, localeOf, type Attachment, type Language, type Messages, type TaskImportance } from './web'
+
+/** The importance levels as the legend lists them, the most important first (#335). */
+const LEVELS: TaskImportance[] = ['HIGH', 'MEDIUM', 'LOW']
 
 /** How long the offer to undo a delete stands: the website's eight seconds. */
 const UNDO_FOR_MS = 8000
@@ -40,6 +43,7 @@ export function BoardScreen({
   onRetry,
   files,
   offer,
+  legend,
 }: {
   tasks: BoardTask[]
   today: string
@@ -71,6 +75,8 @@ export function BoardScreen({
   files?: { link: FileLinkSource; onOpen: (task: BoardTask, attachment: Attachment) => void }
   /** The offer to turn the due-day reminders on (#273), while it stands. */
   offer?: { onTurnOn: () => void; onNotNow: () => void }
+  /** What the colours mean (#335), until dismissed: shown above a board with open tasks. */
+  legend?: { onDismiss: () => void }
 }) {
   const board = boardOf(tasks, today)
   const clearable = board.completed.some(isChangeable)
@@ -163,6 +169,35 @@ export function BoardScreen({
               </Pressable>
               <Pressable accessibilityRole="button" style={styles.quietButton} onPress={offer.onTurnOn}>
                 <Text style={styles.quietButtonText}>{messages.reminders.turnOn}</Text>
+              </Pressable>
+            </View>
+          </View>
+        ) : null}
+        {legend && board.sections.length > 0 ? (
+          <View style={styles.legend}>
+            {/*
+              * One text with the dots inline, read aloud as one -- the dots say nothing to a screen
+              * reader -- and with no "High" of its own for anything looking for the form's.
+              */}
+            <Text
+              style={styles.muted}
+              accessibilityLabel={messages.legend.spoken(
+                messages.importance.label,
+                LEVELS.map((level) => messages.importance.levels[level]),
+              )}
+            >
+              {messages.importance.label}:
+              {LEVELS.map((level) => (
+                <Fragment key={level}>
+                  {'  '}
+                  <View style={[styles.dot, styles.legendDot, styles[`importance${level}`]]} /> {messages.importance.levels[level]}
+                </Fragment>
+              ))}
+            </Text>
+            <Text style={styles.muted}>{messages.legend.overdue}</Text>
+            <View style={styles.offerButtons}>
+              <Pressable accessibilityRole="button" style={styles.quietButton} onPress={legend.onDismiss}>
+                <Text style={styles.quietButtonText}>{messages.legend.dismiss}</Text>
               </Pressable>
             </View>
           </View>

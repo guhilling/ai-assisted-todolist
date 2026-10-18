@@ -7,6 +7,11 @@ at its head, opens the account sheet ([account.md](account.md)).
 
 ## What it does
 
+- **The colours explained** (#335) — above the first board with open tasks, one line says what the
+  importance dots mean and that a date in red is overdue, as on the website, with **Got it**.
+  Dismissed, it does not come back on that phone (a file, `colours-explained`, in the app's
+  documents); the website remembers it per browser.
+
 - **Add a task** — the button below the board opens a form: the description, the due date, and the
   importance. The due date is one of the website's shortcuts (today, tomorrow, in one or two weeks)
   or any day from the platform's own calendar — a dialog on Android, a calendar in the form on

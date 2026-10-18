@@ -151,6 +151,12 @@ carries the same information in a glance and takes no width.
 high-contrast modes. The three levels differ in fill, so they are still three things without
 any colour at all — and a screen reader gets the word rather than a decorative shape.
 
+**Explained once** (#335). The dot saves the word on every row, but a first-time visitor has to
+learn it: above the first board with open tasks, one line — *Importance: ● High ● Medium ○ Low.
+A date in red is overdue.* — with **Got it**, which hides it for good in that browser, or on that
+phone in the app. One sentence with the dots inline rather than a list of labelled items, so it
+reads aloud as a sentence and adds no second "High" beside the form's.
+
 **Also.** `n` opens the add row from anywhere on the board, ignored while the caret is in a
 field or a modifier is held, so it cannot swallow a typed letter or shadow a browser command.
 

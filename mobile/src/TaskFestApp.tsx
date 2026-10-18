@@ -79,6 +79,8 @@ export type Dependencies = {
   keptBoard: KeptBoardStore
   /** The due-day reminders on the phone, and the permission they need (#273). */
   reminders: ReminderScheduler
+  /** Whether the board's colours were explained on this phone already (#335); none, and they never are. */
+  legend?: { seen(): Promise<boolean>; dismiss(): Promise<void> }
   /** The oldest app release the backend serves (#268). */
   fetchMinimumAppVersion(): Promise<string>
   /** This build's release: the tag's, or 0.0.0 from a branch. */
@@ -180,6 +182,7 @@ export function TaskFestApp({
     deleteAccount,
     keptBoard,
     reminders,
+    legend,
   } = dependencies
   const messages = catalogues[language]
   const darkMode = useColorScheme() === 'dark'
@@ -210,6 +213,18 @@ export function TaskFestApp({
   const [refused, setRefused] = useState(false)
   /** Whether the reminders may be offered (#273): they may be asked for, and the offer was not answered. */
   const [offerReminders, setOfferReminders] = useState(false)
+  /** Whether the board's colours still need explaining (#335): until dismissed once on this phone. */
+  const [explainColours, setExplainColours] = useState(false)
+  useEffect(() => {
+    let current = true
+    legend
+      ?.seen()
+      .then((seen) => current && setExplainColours(!seen))
+      .catch((failure: unknown) => console.warn('Whether the colours were explained could not be read', failure))
+    return () => {
+      current = false
+    }
+  }, [legend])
   /** The state as of the last render, for the changes that check it once their await is over. */
   const shown = useRef<State>(state)
   useEffect(() => {
@@ -501,6 +516,12 @@ export function TaskFestApp({
     if (await reminders.ask().catch(() => false)) {
       keep()
     }
+  }
+
+  /** "Got it": the colours are not explained again on this phone (#335). */
+  const dismissLegend = () => {
+    setExplainColours(false)
+    legend?.dismiss().catch((failure: unknown) => console.warn('The explained colours could not be remembered', failure))
   }
 
   /** "Not now": the offer is not made again. */
@@ -1071,6 +1092,7 @@ export function TaskFestApp({
                   ? { onTurnOn: () => void turnOnReminders(), onNotNow: declineReminders }
                   : undefined
               }
+              legend={explainColours ? { onDismiss: dismissLegend } : undefined}
             />
             <Modal
               testID="task-form"

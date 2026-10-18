@@ -25,6 +25,14 @@ export const en = {
     thisWeek: 'This week',
     later: 'Later',
   } as Record<DueBucket, string>,
+  /** What the board's colours mean, explained on first use (#335). */
+  legend: {
+    label: 'What the colours mean',
+    overdue: 'A date in red is overdue.',
+    dismiss: 'Got it',
+    /** The legend read aloud as one, in the app, whose dots say nothing to a screen reader. */
+    spoken: (importance: string, levels: string[]) => `${importance}: ${levels.join(', ')}. A date in red is overdue.`,
+  },
   board: {
     loading: 'Loading tasks…',
     empty: 'Nothing here yet. Add your first task.',
@@ -242,6 +250,12 @@ export const de: Messages = {
     tomorrow: 'Morgen',
     thisWeek: 'Diese Woche',
     later: 'Später',
+  },
+  legend: {
+    label: 'Was die Farben bedeuten',
+    overdue: 'Ein Datum in Rot ist überfällig.',
+    dismiss: 'Verstanden',
+    spoken: (importance: string, levels: string[]) => `${importance}: ${levels.join(', ')}. Ein Datum in Rot ist überfällig.`,
   },
   board: {
     loading: 'Aufgaben werden geladen …',
