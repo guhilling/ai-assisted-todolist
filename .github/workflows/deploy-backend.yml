@@ -117,6 +117,14 @@ jobs:
     name: Live tests
     needs: deploy
     if: inputs.environment == 'qa' && inputs.live_test
+    permissions:
+      contents: read
+      id-token: write
+      # The live tests' app job (#278): to download the released app, an artifact of the
+      # release's run, and to read the emulator's cached setup. A called workflow's jobs get no
+      # more than this.
+      actions: read
+      packages: read
     uses: ./.github/workflows/live-tests.yml
     with:
       environment: ${{ inputs.environment }}

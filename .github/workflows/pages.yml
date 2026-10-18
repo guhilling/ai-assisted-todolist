@@ -81,8 +81,22 @@ jobs:
             echo "No live videos to publish."
           fi
 
+      # And of the app's flows on qa (#278), the same way.
+      - name: Fetch the newest live run's app videos
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          id=$(gh api "repos/$GITHUB_REPOSITORY/actions/artifacts?name=live-videos-qa-app&per_page=1" \
+            --jq '[.artifacts[] | select(.expired | not)][0].id // empty')
+          if [ -n "$id" ]; then
+            gh api "repos/$GITHUB_REPOSITORY/actions/artifacts/$id/zip" > app-videos.zip
+            unzip -q app-videos.zip -d _app_videos
+          else
+            echo "No live app videos to publish."
+          fi
+
       - name: Build the site
-        run: python3 .github/scripts/build-site.py _site --videos _videos
+        run: python3 .github/scripts/build-site.py _site --videos _videos --app-videos _app_videos
 
       - uses: actions/upload-pages-artifact@v5
         with:

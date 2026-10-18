@@ -100,6 +100,9 @@ since that is all an iOS app's version may be, and the backend logs nothing else
   the emulator's Downloads, through Android's file picker, and sees it on the board
   ([files.md](files.md)). The app reaches the stack's storage as the browser does, at
   `s3.localhost:4566`, through one more `adb reverse`.
+- **Live**, after every deploy to qa, the flows in `maestro/live/` run the released qa app against
+  qa itself, signed in as a Cognito test account, and are recorded
+  ([live.md](../testing/live.md)).
 
 `.github/workflows/mobile-ci.yml` runs all of it on every pull request touching the app or what
 it shares with the website: the checks; a release APK of the `dev` variant on Linux; an iOS

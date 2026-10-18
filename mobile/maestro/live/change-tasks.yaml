@@ -1,0 +1,48 @@
+# Adds a task on qa, edits it, completes it, deletes it and takes the delete back (#278), as the
+# end-to-end flow does against the Compose stack (change-tasks.yaml). What it leaves behind, the
+# live run clears.
+appId: de.hilling.taskfest.qa
+name: Change the board on qa
+---
+- runFlow: sign-in.yaml
+
+- tapOn: "Add a task"
+- tapOn:
+    id: "task-description"
+- inputText: "Water the plants"
+- tapOn: "In 1 week"
+- tapOn: "High"
+- hideKeyboard
+- tapOn: "Add"
+- extendedWaitUntil:
+    visible: "Water the plants"
+    timeout: 15000
+- takeScreenshot: live-03-added
+
+- tapOn: "Water the plants"
+- tapOn:
+    id: "task-description"
+- eraseText: 30
+- inputText: "Water the orchids"
+- hideKeyboard
+- tapOn: "In progress"
+- tapOn: "Save"
+- extendedWaitUntil:
+    visible: "Water the orchids"
+    timeout: 15000
+
+- tapOn: 'Mark "Water the orchids" as done'
+- extendedWaitUntil:
+    visible: "Completed \\(1\\)"
+    timeout: 15000
+- takeScreenshot: live-04-completed
+
+- tapOn: "Water the orchids"
+- tapOn: "Delete"
+- assertVisible: "Task deleted"
+- assertNotVisible: "Water the orchids"
+- tapOn: "Undo"
+- extendedWaitUntil:
+    visible: "Water the orchids"
+    timeout: 15000
+- takeScreenshot: live-05-undone

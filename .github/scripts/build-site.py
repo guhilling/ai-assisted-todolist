@@ -16,8 +16,9 @@ What it produces:
     api/main/             the moving snapshot: doc/api as it is on main
     api/v1.2.3/           one per release tag, read out of git history
     api/latest/           a copy of the newest release
-    videos/               the newest live run's recording of qa's signed-in scenarios, when the
-                          workflow passes `--videos` with them (live-tests.yml, pages.yml)
+    videos/               the newest live run's recording of qa's signed-in scenarios and of the
+                          app's flows, when the workflow passes `--videos` and `--app-videos` with
+                          them (live-tests.yml, pages.yml)
     assets/               the stylesheet, the logo, the favicon, and lightbox.js: click an image
                           in the documentation to see it almost filling the window
 
@@ -776,54 +777,64 @@ def build_assets(site: pathlib.Path) -> None:
         shutil.copyfile(IMAGES / name, assets / name)
 
 
-def build_videos(site: pathlib.Path, source: pathlib.Path | None) -> None:
-    """The newest live run's videos, one per scenario, under the names collect-live-videos.py gave
-    them; a page saying there are none when the run's artifact is missing or expired."""
-    out = site / "videos"
-    out.mkdir(parents=True, exist_ok=True)
+def video_section(out: pathlib.Path, source: pathlib.Path | None, what: str) -> str:
+    """One live run's videos, copied into `out` under the names collect-live-videos.py gave them; a
+    line saying there are none when the run's artifact is missing or expired."""
     index_file = source / "index.json" if source else None
     if index_file is None or not index_file.exists():
-        body = "<p>No recording is available: the newest live run's videos have expired, or none was made yet.</p>"
-    else:
-        index = json.loads(index_file.read_text(encoding="utf-8"))
-        figures = []
-        for video in index["videos"]:
-            shutil.copyfile(source / video["file"], out / video["file"])
-            poster = ""
-            if video.get("poster"):
-                shutil.copyfile(source / video["poster"], out / video["poster"])
-                poster = f' poster="{html.escape(video["poster"])}"'
-            figures.append(
-                f'<figure class="video">\n'
-                f'  <video controls preload="metadata"{poster} src="{html.escape(video["file"])}"></video>\n'
-                f'  <figcaption>{html.escape(video["title"])} <span>({html.escape(video["spec"])}, '
-                f'{html.escape(video["status"])})</span></figcaption>\n</figure>')
-        body = (f'<p>Recorded on <strong>{html.escape(index["environment"])}</strong> running '
-                f'<strong>{html.escape(index["version"])}</strong>, {html.escape(index["recordedAt"])}, '
-                f'by <a href="{html.escape(index["runUrl"])}">this run</a>. Each run replaces them. They play at '
-                f'half speed, since a scenario moves faster than anyone reads; the player\'s menu sets it back. '
-                f'The test accounts are reserved example.com addresses; their passwords show as dots and change '
-                f'with every run.</p>\n'
-                + "\n".join(figures)
-                # Half speed by default: defaultPlaybackRate is what a play starts at, playbackRate the
-                # current one, and both are needed for a video the visitor has not started yet.
-                + "\n<script>for (const v of document.querySelectorAll('video')) "
-                  "{ v.defaultPlaybackRate = 0.5; v.playbackRate = 0.5 }</script>")
+        return f"<p>No recording of {what} is available: the newest live run's videos have expired, or none was made yet.</p>"
+    index = json.loads(index_file.read_text(encoding="utf-8"))
+    figures = []
+    for video in index["videos"]:
+        shutil.copyfile(source / video["file"], out / video["file"])
+        poster = ""
+        if video.get("poster"):
+            shutil.copyfile(source / video["poster"], out / video["poster"])
+            poster = f' poster="{html.escape(video["poster"])}"'
+        figures.append(
+            f'<figure class="video">\n'
+            f'  <video controls preload="metadata"{poster} src="{html.escape(video["file"])}"></video>\n'
+            f'  <figcaption>{html.escape(video["title"])} <span>({html.escape(video["spec"])}, '
+            f'{html.escape(video["status"])})</span></figcaption>\n</figure>')
+    return (f'<p>{what[0].upper() + what[1:]}, recorded on <strong>{html.escape(index["environment"])}</strong> running '
+            f'<strong>{html.escape(index["version"])}</strong>, {html.escape(index["recordedAt"])}, '
+            f'by <a href="{html.escape(index["runUrl"])}">this run</a>.</p>\n' + "\n".join(figures))
+
+
+def build_videos(site: pathlib.Path, source: pathlib.Path | None, app_source: pathlib.Path | None = None) -> None:
+    """The newest live run's videos: the website's signed-in scenarios, one per scenario, and the
+    Android app's flows (#278), one per flow."""
+    out = site / "videos"
+    out.mkdir(parents=True, exist_ok=True)
+    body = ('<p>Each run replaces them. They play at half speed, since a scenario moves faster than anyone '
+            "reads; the player's menu sets it back. The test accounts are reserved example.com addresses; "
+            'their passwords show as dots and change with every run.</p>\n'
+            '<h2 id="website">The website</h2>\n' + video_section(out, source, "the website's scenarios")
+            + '\n<h2 id="app">The Android app</h2>\n' + video_section(out, app_source, "the app's flows")
+            # Half speed by default: defaultPlaybackRate is what a play starts at, playbackRate the
+            # current one, and both are needed for a video the visitor has not started yet.
+            + "\n<script>for (const v of document.querySelectorAll('video')) "
+              "{ v.defaultPlaybackRate = 0.5; v.playbackRate = 0.5 }</script>")
     (out / "index.html").write_text(page(
         title=f"Live run videos – {PROJECT}",
-        description="The newest recording of the signed-in scenarios against qa.",
+        description="The newest recording of the website's and the app's live runs against qa.",
         depth=1, current="",
         body=f'  <main class="prose">\n<h1>The newest live run</h1>\n{body}\n  </main>'), encoding="utf-8")
 
 
 def main(argv: list[str]) -> int:
-    videos: pathlib.Path | None = None
-    if len(argv) == 4 and argv[2] == "--videos":
-        videos = pathlib.Path(argv[3])
-        argv = argv[:2]
-    if len(argv) != 2:
-        print(f"usage: {argv[0]} <output-directory> [--videos <directory>]", file=sys.stderr)
+    options = {"--videos": None, "--app-videos": None}
+    rest = argv[:2]
+    pairs = argv[2:]
+    while len(pairs) >= 2 and pairs[0] in options:
+        options[pairs[0]] = pathlib.Path(pairs[1])
+        pairs = pairs[2:]
+    if len(rest) != 2 or pairs:
+        print(f"usage: {argv[0]} <output-directory> [--videos <directory>] [--app-videos <directory>]",
+              file=sys.stderr)
         return 1
+    argv = rest
+    videos, app_videos = options["--videos"], options["--app-videos"]
 
     site = pathlib.Path(argv[1])
     if site.exists():
@@ -853,7 +864,7 @@ def main(argv: list[str]) -> int:
     build_instructions(site, pages)
     build_api_index(site, published)
     build_landing(site, published)
-    build_videos(site, videos)
+    build_videos(site, videos, app_videos)
     check_links(site)
     print(f"built {site} with API versions: {', '.join(slug for slug, _ in published)}")
     return 0

@@ -32,6 +32,23 @@
       "depNameTemplate": "opentofu/opentofu",
       "datasourceTemplate": "github-releases",
       "extractVersionTemplate": "^v(?<version>.*)$"
+    },
+    {
+      "customType": "regex",
+      "description": "bundletool, which turns the released app's bundle into an APK for the app's live run (#278). Downloaded by version in the workflow, which no built-in manager reads.",
+      "managerFilePatterns": ["/^\\.github/workflows/live-tests\\.yml$/"],
+      "matchStrings": ["BUNDLETOOL_VERSION:\\s*(?<currentValue>\\S+)"],
+      "depNameTemplate": "google/bundletool",
+      "datasourceTemplate": "github-releases"
+    },
+    {
+      "customType": "regex",
+      "description": "Maestro, which both mobile-ci.yml and live-tests.yml install from this one pin (#278).",
+      "managerFilePatterns": ["/^mobile/maestro/maestro\\.env$/"],
+      "matchStrings": ["MAESTRO_VERSION=(?<currentValue>\\S+)"],
+      "depNameTemplate": "mobile-dev-inc/Maestro",
+      "datasourceTemplate": "github-releases",
+      "extractVersionTemplate": "^cli-(?<version>.*)$"
     }
   ],
   "packageRules": [
@@ -41,6 +58,11 @@
       "automerge": true,
       "automergeType": "pr",
       "platformAutomerge": false
+    },
+    {
+      "description": "bundletool is used only by the live tests' app job (#278), which no pull request runs: every check being green says nothing about a new one, so its updates wait for a human, who runs the live tests on the branch first.",
+      "matchPackageNames": ["google/bundletool"],
+      "automerge": false
     },
     {
       "description": "Major updates open a pull request and wait for a human to merge it.",

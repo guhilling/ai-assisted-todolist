@@ -19,6 +19,10 @@ a video is about before it plays: of four frames spread across it, the one with 
 -- the largest JPEG -- which is the board with its tasks rather than the sign-in page a scenario
 starts and ends on. ffmpeg makes it, and a video without one is published all the same.
 
+The app's live run (#278) is collected the same way, with `--app`: instead of Playwright's report,
+the list of flows mobile/maestro/live/run-on-qa.sh ran, each with its outcome and the recording it
+made of the emulator's screen, an MP4. The index has the same shape, so the site shows both alike.
+
 What the videos show is qa's test accounts (`taskfest-test-one@example.com`, `…-two@…`) and their
 tasks. Their passwords are typed into a password field, so the video shows dots, and the
 live-test job sets new ones on every run anyway.
@@ -116,18 +120,45 @@ def stable_name(spec, title):
     return f"{words}.webm"
 
 
+def app_videos_in(flows):
+    """Every flow of the app's run that left a recording, in the order the flows ran."""
+    return [Video(flow["flow"], flow["title"], flow["status"], flow.get("durationMs", 0), flow["recording"])
+            for flow in flows if pathlib.Path(flow["recording"]).exists()]
+
+
+def app_name(flow):
+    """A recording's name from its flow's file alone, the same on every run."""
+    stem = pathlib.PurePosixPath(flow).stem
+    return "app-" + re.sub(r"[^a-z0-9]+", "-", stem.lower()).strip("-") + ".mp4"
+
+
 def collect(report_path, out, *, environment, version, run_url, recorded_at, make_poster=ffmpeg_poster):
     """Copies the run's videos to `out` under their stable names, each with a poster where one can be
     made, and `index.json` beside them."""
-    out.mkdir(parents=True, exist_ok=True)
     videos = videos_in(json.loads(report_path.read_text(encoding="utf-8")))
+    return write_collection([(video, stable_name(video.spec, video.title)) for video in videos], out,
+                            environment=environment, version=version, run_url=run_url,
+                            recorded_at=recorded_at, make_poster=make_poster)
+
+
+def collect_app(flows_path, out, *, environment, version, run_url, recorded_at, make_poster=ffmpeg_poster):
+    """The same for the app's run: its recordings under names from their flows, and `index.json`."""
+    videos = app_videos_in(json.loads(flows_path.read_text(encoding="utf-8")))
+    return write_collection([(video, app_name(video.spec)) for video in videos], out,
+                            environment=environment, version=version, run_url=run_url,
+                            recorded_at=recorded_at, make_poster=make_poster)
+
+
+def write_collection(named, out, *, environment, version, run_url, recorded_at, make_poster):
+    """Copies each video to `out` under its name, with a poster where one can be made, and writes
+    the index the site reads."""
+    out.mkdir(parents=True, exist_ok=True)
     entries = []
-    for video in videos:
-        name = stable_name(video.spec, video.title)
+    for video, name in named:
         shutil.copyfile(video.path, out / name)
         entry = {"spec": video.spec, "title": video.title, "status": video.status,
                  "durationMs": video.duration_ms, "file": name}
-        poster = name.removesuffix(".webm") + ".jpg"
+        poster = pathlib.PurePosixPath(name).stem + ".jpg"
         if make_poster(out / name, out / poster):
             entry["poster"] = poster
         entries.append(entry)
@@ -139,6 +170,8 @@ def collect(report_path, out, *, environment, version, run_url, recorded_at, mak
 
 def main():
     parser = argparse.ArgumentParser()
+    parser.add_argument("--app", action="store_true",
+                        help="the report is the app's list of flows (run-on-qa.sh), not Playwright's")
     parser.add_argument("report", type=pathlib.Path)
     parser.add_argument("out", type=pathlib.Path)
     parser.add_argument("--environment", required=True)
@@ -149,7 +182,7 @@ def main():
     if not args.report.exists():
         print(f"No report at {args.report}: nothing was recorded.")
         return 0
-    entries = collect(args.report, args.out, environment=args.environment, version=args.version,
+    entries = (collect_app if args.app else collect)(args.report, args.out, environment=args.environment, version=args.version,
                       run_url=args.run_url, recorded_at=args.recorded_at)
     print(f"Collected {len(entries)} video(s) into {args.out}")
     return 0

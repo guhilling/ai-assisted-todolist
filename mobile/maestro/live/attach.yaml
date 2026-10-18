@@ -1,0 +1,47 @@
+# Attaches an image to a task on qa through Android's file picker, sees it on the board, and opens
+# it (#278): uploaded straight to qa's attachment bucket, and shown from there by a signed link --
+# the bucket's CORS rule and the links are what the Compose stack's LocalStack cannot prove.
+appId: de.hilling.taskfest.qa
+name: Attach an image on qa
+---
+- runFlow: sign-in.yaml
+
+- tapOn: "Add a task"
+- tapOn:
+    id: "task-description"
+- inputText: "Keep the receipt"
+- hideKeyboard
+- tapOn: "Add"
+- extendedWaitUntil:
+    visible: "Keep the receipt"
+    timeout: 15000
+
+- tapOn: 'Edit "Keep the receipt"'
+- tapOn: "Choose a file"
+# Android's file picker opens on recent files; the image is in Downloads.
+- extendedWaitUntil:
+    visible: "Show roots"
+    timeout: 15000
+- runFlow:
+    when:
+      notVisible: "attach-me.png"
+    commands:
+      - tapOn: "Show roots"
+      - tapOn: "Downloads"
+- tapOn: "attach-me.png"
+- extendedWaitUntil:
+    visible: "Remove attach-me.png"
+    timeout: 30000
+- takeScreenshot: live-06-attached
+- tapOn: "Cancel"
+
+- extendedWaitUntil:
+    visible: "Open attach-me.png"
+    timeout: 15000
+- tapOn: "Open attach-me.png"
+- extendedWaitUntil:
+    visible:
+      id: "viewed-image"
+    timeout: 15000
+- takeScreenshot: live-07-viewed
+- tapOn: "Close"
