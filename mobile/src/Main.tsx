@@ -1,5 +1,7 @@
 import Constants from 'expo-constants'
 import { Directory, File, Paths } from 'expo-file-system'
+import { ImageManipulator, SaveFormat } from 'expo-image-manipulator'
+import * as ImagePicker from 'expo-image-picker'
 import * as IntentLauncher from 'expo-intent-launcher'
 import { getLocales } from 'expo-localization'
 import * as Notifications from 'expo-notifications'
@@ -8,7 +10,9 @@ import * as WebBrowser from 'expo-web-browser'
 import { Platform } from 'react-native'
 import { GoogleOneTapSignIn } from 'react-native-nitro-google-signin'
 import {
+  announceAttachment,
   attachmentLink,
+  confirmAttachment,
   createTask,
   deleteAccount,
   deleteTask,
@@ -19,6 +23,9 @@ import {
   updateTask,
 } from './api'
 import { documentsFor } from './documents'
+import { pickFile, type PickedPhoto } from './pick'
+import { makeThumbnail } from './thumbnails'
+import { uploadFile, type UploadParts } from './upload'
 import { googleProviderFor } from './google'
 import { createKeptBoardStore } from './keptBoard'
 import { createReminderScheduler, type NotificationsApi } from './notifications'
@@ -26,7 +33,7 @@ import { providerFor } from './provider'
 import { createSessionStore } from './staySignedIn'
 import { TaskFestApp, type Dependencies } from './TaskFestApp'
 import { variantFromConfig } from './variants'
-import { catalogues, chooseLanguage } from './web'
+import { attachmentTypes, catalogues, chooseLanguage } from './web'
 
 /** The variant this build was made as: `app.config.ts` put it into the app's configuration. */
 const variant = variantFromConfig(Constants.expoConfig?.extra?.variant)
@@ -77,6 +84,41 @@ const notifications: NotificationsApi = {
 /** Where Android keeps the files it opens (#274): the cache, emptied when the session ends. */
 const documents = new Directory(Paths.cache, 'documents')
 
+/** A photo as the image picker hands it over, or null when the user turned back. */
+function photoOf(result: ImagePicker.ImagePickerResult): PickedPhoto | null {
+  const asset = result.canceled ? undefined : result.assets[0]
+  return asset ? { uri: asset.uri, fileName: asset.fileName ?? null, mimeType: asset.mimeType ?? null, fileSize: asset.fileSize ?? null } : null
+}
+
+/** A rendered image saved as a JPEG at 0.8, the website's thumbnail quality, with its size. */
+async function savedJpeg(image: Awaited<ReturnType<ReturnType<typeof ImageManipulator.manipulate>['renderAsync']>>, compress: number) {
+  const saved = await image.saveAsync({ format: SaveFormat.JPEG, compress })
+  return { uri: saved.uri, size: new File(saved.uri).size }
+}
+
+/** The phone's side of uploading a file (#274): a PUT straight to storage, and a photo's thumbnail. */
+const uploadParts: UploadParts = {
+  put: async (uri, url, headers, onProgress) => {
+    const result = await new File(uri).upload(url, {
+      httpMethod: 'PUT',
+      headers,
+      onProgress: onProgress && ((progress) => onProgress(progress.totalBytes > 0 ? progress.bytesSent / progress.totalBytes : 0)),
+    })
+    if (result.status < 200 || result.status >= 300) {
+      throw new Error(`Storage answered ${result.status}.`)
+    }
+  },
+  thumbnail: (file) =>
+    makeThumbnail(file, {
+      dimensions: async (uri) => {
+        const image = await ImageManipulator.manipulate(uri).renderAsync()
+        return { width: image.width, height: image.height }
+      },
+      render: async (uri, crop, size) =>
+        savedJpeg(await ImageManipulator.manipulate(uri).crop(crop).resize(size).renderAsync(), 0.8),
+    }),
+}
+
 /** Android's flag letting the viewer read the one file it is handed. */
 const FLAG_GRANT_READ_URI_PERMISSION = 1
 
@@ -95,7 +137,37 @@ const dependencies: Dependencies = {
   attachments: {
     link: (caller, taskId, attachmentId, thumbnail) => attachmentLink({ ...caller, appVersion }, taskId, attachmentId, thumbnail),
     remove: (caller, taskId, attachmentId) => removeAttachment({ ...caller, appVersion }, taskId, attachmentId),
+    upload: (caller, taskId, file, onProgress) =>
+      uploadFile(
+        { ...caller, appVersion },
+        taskId,
+        file,
+        onProgress,
+        { announce: announceAttachment, confirm: confirmAttachment },
+        uploadParts,
+      ),
   },
+  pickFile: (source) =>
+    pickFile(source, {
+      cameraAllowed: async () => (await ImagePicker.requestCameraPermissionsAsync()).granted,
+      camera: async () => photoOf(await ImagePicker.launchCameraAsync({ mediaTypes: ['images'] })),
+      library: async () =>
+        photoOf(
+          await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ['images'],
+            // A JPEG rather than an iPhone's HEIC where iOS can give one; pick.ts turns any HEIC left.
+            preferredAssetRepresentationMode: ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Compatible,
+          }),
+        ),
+      files: async () => {
+        const picked = await File.pickFileAsync({ mimeTypes: attachmentTypes })
+        const file = picked.canceled ? null : picked.result
+        return file ? { uri: file.uri, name: file.name, type: file.type, size: file.size } : null
+      },
+      sizeOf: (uri) => new File(uri).size,
+      toJpeg: async (uri) => savedJpeg(await ImageManipulator.manipulate(uri).renderAsync(), 0.9),
+      now: () => Date.now(),
+    }),
   documents: documentsFor(Platform.OS, {
     openBrowser: (url) => WebBrowser.openBrowserAsync(url),
     download: async (url, fileName) => {

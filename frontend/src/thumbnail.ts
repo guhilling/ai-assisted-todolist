@@ -13,8 +13,11 @@ const EDGE = 128
 /** The longest side a thumbnail is given; a panorama beyond it is cropped to its middle. */
 const LONGEST = 4 * EDGE
 
-/** The largest thumbnail the backend accepts (`taskfest.attachments.max-thumbnail-bytes`). */
-const MAX_BYTES = 64 * 1024
+/**
+ * The largest thumbnail the backend accepts (`taskfest.attachments.max-thumbnail-bytes`); an image
+ * no larger needs none. The mobile app goes by it too (#274).
+ */
+export const MAX_THUMBNAIL_BYTES = 64 * 1024
 
 /**
  * The size to draw an image of this size at: its shorter side covers the row's box twice over, as
@@ -32,6 +35,17 @@ export function thumbnailSize(width: number, height: number) {
 }
 
 /**
+ * The part of an image a thumbnail of it shows, in the image's pixels: all of it, or the middle of a
+ * panorama whose thumbnail would be longer than `LONGEST`. Drawn at `size`.
+ */
+export function thumbnailCrop(width: number, height: number, size: { width: number; height: number }) {
+  const scale = Math.max(size.width / width, size.height / height)
+  const sourceWidth = size.width / scale
+  const sourceHeight = size.height / scale
+  return { originX: (width - sourceWidth) / 2, originY: (height - sourceHeight) / 2, width: sourceWidth, height: sourceHeight }
+}
+
+/**
  * A JPEG thumbnail of an image file, or null when it needs none -- a file small enough to show as
  * it is, which keeps a PNG's transparency and a GIF's animation, or an image that would not be
  * scaled down -- or when this browser cannot make one, or it would not be small enough. Drawn on
@@ -39,7 +53,7 @@ export function thumbnailSize(width: number, height: number) {
  * show the file itself.
  */
 export async function makeThumbnail(file: File): Promise<Blob | null> {
-  if (file.size <= MAX_BYTES || typeof createImageBitmap !== 'function') {
+  if (file.size <= MAX_THUMBNAIL_BYTES || typeof createImageBitmap !== 'function') {
     return null
   }
   let bitmap: ImageBitmap | null = null
@@ -51,16 +65,12 @@ export async function makeThumbnail(file: File): Promise<Blob | null> {
     if (!canvas || !context) {
       return null
     }
-    // The part of the image the thumbnail shows: all of it, or the middle of a panorama.
-    const scale = Math.max(size.width / bitmap.width, size.height / bitmap.height)
-    const sourceWidth = size.width / scale
-    const sourceHeight = size.height / scale
+    const crop = thumbnailCrop(bitmap.width, bitmap.height, size)
     context.fillStyle = '#fff'
     context.fillRect(0, 0, size.width, size.height)
-    context.drawImage(bitmap, (bitmap.width - sourceWidth) / 2, (bitmap.height - sourceHeight) / 2, sourceWidth,
-      sourceHeight, 0, 0, size.width, size.height)
+    context.drawImage(bitmap, crop.originX, crop.originY, crop.width, crop.height, 0, 0, size.width, size.height)
     const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.8))
-    return blob?.type === 'image/jpeg' && blob.size <= MAX_BYTES ? blob : null
+    return blob?.type === 'image/jpeg' && blob.size <= MAX_THUMBNAIL_BYTES ? blob : null
   } catch {
     return null
   } finally {

@@ -63,6 +63,17 @@ export default ({ config }: ConfigContext): ExpoConfig => {
         'react-native-nitro-google-signin',
         { iosUrlScheme: variant.google ? googleUrlScheme(variant.google) : 'com.googleusercontent.apps.taskfest-without-google' },
       ],
+      // Attaching photos (#274): what iOS says when it asks for the camera and the library. The app
+      // takes no videos, so it never asks for the microphone; Android's photo picker needs no
+      // permission at all.
+      [
+        'expo-image-picker',
+        {
+          cameraPermission: 'TaskFest uses the camera to attach a photo you take to a task.',
+          photosPermission: 'TaskFest opens your photos to attach one you choose to a task.',
+          microphonePermission: false,
+        },
+      ],
     ],
     extra: { variant },
   }

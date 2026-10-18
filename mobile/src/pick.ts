@@ -1,0 +1,88 @@
+import type { PickedFile } from './upload'
+
+/**
+ * Picking a file to attach (#274): a photo taken with the camera, one chosen from the library, or
+ * any file from the file picker, as the platform's pickers report it.
+ *
+ * An iPhone's photo may be HEIC, which the backend does not take (`attachmentTypes`): it becomes a
+ * JPEG here. Anything else the pickers hand over is passed on as it is, and refused, if it must be,
+ * by the website's own rule before anything is sent (`upload.ts`).
+ *
+ * The platform's pieces are passed in (`Main.tsx` gives the real ones), so this is tested without them.
+ */
+
+/** Where a file comes from. */
+export type PickSource = 'camera' | 'library' | 'files'
+
+/** A photo as the image picker reports it, any field it may leave out as null. */
+export type PickedPhoto = { uri: string; fileName: string | null; mimeType: string | null; fileSize: number | null }
+
+/** What picking needs of the platform. */
+export type PickerParts = {
+  /** Whether the app may use the camera, asking the user first if they have not answered. */
+  cameraAllowed(): Promise<boolean>
+  /** A photo taken; null when the user turned back. */
+  camera(): Promise<PickedPhoto | null>
+  /** A photo chosen from the library; null when the user turned back. */
+  library(): Promise<PickedPhoto | null>
+  /** Any file chosen; null when the user turned back. */
+  files(): Promise<PickedFile | null>
+  /** A file's size, for a picker that does not say. */
+  sizeOf(uri: string): number
+  /** A JPEG of an image, for one the backend would not take as it is. */
+  toJpeg(uri: string): Promise<{ uri: string; size: number }>
+  now(): number
+}
+
+/** The camera may not be used: the user said no, now or before. */
+export class CameraRefusedError extends Error {
+  constructor() {
+    super('The camera may not be used.')
+    this.name = 'CameraRefusedError'
+  }
+}
+
+/** The types an image's name says, for a picker that does not say its type. */
+const TYPE_BY_EXTENSION: Record<string, string> = {
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  png: 'image/png',
+  webp: 'image/webp',
+  gif: 'image/gif',
+  heic: 'image/heic',
+  heif: 'image/heif',
+}
+
+/**
+ * A file picked from the source, or null when the user turned back.
+ *
+ * @throws CameraRefusedError when the camera may not be used
+ */
+export async function pickFile(source: PickSource, parts: PickerParts): Promise<PickedFile | null> {
+  if (source === 'files') {
+    return parts.files()
+  }
+  if (source === 'camera' && !(await parts.cameraAllowed())) {
+    throw new CameraRefusedError()
+  }
+  const photo = source === 'camera' ? await parts.camera() : await parts.library()
+  return photo && asFile(photo, parts)
+}
+
+/** A photo as a file to attach: named, typed and sized, and a JPEG if it was HEIC. */
+async function asFile(photo: PickedPhoto, parts: PickerParts): Promise<PickedFile> {
+  const name = photo.fileName ?? `photo-${stamp(parts.now())}.jpg`
+  const extension = name.split('.').pop()?.toLowerCase() ?? ''
+  const type = photo.mimeType ?? TYPE_BY_EXTENSION[extension] ?? 'image/jpeg'
+  if (type === 'image/heic' || type === 'image/heif') {
+    const jpeg = await parts.toJpeg(photo.uri)
+    return { uri: jpeg.uri, name: name.replace(/\.[^.]*$/, '') + '.jpg', type: 'image/jpeg', size: jpeg.size }
+  }
+  return { uri: photo.uri, name, type, size: photo.fileSize ?? parts.sizeOf(photo.uri) }
+}
+
+/** A moment as a file name may carry it: 2026-10-18-0930, in UTC. */
+function stamp(epochMs: number) {
+  const iso = new Date(epochMs).toISOString()
+  return `${iso.slice(0, 10)}-${iso.slice(11, 13)}${iso.slice(14, 16)}`
+}
