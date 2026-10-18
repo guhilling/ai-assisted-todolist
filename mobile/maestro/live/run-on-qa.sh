@@ -57,6 +57,9 @@ failed=0
 for flow in "${flows[@]}"; do
   file="$here/$flow.yaml"
   title=$(sed -n 's/^name: //p' "$file")
+  # Each flow signs in afresh, and is recorded doing so: Chrome would otherwise keep Cognito's
+  # session from the flow before and sign straight in, past the form the flow waits for.
+  retry adb shell pm clear com.android.chrome >/dev/null
   # Started in the background, stopped with the interrupt screenrecord finishes its file on.
   adb shell screenrecord --bit-rate 2000000 "/sdcard/$flow.mp4" &
   recorder=$!
