@@ -1578,3 +1578,38 @@ function dayLabel(iso: string) {
   const suffix = day % 10 === 1 && day !== 11 ? 'st' : day % 10 === 2 && day !== 12 ? 'nd' : day % 10 === 3 && day !== 13 ? 'rd' : 'th'
   return `${monthName} ${day}${suffix}, ${year}`
 }
+
+describe('the weekday beside today and tomorrow (#337)', () => {
+  /** The weekday the board should name for a date, as the browser names it. */
+  const weekday = (iso: string) => new Date(`${iso}T00:00:00Z`).toLocaleDateString('en-GB', { weekday: 'long', timeZone: 'UTC' })
+
+  it('names the day beside the Today and Tomorrow headings, leaving the headings as they are', async () => {
+    await renderSignedIn(
+      mockApi({
+        me: ALICE,
+        tasks: [
+          task({ id: 2, description: 'Today thing', dueDate: TODAY }),
+          task({ id: 3, description: 'Tomorrow thing', dueDate: isoIn(1) }),
+          task({ id: 4, description: 'Week thing', dueDate: isoIn(3) }),
+        ],
+      }),
+    )
+
+    const today = screen.getByRole('heading', { name: 'Today' }).closest('section')!
+    const tomorrow = screen.getByRole('heading', { name: 'Tomorrow' }).closest('section')!
+    expect(within(today).getByText(weekday(TODAY))).toBeInTheDocument()
+    expect(within(tomorrow).getByText(weekday(isoIn(1)))).toBeInTheDocument()
+    // "This week" lists its weekdays on the rows already.
+    expect(screen.getByRole('heading', { name: 'This week' }).parentElement?.querySelector('.section-weekday')).toBeNull()
+  })
+
+  it('names it beside a completed task done today too', async () => {
+    await renderSignedIn(
+      mockApi({ me: ALICE, tasks: [task({ id: 9, description: 'Done today', dueDate: TODAY, state: 'DONE' })] }),
+    )
+
+    fireEvent.click(screen.getByText(/^Completed/))
+    expect(within(rowFor('Done today')).getByText('Today')).toBeInTheDocument()
+    expect(within(rowFor('Done today')).getByText(weekday(TODAY))).toBeInTheDocument()
+  })
+})

@@ -4,7 +4,7 @@ import type { BoardTask } from './api'
 import { FileStrip, type FileLinkSource } from './Attachments'
 import { boardOf, isChangeable } from './board'
 import type { Styles } from './styles'
-import { describeDueDate, localeOf, type Attachment, type Language, type Messages } from './web'
+import { addDays, describeDueDate, localeOf, weekdayBeside, type Attachment, type Language, type Messages } from './web'
 
 /** How long the offer to undo a delete stands: the website's eight seconds. */
 const UNDO_FOR_MS = 8000
@@ -75,6 +75,17 @@ export function BoardScreen({
   const board = boardOf(tasks, today)
   const clearable = board.completed.some(isChangeable)
 
+  const locale = localeOf(language)
+  /** When a task is due, and for "Today" and "Tomorrow" which day that is (#337). */
+  const when = (iso: string) => {
+    const described = describeDueDate(iso, today, messages.dates, locale)
+    const weekday = weekdayBeside(iso, today, locale)
+    return weekday ? `${described} · ${weekday}` : described
+  }
+  /** The weekday beside the Today and Tomorrow headings, which do not say it. */
+  const sectionWeekday = (bucket: string) =>
+    bucket === 'today' ? weekdayBeside(today, today, locale) : bucket === 'tomorrow' ? weekdayBeside(addDays(today, 1), today, locale) : null
+
   const row = (task: BoardTask, sayWhen: boolean) => {
     const changeable = isChangeable(task)
     const done = task.state === 'DONE'
@@ -117,9 +128,7 @@ export function BoardScreen({
               // A state a newer backend added (#268): kept open, and said to be unknown.
               <Text style={styles.muted}>{messages.row.unknown}</Text>
             ) : null}
-            {sayWhen ? (
-              <Text style={styles.muted}>{describeDueDate(task.dueDate, today, messages.dates, localeOf(language))}</Text>
-            ) : null}
+            {sayWhen ? <Text style={styles.muted}>{when(task.dueDate)}</Text> : null}
           </Pressable>
         </View>
         {files ? (
@@ -177,9 +186,17 @@ export function BoardScreen({
         ) : null}
         {board.sections.map((section) => (
           <View key={section.bucket} style={styles.section}>
-            <Text style={[styles.heading, section.bucket === 'overdue' && styles.overdue]}>
-              {messages.sections[section.bucket]}
-            </Text>
+            {/* The weekday beside the heading rather than in it (#337): the heading names the section. */}
+            <View style={styles.headingLine}>
+              <Text style={[styles.heading, section.bucket === 'overdue' && styles.overdue]}>
+                {messages.sections[section.bucket]}
+              </Text>
+              {sectionWeekday(section.bucket) ? (
+                <Text testID={`weekday-${section.bucket}`} style={styles.headingWeekday}>
+                  {sectionWeekday(section.bucket)}
+                </Text>
+              ) : null}
+            </View>
             {/* As on the website, the heading already says when a task is due today or tomorrow. */}
             {section.tasks.map((task) => row(task, section.bucket !== 'today' && section.bucket !== 'tomorrow'))}
           </View>

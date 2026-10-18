@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Task, TaskState } from '../api'
-import { bucketOf, describeDueDate, daysBetween } from '../dates'
+import { bucketOf, describeDueDate, daysBetween, weekdayBeside } from '../dates'
 import AttachmentList, { type AttachmentActions } from './AttachmentList'
 import TaskEditor, { type TaskEdit } from './TaskEditor'
 import { useI18n } from '../i18n/context'
@@ -150,6 +150,8 @@ function TaskRow({ task, today, onToggleDone, onSetState, onDelete, onEdit, atta
               {describeDueDate(task.dueDate, today, messages.dates, locale)}
             </span>
           )}
+          {/* "Today" and "Tomorrow" do not say which day that is (#337). */}
+          {dueSaidByHeading ? null : <WeekdayBeside iso={task.dueDate} today={today} locale={locale} />}
           {task.state === 'WORKING' ? <span className="task-chip">{messages.row.inProgress}</span> : null}
         </p>
         {attachments ? <AttachmentList task={task} actions={attachments} removable={editable} /> : null}
@@ -217,3 +219,9 @@ function TaskRow({ task, today, onToggleDone, onSetState, onDelete, onEdit, atta
 }
 
 export default TaskRow
+
+/** The weekday after a row's "Today" or "Tomorrow", as an item of its own on the meta line; nothing for any other day. */
+function WeekdayBeside({ iso, today, locale }: Readonly<{ iso: string; today: string; locale: string }>) {
+  const weekday = weekdayBeside(iso, today, locale)
+  return weekday ? <span className="task-due-weekday">{weekday}</span> : null
+}

@@ -1,7 +1,8 @@
 # The board
 
 The app's one screen once signed in (#267, #271): the website's board, in the website's sections,
-order, words and colours, and everything the website does with a task; its files are in
+order, words and colours — *Today* and *Tomorrow* with their weekday beside them (#337) — and
+everything the website does with a task; its files are in
 [files.md](files.md). **Account**,
 at its head, opens the account sheet ([account.md](account.md)).
 

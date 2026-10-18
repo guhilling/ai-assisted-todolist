@@ -28,7 +28,7 @@ export {
   validateVersionResponse,
 } from '../../frontend/src/generated/validators'
 export { compareCompleted, compareOpen, importanceLevels, importanceRank } from '../../frontend/src/importance'
-export { addDays, bucketOf, calendarParts, describeDueDate, quickDates, todayIso, type DueBucket } from '../../frontend/src/dates'
+export { addDays, bucketOf, calendarParts, describeDueDate, quickDates, todayIso, weekdayBeside, type DueBucket } from '../../frontend/src/dates'
 export { catalogues, type Messages } from '../../frontend/src/i18n/messages'
 export { chooseLanguage, localeOf, type Language } from '../../frontend/src/i18n/language'
 export { needsDatingBack, restoreInput } from '../../frontend/src/restore'

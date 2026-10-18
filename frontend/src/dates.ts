@@ -69,6 +69,19 @@ export function addDays(iso: string, days: number) {
 }
 
 /**
+ * The weekday beside "Today" and "Tomorrow" (#337), which do not say it -- on holiday, which day
+ * today is is not always obvious. Null for any other day: its description is a weekday or a date
+ * already, and "Yesterday" belongs to an overdue task, where the day matters less than that it is late.
+ */
+export function weekdayBeside(iso: string, today: string, locale = DISPLAY_LOCALE): string | null {
+  const offset = daysBetween(today, iso)
+  if (offset !== 0 && offset !== 1) {
+    return null
+  }
+  return atUtcMidnight(iso).toLocaleDateString(locale, { weekday: 'long', timeZone: 'UTC' })
+}
+
+/**
  * How a due date should read on a task row.
  *
  * Relative wording for the days people actually think in, a weekday name for the rest of
