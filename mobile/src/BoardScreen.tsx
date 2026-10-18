@@ -4,10 +4,7 @@ import type { BoardTask } from './api'
 import { FileStrip, type FileLinkSource } from './Attachments'
 import { boardOf, isChangeable } from './board'
 import type { Styles } from './styles'
-import { describeDueDate, localeOf, type Attachment, type Language, type Messages, type TaskImportance } from './web'
-
-/** The importance levels as the legend lists them, the most important first (#335). */
-const LEVELS: TaskImportance[] = ['HIGH', 'MEDIUM', 'LOW']
+import { bucketOf, describeDueDate, importanceByRank, localeOf, type Attachment, type Language, type Messages } from './web'
 
 /** How long the offer to undo a delete stands: the website's eight seconds. */
 const UNDO_FOR_MS = 8000
@@ -124,7 +121,10 @@ export function BoardScreen({
               <Text style={styles.muted}>{messages.row.unknown}</Text>
             ) : null}
             {sayWhen ? (
-              <Text style={styles.muted}>{describeDueDate(task.dueDate, today, messages.dates, localeOf(language))}</Text>
+              // Red when overdue, as on the website and as the colours' legend says (#335).
+              <Text style={[styles.muted, !done && bucketOf(task.dueDate, today) === 'overdue' && styles.overdueDate]}>
+                {describeDueDate(task.dueDate, today, messages.dates, localeOf(language))}
+              </Text>
             ) : null}
           </Pressable>
         </View>
@@ -183,11 +183,11 @@ export function BoardScreen({
               style={styles.muted}
               accessibilityLabel={messages.legend.spoken(
                 messages.importance.label,
-                LEVELS.map((level) => messages.importance.levels[level]),
+                importanceByRank.map((level) => messages.importance.levels[level]),
               )}
             >
               {messages.importance.label}:
-              {LEVELS.map((level) => (
+              {importanceByRank.map((level) => (
                 <Fragment key={level}>
                   {'  '}
                   <View style={[styles.dot, styles.legendDot, styles[`importance${level}`]]} /> {messages.importance.levels[level]}

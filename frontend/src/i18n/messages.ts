@@ -30,8 +30,8 @@ export const en = {
     label: 'What the colours mean',
     overdue: 'A date in red is overdue.',
     dismiss: 'Got it',
-    /** The legend read aloud as one, in the app, whose dots say nothing to a screen reader. */
-    spoken: (importance: string, levels: string[]) => `${importance}: ${levels.join(', ')}. A date in red is overdue.`,
+    /** The legend's dots read aloud, in the app, whose dots say nothing to a screen reader; `overdue` follows on its own. */
+    spoken: (importance: string, levels: string[]) => `${importance}: ${levels.join(', ')}.`,
   },
   board: {
     loading: 'Loading tasks…',
@@ -255,7 +255,7 @@ export const de: Messages = {
     label: 'Was die Farben bedeuten',
     overdue: 'Ein Datum in Rot ist überfällig.',
     dismiss: 'Verstanden',
-    spoken: (importance: string, levels: string[]) => `${importance}: ${levels.join(', ')}. Ein Datum in Rot ist überfällig.`,
+    spoken: (importance: string, levels: string[]) => `${importance}: ${levels.join(', ')}.`,
   },
   board: {
     loading: 'Aufgaben werden geladen …',

@@ -2,6 +2,7 @@ import { render, screen, userEvent } from '@testing-library/react-native'
 import type { Session } from './session'
 import type { SessionStore } from './staySignedIn'
 import { TaskFestApp, type Dependencies } from './TaskFestApp'
+import { light } from './theme'
 import { variants } from './variants'
 import type { Task } from './web'
 
@@ -14,7 +15,7 @@ const NOW = Date.UTC(2026, 9, 10, 9)
 const HOUR = 3600 * 1000
 const session: Session = { idToken: 'stored', refreshToken: 'r', expiresAt: NOW + HOUR, lastUsedAt: NOW }
 const tasks: Task[] = [{ id: 1, description: 'Pack the suitcase', dueDate: '2026-10-11', importance: 'HIGH', state: 'TODO' }]
-const LEGEND = 'Importance: High, Medium, Low. A date in red is overdue.'
+const LEGEND = 'Importance: High, Medium, Low.'
 
 function legend(seen = false) {
   return { seen: jest.fn().mockResolvedValue(seen), dismiss: jest.fn().mockResolvedValue(undefined) }
@@ -73,6 +74,21 @@ describe('the colours, explained on first use (#335)', () => {
   it('speaks German too', async () => {
     await render(<TaskFestApp variant={variants.dev} language="de" dependencies={dependencies({ legend: legend() })} />)
 
-    expect(await screen.findByLabelText('Wichtigkeit: Hoch, Mittel, Niedrig. Ein Datum in Rot ist überfällig.')).toBeOnTheScreen()
+    expect(await screen.findByLabelText('Wichtigkeit: Hoch, Mittel, Niedrig.')).toBeOnTheScreen()
+    expect(screen.getByText('Ein Datum in Rot ist überfällig.')).toBeOnTheScreen()
+  })
+
+  it('shows an overdue date in red, as the legend says and as the website does', async () => {
+    const late: Task = { id: 2, description: 'Renew the passport', dueDate: '2026-10-08', importance: 'LOW', state: 'TODO' }
+    await render(
+      <TaskFestApp
+        variant={variants.dev}
+        language="en"
+        dependencies={dependencies({ legend: legend(), fetchTasks: jest.fn().mockResolvedValue([...tasks, late]) })}
+      />,
+    )
+
+    expect(await screen.findByText('2 days ago')).toHaveStyle({ color: light.danger })
+    expect(screen.getByText('A date in red is overdue.')).toBeOnTheScreen()
   })
 })

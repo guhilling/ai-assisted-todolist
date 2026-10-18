@@ -1585,7 +1585,7 @@ describe('the colours, explained on first use (#335)', () => {
   it('explains the importance dots and the red date above the first board with tasks', async () => {
     await renderSignedIn(mockApi({ me: ALICE, tasks: [task({ id: 1, description: 'Pack the suitcase' })] }))
 
-    const legend = screen.getByRole('complementary', { name: 'What the colours mean' })
+    const legend = screen.getByRole('note', { name: 'What the colours mean' })
     expect(legend).toHaveTextContent('Importance: High Medium Low. A date in red is overdue.')
     expect(legend.querySelectorAll('.task-importance')).toHaveLength(3)
   })
@@ -1595,15 +1595,15 @@ describe('the colours, explained on first use (#335)', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Got it' }))
 
-    expect(screen.queryByRole('complementary', { name: 'What the colours mean' })).toBeNull()
+    expect(screen.queryByRole('note', { name: 'What the colours mean' })).toBeNull()
     cleanup()
     await renderSignedIn(mockApi({ me: ALICE, tasks: [task({ id: 1, description: 'Pack the suitcase' })] }))
-    expect(screen.queryByRole('complementary', { name: 'What the colours mean' })).toBeNull()
+    expect(screen.queryByRole('note', { name: 'What the colours mean' })).toBeNull()
   })
 
   it('waits while there are no tasks to explain', async () => {
     await renderSignedIn(mockApi({ me: ALICE, tasks: [] }))
 
-    expect(screen.queryByRole('complementary', { name: 'What the colours mean' })).toBeNull()
+    expect(screen.queryByRole('note', { name: 'What the colours mean' })).toBeNull()
   })
 })

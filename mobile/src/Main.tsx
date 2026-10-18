@@ -23,6 +23,7 @@ import {
   restoreTask,
   updateTask,
 } from './api'
+import { fileFlag } from './fileFlag'
 import { documentsFor } from './documents'
 import { pickFile, type PickedPhoto } from './pick'
 import { makeThumbnail } from './thumbnails'
@@ -83,9 +84,6 @@ const notifications: NotificationsApi = {
 }
 
 /** Where Android keeps the files it opens (#274): the cache, emptied when the session ends. */
-/** Exists once the board's colours were explained and dismissed (#335). */
-const coloursExplained = new File(Paths.document, 'colours-explained')
-
 const documents = new Directory(Paths.cache, 'documents')
 
 /** A photo as the image picker hands it over, or null when the user turned back. */
@@ -228,11 +226,7 @@ const dependencies: Dependencies = {
   }),
   deleteAccount: (caller) => deleteAccount({ ...caller, appVersion }),
   keptBoard: createKeptBoardStore(new File(Paths.cache, 'board.json')),
-  // A file whose existence says the board's colours were explained on this phone (#335).
-  legend: {
-    seen: async () => coloursExplained.exists,
-    dismiss: async () => coloursExplained.write('explained'),
-  },
+  legend: fileFlag(new File(Paths.document, 'colours-explained'), 'explained'),
   reminders: createReminderScheduler(
     notifications,
     new File(Paths.document, 'reminders-offer-answered'),
