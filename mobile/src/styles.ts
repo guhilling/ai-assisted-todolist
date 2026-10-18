@@ -15,6 +15,14 @@ export function stylesFor(theme: Theme) {
     // Google's button is its image, rounded as Google draws it, at its own size (#325).
     googleButton: { alignSelf: 'center', borderRadius: 20, overflow: 'hidden' },
     googleImage: { width: googleSignInButton.width, height: googleSignInButton.height },
+    // A task's files (#274): on its row as the website's 64 px previews, in the editor as a list.
+    fileStrip: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 6 },
+    fileName: { flexDirection: 'row', alignItems: 'center', gap: 4, maxWidth: 200 },
+    preview: { width: 64, height: 64, borderRadius: 6 },
+    previewLoading: { backgroundColor: theme.border },
+    viewer: { flex: 1, backgroundColor: '#000', justifyContent: 'center', paddingVertical: 48 },
+    viewedImage: { flex: 1, width: '100%' },
+    editorFile: { flexDirection: 'row', alignItems: 'center', gap: 8 },
     pressed: { opacity: 0.7 },
     quietButton: { borderRadius: 6, paddingVertical: 12, paddingHorizontal: 16 },
     quietButtonText: { color: theme.accent, fontWeight: '600', textAlign: 'center' },

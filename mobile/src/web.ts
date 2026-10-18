@@ -13,12 +13,13 @@ import googleSignInDark from '../../frontend/src/assets/google-sign-in-dark.png'
 import googleSignInLight from '../../frontend/src/assets/google-sign-in-light.png'
 
 export type {
+  AttachmentResponse as Attachment,
   TaskCreateRequest as TaskInput,
   TaskImportance,
   TaskResponse as Task,
   TaskState,
 } from '../../frontend/src/generated/types'
-export { validateTaskResponse, validateVersionResponse } from '../../frontend/src/generated/validators'
+export { validateLinkResponse, validateTaskResponse, validateVersionResponse } from '../../frontend/src/generated/validators'
 export { compareCompleted, compareOpen, importanceLevels, importanceRank } from '../../frontend/src/importance'
 export { addDays, bucketOf, calendarParts, describeDueDate, quickDates, todayIso, type DueBucket } from '../../frontend/src/dates'
 export { catalogues, type Messages } from '../../frontend/src/i18n/messages'

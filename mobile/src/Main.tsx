@@ -1,11 +1,24 @@
 import Constants from 'expo-constants'
-import { File, Paths } from 'expo-file-system'
+import { Directory, File, Paths } from 'expo-file-system'
+import * as IntentLauncher from 'expo-intent-launcher'
 import { getLocales } from 'expo-localization'
 import * as Notifications from 'expo-notifications'
 import * as SecureStore from 'expo-secure-store'
+import * as WebBrowser from 'expo-web-browser'
 import { Platform } from 'react-native'
 import { GoogleOneTapSignIn } from 'react-native-nitro-google-signin'
-import { createTask, deleteAccount, deleteTask, fetchMinimumAppVersion, fetchTasks, restoreTask, updateTask } from './api'
+import {
+  attachmentLink,
+  createTask,
+  deleteAccount,
+  deleteTask,
+  fetchMinimumAppVersion,
+  fetchTasks,
+  removeAttachment,
+  restoreTask,
+  updateTask,
+} from './api'
+import { documentOpenerFor } from './documents'
 import { googleProviderFor } from './google'
 import { createKeptBoardStore } from './keptBoard'
 import { createReminderScheduler, type NotificationsApi } from './notifications'
@@ -61,6 +74,12 @@ const notifications: NotificationsApi = {
   },
 }
 
+/** Where Android keeps the PDFs it opens (#274): the cache, which the system may clear. */
+const documents = new Directory(Paths.cache, 'documents')
+
+/** Android's flag letting the viewer read the one file it is handed. */
+const FLAG_GRANT_READ_URI_PERMISSION = 1
+
 const dependencies: Dependencies = {
   sessions: createSessionStore(SecureStore),
   provider: variant.signIn ? providerFor(variant.signIn, variant.scheme) : noProvider,
@@ -73,6 +92,25 @@ const dependencies: Dependencies = {
     remove: (caller, task) => deleteTask({ ...caller, appVersion }, task),
     restore: (caller, task, today) => restoreTask({ ...caller, appVersion }, task, today),
   },
+  attachments: {
+    link: (caller, taskId, attachmentId, thumbnail) => attachmentLink({ ...caller, appVersion }, taskId, attachmentId, thumbnail),
+    remove: (caller, taskId, attachmentId) => removeAttachment({ ...caller, appVersion }, taskId, attachmentId),
+  },
+  openDocument: documentOpenerFor(Platform.OS, {
+    openBrowser: (url) => WebBrowser.openBrowserAsync(url),
+    download: async (url, fileName) => {
+      if (!documents.exists) {
+        documents.create()
+      }
+      return File.downloadFileAsync(url, new File(documents, fileName), { idempotent: true })
+    },
+    view: (contentUri, mimeType) =>
+      IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
+        data: contentUri,
+        type: mimeType,
+        flags: FLAG_GRANT_READ_URI_PERMISSION,
+      }),
+  }),
   deleteAccount: (caller) => deleteAccount({ ...caller, appVersion }),
   keptBoard: createKeptBoardStore(new File(Paths.cache, 'board.json')),
   reminders: createReminderScheduler(

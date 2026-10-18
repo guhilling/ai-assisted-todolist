@@ -165,6 +165,8 @@ export const en = {
     uploading: (fileName: string) => `Uploading ${fileName}`,
     open: (fileName: string) => `Open ${fileName}`,
     remove: (fileName: string) => `Remove ${fileName}`,
+    /** The mobile app's, closing an image it shows (#274). */
+    close: 'Close',
     uploadFailed: (fileName: string) => `${fileName} could not be uploaded. Try again.`,
     /** Why a file was refused, by the backend's reason; typed by it, so none is missing. */
     refusals: {
@@ -355,6 +357,7 @@ export const de: Messages = {
     uploading: (fileName: string) => `${fileName} wird hochgeladen`,
     open: (fileName: string) => `${fileName} öffnen`,
     remove: (fileName: string) => `${fileName} entfernen`,
+    close: 'Schließen',
     uploadFailed: (fileName: string) => `${fileName} konnte nicht hochgeladen werden. Versuch es noch einmal.`,
     refusals: {
       UNSUPPORTED_TYPE: (fileName: string) => `${fileName} ist weder ein PDF noch ein Bild.`,

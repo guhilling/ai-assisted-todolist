@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ActivityIndicator, AppState, Image, Modal, Pressable, Text, useColorScheme, View } from 'react-native'
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context'
-import { SignedOutError, TimedOutError, VERSION_CHECK_MS, type BoardTask, type Caller } from './api'
+import { SignedOutError, TimedOutError, VERSION_CHECK_MS, type BoardTask, type Caller, type FileLink } from './api'
+import { FileViewer } from './Attachments'
+import { isImage } from './files'
 import { AccountScreen } from './AccountScreen'
 import { isTooOld } from './appVersion'
 import { isChangeable } from './board'
@@ -24,7 +26,17 @@ import { stylesFor, type Styles } from './styles'
 import { TaskForm, type TaskValues } from './TaskForm'
 import { dark, light } from './theme'
 import type { Variant } from './variants'
-import { catalogues, googleSignInButton, localeOf, todayIso, type Language, type Messages, type Task, type TaskInput } from './web'
+import {
+  catalogues,
+  googleSignInButton,
+  localeOf,
+  todayIso,
+  type Attachment,
+  type Language,
+  type Messages,
+  type Task,
+  type TaskInput,
+} from './web'
 
 /** How the app changes tasks on the backend (#271), each as the signed-in user. */
 export type TaskChanges = {
@@ -43,6 +55,13 @@ export type Dependencies = {
   google?: GoogleProvider
   fetchTasks(caller: Caller): Promise<BoardTask[]>
   changes: TaskChanges
+  /** A task's files (#274): links that show them, signed for a few minutes, and removing one. */
+  attachments?: {
+    link(caller: Caller, taskId: Task['id'], attachmentId: Attachment['id'], thumbnail: boolean): Promise<FileLink>
+    remove(caller: Caller, taskId: Task['id'], attachmentId: Attachment['id']): Promise<void>
+  }
+  /** Opens a PDF in the phone's own viewer (#274). */
+  openDocument?(url: string, fileName: string): Promise<void>
   /** Deletes the signed-in user's account with everything in it (#275). */
   deleteAccount(caller: Caller): Promise<void>
   /** The last board loaded, kept on the phone to be read without a connection (#272). */
@@ -136,6 +155,8 @@ export function TaskFestApp({
     appVersion,
     now,
     changes,
+    attachments: files,
+    openDocument,
     deleteAccount,
     keptBoard,
     reminders,
@@ -148,6 +169,10 @@ export function TaskFestApp({
   const [form, setForm] = useState<Form | null>(null)
   const [account, setAccount] = useState<Account | null>(null)
   const [failure, setFailure] = useState<string>()
+  /** The image opened from a task, shown over everything (#274). */
+  const [viewing, setViewing] = useState<{ url: string; fileName: string } | null>(null)
+  /** The links to files asked for, kept while they work, so a preview does not ask on every render. */
+  const links = useRef(new Map<string, FileLink>())
   /** Whether a change was refused because the board shown may not be current (#272), until it is. */
   const [refused, setRefused] = useState(false)
   /** Whether the reminders may be offered (#273): they may be asked for, and the offer was not answered. */
@@ -704,6 +729,78 @@ export function TaskFestApp({
     }
   }
 
+  /**
+   * A link to a file or its thumbnail (#274): the one asked for before while it still works for a
+   * minute more, and a new one otherwise. Asked as whoever is signed in, kept board or not: showing
+   * a file changes nothing.
+   */
+  const fileLink = async (taskId: Task['id'], attachmentId: Attachment['id'], thumbnail: boolean) => {
+    if (!files) {
+      throw new Error('This app cannot show files.')
+    }
+    const key = `${taskId}/${attachmentId}/${thumbnail}`
+    const known = links.current.get(key)
+    if (known && known.expiresAt - 60_000 > now()) {
+      return known.url
+    }
+    const fresh = await files.link(await signedInCaller(), taskId, attachmentId, thumbnail)
+    links.current.set(key, fresh)
+    return fresh.url
+  }
+  const latestFileLink = useRef(fileLink)
+  useEffect(() => {
+    latestFileLink.current = fileLink
+  })
+  /** `fileLink`, with one identity for the app's lifetime, so a preview asks once and not per render. */
+  const previewLink = useCallback(
+    (taskId: Task['id'], attachmentId: Attachment['id'], thumbnail: boolean) =>
+      latestFileLink.current(taskId, attachmentId, thumbnail),
+    [],
+  )
+
+  /** Opens a file: an image in the app's own viewer, a PDF in the phone's. */
+  const openFile = async (task: BoardTask, attachment: Attachment) => {
+    setFailure(undefined)
+    try {
+      const url = await fileLink(task.id, attachment.id, false)
+      if (isImage(attachment)) {
+        setViewing({ url, fileName: attachment.fileName })
+      } else {
+        await openDocument?.(url, attachment.fileName)
+      }
+    } catch (cause) {
+      setFailure((await failed(cause, messages.errors.openAttachment)) ?? undefined)
+    }
+  }
+
+  /** Removes a file from its task for good, on the board, in the editor and in the board kept. */
+  const removeFile = async (task: BoardTask, attachment: Attachment) => {
+    if (!files || refusedWhileKept() || !markBusy(task, true)) {
+      return
+    }
+    const without = (each: BoardTask): BoardTask =>
+      each.id === task.id ? { ...each, attachments: each.attachments?.filter((kept) => kept.id !== attachment.id) } : each
+    setForm((current) => (current?.task?.id === task.id ? { ...current, failure: undefined } : current))
+    try {
+      await sending(async () => files.remove(await caller(), task.id, attachment.id))
+      setTasks((tasks) => tasks.map(without))
+      keep((kept) => {
+        const stored = kept.get(task.id)
+        if (stored) {
+          kept.set(task.id, without(stored))
+        }
+      })
+      setForm((current) => (current?.task?.id === task.id ? { ...current, task: without(current.task) } : current))
+    } catch (cause) {
+      const text = await failed(cause, messages.errors.removeAttachment)
+      if (text) {
+        setForm((current) => (current?.task?.id === task.id ? { ...current, failure: text } : current))
+      }
+    } finally {
+      markBusy(task, false)
+    }
+  }
+
   /** Stable, so that a new render of the board does not restart the undo's countdown. */
   const dismissUndo = useCallback(() => {
     undoable.current = null
@@ -760,6 +857,7 @@ export function TaskFestApp({
                     : undefined
               }
               onRetry={reload}
+              files={files ? { link: previewLink, onOpen: (task, attachment) => void openFile(task, attachment) } : undefined}
               offer={
                 offerReminders && !state.kept && remindable
                   ? { onTurnOn: () => void turnOnReminders(), onNotNow: declineReminders }
@@ -767,6 +865,7 @@ export function TaskFestApp({
               }
             />
             <Modal
+              testID="task-form"
               visible={form !== null}
               animationType="slide"
               presentationStyle="pageSheet"
@@ -784,10 +883,12 @@ export function TaskFestApp({
                   failure={form.failure}
                   onSave={save}
                   onDelete={form.task ? () => void remove([form.task!]) : undefined}
+                  onRemoveFile={files && form.task ? (attachment) => void removeFile(form.task!, attachment) : undefined}
                   onCancel={() => setForm(null)}
                 />
               ) : null}
             </Modal>
+            <FileViewer file={viewing} messages={messages} styles={styles} onClose={() => setViewing(null)} />
             <Modal
               testID="account-sheet"
               visible={account !== null}

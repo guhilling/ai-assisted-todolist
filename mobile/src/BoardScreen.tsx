@@ -1,9 +1,10 @@
 import { useEffect } from 'react'
 import { Pressable, ScrollView, Text, View } from 'react-native'
 import type { BoardTask } from './api'
+import { FileStrip, type FileLinkSource } from './Attachments'
 import { boardOf, isChangeable } from './board'
 import type { Styles } from './styles'
-import { describeDueDate, localeOf, type Language, type Messages } from './web'
+import { describeDueDate, localeOf, type Attachment, type Language, type Messages } from './web'
 
 /** How long the offer to undo a delete stands: the website's eight seconds. */
 const UNDO_FOR_MS = 8000
@@ -37,6 +38,7 @@ export function BoardScreen({
   onAccount,
   kept,
   onRetry,
+  files,
   offer,
 }: {
   tasks: BoardTask[]
@@ -65,6 +67,8 @@ export function BoardScreen({
   kept?: { failed: false } | { failed: true; since: string }
   /** Loads the board again, after a failed load. */
   onRetry: () => void
+  /** A task's files on its row (#274): their links, and opening one. */
+  files?: { link: FileLinkSource; onOpen: (task: BoardTask, attachment: Attachment) => void }
   /** The offer to turn the due-day reminders on (#273), while it stands. */
   offer?: { onTurnOn: () => void; onNotNow: () => void }
 }) {
@@ -105,6 +109,15 @@ export function BoardScreen({
           <View style={styles.description}>
             <Text style={[styles.description, done && styles.done]}>{task.description}</Text>
             {changeable ? null : <Text style={styles.muted}>{messages.row.updateToChange}</Text>}
+            {files ? (
+              <FileStrip
+                task={task}
+                link={files.link}
+                messages={messages}
+                styles={styles}
+                onOpen={(attachment) => files.onOpen(task, attachment)}
+              />
+            ) : null}
           </View>
           {task.unknown?.includes('state') ? (
             // A state a newer backend added (#268): kept open, and said to be unknown.
