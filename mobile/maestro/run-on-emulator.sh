@@ -27,6 +27,7 @@ case "$share" in
   board)
     maestro test mobile/maestro/sign-in.yaml mobile/maestro/change-tasks.yaml \
       --format junit --output maestro-report.xml --test-output-dir maestro-output
+    bash mobile/maestro/spike/run.sh
     exit 0
     ;;
   others) ;;

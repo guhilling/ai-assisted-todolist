@@ -1,0 +1,18 @@
+# SPIKE #279: a PDF shared while the app is not running: it starts, restores the session, and opens
+# "Add a task" with the PDF pending.
+appId: de.hilling.taskfest.dev
+name: Spike - share a PDF from cold
+---
+- extendedWaitUntil:
+    visible: "Remove share-me.pdf"
+    timeout: 40000
+- takeScreenshot: spike-05-pdf-form
+- tapOn:
+    id: "task-description"
+- inputText: "Shared PDF"
+- hideKeyboard
+- tapOn: "Add"
+- extendedWaitUntil:
+    visible: "Open share-me.pdf"
+    timeout: 30000
+- takeScreenshot: spike-06-pdf-added

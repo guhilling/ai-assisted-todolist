@@ -74,6 +74,21 @@ export default ({ config }: ConfigContext): ExpoConfig => {
           microphonePermission: false,
         },
       ],
+      // SPIKE #279: receiving shares.
+      [
+        'expo-sharing',
+        {
+          ios: {
+            enabled: true,
+            activationRule: { supportsText: true, supportsWebUrlWithMaxCount: 1, supportsImageWithMaxCount: 2, supportsFileWithMaxCount: 2 },
+          },
+          android: {
+            enabled: true,
+            singleShareMimeTypes: ['text/plain', 'image/*', 'application/pdf'],
+            multipleShareMimeTypes: ['image/*', 'application/pdf'],
+          },
+        },
+      ],
     ],
     extra: { variant },
   }

@@ -1,0 +1,17 @@
+# SPIKE #279: an image shared while the app is open is pending in "Add a task", and attached once added.
+appId: de.hilling.taskfest.dev
+name: Spike - share an image
+---
+- extendedWaitUntil:
+    visible: "Remove attach-me.png"
+    timeout: 20000
+- takeScreenshot: spike-03-image-form
+- tapOn:
+    id: "task-description"
+- inputText: "Shared image"
+- hideKeyboard
+- tapOn: "Add"
+- extendedWaitUntil:
+    visible: "Open attach-me.png"
+    timeout: 30000
+- takeScreenshot: spike-04-image-added

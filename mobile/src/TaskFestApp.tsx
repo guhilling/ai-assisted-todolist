@@ -81,6 +81,8 @@ export type Dependencies = {
   reminders: ReminderScheduler
   /** Whether the board's colours were explained on this phone already (#335); none, and they never are. */
   legend?: { seen(): Promise<boolean>; dismiss(): Promise<void> }
+  /** SPIKE #279: what another app shared, taken once. */
+  incoming?: { take(): Promise<{ text: string; files: PickedFile[] } | null> }
   /** The oldest app release the backend serves (#268). */
   fetchMinimumAppVersion(): Promise<string>
   /** This build's release: the tag's, or 0.0.0 from a branch. */
@@ -97,6 +99,8 @@ type Form = {
   failure?: string
   /** Files picked while adding a task, attached once it exists (#274). */
   pending?: PickedFile[]
+  /** SPIKE #279: the description a share brought. */
+  description?: string
 }
 
 /** The promise's value, or null once the time is up -- never a wait without end. */
@@ -183,6 +187,7 @@ export function TaskFestApp({
     keptBoard,
     reminders,
     legend,
+    incoming,
   } = dependencies
   const messages = catalogues[language]
   const darkMode = useColorScheme() === 'dark'
@@ -441,6 +446,23 @@ export function TaskFestApp({
   // own legal links leave the app -- and the board could miss the change. Nor while signing in:
   // the browser coming back is a return to the foreground, and starting over then finds no session
   // yet and could forget the one the sign-in is about to save.
+  // SPIKE #279: a share opens the add form, once the board is there; again whenever the app comes back.
+  const signedIn = state.kind === 'board'
+  useEffect(() => {
+    if (!incoming || !signedIn) {
+      return
+    }
+    const take = () =>
+      void incoming.take().then((share) => {
+        if (share) {
+          setForm({ description: share.text, pending: share.files.slice(0, attachmentLimits.perTask) })
+        }
+      })
+    take()
+    const subscription = AppState.addEventListener('change', (next) => next === 'active' && take())
+    return () => subscription.remove()
+  }, [incoming, signedIn])
+
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (next) => {
       // Not while a file is open in another app, or being opened: coming back from it is no reason.
@@ -1116,6 +1138,7 @@ export function TaskFestApp({
                   onRemoveFile={files && form.task ? (attachment) => void removeFile(form.task!, attachment) : undefined}
                   busy={form.task ? busy.has(form.task.id) : false}
                   pending={form.task ? undefined : (form.pending ?? [])}
+                  draft={form.task ? undefined : form.description}
                   uploading={uploading?.taskId === (form.task?.id ?? 'new') ? uploading : null}
                   onAttach={files?.upload && pickFile ? (source) => void attach(source) : undefined}
                   onUnpick={(file) =>

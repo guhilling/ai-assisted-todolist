@@ -52,6 +52,7 @@ export function TaskForm({
   onAttach,
   onUnpick,
   onCancel,
+  draft,
 }: {
   /** The task to edit; none to add one. */
   task?: BoardTask
@@ -78,9 +79,11 @@ export function TaskForm({
   /** Lets a file picked while adding go again. */
   onUnpick?: (file: PickedFile) => void
   onCancel: () => void
+  /** SPIKE #279: a description to start a new task with. */
+  draft?: string
 }) {
   const editing = task !== undefined
-  const [description, setDescription] = useState(task?.description ?? '')
+  const [description, setDescription] = useState(task?.description ?? draft ?? '')
   const [dueDate, setDueDate] = useState(task?.dueDate ?? addDays(today, 1))
   const [importance, setImportance] = useState<TaskImportance>(task?.importance ?? 'MEDIUM')
   // A task still in progress is shown, and saved, as the open task it now is (#334).

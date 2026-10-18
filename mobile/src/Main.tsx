@@ -7,6 +7,7 @@ import * as IntentLauncher from 'expo-intent-launcher'
 import { getLocales } from 'expo-localization'
 import * as Notifications from 'expo-notifications'
 import * as SecureStore from 'expo-secure-store'
+import * as Sharing from 'expo-sharing'
 import * as WebBrowser from 'expo-web-browser'
 import { Platform } from 'react-native'
 import { GoogleOneTapSignIn } from 'react-native-nitro-google-signin'
@@ -227,6 +228,33 @@ const dependencies: Dependencies = {
   deleteAccount: (caller) => deleteAccount({ ...caller, appVersion }),
   keptBoard: createKeptBoardStore(new File(Paths.cache, 'board.json')),
   legend: fileFlag(new File(Paths.document, 'colours-explained'), 'explained'),
+  // SPIKE #279: text and links from the raw share -- resolving a link would fetch it -- and files resolved.
+  incoming: {
+    take: async () => {
+      const raw = Sharing.getSharedPayloads()
+      console.log('[share] raw', JSON.stringify(raw))
+      if (raw.length === 0) {
+        return null
+      }
+      const text = raw
+        .filter((each) => each.shareType === 'text' || each.shareType === 'url')
+        .map((each) => each.value)
+        .join(' ')
+      const files = raw.some((each) => each.shareType !== 'text' && each.shareType !== 'url')
+        ? (await Sharing.getResolvedSharedPayloadsAsync())
+            .filter((each) => each.contentUri && each.contentType !== 'text' && each.contentType !== 'website')
+            .map((each) => ({
+              uri: each.contentUri!,
+              name: each.originalName ?? 'shared',
+              type: each.contentMimeType ?? each.mimeType ?? '',
+              size: each.contentSize ?? new File(each.contentUri!).size ?? 0,
+            }))
+        : []
+      console.log('[share] taken', JSON.stringify({ text, files }))
+      Sharing.clearSharedPayloads()
+      return { text, files }
+    },
+  },
   reminders: createReminderScheduler(
     notifications,
     new File(Paths.document, 'reminders-offer-answered'),

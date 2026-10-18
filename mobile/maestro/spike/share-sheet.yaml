@@ -1,0 +1,22 @@
+# SPIKE #279: the real way in -- the Files app's Share, Android's share sheet, TaskFest Dev.
+appId: com.google.android.documentsui
+name: Spike - share through the share sheet
+---
+- launchApp:
+    appId: com.google.android.documentsui
+- takeScreenshot: spike-07-files
+- runFlow:
+    when:
+      notVisible: "attach-me.png"
+    commands:
+      - tapOn: "Show roots"
+      - tapOn: "Downloads"
+- longPressOn: "attach-me.png"
+- takeScreenshot: spike-08-selected
+- tapOn: "Share"
+- takeScreenshot: spike-09-share-sheet
+- tapOn: "TaskFest Dev"
+- extendedWaitUntil:
+    visible: "Remove attach-me.png"
+    timeout: 30000
+- takeScreenshot: spike-10-from-share-sheet
