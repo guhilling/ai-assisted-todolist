@@ -216,6 +216,12 @@ const dependencies: Dependencies = {
         documents.delete()
       }
     },
+    discard: async (fileName) => {
+      const copy = new File(documents, fileName)
+      if (copy.exists) {
+        copy.delete()
+      }
+    },
   }),
   deleteAccount: (caller) => deleteAccount({ ...caller, appVersion }),
   keptBoard: createKeptBoardStore(new File(Paths.cache, 'board.json')),

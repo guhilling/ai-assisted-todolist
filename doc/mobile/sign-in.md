@@ -29,9 +29,10 @@ instead, so the backend accepts that one too: `google_ios_client_id` in the envi
 **The button is Google's own** (#325): the images the website shows, `google-sign-in-light.png` and
 `-dark.png` from `frontend/src/assets/` with their `@2x` and `@3x`, following the phone's light or
 dark mode. Google's [branding guidelines](https://developers.google.com/identity/branding-guidelines)
-allow its "G" only inside its own button, so the image is the whole button, in Google's English
-whatever the app speaks, as on the website (`signedOut.google` in the catalogue, the same in both
-languages). VoiceOver is told it is English; Android has no way to tell TalkBack. Google draws it
+would allow a button of the app's own as well, as long as Google's "G" keeps its size and colours,
+and would allow its words in the app's language; the app uses Google's image as it is instead, to
+look exactly like the website's, so the image is the whole button, in Google's English whatever
+the app speaks (`signedOut.google` in the catalogue, the same in both languages). VoiceOver is told it is English; Android has no way to tell TalkBack. Google draws it
 40 points high, so it takes 4 more above and below for the finger. qa's test-account button keeps
 the app's own style.
 

@@ -90,10 +90,14 @@ export async function pickFile(source: PickSource, parts: PickerParts): Promise<
   return photo && asFile(photo, parts)
 }
 
-/** A photo as a file to attach: named, typed and sized, and a JPEG if it was HEIC. */
+/**
+ * A photo as a file to attach: named, typed and sized, and a JPEG if it was HEIC. A type neither
+ * the picker nor the name says stays unknown -- empty, as for any file -- for the upload to refuse;
+ * only the name made up here for a photo without one says JPEG.
+ */
 async function asFile(photo: PickedPhoto, parts: PickerParts): Promise<PickedFile> {
   const name = photo.fileName ?? `photo-${stamp(parts.now())}.jpg`
-  const type = photo.mimeType ?? typeOfName(name) ?? 'image/jpeg'
+  const type = photo.mimeType ?? typeOfName(name) ?? ''
   if (type === 'image/heic' || type === 'image/heif') {
     const jpeg = await parts.toJpeg(photo.uri)
     return { uri: jpeg.uri, name: name.replace(/\.[^.]*$/, '') + '.jpg', type: 'image/jpeg', size: jpeg.size }

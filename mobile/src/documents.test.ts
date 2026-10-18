@@ -52,3 +52,20 @@ describe("the cached copy's name (#274)", () => {
     expect(safeFileName('...pdf')).toBe('...pdf')
   })
 })
+
+describe('a copy downloaded after its session ended (#274)', () => {
+  it('is neither viewed nor kept, when the copies were forgotten while it downloaded', async () => {
+    const parts = { ...platform(), discard: jest.fn().mockResolvedValue(undefined) }
+    let arrive: (copy: { contentUri: string }) => void = () => undefined
+    parts.download.mockReturnValue(new Promise((resolve) => (arrive = resolve)))
+    const documents = documentsFor('android', parts)
+
+    const opened = documents.open('https://bucket.example.com/scan', 'scan.pdf', 'application/pdf')
+    await documents.forget()
+    arrive({ contentUri: 'content://de.hilling.taskfest/cache/documents/scan.pdf' })
+    await opened
+
+    expect(parts.view).not.toHaveBeenCalled()
+    expect(parts.discard).toHaveBeenCalledWith('scan.pdf')
+  })
+})
