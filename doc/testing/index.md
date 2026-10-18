@@ -13,10 +13,10 @@ about what exists and how to run it.
 | Browser end-to-end | `e2e/tests/` | the whole containerised stack | `e2e.yml` |
 | Mobile unit / component | `mobile/src/**/*.test.ts(x)` | nothing; `jest-expo` and React Native Testing Library | `mobile-ci.yml` |
 | Mobile end-to-end | `mobile/maestro/` | the app on an Android emulator, against the containerised stack | `mobile-ci.yml` |
-| Live | `e2e/live/` | nothing: checks a deployed environment through CloudFront | `live-tests.yml`, after each deploy to qa |
+| Live | `e2e/live/`, `mobile/maestro/live/` | nothing: checks a deployed environment through CloudFront, in a browser and in the released Android app | `live-tests.yml`, after each deploy to qa |
 
 **Watch them run:** [the newest live run](https://guhilling.github.io/ai-assisted-todolist/videos/)
-has a video of each signed-in scenario against qa, replaced by every run
+has a video of each signed-in scenario and each of the app's flows against qa, replaced by every run
 ([live tests](live.md) says how they are made).
 
 The backend's split between "unit" and "integration" is not about annotations but about

@@ -4,12 +4,13 @@ The other layers test the code. This one tests a **deployed environment** from t
 through CloudFront, the way a visitor reaches it — the part of qa that, until now, was checked by
 hand after each change, and where things fail that cannot fail anywhere else (#141).
 
-It has two parts:
+It has three parts:
 
 | Part | What it needs | Issue |
 | --- | --- | --- |
 | **Smoke checks** — everything that can be checked without signing in | nothing: no account, no AWS role, no secret | #142 |
 | **The signed-in scenarios** — tasks, two users kept apart and never served from a cache, sign-out | qa's Cognito test accounts, with a password set per run | #144 |
+| **The app's flows** — the released Android app signed in, changing tasks and attaching a file | the same accounts, an Android emulator, and the release's app bundle | #278 |
 
 ## What the smoke checks check
 
@@ -89,10 +90,44 @@ visible one is addressed — and the accounts. One scenario runs in qa only: bot
   for them. About
   2 MB per run, at Playwright's 800 x 450.
 
+## The app's flows
+
+The released qa app (`de.hilling.taskfest.qa`) on an Android emulator, signed in as
+`taskfest-test-one@example.com` through Cognito's login page in the system browser — the job
+`The app on qa`, after the signed-in scenarios. Two Maestro flows in `mobile/maestro/live/`, each
+signing in first:
+
+| Flow | What it does | Would have caught |
+| --- | --- | --- |
+| `change-tasks.yaml` | adds a task, edits it, completes it, deletes it and takes the delete back | the app and the deployed API disagreeing, or the app's sign-in on qa broken |
+| `attach.yaml` | adds a task, attaches an image through Android's file picker, and opens it | qa's attachment bucket refusing the app's upload, or its signed links not reaching the phone |
+
+- **The app is the one the release built**, not one built here: the bundle `mobile-release.yml`
+  uploaded to Play, kept as the artifact `taskfest-qa-<version>-aab` for 30 days. The job finds the
+  one of the version qa reports (`/api/version`); in a release, where that build runs beside the
+  deploy, it waits for it, up to 20 minutes. bundletool turns it into one APK, signed with a key
+  made for the run — the emulator needs a signature, not Play's. A version with no bundle kept —
+  never released, or older than 30 days — skips the job with a warning.
+- **The same accounts and rules as the website's scenarios.** `mobile/maestro/live/run-on-qa.sh`
+  sets new passwords and clears both accounts before the flows and after them, failed or not
+  (`e2e/live/clear-test-accounts.task.ts`, the website's clearing on its own), all in one step,
+  masked. It shares the scenarios' concurrency group and runs after them, even when they failed:
+  each says something of its own. Android is told not to show the last character typed into a
+  password field, so the recordings show dots only.
+- **Every flow is recorded** with Android's `screenrecord`, which stops at three minutes; each flow
+  takes about one. The recordings are published beside the website's, under
+  [the newest live run](https://guhilling.github.io/ai-assisted-todolist/videos/#app): the job
+  names them by their flow (`collect-live-videos.py --app`) and uploads the artifact
+  `live-videos-qa-app`, which `pages.yml` fetches as it does `live-videos-qa`. A failure uploads
+  Maestro's screenshots, and only those: its other output records every command as run, the typed
+  password among them.
+- **The emulator is Mobile CI's**, restored from the same cache (`mobile/maestro/emulator.env`,
+  [development.md](../mobile/development.md)). Only Android: iOS has no live run.
+
 ## When it runs
 
 `live-tests.yml`, for qa only — prod has no live tests yet; the smoke checks first, then, if they
-passed, the signed-in scenarios:
+passed, the signed-in scenarios, then the app's flows:
 
 - **After every deploy to qa.** `deploy-frontend.yml` calls it once the new frontend is in place,
   which in a release is the last step, so both halves are new. `deploy-backend.yml` calls it when
@@ -103,7 +138,8 @@ passed, the signed-in scenarios:
   syntax or import error fails the pull request rather than the next deploy.
 
 A failure fails the deploying run visibly. It rolls nothing back; whether to is a person's
-decision. On failure the Playwright report is uploaded as an artifact.
+decision. On failure the Playwright report is uploaded as an artifact, and for the app,
+Maestro's screenshots.
 
 Locally, against qa or anything else:
 
@@ -115,8 +151,8 @@ LIVE_BASE_URL=https://example.test npm run test:live  # anywhere
 
 ## What it costs
 
-A few minutes of GitHub Actions per deploy. The smoke checks make no AWS calls; the signed-in
-scenarios make two `AdminSetUserPassword` calls and one `ListUserPools`, which Cognito does not
-bill, and two monthly active users are far inside its free tier. The
+A few minutes of GitHub Actions per deploy, about ten more for the app's flows on the emulator.
+The smoke checks make no AWS calls; the signed-in scenarios and the app's flows each make two
+`AdminSetUserPassword` calls and one `ListUserPools`, which Cognito does not bill, and two monthly active users are far inside its free tier. The
 checks are only meaningful while qa is **up** (about $2 a day, [cost](../deployment/cost.md));
 they never bring it up.

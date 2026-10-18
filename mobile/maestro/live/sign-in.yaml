@@ -31,14 +31,18 @@ name: Sign in on qa
     commands:
       - tapOn: "Use without an account"
 # Cognito's classic login page carries its form twice, for wide and narrow screens; a phone sees
-# the narrow one only.
+# the narrow one only. Its fields are tapped by what shows inside them: the email's placeholder,
+# and for the password the "Password" below the label of the same name.
 - extendedWaitUntil:
-    visible: "Username"
+    visible: "Sign in with your email and password"
     timeout: 30000
 - takeScreenshot: live-01-cognito
-- tapOn: "Username"
+- tapOn: "name@host.com"
 - inputText: ${TEST_ACCOUNT}
-- tapOn: "Password"
+- tapOn:
+    text: "Password"
+    below:
+      text: "Password"
 - inputText: ${TEST_PASSWORD}
 - hideKeyboard
 - tapOn: "Sign in"
