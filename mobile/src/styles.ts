@@ -60,9 +60,10 @@ export function stylesFor(theme: Theme) {
     checked: { backgroundColor: theme.brandStrong, borderColor: theme.brandStrong },
     tick: { color: theme.accentContrast, fontSize: 14, fontWeight: 'bold', lineHeight: 16 },
     dot: { width: 8, height: 8, borderRadius: 4 },
-    importanceLOW: { backgroundColor: theme.importanceLow },
+    // As on the website, told apart by fill as well as colour (#335): hollow, solid, ringed.
+    importanceLOW: { borderWidth: 2, borderColor: theme.importanceLow },
     importanceMEDIUM: { backgroundColor: theme.importanceMedium },
-    importanceHIGH: { backgroundColor: theme.importanceHigh },
+    importanceHIGH: { backgroundColor: theme.importanceHigh, boxShadow: `0 0 0 2px ${theme.importanceHigh}4D` },
     unknownDot: { borderWidth: 1, borderColor: theme.textMuted },
     description: { flex: 1, color: theme.text },
     done: { color: theme.textMuted, textDecorationLine: 'line-through' },
@@ -98,6 +99,12 @@ export function stylesFor(theme: Theme) {
     account: { gap: 8 },
     dangerButton: { borderWidth: 1, borderColor: theme.danger, borderRadius: 6, paddingVertical: 12, paddingHorizontal: 16 },
     offerButtons: { flexDirection: 'row', justifyContent: 'flex-end' },
+    /** What the colours mean (#335): the offline note's box, with room on both sides. */
+    legend: { backgroundColor: theme.surfaceRaised, borderRadius: 6, paddingHorizontal: 16, gap: 4, paddingTop: 12 },
+    /** An overdue date on a row: the website's `.task-due--overdue` (#335). */
+    overdueDate: { color: theme.danger, fontWeight: '600' },
+    /** An importance dot inline in the legend's text, sat on its line. */
+    legendDot: { marginBottom: 1 },
     offline: { backgroundColor: theme.surfaceRaised, borderRadius: 6, paddingLeft: 16, gap: 4, paddingTop: 12 },
     /** The reminders' offer: the offline note's box, with room on the right for its wrapped explanation (#336). */
     offer: { backgroundColor: theme.surfaceRaised, borderRadius: 6, paddingHorizontal: 16, gap: 4, paddingTop: 12 },

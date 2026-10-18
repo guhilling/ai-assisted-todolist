@@ -23,6 +23,7 @@ import {
   restoreTask,
   updateTask,
 } from './api'
+import { fileFlag } from './fileFlag'
 import { documentsFor } from './documents'
 import { pickFile, type PickedPhoto } from './pick'
 import { makeThumbnail } from './thumbnails'
@@ -225,6 +226,7 @@ const dependencies: Dependencies = {
   }),
   deleteAccount: (caller) => deleteAccount({ ...caller, appVersion }),
   keptBoard: createKeptBoardStore(new File(Paths.cache, 'board.json')),
+  legend: fileFlag(new File(Paths.document, 'colours-explained'), 'explained'),
   reminders: createReminderScheduler(
     notifications,
     new File(Paths.document, 'reminders-offer-answered'),

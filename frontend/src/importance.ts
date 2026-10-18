@@ -23,6 +23,11 @@ export const importanceLevels = Object.keys(importanceLabels) as TaskImportance[
  */
 export const importanceRank: Record<TaskImportance, number> = { HIGH: 3, MEDIUM: 2, LOW: 1 }
 
+/** The levels as a legend lists them, the most important first (#335). */
+export const importanceByRank = (Object.keys(importanceRank) as TaskImportance[]).sort(
+  (left, right) => importanceRank[right] - importanceRank[left],
+)
+
 /** Within a day: what matters most first, then creation order, so alike tasks never reshuffle. */
 function compareWithinADay(left: Task, right: Task) {
   return importanceRank[right.importance] - importanceRank[left.importance] || left.id - right.id

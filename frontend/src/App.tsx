@@ -41,6 +41,8 @@ import CompletedSection from './components/CompletedSection'
 import LegalFooter from './components/LegalFooter'
 import Paused from './components/Paused'
 import SignedOut from './components/SignedOut'
+import ColourLegend from './components/ColourLegend'
+import { coloursExplained, rememberColoursExplained } from './coloursExplained'
 import TaskSection from './components/TaskSection'
 import UserAvatar from './components/UserAvatar'
 import UndoToast from './components/UndoToast'
@@ -104,6 +106,8 @@ function Board() {
    */
   const [today] = useState(() => todayIso())
 
+  /** Whether the colours still need explaining: until dismissed once, in this browser (#335). */
+  const [explainColours, setExplainColours] = useState(() => !coloursExplained())
   const openTasks = useMemo(
     () =>
       [...tasks]
@@ -418,6 +422,15 @@ function Board() {
       ) : (
         <>
           <AddTaskRow today={today} saving={saving} onAdd={addTask} attachments={attachmentActions} />
+
+          {explainColours && openTasks.length > 0 ? (
+            <ColourLegend
+              onDismiss={() => {
+                rememberColoursExplained()
+                setExplainColours(false)
+              }}
+            />
+          ) : null}
 
           {sections.map((section) => (
             <TaskSection

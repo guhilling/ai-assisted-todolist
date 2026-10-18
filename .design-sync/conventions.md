@@ -57,6 +57,8 @@ piece of text needs its own size, it wants one of these four instead.
 - Footer, at the bottom of every view (`LegalFooter`: about the project, imprint, privacy, contact): `.legal-footer`, `.legal-footer-contact`, `.legal-footer-language` (the switch to another language)
 - Paused (the environment is down): `.paused-panda`, `.paused-message`; `Paused` reuses
   `.signed-out` and `.signed-out-title`
+- Colour legend, above the board until dismissed (`ColourLegend`): `.colour-legend`,
+  `.colour-legend-text`, reusing `.task-importance` for its dots and `.button-quiet`
 - Other: `.completed-section`, `.completed-actions`, `.undo-toast`, `.undo-action`,
   `.undo-dismiss`, `.user-avatar`, `.user-avatar--initials`, `.error-banner`, `.board-note`,
   `.visually-hidden`
