@@ -64,6 +64,11 @@ for flow in "${flows[@]}"; do
   status=passed
   maestro test "$file" -e TEST_ACCOUNT=taskfest-test-one@example.com -e "TEST_PASSWORD=$E2E_PASSWORD_ONE" \
     --test-output-dir "$repo/maestro-live-output" || status=failed
+  if [ "$status" = failed ]; then
+    # What Maestro saw on the screen it stopped at, for the failure's artifact: a password field's
+    # text is hidden there as it is on the screen.
+    maestro hierarchy > "$repo/maestro-live-output/$flow-hierarchy.json" 2>/dev/null || true
+  fi
   duration=$(( $(date +%s%3N) - started ))
   adb shell pkill -INT screenrecord || true
   wait "$recorder" || true

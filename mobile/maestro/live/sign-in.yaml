@@ -31,18 +31,15 @@ name: Sign in on qa
     commands:
       - tapOn: "Use without an account"
 # Cognito's classic login page carries its form twice, for wide and narrow screens; a phone sees
-# the narrow one only. Its fields are tapped by what shows inside them: the email's placeholder,
-# and for the password the "Password" below the label of the same name.
+# the narrow one only. Chrome does not show Maestro a field's placeholder, so each field is reached
+# through its label, which focuses it.
 - extendedWaitUntil:
     visible: "Sign in with your email and password"
     timeout: 30000
 - takeScreenshot: live-01-cognito
-- tapOn: "name@host.com"
+- tapOn: "Email"
 - inputText: ${TEST_ACCOUNT}
-- tapOn:
-    text: "Password"
-    below:
-      text: "Password"
+- tapOn: "Password"
 - inputText: ${TEST_PASSWORD}
 - hideKeyboard
 - tapOn: "Sign in"

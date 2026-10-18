@@ -347,13 +347,15 @@ jobs:
           retention-days: 30
           if-no-files-found: ignore
 
-      # Maestro's screenshots only: its other output records each command as run, the typed password
-      # among them.
+      # Maestro's screenshots, and the screen's hierarchy where a flow stopped, only: its other output
+      # records each command as run, the typed password among them.
       - name: Upload the screenshots
         if: failure()
         uses: actions/upload-artifact@v7
         with:
           name: maestro-live-screenshots
-          path: maestro-live-output/**/*.png
+          path: |
+            maestro-live-output/**/*.png
+            maestro-live-output/*-hierarchy.json
           retention-days: 7
           if-no-files-found: ignore
