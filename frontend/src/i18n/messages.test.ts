@@ -127,3 +127,10 @@ describe('the app’s reminder counts (#273)', () => {
   })
 })
 
+
+describe('the colour legend read aloud (#335)', () => {
+  it('lists the levels in each language, for the app whose dots a screen reader cannot see', () => {
+    expect(en.legend.spoken('Importance', ['High', 'Medium', 'Low'])).toBe('Importance: High, Medium, Low.')
+    expect(de.legend.spoken('Wichtigkeit', ['Hoch', 'Mittel', 'Niedrig'])).toBe('Wichtigkeit: Hoch, Mittel, Niedrig.')
+  })
+})
