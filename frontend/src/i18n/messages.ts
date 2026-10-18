@@ -49,12 +49,17 @@ export const en = {
     wait: 'Just a moment: your tasks are being loaded.',
   },
   /**
-   * The mobile app's due-day reminders (#273): the notification, the offer to turn them on, and
-   * the name Android shows for them in its settings.
+   * The mobile app's due-day reminders (#273): the notification, the offer to turn them on with
+   * the line explaining it (#336), and the name Android shows for them in its settings.
    */
   reminders: {
     dueToday: (count: number) => (count === 1 ? '1 task due today' : `${count} tasks due today`),
     offer: 'Get a reminder at 08:00 on days tasks are due?',
+    /**
+     * Under the offer, so the phone's own question that may follow Turn on is expected (#336). "If":
+     * Android 12 and older never ask; and the app is not named, since the phone names the variant.
+     */
+    explain: 'One notification at 08:00 on those days: how many tasks are due, not which. If your phone asks next, allow it.',
     turnOn: 'Turn on',
     notNow: 'Not now',
     channel: 'Due today',
@@ -210,6 +215,8 @@ export const en = {
     yesterday: 'Yesterday',
     daysAgo: (days: number) => `${days} days ago`,
     inWeeks: (weeks: number) => (weeks === 1 ? 'In 1 week' : `In ${weeks} weeks`),
+    /** "Today" or "Tomorrow" with the day it is (#337): the app's row, and its heading read aloud. */
+    withWeekday: (when: string, weekday: string) => `${when} · ${weekday}`,
   },
   signedOut: {
     tagline: 'Your own list, private to whoever signs in.',
@@ -272,6 +279,7 @@ export const de: Messages = {
   reminders: {
     dueToday: (count: number) => (count === 1 ? '1 Aufgabe heute fällig' : `${count} Aufgaben heute fällig`),
     offer: 'Eine Erinnerung um 8:00 an Tagen, an denen Aufgaben fällig sind?',
+    explain: 'An solchen Tagen um 8:00 eine Mitteilung: wie viele Aufgaben fällig sind, nicht welche. Fragt dein Telefon gleich danach, erlaube sie.',
     turnOn: 'Einschalten',
     notNow: 'Nicht jetzt',
     channel: 'Heute fällig',
@@ -412,6 +420,7 @@ export const de: Messages = {
     yesterday: 'Gestern',
     daysAgo: (days: number) => `vor ${days} Tagen`,
     inWeeks: (weeks: number) => (weeks === 1 ? 'In 1 Woche' : `In ${weeks} Wochen`),
+    withWeekday: (when: string, weekday: string) => `${when} · ${weekday}`,
   },
   signedOut: {
     tagline: 'Deine eigene Liste – privat für alle, die sich anmelden.',

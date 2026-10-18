@@ -69,6 +69,37 @@ export function addDays(iso: string, days: number) {
 }
 
 /**
+ * The weekday beside "Today" and "Tomorrow" (#337), which do not say it -- on holiday, which day
+ * today is is not always obvious. Null for any other day: its description is a weekday or a date
+ * already, and "Yesterday" belongs to an overdue task, where the day matters less than that it is late.
+ */
+export function weekdayBeside(iso: string, today: string, locale = DISPLAY_LOCALE): string | null {
+  const offset = daysBetween(today, iso)
+  if (offset !== 0 && offset !== 1) {
+    return null
+  }
+  return atUtcMidnight(iso).toLocaleDateString(locale, { weekday: 'long', timeZone: 'UTC' })
+}
+
+/**
+ * A due date as one text with its weekday where "Today" or "Tomorrow" leaves it out (#337) --
+ * "Today · Saturday" -- for a row with no room for two items, as in the app.
+ */
+export function describeDueDateWithWeekday(iso: string, today: string, words: DateWords = en.dates, locale = DISPLAY_LOCALE) {
+  const described = describeDueDate(iso, today, words, locale)
+  const weekday = weekdayBeside(iso, today, locale)
+  return weekday ? words.withWeekday(described, weekday) : described
+}
+
+/** The weekday beside a board section's heading: Today's and Tomorrow's, none for any other (#337). */
+export function sectionWeekday(bucket: DueBucket, today: string, locale = DISPLAY_LOCALE): string | null {
+  if (bucket === 'today') {
+    return weekdayBeside(today, today, locale)
+  }
+  return bucket === 'tomorrow' ? weekdayBeside(addDays(today, 1), today, locale) : null
+}
+
+/**
  * How a due date should read on a task row.
  *
  * Relative wording for the days people actually think in, a weekday name for the rest of

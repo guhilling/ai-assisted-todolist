@@ -726,6 +726,26 @@ html {
   color: var(--danger);
 }
 
+/* A heading and the weekday beside it (#337), on one line, the weekday after a dot. */
+.section-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
+.section-weekday {
+  font-family: var(--font-heading);
+  font-size: var(--font-small);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.section-weekday::before {
+  content: '·';
+  margin-right: var(--space-2);
+}
+
 .task-list {
   margin: 0;
   padding: 0;

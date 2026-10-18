@@ -94,6 +94,10 @@ the week, then `31 Dec`. The board groups into Overdue / Today / Tomorrow / This
 An open task under *Today* or *Tomorrow* leaves its date out: the heading already says it, and
 saying it twice made the rows read as noise (Gunnar). Every other section spans several days -- or,
 for completed tasks, none -- so there the row says which.
+*Today* and *Tomorrow* are followed by their weekday (#337), beside the heading and after a
+completed row's word -- *Today · Saturday* -- because on holiday which day today is is not always
+obvious (Gunnar, from the app's first test on a phone). Beside the heading, not in it: the heading
+names the section. On the website and in the app alike (`weekdayBeside` in `dates.ts`).
 Adding a task offers `Today`, `Tomorrow`, `In 1 week` and `In 2 weeks`, and defaults to
 tomorrow.
 

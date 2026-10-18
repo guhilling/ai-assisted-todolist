@@ -203,3 +203,26 @@ describe('the due-day reminders, from the app (#273)', () => {
     expect(reminders.replace).toHaveBeenCalledWith([])
   })
 })
+
+describe('what the offer says before the phone asks (#336)', () => {
+  it('says what will come, and that the phone asks next, before anything is asked', async () => {
+    const reminders = scheduler('undetermined')
+    await start({ reminders })
+
+    expect(await screen.findByText(OFFER)).toBeOnTheScreen()
+    expect(
+      screen.getByText('One notification at 08:00 on those days: how many tasks are due, not which. If your phone asks next, allow it.'),
+    ).toBeOnTheScreen()
+    expect(reminders.ask).not.toHaveBeenCalled()
+  })
+
+  it('says it in German too', async () => {
+    const reminders = scheduler('undetermined')
+    await render(<TaskFestApp variant={variants.dev} language="de" dependencies={dependencies({ reminders })} />)
+
+    expect(
+      await screen.findByText('An solchen Tagen um 8:00 eine Mitteilung: wie viele Aufgaben fällig sind, nicht welche. Fragt dein Telefon gleich danach, erlaube sie.'),
+    ).toBeOnTheScreen()
+    expect(reminders.ask).not.toHaveBeenCalled()
+  })
+})

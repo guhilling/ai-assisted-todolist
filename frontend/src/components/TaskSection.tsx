@@ -1,3 +1,4 @@
+import { useId } from 'react'
 import type { Task, TaskState } from '../api'
 import type { AttachmentActions } from './AttachmentList'
 import type { TaskEdit } from './TaskEditor'
@@ -5,6 +6,8 @@ import TaskRow from './TaskRow'
 
 type TaskSectionProps = {
   title: string
+  /** The weekday the title does not say, beside it: Today's and Tomorrow's (#337). */
+  weekday?: string | null
   tasks: Task[]
   today: string
   overdue?: boolean
@@ -24,6 +27,7 @@ type TaskSectionProps = {
  */
 function TaskSection({
   title,
+  weekday,
   tasks,
   today,
   overdue,
@@ -33,13 +37,30 @@ function TaskSection({
   onEdit,
   attachments,
 }: Readonly<TaskSectionProps>) {
+  const weekdayId = useId()
   if (tasks.length === 0) {
     return null
   }
 
   return (
     <section className="task-section">
-      <h2 className={overdue ? 'section-title section-title--overdue' : 'section-title'}>{title}</h2>
+      {/*
+        * The weekday beside the heading rather than in it: the heading names the section. It
+        * describes the heading, so whoever moves through the board by headings hears it too.
+        */}
+      <div className="section-head">
+        <h2
+          className={overdue ? 'section-title section-title--overdue' : 'section-title'}
+          aria-describedby={weekday ? weekdayId : undefined}
+        >
+          {title}
+        </h2>
+        {weekday ? (
+          <span className="section-weekday" id={weekdayId}>
+            {weekday}
+          </span>
+        ) : null}
+      </div>
       <ul className="task-list">
         {tasks.map((task) => (
           <TaskRow

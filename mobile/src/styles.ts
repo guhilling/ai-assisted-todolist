@@ -34,6 +34,9 @@ export function stylesFor(theme: Theme) {
     section: { gap: 8 },
     sectionHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
     heading: { fontSize: 18, fontWeight: '700', color: theme.text },
+    /** A section's heading and the weekday beside it (#337). */
+    headingLine: { flexDirection: 'row', alignItems: 'baseline', gap: 8 },
+    headingWeekday: { fontSize: 15, color: theme.textMuted },
     overdue: { color: theme.danger },
     // A task's row, and its files below it (#274), between one line and the next.
     rowWithFiles: {
@@ -103,6 +106,8 @@ export function stylesFor(theme: Theme) {
     /** An importance dot inline in the legend's text, sat on its line. */
     legendDot: { marginBottom: 1 },
     offline: { backgroundColor: theme.surfaceRaised, borderRadius: 6, paddingLeft: 16, gap: 4, paddingTop: 12 },
+    /** The reminders' offer: the offline note's box, with room on the right for its wrapped explanation (#336). */
+    offer: { backgroundColor: theme.surfaceRaised, borderRadius: 6, paddingHorizontal: 16, gap: 4, paddingTop: 12 },
     confirm: { backgroundColor: theme.surfaceRaised, borderRadius: 6, padding: 16, gap: 12 },
     // Stacked: side by side, the two answers do not fit a phone's width.
     confirmButtons: { gap: 8 },

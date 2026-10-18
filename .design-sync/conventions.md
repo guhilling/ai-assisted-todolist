@@ -41,7 +41,8 @@ piece of text needs its own size, it wants one of these four instead.
 **Class families** (the real names — use these, don't invent):
 
 - Shell: `.app`, `.app-header`, `.app-title`, `.app-identity`, `.app-email`
-- Board: `.task-section`, `.section-title`, `.section-title--overdue`, `.task-list`,
+- Board: `.task-section`, `.section-head` (a heading and, for Today and Tomorrow, its
+  `.section-weekday`), `.section-title`, `.section-title--overdue`, `.task-list`,
   `.task-row`, `.task-row--done`, `.task-row--editing`, `.task-body`, `.task-check`, `.task-description`,
   `.task-meta`, `.task-chip`, `.task-importance` (+ `--low` / `--medium` / `--high`),
   `.task-due--overdue`, `.task-menu`, `.task-menu-items`, `.task-menu-danger`

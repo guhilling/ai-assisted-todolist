@@ -25,7 +25,12 @@ The app reminds without a server (#273): local notifications it schedules itself
 ## Asking for permission
 
 Not at the start. The first time the board shows an open task due today or later, a note above it
-asks **"Get a reminder at 08:00 on days tasks are due?"**, with **Turn on** and **Not now**:
+asks **"Get a reminder at 08:00 on days tasks are due?"**, with **Turn on** and **Not now**. A line
+under it says what comes and what may happen next (#336): *one notification at 08:00 on those days:
+how many tasks are due, not which. If your phone asks next, allow it.* Without it, the system's
+question after **Turn on** came out of nowhere, on Android at least. "If", because Android 12 and
+older never ask; and it does not name the app, since the phone's question names the installed
+variant (*TaskFest QA*).
 
 - **Turn on** brings up the system's own question, which iOS asks only once; allowed, the
   reminders are scheduled at once.

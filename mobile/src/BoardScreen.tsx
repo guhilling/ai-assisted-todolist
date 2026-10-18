@@ -4,7 +4,7 @@ import type { BoardTask } from './api'
 import { FileStrip, type FileLinkSource } from './Attachments'
 import { boardOf, isChangeable } from './board'
 import type { Styles } from './styles'
-import { bucketOf, describeDueDate, importanceByRank, localeOf, type Attachment, type Language, type Messages } from './web'
+import { bucketOf, describeDueDateWithWeekday, importanceByRank, localeOf, sectionWeekday, type Attachment, type Language, type Messages } from './web'
 
 /** How long the offer to undo a delete stands: the website's eight seconds. */
 const UNDO_FOR_MS = 8000
@@ -78,6 +78,10 @@ export function BoardScreen({
   const board = boardOf(tasks, today)
   const clearable = board.completed.some(isChangeable)
 
+  const locale = localeOf(language)
+  /** When a task is due, and for "Today" and "Tomorrow" which day that is (#337). */
+  const when = (iso: string) => describeDueDateWithWeekday(iso, today, messages.dates, locale)
+
   const row = (task: BoardTask, sayWhen: boolean) => {
     const changeable = isChangeable(task)
     const done = task.state === 'DONE'
@@ -123,7 +127,7 @@ export function BoardScreen({
             {sayWhen ? (
               // Red when overdue, as on the website and as the colours' legend says (#335).
               <Text style={[styles.muted, !done && bucketOf(task.dueDate, today) === 'overdue' && styles.overdueDate]}>
-                {describeDueDate(task.dueDate, today, messages.dates, localeOf(language))}
+                {when(task.dueDate)}
               </Text>
             ) : null}
           </Pressable>
@@ -161,8 +165,10 @@ export function BoardScreen({
           <Text style={styles.muted}>{messages.board.loading}</Text>
         ) : null}
         {offer ? (
-          <View style={styles.offline}>
+          <View style={styles.offer}>
             <Text style={styles.description}>{messages.reminders.offer}</Text>
+            {/* What comes, and that the phone asks next: its question alone did not say why (#336). */}
+            <Text style={styles.muted}>{messages.reminders.explain}</Text>
             <View style={styles.offerButtons}>
               <Pressable accessibilityRole="button" style={styles.quietButton} onPress={offer.onNotNow}>
                 <Text style={styles.quietButtonText}>{messages.reminders.notNow}</Text>
@@ -210,15 +216,32 @@ export function BoardScreen({
         {board.sections.length === 0 && board.completed.length === 0 ? (
           <Text style={styles.muted}>{messages.board.emptyShort}</Text>
         ) : null}
-        {board.sections.map((section) => (
-          <View key={section.bucket} style={styles.section}>
-            <Text style={[styles.heading, section.bucket === 'overdue' && styles.overdue]}>
-              {messages.sections[section.bucket]}
-            </Text>
-            {/* As on the website, the heading already says when a task is due today or tomorrow. */}
-            {section.tasks.map((task) => row(task, section.bucket !== 'today' && section.bucket !== 'tomorrow'))}
-          </View>
-        ))}
+        {board.sections.map((section) => {
+          const title = messages.sections[section.bucket]
+          const weekday = sectionWeekday(section.bucket, today, locale)
+          return (
+            <View key={section.bucket} style={styles.section}>
+              {/*
+                * The weekday beside the heading rather than in it (#337): the heading names the
+                * section. Read aloud as one, so a screen reader hears the day with it.
+                */}
+              <View
+                style={styles.headingLine}
+                accessible={weekday !== null}
+                accessibilityLabel={weekday ? messages.dates.withWeekday(title, weekday) : undefined}
+              >
+                <Text style={[styles.heading, section.bucket === 'overdue' && styles.overdue]}>{title}</Text>
+                {weekday ? (
+                  <Text testID={`weekday-${section.bucket}`} style={styles.headingWeekday}>
+                    {weekday}
+                  </Text>
+                ) : null}
+              </View>
+              {/* As on the website, the heading already says when a task is due today or tomorrow. */}
+              {section.tasks.map((task) => row(task, section.bucket !== 'today' && section.bucket !== 'tomorrow'))}
+            </View>
+          )
+        })}
         {board.completed.length > 0 ? (
           <View style={styles.section}>
             <View style={styles.sectionHead}>
