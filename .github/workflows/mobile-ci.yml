@@ -163,6 +163,16 @@ jobs:
           xcodebuild -workspace "$workspace" -scheme "${workspace%.xcworkspace}" \
             -configuration Release -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
             CODE_SIGNING_ALLOWED=NO build | tail -n 50
+      - name: SPIKE 279 - what the app embeds
+        working-directory: mobile/ios
+        run: |
+          app=$(find ~/Library/Developer/Xcode/DerivedData -path '*Release-iphonesimulator/*.app' -maxdepth 6 -type d | head -1)
+          echo "app: $app"
+          ls -la "$app/PlugIns" || echo "No PlugIns directory"
+          find "$app/PlugIns" -maxdepth 2 | head -20 || true
+          for bundle in "$app" "$app"/PlugIns/*.appex; do
+            [ -d "$bundle" ] && plutil -p "$bundle/Info.plist" | grep -E 'CFBundleIdentifier|NSExtensionPointIdentifier|AppGroupId|MainTargetUrlScheme' || true
+          done
       - name: Save npm's cache
         if: github.ref == 'refs/heads/main' && steps.npm-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v6
