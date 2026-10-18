@@ -151,7 +151,7 @@ describe('changing the board from the app (#271)', () => {
 
     expect(changes.update).toHaveBeenCalledWith(
       { baseUrl: BASE, idToken: 'stored' },
-      { ...train, description: 'Book the night train' },
+      { ...train, description: 'Book the night train', state: 'TODO' },
     )
     expect(await screen.findByText('Book the night train')).toBeOnTheScreen()
     expect(screen.queryByText('Book the train')).toBeNull()

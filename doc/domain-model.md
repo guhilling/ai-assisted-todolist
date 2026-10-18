@@ -7,7 +7,7 @@
 | **Task** | A single thing its owner means to get done. With its attachments, the only thing this application stores on anyone's behalf. |
 | **Owner** | The user a task belongs to. Every task has exactly one, and it never changes. |
 | **User** | Someone who owns tasks, identified by the email claim in their OIDC token. |
-| **State** | Where a task stands in the workflow: `TODO`, `WORKING` or `DONE`. |
+| **State** | Whether a task is open (`TODO`) or done (`DONE`). `WORKING`, "in progress", is no longer offered (#334): the tasks that had it became open, and it stays in the API only until #345, because apps installed before then can still send it. Whoever reads it treats it as open. |
 | **Importance** | How much a task matters to its owner: `LOW`, `MEDIUM` or `HIGH`. |
 | **Due date** | The day a task is meant to be finished. Always set. |
 | **Board** | A user's tasks, as they see them: ordered by due date, and within a day by importance, high first. |

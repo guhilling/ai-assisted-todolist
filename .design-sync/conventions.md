@@ -44,7 +44,7 @@ piece of text needs its own size, it wants one of these four instead.
 - Board: `.task-section`, `.section-head` (a heading and, for Today and Tomorrow, its
   `.section-weekday`), `.section-title`, `.section-title--overdue`, `.task-list`,
   `.task-row`, `.task-row--done`, `.task-row--editing`, `.task-body`, `.task-check`, `.task-description`,
-  `.task-meta`, `.task-chip`, `.task-importance` (+ `--low` / `--medium` / `--high`),
+  `.task-meta`, `.task-importance` (+ `--low` / `--medium` / `--high`),
   `.task-due--overdue`, `.task-menu`, `.task-menu-items`, `.task-menu-danger`
 - Add row: `.add-row`, `.add-row-plus`, `.add-row-key`, `.add-form`, `.add-field`,
   `.add-description`, `.add-controls`, `.add-actions`, `.quick-dates`; `TaskEditor` reuses
@@ -95,7 +95,6 @@ defined there. Each component's `.prompt.md` carries its props and usage.
     today="2026-03-16"
     tasks={overdueTasks}
     onToggleDone={toggle}
-    onSetState={setState}
     onDelete={remove}
   />
 
@@ -109,5 +108,6 @@ defined there. Each component's `.prompt.md` carries its props and usage.
 ```
 
 A task is `{ id, description, dueDate: 'YYYY-MM-DD', importance: 'LOW' | 'MEDIUM' | 'HIGH',
-state: 'TODO' | 'WORKING' | 'DONE' }`, and `today` is always passed in as an ISO date rather
+state: 'TODO' | 'DONE' }` (the API still carries `'WORKING'` until #345, which the board shows as
+open), and `today` is always passed in as an ISO date rather
 than read from the clock.

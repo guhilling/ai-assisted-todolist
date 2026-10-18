@@ -2,7 +2,7 @@ import { CompletedSection, type Task } from 'frontend'
 
 const TODAY = '2026-03-16'
 const noop = () => {}
-const handlers = { onToggleDone: noop, onSetState: noop, onDelete: noop, onClear: noop }
+const handlers = { onToggleDone: noop, onDelete: noop, onClear: noop }
 
 function done(id: number, description: string, dueDate: string, importance: Task['importance'] = 'MEDIUM'): Task {
   return { id, description, dueDate, importance, state: 'DONE' }

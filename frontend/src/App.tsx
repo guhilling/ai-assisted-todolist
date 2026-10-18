@@ -221,7 +221,6 @@ function Board() {
   }
 
   const toggleDone = (task: Task) => void saveState(task, task.state === 'DONE' ? 'TODO' : 'DONE')
-  const setTaskState = (task: Task, state: TaskState) => void saveState(task, state)
 
   /**
    * Deletes one task, putting the row back if the server refuses. Says whether it went.
@@ -441,7 +440,6 @@ function Board() {
               today={today}
               tasks={openTasks.filter((task) => bucketOf(task.dueDate, today) === section.bucket)}
               onToggleDone={toggleDone}
-              onSetState={setTaskState}
               onDelete={removeTask}
               onEdit={editTask}
               attachments={attachmentActions}
@@ -452,7 +450,6 @@ function Board() {
             tasks={completedTasks}
             today={today}
             onToggleDone={toggleDone}
-            onSetState={setTaskState}
             onDelete={removeTask}
             onClear={clearCompleted}
             attachments={attachmentActions}

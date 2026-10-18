@@ -857,13 +857,6 @@ html {
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--importance-high) 30%, transparent);
 }
 
-.task-chip {
-  padding: 0 var(--space-2);
-  border-radius: 999px;
-  background: var(--surface-raised);
-  border: 1px solid var(--border);
-}
-
 /* ---------- attachments (#204) ---------- */
 
 /* On the row: under the meta line, an image as a small preview and a PDF by its name. */

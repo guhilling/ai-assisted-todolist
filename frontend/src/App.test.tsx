@@ -790,36 +790,6 @@ describe('the board', () => {
     expect(screen.queryByRole('heading', { name: 'Overdue' })).not.toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'Later' })).not.toBeInTheDocument()
   })
-
-  it('marks a task in progress from its menu', async () => {
-    const fetchMock = mockApi({
-      me: ALICE,
-      tasks: [task({ id: 3, description: 'Ongoing' })],
-      put: { status: 200, body: task({ id: 3, description: 'Ongoing', state: 'WORKING' }) },
-    })
-    await renderSignedIn(fetchMock)
-
-    fireEvent.click(openMenu('Ongoing').getByRole('button', { name: /mark as in progress/i }))
-
-    await waitFor(() => expect(within(rowFor('Ongoing')).getByText('doing')).toBeInTheDocument())
-    expect(bodyOf(fetchMock, 'PUT')).toMatchObject({ state: 'WORKING' })
-    expect(openMenu('Ongoing').getByRole('button', { name: /mark as not started/i })).toBeInTheDocument()
-  })
-
-  it('marks an in-progress task back to not started', async () => {
-    const fetchMock = mockApi({
-      me: ALICE,
-      tasks: [task({ id: 31, description: 'Paused', state: 'WORKING' })],
-      put: { status: 200, body: task({ id: 31, description: 'Paused', state: 'TODO' }) },
-    })
-    await renderSignedIn(fetchMock)
-
-    expect(within(rowFor('Paused')).getByText('doing')).toBeInTheDocument()
-    fireEvent.click(openMenu('Paused').getByRole('button', { name: /mark as not started/i }))
-
-    await waitFor(() => expect(within(rowFor('Paused')).queryByText('doing')).not.toBeInTheDocument())
-    expect(bodyOf(fetchMock, 'PUT')).toMatchObject({ state: 'TODO' })
-  })
 })
 
 describe('completing a task', () => {
@@ -1023,11 +993,11 @@ describe('the row menu', () => {
     const fetchMock = mockApi({
       me: ALICE,
       tasks: [task({ id: 41, description: 'Menu task' })],
-      put: { status: 200, body: task({ id: 41, description: 'Menu task', state: 'WORKING' }) },
     })
     await renderSignedIn(fetchMock)
 
-    fireEvent.click(openMenu('Menu task').getByRole('button', { name: /mark as in progress/i }))
+    fireEvent.click(openMenu('Menu task').getByRole('button', { name: 'Edit' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
 
     expect(menuOf('Menu task').open).toBe(false)
   })
@@ -1646,5 +1616,28 @@ describe('the colours, explained on first use (#335)', () => {
     await renderSignedIn(mockApi({ me: ALICE, tasks: [] }))
 
     expect(screen.queryByRole('note', { name: 'What the colours mean' })).toBeNull()
+  })
+})
+
+describe('a task is open or done (#334)', () => {
+  it('offers no "in progress" in the row menu', async () => {
+    await renderSignedIn(mockApi({ me: ALICE, tasks: [task({ id: 51, description: 'Plain task' })] }))
+
+    const menu = openMenu('Plain task')
+
+    expect(menu.getAllByRole('button').map((button) => button.textContent)).toEqual(['Edit', 'Delete'])
+  })
+
+  it('shows a task still in progress, from an older app, as an open one', async () => {
+    await renderSignedIn(
+      mockApi({ me: ALICE, tasks: [task({ id: 52, description: 'Started elsewhere', state: 'WORKING' })] }),
+    )
+
+    expect(screen.getByLabelText('Mark "Started elsewhere" as done')).not.toBeChecked()
+    expect(within(rowFor('Started elsewhere')).queryByText('doing')).toBeNull()
+    expect(openMenu('Started elsewhere').getAllByRole('button').map((button) => button.textContent)).toEqual([
+      'Edit',
+      'Delete',
+    ])
   })
 })

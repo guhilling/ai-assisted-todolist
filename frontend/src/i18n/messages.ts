@@ -136,10 +136,7 @@ export const en = {
     markDone: (description: string) => `Mark "${description}" as done`,
     actions: (description: string) => `Actions for "${description}"`,
     edit: 'Edit',
-    markNotStarted: 'Mark as not started',
-    markInProgress: 'Mark as in progress',
     delete: 'Delete',
-    inProgress: 'doing',
     /** The mobile app's, for an importance or state newer than the app (#268). */
     unknown: 'Unknown',
     /** The mobile app's, on a task with such a value: saving it would overwrite what it cannot show. */
@@ -149,7 +146,6 @@ export const en = {
   taskState: {
     label: 'State',
     todo: 'Not started',
-    working: 'In progress',
     done: 'Done',
   },
   /** Deleting one's own account (#213): the header's button, its confirmation, and the note after. */
@@ -351,17 +347,13 @@ export const de: Messages = {
     markDone: (description: string) => `„${description}“ als erledigt markieren`,
     actions: (description: string) => `Aktionen für „${description}“`,
     edit: 'Bearbeiten',
-    markNotStarted: 'Als nicht begonnen markieren',
-    markInProgress: 'Als in Arbeit markieren',
     delete: 'Löschen',
-    inProgress: 'in Arbeit',
     unknown: 'Unbekannt',
     updateToChange: 'Aktualisiere die App, um diese Aufgabe zu ändern.',
   },
   taskState: {
     label: 'Status',
     todo: 'Nicht begonnen',
-    working: 'In Arbeit',
     done: 'Erledigt',
   },
   account: {

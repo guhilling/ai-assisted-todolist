@@ -21,7 +21,8 @@ at its head, opens the account sheet ([account.md](account.md)).
   iOS. A new task starts tomorrow, of medium importance, and not started, as on the website; it
   cannot be dated in the past, which the backend refuses.
 - **Edit a task** — a tap on it opens the same form with its values, and with the state too: not
-  started, in progress or done. An edit may date a task in the past, as on the website's.
+  started or done. A task still in progress, which only an older app can still set (#334), shows
+  as not started and is saved so. An edit may date a task in the past, as on the website's.
 - **Complete or reopen a task** — the circle in front of it, which a completed task shows ticked in the website's green.
 - **Delete a task** — from its form, at once and without "are you sure?": an offer to undo stands
   below the board for eight seconds. **Clear completed** deletes every completed task the same way.

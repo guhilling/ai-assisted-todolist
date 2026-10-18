@@ -17,14 +17,15 @@ import {
   type Messages,
   type Task,
   type TaskImportance,
-  type TaskState,
   type Attachment,
 } from './web'
 
 /** What the form sets: everything about a task but its id and its files. */
 export type TaskValues = Pick<Task, 'description' | 'dueDate' | 'importance' | 'state'>
 
-const STATES: TaskState[] = ['TODO', 'WORKING', 'DONE']
+/** A task is open or done (#334); `WORKING`, which older apps still send, is not offered. */
+const STATES = ['TODO', 'DONE'] as const
+type OfferedState = (typeof STATES)[number]
 
 /**
  * Adding a task, or editing one (#271): the description, the due date -- the website's shortcuts,
@@ -82,7 +83,8 @@ export function TaskForm({
   const [description, setDescription] = useState(task?.description ?? '')
   const [dueDate, setDueDate] = useState(task?.dueDate ?? addDays(today, 1))
   const [importance, setImportance] = useState<TaskImportance>(task?.importance ?? 'MEDIUM')
-  const [state, setState] = useState<TaskState>(task?.state ?? 'TODO')
+  // A task still in progress is shown, and saved, as the open task it now is (#334).
+  const [state, setState] = useState<OfferedState>(task?.state === 'DONE' ? 'DONE' : 'TODO')
   const [picking, setPicking] = useState(false)
   const [saving, setSaving] = useState(false)
 
@@ -90,9 +92,8 @@ export function TaskForm({
   const otherDate = shortcuts.some((quick) => quick.iso === dueDate)
     ? messages.dueDate.other
     : describeDueDate(dueDate, today, messages.dates, localeOf(language))
-  const stateLabels: Record<TaskState, string> = {
+  const stateLabels: Record<OfferedState, string> = {
     TODO: messages.taskState.todo,
-    WORKING: messages.taskState.working,
     DONE: messages.taskState.done,
   }
   const trimmed = description.trim()
