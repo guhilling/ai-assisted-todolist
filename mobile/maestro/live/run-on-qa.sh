@@ -60,6 +60,9 @@ for flow in "${flows[@]}"; do
   # Each flow signs in afresh, and is recorded doing so: Chrome would otherwise keep Cognito's
   # session from the flow before and sign straight in, past the form the flow waits for.
   retry adb shell pm clear com.android.chrome >/dev/null
+  # And starts from the home screen, not the flow before's last screen, while Maestro starts up.
+  adb shell am force-stop de.hilling.taskfest.qa
+  adb shell input keyevent KEYCODE_HOME
   # Started in the background, stopped with the interrupt screenrecord finishes its file on.
   adb shell screenrecord --bit-rate 2000000 "/sdcard/$flow.mp4" &
   recorder=$!

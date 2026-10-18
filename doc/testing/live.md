@@ -115,7 +115,8 @@ signing in first:
   each says something of its own. Android is told not to show the last character typed into a
   password field, so the recordings show dots only.
 - **Every flow is recorded** with Android's `screenrecord`, which stops at three minutes; each flow
-  takes about one. The recordings are published beside the website's, under
+  takes under two. Each starts from the home screen with Chrome's data cleared, so every recording
+  shows the sign-in: Chrome would otherwise keep Cognito's session from the flow before. The recordings are published beside the website's, under
   [the newest live run](https://guhilling.github.io/ai-assisted-todolist/videos/#app): the job
   names them by their flow (`collect-live-videos.py --app`) and uploads the artifact
   `live-videos-qa-app`, which `pages.yml` fetches as it does `live-videos-qa`. A failure uploads
