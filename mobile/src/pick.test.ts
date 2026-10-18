@@ -94,3 +94,17 @@ describe("a photo's measure, as the picker gives it (#274)", () => {
     await expect(pickFile('library', parts)).resolves.toMatchObject({ width: 4000, height: 3000 })
   })
 })
+
+describe('a file as the document picker names it (#274)', () => {
+  it('goes by its name for its type, and asks the file for its size, when the picker does not say', async () => {
+    const parts = phone({ files: jest.fn().mockResolvedValue({ uri: 'file:///cache/DocumentPicker/bill.PDF', name: 'bill.PDF', type: null, size: null }) })
+
+    await expect(pickFile('files', parts)).resolves.toEqual({ uri: 'file:///cache/DocumentPicker/bill.PDF', name: 'bill.PDF', type: 'application/pdf', size: 1234 })
+  })
+
+  it('leaves a type it cannot tell empty, for the website’s rule to refuse', async () => {
+    const parts = phone({ files: jest.fn().mockResolvedValue({ uri: 'file:///cache/notes', name: 'notes', type: null, size: 10 }) })
+
+    await expect(pickFile('files', parts)).resolves.toMatchObject({ type: '' })
+  })
+})

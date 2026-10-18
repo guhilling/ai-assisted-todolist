@@ -1,6 +1,7 @@
 import Constants from 'expo-constants'
 import { Directory, File, Paths } from 'expo-file-system'
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator'
+import * as DocumentPicker from 'expo-document-picker'
 import * as ImagePicker from 'expo-image-picker'
 import * as IntentLauncher from 'expo-intent-launcher'
 import { getLocales } from 'expo-localization'
@@ -185,10 +186,12 @@ const dependencies: Dependencies = {
             preferredAssetRepresentationMode: ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Compatible,
           }),
         ),
+      // expo-document-picker rather than expo-file-system's own picker, whose File is named after
+      // Android's content URI -- "image:1000000018" -- where this gives the name the user sees.
       files: async () => {
-        const picked = await File.pickFileAsync({ mimeTypes: attachmentTypes })
-        const file = picked.canceled ? null : picked.result
-        return file ? { uri: file.uri, name: file.name, type: file.type, size: file.size } : null
+        const picked = await DocumentPicker.getDocumentAsync({ type: attachmentTypes, copyToCacheDirectory: true })
+        const file = picked.canceled ? undefined : picked.assets[0]
+        return file ? { uri: file.uri, name: file.name, type: file.mimeType ?? null, size: file.size ?? null } : null
       },
       sizeOf: (uri) => new File(uri).size,
       toJpeg: (uri) => savedJpeg(uri, (context) => context, 0.9),

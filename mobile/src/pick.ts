@@ -32,8 +32,8 @@ export type PickerParts = {
   camera(): Promise<PickedPhoto | null>
   /** A photo chosen from the library; null when the user turned back. */
   library(): Promise<PickedPhoto | null>
-  /** Any file chosen; null when the user turned back. */
-  files(): Promise<PickedFile | null>
+  /** Any file chosen, as the document picker names it; null when the user turned back. */
+  files(): Promise<{ uri: string; name: string; type: string | null; size: number | null } | null>
   /** A file's size, for a picker that does not say. */
   sizeOf(uri: string): number
   /** A JPEG of an image, for one the backend would not take as it is. */
@@ -49,7 +49,7 @@ export class CameraRefusedError extends Error {
   }
 }
 
-/** The types an image's name says, for a picker that does not say its type. */
+/** The types a file's name says, for a picker that does not say its type. */
 const TYPE_BY_EXTENSION: Record<string, string> = {
   jpg: 'image/jpeg',
   jpeg: 'image/jpeg',
@@ -58,6 +58,12 @@ const TYPE_BY_EXTENSION: Record<string, string> = {
   gif: 'image/gif',
   heic: 'image/heic',
   heif: 'image/heif',
+  pdf: 'application/pdf',
+}
+
+/** The type a file's name says, if it says one this knows. */
+function typeOfName(name: string): string | undefined {
+  return TYPE_BY_EXTENSION[name.split('.').pop()?.toLowerCase() ?? '']
 }
 
 /**
@@ -67,7 +73,15 @@ const TYPE_BY_EXTENSION: Record<string, string> = {
  */
 export async function pickFile(source: PickSource, parts: PickerParts): Promise<PickedFile | null> {
   if (source === 'files') {
-    return parts.files()
+    const file = await parts.files()
+    return (
+      file && {
+        uri: file.uri,
+        name: file.name,
+        type: file.type ?? typeOfName(file.name) ?? '',
+        size: file.size ?? parts.sizeOf(file.uri),
+      }
+    )
   }
   if (source === 'camera' && !(await parts.cameraAllowed())) {
     throw new CameraRefusedError()
@@ -79,8 +93,7 @@ export async function pickFile(source: PickSource, parts: PickerParts): Promise<
 /** A photo as a file to attach: named, typed and sized, and a JPEG if it was HEIC. */
 async function asFile(photo: PickedPhoto, parts: PickerParts): Promise<PickedFile> {
   const name = photo.fileName ?? `photo-${stamp(parts.now())}.jpg`
-  const extension = name.split('.').pop()?.toLowerCase() ?? ''
-  const type = photo.mimeType ?? TYPE_BY_EXTENSION[extension] ?? 'image/jpeg'
+  const type = photo.mimeType ?? typeOfName(name) ?? 'image/jpeg'
   if (type === 'image/heic' || type === 'image/heif') {
     const jpeg = await parts.toJpeg(photo.uri)
     return { uri: jpeg.uri, name: name.replace(/\.[^.]*$/, '') + '.jpg', type: 'image/jpeg', size: jpeg.size }

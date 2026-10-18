@@ -115,9 +115,10 @@ website's are always Google's English. The website's PNGs are Google's official 
 already in use, the same on both platforms, and testable like any other image.
 
 **Attaching files: Expo's own modules (#274).** expo-image-picker for the camera and the photo
-library, `File.pickFileAsync` of expo-file-system for any file — already in the app, so the
-separate expo-document-picker is not needed — expo-file-system's `File.upload` for the PUT to
-storage, with progress, expo-image-manipulator for thumbnails and HEIC, and expo-intent-launcher to
+library, expo-document-picker for any file — not expo-file-system's own `File.pickFileAsync`,
+whose file Android names after its content URI (`image:1000000018`, as the Maestro flow showed)
+rather than the name the user sees — expo-file-system's `File.upload` for the PUT to storage, with
+progress, expo-image-manipulator for thumbnails and HEIC, and expo-intent-launcher to
 hand a PDF to Android's viewer. All are Expo SDK modules, versioned with the SDK, so an SDK update
 moves them together; none needs a native module of our own.
 
