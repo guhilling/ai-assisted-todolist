@@ -47,6 +47,8 @@ export const en = {
   reminders: {
     dueToday: (count: number) => (count === 1 ? '1 task due today' : `${count} tasks due today`),
     offer: 'Get a reminder at 08:00 on days tasks are due?',
+    /** Under the offer, so the phone's own question that follows Turn on is expected (#336). */
+    explain: 'One notification on those mornings, saying how many tasks are due, not which. Your phone asks next whether TaskFest may send it.',
     turnOn: 'Turn on',
     notNow: 'Not now',
     channel: 'Due today',
@@ -258,6 +260,7 @@ export const de: Messages = {
   reminders: {
     dueToday: (count: number) => (count === 1 ? '1 Aufgabe heute fällig' : `${count} Aufgaben heute fällig`),
     offer: 'Eine Erinnerung um 8:00 an Tagen, an denen Aufgaben fällig sind?',
+    explain: 'Eine Mitteilung an diesen Morgen: wie viele Aufgaben fällig sind, nicht welche. Dein Telefon fragt gleich, ob TaskFest sie schicken darf.',
     turnOn: 'Einschalten',
     notNow: 'Nicht jetzt',
     channel: 'Heute fällig',

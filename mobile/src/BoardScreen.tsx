@@ -157,6 +157,8 @@ export function BoardScreen({
         {offer ? (
           <View style={styles.offline}>
             <Text style={styles.description}>{messages.reminders.offer}</Text>
+            {/* What comes, and that the phone asks next: its question alone did not say why (#336). */}
+            <Text style={styles.muted}>{messages.reminders.explain}</Text>
             <View style={styles.offerButtons}>
               <Pressable accessibilityRole="button" style={styles.quietButton} onPress={offer.onNotNow}>
                 <Text style={styles.quietButtonText}>{messages.reminders.notNow}</Text>
