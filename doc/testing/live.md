@@ -69,7 +69,8 @@ visible one is addressed — and the accounts. One scenario runs in qa only: bot
 - **While the environment is down, the job does not start**: the smoke job reports the backend's
   state, and there is nothing to sign in to.
 - **One run at a time** (a concurrency group per environment): two would reset each other's
-  passwords and clear each other's tasks.
+  passwords and clear each other's tasks. Runs that arrive meanwhile queue (`queue: max`) rather
+  than replace each other, so no deploy's live run is dropped.
 - **Every scenario is recorded, and the newest run's videos are published**:
   [the newest live run](https://guhilling.github.io/ai-assisted-todolist/videos/), one video per
   scenario with its outcome, the release it ran against and a link to the run. The job names each
