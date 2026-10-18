@@ -2,6 +2,7 @@ import {
   importanceRank,
   needsDatingBack,
   restoreInput,
+  storageUrl,
   validateLinkResponse,
   validateTaskResponse,
   validateVersionResponse,
@@ -170,15 +171,13 @@ export async function restoreTask(
   return needsDatingBack(created, task) ? updateTask(caller, { ...created, dueDate: task.dueDate }, fetchImpl) : created
 }
 
-/** A link to a file in storage, and when it stops working (epoch milliseconds). */
-export type FileLink = { url: string; expiresAt: number }
-
 /**
  * A link that shows one of a task's files (#274), or its preview thumbnail, signed by the backend
- * for a few minutes. It is handed back exactly as it came: a signed link must not be rewritten.
+ * for a limited time. It is handed back exactly as it came: a signed link must not be rewritten.
  *
- * Like the website's (`frontend/src/api.ts`), only HTTPS is used, or plain HTTP to this machine --
- * the end-to-end stack's storage. Anything else is a broken answer, not somewhere to send the user.
+ * It must pass the website's rule for links to storage (`storageUrl`): HTTPS, or plain HTTP to this
+ * machine -- the end-to-end stack's storage. Anything else is a broken answer, not somewhere to send
+ * the user.
  */
 export async function attachmentLink(
   caller: Caller,
@@ -186,13 +185,14 @@ export async function attachmentLink(
   attachmentId: Attachment['id'],
   thumbnail: boolean,
   fetchImpl: typeof fetch = fetch,
-): Promise<FileLink> {
+): Promise<string> {
   const which = thumbnail ? 'thumbnail-link' : 'link'
   const data = await send(caller, 'GET', `/api/tasks/${taskId}/attachments/${attachmentId}/${which}`, fetchImpl)
-  if (!validateLinkResponse(data) || !isStorageUrl(data.url)) {
+  const url = validateLinkResponse(data) ? storageUrl(data.url) : null
+  if (!url) {
     throw new ContractBreachError('a link to a file')
   }
-  return { url: data.url, expiresAt: Date.parse(data.expiresAt) }
+  return url
 }
 
 /** Removes a file from its task, for good: unlike a task, a removed file has no undo. */
@@ -203,18 +203,6 @@ export async function removeAttachment(
   fetchImpl: typeof fetch = fetch,
 ): Promise<void> {
   await send(caller, 'DELETE', `/api/tasks/${taskId}/attachments/${attachmentId}`, fetchImpl)
-}
-
-/** Whether a link may be opened: HTTPS, or plain HTTP only to this machine. */
-function isStorageUrl(link: string) {
-  let url: URL
-  try {
-    url = new URL(link)
-  } catch {
-    return false
-  }
-  const local = url.hostname === 'localhost' || url.hostname.endsWith('.localhost') || url.hostname === '127.0.0.1'
-  return url.protocol === 'https:' || (url.protocol === 'http:' && local)
 }
 
 /**

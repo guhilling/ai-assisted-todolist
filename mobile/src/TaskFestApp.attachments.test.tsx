@@ -1,5 +1,5 @@
 import { act, render, screen, userEvent, waitFor, within } from '@testing-library/react-native'
-import type { BoardTask } from './api'
+import { TimedOutError, type BoardTask } from './api'
 import type { Session } from './session'
 import type { SessionStore } from './staySignedIn'
 import { TaskFestApp, type Dependencies } from './TaskFestApp'
@@ -39,10 +39,10 @@ function memorySessions(initial: Session | null): SessionStore {
 const idToken = `h.${btoa(JSON.stringify({ exp: (NOW + HOUR) / 1000, email: 'alice@example.com' })).replace(/=+$/, '')}.s`
 const session: Session = { idToken, refreshToken: 'r', expiresAt: NOW + HOUR, lastUsedAt: NOW }
 
-/** Links as the backend signs them: one per file, another for its thumbnail, for ten minutes. */
+/** Links as the backend signs them: one per file, another for its thumbnail. */
 function linkTo(_caller: unknown, taskId: number, attachmentId: number, thumbnail: boolean) {
   const which = thumbnail ? 'thumbnail' : 'file'
-  return Promise.resolve({ url: `https://bucket.example.com/${taskId}/${attachmentId}/${which}`, expiresAt: NOW + 10 * 60 * 1000 })
+  return Promise.resolve(`https://bucket.example.com/${taskId}/${attachmentId}/${which}`)
 }
 
 function dependencies(overrides: Partial<Dependencies> = {}): Dependencies {
@@ -53,7 +53,7 @@ function dependencies(overrides: Partial<Dependencies> = {}): Dependencies {
     fetchMinimumAppVersion: jest.fn().mockResolvedValue('0.0.0'),
     changes: { create: jest.fn(), update: jest.fn(), remove: jest.fn(), restore: jest.fn() },
     attachments: { link: jest.fn(linkTo), remove: jest.fn().mockResolvedValue(undefined) },
-    openDocument: jest.fn().mockResolvedValue(undefined),
+    documents: { open: jest.fn().mockResolvedValue(undefined), forget: jest.fn().mockResolvedValue(undefined) },
     deleteAccount: jest.fn(),
     keptBoard: { load: jest.fn().mockResolvedValue(null), save: jest.fn().mockResolvedValue(undefined), clear: jest.fn().mockResolvedValue(undefined) },
     reminders: { permission: jest.fn().mockResolvedValue('denied'), ask: jest.fn(), replace: jest.fn().mockResolvedValue(undefined), answered: jest.fn().mockResolvedValue(true), decline: jest.fn() },
@@ -133,13 +133,63 @@ describe("a task's files on the board (#274)", () => {
     expect(deps.attachments!.link).toHaveBeenCalledTimes(1)
   })
 
-  it("opens a PDF in the phone's own viewer", async () => {
-    const openDocument = jest.fn().mockResolvedValue(undefined)
-    await show(dependencies({ openDocument }))
+  it("opens a PDF in the phone's own viewer, by its own type", async () => {
+    const documents = { open: jest.fn().mockResolvedValue(undefined), forget: jest.fn() }
+    await show(dependencies({ documents }))
 
     await userEvent.setup().press(await screen.findByRole('button', { name: 'Open scan.pdf' }))
 
-    await waitFor(() => expect(openDocument).toHaveBeenCalledWith('https://bucket.example.com/1/5/file', 'scan.pdf'))
+    await waitFor(() =>
+      expect(documents.open).toHaveBeenCalledWith('https://bucket.example.com/1/5/file', 'scan.pdf', 'application/pdf'),
+    )
+  })
+
+  it('opens a file once, however often it is tapped while its link is on its way', async () => {
+    let answer: (url: string) => void = () => undefined
+    const link = jest.fn((caller: unknown, taskId: number, attachmentId: number, thumbnail: boolean) =>
+      thumbnail ? linkTo(caller, taskId, attachmentId, thumbnail) : new Promise<string>((resolve) => (answer = resolve)),
+    )
+    const documents = { open: jest.fn().mockResolvedValue(undefined), forget: jest.fn() }
+    await show(dependencies({ attachments: { link, remove: jest.fn() }, documents }))
+    const user = userEvent.setup()
+    const open = await screen.findByRole('button', { name: 'Open scan.pdf' })
+
+    await user.press(open)
+    await user.press(open)
+    await act(async () => answer('https://bucket.example.com/1/5/file'))
+
+    expect(documents.open).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not reload the board, or refuse changes, when a file could not be had', async () => {
+    const fetchTasks = jest.fn().mockResolvedValue([withFiles])
+    const link = jest.fn((caller: unknown, taskId: number, attachmentId: number, thumbnail: boolean) =>
+      thumbnail ? linkTo(caller, taskId, attachmentId, thumbnail) : Promise.reject(new TimedOutError(10_000)),
+    )
+    await show(dependencies({ fetchTasks, attachments: { link, remove: jest.fn() } }))
+    const user = userEvent.setup()
+
+    await user.press(await screen.findByRole('button', { name: 'Open scan.pdf' }))
+    await screen.findByText('Unable to open the file.')
+    await user.press(screen.getByRole('button', { name: 'Edit "Water the plants"' }))
+
+    expect(fetchTasks).toHaveBeenCalledTimes(1)
+    expect(await screen.findByTestId('task-form')).toBeOnTheScreen()
+  })
+
+  it('leaves nothing of the files behind when the session ends', async () => {
+    const deps = dependencies()
+    await show(deps)
+    const user = userEvent.setup()
+    await user.press(await screen.findByRole('button', { name: 'Open photo.jpg' }))
+    await screen.findByTestId('file-viewer')
+
+    await user.press(screen.getByRole('button', { name: 'Close' }))
+    await user.press(screen.getByRole('button', { name: 'Account' }))
+    await user.press(screen.getByRole('button', { name: 'Sign out' }))
+
+    expect(await screen.findByRole('button', { name: 'Sign in with Keycloak' })).toBeOnTheScreen()
+    expect(deps.documents!.forget).toHaveBeenCalled()
   })
 
   it('says so when a file cannot be opened', async () => {

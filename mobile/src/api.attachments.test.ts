@@ -11,13 +11,10 @@ const signedIn = { Accept: 'application/json', Authorization: 'Bearer the-token'
 const link = { url: 'https://bucket.example.com/photo.jpg?X-Amz-Signature=abc', expiresAt: '2026-10-18T09:15:00Z' }
 
 describe("a task's files, as the app asks the backend for them (#274)", () => {
-  it('asks for a link to the file, and hands it back exactly as signed, with when it runs out', async () => {
+  it('asks for a link to the file, and hands it back exactly as signed', async () => {
     const fetchImpl = respond(200, link)
 
-    await expect(attachmentLink(caller, 7, 3, false, fetchImpl)).resolves.toEqual({
-      url: link.url,
-      expiresAt: Date.parse(link.expiresAt),
-    })
+    await expect(attachmentLink(caller, 7, 3, false, fetchImpl)).resolves.toBe(link.url)
     expect(fetchImpl).toHaveBeenCalledWith(`${BASE}/api/tasks/7/attachments/3/link`, {
       headers: signedIn,
       signal: expect.any(AbortSignal),
@@ -43,7 +40,7 @@ describe("a task's files, as the app asks the backend for them (#274)", () => {
   it("accepts plain HTTP to the end-to-end stack's storage on this machine", async () => {
     const local = 'http://localhost:9000/taskfest/photo.jpg?sig=1'
 
-    await expect(attachmentLink(caller, 7, 3, false, respond(200, { ...link, url: local }))).resolves.toMatchObject({ url: local })
+    await expect(attachmentLink(caller, 7, 3, false, respond(200, { ...link, url: local }))).resolves.toBe(local)
   })
 
   it('refuses an answer that is no link', async () => {

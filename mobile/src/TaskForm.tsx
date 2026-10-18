@@ -43,6 +43,7 @@ export function TaskForm({
   onSave,
   onDelete,
   onRemoveFile,
+  busy = false,
   onCancel,
 }: {
   /** The task to edit; none to add one. */
@@ -59,6 +60,8 @@ export function TaskForm({
   onDelete?: () => void
   /** Removes one of the task's files (#274); none where files cannot be removed here. */
   onRemoveFile?: (attachment: Attachment) => void
+  /** Whether a change to the task is on its way; its files wait for it before another. */
+  busy?: boolean
   onCancel: () => void
 }) {
   const editing = task !== undefined
@@ -153,6 +156,7 @@ export function TaskForm({
           attachments={task.attachments}
           // A completed task's files may only be opened, as on the website.
           removable={onRemoveFile !== undefined && task.state !== 'DONE'}
+          busy={busy}
           messages={messages}
           styles={styles}
           onRemove={(attachment) => onRemoveFile?.(attachment)}

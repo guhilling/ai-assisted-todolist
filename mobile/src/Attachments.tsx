@@ -146,18 +146,22 @@ export function FileViewer({
 }
 
 /**
- * A task's files in its editor, each removable while the task is open: a completed task's files
- * may only be opened, as on the website. A removed file has no undo.
+ * A task's files in its editor, each removable while the task is open; a completed task's are not,
+ * as on the website. They open from the board: a viewer over the editor's sheet is more than iOS
+ * presents. A removed file has no undo.
  */
 export function EditorFiles({
   attachments,
   removable,
+  busy,
   messages,
   styles,
   onRemove,
 }: {
   attachments: Attachment[]
   removable: boolean
+  /** Whether a change to the task is on its way: removing waits for it. */
+  busy: boolean
   messages: Messages
   styles: Styles
   onRemove: (attachment: Attachment) => void
@@ -178,8 +182,10 @@ export function EditorFiles({
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={messages.attachments.remove(attachment.fileName)}
+              accessibilityState={{ disabled: busy }}
+              disabled={busy}
               hitSlop={8}
-              style={styles.quietButton}
+              style={[styles.quietButton, busy && styles.disabled]}
               onPress={() => onRemove(attachment)}
             >
               <Text style={styles.dangerText}>×</Text>

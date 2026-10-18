@@ -27,6 +27,7 @@ export { chooseLanguage, localeOf, type Language } from '../../frontend/src/i18n
 export { needsDatingBack, restoreInput } from '../../frontend/src/restore'
 export { imprintUrl, privacyUrls, termsUrls } from '../../frontend/src/links'
 export { confirmsEmail } from '../../frontend/src/confirmsEmail'
+export { storageUrl } from '../../frontend/src/storage'
 
 /**
  * Google's official "Sign in with Google" button, the images the website shows (#325): Google's

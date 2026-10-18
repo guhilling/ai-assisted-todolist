@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ActivityIndicator, AppState, Image, Modal, Pressable, Text, useColorScheme, View } from 'react-native'
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context'
-import { SignedOutError, TimedOutError, VERSION_CHECK_MS, type BoardTask, type Caller, type FileLink } from './api'
+import { SignedOutError, TimedOutError, VERSION_CHECK_MS, type BoardTask, type Caller } from './api'
 import { FileViewer } from './Attachments'
 import { isImage } from './files'
 import { AccountScreen } from './AccountScreen'
@@ -55,13 +55,16 @@ export type Dependencies = {
   google?: GoogleProvider
   fetchTasks(caller: Caller): Promise<BoardTask[]>
   changes: TaskChanges
-  /** A task's files (#274): links that show them, signed for a few minutes, and removing one. */
+  /** A task's files (#274): links that show them, signed for a limited time, and removing one. */
   attachments?: {
-    link(caller: Caller, taskId: Task['id'], attachmentId: Attachment['id'], thumbnail: boolean): Promise<FileLink>
+    link(caller: Caller, taskId: Task['id'], attachmentId: Attachment['id'], thumbnail: boolean): Promise<string>
     remove(caller: Caller, taskId: Task['id'], attachmentId: Attachment['id']): Promise<void>
   }
-  /** Opens a PDF in the phone's own viewer (#274). */
-  openDocument?(url: string, fileName: string): Promise<void>
+  /** Files other than images, opened in the phone's own viewer, and the copies that takes forgotten (#274). */
+  documents?: {
+    open(url: string, fileName: string, contentType: string): Promise<void>
+    forget(): Promise<void>
+  }
   /** Deletes the signed-in user's account with everything in it (#275). */
   deleteAccount(caller: Caller): Promise<void>
   /** The last board loaded, kept on the phone to be read without a connection (#272). */
@@ -74,6 +77,9 @@ export type Dependencies = {
   appVersion: string
   now(): number
 }
+
+/** How long a link to a file is used again: minutes, where the backend signs it for an hour. */
+const LINK_KEPT_MS = 5 * 60 * 1000
 
 /** The form over the board: adding a task, or editing one. */
 type Form = { task?: BoardTask; failure?: string }
@@ -156,7 +162,7 @@ export function TaskFestApp({
     now,
     changes,
     attachments: files,
-    openDocument,
+    documents,
     deleteAccount,
     keptBoard,
     reminders,
@@ -171,8 +177,14 @@ export function TaskFestApp({
   const [failure, setFailure] = useState<string>()
   /** The image opened from a task, shown over everything (#274). */
   const [viewing, setViewing] = useState<{ url: string; fileName: string } | null>(null)
-  /** The links to files asked for, kept while they work, so a preview does not ask on every render. */
-  const links = useRef(new Map<string, FileLink>())
+  /**
+   * The links to files asked for, each kept for a few minutes -- well inside the backend's signing
+   * time, and by the phone's clock alone, so a phone whose clock is off does not keep a dead link --
+   * so a preview does not ask on every render, and two asking at once share one request.
+   */
+  const links = useRef(new Map<string, { link: Promise<string>; until: number }>())
+  /** Whether a file is being opened: a second tap meanwhile opens nothing more. */
+  const opening = useRef(false)
   /** Whether a change was refused because the board shown may not be current (#272), until it is. */
   const [refused, setRefused] = useState(false)
   /** Whether the reminders may be offered (#273): they may be asked for, and the offer was not answered. */
@@ -237,6 +249,18 @@ export function TaskFestApp({
    * A renewal under way would save its session after the keychain was cleared, so it is waited for
    * first; and a start or a load begun before the sign-out finds it counted and gives up.
    */
+  /**
+   * Forgets every file of the session: the image open, the links asked for, and the copies opened
+   * in the phone's viewer -- none of it is for whoever signs in next.
+   */
+  const forgetFiles = useCallback(() => {
+    setViewing(null)
+    links.current.clear()
+    documents?.forget().catch((failure: unknown) => {
+      console.warn('The opened files could not be forgotten', failure)
+    })
+  }, [documents])
+
   const signOut = useCallback(
     async (notice?: SignedOutNotice) => {
       signOuts.current += 1
@@ -263,6 +287,7 @@ export function TaskFestApp({
       await reminders.replace([]).catch((failure: unknown) => {
         console.warn('The reminders could not be cleared', failure)
       })
+      forgetFiles()
       setOfferReminders(false)
       setForm(null)
       setAccount(null)
@@ -272,7 +297,7 @@ export function TaskFestApp({
       setRefused(false)
       setState({ kind: 'signedOut', notice })
     },
-    [google, keptBoard, reminders, sessions],
+    [forgetFiles, google, keptBoard, reminders, sessions],
   )
 
   /** Keeps the backend's view of the board on the phone, after applying what it just agreed to. */
@@ -432,7 +457,8 @@ export function TaskFestApp({
       if (session) {
         await showBoard(session)
       } else {
-        // The session ran out unused: its board and its reminders go with it.
+        // The session ran out unused: its board, its files and its reminders go with it.
+        forgetFiles()
         await keptBoard.clear().catch(() => undefined)
         await reminders.replace([]).catch(() => undefined)
         // Already at the sign-in, it stays as it is, with whatever it says -- "account deleted", say.
@@ -440,7 +466,7 @@ export function TaskFestApp({
       }
     }
     void start()
-  }, [appVersion, attempt, fetchMinimumAppVersion, keptBoard, loadFailed, reminders, sessionNow, showBoard, showKept, signOut])
+  }, [appVersion, attempt, fetchMinimumAppVersion, forgetFiles, keptBoard, loadFailed, reminders, sessionNow, showBoard, showKept, signOut])
 
   const retry = () => {
     setState({ kind: 'starting' })
@@ -730,22 +756,29 @@ export function TaskFestApp({
   }
 
   /**
-   * A link to a file or its thumbnail (#274): the one asked for before while it still works for a
-   * minute more, and a new one otherwise. Asked as whoever is signed in, kept board or not: showing
-   * a file changes nothing.
+   * A link to a file or its thumbnail (#274): the one asked for in the last few minutes, and a new
+   * one otherwise. Asked as whoever is signed in, kept board or not: showing a file changes nothing.
    */
-  const fileLink = async (taskId: Task['id'], attachmentId: Attachment['id'], thumbnail: boolean) => {
-    if (!files) {
-      throw new Error('This app cannot show files.')
-    }
+  const fileLink = (taskId: Task['id'], attachmentId: Attachment['id'], thumbnail: boolean): Promise<string> => {
     const key = `${taskId}/${attachmentId}/${thumbnail}`
     const known = links.current.get(key)
-    if (known && known.expiresAt - 60_000 > now()) {
-      return known.url
+    if (known && known.until > now()) {
+      return known.link
     }
-    const fresh = await files.link(await signedInCaller(), taskId, attachmentId, thumbnail)
-    links.current.set(key, fresh)
-    return fresh.url
+    const link = (async () => {
+      if (!files) {
+        throw new Error('This app cannot show files.')
+      }
+      return files.link(await signedInCaller(), taskId, attachmentId, thumbnail)
+    })()
+    links.current.set(key, { link, until: now() + LINK_KEPT_MS })
+    // A failed ask is not kept: the next one asks again.
+    link.catch(() => {
+      if (links.current.get(key)?.link === link) {
+        links.current.delete(key)
+      }
+    })
+    return link
   }
   const latestFileLink = useRef(fileLink)
   useEffect(() => {
@@ -758,24 +791,53 @@ export function TaskFestApp({
     [],
   )
 
-  /** Opens a file: an image in the app's own viewer, a PDF in the phone's. */
+  /**
+   * Opens a file: an image in the app's own viewer, anything else in the phone's. One at a time;
+   * and once the link is there, only if the user is still where they asked -- signed in as then,
+   * with no form or sheet opened meanwhile.
+   *
+   * A link that could not be had is not a change gone wrong: nothing is reloaded or refused for it.
+   */
   const openFile = async (task: BoardTask, attachment: Attachment) => {
+    if (opening.current) {
+      return
+    }
+    opening.current = true
+    const session = signOuts.current
     setFailure(undefined)
     try {
       const url = await fileLink(task.id, attachment.id, false)
+      if (session !== signOuts.current || sheetOpen.current) {
+        return
+      }
       if (isImage(attachment)) {
         setViewing({ url, fileName: attachment.fileName })
       } else {
-        await openDocument?.(url, attachment.fileName)
+        await documents?.open(url, attachment.fileName, attachment.contentType)
       }
     } catch (cause) {
-      setFailure((await failed(cause, messages.errors.openAttachment)) ?? undefined)
+      if (cause instanceof SignedOutError) {
+        await signOut('sessionExpired')
+        return
+      }
+      console.warn('A file could not be opened', cause)
+      if (session === signOuts.current) {
+        setFailure(messages.errors.openAttachment)
+      }
+    } finally {
+      opening.current = false
     }
   }
 
   /** Removes a file from its task for good, on the board, in the editor and in the board kept. */
   const removeFile = async (task: BoardTask, attachment: Attachment) => {
-    if (!files || refusedWhileKept() || !markBusy(task, true)) {
+    if (!files || !markBusy(task, true)) {
+      return
+    }
+    if (refusedWhileKept()) {
+      // The board's notice is hidden under the form: the form says it too.
+      setForm((current) => (current?.task?.id === task.id ? { ...current, failure: messages.offline.readOnly } : current))
+      markBusy(task, false)
       return
     }
     const without = (each: BoardTask): BoardTask =>
@@ -783,6 +845,9 @@ export function TaskFestApp({
     setForm((current) => (current?.task?.id === task.id ? { ...current, failure: undefined } : current))
     try {
       await sending(async () => files.remove(await caller(), task.id, attachment.id))
+      for (const thumbnail of [false, true]) {
+        links.current.delete(`${task.id}/${attachment.id}/${thumbnail}`)
+      }
       setTasks((tasks) => tasks.map(without))
       keep((kept) => {
         const stored = kept.get(task.id)
@@ -884,6 +949,7 @@ export function TaskFestApp({
                   onSave={save}
                   onDelete={form.task ? () => void remove([form.task!]) : undefined}
                   onRemoveFile={files && form.task ? (attachment) => void removeFile(form.task!, attachment) : undefined}
+                  busy={form.task ? busy.has(form.task.id) : false}
                   onCancel={() => setForm(null)}
                 />
               ) : null}

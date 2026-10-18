@@ -18,7 +18,7 @@ import {
   restoreTask,
   updateTask,
 } from './api'
-import { documentOpenerFor } from './documents'
+import { documentsFor } from './documents'
 import { googleProviderFor } from './google'
 import { createKeptBoardStore } from './keptBoard'
 import { createReminderScheduler, type NotificationsApi } from './notifications'
@@ -74,7 +74,7 @@ const notifications: NotificationsApi = {
   },
 }
 
-/** Where Android keeps the PDFs it opens (#274): the cache, which the system may clear. */
+/** Where Android keeps the files it opens (#274): the cache, emptied when the session ends. */
 const documents = new Directory(Paths.cache, 'documents')
 
 /** Android's flag letting the viewer read the one file it is handed. */
@@ -96,7 +96,7 @@ const dependencies: Dependencies = {
     link: (caller, taskId, attachmentId, thumbnail) => attachmentLink({ ...caller, appVersion }, taskId, attachmentId, thumbnail),
     remove: (caller, taskId, attachmentId) => removeAttachment({ ...caller, appVersion }, taskId, attachmentId),
   },
-  openDocument: documentOpenerFor(Platform.OS, {
+  documents: documentsFor(Platform.OS, {
     openBrowser: (url) => WebBrowser.openBrowserAsync(url),
     download: async (url, fileName) => {
       if (!documents.exists) {
@@ -110,6 +110,11 @@ const dependencies: Dependencies = {
         type: mimeType,
         flags: FLAG_GRANT_READ_URI_PERMISSION,
       }),
+    forget: async () => {
+      if (documents.exists) {
+        documents.delete()
+      }
+    },
   }),
   deleteAccount: (caller) => deleteAccount({ ...caller, appVersion }),
   keptBoard: createKeptBoardStore(new File(Paths.cache, 'board.json')),
