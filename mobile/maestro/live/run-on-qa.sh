@@ -26,20 +26,7 @@ flows=(change-tasks attach)
 
 source "$here/../emulator-ready.sh"
 
-pool=$(aws cognito-idp list-user-pools --max-results 60 \
-  --query "UserPools[?Name=='taskfest-${ENVIRONMENT}-test-accounts'].Id | [0]" --output text)
-if [ -z "$pool" ] || [ "$pool" = "None" ]; then
-  echo "::error::taskfest-${ENVIRONMENT} has no test accounts pool"
-  exit 1
-fi
-for which in one two; do
-  # 32 hex digits plus the classes the pool's policy asks for: 36 characters.
-  password="$(openssl rand -hex 16)Aa1x"
-  echo "::add-mask::$password"
-  aws cognito-idp admin-set-user-password --user-pool-id "$pool" \
-    --username "taskfest-test-${which}@example.com" --password "$password" --permanent
-  export "E2E_PASSWORD_$(echo "$which" | tr '[:lower:]' '[:upper:]')=$password"
-done
+source "$repo/e2e/live/set-test-passwords.sh"
 
 clear_accounts() {
   (cd "$repo/e2e" && E2E_IDENTITY=cognito npx playwright test -c playwright.live-clear.config.ts)
@@ -59,10 +46,10 @@ for flow in "${flows[@]}"; do
   title=$(sed -n 's/^name: //p' "$file")
   # Each flow signs in afresh, and is recorded doing so: Chrome would otherwise keep Cognito's
   # session from the flow before and sign straight in, past the form the flow waits for.
-  retry adb shell pm clear com.android.chrome >/dev/null
+  retry adb shell pm clear com.android.chrome >/dev/null || true
   # And starts from the home screen, not the flow before's last screen, while Maestro starts up.
-  adb shell am force-stop de.hilling.taskfest.qa
-  adb shell input keyevent KEYCODE_HOME
+  retry adb shell am force-stop de.hilling.taskfest.qa || true
+  retry adb shell input keyevent KEYCODE_HOME || true
   # Started in the background, stopped with the interrupt screenrecord finishes its file on.
   adb shell screenrecord --bit-rate 2000000 "/sdcard/$flow.mp4" &
   recorder=$!
@@ -70,11 +57,6 @@ for flow in "${flows[@]}"; do
   status=passed
   maestro test "$file" -e TEST_ACCOUNT=taskfest-test-one@example.com -e "TEST_PASSWORD=$E2E_PASSWORD_ONE" \
     --test-output-dir "$repo/maestro-live-output" || status=failed
-  if [ "$status" = failed ]; then
-    # What Maestro saw on the screen it stopped at, for the failure's artifact: a password field's
-    # text is hidden there as it is on the screen.
-    maestro hierarchy > "$repo/maestro-live-output/$flow-hierarchy.json" 2>/dev/null || true
-  fi
   duration=$(( $(date +%s%3N) - started ))
   adb shell pkill -INT screenrecord || true
   wait "$recorder" || true
@@ -86,7 +68,8 @@ for flow in "${flows[@]}"; do
   results+=("$(jq -n --arg flow "mobile/maestro/live/$flow.yaml" --arg title "$title" --arg status "$status" \
     --argjson duration "$duration" --arg recording "$recordings/$flow.mp4" \
     '{flow: $flow, title: $title, status: $status, durationMs: $duration, recording: $recording}')")
+  # Written after every flow, so a later one that breaks the script still leaves this one's video.
+  printf '%s\n' "${results[@]}" | jq -s . > "$recordings/flows.json"
 done
-printf '%s\n' "${results[@]}" | jq -s . > "$recordings/flows.json"
 
 exit "$failed"

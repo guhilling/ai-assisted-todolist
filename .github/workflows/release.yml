@@ -329,6 +329,11 @@ jobs:
     permissions:
       contents: read
       id-token: write
+      # The live tests' app job (#278): to download the released app, an artifact of the
+      # release's run, and to read the emulator's cached setup. A called workflow's jobs get no
+      # more than this.
+      actions: read
+      packages: read
     uses: ./.github/workflows/deploy-backend.yml
     with:
       environment: qa
@@ -340,6 +345,11 @@ jobs:
     permissions:
       contents: read
       id-token: write
+      # The live tests' app job (#278): to download the released app, an artifact of the
+      # release's run, and to read the emulator's cached setup. A called workflow's jobs get no
+      # more than this.
+      actions: read
+      packages: read
     uses: ./.github/workflows/deploy-frontend.yml
     with:
       environment: qa

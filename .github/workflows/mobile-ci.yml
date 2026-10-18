@@ -184,8 +184,6 @@ jobs:
       fail-fast: false
       matrix:
         share: [board, others]
-    env:
-      MAESTRO_VERSION: 2.11.0
     steps:
       - uses: actions/checkout@v7
 
@@ -250,6 +248,7 @@ jobs:
 
       - name: Install Maestro
         run: |
+          set -a && source mobile/maestro/maestro.env && set +a
           curl -fsSL "https://get.maestro.mobile.dev" | bash
           echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
 

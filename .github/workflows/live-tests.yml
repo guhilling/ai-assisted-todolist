@@ -131,20 +131,7 @@ jobs:
         # One step, so the passwords live in its environment only: never written to a file, never
         # logged (masked), gone when it ends. The next run sets new ones.
         run: |
-          pool=$(aws cognito-idp list-user-pools --max-results 60 \
-            --query "UserPools[?Name=='taskfest-${ENVIRONMENT}-test-accounts'].Id | [0]" --output text)
-          if [ -z "$pool" ] || [ "$pool" = "None" ]; then
-            echo "::error::taskfest-${ENVIRONMENT} has no test accounts pool"
-            exit 1
-          fi
-          for which in one two; do
-            # 32 hex digits plus the classes the pool's policy asks for: 36 characters.
-            password="$(openssl rand -hex 16)Aa1x"
-            echo "::add-mask::$password"
-            aws cognito-idp admin-set-user-password --user-pool-id "$pool" \
-              --username "taskfest-test-${which}@example.com" --password "$password" --permanent
-            export "E2E_PASSWORD_$(echo "$which" | tr '[:lower:]' '[:upper:]')=$password"
-          done
+          source live/set-test-passwords.sh
           E2E_IDENTITY=cognito npm run test:live-signed-in
 
       # Every scenario's video, named by its title, for the site to publish the newest run's
@@ -180,14 +167,63 @@ jobs:
           retention-days: 7
 
 
+  # The released app the app's flows run (#278): the bundle mobile-release.yml uploaded to Play,
+  # kept as an artifact of the release's run, not one built here. A job of its own, outside the
+  # concurrency group below: in a release, that build runs beside the deploy and may not be done
+  # yet, and waiting for it must not hold up the next run's scenarios. Otherwise the bundle is
+  # there or it is not -- a version never released, or whose bundle has expired (30 days), has no
+  # app to test, and the app's flows are skipped with a warning.
+  app-bundle:
+    name: The released app for ${{ inputs.environment }}
+    needs: smoke
+    if: needs.smoke.outputs.backend != 'down'
+    runs-on: ubuntu-26.04
+    timeout-minutes: 25
+    permissions:
+      actions: read
+    outputs:
+      artifact: ${{ steps.bundle.outputs.artifact }}
+      version: ${{ steps.bundle.outputs.version }}
+    env:
+      LIVE_BASE_URL: https://taskfest-${{ inputs.environment }}.cloud.hilling.de
+      ENVIRONMENT: ${{ inputs.environment }}
+    steps:
+      - name: Find the released app
+        id: bundle
+        env:
+          GH_TOKEN: ${{ github.token }}
+          IN_RELEASE: ${{ github.workflow == 'Release' }}
+        run: |
+          set -euo pipefail
+          version=$(curl -fsS "$LIVE_BASE_URL/api/version" | jq -er .version)
+          name="taskfest-${ENVIRONMENT}-${version}-aab"
+          attempts=1
+          if [ "$IN_RELEASE" = true ]; then attempts=40; fi
+          id=""
+          for attempt in $(seq "$attempts"); do
+            id=$(gh api "repos/$GITHUB_REPOSITORY/actions/artifacts?name=$name&per_page=1" \
+              --jq '[.artifacts[] | select(.expired | not)][0].id // empty')
+            if [ -n "$id" ]; then break; fi
+            if [ "$attempt" -lt "$attempts" ]; then sleep 30; fi
+          done
+          if [ -z "$id" ]; then
+            echo "::warning::No app of ${version} is kept ($name): the app's live run is skipped."
+            exit 0
+          fi
+          echo "artifact=$id" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
   app:
     name: The app on ${{ inputs.environment }}
     # After the website's scenarios: both sign in as the same test accounts, and each clears them.
     # Run when those failed too -- the app's flows say something of their own -- but not while the
-    # environment is down.
-    needs: [smoke, signed-in]
-    if: ${{ !cancelled() && needs.smoke.result == 'success' && needs.smoke.outputs.backend != 'down' }}
+    # environment is down, nor without a released app.
+    needs: [smoke, signed-in, app-bundle]
+    if: ${{ !cancelled() && needs.app-bundle.result == 'success' && needs.app-bundle.outputs.artifact != '' }}
     runs-on: ubuntu-26.04
+    # Booting the emulator and the two flows take about ten minutes; a hung boot or adb must not
+    # hold the concurrency group below for GitHub's six hours.
+    timeout-minutes: 30
     # The live-test role's environment, as for the website's scenarios, and their concurrency group:
     # a run of either resets the passwords and clears the tasks the other is using.
     environment: ${{ inputs.environment }}-live-test
@@ -197,50 +233,26 @@ jobs:
     permissions:
       contents: read
       id-token: write
-      # To find and download the released app, an artifact of the release's run.
+      # To download the released app, an artifact of the release's run.
       actions: read
       # To read the emulator's cached setup.
       packages: read
     env:
       LIVE_BASE_URL: https://taskfest-${{ inputs.environment }}.cloud.hilling.de
       ENVIRONMENT: ${{ inputs.environment }}
-      MAESTRO_VERSION: 2.11.0
       BUNDLETOOL_VERSION: 1.18.3
     steps:
       - uses: actions/checkout@v7
 
-      # The app the release built for qa, not one built here: the bundle mobile-release.yml uploaded
-      # to Play, kept as an artifact of the release's run. In a release that build runs beside the
-      # deploy and may not be done yet, so it is waited for; otherwise it is there or it is not -- a
-      # version that was never released, or whose bundle has expired (30 days), has no app to test.
-      - name: Find the released app
-        id: bundle
+      - name: Download the released app
         env:
           GH_TOKEN: ${{ github.token }}
-          IN_RELEASE: ${{ github.workflow == 'Release' }}
+          ARTIFACT: ${{ needs.app-bundle.outputs.artifact }}
         run: |
-          version=$(curl -fsS "$LIVE_BASE_URL/api/version" | jq -r .version)
-          name="taskfest-${ENVIRONMENT}-${version}-aab"
-          attempts=1
-          if [ "$IN_RELEASE" = true ]; then attempts=40; fi
-          for attempt in $(seq "$attempts"); do
-            id=$(gh api "repos/$GITHUB_REPOSITORY/actions/artifacts?name=$name&per_page=1" \
-              --jq '[.artifacts[] | select(.expired | not)][0].id // empty')
-            if [ -n "$id" ]; then break; fi
-            if [ "$attempt" -lt "$attempts" ]; then sleep 30; fi
-          done
-          if [ -z "$id" ]; then
-            echo "::warning::No app of ${version} is kept ($name): the app's live run is skipped."
-            echo "found=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          gh api "repos/$GITHUB_REPOSITORY/actions/artifacts/$id/zip" > bundle.zip
+          gh api "repos/$GITHUB_REPOSITORY/actions/artifacts/$ARTIFACT/zip" > bundle.zip
           unzip -q bundle.zip -d bundle
-          echo "found=true" >> "$GITHUB_OUTPUT"
-          echo "version=$version" >> "$GITHUB_OUTPUT"
 
       - uses: actions/setup-java@v6
-        if: steps.bundle.outputs.found == 'true'
         with:
           distribution: temurin
           java-version: '25'
@@ -248,7 +260,6 @@ jobs:
       # A bundle is what Play takes; an emulator takes an APK. bundletool makes one APK of it for any
       # device, signed with a key made here for the purpose: the emulator only needs some signature.
       - name: Turn the bundle into an APK
-        if: steps.bundle.outputs.found == 'true'
         run: |
           curl -fsSL -o bundletool.jar \
             "https://github.com/google/bundletool/releases/download/${BUNDLETOOL_VERSION}/bundletool-all-${BUNDLETOOL_VERSION}.jar"
@@ -259,10 +270,8 @@ jobs:
           unzip -q app.apks universal.apk
 
       - uses: oras-project/setup-oras@v2
-        if: steps.bundle.outputs.found == 'true'
 
       - name: Restore the emulator's setup
-        if: steps.bundle.outputs.found == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         # The setup Mobile CI's flows run on (emulator-cache.yml, #302); booted from scratch without it.
@@ -272,13 +281,11 @@ jobs:
 
       # Playwright, for clearing the test accounts before and after the flows (run-on-qa.sh).
       - uses: actions/setup-node@v7
-        if: steps.bundle.outputs.found == 'true'
         with:
           node-version: '24'
       # Read on every branch, saved from main only, with no fallback there so that a new entry starts
       # clean: see doc/testing/continuous-integration.md.
       - name: Restore npm's cache
-        if: steps.bundle.outputs.found == 'true'
         uses: actions/cache/restore@v6
         with:
           path: ~/.npm
@@ -286,27 +293,24 @@ jobs:
           restore-keys: ${{ github.ref != 'refs/heads/main' && format('npm-e2e-{0}-{1}-', runner.os, runner.arch) || '' }}
 
       - name: Install Playwright
-        if: steps.bundle.outputs.found == 'true'
         working-directory: e2e
         run: |
           npm ci
           npx playwright install --with-deps chromium
 
       - name: Install Maestro
-        if: steps.bundle.outputs.found == 'true'
         run: |
+          set -a && source mobile/maestro/maestro.env && set +a
           curl -fsSL "https://get.maestro.mobile.dev" | bash
           echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
 
       - name: Let the emulator use KVM
-        if: steps.bundle.outputs.found == 'true'
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
       - uses: aws-actions/configure-aws-credentials@v6
-        if: steps.bundle.outputs.found == 'true'
         with:
           role-to-assume: arn:aws:iam::808706946095:role/taskfest-${{ inputs.environment }}-live-test
           aws-region: eu-central-1
@@ -314,7 +318,6 @@ jobs:
       # One step, as for the website's scenarios: run-on-qa.sh sets this run's passwords and keeps
       # them in its own environment.
       - name: Run the app's flows on an emulator
-        if: steps.bundle.outputs.found == 'true'
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: ${{ env.EMULATOR_API_LEVEL }}
@@ -328,10 +331,10 @@ jobs:
       # Each flow's recording, for the site to publish beside the website's (pages.yml, under videos/).
       # Failed runs too, as for the website.
       - name: Collect the videos
-        if: ${{ !cancelled() && steps.bundle.outputs.found == 'true' }}
+        if: ${{ !cancelled() }}
         env:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          VERSION: ${{ steps.bundle.outputs.version }}
+          VERSION: ${{ needs.app-bundle.outputs.version }}
         run: |
           sudo apt-get install -y --no-install-recommends ffmpeg >/dev/null || echo "::warning::no ffmpeg, so no posters"
           python3 .github/scripts/collect-live-videos.py --app live-app-videos/flows.json live-app-videos/out \
@@ -339,7 +342,7 @@ jobs:
             --recorded-at "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
       - name: Upload the videos
-        if: ${{ !cancelled() && steps.bundle.outputs.found == 'true' }}
+        if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7
         with:
           name: live-videos-${{ inputs.environment }}-app
@@ -347,15 +350,13 @@ jobs:
           retention-days: 30
           if-no-files-found: ignore
 
-      # Maestro's screenshots, and the screen's hierarchy where a flow stopped, only: its other output
-      # records each command as run, the typed password among them.
+      # Maestro's screenshots only: its other output records each command as run, the typed password
+      # among them.
       - name: Upload the screenshots
         if: failure()
         uses: actions/upload-artifact@v7
         with:
           name: maestro-live-screenshots
-          path: |
-            maestro-live-output/**/*.png
-            maestro-live-output/*-hierarchy.json
+          path: maestro-live-output/**/*.png
           retention-days: 7
           if-no-files-found: ignore

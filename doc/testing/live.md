@@ -104,12 +104,15 @@ signing in first:
 
 - **The app is the one the release built**, not one built here: the bundle `mobile-release.yml`
   uploaded to Play, kept as the artifact `taskfest-qa-<version>-aab` for 30 days. The job finds the
-  one of the version qa reports (`/api/version`); in a release, where that build runs beside the
-  deploy, it waits for it, up to 20 minutes. bundletool turns it into one APK, signed with a key
-  made for the run — the emulator needs a signature, not Play's. A version with no bundle kept —
-  never released, or older than 30 days — skips the job with a warning.
+  one of the version qa reports (`/api/version`) in a job of its own, *The released app for qa*;
+  in a release, where that build runs beside the deploy, it waits for it, up to 20 minutes —
+  outside the concurrency group, so the wait never holds up the next run's scenarios. bundletool
+  turns it into one APK, signed with a key made for the run — the emulator needs a signature, not
+  Play's. A version with no bundle kept — never released, or older than 30 days — skips the app's
+  flows with a warning. bundletool's updates are not merged automatically: no pull request runs
+  this job, so a green Renovate pull request says nothing about them.
 - **The same accounts and rules as the website's scenarios.** `mobile/maestro/live/run-on-qa.sh`
-  sets new passwords and clears both accounts before the flows and after them, failed or not
+  sets new passwords with the same script (`e2e/live/set-test-passwords.sh`) and clears both accounts before the flows and after them, failed or not
   (`e2e/live/clear-test-accounts.task.ts`, the website's clearing on its own), all in one step,
   masked. It shares the scenarios' concurrency group and runs after them, even when they failed:
   each says something of its own. Android is told not to show the last character typed into a
@@ -122,8 +125,10 @@ signing in first:
   `live-videos-qa-app`, which `pages.yml` fetches as it does `live-videos-qa`. A failure uploads
   Maestro's screenshots, and only those: its other output records every command as run, the typed
   password among them.
-- **The emulator is Mobile CI's**, restored from the same cache (`mobile/maestro/emulator.env`,
-  [development.md](../mobile/development.md)). Only Android: iOS has no live run.
+- **The emulator and Maestro are Mobile CI's**: the emulator restored from the same cache
+  (`mobile/maestro/emulator.env`, [development.md](../mobile/development.md)), Maestro the release
+  pinned once for both in `mobile/maestro/maestro.env`. Only Android: iOS has no live run. The
+  job stops after 30 minutes, so a hung emulator never holds the concurrency group for long.
 
 ## When it runs
 
