@@ -67,6 +67,19 @@ describe('picking a file to attach (#274)', () => {
     })
   })
 
+  it('leaves a photo of a type neither the picker nor its name says unknown, for the upload to refuse', async () => {
+    const parts = phone({
+      library: jest.fn().mockResolvedValue({ uri: 'file:///cache/IMG_4.DNG', fileName: 'IMG_4.DNG', mimeType: null, fileSize: 25_000_000 }),
+    })
+
+    await expect(pickFile('library', parts)).resolves.toEqual({
+      uri: 'file:///cache/IMG_4.DNG',
+      name: 'IMG_4.DNG',
+      type: '',
+      size: 25_000_000,
+    })
+  })
+
   it('chooses any file, as the file picker reports it', async () => {
     await expect(pickFile('files', phone())).resolves.toEqual({
       uri: 'file:///cache/scan.pdf',

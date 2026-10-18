@@ -28,6 +28,8 @@ and removed.
   file as it would have been without.
 - **An iPhone's HEIC photo becomes a JPEG**: the library is asked for a compatible one, and any HEIC
   left is converted (`mobile/src/pick.ts`), since the backend takes JPEG, PNG, WebP, GIF and PDF.
+  A photo whose type neither the picker nor its name says is refused like any other file the
+  backend would not take; only a photo the camera gave no name is taken for the JPEG it is.
 - **Permissions**: iOS asks for the camera and the photo library with the texts in
   `app.config.ts`; Android's photo picker and file picker need none, and the camera is asked for
   when first used. A camera the user refused is said so, with where to allow it.
@@ -53,7 +55,8 @@ and removed.
   phone's clock alone, so a preview asks once and not on every redraw, and two asking at once share
   one request. Previews need a connection: the board kept on the phone ([board.md](board.md)) shows
   empty boxes instead.
-- **Signing out forgets them**: the image open, the links, and the copies Android downloaded.
+- **Signing out forgets them**: the image open, the links, and the copies Android downloaded. A
+  copy still downloading then is neither shown nor kept when it arrives (`mobile/src/documents.ts`).
 
 ## Removing them
 

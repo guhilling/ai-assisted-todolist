@@ -112,7 +112,11 @@ edition. A module of our own over the two SDKs stays the fallback if the library
 offers Google's native button (`GIDSignInButton` on iOS, Play services' assets on Android), but it
 is a native view the Jest tests cannot render, and its words follow the phone's language where the
 website's are always Google's English. The website's PNGs are Google's official button too,
-already in use, the same on both platforms, and testable like any other image.
+already in use, the same on both platforms, and testable like any other image. A button of our
+own would have been allowed as well: Google's
+[branding guidelines](https://developers.google.com/identity/branding-guidelines) ask only that
+its "G" keep its size and colours, and permit the words in the app's language. Using the image is
+our choice, for one look on every platform, not Google's requirement.
 
 **Attaching files: Expo's own modules (#274).** expo-image-picker for the camera and the photo
 library, expo-document-picker for any file — not expo-file-system's own `File.pickFileAsync`,

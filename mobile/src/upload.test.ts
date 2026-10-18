@@ -89,6 +89,15 @@ describe('attaching a file from the phone (#274)', () => {
     expect(api.announce).not.toHaveBeenCalled()
   })
 
+  it('refuses a file whose type nobody could say, as one the backend does not take', async () => {
+    const api = backend()
+
+    await expect(uploadFile(caller, 7, { ...photo, name: 'IMG_4.DNG', type: '' }, jest.fn(), api, phone())).rejects.toEqual(
+      new AttachmentRefusedError('UNSUPPORTED_TYPE'),
+    )
+    expect(api.announce).not.toHaveBeenCalled()
+  })
+
   it('confirms nothing when the file did not reach storage', async () => {
     const api = backend()
 
