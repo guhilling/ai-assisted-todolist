@@ -7,7 +7,7 @@
  * identical to a correct render unless it is asserted.
  */
 import { describe, expect, it } from 'vitest'
-import { addDays, bucketOf, daysBetween, describeDueDate, quickDates, todayIso, calendarParts } from './dates'
+import { addDays, bucketOf, daysBetween, describeDueDate, quickDates, todayIso, calendarParts, describeDueDateWithWeekday, sectionWeekday, weekdayBeside } from './dates'
 import { de } from './i18n/messages'
 
 /** A Thursday, chosen so "within this week" crosses a weekend and a month end. */
@@ -131,5 +131,34 @@ describe('due dates in another language', () => {
 describe('a calendar date written as ISO (#273)', () => {
   it('is its year, month and day', () => {
     expect(calendarParts('2026-10-09')).toEqual({ year: 2026, month: 10, day: 9 })
+  })
+})
+
+describe('the weekday beside today and tomorrow (#337)', () => {
+  it('names the day for today and tomorrow, which "Today" and "Tomorrow" do not', () => {
+    expect(weekdayBeside(THURSDAY, THURSDAY)).toBe('Thursday')
+    expect(weekdayBeside('2026-10-30', THURSDAY)).toBe('Friday')
+  })
+
+  it('has nothing to add to any other day, whose description is a weekday or a date already', () => {
+    expect(weekdayBeside('2026-10-28', THURSDAY)).toBeNull()
+    expect(weekdayBeside('2026-10-31', THURSDAY)).toBeNull()
+  })
+
+  it('names it in the language the board speaks', () => {
+    expect(weekdayBeside(THURSDAY, THURSDAY, 'de-DE')).toBe('Donnerstag')
+  })
+
+  it('joins it to the description as one text, in the language that says it', () => {
+    expect(describeDueDateWithWeekday(THURSDAY, THURSDAY)).toBe('Today · Thursday')
+    expect(describeDueDateWithWeekday('2026-10-30', THURSDAY, de.dates, 'de-DE')).toBe('Morgen · Freitag')
+    expect(describeDueDateWithWeekday('2026-10-28', THURSDAY)).toBe('Yesterday')
+  })
+
+  it("names Today's and Tomorrow's beside their headings, and no other section's", () => {
+    expect(sectionWeekday('today', THURSDAY)).toBe('Thursday')
+    expect(sectionWeekday('tomorrow', THURSDAY)).toBe('Friday')
+    expect(sectionWeekday('thisWeek', THURSDAY)).toBeNull()
+    expect(sectionWeekday('overdue', THURSDAY)).toBeNull()
   })
 })

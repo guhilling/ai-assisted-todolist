@@ -44,7 +44,7 @@ import SignedOut from './components/SignedOut'
 import TaskSection from './components/TaskSection'
 import UserAvatar from './components/UserAvatar'
 import UndoToast from './components/UndoToast'
-import { bucketOf, todayIso, type DueBucket } from './dates'
+import { bucketOf, sectionWeekday, todayIso, type DueBucket } from './dates'
 import { compareCompleted, compareOpen } from './importance'
 import { useI18n } from './i18n/context'
 import { describeFailure } from './i18n/failures'
@@ -81,7 +81,7 @@ function App() {
 
 /** Everything the app shows: the signed-out and paused pages, and the board. */
 function Board() {
-  const { language, messages } = useI18n()
+  const { language, messages, locale } = useI18n()
   const [tasks, setTasks] = useState<Task[]>([])
   const [providers, setProviders] = useState<AuthProvidersResponse>({ enabled: false, providers: [] })
   // While the environment is down, the name it gives itself, or null; undefined while it is up.
@@ -423,6 +423,7 @@ function Board() {
             <TaskSection
               key={section.bucket}
               title={messages.sections[section.bucket]}
+              weekday={sectionWeekday(section.bucket, today, locale)}
               overdue={section.overdue}
               today={today}
               tasks={openTasks.filter((task) => bucketOf(task.dueDate, today) === section.bucket)}

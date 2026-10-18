@@ -202,6 +202,8 @@ export const en = {
     yesterday: 'Yesterday',
     daysAgo: (days: number) => `${days} days ago`,
     inWeeks: (weeks: number) => (weeks === 1 ? 'In 1 week' : `In ${weeks} weeks`),
+    /** "Today" or "Tomorrow" with the day it is (#337): the app's row, and its heading read aloud. */
+    withWeekday: (when: string, weekday: string) => `${when} · ${weekday}`,
   },
   signedOut: {
     tagline: 'Your own list, private to whoever signs in.',
@@ -398,6 +400,7 @@ export const de: Messages = {
     yesterday: 'Gestern',
     daysAgo: (days: number) => `vor ${days} Tagen`,
     inWeeks: (weeks: number) => (weeks === 1 ? 'In 1 Woche' : `In ${weeks} Wochen`),
+    withWeekday: (when: string, weekday: string) => `${when} · ${weekday}`,
   },
   signedOut: {
     tagline: 'Deine eigene Liste – privat für alle, die sich anmelden.',

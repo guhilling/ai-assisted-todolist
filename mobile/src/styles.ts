@@ -34,6 +34,9 @@ export function stylesFor(theme: Theme) {
     section: { gap: 8 },
     sectionHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
     heading: { fontSize: 18, fontWeight: '700', color: theme.text },
+    /** A section's heading and the weekday beside it (#337). */
+    headingLine: { flexDirection: 'row', alignItems: 'baseline', gap: 8 },
+    headingWeekday: { fontSize: 15, color: theme.textMuted },
     overdue: { color: theme.danger },
     // A task's row, and its files below it (#274), between one line and the next.
     rowWithFiles: {
