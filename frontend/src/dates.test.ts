@@ -7,7 +7,7 @@
  * identical to a correct render unless it is asserted.
  */
 import { describe, expect, it } from 'vitest'
-import { addDays, bucketOf, daysBetween, describeDueDate, quickDates, todayIso, calendarParts, weekdayBeside } from './dates'
+import { addDays, bucketOf, daysBetween, describeDueDate, quickDates, todayIso, calendarParts, describeDueDateWithWeekday, sectionWeekday, weekdayBeside } from './dates'
 import { de } from './i18n/messages'
 
 /** A Thursday, chosen so "within this week" crosses a weekend and a month end. */
@@ -147,5 +147,18 @@ describe('the weekday beside today and tomorrow (#337)', () => {
 
   it('names it in the language the board speaks', () => {
     expect(weekdayBeside(THURSDAY, THURSDAY, 'de-DE')).toBe('Donnerstag')
+  })
+
+  it('joins it to the description as one text, in the language that says it', () => {
+    expect(describeDueDateWithWeekday(THURSDAY, THURSDAY)).toBe('Today · Thursday')
+    expect(describeDueDateWithWeekday('2026-10-30', THURSDAY, de.dates, 'de-DE')).toBe('Morgen · Freitag')
+    expect(describeDueDateWithWeekday('2026-10-28', THURSDAY)).toBe('Yesterday')
+  })
+
+  it("names Today's and Tomorrow's beside their headings, and no other section's", () => {
+    expect(sectionWeekday('today', THURSDAY)).toBe('Thursday')
+    expect(sectionWeekday('tomorrow', THURSDAY)).toBe('Friday')
+    expect(sectionWeekday('thisWeek', THURSDAY)).toBeNull()
+    expect(sectionWeekday('overdue', THURSDAY)).toBeNull()
   })
 })

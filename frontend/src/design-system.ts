@@ -40,7 +40,7 @@ export { default as UndoToast } from './components/UndoToast'
 export { default as UserAvatar } from './components/UserAvatar'
 
 /** The due-date words and arithmetic the rows render. Pure, and every function takes today. */
-export { addDays, bucketOf, daysBetween, describeDueDate, quickDates, todayIso, weekdayBeside } from './dates'
+export { addDays, bucketOf, daysBetween, describeDueDate, quickDates, todayIso, describeDueDateWithWeekday, sectionWeekday, weekdayBeside } from './dates'
 export type { DueBucket } from './dates'
 
 /** The importance levels and the word each one reads as. */

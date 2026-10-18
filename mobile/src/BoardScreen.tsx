@@ -4,7 +4,7 @@ import type { BoardTask } from './api'
 import { FileStrip, type FileLinkSource } from './Attachments'
 import { boardOf, isChangeable } from './board'
 import type { Styles } from './styles'
-import { addDays, describeDueDate, localeOf, weekdayBeside, type Attachment, type Language, type Messages } from './web'
+import { describeDueDateWithWeekday, localeOf, sectionWeekday, type Attachment, type Language, type Messages } from './web'
 
 /** How long the offer to undo a delete stands: the website's eight seconds. */
 const UNDO_FOR_MS = 8000
@@ -77,14 +77,7 @@ export function BoardScreen({
 
   const locale = localeOf(language)
   /** When a task is due, and for "Today" and "Tomorrow" which day that is (#337). */
-  const when = (iso: string) => {
-    const described = describeDueDate(iso, today, messages.dates, locale)
-    const weekday = weekdayBeside(iso, today, locale)
-    return weekday ? `${described} · ${weekday}` : described
-  }
-  /** The weekday beside the Today and Tomorrow headings, which do not say it. */
-  const sectionWeekday = (bucket: string) =>
-    bucket === 'today' ? weekdayBeside(today, today, locale) : bucket === 'tomorrow' ? weekdayBeside(addDays(today, 1), today, locale) : null
+  const when = (iso: string) => describeDueDateWithWeekday(iso, today, messages.dates, locale)
 
   const row = (task: BoardTask, sayWhen: boolean) => {
     const changeable = isChangeable(task)
@@ -184,23 +177,32 @@ export function BoardScreen({
         {board.sections.length === 0 && board.completed.length === 0 ? (
           <Text style={styles.muted}>{messages.board.emptyShort}</Text>
         ) : null}
-        {board.sections.map((section) => (
-          <View key={section.bucket} style={styles.section}>
-            {/* The weekday beside the heading rather than in it (#337): the heading names the section. */}
-            <View style={styles.headingLine}>
-              <Text style={[styles.heading, section.bucket === 'overdue' && styles.overdue]}>
-                {messages.sections[section.bucket]}
-              </Text>
-              {sectionWeekday(section.bucket) ? (
-                <Text testID={`weekday-${section.bucket}`} style={styles.headingWeekday}>
-                  {sectionWeekday(section.bucket)}
-                </Text>
-              ) : null}
+        {board.sections.map((section) => {
+          const title = messages.sections[section.bucket]
+          const weekday = sectionWeekday(section.bucket, today, locale)
+          return (
+            <View key={section.bucket} style={styles.section}>
+              {/*
+                * The weekday beside the heading rather than in it (#337): the heading names the
+                * section. Read aloud as one, so a screen reader hears the day with it.
+                */}
+              <View
+                style={styles.headingLine}
+                accessible={weekday !== null}
+                accessibilityLabel={weekday ? messages.dates.withWeekday(title, weekday) : undefined}
+              >
+                <Text style={[styles.heading, section.bucket === 'overdue' && styles.overdue]}>{title}</Text>
+                {weekday ? (
+                  <Text testID={`weekday-${section.bucket}`} style={styles.headingWeekday}>
+                    {weekday}
+                  </Text>
+                ) : null}
+              </View>
+              {/* As on the website, the heading already says when a task is due today or tomorrow. */}
+              {section.tasks.map((task) => row(task, section.bucket !== 'today' && section.bucket !== 'tomorrow'))}
             </View>
-            {/* As on the website, the heading already says when a task is due today or tomorrow. */}
-            {section.tasks.map((task) => row(task, section.bucket !== 'today' && section.bucket !== 'tomorrow'))}
-          </View>
-        ))}
+          )
+        })}
         {board.completed.length > 0 ? (
           <View style={styles.section}>
             <View style={styles.sectionHead}>

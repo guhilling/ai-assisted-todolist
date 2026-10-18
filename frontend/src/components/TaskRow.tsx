@@ -36,6 +36,7 @@ function TaskRow({ task, today, onToggleDone, onSetState, onDelete, onEdit, atta
   // does not repeat it. Every other section spans several days (or, for completed tasks, none), so
   // there the row says which.
   const dueSaidByHeading = !done && ['today', 'tomorrow'].includes(bucketOf(task.dueDate, today))
+  const weekday = weekdayBeside(task.dueDate, today, locale)
   const inputId = `task-${task.id}`
   const menuId = `task-menu-${task.id}`
   const summaryId = `task-menu-summary-${task.id}`
@@ -146,12 +147,14 @@ function TaskRow({ task, today, onToggleDone, onSetState, onDelete, onEdit, atta
             <span className="visually-hidden">{messages.importance.levels[task.importance]}</span>
           </span>
           {dueSaidByHeading ? null : (
-            <span className={overdue ? 'task-due task-due--overdue' : 'task-due'}>
-              {describeDueDate(task.dueDate, today, messages.dates, locale)}
-            </span>
+            <>
+              <span className={overdue ? 'task-due task-due--overdue' : 'task-due'}>
+                {describeDueDate(task.dueDate, today, messages.dates, locale)}
+              </span>
+              {/* "Today" and "Tomorrow" do not say which day that is (#337): an item of its own. */}
+              {weekday ? <span>{weekday}</span> : null}
+            </>
           )}
-          {/* "Today" and "Tomorrow" do not say which day that is (#337). */}
-          {dueSaidByHeading ? null : <WeekdayBeside iso={task.dueDate} today={today} locale={locale} />}
           {task.state === 'WORKING' ? <span className="task-chip">{messages.row.inProgress}</span> : null}
         </p>
         {attachments ? <AttachmentList task={task} actions={attachments} removable={editable} /> : null}
@@ -219,9 +222,3 @@ function TaskRow({ task, today, onToggleDone, onSetState, onDelete, onEdit, atta
 }
 
 export default TaskRow
-
-/** The weekday after a row's "Today" or "Tomorrow", as an item of its own on the meta line; nothing for any other day. */
-function WeekdayBeside({ iso, today, locale }: Readonly<{ iso: string; today: string; locale: string }>) {
-  const weekday = weekdayBeside(iso, today, locale)
-  return weekday ? <span className="task-due-weekday">{weekday}</span> : null
-}

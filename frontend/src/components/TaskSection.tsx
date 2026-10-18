@@ -1,3 +1,4 @@
+import { useId } from 'react'
 import type { Task, TaskState } from '../api'
 import type { AttachmentActions } from './AttachmentList'
 import type { TaskEdit } from './TaskEditor'
@@ -36,16 +37,29 @@ function TaskSection({
   onEdit,
   attachments,
 }: Readonly<TaskSectionProps>) {
+  const weekdayId = useId()
   if (tasks.length === 0) {
     return null
   }
 
   return (
     <section className="task-section">
-      {/* The weekday beside the heading rather than in it: the heading names the section. */}
+      {/*
+        * The weekday beside the heading rather than in it: the heading names the section. It
+        * describes the heading, so whoever moves through the board by headings hears it too.
+        */}
       <div className="section-head">
-        <h2 className={overdue ? 'section-title section-title--overdue' : 'section-title'}>{title}</h2>
-        {weekday ? <span className="section-weekday">{weekday}</span> : null}
+        <h2
+          className={overdue ? 'section-title section-title--overdue' : 'section-title'}
+          aria-describedby={weekday ? weekdayId : undefined}
+        >
+          {title}
+        </h2>
+        {weekday ? (
+          <span className="section-weekday" id={weekdayId}>
+            {weekday}
+          </span>
+        ) : null}
       </div>
       <ul className="task-list">
         {tasks.map((task) => (

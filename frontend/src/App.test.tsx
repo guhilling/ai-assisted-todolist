@@ -1603,6 +1603,12 @@ describe('the weekday beside today and tomorrow (#337)', () => {
     expect(screen.getByRole('heading', { name: 'This week' }).parentElement?.querySelector('.section-weekday')).toBeNull()
   })
 
+  it('describes the heading with it, so moving by headings hears the day', async () => {
+    await renderSignedIn(mockApi({ me: ALICE, tasks: [task({ id: 2, description: 'Today thing', dueDate: TODAY })] }))
+
+    expect(screen.getByRole('heading', { name: 'Today' })).toHaveAccessibleDescription(weekday(TODAY))
+  })
+
   it('names it beside a completed task done today too', async () => {
     await renderSignedIn(
       mockApi({ me: ALICE, tasks: [task({ id: 9, description: 'Done today', dueDate: TODAY, state: 'DONE' })] }),

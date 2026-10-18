@@ -44,7 +44,7 @@ import SignedOut from './components/SignedOut'
 import TaskSection from './components/TaskSection'
 import UserAvatar from './components/UserAvatar'
 import UndoToast from './components/UndoToast'
-import { addDays, bucketOf, todayIso, weekdayBeside, type DueBucket } from './dates'
+import { bucketOf, sectionWeekday, todayIso, type DueBucket } from './dates'
 import { compareCompleted, compareOpen } from './importance'
 import { useI18n } from './i18n/context'
 import { describeFailure } from './i18n/failures'
@@ -423,11 +423,7 @@ function Board() {
             <TaskSection
               key={section.bucket}
               title={messages.sections[section.bucket]}
-              weekday={
-                section.bucket === 'today' || section.bucket === 'tomorrow'
-                  ? weekdayBeside(section.bucket === 'today' ? today : addDays(today, 1), today, locale)
-                  : null
-              }
+              weekday={sectionWeekday(section.bucket, today, locale)}
               overdue={section.overdue}
               today={today}
               tasks={openTasks.filter((task) => bucketOf(task.dueDate, today) === section.bucket)}

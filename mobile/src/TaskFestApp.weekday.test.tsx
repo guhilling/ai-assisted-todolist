@@ -54,6 +54,12 @@ describe('the weekday beside today and tomorrow (#337)', () => {
     expect(screen.queryByTestId('weekday-week')).toBeNull()
   })
 
+  it('reads the heading and its day aloud as one', async () => {
+    await render(<TaskFestApp variant={variants.dev} language="en" dependencies={dependencies()} />)
+
+    expect(await screen.findByLabelText('Today · Saturday')).toBeOnTheScreen()
+  })
+
   it('names it beside a completed task done today too', async () => {
     await render(<TaskFestApp variant={variants.dev} language="en" dependencies={dependencies()} />)
 
