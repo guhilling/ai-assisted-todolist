@@ -7,38 +7,13 @@
 #   others  the account sheet, the reminders, and the board read offline
 #
 # A script rather than the emulator action's inline lines: each of those runs as a command of its
-# own, which leaves no room for a loop. The emulator reports itself booted a little before adb can
-# reach it -- "adb: device offline" -- so every step first waits for it, and the adb steps retry.
+# own, which leaves no room for a loop. emulator-ready.sh waits for the emulator and sets its clock.
 set -euo pipefail
 
 apk="$1"
 share="$2"
 
-retry() {
-  for attempt in 1 2 3 4 5; do
-    "$@" && return 0
-    echo "retrying ($attempt): $*" >&2
-    sleep 5
-  done
-  return 1
-}
-
-adb wait-for-device
-until [ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1" ]; do sleep 2; done
-until adb shell pm path android >/dev/null 2>&1; do sleep 2; done
-
-# An emulator woken from main's snapshot (#302) may still keep the day it was saved, and the flows
-# depend on today: the seeded task is due today, a new one tomorrow. Set its clock from the runner's
-# when they differ by more than half a minute; google_apis images let adb be root for that.
-drift=$(( $(date +%s) - $(adb shell date +%s | tr -d '\r') ))
-echo "The emulator's clock is ${drift} s behind the runner's."
-if (( drift > 30 || drift < -30 )); then
-  retry adb root
-  adb wait-for-device
-  retry adb shell date "@$(date +%s)"
-  adb unroot || true
-  adb wait-for-device
-fi
+source "$(dirname "$0")/emulator-ready.sh"
 
 # The emulator's localhost is not the runner's: give it the stack's ports under the same numbers,
 # so the app and Keycloak's issuer use the addresses the browser does -- and storage's, which the
@@ -85,20 +60,8 @@ if [[ "$scheduled" != true ]]; then
   exit 1
 fi
 
-# Attaching (#274): an image in the emulator's Downloads, for the file picker to offer. Generated
-# here rather than kept in the repository: a few lines of Python make a valid PNG. Android's media
-# store is told of it, which the picker's Downloads go by.
-python3 - <<'PY'
-import struct, zlib
-w, h = 320, 200
-rows = b''.join(b'\x00' + b''.join(bytes([x * 255 // w, y * 255 // h, 160]) for x in range(w)) for y in range(h))
-def chunk(kind, data):
-    return struct.pack('>I', len(data)) + kind + data + struct.pack('>I', zlib.crc32(kind + data) & 0xffffffff)
-png = b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR', struct.pack('>IIBBBBB', w, h, 8, 2, 0, 0, 0)) + chunk(b'IDAT', zlib.compress(rows)) + chunk(b'IEND', b'')
-open('attach-me.png', 'wb').write(png)
-PY
-retry adb push attach-me.png /sdcard/Download/attach-me.png
-adb shell content call --uri content://media --method scan_volume --arg external_primary >/dev/null || true
+# Attaching (#274): an image in the emulator's Downloads, for the file picker to offer.
+retry bash "$(dirname "$0")/put-attach-image.sh"
 maestro test mobile/maestro/attach.yaml --format junit --output maestro-attach.xml --test-output-dir maestro-output
 
 # Offline (#272): keep a board, take the backend away -- the app reaches it through adb reverse,

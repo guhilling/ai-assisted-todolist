@@ -1,0 +1,48 @@
+# Signs qa's first test account in, through Cognito's login page in the system browser, and waits
+# for the board (#278). The live run cleared the account beforehand, so the board is empty. The
+# account and its password come from run-on-qa.sh, which sets a new password for every run.
+appId: de.hilling.taskfest.qa
+name: Sign in on qa
+---
+# As in the end-to-end sign-in flow: a launch Android killed while closing the last task is retried.
+- retry:
+    maxRetries: 2
+    commands:
+      - launchApp:
+          clearState: true
+      - extendedWaitUntil:
+          visible: "Sign in with TaskFest test account"
+          timeout: 30000
+- tapOn: "Sign in with TaskFest test account"
+# A fresh emulator's Chrome greets its first user; none of this is TaskFest's.
+- runFlow:
+    when:
+      visible: "Accept & continue"
+    commands:
+      - tapOn: "Accept & continue"
+- runFlow:
+    when:
+      visible: "No thanks"
+    commands:
+      - tapOn: "No thanks"
+- runFlow:
+    when:
+      visible: "Use without an account"
+    commands:
+      - tapOn: "Use without an account"
+# Cognito's classic login page carries its form twice, for wide and narrow screens; a phone sees
+# the narrow one only.
+- extendedWaitUntil:
+    visible: "Username"
+    timeout: 30000
+- takeScreenshot: live-01-cognito
+- tapOn: "Username"
+- inputText: ${TEST_ACCOUNT}
+- tapOn: "Password"
+- inputText: ${TEST_PASSWORD}
+- hideKeyboard
+- tapOn: "Sign in"
+- extendedWaitUntil:
+    visible: "Add a task"
+    timeout: 30000
+- takeScreenshot: live-02-board

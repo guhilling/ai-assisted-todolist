@@ -32,6 +32,14 @@
       "depNameTemplate": "opentofu/opentofu",
       "datasourceTemplate": "github-releases",
       "extractVersionTemplate": "^v(?<version>.*)$"
+    },
+    {
+      "customType": "regex",
+      "description": "bundletool, which turns the released app's bundle into an APK for the app's live run (#278). Downloaded by version in the workflow, which no built-in manager reads.",
+      "managerFilePatterns": ["/^\\.github/workflows/live-tests\\.yml$/"],
+      "matchStrings": ["BUNDLETOOL_VERSION:\\s*(?<currentValue>\\S+)"],
+      "depNameTemplate": "google/bundletool",
+      "datasourceTemplate": "github-releases"
     }
   ],
   "packageRules": [

@@ -68,6 +68,9 @@ jobs:
     runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v7
+      # build-site.py, whose videos page has tests (#278), renders Markdown with this.
+      - name: Install the site generator's dependencies
+        run: pip install -r .github/scripts/requirements.txt
       - name: Test the scripts that have tests
         # sonar-gate-issue.py decides between opening, commenting on and closing an issue; a
         # wrong decision is silence or duplicates, and nothing else would notice either.
