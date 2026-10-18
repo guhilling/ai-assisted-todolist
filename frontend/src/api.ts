@@ -16,7 +16,6 @@ import type {
   AuthProvidersResponse as WireAuthProvidersResponse,
   CurrentUserResponse,
   TaskCreateRequest,
-  RefusalResponse,
   TaskResponse,
 } from './generated/types'
 import { needsDatingBack, restoreInput } from './restore'
@@ -30,7 +29,7 @@ import {
   validateTaskResponse,
   validateUploadResponse,
 } from './generated/validators'
-import { checkFile } from './attachmentPolicy'
+import { checkFile, type AttachmentRefusal } from './attachmentPolicy'
 import { storageUrl } from './storage'
 
 /**
@@ -59,7 +58,7 @@ export type Task = TaskResponse
 export type Attachment = AttachmentResponse
 
 /** Why an attachment was refused, as the backend names it; the board words it (#203). */
-export type AttachmentRefusal = RefusalResponse['refusal']
+export type { AttachmentRefusal } from './attachmentPolicy'
 
 /** The fields a client may set. The backend's create request, generated from its schema. */
 export type TaskInput = TaskCreateRequest

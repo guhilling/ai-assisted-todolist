@@ -12,8 +12,11 @@ import { checkFile, MAX_THUMBNAIL_BYTES, type Attachment, type Task } from './we
  * the real ones), so this is tested without them.
  */
 
-/** A file picked on the phone: where it is, and what the pickers say of it. */
-export type PickedFile = { uri: string; name: string; type: string; size: number }
+/**
+ * A file picked on the phone: where it is, and what the pickers say of it -- an image's size in
+ * pixels too, when the picker knows it, so it need not be decoded to be measured.
+ */
+export type PickedFile = { uri: string; name: string; type: string; size: number; width?: number; height?: number }
 
 /** The backend's side of attaching: `announceAttachment` and `confirmAttachment`. */
 export type UploadApi = {

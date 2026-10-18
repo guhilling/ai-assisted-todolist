@@ -10,7 +10,7 @@ import {
   validateUploadResponse,
   validateVersionResponse,
   type Attachment,
-  type RefusalResponse,
+  type AttachmentRefusal,
   type Task,
   type TaskInput,
   type TaskState,
@@ -69,9 +69,6 @@ export class RequestFailedError extends Error {
     this.status = status
   }
 }
-
-/** Why a file was refused, as the backend names it -- or the phone, by the same rule. */
-export type AttachmentRefusal = RefusalResponse['refusal']
 
 /** A file refused, for the app to say why in the user's language. */
 export class AttachmentRefusedError extends Error {

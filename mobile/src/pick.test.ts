@@ -84,3 +84,13 @@ describe('picking a file to attach (#274)', () => {
     await expect(pickFile('files', parts)).resolves.toBeNull()
   })
 })
+
+describe("a photo's measure, as the picker gives it (#274)", () => {
+  it('goes along with the photo, so the thumbnail need not decode it to measure it', async () => {
+    const parts = phone({
+      library: jest.fn().mockResolvedValue({ uri: 'file:///cache/IMG_3.jpg', fileName: 'IMG_3.jpg', mimeType: 'image/jpeg', fileSize: 3_000_000, width: 4000, height: 3000 }),
+    })
+
+    await expect(pickFile('library', parts)).resolves.toMatchObject({ width: 4000, height: 3000 })
+  })
+})

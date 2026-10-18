@@ -5,8 +5,8 @@ import type { RefusalResponse } from './generated/types'
  * so the mobile app refuses a file by the same rule as the website rather than a copy of it (#274).
  */
 
-/** Why an attachment was refused, as the backend names it. */
-type AttachmentRefusal = RefusalResponse['refusal']
+/** Why an attachment was refused, as the backend names it; the website and the app word it alike. */
+export type AttachmentRefusal = RefusalResponse['refusal']
 
 /** The types the backend accepts (D2 on #204): PDFs, and the images every browser shows inline. */
 export const attachmentTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp', 'image/gif']

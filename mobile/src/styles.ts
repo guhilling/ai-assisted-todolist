@@ -21,7 +21,7 @@ export function stylesFor(theme: Theme) {
     fileName: { flexDirection: 'row', alignItems: 'center', gap: 4, maxWidth: 200 },
     preview: { width: 64, height: 64, borderRadius: 6 },
     previewLoading: { backgroundColor: theme.border },
-    viewer: { flex: 1, backgroundColor: '#000', justifyContent: 'center', paddingVertical: 48 },
+    viewer: { flex: 1, backgroundColor: theme.bg, justifyContent: 'center', paddingVertical: 48 },
     viewedImage: { flex: 1, width: '100%' },
     editorFile: { flexDirection: 'row', alignItems: 'center', gap: 8 },
     pressed: { opacity: 0.7 },

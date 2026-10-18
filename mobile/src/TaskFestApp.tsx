@@ -197,8 +197,13 @@ export function TaskFestApp({
    * so a preview does not ask on every render, and two asking at once share one request.
    */
   const links = useRef(new Map<string, { link: Promise<string>; until: number }>())
-  /** The file uploading, and how far it has got (#274). */
-  const [uploading, setUploading] = useState<{ name: string; fraction: number } | null>(null)
+  /** The file uploading, to which task -- or the one being added -- and how far it has got (#274). */
+  const [uploading, setUploading] = useState<{ taskId: Task['id'] | 'new'; name: string; fraction: number } | null>(null)
+  /** The form open now, for an answer that arrives after it may have closed. */
+  const formNow = useRef<Form | null>(null)
+  useEffect(() => {
+    formNow.current = form
+  }, [form])
   /** Whether a file is being opened: a second tap meanwhile opens nothing more. */
   const opening = useRef(false)
   /** Whether a change was refused because the board shown may not be current (#272), until it is. */
@@ -259,13 +264,6 @@ export function TaskFestApp({
   }, [google, now, provider, renewWithGoogle, sessions])
 
   /**
-   * Forgets the session on the phone and everything shown for it, and goes back to the sign-in.
-   * The one way out: whatever the app keeps for a signed-in user goes here.
-   *
-   * A renewal under way would save its session after the keychain was cleared, so it is waited for
-   * first; and a start or a load begun before the sign-out finds it counted and gives up.
-   */
-  /**
    * Forgets every file of the session: the image open, the links asked for, and the copies opened
    * in the phone's viewer -- none of it is for whoever signs in next.
    */
@@ -277,6 +275,13 @@ export function TaskFestApp({
     })
   }, [documents])
 
+  /**
+   * Forgets the session on the phone and everything shown for it, and goes back to the sign-in.
+   * The one way out: whatever the app keeps for a signed-in user goes here.
+   *
+   * A renewal under way would save its session after the keychain was cleared, so it is waited for
+   * first; and a start or a load begun before the sign-out finds it counted and gives up.
+   */
   const signOut = useCallback(
     async (notice?: SignedOutNotice) => {
       signOuts.current += 1
@@ -423,7 +428,8 @@ export function TaskFestApp({
   // yet and could forget the one the sign-in is about to save.
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (next) => {
-      if (next === 'active' && !sheetOpen.current && !signingIn.current && inFlight.current === 0) {
+      // Not while a file is open in another app, or being opened: coming back from it is no reason.
+      if (next === 'active' && !sheetOpen.current && !signingIn.current && !opening.current && inFlight.current === 0) {
         // A board that could not be loaded says it is being loaded again, as "Try again" does.
         setState((current) => (current.kind === 'board' && current.kept ? { ...current, kept: 'loading' } : current))
         setAttempt((count) => count + 1)
@@ -722,19 +728,24 @@ export function TaskFestApp({
   }
 
   /** Uploads a file to a task, saying how far it has got; resolves to why not, or null once attached. */
-  const uploadTo = async (task: BoardTask, file: PickedFile): Promise<string | null> => {
+  const uploadTo = async (task: BoardTask, file: PickedFile, adding = false): Promise<string | null> => {
     const upload = files?.upload
     if (!upload) {
       return null
     }
-    setUploading({ name: file.name, fraction: 0 })
+    const taskId = adding ? 'new' : task.id
+    setUploading({ taskId, name: file.name, fraction: 0 })
     try {
       const attachment = await sending(async () =>
-        upload(await caller(), task.id, file, (fraction) => setUploading({ name: file.name, fraction })),
+        upload(await caller(), task.id, file, (fraction) => setUploading({ taskId, name: file.name, fraction })),
       )
       addFile(task.id, attachment)
       return null
     } catch (cause) {
+      if (cause instanceof KeptBoardShownError) {
+        setRefused(true)
+        return messages.offline.readOnly
+      }
       return refusalText(cause, file.name) ?? (await failed(cause, messages.attachments.uploadFailed(file.name))) ?? ''
     } finally {
       setUploading(null)
@@ -773,7 +784,12 @@ export function TaskFestApp({
       if (task) {
         const failure = await uploadTo(task, file)
         if (failure) {
-          say(failure)
+          // The editor may have been closed meanwhile: then the board says it.
+          if (sameForm(formNow.current)) {
+            say(failure)
+          } else {
+            setFailure(failure)
+          }
         }
         return
       }
@@ -799,7 +815,7 @@ export function TaskFestApp({
   const attachPending = async (task: BoardTask, picked: PickedFile[]) => {
     const failures: string[] = []
     for (const file of picked) {
-      const failure = await uploadTo(task, file)
+      const failure = await uploadTo(task, file, true)
       if (failure) {
         failures.push(failure)
       }
@@ -1078,7 +1094,7 @@ export function TaskFestApp({
                   onRemoveFile={files && form.task ? (attachment) => void removeFile(form.task!, attachment) : undefined}
                   busy={form.task ? busy.has(form.task.id) : false}
                   pending={form.task ? undefined : (form.pending ?? [])}
-                  uploading={uploading}
+                  uploading={uploading?.taskId === (form.task?.id ?? 'new') ? uploading : null}
                   onAttach={files?.upload && pickFile ? (source) => void attach(source) : undefined}
                   onUnpick={(file) =>
                     setForm((current) => current && { ...current, pending: current.pending?.filter((each) => each !== file) })

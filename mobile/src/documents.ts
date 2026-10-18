@@ -39,5 +39,7 @@ export function documentsFor(platform: string, parts: DocumentParts) {
  * cache's folder.
  */
 export function safeFileName(fileName: string) {
-  return fileName.replace(/[/\\:]/g, '_') || 'document'
+  const name = fileName.replace(/[/\\:]/g, '_')
+  // Nothing but dots would name the folder itself, or the one above it.
+  return /^\.*$/.test(name) ? 'document' : name
 }

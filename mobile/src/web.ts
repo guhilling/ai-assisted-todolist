@@ -14,7 +14,6 @@ import googleSignInLight from '../../frontend/src/assets/google-sign-in-light.pn
 
 export type {
   AttachmentResponse as Attachment,
-  RefusalResponse,
   TaskCreateRequest as TaskInput,
   TaskImportance,
   TaskResponse as Task,
@@ -36,7 +35,7 @@ export { needsDatingBack, restoreInput } from '../../frontend/src/restore'
 export { imprintUrl, privacyUrls, termsUrls } from '../../frontend/src/links'
 export { confirmsEmail } from '../../frontend/src/confirmsEmail'
 export { storageUrl } from '../../frontend/src/storage'
-export { attachmentLimits, attachmentTypes, checkFile } from '../../frontend/src/attachmentPolicy'
+export { attachmentLimits, attachmentTypes, checkFile, type AttachmentRefusal } from '../../frontend/src/attachmentPolicy'
 export { MAX_THUMBNAIL_BYTES, thumbnailCrop, thumbnailSize } from '../../frontend/src/thumbnail'
 
 /**

@@ -87,13 +87,36 @@ const documents = new Directory(Paths.cache, 'documents')
 /** A photo as the image picker hands it over, or null when the user turned back. */
 function photoOf(result: ImagePicker.ImagePickerResult): PickedPhoto | null {
   const asset = result.canceled ? undefined : result.assets[0]
-  return asset ? { uri: asset.uri, fileName: asset.fileName ?? null, mimeType: asset.mimeType ?? null, fileSize: asset.fileSize ?? null } : null
+  return asset
+    ? {
+        uri: asset.uri,
+        fileName: asset.fileName ?? null,
+        mimeType: asset.mimeType ?? null,
+        fileSize: asset.fileSize ?? null,
+        width: asset.width,
+        height: asset.height,
+      }
+    : null
 }
 
-/** A rendered image saved as a JPEG at 0.8, the website's thumbnail quality, with its size. */
-async function savedJpeg(image: Awaited<ReturnType<ReturnType<typeof ImageManipulator.manipulate>['renderAsync']>>, compress: number) {
-  const saved = await image.saveAsync({ format: SaveFormat.JPEG, compress })
-  return { uri: saved.uri, size: new File(saved.uri).size }
+/**
+ * An image, changed as `change` says, saved as a JPEG at this quality, with its size. The decoded
+ * image is released straight after, not left to the garbage collector: a photo's is tens of megabytes.
+ */
+async function savedJpeg(
+  uri: string,
+  change: (context: ReturnType<typeof ImageManipulator.manipulate>) => ReturnType<typeof ImageManipulator.manipulate>,
+  compress: number,
+) {
+  const context = change(ImageManipulator.manipulate(uri))
+  const image = await context.renderAsync()
+  try {
+    const saved = await image.saveAsync({ format: SaveFormat.JPEG, compress })
+    return { uri: saved.uri, size: new File(saved.uri).size }
+  } finally {
+    image.release()
+    context.release()
+  }
 }
 
 /** The phone's side of uploading a file (#274): a PUT straight to storage, and a photo's thumbnail. */
@@ -111,11 +134,14 @@ const uploadParts: UploadParts = {
   thumbnail: (file) =>
     makeThumbnail(file, {
       dimensions: async (uri) => {
-        const image = await ImageManipulator.manipulate(uri).renderAsync()
-        return { width: image.width, height: image.height }
+        const context = ImageManipulator.manipulate(uri)
+        const image = await context.renderAsync()
+        const measured = { width: image.width, height: image.height }
+        image.release()
+        context.release()
+        return measured
       },
-      render: async (uri, crop, size) =>
-        savedJpeg(await ImageManipulator.manipulate(uri).crop(crop).resize(size).renderAsync(), 0.8),
+      render: (uri, crop, size) => savedJpeg(uri, (context) => context.crop(crop).resize(size), 0.8),
     }),
 }
 
@@ -165,7 +191,7 @@ const dependencies: Dependencies = {
         return file ? { uri: file.uri, name: file.name, type: file.type, size: file.size } : null
       },
       sizeOf: (uri) => new File(uri).size,
-      toJpeg: async (uri) => savedJpeg(await ImageManipulator.manipulate(uri).renderAsync(), 0.9),
+      toJpeg: (uri) => savedJpeg(uri, (context) => context, 0.9),
       now: () => Date.now(),
     }),
   documents: documentsFor(Platform.OS, {

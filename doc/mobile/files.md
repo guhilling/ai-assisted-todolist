@@ -18,7 +18,8 @@ and removed.
   backend's own refusals (`TASK_FULL`, `USER_FULL`, `MISMATCH`) are worded the same way.
 - **The upload is the website's** (`mobile/src/upload.ts`): announced, put straight to storage
   through the signed link with exactly the headers it was signed for, and confirmed; the content
-  never passes through the backend. The editor says how far it has got.
+  never passes through the backend. The editor says how far it has got, and saving or deleting the
+  task waits for it; a file that fails after the editor was closed is said on the board instead.
 - **A photo brings its thumbnail**, made on the phone by the website's rule
   (`frontend/src/thumbnail.ts`: 128 on the short side, a panorama's middle, a JPEG at 0.8, at most
   64 KB) and uploaded beside it (`mobile/src/thumbnails.ts`, expo-image-manipulator). Only a JPEG
@@ -43,7 +44,8 @@ and removed.
   its own type, to whatever views that there, which may read that one file
   (`mobile/src/documents.ts`). Without a viewer, or without a connection, the board says the file
   could not be opened — and nothing more: a file that could not be had is no change gone wrong, so
-  the board is not reloaded for it. One file opens at a time, and none once the user has moved on to
+  the board is not reloaded for it, nor when the user comes back from the viewer, as it is when
+  they come back to the app from anywhere else. One file opens at a time, and none once the user has moved on to
   a form or the account sheet.
 - **The links** are the backend's, signed for an hour (`download-link-lifetime`), and must pass the
   website's own rule for links to storage (`frontend/src/storage.ts`): HTTPS, or plain HTTP to the

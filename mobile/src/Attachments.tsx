@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Image, Modal, Pressable, Text, View } from 'react-native'
-import { isImage } from './files'
+import { isImage, isImageType } from './files'
 import type { PickSource } from './pick'
 import type { PickedFile } from './upload'
 import type { Styles } from './styles'
@@ -200,26 +200,31 @@ export function EditorFiles({
  */
 export function PendingFiles({
   files,
+  disabled,
   messages,
   styles,
   onUnpick,
 }: {
   files: PickedFile[]
+  /** While the task is being added, and its files with it, none may go. */
+  disabled: boolean
   messages: Messages
   styles: Styles
   onUnpick: (file: PickedFile) => void
 }) {
   return files.map((file) => (
     <View key={file.uri} style={styles.editorFile}>
-      <Text aria-hidden>{file.type.startsWith('image/') ? '🖼' : '📄'}</Text>
+      <Text aria-hidden>{isImageType(file.type) ? '🖼' : '📄'}</Text>
       <Text style={styles.description} numberOfLines={1}>
         {file.name}
       </Text>
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={messages.attachments.remove(file.name)}
+        accessibilityState={{ disabled }}
+        disabled={disabled}
         hitSlop={8}
-        style={styles.quietButton}
+        style={[styles.quietButton, disabled && styles.disabled]}
         onPress={() => onUnpick(file)}
       >
         <Text style={styles.dangerText}>×</Text>

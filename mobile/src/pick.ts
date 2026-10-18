@@ -15,7 +15,14 @@ import type { PickedFile } from './upload'
 export type PickSource = 'camera' | 'library' | 'files'
 
 /** A photo as the image picker reports it, any field it may leave out as null. */
-export type PickedPhoto = { uri: string; fileName: string | null; mimeType: string | null; fileSize: number | null }
+export type PickedPhoto = {
+  uri: string
+  fileName: string | null
+  mimeType: string | null
+  fileSize: number | null
+  width?: number
+  height?: number
+}
 
 /** What picking needs of the platform. */
 export type PickerParts = {
@@ -78,7 +85,8 @@ async function asFile(photo: PickedPhoto, parts: PickerParts): Promise<PickedFil
     const jpeg = await parts.toJpeg(photo.uri)
     return { uri: jpeg.uri, name: name.replace(/\.[^.]*$/, '') + '.jpg', type: 'image/jpeg', size: jpeg.size }
   }
-  return { uri: photo.uri, name, type, size: photo.fileSize ?? parts.sizeOf(photo.uri) }
+  const measured = photo.width && photo.height ? { width: photo.width, height: photo.height } : {}
+  return { uri: photo.uri, name, type, size: photo.fileSize ?? parts.sizeOf(photo.uri), ...measured }
 }
 
 /** A moment as a file name may carry it: 2026-10-18-0930, in UTC. */

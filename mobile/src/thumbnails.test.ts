@@ -34,3 +34,14 @@ describe("a photo's thumbnail (#274)", () => {
     await expect(makeThumbnail(photo, phone(70_000))).resolves.toBeNull()
   })
 })
+
+describe("measuring a photo for its thumbnail (#274)", () => {
+  it("goes by the picker's measure, without decoding the photo for it", async () => {
+    const parts = phone()
+
+    await makeThumbnail({ ...photo, width: 4000, height: 3000 }, parts)
+
+    expect(parts.dimensions).not.toHaveBeenCalled()
+    expect(parts.render).toHaveBeenCalled()
+  })
+})

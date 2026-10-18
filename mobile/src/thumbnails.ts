@@ -25,7 +25,9 @@ export type ThumbnailParts = {
 
 /** A JPEG thumbnail of the photo, or null when it needs none or none small enough could be made. */
 export async function makeThumbnail(file: PickedFile, parts: ThumbnailParts): Promise<{ uri: string; size: number } | null> {
-  const { width, height } = await parts.dimensions(file.uri)
+  // The picker's own measure where it gave one: decoding a 48-megapixel photo only to learn its
+  // size is a few hundred megabytes spent for two numbers.
+  const { width, height } = file.width && file.height ? { width: file.width, height: file.height } : await parts.dimensions(file.uri)
   const size = thumbnailSize(width, height)
   if (size.width >= width) {
     return null

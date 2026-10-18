@@ -44,3 +44,11 @@ describe("opening a file in the phone's viewer (#274)", () => {
     expect(safeFileName('')).toBe('document')
   })
 })
+
+describe("the cached copy's name (#274)", () => {
+  it('is never the folder itself, or the one above it', () => {
+    expect(safeFileName('..')).toBe('document')
+    expect(safeFileName('.')).toBe('document')
+    expect(safeFileName('...pdf')).toBe('...pdf')
+  })
+})

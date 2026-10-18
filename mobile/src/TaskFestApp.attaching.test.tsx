@@ -1,4 +1,5 @@
 import { act, render, screen, userEvent, waitFor, within } from '@testing-library/react-native'
+import { AppState } from 'react-native'
 import { AttachmentRefusedError, type BoardTask } from './api'
 import { CameraRefusedError } from './pick'
 import type { Session } from './session'
@@ -228,5 +229,84 @@ describe('attaching files while adding a task (#274)', () => {
 
     expect(await screen.findByText('photo.jpg could not be uploaded. Try again.')).toBeOnTheScreen()
     expect(screen.getByText('Pay the bill')).toBeOnTheScreen()
+  })
+})
+
+describe('attaching, while other things happen (#274)', () => {
+  it('waits for the upload before the task can be saved or deleted', async () => {
+    const upload = jest.fn(() => new Promise<never>(() => undefined))
+    const { user, editor } = await editTask(dependencies({ attachments: { link: jest.fn(), remove: jest.fn(), upload } }))
+
+    await user.press(within(editor).getByRole('button', { name: 'Choose a photo' }))
+
+    expect(await within(editor).findByText('Uploading photo.jpg')).toBeOnTheScreen()
+    expect(within(editor).getByRole('button', { name: 'Save' })).toBeDisabled()
+    expect(within(editor).getByRole('button', { name: 'Delete' })).toBeDisabled()
+  })
+
+  it('says on the board when a file could not be attached after its editor was closed', async () => {
+    let fail: (error: Error) => void = () => undefined
+    const upload = jest.fn(() => new Promise<never>((_resolve, reject) => (fail = reject)))
+    const { user, editor } = await editTask(dependencies({ attachments: { link: jest.fn(), remove: jest.fn(), upload } }))
+    await user.press(within(editor).getByRole('button', { name: 'Choose a photo' }))
+    await within(editor).findByText('Uploading photo.jpg')
+
+    await user.press(within(editor).getByRole('button', { name: 'Cancel' }))
+    await act(async () => fail(new Error('offline')))
+
+    expect(await screen.findByText('photo.jpg could not be uploaded. Try again.')).toBeOnTheScreen()
+  })
+
+  it("shows an upload in its own task's editor only", async () => {
+    const other: BoardTask = { ...task, id: 2, description: 'Pay the bill' }
+    const upload = jest.fn(() => new Promise<never>(() => undefined))
+    const { user, editor } = await editTask(
+      dependencies({ fetchTasks: jest.fn().mockResolvedValue([task, other]), attachments: { link: jest.fn(), remove: jest.fn(), upload } }),
+    )
+    await user.press(within(editor).getByRole('button', { name: 'Choose a photo' }))
+    await within(editor).findByText('Uploading photo.jpg')
+    await user.press(within(editor).getByRole('button', { name: 'Cancel' }))
+
+    await user.press(screen.getByRole('button', { name: 'Edit "Pay the bill"' }))
+
+    const second = await screen.findByTestId('task-form')
+    expect(within(second).queryByText('Uploading photo.jpg')).toBeNull()
+    expect(within(second).getByRole('button', { name: 'Choose a photo' })).toBeEnabled()
+  })
+
+  it("lets no file go while the task they are held for is being added", async () => {
+    const deps = dependencies({ changes: { create: jest.fn(() => new Promise<never>(() => undefined)), update: jest.fn(), remove: jest.fn(), restore: jest.fn() } })
+    await render(<TaskFestApp variant={variantOf('dev', {})} language="en" dependencies={deps} />)
+    const user = userEvent.setup()
+    await user.press(await screen.findByRole('button', { name: 'Add a task' }))
+    const form = await screen.findByTestId('task-form')
+    await user.type(within(form).getByLabelText('What needs doing'), 'Pay the bill')
+    await user.press(within(form).getByRole('button', { name: 'Choose a photo' }))
+
+    await user.press(within(form).getByRole('button', { name: 'Add' }))
+
+    expect(within(form).getByRole('button', { name: 'Remove photo.jpg' })).toBeDisabled()
+  })
+})
+
+describe('coming back from a file opened in another app (#274)', () => {
+  it('does not start the app over, as coming back from a sheet does not', async () => {
+    let onChange: (state: string) => void = () => undefined
+    jest.spyOn(AppState, 'addEventListener').mockImplementation((_type, listener) => {
+      onChange = listener as (state: string) => void
+      return { remove: jest.fn() } as never
+    })
+    let back: () => void = () => undefined
+    const documents = { open: jest.fn(() => new Promise<void>((resolve) => (back = resolve))), forget: jest.fn() }
+    const withScan = { ...task, attachments: [attached(scan, 5)] }
+    const fetchTasks = jest.fn().mockResolvedValue([withScan])
+    await render(<TaskFestApp variant={variantOf('dev', {})} language="en" dependencies={dependencies({ fetchTasks, documents })} />)
+
+    await userEvent.setup().press(await screen.findByRole('button', { name: 'Open scan.pdf' }))
+    await waitFor(() => expect(documents.open).toHaveBeenCalled())
+    await act(async () => onChange('active'))
+    await act(async () => back())
+
+    expect(fetchTasks).toHaveBeenCalledTimes(1)
   })
 })
