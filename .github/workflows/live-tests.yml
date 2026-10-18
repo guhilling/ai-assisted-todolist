@@ -93,6 +93,9 @@ jobs:
     concurrency:
       group: live-tests-signed-in-${{ inputs.environment }}
       cancel-in-progress: false
+      # Every waiting run waits its turn: by default a newer one would replace an older one still
+      # waiting, and that deploy's scenarios would never run.
+      queue: max
     permissions:
       contents: read
       id-token: write
@@ -230,6 +233,9 @@ jobs:
     concurrency:
       group: live-tests-signed-in-${{ inputs.environment }}
       cancel-in-progress: false
+      # Every waiting run waits its turn: by default a newer one would replace an older one still
+      # waiting, and that deploy's scenarios would never run.
+      queue: max
     permissions:
       contents: read
       id-token: write

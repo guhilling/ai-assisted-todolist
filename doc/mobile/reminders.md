@@ -32,8 +32,8 @@ question after **Turn on** came out of nowhere, on Android at least. "If", becau
 older never ask; and it does not name the app, since the phone's question names the installed
 variant (*TaskFest QA*).
 
-- **Turn on** brings up the system's own question, which iOS asks only once; allowed, the
-  reminders are scheduled at once.
+- **Turn on** brings up the system's own question where there is one — iOS, which asks only once,
+  and Android 13 and later; allowed, the reminders are scheduled at once.
 - **Either answer is remembered on the phone**, and the note is not shown again: Not now, and Turn
   on whatever the system's question then got — Android would let the app ask a second time after
   a first refusal, and the app does not.

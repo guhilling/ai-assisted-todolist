@@ -8,7 +8,7 @@ at its head, opens the account sheet ([account.md](account.md)).
 
 ## What it does
 
-- **The colours explained** (#335) — above the first board with open tasks, one line says what the
+- **The colours explained** (#335) — above the first board with open tasks, a short note says what the
   importance dots mean and that a date in red is overdue, as on the website, with **Got it**.
   Dismissed, it does not come back on that phone (a file, `colours-explained`, in the app's
   documents); the website remembers it per browser. So the line is true on the phone too, the app

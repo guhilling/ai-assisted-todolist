@@ -11,7 +11,8 @@ import type { Task } from './web'
  * Saturday.
  */
 
-const NOW = Date.UTC(2026, 9, 10, 9)
+// Local noon, so it is 10 October on the phone's clock in any time zone.
+const NOW = new Date(2026, 9, 10, 12).getTime()
 const HOUR = 3600 * 1000
 const session: Session = { idToken: 'stored', refreshToken: 'r', expiresAt: NOW + HOUR, lastUsedAt: NOW }
 
@@ -51,7 +52,7 @@ describe('the weekday beside today and tomorrow (#337)', () => {
     expect(screen.getByTestId('weekday-today')).toHaveTextContent('Saturday')
     expect(screen.getByTestId('weekday-tomorrow')).toHaveTextContent('Sunday')
     // "This week" lists its weekdays on the rows already.
-    expect(screen.queryByTestId('weekday-week')).toBeNull()
+    expect(screen.queryByTestId('weekday-thisWeek')).toBeNull()
   })
 
   it('reads the heading and its day aloud as one', async () => {
