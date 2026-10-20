@@ -271,3 +271,30 @@ a certificate made on a Mac, two profiles, and their renewal every year.
 **Decision.** No Sentry, Crashlytics or similar.
 
 **Why.** Each one is a further processor for the privacy policy. It can be added later.
+
+## Sharing into the app with expo-sharing, reading only the raw share
+
+**Decision.** Sharing into TaskFest (#279, #355) uses Expo's own **expo-sharing**: its config
+plugin declares Android's intent filters and generates iOS's share extension (#356). The app reads
+only the raw share and copies a shared file itself; it never asks the library to "resolve" one.
+On iOS, the extension opens the app with the trick every such library uses; Gunnar accepted
+App Review's risk (20 October 2026).
+
+**Why.** It is versioned with the SDK and updated with it, where `expo-share-intent` does the same
+with one maintainer and a release cycle of its own. Resolving would request a shared link to learn
+its type, which nobody sharing a link expects of a task list. On Android it would also copy a file
+to the top of the app's cache under whatever name the sending app gives: the kept board's
+`board.json` is there, and a name with "../" goes further.
+
+**What it costs.** A file's name is the end of its link, so one shared from Android's Files app,
+whose links end in a document's number, is named by its type — `shared.png`. Apps that share
+through their own file links keep their names.
+
+**Rejected: a form of its own in the share sheet**, as Todoist's is. It would be a second task
+form, in Swift, kept in step by hand, and a task is finished in the app anyway: its due date at
+least.
+
+**If App Review rejects the trick**, the extension saves the share and says *"Saved. Open TaskFest
+to finish it."*; the app's side stays as it is, since it looks for a share whenever it becomes
+active. That needs a small extension of the project's own, a few lines of Swift, as the plan on
+#279 describes.

@@ -4,6 +4,7 @@ import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context'
 import { AttachmentRefusedError, SignedOutError, TimedOutError, VERSION_CHECK_MS, type BoardTask, type Caller } from './api'
 import { FileViewer } from './Attachments'
 import { isImage } from './files'
+import type { SharedDraft } from './incoming'
 import { CameraRefusedError, type PickSource } from './pick'
 import type { PickedFile } from './upload'
 import { AccountScreen } from './AccountScreen'
@@ -81,6 +82,11 @@ export type Dependencies = {
   reminders: ReminderScheduler
   /** Whether the board's colours were explained on this phone already (#335); none, and they never are. */
   legend?: { seen(): Promise<boolean>; dismiss(): Promise<void> }
+  /**
+   * What another app shared (#355): taken once, as a task to add, and its copies of the files
+   * forgotten once that is done with. None, and the app is offered nothing.
+   */
+  incoming?: { take(): Promise<SharedDraft | null>; forget(files: PickedFile[]): Promise<void> }
   /** The oldest app release the backend serves (#268). */
   fetchMinimumAppVersion(): Promise<string>
   /** This build's release: the tag's, or 0.0.0 from a branch. */
@@ -97,6 +103,15 @@ type Form = {
   failure?: string
   /** Files picked while adding a task, attached once it exists (#274). */
   pending?: PickedFile[]
+  /** The description a share brought, to add a task with (#355). */
+  description?: string
+  /** The files a share brought, all of them, forgotten once the form closes (#355). */
+  shared?: PickedFile[]
+  /**
+   * Which share this is, counted: the form's key, so that a share opened straight after another
+   * one closes is a new form, not the last one's with its text (#355).
+   */
+  share?: number
 }
 
 /** The promise's value, or null once the time is up -- never a wait without end. */
@@ -183,6 +198,7 @@ export function TaskFestApp({
     keptBoard,
     reminders,
     legend,
+    incoming,
   } = dependencies
   const messages = catalogues[language]
   const darkMode = useColorScheme() === 'dark'
@@ -194,6 +210,8 @@ export function TaskFestApp({
   const [failure, setFailure] = useState<string>()
   /** The image opened from a task, shown over everything (#274). */
   const [viewing, setViewing] = useState<{ url: string; fileName: string } | null>(null)
+  /** What other apps shared, oldest first, each waiting until the board can take it (#355). */
+  const [shares, setShares] = useState<{ draft: SharedDraft; number: number }[]>([])
   /**
    * The links to files asked for, each kept for a few minutes -- well inside the backend's signing
    * time, and by the phone's clock alone, so a phone whose clock is off does not keep a dead link --
@@ -432,6 +450,47 @@ export function TaskFestApp({
     [fetchTasks, keep, loadFailed, now, offerIfAsked, signOut, variant.apiBaseUrl],
   )
 
+  /** Takes what another app shared, if anything, to show once the board can take it (#355). */
+  const takeShare = useRef<() => void>(() => undefined)
+  const sharesTaken = useRef(0)
+  useEffect(() => {
+    takeShare.current = () => {
+      incoming
+        ?.take()
+        .then((draft) => draft && setShares((waiting) => [...waiting, { draft, number: ++sharesTaken.current }]))
+        .catch((failure: unknown) => console.warn('What was shared could not be read', failure))
+    }
+    // At the start: a share may be what started the app.
+    takeShare.current()
+  }, [incoming])
+
+  /**
+   * The copies of a share's files go once its form is closed -- added, cancelled, or closed by a
+   * sign-out -- and none of them is uploading any more: a form closed while its task is added does
+   * not take the files from under the upload.
+   */
+  const sharesShown = useRef(new Set<PickedFile[]>())
+  const sharesSaving = useRef(new Set<PickedFile[]>())
+  const forgetShare = useCallback(
+    (files: PickedFile[]) => {
+      if (sharesSaving.current.has(files) || !sharesShown.current.delete(files)) {
+        return
+      }
+      incoming?.forget(files).catch((failure: unknown) => console.warn('The shared files could not be forgotten', failure))
+    },
+    [incoming],
+  )
+  useEffect(() => {
+    for (const files of sharesShown.current) {
+      if (files !== form?.shared) {
+        forgetShare(files)
+      }
+    }
+    if (form?.shared) {
+      sharesShown.current.add(form.shared)
+    }
+  }, [form, forgetShare])
+
   /** How often the start has been tried: "try again" raises it, and the effect below runs anew. */
   const [attempt, setAttempt] = useState(0)
 
@@ -443,6 +502,10 @@ export function TaskFestApp({
   // yet and could forget the one the sign-in is about to save.
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (next) => {
+      // A share brings the app to the foreground; it waits for the board below, wherever the app is.
+      if (next === 'active') {
+        takeShare.current()
+      }
       // Not while a file is open in another app, or being opened: coming back from it is no reason.
       if (next === 'active' && !sheetOpen.current && !signingIn.current && !opening.current && inFlight.current === 0) {
         // A board that could not be loaded says it is being loaded again, as "Try again" does.
@@ -577,6 +640,24 @@ export function TaskFestApp({
     }
   }
 
+  // A share opens "Add a task" once the board is current and nothing else is open over it: not
+  // while signed out, nor over the kept board, which takes no change (#272), nor over a form, the
+  // account sheet or a file, whatever they hold. Set while rendering, as React has state adjusted
+  // to other state, rather than in an effect that would render the board once more without it.
+  const [next] = shares
+  if (next && state.kind === 'board' && !state.kept && !form && !account && !viewing) {
+    const { draft: share, number } = next
+    const refused = share.refused
+      .map((each) =>
+        each.refusal === 'UNREADABLE'
+          ? messages.attachments.unreadable(each.name)
+          : messages.attachments.refusals[each.refusal](each.name),
+      )
+      .join('\n')
+    setForm({ description: share.description, pending: share.files, shared: share.files, share: number, failure: refused || undefined })
+    setShares((waiting) => waiting.slice(1))
+  }
+
   const today = todayIso(new Date(now()))
 
   /** Whether the board has anything to be reminded of: the offer explains itself by it (#273). */
@@ -699,6 +780,9 @@ export function TaskFestApp({
     if (task && !markBusy(task, true)) {
       return false
     }
+    if (started?.shared) {
+      sharesSaving.current.add(started.shared)
+    }
     try {
       await sending(async () => {
         if (task) {
@@ -726,6 +810,13 @@ export function TaskFestApp({
     } finally {
       if (task) {
         markBusy(task, false)
+      }
+      if (started?.shared) {
+        sharesSaving.current.delete(started.shared)
+        // Closed while it was added: its copies are let go now. Still open, they go with the form.
+        if (formNow.current?.shared !== started.shared) {
+          forgetShare(started.shared)
+        }
       }
     }
   }
@@ -1103,7 +1194,7 @@ export function TaskFestApp({
             >
               {form ? (
                 <TaskForm
-                  key={form.task?.id ?? 'new'}
+                  key={form.task?.id ?? (form.share ? `share-${form.share}` : 'new')}
                   task={form.task}
                   today={today}
                   language={language}
@@ -1116,6 +1207,7 @@ export function TaskFestApp({
                   onRemoveFile={files && form.task ? (attachment) => void removeFile(form.task!, attachment) : undefined}
                   busy={form.task ? busy.has(form.task.id) : false}
                   pending={form.task ? undefined : (form.pending ?? [])}
+                  draft={form.description}
                   uploading={uploading?.taskId === (form.task?.id ?? 'new') ? uploading : null}
                   onAttach={files?.upload && pickFile ? (source) => void attach(source) : undefined}
                   onUnpick={(file) =>

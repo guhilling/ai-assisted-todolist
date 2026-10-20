@@ -7,6 +7,7 @@ import * as IntentLauncher from 'expo-intent-launcher'
 import { getLocales } from 'expo-localization'
 import * as Notifications from 'expo-notifications'
 import * as SecureStore from 'expo-secure-store'
+import * as Sharing from 'expo-sharing'
 import * as WebBrowser from 'expo-web-browser'
 import { Platform } from 'react-native'
 import { GoogleOneTapSignIn } from 'react-native-nitro-google-signin'
@@ -25,6 +26,7 @@ import {
 } from './api'
 import { fileFlag } from './fileFlag'
 import { documentsFor } from './documents'
+import { draftOf } from './incoming'
 import { pickFile, type PickedPhoto } from './pick'
 import { makeThumbnail } from './thumbnails'
 import { uploadFile, type UploadParts } from './upload'
@@ -85,6 +87,33 @@ const notifications: NotificationsApi = {
 
 /** Where Android keeps the files it opens (#274): the cache, emptied when the session ends. */
 const documents = new Directory(Paths.cache, 'documents')
+
+/**
+ * Where the app keeps its copies of the files shared into it (#355), each under a name of its own.
+ * Emptied when the first share is taken, of copies a run left behind that ended before their form
+ * was closed -- then, rather than while the app starts.
+ */
+const sharedFiles = new Directory(Paths.cache, 'shared')
+let sharedCopies = 0
+
+/** Copies of shared files a run left behind, let go before the first share of this one is taken. */
+function forgetLeftShares() {
+  try {
+    if (sharedCopies === 0 && sharedFiles.exists) {
+      sharedFiles.delete()
+    }
+  } catch (failure) {
+    console.warn('The shared files left behind could not be forgotten', failure)
+  }
+}
+
+/** Lets a copy of a shared file go, if it is still there. */
+function discardCopy(uri: string) {
+  const copy = new File(uri)
+  if (copy.exists) {
+    copy.delete()
+  }
+}
 
 /** A photo as the image picker hands it over, or null when the user turned back. */
 function photoOf(result: ImagePicker.ImagePickerResult): PickedPhoto | null {
@@ -227,6 +256,35 @@ const dependencies: Dependencies = {
   deleteAccount: (caller) => deleteAccount({ ...caller, appVersion }),
   keptBoard: createKeptBoardStore(new File(Paths.cache, 'board.json')),
   legend: fileFlag(new File(Paths.document, 'colours-explained'), 'explained'),
+  // Only the raw share is read, never "resolved": incoming.ts says why. Android only, until iOS has
+  // its share extension (#356): without it, iOS's module throws on every read.
+  incoming: Platform.OS !== 'android' ? undefined : {
+    take: async () => {
+      const items = Sharing.getSharedPayloads()
+      Sharing.clearSharedPayloads()
+      if (items.length > 0) {
+        forgetLeftShares()
+      }
+      return draftOf(items, {
+        describe: (uri) => {
+          const file = new File(uri)
+          return { name: file.name, type: file.type || null, size: file.size || null }
+        },
+        copy: async (uri, name) => {
+          if (!sharedFiles.exists) {
+            sharedFiles.create()
+          }
+          sharedCopies += 1
+          const copy = new File(sharedFiles, `${sharedCopies}-${name}`)
+          await new File(uri).copy(copy)
+          return { uri: copy.uri, size: copy.size }
+        },
+        toJpeg: (uri) => savedJpeg(uri, (context) => context, 0.9),
+        discard: discardCopy,
+      })
+    },
+    forget: async (files) => files.forEach((file) => discardCopy(file.uri)),
+  },
   reminders: createReminderScheduler(
     notifications,
     new File(Paths.document, 'reminders-offer-answered'),

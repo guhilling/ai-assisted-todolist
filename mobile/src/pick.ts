@@ -50,7 +50,7 @@ export class CameraRefusedError extends Error {
 }
 
 /** The types a file's name says, for a picker that does not say its type. */
-const TYPE_BY_EXTENSION: Record<string, string> = {
+export const TYPE_BY_EXTENSION: Record<string, string> = {
   jpg: 'image/jpeg',
   jpeg: 'image/jpeg',
   png: 'image/png',
@@ -62,7 +62,7 @@ const TYPE_BY_EXTENSION: Record<string, string> = {
 }
 
 /** The type a file's name says, if it says one this knows. */
-function typeOfName(name: string): string | undefined {
+export function typeOfName(name: string): string | undefined {
   return TYPE_BY_EXTENSION[name.split('.').pop()?.toLowerCase() ?? '']
 }
 

@@ -3,7 +3,7 @@
 # end-to-end stack on the runner's localhost. Mobile CI runs both shares at once, each on an
 # emulator and a stack of its own, so neither flow sees the other's changes:
 #
-#   board   signing in, and changing the board -- the longest flow
+#   board   signing in, changing the board, and sharing into the app -- the longest flow
 #   others  the account sheet, the reminders, and the board read offline
 #
 # A script rather than the emulator action's inline lines: each of those runs as a command of its
@@ -27,6 +27,14 @@ case "$share" in
   board)
     maestro test mobile/maestro/sign-in.yaml mobile/maestro/change-tasks.yaml \
       --format junit --output maestro-report.xml --test-output-dir maestro-output
+    # Sharing into the app (#355), which the board flow left signed in: text sent as another app
+    # sends it -- the inner quotes keep it one argument in the emulator's shell -- and then an image
+    # through the Files app's share sheet.
+    adb shell am start -a android.intent.action.SEND -t text/plain -p de.hilling.taskfest.dev \
+      --es android.intent.extra.TEXT "'Read the article https://example.com/a'"
+    maestro test mobile/maestro/share/text.yaml --format junit --output maestro-share-text.xml --test-output-dir maestro-output
+    retry bash "$(dirname "$0")/put-attach-image.sh"
+    maestro test mobile/maestro/share/share-sheet.yaml --format junit --output maestro-share-sheet.xml --test-output-dir maestro-output
     exit 0
     ;;
   others) ;;

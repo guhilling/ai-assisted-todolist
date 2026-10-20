@@ -74,6 +74,20 @@ export default ({ config }: ConfigContext): ExpoConfig => {
           microphonePermission: false,
         },
       ],
+      // Sharing into the app (#355): Android offers it for text and links, and for images and PDFs --
+      // one, or several. A file of another type is not offered TaskFest at all. iOS needs a share
+      // extension, an App Group and a release that keeps it signed: that is #356.
+      [
+        'expo-sharing',
+        {
+          ios: { enabled: false },
+          android: {
+            enabled: true,
+            singleShareMimeTypes: ['text/plain', 'image/*', 'application/pdf'],
+            multipleShareMimeTypes: ['image/*', 'application/pdf'],
+          },
+        },
+      ],
     ],
     extra: { variant },
   }
