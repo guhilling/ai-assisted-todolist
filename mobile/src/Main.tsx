@@ -256,9 +256,8 @@ const dependencies: Dependencies = {
   deleteAccount: (caller) => deleteAccount({ ...caller, appVersion }),
   keptBoard: createKeptBoardStore(new File(Paths.cache, 'board.json')),
   legend: fileFlag(new File(Paths.document, 'colours-explained'), 'explained'),
-  // Only the raw share is read, never "resolved": incoming.ts says why. Android only, until iOS has
-  // its share extension (#356): without it, iOS's module throws on every read.
-  incoming: Platform.OS !== 'android' ? undefined : {
+  // Only the raw share is read, never "resolved": incoming.ts says why.
+  incoming: {
     take: async () => {
       const items = Sharing.getSharedPayloads()
       Sharing.clearSharedPayloads()

@@ -163,6 +163,20 @@ jobs:
           xcodebuild -workspace "$workspace" -scheme "${workspace%.xcworkspace}" \
             -configuration Release -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
             CODE_SIGNING_ALLOWED=NO build | tail -n 50
+      - name: The share extension is built, and signs, as it should be
+        # Sharing into the app (#356): the extension expo-sharing's plugin generates -- its name in
+        # the share sheet, its App Group, and the shares its type rule lets through.
+        run: |
+          app=$(find ~/Library/Developer/Xcode/DerivedData -path '*Release-iphonesimulator/*.app' -maxdepth 6 -type d | head -1)
+          python3 .github/scripts/check-share-extension.py built "$app" "TaskFest Dev"
+          swift .github/scripts/check-share-activation.swift "$app/PlugIns/expo-sharing-extension.appex/Info.plist"
+          # The release's ad hoc signing, tried here on every change: signed with the App Group, the
+          # app and the extension both carry it.
+          bash .github/scripts/sign-with-app-group.sh "$app" mobile/ios/expo-sharing-extension/expo-sharing-extension.entitlements
+          for bundle in "$app" "$app"/PlugIns/expo-sharing-extension.appex; do
+            codesign -d --entitlements - --xml "$bundle" | grep -q 'group.de.hilling.taskfest.dev' ||
+              { echo "::error::$bundle is not signed with the App Group"; exit 1; }
+          done
       - name: Save npm's cache
         if: github.ref == 'refs/heads/main' && steps.npm-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v6

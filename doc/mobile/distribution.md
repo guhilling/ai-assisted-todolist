@@ -15,7 +15,7 @@ GitHub Release exists, so a release that fails on the way never reaches a phone:
 | --- | --- |
 | `numbers` | Refuses a tag without a GitHub Release; the version from the tag (`1.4.0`), and the build number: minutes since 2026-01-01 UTC |
 | `android` (qa, prod) | `expo prebuild`, a bundle signed with the upload key, kept as the run's artifact for 30 days, then uploaded to Play's internal track by `.github/scripts/play-upload.py` |
-| `ios` (qa, prod) | `expo prebuild`, an unsigned archive, then `xcodebuild -exportArchive`, which signs with Apple's cloud-managed distribution certificate and uploads to App Store Connect |
+| `ios` (qa, prod) | `expo prebuild`, an unsigned archive signed ad hoc with the App Group, then `xcodebuild -exportArchive`, which signs with Apple's cloud-managed distribution certificate: once to an `.ipa` that must still carry the App Group, then again to upload to App Store Connect |
 
 - **The build number counts minutes, not runs.** Each store wants it to rise with every upload,
   and the workflow can also be started by hand, which has a run counter of its own. Both platforms
@@ -93,6 +93,26 @@ Downloading App Information".
 
 Export compliance needs no answer per build: the app declares that it uses no non-exempt
 encryption (`usesNonExemptEncryption: false` in `app.config.ts`).
+
+#### The share extension and its App Group
+
+Sharing into the app (#356, [sharing.md](sharing.md)) adds a second App ID per app, the share
+extension's, and an **App Group** the two share. Apple's API cannot create an App Group or assign
+one, so these are steps in the portal, once, before the first release with the extension:
+
+1. **The App Groups**: developer.apple.com → *Certificates, Identifiers & Profiles → Identifiers →
+   +* → *App Groups*. Register `group.de.hilling.taskfest` ("TaskFest") and
+   `group.de.hilling.taskfest.qa` ("TaskFest QA").
+2. **The extensions' App IDs**: *Identifiers → + → App IDs → App*, explicit bundle ID,
+   `de.hilling.taskfest.expo-sharing-extension` ("TaskFest share extension") and
+   `de.hilling.taskfest.qa.expo-sharing-extension` ("TaskFest QA share extension"). Under
+   *Capabilities*, tick **App Groups**, then *Configure* and choose the matching group: the one
+   without `.qa` for the prod extension, the `.qa` one for qa's.
+3. **The apps' App IDs**: open `de.hilling.taskfest` and `de.hilling.taskfest.qa`, tick **App
+   Groups** too, *Configure*, choose the matching group, *Save*. Apple says the profiles become
+   invalid; the release makes new ones on its own (`-allowProvisioningUpdates`).
+
+The extension needs no app record of its own in App Store Connect: it ships inside the app.
 
 ### Google Play
 
@@ -173,7 +193,9 @@ by itself.
 The workflow cannot run without the accounts, so its first run is the test. Two things to look at
 then:
 
-- **iOS entitlements.** The archive is unsigned and the export signs it. That is the usual way with
-  cloud signing, but whether `expo-notifications`' push entitlement survives it only matters for
-  push (#277), and is to be checked there.
+- **iOS entitlements.** The archive is built unsigned and the export signs it, with the
+  entitlements it finds in the archive's signatures, which unsigned has none. So the archive is
+  signed ad hoc first, with the App Group alone (#356), and the export's `.ipa` is checked for it
+  before anything is uploaded (`.github/scripts/check-share-extension.py`). `expo-notifications`'
+  push entitlement is left out on purpose: the App IDs have no push, and push (#277) adds it.
 - **Play's draft state**, above: whether the internal release went out or waits as a draft.

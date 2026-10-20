@@ -1,5 +1,7 @@
 import type { ConfigContext, ExpoConfig } from 'expo/config'
+import { withShareExtensionName } from './plugins/withShareExtensionName.ts'
 import { releaseOf } from './src/release.ts'
+import { SHARE_ACTIVATION_RULE } from './src/shareExtension.ts'
 import { googleUrlScheme, variantOf } from './src/variants.ts'
 
 /**
@@ -12,7 +14,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
   const variant = variantOf(process.env.APP_VARIANT, process.env)
   const dev = variant.bundleId.endsWith('.dev')
   const release = releaseOf(process.env)
-  return {
+  const app: ExpoConfig = {
     ...config,
     name: variant.name,
     slug: 'taskfest',
@@ -74,13 +76,14 @@ export default ({ config }: ConfigContext): ExpoConfig => {
           microphonePermission: false,
         },
       ],
-      // Sharing into the app (#355): Android offers it for text and links, and for images and PDFs --
-      // one, or several. A file of another type is not offered TaskFest at all. iOS needs a share
-      // extension, an App Group and a release that keeps it signed: that is #356.
+      // Sharing into the app (#355, #356): offered for text and links, and for images and PDFs --
+      // one, or several. A file of another type is not offered TaskFest at all. On iOS, through a
+      // share extension and the App Group group.<bundle id> it shares with the app; the Apple
+      // Developer portal must know both (doc/mobile/distribution.md).
       [
         'expo-sharing',
         {
-          ios: { enabled: false },
+          ios: { enabled: true, activationRule: SHARE_ACTIVATION_RULE },
           android: {
             enabled: true,
             singleShareMimeTypes: ['text/plain', 'image/*', 'application/pdf'],
@@ -91,4 +94,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     ],
     extra: { variant },
   }
+  // The share extension's name in iOS's share sheet (#356), applied here rather than listed in
+  // plugins: its change must follow expo-sharing's, as plugins/withShareExtensionName.ts says.
+  return withShareExtensionName(app, variant.name)
 }
