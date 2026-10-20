@@ -17,7 +17,7 @@
 
 FROM docker.io/library/eclipse-temurin:25.0.4.1_1-jre-ubi10-minimal@sha256:115488f21acc54e3987649f26c8b16f49b69fea928dd1a063ab2c6b543e936e6 AS jre
 
-FROM registry.access.redhat.com/ubi10/ubi-micro:10.2-1791898871@sha256:09d42b63a4ef2a23543502bd09e892c495a4ca480d481e28f00b3070d62d2d24
+FROM registry.access.redhat.com/ubi10/ubi-micro:10.2-1792455530@sha256:1c105e547de5d9e0bc20d06ebabee73b20bc6bba994c50ae3e207684fd8bef2b
 
 LABEL org.opencontainers.image.title="jre-runtime" \
       org.opencontainers.image.description="Eclipse Temurin JRE on Red Hat UBI 10 micro" \
