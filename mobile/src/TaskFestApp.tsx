@@ -205,8 +205,8 @@ export function TaskFestApp({
   const [failure, setFailure] = useState<string>()
   /** The image opened from a task, shown over everything (#274). */
   const [viewing, setViewing] = useState<{ url: string; fileName: string } | null>(null)
-  /** What another app shared, waiting until the board can take it (#355). */
-  const [share, setShare] = useState<SharedDraft | null>(null)
+  /** What other apps shared, oldest first, each waiting until the board can take it (#355). */
+  const [shares, setShares] = useState<SharedDraft[]>([])
   /**
    * The links to files asked for, each kept for a few minutes -- well inside the backend's signing
    * time, and by the phone's clock alone, so a phone whose clock is off does not keep a dead link --
@@ -451,27 +451,39 @@ export function TaskFestApp({
     takeShare.current = () => {
       incoming
         ?.take()
-        .then((draft) => draft && setShare(draft))
+        .then((draft) => draft && setShares((waiting) => [...waiting, draft]))
         .catch((failure: unknown) => console.warn('What was shared could not be read', failure))
     }
     // At the start: a share may be what started the app.
     takeShare.current()
   }, [incoming])
 
-  // The copies of a share's files go once its form is closed, however: added -- and every file
-  // uploaded, which the form waits for -- cancelled, or closed by a sign-out.
-  const sharedFiles = useRef<PickedFile[] | null>(null)
-  useEffect(() => {
-    if (form?.shared) {
-      sharedFiles.current = form.shared
-      return
-    }
-    const files = sharedFiles.current
-    if (files) {
-      sharedFiles.current = null
+  /**
+   * The copies of a share's files go once its form is closed -- added, cancelled, or closed by a
+   * sign-out -- and none of them is uploading any more: a form closed while its task is added does
+   * not take the files from under the upload.
+   */
+  const sharesShown = useRef(new Set<PickedFile[]>())
+  const sharesSaving = useRef(new Set<PickedFile[]>())
+  const forgetShare = useCallback(
+    (files: PickedFile[]) => {
+      if (sharesSaving.current.has(files) || !sharesShown.current.delete(files)) {
+        return
+      }
       incoming?.forget(files).catch((failure: unknown) => console.warn('The shared files could not be forgotten', failure))
+    },
+    [incoming],
+  )
+  useEffect(() => {
+    for (const files of sharesShown.current) {
+      if (files !== form?.shared) {
+        forgetShare(files)
+      }
     }
-  }, [form, incoming])
+    if (form?.shared) {
+      sharesShown.current.add(form.shared)
+    }
+  }, [form, forgetShare])
 
   /** How often the start has been tried: "try again" raises it, and the effect below runs anew. */
   const [attempt, setAttempt] = useState(0)
@@ -626,10 +638,17 @@ export function TaskFestApp({
   // while signed out, nor over the kept board, which takes no change (#272), nor over a form, the
   // account sheet or a file, whatever they hold. Set while rendering, as React has state adjusted
   // to other state, rather than in an effect that would render the board once more without it.
+  const [share] = shares
   if (share && state.kind === 'board' && !state.kept && !form && !account && !viewing) {
-    const refused = share.refused.map((each) => messages.attachments.refusals[each.refusal](each.name)).join('\n')
+    const refused = share.refused
+      .map((each) =>
+        each.refusal === 'UNREADABLE'
+          ? messages.attachments.unreadable(each.name)
+          : messages.attachments.refusals[each.refusal](each.name),
+      )
+      .join('\n')
     setForm({ description: share.description, pending: share.files, shared: share.files, failure: refused || undefined })
-    setShare(null)
+    setShares((waiting) => waiting.slice(1))
   }
 
   const today = todayIso(new Date(now()))
@@ -754,6 +773,9 @@ export function TaskFestApp({
     if (task && !markBusy(task, true)) {
       return false
     }
+    if (started?.shared) {
+      sharesSaving.current.add(started.shared)
+    }
     try {
       await sending(async () => {
         if (task) {
@@ -781,6 +803,13 @@ export function TaskFestApp({
     } finally {
       if (task) {
         markBusy(task, false)
+      }
+      if (started?.shared) {
+        sharesSaving.current.delete(started.shared)
+        // Closed while it was added: its copies are let go now. Still open, they go with the form.
+        if (formNow.current?.shared !== started.shared) {
+          forgetShare(started.shared)
+        }
       }
     }
   }

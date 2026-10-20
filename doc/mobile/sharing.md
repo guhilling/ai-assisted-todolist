@@ -19,7 +19,11 @@ only the raw share, is in [decisions/mobile-app.md](../decisions/mobile-app.md).
   it.
 - **Files** are copied into the app's cache, under `shared/`, and wait in the form as picked files
   do ([files.md](files.md)), to be attached once the task is added.
-  - A file the backend would refuse is refused at once, by the website's rule and in its words.
+  - A file the backend would refuse is refused at once, by the website's rule and in its words —
+    one the sending app says is too large without being copied first, and a type the backend
+    takes is preferred to another spelling of it (`image/jpg` of a `photo.jpg`).
+  - A file that cannot be copied — its permission withdrawn, a damaged photo — is said to be
+    unreadable, and the rest of the share stays.
   - A task takes two: of more, the first two are kept, and the form says which were left out.
   - An iPhone's HEIC photo becomes a JPEG.
 - **A file's name** is the end of its link. Where that says the type — `Rechnung.pdf` — it is kept;
@@ -36,9 +40,11 @@ opens the form once the board can take it:
   until the current board is there.
 - **Over a form, the account sheet or an open image**, it waits until they are closed, so nothing
   typed is lost.
+- **Behind another share**: shares wait in turn, none replacing another.
 
-The copies go once the form is closed — the task added and its files uploaded, cancelled, or closed
-by a sign-out — and at the next start, should the app have ended first.
+The copies go once the form is closed — added, cancelled, or closed by a sign-out — and none of
+its files is uploading any more; copies the form does not keep go at once; and copies a run left
+behind go before the next run's first share.
 
 ## Tested
 

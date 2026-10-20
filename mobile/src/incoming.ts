@@ -1,6 +1,6 @@
 import { TYPE_BY_EXTENSION, typeOfName } from './pick'
 import type { PickedFile } from './upload'
-import { attachmentLimits, checkFile, type AttachmentRefusal } from './web'
+import { attachmentLimits, attachmentTypes, checkFile, type AttachmentRefusal } from './web'
 
 /**
  * Sharing into TaskFest (#355): what another app shared, turned into a task to add -- the text and
@@ -31,19 +31,27 @@ export type SharedItem = {
 
 /** What reading a shared file needs of the phone. */
 export type IncomingParts = {
-  /** The file's name -- the end of its link -- and its type; null where they are not known. */
-  describe(uri: string): { name: string | null; type: string | null }
+  /**
+   * The file's name -- the end of its link -- its type and its size, as far as the phone can tell
+   * without reading it; null, or a size of 0, where it cannot.
+   */
+  describe(uri: string): { name: string | null; type: string | null; size: number | null }
   /** Copies the file into the app, under this name; the copy and its size. */
   copy(uri: string, name: string): Promise<{ uri: string; size: number }>
   /** A JPEG of an image, for one the backend would not take as it is. */
   toJpeg(uri: string): Promise<{ uri: string; size: number }>
+  /** Lets a copy go that the draft does not keep. */
+  discard(uri: string): void
 }
+
+/** Why a shared file was not taken: the backend's reasons, or that the phone could not read it. */
+export type SharedRefusal = AttachmentRefusal | 'UNREADABLE'
 
 /** A task to add, as a share makes it: the files the form attaches, and those it says were refused. */
 export type SharedDraft = {
   description: string
   files: PickedFile[]
-  refused: { name: string; refusal: AttachmentRefusal }[]
+  refused: { name: string; refusal: SharedRefusal }[]
 }
 
 /** The longest description the backend takes (`TaskCreateRequest`'s `maxLength`). */
@@ -55,6 +63,12 @@ const ENDING_BY_TYPE: Record<string, string> = Object.fromEntries(
     .reverse()
     .map(([extension, type]) => [type, extension]),
 )
+
+/** An iPhone's photo, which becomes a JPEG. */
+const isHeic = (type: string) => type === 'image/heic' || type === 'image/heif'
+
+/** A type the app can attach: one the backend takes, or HEIC, which becomes one. */
+const isTaken = (type: string) => attachmentTypes.includes(type) || isHeic(type)
 
 /** The draft a share makes, or null when nothing was shared. */
 export async function draftOf(items: SharedItem[], parts: IncomingParts): Promise<SharedDraft | null> {
@@ -75,39 +89,66 @@ export async function draftOf(items: SharedItem[], parts: IncomingParts): Promis
   for (const item of items.filter((each) => !texts.includes(each))) {
     const described = parts.describe(item.value)
     const named = fileName(described.name)
-    const type = concrete(item.mimeType) ?? concrete(described.type) ?? (named ? typeOfName(named) : undefined) ?? ''
+    // A type the app takes, whoever says it: some apps say "image/jpg" of a photo.jpg.
+    const said = [item.mimeType, described.type, named ? typeOfName(named) : undefined].map(concrete)
+    const type = said.find((each) => each && isTaken(each)) ?? said.find(Boolean) ?? ''
     const name = named && typeOfName(named) ? named : `shared${ENDING_BY_TYPE[type] ? `.${ENDING_BY_TYPE[type]}` : ''}`
     // A refusal names the file as the user knows it, whatever it would have been called here.
+    const refuse = (refusal: SharedRefusal) => draft.refused.push({ name: named ?? name, refusal })
     if (draft.files.length === attachmentLimits.perTask) {
-      draft.refused.push({ name: named ?? name, refusal: 'TASK_FULL' })
-      continue
-    }
-    const file = await take(item.value, name, type, parts)
-    const refusal = file ? checkFile(file) : 'UNSUPPORTED_TYPE'
-    if (refusal) {
-      draft.refused.push({ name: named ?? name, refusal })
+      refuse('TASK_FULL')
+    } else if (!isTaken(type)) {
+      refuse('UNSUPPORTED_TYPE')
+    } else if (!isHeic(type) && described.size && described.size > attachmentLimits.maxSizeBytes) {
+      // Not copied only to be refused: a film's worth of PDF would take a while.
+      refuse('TOO_LARGE')
     } else {
-      draft.files.push(file!)
+      const file = await take(item.value, name, type, parts)
+      const refusal = file ? checkFile(file) : 'UNREADABLE'
+      if (refusal) {
+        if (file) {
+          parts.discard(file.uri)
+        }
+        refuse(refusal)
+      } else {
+        draft.files.push(file!)
+      }
     }
   }
   return draft
 }
 
-/** The file copied into the app -- a JPEG if it was HEIC -- or null for a type it would not take. */
+/**
+ * The file copied into the app -- a JPEG, if it was HEIC, and its copy let go -- or null when it
+ * could not be read: a permission withdrawn, say, or a damaged photo.
+ */
 async function take(uri: string, name: string, type: string, parts: IncomingParts): Promise<PickedFile | null> {
-  if (type === 'image/heic' || type === 'image/heif') {
-    const copy = await parts.copy(uri, name)
-    const jpeg = await parts.toJpeg(copy.uri)
-    return { uri: jpeg.uri, name: name.replace(/\.[^.]*$/, '') + '.jpg', type: 'image/jpeg', size: jpeg.size }
-  }
-  if (checkFile({ type, size: 1 }) === 'UNSUPPORTED_TYPE') {
+  let copy: { uri: string; size: number }
+  try {
+    copy = await parts.copy(uri, name)
+  } catch (failure) {
+    console.warn('A shared file could not be copied', failure)
     return null
   }
-  const copy = await parts.copy(uri, name)
-  return { uri: copy.uri, name, type, size: copy.size }
+  if (!isHeic(type)) {
+    return { uri: copy.uri, name, type, size: copy.size }
+  }
+  try {
+    const jpeg = await parts.toJpeg(copy.uri)
+    return { uri: jpeg.uri, name: name.replace(/\.[^.]*$/, '') + '.jpg', type: 'image/jpeg', size: jpeg.size }
+  } catch (failure) {
+    console.warn('A shared photo could not be converted', failure)
+    return null
+  } finally {
+    parts.discard(copy.uri)
+  }
 }
 
-/** The description, cut to the backend's limit -- before a character, never through one. */
+/**
+ * The description, cut to the backend's limit, which counts UTF-16 units as JavaScript does: never
+ * through a character that takes two, an emoji's, though an emoji made of several may lose its end.
+ * The form shows it before anything is added.
+ */
 function cut(text: string) {
   if (text.length <= DESCRIPTION_MAX_LENGTH) {
     return text

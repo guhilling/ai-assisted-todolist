@@ -3,11 +3,12 @@ import { join } from 'node:path'
 import { DESCRIPTION_MAX_LENGTH, draftOf, type IncomingParts, type SharedItem } from './incoming'
 
 /** Reading what another app shared (#355), with a phone whose files are made up here. */
-function phone(files: Record<string, { name: string | null; type: string | null }> = {}): IncomingParts {
+function phone(files: Record<string, { name: string | null; type: string | null; size?: number | null }> = {}): IncomingParts {
   return {
-    describe: jest.fn((uri: string) => files[uri] ?? { name: null, type: null }),
+    describe: jest.fn((uri: string) => (files[uri] ? { size: null, ...files[uri] } : { name: null, type: null, size: null })),
     copy: jest.fn(async (_uri: string, name: string) => ({ uri: `file:///cache/shared/${name}`, size: 4_000 })),
     toJpeg: jest.fn().mockResolvedValue({ uri: 'file:///cache/converted.jpg', size: 900_000 }),
+    discard: jest.fn(),
   }
 }
 
@@ -124,6 +125,7 @@ describe('a share becomes a draft task (#355)', () => {
 
     expect(draft?.files).toEqual([{ uri: 'file:///cache/converted.jpg', name: 'IMG_2.jpg', type: 'image/jpeg', size: 900_000 }])
     expect(parts.toJpeg).toHaveBeenCalledWith('file:///cache/shared/IMG_2.HEIC')
+    expect(parts.discard).toHaveBeenCalledWith('file:///cache/shared/IMG_2.HEIC')
   })
 
   it('refuses a file the backend would refuse, by the website’s rule, without copying it', async () => {
@@ -138,13 +140,55 @@ describe('a share becomes a draft task (#355)', () => {
     expect(parts.copy).not.toHaveBeenCalled()
   })
 
-  it('refuses a file too large once copied', async () => {
+  it('refuses a file too large once copied, and lets the copy go', async () => {
     const parts = phone({ 'content://docs/4': { name: 'huge.pdf', type: 'application/pdf' } })
     jest.mocked(parts.copy).mockResolvedValue({ uri: 'file:///cache/shared/huge.pdf', size: 50 * 1024 * 1024 })
 
     const draft = await draftOf([file('content://docs/4', 'application/pdf')], parts)
 
     expect(draft).toEqual({ description: '', files: [], refused: [{ name: 'huge.pdf', refusal: 'TOO_LARGE' }] })
+    expect(parts.discard).toHaveBeenCalledWith('file:///cache/shared/huge.pdf')
+  })
+
+  it('refuses a file the sending app says is too large without copying it', async () => {
+    const parts = phone({ 'content://docs/6': { name: 'film.pdf', type: 'application/pdf', size: 300 * 1024 * 1024 } })
+
+    const draft = await draftOf([file('content://docs/6', 'application/pdf')], parts)
+
+    expect(draft?.refused).toEqual([{ name: 'film.pdf', refusal: 'TOO_LARGE' }])
+    expect(parts.copy).not.toHaveBeenCalled()
+  })
+
+  it('keeps the rest of a share when one file cannot be copied, and says which', async () => {
+    const parts = phone({
+      'content://docs/1': { name: 'gone.pdf', type: 'application/pdf' },
+      'content://docs/2': { name: 'kept.pdf', type: 'application/pdf' },
+    })
+    jest.mocked(parts.copy).mockRejectedValueOnce(new Error('Permission denial'))
+
+    const draft = await draftOf([text('Invoices'), file('content://docs/1', 'application/pdf'), file('content://docs/2', 'application/pdf')], parts)
+
+    expect(draft?.description).toBe('Invoices')
+    expect(draft?.files.map((each) => each.name)).toEqual(['kept.pdf'])
+    expect(draft?.refused).toEqual([{ name: 'gone.pdf', refusal: 'UNREADABLE' }])
+  })
+
+  it('says so of a HEIC photo that cannot be converted, and lets its copy go', async () => {
+    const parts = phone({ 'file:///group/IMG_3.HEIC': { name: 'IMG_3.HEIC', type: 'image/heic' } })
+    jest.mocked(parts.toJpeg).mockRejectedValue(new Error('damaged'))
+
+    const draft = await draftOf([file('file:///group/IMG_3.HEIC', 'image/heic', 'image')], parts)
+
+    expect(draft?.refused).toEqual([{ name: 'IMG_3.HEIC', refusal: 'UNREADABLE' }])
+    expect(parts.discard).toHaveBeenCalledWith('file:///cache/shared/IMG_3.HEIC')
+  })
+
+  it('goes by the name when the share says a type the backend does not know by that spelling', async () => {
+    const parts = phone({ 'content://media/5': { name: 'photo.jpg', type: 'image/jpg' } })
+
+    const draft = await draftOf([file('content://media/5', 'image/jpg', 'image')], parts)
+
+    expect(draft?.files.map((each) => each.type)).toEqual(['image/jpeg'])
   })
 
   it('takes as many files as a task holds, and says which were left out', async () => {

@@ -90,17 +90,30 @@ const documents = new Directory(Paths.cache, 'documents')
 
 /**
  * Where the app keeps its copies of the files shared into it (#355), each under a name of its own.
- * Emptied at the start too, of copies a run left behind that ended before their form was closed.
+ * Emptied when the first share is taken, of copies a run left behind that ended before their form
+ * was closed -- then, rather than while the app starts.
  */
 const sharedFiles = new Directory(Paths.cache, 'shared')
-try {
-  if (sharedFiles.exists) {
-    sharedFiles.delete()
-  }
-} catch (failure) {
-  console.warn('The shared files left behind could not be forgotten', failure)
-}
 let sharedCopies = 0
+
+/** Copies of shared files a run left behind, let go before the first share of this one is taken. */
+function forgetLeftShares() {
+  try {
+    if (sharedCopies === 0 && sharedFiles.exists) {
+      sharedFiles.delete()
+    }
+  } catch (failure) {
+    console.warn('The shared files left behind could not be forgotten', failure)
+  }
+}
+
+/** Lets a copy of a shared file go, if it is still there. */
+function discardCopy(uri: string) {
+  const copy = new File(uri)
+  if (copy.exists) {
+    copy.delete()
+  }
+}
 
 /** A photo as the image picker hands it over, or null when the user turned back. */
 function photoOf(result: ImagePicker.ImagePickerResult): PickedPhoto | null {
@@ -249,10 +262,13 @@ const dependencies: Dependencies = {
     take: async () => {
       const items = Sharing.getSharedPayloads()
       Sharing.clearSharedPayloads()
+      if (items.length > 0) {
+        forgetLeftShares()
+      }
       return draftOf(items, {
         describe: (uri) => {
           const file = new File(uri)
-          return { name: file.name, type: file.type || null }
+          return { name: file.name, type: file.type || null, size: file.size || null }
         },
         copy: async (uri, name) => {
           if (!sharedFiles.exists) {
@@ -264,16 +280,10 @@ const dependencies: Dependencies = {
           return { uri: copy.uri, size: copy.size }
         },
         toJpeg: (uri) => savedJpeg(uri, (context) => context, 0.9),
+        discard: discardCopy,
       })
     },
-    forget: async (files) => {
-      for (const file of files) {
-        const copy = new File(file.uri)
-        if (copy.exists) {
-          copy.delete()
-        }
-      }
-    },
+    forget: async (files) => files.forEach((file) => discardCopy(file.uri)),
   },
   reminders: createReminderScheduler(
     notifications,

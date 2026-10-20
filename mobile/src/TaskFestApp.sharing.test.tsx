@@ -131,6 +131,7 @@ describe('a share opens "Add a task" (#355)', () => {
       refused: [
         { name: 'notes.docx', refusal: 'UNSUPPORTED_TYPE' },
         { name: 'third.png', refusal: 'TASK_FULL' },
+        { name: 'gone.pdf', refusal: 'UNREADABLE' },
       ],
     }
     await start(dependencies({ incoming: sharing(draft) }))
@@ -138,6 +139,50 @@ describe('a share opens "Add a task" (#355)', () => {
     const form = await screen.findByTestId('task-form')
     expect(within(form).getByText(/notes\.docx is neither a PDF nor an image\./)).toBeOnTheScreen()
     expect(within(form).getByText(/third\.png was not attached: this task already holds as many files as it can\./)).toBeOnTheScreen()
+    expect(within(form).getByText(/gone\.pdf could not be read\./)).toBeOnTheScreen()
+  })
+
+  it('keeps the copies until their upload is done, even when the form is closed meanwhile', async () => {
+    let uploaded: () => void = () => undefined
+    const deps = dependencies()
+    deps.attachments!.upload = jest.fn(
+      (_caller, _taskId, file: PickedFile) =>
+        new Promise((resolve) => (uploaded = () => resolve({ id: 9, fileName: file.name, contentType: file.type, sizeBytes: file.size, thumbnail: false }))),
+    )
+    const user = await start(deps)
+    const form = await screen.findByTestId('task-form')
+    await user.press(within(form).getByRole('button', { name: 'Add' }))
+    await waitFor(() => expect(deps.attachments!.upload).toHaveBeenCalled())
+
+    await user.press(within(form).getByRole('button', { name: 'Cancel' }))
+    await waitFor(() => expect(screen.queryByTestId('task-form')).toBeNull())
+    expect(deps.incoming!.forget).not.toHaveBeenCalled()
+    await act(async () => uploaded())
+
+    await waitFor(() => expect(deps.incoming!.forget).toHaveBeenCalledWith([scan]))
+    expect(deps.incoming!.forget).toHaveBeenCalledTimes(1)
+  })
+
+  it('opens a second share once the first is done with, rather than dropping either', async () => {
+    const photo: PickedFile = { uri: 'file:///cache/shared/2-photo.jpg', name: 'photo.jpg', type: 'image/jpeg', size: 1_000 }
+    const second: SharedDraft = { description: 'Second', files: [photo], refused: [] }
+    const deps = dependencies({ sessions: memorySessions(null), incoming: sharing(share, second) })
+    deps.provider.signIn = jest.fn().mockResolvedValue({ idToken, refreshToken: 'r' })
+    let onChange: (state: string) => void = () => undefined
+    jest.spyOn(AppState, 'addEventListener').mockImplementation((_type, listener) => {
+      onChange = listener as (state: string) => void
+      return { remove: jest.fn() } as never
+    })
+    const user = await start(deps)
+    await screen.findByRole('button', { name: 'Sign in with Keycloak' })
+    await act(async () => onChange('active'))
+
+    await user.press(screen.getByRole('button', { name: 'Sign in with Keycloak' }))
+    expect(await within(await screen.findByTestId('task-form')).findByRole('button', { name: 'Remove scan.pdf' })).toBeOnTheScreen()
+    await user.press(within(screen.getByTestId('task-form')).getByRole('button', { name: 'Cancel' }))
+
+    expect(await within(await screen.findByTestId('task-form')).findByRole('button', { name: 'Remove photo.jpg' })).toBeOnTheScreen()
+    jest.restoreAllMocks()
   })
 
   it('opens nothing when nothing was shared', async () => {
