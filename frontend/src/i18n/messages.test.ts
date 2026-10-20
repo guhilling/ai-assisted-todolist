@@ -134,3 +134,10 @@ describe('the colour legend read aloud (#335)', () => {
     expect(de.legend.spoken('Wichtigkeit', ['Hoch', 'Mittel', 'Niedrig'])).toBe('Wichtigkeit: Hoch, Mittel, Niedrig.')
   })
 })
+
+describe('a file shared into the app that it could not read (#355)', () => {
+  it('is named in each language', () => {
+    expect(en.attachments.unreadable('scan.pdf')).toBe('scan.pdf could not be read.')
+    expect(de.attachments.unreadable('scan.pdf')).toBe('scan.pdf konnte nicht gelesen werden.')
+  })
+})
