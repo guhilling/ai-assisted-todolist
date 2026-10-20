@@ -21,22 +21,27 @@ else {
 }
 let predicate = NSPredicate(format: rule)
 
-/// A share as iOS hands it to the rule: one item, its attachments' type identifiers.
-func share(_ attachments: [[String]]) -> NSDictionary {
-  ["extensionItems": [["attachments": attachments.map { ["registeredTypeIdentifiers": $0] }]]]
+/// A share as iOS hands it to the rule: its items, each with its attachments' type identifiers.
+/// Safari hands one item with several attachments; an app sharing several things, as many items.
+func share(_ items: [[[String]]]) -> NSDictionary {
+  ["extensionItems": items.map { ["attachments": $0.map { ["registeredTypeIdentifiers": $0] }] }]
 }
 
-let shares: [(String, [[String]], Bool)] = [
-  ("a photo", [["public.heic", "public.jpeg"]], true),
-  ("two photos", [["public.jpeg"], ["public.png"]], true),
-  ("a PDF from Files", [["com.adobe.pdf", "public.file-url"]], true),
-  ("a page from Safari", [["public.url"], ["public.plain-text"]], true),
-  ("a link", [["public.url"]], true),
-  ("text from Notes", [["public.utf8-plain-text"]], true),
-  ("a Word file", [["org.openxmlformats.wordprocessingml.document"]], false),
-  ("a Word file from Files", [["org.openxmlformats.wordprocessingml.document", "public.file-url"]], false),
-  ("a photo and a Word file", [["public.jpeg"], ["org.openxmlformats.wordprocessingml.document"]], false),
-  ("a video", [["public.mpeg-4"]], false),
+let shares: [(String, [[[String]]], Bool)] = [
+  ("a photo", [[["public.heic", "public.jpeg"]]], true),
+  ("two photos", [[["public.jpeg"], ["public.png"]]], true),
+  ("a PDF from Files", [[["com.adobe.pdf", "public.file-url"]]], true),
+  ("a page from Safari", [[["public.url"], ["public.plain-text"]]], true),
+  ("a link", [[["public.url"]]], true),
+  ("text from Notes", [[["public.utf8-plain-text"]]], true),
+  ("a Word file", [[["org.openxmlformats.wordprocessingml.document"]]], false),
+  ("a Word file from Files", [[["org.openxmlformats.wordprocessingml.document", "public.file-url"]]], false),
+  ("a photo and a Word file", [[["public.jpeg"], ["org.openxmlformats.wordprocessingml.document"]]], false),
+  ("a video", [[["public.mpeg-4"]]], false),
+  ("a text file from Files", [[["public.plain-text", "public.file-url"]]], false),
+  ("a title and a link, as two items", [[["public.plain-text"]], [["public.url"]]], true),
+  ("two photos, as two items", [[["public.jpeg"]], [["public.png"]]], true),
+  ("a photo and a Word file, as two items", [[["public.jpeg"]], [["org.openxmlformats.wordprocessingml.document"]]], false),
 ]
 var wrong = 0
 for (what, attachments, offered) in shares {

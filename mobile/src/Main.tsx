@@ -115,6 +115,22 @@ function discardCopy(uri: string) {
   }
 }
 
+/**
+ * Lets a shared file go once read, if it is the one the iOS share extension left in the App Group's
+ * container (#356): the extension copies every file there, and nothing else would delete it. Any
+ * other -- Android's, which are the sending app's -- stays.
+ */
+function releaseShared(uri: string) {
+  if (!Object.values(Paths.appleSharedContainers).some((container) => uri.startsWith(container.uri))) {
+    return
+  }
+  try {
+    discardCopy(uri)
+  } catch (failure) {
+    console.warn('A shared file could not be let go', failure)
+  }
+}
+
 /** A photo as the image picker hands it over, or null when the user turned back. */
 function photoOf(result: ImagePicker.ImagePickerResult): PickedPhoto | null {
   const asset = result.canceled ? undefined : result.assets[0]
@@ -280,6 +296,7 @@ const dependencies: Dependencies = {
         },
         toJpeg: (uri) => savedJpeg(uri, (context) => context, 0.9),
         discard: discardCopy,
+        release: releaseShared,
       })
     },
     forget: async (files) => files.forEach((file) => discardCopy(file.uri)),

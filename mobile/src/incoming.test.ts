@@ -229,3 +229,38 @@ describe('a share becomes a draft task (#355)', () => {
     expect(parts.copy).not.toHaveBeenCalled()
   })
 })
+
+describe('the shared files themselves, once read (#356)', () => {
+  it('are let go, each of them, whether taken or not -- on an iPhone they are the app’s to delete', async () => {
+    const parts: IncomingParts = {
+      ...phone({
+        'file:///group/photo.jpg': { name: 'photo.jpg', type: 'image/jpeg' },
+        'file:///group/notes.docx': { name: 'notes.docx', type: null },
+        'file:///group/gone.pdf': { name: 'gone.pdf', type: 'application/pdf' },
+      }),
+      release: jest.fn(),
+    }
+    jest.mocked(parts.copy).mockImplementation(async (uri, name) => {
+      if (uri.endsWith('gone.pdf')) {
+        throw new Error('Permission denial')
+      }
+      return { uri: `file:///cache/shared/${name}`, size: 4_000 }
+    })
+
+    await draftOf(
+      [
+        text('Holiday'),
+        file('file:///group/photo.jpg', 'image/jpeg'),
+        file('file:///group/notes.docx', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'),
+        file('file:///group/gone.pdf', 'application/pdf'),
+      ],
+      parts,
+    )
+
+    expect(jest.mocked(parts.release!).mock.calls.map(([uri]) => uri)).toEqual([
+      'file:///group/photo.jpg',
+      'file:///group/notes.docx',
+      'file:///group/gone.pdf',
+    ])
+  })
+})

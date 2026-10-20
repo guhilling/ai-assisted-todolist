@@ -6,9 +6,10 @@ Mobile CI checks the simulator build, which is not signed:
 
     python3 .github/scripts/check-share-extension.py built <App.app> <the variant's name>
 
-and the release checks the .ipa it signed, before uploading it:
+and that it signs with the App Group, once signed ad hoc as the release signs it; the release
+checks the .ipa it signed, before uploading it:
 
-    python3 .github/scripts/check-share-extension.py signed <App.ipa>
+    python3 .github/scripts/check-share-extension.py signed <App.app or App.ipa>
 
 expo-sharing's config plugin generates the extension; nothing else would notice if it went wrong.
 Built, the extension must be a share extension, show the app's name in the share sheet -- the
@@ -76,9 +77,11 @@ def main(argv: list) -> int:
         problems = built_problems(_info(app), _info(app / EXTENSION), argv[3])
     elif len(argv) == 3 and argv[1] == "signed":
         with tempfile.TemporaryDirectory() as unpacked:
-            with zipfile.ZipFile(argv[2]) as ipa:
-                ipa.extractall(unpacked)
-            app = next(pathlib.Path(unpacked, "Payload").glob("*.app"))
+            app = pathlib.Path(argv[2])
+            if app.suffix == ".ipa":
+                with zipfile.ZipFile(app) as ipa:
+                    ipa.extractall(unpacked)
+                app = next(pathlib.Path(unpacked, "Payload").glob("*.app"))
             extension = app / EXTENSION
             problems = signed_problems(_info(app)["CFBundleIdentifier"], _entitlements(app),
                                        _entitlements(extension) if extension.exists() else None)

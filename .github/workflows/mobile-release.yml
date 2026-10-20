@@ -250,6 +250,7 @@ jobs:
         run: >
           bash ../../.github/scripts/sign-with-app-group.sh
           "$(ls -d "$RUNNER_TEMP"/TaskFest.xcarchive/Products/Applications/*.app)"
+          "$(ls */*.entitlements | grep -v ^expo-sharing-extension/)"
           expo-sharing-extension/expo-sharing-extension.entitlements
       - name: Sign, check and upload to TestFlight
         env:

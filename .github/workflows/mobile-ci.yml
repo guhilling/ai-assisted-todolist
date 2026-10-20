@@ -172,11 +172,10 @@ jobs:
           swift .github/scripts/check-share-activation.swift "$app/PlugIns/expo-sharing-extension.appex/Info.plist"
           # The release's ad hoc signing, tried here on every change: signed with the App Group, the
           # app and the extension both carry it.
-          bash .github/scripts/sign-with-app-group.sh "$app" mobile/ios/expo-sharing-extension/expo-sharing-extension.entitlements
-          for bundle in "$app" "$app"/PlugIns/expo-sharing-extension.appex; do
-            codesign -d --entitlements - --xml "$bundle" | grep -q 'group.de.hilling.taskfest.dev' ||
-              { echo "::error::$bundle is not signed with the App Group"; exit 1; }
-          done
+          bash .github/scripts/sign-with-app-group.sh "$app" \
+            "$(ls mobile/ios/*/*.entitlements | grep -v /expo-sharing-extension/)" \
+            mobile/ios/expo-sharing-extension/expo-sharing-extension.entitlements
+          python3 .github/scripts/check-share-extension.py signed "$app"
       - name: Save npm's cache
         if: github.ref == 'refs/heads/main' && steps.npm-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v6

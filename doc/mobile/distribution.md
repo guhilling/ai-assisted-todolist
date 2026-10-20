@@ -195,7 +195,9 @@ then:
 
 - **iOS entitlements.** The archive is built unsigned and the export signs it, with the
   entitlements it finds in the archive's signatures, which unsigned has none. So the archive is
-  signed ad hoc first, with the App Group alone (#356), and the export's `.ipa` is checked for it
-  before anything is uploaded (`.github/scripts/check-share-extension.py`). `expo-notifications`'
-  push entitlement is left out on purpose: the App IDs have no push, and push (#277) adds it.
+  signed ad hoc first, the app and the share extension each with the entitlements the project
+  generates for it, App Group included (#356), and the export's `.ipa` is checked for the App Group
+  before anything is uploaded (`.github/scripts/sign-with-app-group.sh`,
+  `.github/scripts/check-share-extension.py`). `expo-notifications`' push entitlement is left out
+  on purpose: the App IDs have no push, and push (#277) adds it.
 - **Play's draft state**, above: whether the internal release went out or waits as a draft.
