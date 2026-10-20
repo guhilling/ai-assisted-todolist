@@ -8,7 +8,10 @@ name: Share text into the app
     timeout: 20000
 - assertVisible: "Add a task"
 - tapOn: "In 1 week"
-- hideKeyboard
+# Not hideKeyboard: the form a share opens may show no keyboard, and Maestro then hides "it" with
+# Android's Back, which closes the form. Scrolled to instead, whether a keyboard covers it or not.
+- scrollUntilVisible:
+    element: "Add"
 - takeScreenshot: 30-shared-text
 - tapOn: "Add"
 - extendedWaitUntil:
