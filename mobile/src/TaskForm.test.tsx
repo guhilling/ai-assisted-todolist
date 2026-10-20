@@ -208,3 +208,19 @@ describe('a task is open or done (#334)', () => {
     expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ state: 'TODO' }))
   })
 })
+
+describe('a task a share brought (#355)', () => {
+  it('starts with the shared description, to be added with a due date chosen', async () => {
+    const onSave = jest.fn().mockResolvedValue(true)
+    await render(form({ draft: 'Read the article https://example.com/a', onSave }))
+    const user = userEvent.setup()
+
+    expect(screen.getByText('Add a task')).toBeOnTheScreen()
+    await user.press(screen.getByRole('button', { name: 'In 1 week' }))
+    await user.press(screen.getByRole('button', { name: 'Add' }))
+
+    expect(onSave).toHaveBeenCalledWith(
+      expect.objectContaining({ description: 'Read the article https://example.com/a', dueDate: '2026-10-17' }),
+    )
+  })
+})

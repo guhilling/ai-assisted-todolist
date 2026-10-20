@@ -108,7 +108,7 @@ since that is all an iOS app's version may be, and the backend logs nothing else
 it shares with the website: the checks; a release APK of the `dev` variant on Linux; an iOS
 simulator build on macOS; and the Maestro flows on an Android emulator against the end-to-end
 stack, built from the same commit. The flows run in two shares at once, each on an emulator and a
-stack of its own: `board` signs in and changes the board, `others` has the account, the reminders,
+stack of its own: `board` signs in, changes the board and shares into the app, `others` has the account, the reminders,
 attaching a file and the offline board. Their screenshots are the `maestro-output-board` and
 `maestro-output-others` artifacts.
 
