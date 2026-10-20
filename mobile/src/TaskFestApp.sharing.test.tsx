@@ -185,6 +185,26 @@ describe('a share opens "Add a task" (#355)', () => {
     jest.restoreAllMocks()
   })
 
+  it('opens the second share with its own text, not the first one’s', async () => {
+    const second: SharedDraft = { description: 'Second', files: [], refused: [] }
+    let onChange: (state: string) => void = () => undefined
+    jest.spyOn(AppState, 'addEventListener').mockImplementation((_type, listener) => {
+      onChange = listener as (state: string) => void
+      return { remove: jest.fn() } as never
+    })
+    const user = await start(dependencies({ incoming: sharing(share, second) }))
+    let form = await screen.findByTestId('task-form')
+    await act(async () => onChange('active'))
+    await user.clear(within(form).getByDisplayValue('Read the article https://example.com/a'))
+    await user.type(within(form).getByLabelText('What needs doing'), 'Changed')
+    await user.press(within(form).getByRole('button', { name: 'Cancel' }))
+
+    await waitFor(() => expect(within(screen.getByTestId('task-form')).getByDisplayValue('Second')).toBeOnTheScreen())
+    form = screen.getByTestId('task-form')
+    expect(within(form).queryByDisplayValue('Changed')).toBeNull()
+    jest.restoreAllMocks()
+  })
+
   it('opens nothing when nothing was shared', async () => {
     const deps = dependencies({ incoming: sharing(null) })
     await start(deps)

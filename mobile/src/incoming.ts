@@ -87,15 +87,17 @@ export async function draftOf(items: SharedItem[], parts: IncomingParts): Promis
     refused: [],
   }
   for (const item of items.filter((each) => !texts.includes(each))) {
-    const described = parts.describe(item.value)
-    const named = fileName(described.name)
+    const described = describe(item.value, parts)
+    const named = fileName(described?.name ?? null)
     // A type the app takes, whoever says it: some apps say "image/jpg" of a photo.jpg.
-    const said = [item.mimeType, described.type, named ? typeOfName(named) : undefined].map(concrete)
+    const said = [item.mimeType, described?.type, named ? typeOfName(named) : undefined].map(concrete)
     const type = said.find((each) => each && isTaken(each)) ?? said.find(Boolean) ?? ''
     const name = named && typeOfName(named) ? named : `shared${ENDING_BY_TYPE[type] ? `.${ENDING_BY_TYPE[type]}` : ''}`
     // A refusal names the file as the user knows it, whatever it would have been called here.
     const refuse = (refusal: SharedRefusal) => draft.refused.push({ name: named ?? name, refusal })
-    if (draft.files.length === attachmentLimits.perTask) {
+    if (!described) {
+      refuse('UNREADABLE')
+    } else if (draft.files.length === attachmentLimits.perTask) {
       refuse('TASK_FULL')
     } else if (!isTaken(type)) {
       refuse('UNSUPPORTED_TYPE')
@@ -116,6 +118,16 @@ export async function draftOf(items: SharedItem[], parts: IncomingParts): Promis
     }
   }
   return draft
+}
+
+/** What the phone can tell of a file, or null when it cannot even say that: a permission withdrawn. */
+function describe(uri: string, parts: IncomingParts) {
+  try {
+    return parts.describe(uri)
+  } catch (failure) {
+    console.warn('A shared file could not be described', failure)
+    return null
+  }
 }
 
 /**

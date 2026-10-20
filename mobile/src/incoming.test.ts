@@ -173,6 +173,20 @@ describe('a share becomes a draft task (#355)', () => {
     expect(draft?.refused).toEqual([{ name: 'gone.pdf', refusal: 'UNREADABLE' }])
   })
 
+  it('says so of a file the phone cannot even describe, and keeps the rest of the share', async () => {
+    const parts = phone({ 'content://docs/2': { name: 'kept.pdf', type: 'application/pdf' } })
+    jest.mocked(parts.describe).mockImplementationOnce(() => {
+      throw new Error('Permission denial')
+    })
+
+    const draft = await draftOf([text('Invoices'), file('content://docs/1', 'application/pdf'), file('content://docs/2', 'application/pdf')], parts)
+
+    expect(draft?.description).toBe('Invoices')
+    expect(draft?.files.map((each) => each.name)).toEqual(['kept.pdf'])
+    expect(draft?.refused).toEqual([{ name: 'shared.pdf', refusal: 'UNREADABLE' }])
+    expect(parts.copy).toHaveBeenCalledTimes(1)
+  })
+
   it('says so of a HEIC photo that cannot be converted, and lets its copy go', async () => {
     const parts = phone({ 'file:///group/IMG_3.HEIC': { name: 'IMG_3.HEIC', type: 'image/heic' } })
     jest.mocked(parts.toJpeg).mockRejectedValue(new Error('damaged'))

@@ -107,6 +107,11 @@ type Form = {
   description?: string
   /** The files a share brought, all of them, forgotten once the form closes (#355). */
   shared?: PickedFile[]
+  /**
+   * Which share this is, counted: the form's key, so that a share opened straight after another
+   * one closes is a new form, not the last one's with its text (#355).
+   */
+  share?: number
 }
 
 /** The promise's value, or null once the time is up -- never a wait without end. */
@@ -206,7 +211,7 @@ export function TaskFestApp({
   /** The image opened from a task, shown over everything (#274). */
   const [viewing, setViewing] = useState<{ url: string; fileName: string } | null>(null)
   /** What other apps shared, oldest first, each waiting until the board can take it (#355). */
-  const [shares, setShares] = useState<SharedDraft[]>([])
+  const [shares, setShares] = useState<{ draft: SharedDraft; number: number }[]>([])
   /**
    * The links to files asked for, each kept for a few minutes -- well inside the backend's signing
    * time, and by the phone's clock alone, so a phone whose clock is off does not keep a dead link --
@@ -447,11 +452,12 @@ export function TaskFestApp({
 
   /** Takes what another app shared, if anything, to show once the board can take it (#355). */
   const takeShare = useRef<() => void>(() => undefined)
+  const sharesTaken = useRef(0)
   useEffect(() => {
     takeShare.current = () => {
       incoming
         ?.take()
-        .then((draft) => draft && setShares((waiting) => [...waiting, draft]))
+        .then((draft) => draft && setShares((waiting) => [...waiting, { draft, number: ++sharesTaken.current }]))
         .catch((failure: unknown) => console.warn('What was shared could not be read', failure))
     }
     // At the start: a share may be what started the app.
@@ -638,8 +644,9 @@ export function TaskFestApp({
   // while signed out, nor over the kept board, which takes no change (#272), nor over a form, the
   // account sheet or a file, whatever they hold. Set while rendering, as React has state adjusted
   // to other state, rather than in an effect that would render the board once more without it.
-  const [share] = shares
-  if (share && state.kind === 'board' && !state.kept && !form && !account && !viewing) {
+  const [next] = shares
+  if (next && state.kind === 'board' && !state.kept && !form && !account && !viewing) {
+    const { draft: share, number } = next
     const refused = share.refused
       .map((each) =>
         each.refusal === 'UNREADABLE'
@@ -647,7 +654,7 @@ export function TaskFestApp({
           : messages.attachments.refusals[each.refusal](each.name),
       )
       .join('\n')
-    setForm({ description: share.description, pending: share.files, shared: share.files, failure: refused || undefined })
+    setForm({ description: share.description, pending: share.files, shared: share.files, share: number, failure: refused || undefined })
     setShares((waiting) => waiting.slice(1))
   }
 
@@ -1187,7 +1194,7 @@ export function TaskFestApp({
             >
               {form ? (
                 <TaskForm
-                  key={form.task?.id ?? 'new'}
+                  key={form.task?.id ?? (form.share ? `share-${form.share}` : 'new')}
                   task={form.task}
                   today={today}
                   language={language}
