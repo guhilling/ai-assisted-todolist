@@ -4,7 +4,7 @@
  * after the row showed it, and a test pressing Escape in between closed the row now and then.
  */
 import { useEffect, useRef, useState } from 'react'
-import { createRoot } from 'react-dom/client'
+import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, expect, it } from 'vitest'
 import { useEscapeWithin } from './escape'
 
@@ -26,28 +26,44 @@ function Row({ answer }: Readonly<{ answer: Promise<void> }>) {
 }
 
 const actEnvironment = globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
+let actBefore: boolean | undefined
+let container: HTMLDivElement
+let root: Root
 
 beforeEach(() => {
   pressed.length = 0
   // React as a browser runs it, not as act() would: effects when React gets to them.
+  actBefore = actEnvironment.IS_REACT_ACT_ENVIRONMENT
   actEnvironment.IS_REACT_ACT_ENVIRONMENT = false
+  container = document.createElement('div')
+  document.body.append(container)
+  root = createRoot(container)
 })
 
 afterEach(() => {
-  actEnvironment.IS_REACT_ACT_ENVIRONMENT = true
+  root.unmount()
+  container.remove()
+  actEnvironment.IS_REACT_ACT_ENVIRONMENT = actBefore
 })
 
+/** The row's field, once React has drawn it. */
+async function fieldOnceDrawn(): Promise<HTMLInputElement> {
+  for (;;) {
+    const field = container.querySelector('input')
+    if (field) {
+      return field
+    }
+    await new Promise((resolve) => setTimeout(resolve, 5))
+  }
+}
+
 it('calls the handler the element was last drawn with, as soon as it is drawn', async () => {
-  const container = document.createElement('div')
-  document.body.append(container)
   let answered: () => void = () => {}
   const answer = new Promise<void>((resolve) => {
     answered = resolve
   })
-  const root = createRoot(container)
   root.render(<Row answer={answer} />)
-  await new Promise((resolve) => setTimeout(resolve, 20))
-  const field = container.querySelector('input') as HTMLInputElement
+  const field = await fieldOnceDrawn()
 
   // Escape pressed the moment the row shows it is locked.
   const pressedOnceShown = new Promise<void>((resolve) => {
@@ -62,6 +78,4 @@ it('calls the handler the element was last drawn with, as soon as it is drawn', 
 
   expect(field.disabled).toBe(true)
   expect(pressed).toEqual(['while locked'])
-  root.unmount()
-  container.remove()
 })

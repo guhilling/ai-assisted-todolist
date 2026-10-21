@@ -45,6 +45,9 @@ function AddTaskRow({ today, saving, onAdd, attachments }: Readonly<AddTaskRowPr
   const form = useRef<HTMLFormElement>(null)
   const [held, setHeld] = useState<{ key: number; file: File }[]>([])
   const [sending, setSending] = useState(false)
+  // Escape asks this, not `sending`: it is set as the files start, where `sending` changes only
+  // once React draws the row again, and an Escape in between would close it (#364).
+  const filesGoing = useRef(false)
   const nextHeld = useRef(0)
   const files = useUploads(attachments?.upload)
 
@@ -119,7 +122,7 @@ function AddTaskRow({ today, saving, onAdd, attachments }: Readonly<AddTaskRowPr
   }
 
   useEscapeWithin(form, () => {
-    if (!sending) {
+    if (!filesGoing.current) {
       collapse()
     }
   })
@@ -136,11 +139,13 @@ function AddTaskRow({ today, saving, onAdd, attachments }: Readonly<AddTaskRowPr
       return
     }
     if (held.length > 0) {
+      filesGoing.current = true
       setSending(true)
       await files.uploadAll(
         saved,
         held.map((each) => each.file),
       )
+      filesGoing.current = false
       setSending(false)
     }
     reset()
