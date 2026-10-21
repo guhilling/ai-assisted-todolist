@@ -13,8 +13,14 @@ the raw share, is in [decisions/mobile-app.md](../decisions/mobile-app.md).
   TaskFest that `expo-sharing`'s plugin generates. Its rule says which shares it is offered for,
   by type (`mobile/src/shareExtension.ts`): those whose every item is an image, a PDF, a link or
   text — a link or text that is not a file, so a `.txt` from the Files app is not offered. (Android
-  offers it, as text, and the form then says the file's type is not taken.) The share sheet shows it as the app does — *TaskFest*, *TaskFest QA* — where the plugin
-  would call it "expo-sharing-extension" (`mobile/plugins/withShareExtensionName.ts`).
+  offers it, as text, and the form then says the file's type is not taken.)
+- **The share sheet says what it does**: *Create Task* — *Create Task (QA)* and *Create Task
+  (Dev)* in the other builds, so that two installed side by side can be told apart
+  (`mobile/src/variants.ts`). On iOS it is the extension's name, the one line beneath TaskFest's
+  icon (`mobile/plugins/withShareExtensionName.ts`), where the plugin would call it
+  "expo-sharing-extension". On Android it is the label of the shares the app is offered for
+  (`mobile/plugins/withShareLabel.ts`), which the share sheet shows beneath the app's name, as it
+  shows Maps' *Add to …*.
 
 ## How a share reaches the app
 

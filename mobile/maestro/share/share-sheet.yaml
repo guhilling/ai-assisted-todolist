@@ -1,5 +1,5 @@
 # An image shared the way a person does it (#355): the Files app's Share, Android's share sheet,
-# TaskFest Dev. "Add a task" opens with the image waiting, and it is attached once the task is added.
+# Create Task (Dev). "Add a task" opens with the image waiting, and it is attached once the task is added.
 # The app names it as the link the Files app shares says -- or by its type, when the link ends in a
 # document's number -- so either name will do here.
 appId: com.google.android.documentsui
@@ -15,12 +15,12 @@ name: Share an image through the share sheet
       - tapOn: "Downloads"
 - longPressOn: "attach-me.png"
 - tapOn: "Share"
-# The sheet opens half-way, its first row of apps only, and whether TaskFest Dev is among them is
+# The sheet opens half-way, its first row of apps only, and whether Create Task (Dev) is among them is
 # Android's choice. Pulled up from inside, the sheet opens all the way; a scroll would start above
 # it, where a touch closes it.
 - runFlow:
     when:
-      notVisible: "TaskFest Dev"
+      notVisible: "Create Task \\(Dev\\)"
     commands:
       - swipe:
           start: 50%, 75%
@@ -28,7 +28,7 @@ name: Share an image through the share sheet
       - waitForAnimationToEnd
       - takeScreenshot: 32-share-sheet-pulled-up
 - takeScreenshot: 32-share-sheet
-- tapOn: "TaskFest Dev"
+- tapOn: "Create Task \\(Dev\\)"
 - extendedWaitUntil:
     visible: "Remove (attach-me|shared)\\.png"
     timeout: 30000
