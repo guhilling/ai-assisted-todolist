@@ -354,3 +354,23 @@ jobs:
     with:
       environment: qa
       version: ${{ github.ref_name }}
+
+  # The site's videos page shows the newest live run's recordings (pages.yml). Those of a release
+  # are made by the live tests inside deploy-frontend-qa, and pages.yml's own workflow_run trigger
+  # never sees them: a release started by cut-release.yml is started with that workflow's token,
+  # and a run started so sets off no workflow_run when it completes. So the release asks for the
+  # rebuild itself once its live tests are over, passed or not -- the site is rebuilt from
+  # scratch, and an artifact is listed as soon as it is uploaded, before this run ends.
+  republish-site:
+    name: Publish the live run's videos on Pages
+    needs: deploy-frontend-qa
+    if: ${{ !cancelled() && needs.deploy-frontend-qa.result != 'skipped' }}
+    runs-on: ubuntu-26.04
+    permissions:
+      actions: write
+    steps:
+      - name: Rebuild the site on main
+        env:
+          GH_TOKEN: ${{ github.token }}
+        # On main, as the announce job's run above, for the same reason.
+        run: gh workflow run pages.yml --ref main --repo "$GITHUB_REPOSITORY"
