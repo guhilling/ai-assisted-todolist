@@ -46,6 +46,12 @@ describe('the app’s variants', () => {
     })
   })
 
+  it('is offered in the share sheet as making a task, in the build of its name', () => {
+    expect(variants.prod.shareName).toBe('Create Task')
+    expect(variants.qa.shareName).toBe('Create Task (QA)')
+    expect(variants.dev.shareName).toBe('Create Task (Dev)')
+  })
+
   it('is dev when nothing says otherwise, and refuses a name it does not know', () => {
     expect(variantOf(undefined, {}).bundleId).toBe('de.hilling.taskfest.dev')
     expect(() => variantOf('staging', {})).toThrow('staging')

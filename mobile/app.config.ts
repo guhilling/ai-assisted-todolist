@@ -1,5 +1,6 @@
 import type { ConfigContext, ExpoConfig } from 'expo/config'
 import { withShareExtensionName } from './plugins/withShareExtensionName.ts'
+import { withShareLabel } from './plugins/withShareLabel.ts'
 import { releaseOf } from './src/release.ts'
 import { SHARE_ACTIVATION_RULE } from './src/shareExtension.ts'
 import { googleUrlScheme, variantOf } from './src/variants.ts'
@@ -94,7 +95,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     ],
     extra: { variant },
   }
-  // The share extension's name in iOS's share sheet (#356), applied here rather than listed in
-  // plugins: its change must follow expo-sharing's, as plugins/withShareExtensionName.ts says.
-  return withShareExtensionName(app, variant.name)
+  // What the share sheets offer the app as (#355, #356), applied here rather than listed in
+  // plugins: the changes must follow expo-sharing's, as plugins/withShareExtensionName.ts says.
+  return withShareLabel(withShareExtensionName(app, variant.shareName), variant.shareName)
 }

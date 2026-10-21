@@ -27,8 +27,8 @@ export const SHARE_ACTIVATION_RULE = `SUBQUERY (
 ).@count == extensionItems.@count`
 
 /**
- * The extension's Info.plist, as the plugin writes it, with the name the share sheet shows: the
- * app's, where the plugin gives the target's, "expo-sharing-extension".
+ * The extension's Info.plist, as the plugin writes it, with the name the share sheet shows: making
+ * a task, "Create Task", where the plugin gives the target's, "expo-sharing-extension".
  *
  * @throws Error when the plugin no longer writes a name to replace -- better than a share sheet
  *   that says "expo-sharing-extension" again unnoticed

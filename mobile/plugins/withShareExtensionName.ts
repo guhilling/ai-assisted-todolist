@@ -4,7 +4,7 @@ import configPlugins, { type ConfigPlugin } from 'expo/config-plugins.js'
 import { withDisplayName, withFolderPerFile } from '../src/shareExtension.ts'
 
 /**
- * Gives the iOS share extension the app's name in the share sheet (#356), where `expo-sharing`'s
+ * Gives the iOS share extension its name in the share sheet (#356), where `expo-sharing`'s
  * plugin gives it the target's, "expo-sharing-extension"; and has it copy each shared file into a
  * folder of its own (`withFolderPerFile` says why).
  *

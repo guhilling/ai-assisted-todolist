@@ -28,6 +28,8 @@ export type GoogleSignIn = { webClientId: string; iosClientId: string }
 /** Everything that differs between the builds. */
 export type Variant = {
   name: string
+  /** What a share sheet offers the app as (#355, #356): making a task, in this build. */
+  shareName: string
   bundleId: string
   scheme: string
   apiBaseUrl: string
@@ -47,12 +49,13 @@ const BUNDLE_ID = 'de.hilling.taskfest'
 
 function variant(
   name: string,
+  shareName: string,
   bundleId: string,
   apiBaseUrl: string,
   signIn: SignIn | null,
   google: GoogleSignIn | null = null,
 ): Variant {
-  return { name, bundleId, scheme: bundleId, apiBaseUrl, signIn, google }
+  return { name, shareName, bundleId, scheme: bundleId, apiBaseUrl, signIn, google }
 }
 
 /**
@@ -89,7 +92,7 @@ export function variantOf(name: string | undefined, env: BuildEnvironment): Vari
     case 'dev':
       // The end-to-end stack, reached on the device's own localhost: the iOS simulator shares
       // the Mac's, and an Android emulator is given it with `adb reverse`.
-      return variant('TaskFest Dev', `${BUNDLE_ID}.dev`, 'http://localhost:3000', {
+      return variant('TaskFest Dev', 'Create Task (Dev)', `${BUNDLE_ID}.dev`, 'http://localhost:3000', {
         label: 'Keycloak',
         issuer: 'http://localhost:8082/realms/taskfest',
         clientId: 'taskfest-app',
@@ -97,9 +100,9 @@ export function variantOf(name: string | undefined, env: BuildEnvironment): Vari
       })
     case 'qa':
       // Google, and the test accounts beside it: the end-to-end runs sign in with those.
-      return variant('TaskFest QA', `${BUNDLE_ID}.qa`, 'https://taskfest-qa.cloud.hilling.de', qaSignIn(env), googleSignIn(env, 'QA'))
+      return variant('TaskFest QA', 'Create Task (QA)', `${BUNDLE_ID}.qa`, 'https://taskfest-qa.cloud.hilling.de', qaSignIn(env), googleSignIn(env, 'QA'))
     case 'prod':
-      return variant('TaskFest', BUNDLE_ID, 'https://taskfest.cloud.hilling.de', null, googleSignIn(env, 'PROD'))
+      return variant('TaskFest', 'Create Task', BUNDLE_ID, 'https://taskfest.cloud.hilling.de', null, googleSignIn(env, 'PROD'))
     default:
       throw new Error(`APP_VARIANT is ${name}; it must be dev, qa or prod.`)
   }

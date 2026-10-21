@@ -4,7 +4,7 @@ Fails when the iOS app's share extension (#356) is built or signed so that shari
 
 Mobile CI checks the simulator build, which is not signed:
 
-    python3 .github/scripts/check-share-extension.py built <App.app> <the variant's name>
+    python3 .github/scripts/check-share-extension.py built <App.app> <the build's share name>
 
 and that it signs with the App Group, once signed ad hoc as the release signs it; the release
 checks the .ipa it signed, before uploading it:
@@ -12,12 +12,12 @@ checks the .ipa it signed, before uploading it:
     python3 .github/scripts/check-share-extension.py signed <App.app or App.ipa>
 
 expo-sharing's config plugin generates the extension; nothing else would notice if it went wrong.
-Built, the extension must be a share extension, show the app's name in the share sheet -- the
-plugin gives it the target's, "expo-sharing-extension", which plugins/withShareExtensionName.ts
-replaces -- and use the App Group group.<the app's bundle id>. Signed, the app and the extension
-must both carry that App Group: the release archives unsigned and has the export sign, and a
-signature without it leaves the share in a container the app cannot read
-(doc/mobile/distribution.md).
+Built, the extension must be a share extension, show the build's share name in the share sheet --
+"Create Task (Dev)" in the dev build, where the plugin gives it the target's,
+"expo-sharing-extension", which plugins/withShareExtensionName.ts replaces -- and use the App Group
+group.<the app's bundle id>. Signed, the app and the extension must both carry that App Group: the
+release archives unsigned and has the export sign, and a signature without it leaves the share in
+a container the app cannot read (doc/mobile/distribution.md).
 """
 
 import pathlib
