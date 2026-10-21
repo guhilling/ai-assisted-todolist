@@ -184,6 +184,11 @@ the branch `main` alone, so a rebuild triggered by the release event, whose ref 
 `refs/tags/v1.2.3`, would be refused before its first step. By then the tag is in history, so
 the build sees the new version anyway.
 
+`republish-site`, the release's last job, asks for it once more after the live tests on qa, so
+the site's videos page shows the release's own run. `pages.yml` rebuilds after a completed
+`Release` run by itself as well, but not after one `cut-release.yml` started: that run is
+started with a workflow's token, and its end sets off no other workflow.
+
 ## `latest` is not moved by a release
 
 `publish-images.yml` pushes `latest` on every merge to `main`, and a release does not
