@@ -115,6 +115,29 @@ function discardCopy(uri: string) {
   }
 }
 
+/**
+ * Lets a shared file go once read, if it is the one the iOS share extension left in the App Group's
+ * container (#356): the extension copies every file there, and nothing else would delete it -- the
+ * folder of its own it was copied into as well (`withFolderPerFile`). Any other -- Android's, which
+ * are the sending app's -- stays.
+ */
+function releaseShared(uri: string) {
+  const container = Object.values(Paths.appleSharedContainers).find((each) => uri.startsWith(each.uri))
+  if (!container) {
+    return
+  }
+  try {
+    const folder = new File(uri).parentDirectory
+    if (folder.uri.replace(/\/$/, '') !== container.uri.replace(/\/$/, '') && folder.exists) {
+      folder.delete()
+    } else {
+      discardCopy(uri)
+    }
+  } catch (failure) {
+    console.warn('A shared file could not be let go', failure)
+  }
+}
+
 /** A photo as the image picker hands it over, or null when the user turned back. */
 function photoOf(result: ImagePicker.ImagePickerResult): PickedPhoto | null {
   const asset = result.canceled ? undefined : result.assets[0]
@@ -256,9 +279,8 @@ const dependencies: Dependencies = {
   deleteAccount: (caller) => deleteAccount({ ...caller, appVersion }),
   keptBoard: createKeptBoardStore(new File(Paths.cache, 'board.json')),
   legend: fileFlag(new File(Paths.document, 'colours-explained'), 'explained'),
-  // Only the raw share is read, never "resolved": incoming.ts says why. Android only, until iOS has
-  // its share extension (#356): without it, iOS's module throws on every read.
-  incoming: Platform.OS !== 'android' ? undefined : {
+  // Only the raw share is read, never "resolved": incoming.ts says why.
+  incoming: {
     take: async () => {
       const items = Sharing.getSharedPayloads()
       Sharing.clearSharedPayloads()
@@ -281,6 +303,7 @@ const dependencies: Dependencies = {
         },
         toJpeg: (uri) => savedJpeg(uri, (context) => context, 0.9),
         discard: discardCopy,
+        release: releaseShared,
       })
     },
     forget: async (files) => files.forEach((file) => discardCopy(file.uri)),

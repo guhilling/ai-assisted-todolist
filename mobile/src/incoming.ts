@@ -42,6 +42,11 @@ export type IncomingParts = {
   toJpeg(uri: string): Promise<{ uri: string; size: number }>
   /** Lets a copy go that the draft does not keep. */
   discard(uri: string): void
+  /**
+   * Lets a shared file go once it is read, where it is the app's to: on an iPhone, the copy the
+   * share extension leaves for the app (#356). Android's are the sending app's, and stay.
+   */
+  release?(uri: string): void
 }
 
 /** Why a shared file was not taken: the backend's reasons, or that the phone could not read it. */
@@ -87,34 +92,10 @@ export async function draftOf(items: SharedItem[], parts: IncomingParts): Promis
     refused: [],
   }
   for (const item of items.filter((each) => !texts.includes(each))) {
-    const described = describe(item.value, parts)
-    const named = fileName(described?.name ?? null)
-    // A type the app takes, whoever says it: some apps say "image/jpg" of a photo.jpg.
-    const said = [item.mimeType, described?.type, named ? typeOfName(named) : undefined].map(concrete)
-    const type = said.find((each) => each && isTaken(each)) ?? said.find(Boolean) ?? ''
-    const name = named && typeOfName(named) ? named : `shared${ENDING_BY_TYPE[type] ? `.${ENDING_BY_TYPE[type]}` : ''}`
-    // A refusal names the file as the user knows it, whatever it would have been called here.
-    const refuse = (refusal: SharedRefusal) => draft.refused.push({ name: named ?? name, refusal })
-    if (!described) {
-      refuse('UNREADABLE')
-    } else if (draft.files.length === attachmentLimits.perTask) {
-      refuse('TASK_FULL')
-    } else if (!isTaken(type)) {
-      refuse('UNSUPPORTED_TYPE')
-    } else if (!isHeic(type) && described.size && described.size > attachmentLimits.maxSizeBytes) {
-      // Not copied only to be refused: a film's worth of PDF would take a while.
-      refuse('TOO_LARGE')
-    } else {
-      const file = await take(item.value, name, type, parts)
-      const refusal = file ? checkFile(file) : 'UNREADABLE'
-      if (refusal) {
-        if (file) {
-          parts.discard(file.uri)
-        }
-        refuse(refusal)
-      } else {
-        draft.files.push(file!)
-      }
+    try {
+      await read(item, draft, parts)
+    } finally {
+      parts.release?.(item.value)
     }
   }
   return draft
@@ -127,6 +108,39 @@ function describe(uri: string, parts: IncomingParts) {
   } catch (failure) {
     console.warn('A shared file could not be described', failure)
     return null
+  }
+}
+
+/** Adds a shared file to the draft: copied into the app, or among those it says were refused. */
+async function read(item: SharedItem, draft: SharedDraft, parts: IncomingParts) {
+  const described = describe(item.value, parts)
+  const named = fileName(described?.name ?? null)
+  // A type the app takes, whoever says it: some apps say "image/jpg" of a photo.jpg.
+  const said = [item.mimeType, described?.type, named ? typeOfName(named) : undefined].map(concrete)
+  const type = said.find((each) => each && isTaken(each)) ?? said.find(Boolean) ?? ''
+  const name = named && typeOfName(named) ? named : `shared${ENDING_BY_TYPE[type] ? `.${ENDING_BY_TYPE[type]}` : ''}`
+  // A refusal names the file as the user knows it, whatever it would have been called here.
+  const refuse = (refusal: SharedRefusal) => draft.refused.push({ name: named ?? name, refusal })
+  if (!described) {
+    refuse('UNREADABLE')
+  } else if (draft.files.length === attachmentLimits.perTask) {
+    refuse('TASK_FULL')
+  } else if (!isTaken(type)) {
+    refuse('UNSUPPORTED_TYPE')
+  } else if (!isHeic(type) && described.size && described.size > attachmentLimits.maxSizeBytes) {
+    // Not copied only to be refused: a film's worth of PDF would take a while.
+    refuse('TOO_LARGE')
+  } else {
+    const file = await take(item.value, name, type, parts)
+    const refusal = file ? checkFile(file) : 'UNREADABLE'
+    if (refusal) {
+      if (file) {
+        parts.discard(file.uri)
+      }
+      refuse(refusal)
+    } else {
+      draft.files.push(file!)
+    }
   }
 }
 

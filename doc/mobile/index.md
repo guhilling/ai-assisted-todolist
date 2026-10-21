@@ -8,7 +8,7 @@ the same words and colours, and signs in the way a native app should.
 So far it signs in, shows the board — readable offline too — adds, edits, completes and deletes
 tasks, attaches, shows, opens and removes their files, reminds at 08:00 on days tasks are due, and signs out
 or deletes the account, with the legal pages one tap away (#267, #271, #272, #273, #275, #274).
-On Android, another app's Share opens a new task with what was shared (#355).
+Another app's Share opens a new task with what was shared (#355, #356).
 Every final release goes to testers through TestFlight and Play internal testing (#276).
 Push is the further story of #264.
 

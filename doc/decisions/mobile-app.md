@@ -275,7 +275,8 @@ a certificate made on a Mac, two profiles, and their renewal every year.
 ## Sharing into the app with expo-sharing, reading only the raw share
 
 **Decision.** Sharing into TaskFest (#279, #355) uses Expo's own **expo-sharing**: its config
-plugin declares Android's intent filters and generates iOS's share extension (#356). The app reads
+plugin declares Android's intent filters and generates iOS's share extension (#356), and the
+release signs that with its App Group ([distribution.md](../mobile/distribution.md)). The app reads
 only the raw share and copies a shared file itself; it never asks the library to "resolve" one.
 On iOS, the extension opens the app with the trick every such library uses; Gunnar accepted
 App Review's risk (20 October 2026).

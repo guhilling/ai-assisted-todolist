@@ -2,13 +2,36 @@
 
 Another app's **Share** offers TaskFest (#279): text, a link, an image or a PDF shared to it opens
 **Add a task**, filled in, to be finished there — a due date chosen, at least. Android has it
-(#355); iOS needs a share extension and follows (#356). Why `expo-sharing`, and why the app reads
-only the raw share, is in [decisions/mobile-app.md](../decisions/mobile-app.md).
+(#355), and iOS through a share extension (#356). Why `expo-sharing`, and why the app reads only
+the raw share, is in [decisions/mobile-app.md](../decisions/mobile-app.md).
 
 ## What is offered
 
 - **Android** offers TaskFest for text and links, and for images and PDFs: one, or several at
   once (`app.config.ts`). A file of another type is not offered TaskFest at all.
+- **iOS** offers it the same way, through a **share extension**: a small second app inside
+  TaskFest that `expo-sharing`'s plugin generates. Its rule says which shares it is offered for,
+  by type (`mobile/src/shareExtension.ts`): those whose every item is an image, a PDF, a link or
+  text — a link or text that is not a file, so a `.txt` from the Files app is not offered. (Android
+  offers it, as text, and the form then says the file's type is not taken.) The share sheet shows it as the app does — *TaskFest*, *TaskFest QA* — where the plugin
+  would call it "expo-sharing-extension" (`mobile/plugins/withShareExtensionName.ts`).
+
+## How a share reaches the app
+
+- **On Android** the share starts the app, or reaches it running, as an intent; files come as
+  links the app may read for as long as it runs, and are copied at once.
+- **On iOS** the extension runs on its own, in the sending app's share sheet. It copies the files
+  into an **App Group** — a folder TaskFest and its extension share, `group.<bundle id>` — each
+  into a folder of its own, so two files of one name both arrive (`expo-sharing`'s extension would
+  copy them side by side, under their names; `mobile/plugins/withShareExtensionName.ts` changes
+  that) — notes the share there, and opens TaskFest by its URL scheme. Apple offers an extension no public way
+  to open its app; the one used here is the one every such library uses, and App Review may object
+  to it. If it does, the fallback is an extension of the project's own, not built yet, that keeps
+  the share and says *"Saved. Open TaskFest to finish it."*: the app's side would stay the same,
+  since it looks for a share whenever it becomes active
+  ([decisions/mobile-app.md](../decisions/mobile-app.md)).
+- The App Group must be known to Apple, for the app and the extension, and both must be signed
+  with it: [distribution.md](distribution.md) has the steps, and the check that a release keeps it.
 
 ## What a share becomes
 
@@ -45,7 +68,8 @@ opens the form once the board can take it:
 
 The copies go once the form is closed — added, cancelled, or closed by a sign-out — and none of
 its files is uploading any more; copies the form does not keep go at once; and copies a run left
-behind go before the next run's first share.
+behind go before the next run's first share. On iOS the extension's own copies, in the App Group,
+go as soon as the app has read them, with their folders (`releaseShared` in `Main.tsx`).
 
 ## Tested
 
@@ -53,3 +77,8 @@ behind go before the next run's first share.
 - `TaskFestApp.sharing.test.tsx`: when the form opens, and when the copies go.
 - Mobile CI's `board` share (`mobile/maestro/share/`): text sent to the app as another app sends
   it, and an image through the Files app's real share sheet, each added to the board.
+- Mobile CI's iOS build: the extension's name, its App Group, its rule evaluated against shares
+  of each kind, and both signed with the App Group as a release signs them
+  (`.github/scripts/check-share-extension.py`, `check-share-activation.swift`,
+  `sign-with-app-group.sh`).
+  Mobile CI does not run the iOS app, so a share on an iPhone is tried by hand, on TestFlight.
