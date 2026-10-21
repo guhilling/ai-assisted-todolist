@@ -15,6 +15,18 @@ name: Share an image through the share sheet
       - tapOn: "Downloads"
 - longPressOn: "attach-me.png"
 - tapOn: "Share"
+# The sheet opens half-way, its first row of apps only, and whether TaskFest Dev is among them is
+# Android's choice. Pulled up from inside, the sheet opens all the way; a scroll would start above
+# it, where a touch closes it.
+- runFlow:
+    when:
+      notVisible: "TaskFest Dev"
+    commands:
+      - swipe:
+          start: 50%, 75%
+          end: 50%, 15%
+      - waitForAnimationToEnd
+      - takeScreenshot: 32-share-sheet-pulled-up
 - takeScreenshot: 32-share-sheet
 - tapOn: "TaskFest Dev"
 - extendedWaitUntil:
