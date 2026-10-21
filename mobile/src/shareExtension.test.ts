@@ -1,4 +1,5 @@
-import { SHARE_ACTIVATION_RULE, withDisplayName } from './shareExtension'
+import { readFileSync } from 'node:fs'
+import { SHARE_ACTIVATION_RULE, withDisplayName, withFolderPerFile } from './shareExtension'
 
 /** The iOS share extension (#356), as expo-sharing's plugin writes it and the app's plugin names it. */
 const written = `<?xml version="1.0" encoding="UTF-8"?>
@@ -37,5 +38,23 @@ describe('what the share extension accepts (#356)', () => {
     for (const type of ['public.image', 'com.adobe.pdf', 'public.url', 'public.plain-text']) {
       expect(SHARE_ACTIVATION_RULE).toContain(`UTI-CONFORMS-TO "${type}"`)
     }
+  })
+})
+
+describe('where the share extension leaves a shared file for the app (#356)', () => {
+  const template = readFileSync(require.resolve('expo-sharing/plugin/template-files/ios/ShareIntoViewController.swift'), 'utf8')
+
+  it('is a folder of its own, so two files of one name do not overwrite each other', () => {
+    const changed = withFolderPerFile(template)
+
+    expect(changed).toContain('let folder = containerURL.appendingPathComponent(UUID().uuidString, isDirectory: true)')
+    expect(changed).toContain('let destinationURL = folder.appendingPathComponent(fileName)')
+    expect(changed.match(/let destinationURL = containerURL\.appendingPathComponent\(fileName\)/g)).toHaveLength(1)
+  })
+
+  it('says so when expo-sharing no longer copies a file as it did', () => {
+    expect(() => withFolderPerFile('class ShareIntoViewController {}')).toThrow(
+      'The share extension no longer copies a shared file where TaskFest gives it a folder of its own.',
+    )
   })
 })

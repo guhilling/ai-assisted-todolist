@@ -21,8 +21,10 @@ the raw share, is in [decisions/mobile-app.md](../decisions/mobile-app.md).
 - **On Android** the share starts the app, or reaches it running, as an intent; files come as
   links the app may read for as long as it runs, and are copied at once.
 - **On iOS** the extension runs on its own, in the sending app's share sheet. It copies the files
-  into an **App Group** — a folder TaskFest and its extension share, `group.<bundle id>` — notes
-  the share there, and opens TaskFest by its URL scheme. Apple offers an extension no public way
+  into an **App Group** — a folder TaskFest and its extension share, `group.<bundle id>` — each
+  into a folder of its own, so two files of one name both arrive (`expo-sharing`'s extension would
+  copy them side by side, under their names; `mobile/plugins/withShareExtensionName.ts` changes
+  that) — notes the share there, and opens TaskFest by its URL scheme. Apple offers an extension no public way
   to open its app; the one used here is the one every such library uses, and App Review may object
   to it. If it does, the fallback is an extension of the project's own, not built yet, that keeps
   the share and says *"Saved. Open TaskFest to finish it."*: the app's side would stay the same,
@@ -67,7 +69,7 @@ opens the form once the board can take it:
 The copies go once the form is closed — added, cancelled, or closed by a sign-out — and none of
 its files is uploading any more; copies the form does not keep go at once; and copies a run left
 behind go before the next run's first share. On iOS the extension's own copies, in the App Group,
-go as soon as the app has read them (`releaseShared` in `Main.tsx`).
+go as soon as the app has read them, with their folders (`releaseShared` in `Main.tsx`).
 
 ## Tested
 

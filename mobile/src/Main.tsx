@@ -117,15 +117,22 @@ function discardCopy(uri: string) {
 
 /**
  * Lets a shared file go once read, if it is the one the iOS share extension left in the App Group's
- * container (#356): the extension copies every file there, and nothing else would delete it. Any
- * other -- Android's, which are the sending app's -- stays.
+ * container (#356): the extension copies every file there, and nothing else would delete it -- the
+ * folder of its own it was copied into as well (`withFolderPerFile`). Any other -- Android's, which
+ * are the sending app's -- stays.
  */
 function releaseShared(uri: string) {
-  if (!Object.values(Paths.appleSharedContainers).some((container) => uri.startsWith(container.uri))) {
+  const container = Object.values(Paths.appleSharedContainers).find((each) => uri.startsWith(each.uri))
+  if (!container) {
     return
   }
   try {
-    discardCopy(uri)
+    const folder = new File(uri).parentDirectory
+    if (folder.uri.replace(/\/$/, '') !== container.uri.replace(/\/$/, '') && folder.exists) {
+      folder.delete()
+    } else {
+      discardCopy(uri)
+    }
   } catch (failure) {
     console.warn('A shared file could not be let go', failure)
   }

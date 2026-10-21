@@ -1,9 +1,9 @@
 /**
  * The iOS share extension (#356), which `expo-sharing`'s config plugin generates: what it accepts,
- * and the name the share sheet shows for it.
+ * the name the share sheet shows for it, and where it leaves a shared file for the app.
  *
  * Here rather than in `app.config.ts` so that they are tested; `plugins/withShareExtensionName.ts`
- * applies the name.
+ * applies the name and the folder.
  */
 
 /**
@@ -40,4 +40,31 @@ export function withDisplayName(infoPlist: string, name: string): string {
   }
   const escaped = name.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
   return infoPlist.replace(key, (_match, start: string, end: string) => `${start}${escaped}${end}`)
+}
+
+/**
+ * The extension's code, as the plugin copies it from `expo-sharing`, with every shared file copied
+ * into a folder of its own in the App Group. The template copies it to the top of the App Group
+ * under its own name, so of two files called "Scan.pdf", from two folders, only the second would
+ * reach the app. A file the template saves under a random name already has one of its own, and
+ * stays where it is.
+ *
+ * @throws Error when the template no longer copies a file as it did -- better than files lost
+ *   unnoticed again
+ */
+export function withFolderPerFile(swift: string): string {
+  const copied = `    let fileName = url.lastPathComponent.isEmpty ? UUID().uuidString : url.lastPathComponent
+    let destinationURL = containerURL.appendingPathComponent(fileName)
+`
+  if (swift.split(copied).length !== 2) {
+    throw new Error('The share extension no longer copies a shared file where TaskFest gives it a folder of its own.')
+  }
+  return swift.replace(
+    copied,
+    `    let fileName = url.lastPathComponent.isEmpty ? UUID().uuidString : url.lastPathComponent
+    let folder = containerURL.appendingPathComponent(UUID().uuidString, isDirectory: true)
+    try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+    let destinationURL = folder.appendingPathComponent(fileName)
+`,
+  )
 }
