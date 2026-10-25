@@ -48,13 +48,14 @@ afterEach(() => {
 
 /** The row's field, once React has drawn it. */
 async function fieldOnceDrawn(): Promise<HTMLInputElement> {
-  for (;;) {
+  for (let attempt = 0; attempt < 200; attempt += 1) {
     const field = container.querySelector('input')
     if (field) {
       return field
     }
     await new Promise((resolve) => setTimeout(resolve, 5))
   }
+  throw new Error('The row’s field was not drawn within a second.')
 }
 
 it('calls the handler the element was last drawn with, as soon as it is drawn', async () => {

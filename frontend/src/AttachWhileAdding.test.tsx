@@ -177,6 +177,29 @@ describe('attaching while adding a task', () => {
     expect(screen.queryByText('page.html is neither a PDF nor an image.')).not.toBeInTheDocument()
   })
 
+  it('stays open on Escape while the task is being created, and its files then go up', async () => {
+    let created: () => void = () => {}
+    const answers = backend()
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input).endsWith('/api/tasks') && init?.method === 'POST') {
+        return new Promise<Response>((resolve) => {
+          created = () => void answers(input, init).then(resolve)
+        })
+      }
+      return answers(input, init)
+    })
+    const row = await openAddRow(fetchMock as unknown as ReturnType<typeof backend>)
+    fireEvent.change(row.getByLabelText('choose a file'), { target: { files: [pdf()] } })
+    fireEvent.click(row.getByRole('button', { name: /^Add$/ }))
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(expect.stringMatching(/\/api\/tasks$/), expect.anything()))
+    fireEvent.keyDown(screen.getByLabelText('What needs doing'), { key: 'Escape' })
+    expect(screen.getByLabelText('What needs doing')).toBeInTheDocument()
+
+    created()
+    await waitFor(() => expect(FakeXhr.sent).toEqual(['https://bucket.example.com/scan.pdf']))
+  })
+
   it('keeps the task when a file is refused after it, and says which and why', async () => {
     const row = await openAddRow(
       backend({ announce: (fileName) => (fileName === 'photo.png' ? { status: 422, body: { refusal: 'USER_FULL' } } : undefined) }),
