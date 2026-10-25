@@ -33,7 +33,8 @@ type AddTaskRowProps = {
  * cannot be attached then does not undo the task: the row says which and why, and it can be
  * attached again from the editor. The row clears once everything has gone, and is locked while
  * it goes -- fields, buttons, the drop zone and Escape -- so nothing typed or dropped meanwhile is
- * lost when it clears.
+ * lost when it clears. Escape does nothing from the moment Add is pressed, while the task is
+ * created as well: closed then, the row would have its files go up for a row no longer there.
  */
 function AddTaskRow({ today, saving, onAdd, attachments }: Readonly<AddTaskRowProps>) {
   const { messages } = useI18n()
@@ -45,9 +46,11 @@ function AddTaskRow({ today, saving, onAdd, attachments }: Readonly<AddTaskRowPr
   const form = useRef<HTMLFormElement>(null)
   const [held, setHeld] = useState<{ key: number; file: File }[]>([])
   const [sending, setSending] = useState(false)
-  // Escape asks this, not `sending`: it is set as the files start, where `sending` changes only
-  // once React draws the row again, and an Escape in between would close it (#364).
-  const filesGoing = useRef(false)
+  // Whether Add is under way: the task being created, then its files going up. Escape asks this,
+  // not `saving` or `sending`: it is set as Add starts, where those change only once React draws
+  // the row again, and an Escape in between would close it (#364). Closed while the task is being
+  // created, the row would have its files go up for a row no longer there.
+  const adding = useRef(false)
   const nextHeld = useRef(0)
   const files = useUploads(attachments?.upload)
 
@@ -122,7 +125,7 @@ function AddTaskRow({ today, saving, onAdd, attachments }: Readonly<AddTaskRowPr
   }
 
   useEscapeWithin(form, () => {
-    if (!filesGoing.current) {
+    if (!adding.current) {
       collapse()
     }
   })
@@ -134,20 +137,21 @@ function AddTaskRow({ today, saving, onAdd, attachments }: Readonly<AddTaskRowPr
     // A new task is always TODO; the board has no reason to offer a state picker before the
     // task exists, but the backend requires the field.
     files.clearProblems()
+    adding.current = true
     const saved = await onAdd({ description: description.trim(), dueDate, importance, state: 'TODO' })
     if (!saved) {
+      adding.current = false
       return
     }
     if (held.length > 0) {
-      filesGoing.current = true
       setSending(true)
       await files.uploadAll(
         saved,
         held.map((each) => each.file),
       )
-      filesGoing.current = false
       setSending(false)
     }
+    adding.current = false
     reset()
     descriptionRef.current?.focus()
   }
