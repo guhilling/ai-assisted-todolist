@@ -78,10 +78,12 @@ public record OrphanPlan(List<String> deletions, Hold hold, int orphans, int ale
         int alertable = (int) orphans.stream().filter(object -> object.lastModified().isBefore(settled)).count();
         Instant oldEnough = now.minus(margin);
         Hold hold = rows.isEmpty() ? Hold.NO_ATTACHMENTS : Hold.NONE;
-        List<String> deletions = hold != Hold.NONE ? List.of() : orphans.stream()
-            .filter(object -> object.lastModified().isBefore(oldEnough))
-            .map(AttachmentStore.StoredObject::key)
-            .toList();
+        List<String> deletions = hold == Hold.NONE
+            ? orphans.stream()
+                .filter(object -> object.lastModified().isBefore(oldEnough))
+                .map(AttachmentStore.StoredObject::key)
+                .toList()
+            : List.of();
         return new OrphanPlan(deletions, hold, orphans.size(), alertable, missing, objects.size());
     }
 }

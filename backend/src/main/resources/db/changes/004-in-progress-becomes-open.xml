@@ -2,7 +2,7 @@
 <!--
   Tasks are open or done (#334): the website and the app stop offering "in progress", and the tasks
   that were in progress become open. WORKING itself stays in the task_state type and the API until
-  #345, because apps installed before this release can still send it, and the API stores it as TODO.
+  #345, because apps installed before this release can still send it, and the API stores it as open.
   No rollback: which tasks were in progress is not kept anywhere.
 -->
 <databaseChangeLog
