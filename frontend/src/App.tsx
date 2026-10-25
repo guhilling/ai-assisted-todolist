@@ -81,9 +81,59 @@ function App() {
   )
 }
 
+/** A failed request, not yet put into words, and what to say when it has none of its own. */
+type Failure = { cause: unknown; fallback: keyof Messages['failures'] }
+
+/** Says what failed, in the language spoken as it renders; nothing while nothing has. */
+function ErrorBanner({ error }: Readonly<{ error: Failure | null }>) {
+  const { language, messages } = useI18n()
+  return error ? (
+    <p className="error-banner" role="status" aria-live="polite">
+      {describeFailure(error.cause, messages.failures[error.fallback], messages, language)}
+    </p>
+  ) : null
+}
+
+/**
+ * The page without a session: why there is none, when there is a reason to say, and then the
+ * sign-in -- or, while the environment is down, the page that says so.
+ */
+function SignedOutPage({
+  error,
+  sessionExpired,
+  accountDeleted,
+  paused,
+  providers,
+}: Readonly<{
+  error: Failure | null
+  sessionExpired: boolean
+  accountDeleted: boolean
+  paused: { environmentName: string | null } | undefined
+  providers: AuthProvidersResponse
+}>) {
+  const { messages } = useI18n()
+  return (
+    <main className="app">
+      <ErrorBanner error={error} />
+      {sessionExpired ? (
+        <p className="session-notice" role="status" aria-live="polite">
+          {messages.board.sessionExpired}
+        </p>
+      ) : null}
+      {accountDeleted ? (
+        <p className="session-notice" role="status" aria-live="polite">
+          {messages.account.deleted}
+        </p>
+      ) : null}
+      {paused ? <Paused environmentName={paused.environmentName} /> : <SignedOut providers={providers} apiBaseUrl={apiBaseUrl} />}
+      <LegalFooter />
+    </main>
+  )
+}
+
 /** Everything the app shows: the signed-out and paused pages, and the board. */
 function Board() {
-  const { language, messages, locale } = useI18n()
+  const { messages, locale } = useI18n()
   const [tasks, setTasks] = useState<Task[]>([])
   const [providers, setProviders] = useState<AuthProvidersResponse>({ enabled: false, providers: [] })
   // While the environment is down, the name it gives itself, or null; undefined while it is up.
@@ -91,7 +141,7 @@ function Board() {
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null)
   // What failed, not yet put into words: the banner says it in whatever language is spoken when it
   // renders, so switching language translates a banner already on screen too.
-  const [error, setError] = useState<{ cause: unknown; fallback: keyof Messages['failures'] } | null>(null)
+  const [error, setError] = useState<Failure | null>(null)
   const [sessionExpired, setSessionExpired] = useState(false)
   // Read once on mount: the sign-out after deleting an account comes back here (#213).
   const [accountDeleted] = useState(takeAccountDeleted)
@@ -365,29 +415,13 @@ function Board() {
 
   if (!currentUser) {
     return (
-      <main className="app">
-        {error ? (
-          <p className="error-banner" role="status" aria-live="polite">
-            {describeFailure(error.cause, messages.failures[error.fallback], messages, language)}
-          </p>
-        ) : null}
-        {sessionExpired ? (
-          <p className="session-notice" role="status" aria-live="polite">
-            {messages.board.sessionExpired}
-          </p>
-        ) : null}
-        {accountDeleted ? (
-          <p className="session-notice" role="status" aria-live="polite">
-            {messages.account.deleted}
-          </p>
-        ) : null}
-        {paused ? (
-          <Paused environmentName={paused.environmentName} />
-        ) : (
-          <SignedOut providers={providers} apiBaseUrl={apiBaseUrl} />
-        )}
-        <LegalFooter />
-      </main>
+      <SignedOutPage
+        error={error}
+        sessionExpired={sessionExpired}
+        accountDeleted={accountDeleted}
+        paused={paused}
+        providers={providers}
+      />
     )
   }
 
@@ -405,11 +439,7 @@ function Board() {
         </div>
       </header>
 
-      {error ? (
-        <p className="error-banner" role="status" aria-live="polite">
-          {describeFailure(error.cause, messages.failures[error.fallback], messages, language)}
-        </p>
-      ) : null}
+      <ErrorBanner error={error} />
 
       {/*
         * Nothing is interactive until the board has arrived. The list request replaces the
