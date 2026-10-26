@@ -40,3 +40,10 @@ deployment/aws-tofu/**/.terraform/
 *.tfstate
 *.tfstate.*
 *.tfplan
+
+# Signing keys: the Android upload keystore, Apple's .p8/.p12. They belong in the password manager
+# and CI secrets, never here -- and doc/mobile/distribution.md has them made wherever the shell is.
+*.jks
+*.keystore
+*.p8
+*.p12
