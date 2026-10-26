@@ -1,0 +1,24 @@
+appId: com.apple.mobileslideshow
+---
+- launchApp
+- waitForAnimationToEnd:
+    timeout: 8000
+- takeScreenshot: photos-1-library
+- tapOn:
+    point: 15%, 75%
+    optional: true
+- waitForAnimationToEnd:
+    timeout: 5000
+- takeScreenshot: photos-2-photo
+- tapOn:
+    text: "Share"
+    optional: true
+- waitForAnimationToEnd:
+    timeout: 5000
+- takeScreenshot: photos-3-sheet
+- swipe:
+    direction: LEFT
+    start: 80%, 55%
+    end: 10%, 55%
+    optional: true
+- takeScreenshot: photos-4-swiped

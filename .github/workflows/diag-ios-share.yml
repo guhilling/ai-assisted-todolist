@@ -1,0 +1,90 @@
+name: Diagnose iOS sharing (throwaway)
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/diag-ios-share.yml'
+      - '.github/diag/**'
+
+permissions:
+  contents: read
+
+jobs:
+  share-sheet:
+    runs-on: macos-26
+    timeout-minutes: 60
+    env:
+      APP_VARIANT: dev
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+      - name: Install dependencies
+        working-directory: mobile
+        run: npm ci
+      - name: Generate the iOS project
+        working-directory: mobile
+        run: npx expo prebuild --platform ios
+      - name: Build for the simulator
+        working-directory: mobile/ios
+        run: |
+          set -o pipefail
+          workspace=$(ls -d *.xcworkspace)
+          xcodebuild -workspace "$workspace" -scheme "${workspace%.xcworkspace}" \
+            -configuration Release -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO build | tail -n 20
+      - name: Sign ad hoc with the App Group, as Mobile CI does
+        run: |
+          app=$(find ~/Library/Developer/Xcode/DerivedData -path '*Release-iphonesimulator/*.app' -maxdepth 6 -type d | head -1)
+          echo "APP=$app" >> "$GITHUB_ENV"
+          bash .github/scripts/sign-with-app-group.sh "$app" \
+            "$(ls mobile/ios/*/*.entitlements | grep -v /expo-sharing-extension/)" \
+            mobile/ios/expo-sharing-extension/expo-sharing-extension.entitlements
+          plutil -p "$app/PlugIns/expo-sharing-extension.appex/Info.plist"
+          codesign -d --entitlements - "$app/PlugIns/expo-sharing-extension.appex" 2>&1 | tail -20
+      - name: Boot a simulator and install
+        run: |
+          udid=$(xcrun simctl list devices available -j | python3 -c "import json,sys; d=json.load(sys.stdin)['devices']; print(next(x['udid'] for r,l in sorted(d.items(), reverse=True) if 'iOS' in r for x in l if x['name'].startswith('iPhone')))")
+          echo "UDID=$udid" >> "$GITHUB_ENV"
+          xcrun simctl list devices available | grep "$udid"
+          xcrun simctl boot "$udid"
+          xcrun simctl bootstatus "$udid" -b
+          xcrun simctl install "$udid" "$APP"
+          python3 -c "import struct,zlib;w=h=64;raw=b''.join(b'\x00'+b'\xff\x40\x40'*w for _ in range(h));c=lambda t,d:struct.pack('>I',len(d))+t+d+struct.pack('>I',zlib.crc32(t+d)&0xffffffff);open('red.png','wb').write(b'\x89PNG\r\n\x1a\n'+c(b'IHDR',struct.pack('>IIBBBBB',w,h,8,2,0,0,0))+c(b'IDAT',zlib.compress(raw))+c(b'IEND',b''))"
+          xcrun simctl addmedia "$udid" red.png
+      - name: Is the extension registered?
+        run: |
+          xcrun simctl spawn "$UDID" pluginkit -mAvvv -p com.apple.share-services || true
+          echo ----
+          xcrun simctl spawn "$UDID" pluginkit -mAvvv | grep -i -A8 'taskfest\|expo-sharing' || echo "nothing about taskfest in pluginkit"
+      - name: Install Maestro
+        run: |
+          curl -fsSL "https://get.maestro.mobile.dev" | bash
+          echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
+      - name: Open the share sheets
+        continue-on-error: true
+        run: |
+          mkdir -p out
+          start=$(date -u +"%Y-%m-%d %H:%M:%S")
+          echo "START=$start" >> "$GITHUB_ENV"
+          for flow in safari photos; do
+            maestro --device "$UDID" test .github/diag/$flow.yaml --test-output-dir out/$flow || true
+            maestro --device "$UDID" hierarchy > out/$flow-hierarchy.json 2>&1 || true
+            xcrun simctl io "$UDID" screenshot out/$flow-final.png || true
+          done
+          mv *.png out/ 2>/dev/null || true
+      - name: What the system said about share extensions
+        if: always()
+        run: |
+          xcrun simctl spawn "$UDID" log show --start "$START" --style compact \
+            --predicate 'eventMessage CONTAINS[c] "expo-sharing" OR eventMessage CONTAINS[c] "taskfest" OR eventMessage CONTAINS[c] "activation rule" OR eventMessage CONTAINS[c] "ActivationRule" OR subsystem == "com.apple.sharing"' \
+            > out/sharing.log 2>&1 || true
+          wc -l out/sharing.log
+          grep -i -E 'taskfest|expo-sharing|activation' out/sharing.log | head -80 || true
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: diag-ios-share
+          path: out
+          retention-days: 3
