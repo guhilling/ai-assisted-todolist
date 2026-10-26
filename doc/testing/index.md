@@ -15,7 +15,7 @@ about what exists and how to run it.
 | Mobile end-to-end | `mobile/maestro/` | the app on an Android emulator, against the containerised stack | `mobile-ci.yml` |
 | Live | `e2e/live/`, `mobile/maestro/live/` | nothing: checks a deployed environment through CloudFront, in a browser and in the released Android app | `live-tests.yml`, after each deploy to qa |
 
-**Watch them run:** [the newest live run](https://guhilling.github.io/ai-assisted-todolist/videos/)
+**Watch them run:** [the newest live run](https://taskfest-docs.cloud.hilling.de/videos/)
 has a video of each signed-in scenario and each of the app's flows against qa, replaced by every run
 ([live tests](live.md) says how they are made).
 

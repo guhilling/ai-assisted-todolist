@@ -33,7 +33,7 @@ generates its response validators from them, and because a change to the wire co
 be visible in the pull request that causes it.
 
 They are also published, with a rendered reference, at
-[guhilling.github.io/ai-assisted-todolist](https://guhilling.github.io/ai-assisted-todolist/) —
+[taskfest-docs.cloud.hilling.de](https://taskfest-docs.cloud.hilling.de/) —
 `/api/main/` for the current code, `/api/v1.2.3/` per release. `.github/scripts/build-site.py`
 builds that site, with these documents as its pages, and `releasing.md` says what each release
 attaches.

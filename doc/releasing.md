@@ -172,7 +172,7 @@ permanently is; `gate` builds with the revision overridden from the tag, so rege
 afterwards is what makes the attached spec claim the version it describes.
 
 The same contract is also on GitHub Pages, at
-[guhilling.github.io/ai-assisted-todolist](https://guhilling.github.io/ai-assisted-todolist/):
+[taskfest-docs.cloud.hilling.de](https://taskfest-docs.cloud.hilling.de/):
 `/api/v1.2.3/` per release, `/api/latest/` for the newest, and `/api/main/` tracking the
 current code. `pages.yml` rebuilds the whole site from git history, so nothing is carried over
 between deployments. It patches `info.version` from the tag for a released version; the release

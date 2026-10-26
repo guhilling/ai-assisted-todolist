@@ -16,7 +16,7 @@ describe('the footer outside the app', () => {
 
     expect(screen.getByRole('link', { name: /About/ })).toHaveAttribute(
       'href',
-      'https://guhilling.github.io/ai-assisted-todolist/doc/purpose.html',
+      'https://taskfest-docs.cloud.hilling.de/doc/purpose.html',
     )
   })
 })

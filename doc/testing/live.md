@@ -72,7 +72,7 @@ visible one is addressed — and the accounts. One scenario runs in qa only: bot
   passwords and clear each other's tasks. Runs that arrive meanwhile queue (`queue: max`) rather
   than replace each other, so no deploy's live run is dropped.
 - **Every scenario is recorded, and the newest run's videos are published**:
-  [the newest live run](https://guhilling.github.io/ai-assisted-todolist/videos/), one video per
+  [the newest live run](https://taskfest-docs.cloud.hilling.de/videos/), one video per
   scenario with its outcome, the release it ran against and a link to the run. The job names each
   video by its spec and title (`.github/scripts/collect-live-videos.py`) and uploads them as the
   artifact `live-videos-qa`, kept 30 days; `pages.yml` runs after every live run, release and
@@ -121,7 +121,7 @@ signing in first:
 - **Every flow is recorded** with Android's `screenrecord`, which stops at three minutes; each flow
   takes under two. Each starts from the home screen with Chrome's data cleared, so every recording
   shows the sign-in: Chrome would otherwise keep Cognito's session from the flow before. The recordings are published beside the website's, under
-  [the newest live run](https://guhilling.github.io/ai-assisted-todolist/videos/#app): the job
+  [the newest live run](https://taskfest-docs.cloud.hilling.de/videos/#app): the job
   names them by their flow (`collect-live-videos.py --app`) and uploads the artifact
   `live-videos-qa-app`, which `pages.yml` fetches as it does `live-videos-qa`. A failure uploads
   Maestro's screenshots, and only those: its other output records every command as run, the typed

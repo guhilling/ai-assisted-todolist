@@ -68,7 +68,7 @@ IMAGES = DOCS / "images"
 
 PROJECT = "ai-assisted-todolist"
 REPO_URL = f"https://github.com/guhilling/{PROJECT}"
-SITE_URL = f"https://guhilling.github.io/{PROJECT}/"
+SITE_URL = "https://taskfest-docs.cloud.hilling.de/"
 
 # Pinned deliberately. Renovate does not track an npx invocation, so this is bumped by hand; in
 # exchange the rendered output is reproducible, and the Redoc version it pulls is pinned by the
