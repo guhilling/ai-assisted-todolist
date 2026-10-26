@@ -17,14 +17,7 @@ appId: com.apple.mobilesafari
     timeout: 5000
 - takeScreenshot: safari-2-sheet
 - swipe:
-    direction: LEFT
     start: 80%, 55%
     end: 10%, 55%
     optional: true
 - takeScreenshot: safari-3-swiped
-- tapOn:
-    text: "More"
-    optional: true
-- waitForAnimationToEnd:
-    timeout: 5000
-- takeScreenshot: safari-4-more

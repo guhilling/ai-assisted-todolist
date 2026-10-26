@@ -82,6 +82,9 @@ jobs:
             > out/sharing.log 2>&1 || true
           wc -l out/sharing.log
           grep -i -E 'taskfest|expo-sharing|activation' out/sharing.log | head -80 || true
+      - name: Keep the built app
+        if: always()
+        run: tar -C "$(dirname "$APP")" -czf out/app.tgz "$(basename "$APP")"
       - uses: actions/upload-artifact@v7
         if: always()
         with:
