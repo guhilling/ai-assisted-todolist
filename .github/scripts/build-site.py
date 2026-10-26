@@ -555,11 +555,16 @@ def renderer() -> markdown.Markdown:
     out as a single line of inline code. `toc` is here for the heading anchors rather than for a
     table of contents: every `##` becomes linkable, which is what makes a 700-line decisions log
     worth publishing. No syntax highlighting: seventeen code blocks totalling fifty-five lines,
-    nearly all shell, do not repay Pygments and a colour scheme to keep legible.
+    nearly all shell, do not repay Pygments and a colour scheme to keep legible. `superfences`
+    would use Pygments wherever it happens to be installed, as it is on GitHub's runners, so it is
+    switched off rather than left to the machine.
     """
     return markdown.Markdown(
-        extensions=["extra", "pymdownx.superfences", "toc", "sane_lists"],
-        extension_configs={"toc": {"permalink": "#", "permalink_title": "Link to this section"}},
+        extensions=["extra", "pymdownx.highlight", "pymdownx.superfences", "toc", "sane_lists"],
+        extension_configs={
+            "pymdownx.highlight": {"use_pygments": False},
+            "toc": {"permalink": "#", "permalink_title": "Link to this section"},
+        },
     )
 
 
