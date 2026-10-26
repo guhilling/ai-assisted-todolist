@@ -1,3 +1,4 @@
 # Pinned so the published pages do not change because a transitive release did.
 # Renovate keeps this current through its pip_requirements manager.
 markdown==3.11.2
+pymdown-extensions==12.3

@@ -120,68 +120,68 @@ The two apps exist in Play Console. The Android Developer Console, where package
 registered for apps outside Play, is not needed: Play registers its own apps.
 
 1. **The upload key.** Play keeps the key the app is signed with (Play App Signing); the build
-   signs with an upload key, which Google can reset if it is lost. One key serves both apps:
+    signs with an upload key, which Google can reset if it is lost. One key serves both apps:
 
-   ```bash
-   keytool -genkeypair -v -keystore taskfest-upload.jks -alias upload \
-     -keyalg RSA -keysize 4096 -validity 10000 \
-     -dname "CN=Hilling IT GmbH, O=Hilling IT GmbH, C=DE"
-   base64 -i taskfest-upload.jks | pbcopy    # -> ANDROID_UPLOAD_KEYSTORE
-   ```
+    ```bash
+    keytool -genkeypair -v -keystore taskfest-upload.jks -alias upload \
+      -keyalg RSA -keysize 4096 -validity 10000 \
+      -dname "CN=Hilling IT GmbH, O=Hilling IT GmbH, C=DE"
+    base64 -i taskfest-upload.jks | pbcopy    # -> ANDROID_UPLOAD_KEYSTORE
+    ```
 
-   keytool asks for one password: a PKCS12 keystore, the default since JDK 9, has no separate
-   password for the key. The keystore and that password go into the password manager. The four
-   `ANDROID_UPLOAD_*` secrets are what the build signs with: the base64 text,
-   `ANDROID_UPLOAD_KEY_ALIAS` `upload`, and the password twice — Gradle asks for the keystore's
-   and the key's separately, and here they are the same.
+    keytool asks for one password: a PKCS12 keystore, the default since JDK 9, has no separate
+    password for the key. The keystore and that password go into the password manager. The four
+    `ANDROID_UPLOAD_*` secrets are what the build signs with: the base64 text,
+    `ANDROID_UPLOAD_KEY_ALIAS` `upload`, and the password twice — Gradle asks for the keystore's
+    and the key's separately, and here they are the same.
 
 2. **Google Cloud, without a stored key.** The upload signs in to Google through Workload Identity
-   Federation: GitHub's OIDC token for a job in `app-stores`, exchanged for a short-lived token of
-   a service account. Nothing to leak or rotate, and new Google Cloud organizations refuse
-   service-account keys by default anyway. With `gcloud`, in a project of its own:
+    Federation: GitHub's OIDC token for a job in `app-stores`, exchanged for a short-lived token of
+    a service account. Nothing to leak or rotate, and new Google Cloud organizations refuse
+    service-account keys by default anyway. With `gcloud`, in a project of its own:
 
-   ```bash
-   gcloud projects create taskfest-releases          # or any free project ID
-   gcloud config set project taskfest-releases
-   gcloud services enable androidpublisher.googleapis.com iam.googleapis.com \
-     iamcredentials.googleapis.com sts.googleapis.com
-   gcloud iam service-accounts create play-release --display-name "TaskFest Play releases"
+    ```bash
+    gcloud projects create taskfest-releases          # or any free project ID
+    gcloud config set project taskfest-releases
+    gcloud services enable androidpublisher.googleapis.com iam.googleapis.com \
+      iamcredentials.googleapis.com sts.googleapis.com
+    gcloud iam service-accounts create play-release --display-name "TaskFest Play releases"
 
-   gcloud iam workload-identity-pools create github --location global --display-name GitHub
-   gcloud iam workload-identity-pools providers create-oidc github \
-     --location global --workload-identity-pool github \
-     --issuer-uri https://token.actions.githubusercontent.com \
-     --attribute-mapping google.subject=assertion.sub \
-     --attribute-condition "assertion.sub == 'repo:guhilling@2537533/ai-assisted-todolist@1383592232:environment:app-stores'"
+    gcloud iam workload-identity-pools create github --location global --display-name GitHub
+    gcloud iam workload-identity-pools providers create-oidc github \
+      --location global --workload-identity-pool github \
+      --issuer-uri https://token.actions.githubusercontent.com \
+      --attribute-mapping google.subject=assertion.sub \
+      --attribute-condition "assertion.sub == 'repo:guhilling@2537533/ai-assisted-todolist@1383592232:environment:app-stores'"
 
-   number=$(gcloud projects describe taskfest-releases --format 'value(projectNumber)')
-   gcloud iam service-accounts add-iam-policy-binding \
-     play-release@taskfest-releases.iam.gserviceaccount.com \
-     --role roles/iam.workloadIdentityUser \
-     --member "principal://iam.googleapis.com/projects/$number/locations/global/workloadIdentityPools/github/subject/repo:guhilling@2537533/ai-assisted-todolist@1383592232:environment:app-stores"
-   echo "projects/$number/locations/global/workloadIdentityPools/github/providers/github"
-   ```
+    number=$(gcloud projects describe taskfest-releases --format 'value(projectNumber)')
+    gcloud iam service-accounts add-iam-policy-binding \
+      play-release@taskfest-releases.iam.gserviceaccount.com \
+      --role roles/iam.workloadIdentityUser \
+      --member "principal://iam.googleapis.com/projects/$number/locations/global/workloadIdentityPools/github/subject/repo:guhilling@2537533/ai-assisted-todolist@1383592232:environment:app-stores"
+    echo "projects/$number/locations/global/workloadIdentityPools/github/providers/github"
+    ```
 
-   The condition admits jobs in the `app-stores` environment of this repository and nothing else.
-   The repository uses GitHub's *immutable subject*, so the token names owner and repository by
-   name *and* id (`guhilling@2537533/ai-assisted-todolist@1383592232`), as the AWS deploy roles
-   expect too; `gh api repos/guhilling/ai-assisted-todolist/actions/oidc/customization/sub` shows
-   the prefix. A condition with the plain `owner/name` refuses every token ("rejected by the
-   attribute condition").
-   The last line is `GOOGLE_WORKLOAD_IDENTITY_PROVIDER`; the service account's email
-   (`play-release@taskfest-releases.iam.gserviceaccount.com`) is `GOOGLE_PLAY_SERVICE_ACCOUNT`.
-   None of it costs anything. A project only just created may refuse the pool for a few minutes,
-   until its owner's role has reached every Google service: wait, and run the command again.
+    The condition admits jobs in the `app-stores` environment of this repository and nothing else.
+    The repository uses GitHub's *immutable subject*, so the token names owner and repository by
+    name *and* id (`guhilling@2537533/ai-assisted-todolist@1383592232`), as the AWS deploy roles
+    expect too; `gh api repos/guhilling/ai-assisted-todolist/actions/oidc/customization/sub` shows
+    the prefix. A condition with the plain `owner/name` refuses every token ("rejected by the
+    attribute condition").
+    The last line is `GOOGLE_WORKLOAD_IDENTITY_PROVIDER`; the service account's email
+    (`play-release@taskfest-releases.iam.gserviceaccount.com`) is `GOOGLE_PLAY_SERVICE_ACCOUNT`.
+    None of it costs anything. A project only just created may refuse the pool for a few minutes,
+    until its owner's role has reached every Google service: wait, and run the command again.
 
 3. **Play lets the service account release.** Play Console → *Users and permissions → Invite new
-   users*: the service account's email; under *App permissions* both apps, with **Release to
-   testing tracks**. No account-wide permission.
+    users*: the service account's email; under *App permissions* both apps, with **Release to
+    testing tracks**. No account-wide permission.
 4. **Testers**, per app: *Test and release → Testing → Internal testing → Testers*, an email list
-   of Google accounts (up to 100). Each tester opens the opt-in link shown there once.
+    of Google accounts (up to 100). Each tester opens the opt-in link shown there once.
 5. **The first bundle, by hand.** Play's API cannot upload an app's first build; the upload step
-   says so with a warning, and the release still succeeds. Download the bundle from that run (*taskfest-qa-1.4.0-aab*, say), then
-   *Internal testing → Create new release*, accept **Play App Signing** with a key Google
-   generates, upload it and roll it out. From the next release on the workflow uploads by itself.
+    says so with a warning, and the release still succeeds. Download the bundle from that run (*taskfest-qa-1.4.0-aab*, say), then
+    *Internal testing → Create new release*, accept **Play App Signing** with a key Google
+    generates, upload it and roll it out. From the next release on the workflow uploads by itself.
 
 **While an app is still a draft** in Play Console — its setup tasks under *Dashboard* not done —
 Play takes only draft releases. The upload then leaves the build as a draft on the internal track

@@ -34,8 +34,18 @@ be visible in the pull request that causes it.
 
 They are also published, with a rendered reference, at
 [guhilling.github.io/ai-assisted-todolist](https://guhilling.github.io/ai-assisted-todolist/) —
-`/api/main/` for the current code, `/api/v1.2.3/` per release. `.github/scripts/build-api-site.py`
-builds that site, and `releasing.md` says what each release attaches.
+`/api/main/` for the current code, `/api/v1.2.3/` per release. `.github/scripts/build-site.py`
+builds that site, with these documents as its pages, and `releasing.md` says what each release
+attaches.
+
+### Lists on the site
+
+The site renders these pages with Python-Markdown, which is stricter than GitHub about lists: a
+code block or a second paragraph inside a list item is indented **four spaces**, even under `1.`
+or `-`, where GitHub would also accept the item's text column. With less, the site takes the
+block out of the list and restarts the numbering after it, and a code block becomes one line of
+inline code. `build-site.py` refuses such a page, and Script tests check every page on each pull
+request, since the site itself is only built on `main`.
 
 ## The diagrams
 

@@ -45,18 +45,18 @@ This is manual configuration in the Google console and cannot be automated here.
   once, and each environment has its own, so either can be replaced without touching the other.
   An empty id keeps sign-in off in that environment.
 - **The client secret** is `taskfest-<env>-google-client-secret` in Secrets Manager. OpenTofu
-  creates it **empty**; a person puts the value in, so it never passes through the repository or
-  OpenTofu state:
+    creates it **empty**; a person puts the value in, so it never passes through the repository or
+    OpenTofu state:
 
-  ```sh
-  aws secretsmanager put-secret-value --secret-id taskfest-qa-google-client-secret \
-    --secret-string '<the client secret from the Google console>'
-  ```
+    ```sh
+    aws secretsmanager put-secret-value --secret-id taskfest-qa-google-client-secret \
+      --secret-string '<the client secret from the Google console>'
+    ```
 
-  The task **execution** role may read that one secret and injects it at task start as
-  `TASKFEST_OIDC_GOOGLE_CLIENT_SECRET`. It does not rotate by itself, unlike the RDS master secret, so
-  injection at start is fine; after changing it, start new tasks. About $0.40 a month, and it stays
-  while the environment is down.
+    The task **execution** role may read that one secret and injects it at task start as
+    `TASKFEST_OIDC_GOOGLE_CLIENT_SECRET`. It does not rotate by itself, unlike the RDS master secret, so
+    injection at start is fine; after changing it, start new tasks. About $0.40 a month, and it stays
+    while the environment is down.
 - **Behind CloudFront and the ALB** the backend sees the load balancer's connection, not the
   visitor's -- TLS since #247, with a certificate of its own the load balancer does not check --
   so it is told to believe the load balancer's `X-Forwarded-Proto` (`quarkus.http.proxy.*`, set in the task definition, trusted

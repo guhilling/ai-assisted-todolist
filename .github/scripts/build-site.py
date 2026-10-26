@@ -550,15 +550,21 @@ def renderer() -> markdown.Markdown:
     """
     The markdown converter.
 
-    `extra` brings the tables and fenced code these documents use. `toc` is here for the heading
-    anchors rather than for a table of contents: every `##` becomes linkable, which is what makes
-    a 700-line decisions log worth publishing. No syntax highlighting extension: seventeen code
-    blocks totalling fifty-five lines, nearly all shell, do not repay a second dependency and a
-    second colour scheme to keep legible.
+    `extra` brings the tables these documents use. Fenced code comes from `superfences` instead,
+    because `extra`'s only finds a fence at the top of a page, and one inside a numbered step came
+    out as a single line of inline code. `toc` is here for the heading anchors rather than for a
+    table of contents: every `##` becomes linkable, which is what makes a 700-line decisions log
+    worth publishing. No syntax highlighting: seventeen code blocks totalling fifty-five lines,
+    nearly all shell, do not repay Pygments and a colour scheme to keep legible. `superfences`
+    would use Pygments wherever it happens to be installed, as it is on GitHub's runners, so it is
+    switched off rather than left to the machine.
     """
     return markdown.Markdown(
-        extensions=["extra", "toc", "sane_lists"],
-        extension_configs={"toc": {"permalink": "#", "permalink_title": "Link to this section"}},
+        extensions=["extra", "pymdownx.highlight", "pymdownx.superfences", "toc", "sane_lists"],
+        extension_configs={
+            "pymdownx.highlight": {"use_pygments": False},
+            "toc": {"permalink": "#", "permalink_title": "Link to this section"},
+        },
     )
 
 
@@ -596,9 +602,48 @@ def split_intro(text: str) -> tuple[str, str, str]:
     return title, intro, "\n".join(body)
 
 
+LIST_ITEM = re.compile(r"\s*(?:[-*+]|\d+\.)\s")
+FENCE = re.compile(r"\s*(?:```|~~~)")
+
+
+def underindented_blocks(text: str) -> list[int]:
+    """
+    The lines that start a block inside a list indented by fewer than four spaces.
+
+    GitHub takes a block indented to line up with its item's text as part of the item. Python-Markdown
+    wants four spaces, and without them ends the list there: the block lands outside it and the
+    numbering restarts after it, without a word of warning. Code blocks are skipped -- what is
+    indented inside one is the code's own.
+    """
+    found = []
+    in_list = in_fence = False
+    previous = ""
+    for number, line in enumerate(text.splitlines(), start=1):
+        if FENCE.match(line):
+            if not in_fence and in_list and not previous.strip() and 0 < len(line) - len(line.lstrip(" ")) < 4:
+                found.append(number)
+            in_fence = not in_fence
+        elif not in_fence and line.strip():
+            indent = len(line) - len(line.lstrip(" "))
+            if LIST_ITEM.match(line):
+                in_list = True
+            elif indent == 0:
+                in_list = False
+            elif in_list and not previous.strip() and indent < 4:
+                found.append(number)
+        previous = line
+    return found
+
+
 def render_markdown(source: pathlib.Path, *, base: str, depth: int) -> str:
     """One markdown file as HTML, with its links pointed at where the site keeps things."""
-    return retarget_links(renderer().convert(source.read_text()), base=base, depth=depth)
+    text = source.read_text()
+    if lines := underindented_blocks(text):
+        raise SystemExit("\n".join(
+            f"{source}:{line}: indent a block inside a list by four spaces, or the site takes it out of the list"
+            for line in lines
+        ))
+    return retarget_links(renderer().convert(text), base=base, depth=depth)
 
 
 def write_page(
