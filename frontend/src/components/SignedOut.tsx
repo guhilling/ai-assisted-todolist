@@ -15,7 +15,7 @@ import { useI18n } from '../i18n/context'
  * with the rest of the docs around it, rather than the Markdown file on GitHub. Linked rather than
  * inlined, so the board stays a board.
  */
-export const purposeUrl = 'https://guhilling.github.io/ai-assisted-todolist/doc/purpose.html'
+export const purposeUrl = 'https://taskfest-docs.cloud.hilling.de/doc/purpose.html'
 
 type SignedOutProps = {
   providers: AuthProvidersResponse

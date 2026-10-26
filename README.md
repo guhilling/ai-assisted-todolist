@@ -1,5 +1,5 @@
 <p align="center">
-  <a href="https://guhilling.github.io/ai-assisted-todolist/">
+  <a href="https://taskfest-docs.cloud.hilling.de/">
     <picture>
       <source media="(prefers-color-scheme: dark)" srcset="doc/images/logo-dark.svg">
       <img src="doc/images/logo-light.svg" alt="" width="92" height="92">
@@ -19,7 +19,7 @@ private to whoever signed in. Quarkus backend, React + TypeScript frontend, Post
 OpenID Connect sign-in.
 
 📖 **[The documentation and the API reference are published at
-guhilling.github.io/ai-assisted-todolist](https://guhilling.github.io/ai-assisted-todolist/)** —
+taskfest-docs.cloud.hilling.de](https://taskfest-docs.cloud.hilling.de/)** —
 everything under `doc/` rendered, plus the OpenAPI contract for `main` and for every release.
 
 The todo list is not really the point — this repository exists to build up experience with
@@ -133,7 +133,7 @@ A task has a description, a due date, an importance (`LOW`, `MEDIUM`, `HIGH`) an
 Prometheus metrics at `/q/metrics`.
 
 The contract is **published**, not only served:
-[**the API reference**](https://guhilling.github.io/ai-assisted-todolist/) has `/api/main/` for
+[**the API reference**](https://taskfest-docs.cloud.hilling.de/) has `/api/main/` for
 the current code and `/api/v1.2.3/` per release, each with the OpenAPI 3.1 document and one
 JSON Schema per type. The same files are committed under [`doc/api/`](doc/api/) and attached to
 every release. They are generated and CI fails if the committed copy has drifted.
