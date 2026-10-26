@@ -3,6 +3,14 @@ appId: com.apple.mobileslideshow
 - launchApp
 - waitForAnimationToEnd:
     timeout: 8000
+- tapOn:
+    text: "Continue"
+    optional: true
+- waitForAnimationToEnd
+- tapOn:
+    text: "Continue"
+    optional: true
+- waitForAnimationToEnd
 - takeScreenshot: photos-1-library
 - tapOn:
     point: 15%, 75%
@@ -16,8 +24,3 @@ appId: com.apple.mobileslideshow
 - waitForAnimationToEnd:
     timeout: 5000
 - takeScreenshot: photos-3-sheet
-- swipe:
-    start: 80%, 55%
-    end: 10%, 55%
-    optional: true
-- takeScreenshot: photos-4-swiped

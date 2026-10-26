@@ -6,18 +6,19 @@ appId: com.apple.mobilesafari
     browser: true
 - waitForAnimationToEnd:
     timeout: 8000
+- tapOn:
+    point: 90%, 71%
+    optional: true
+- waitForAnimationToEnd
 - takeScreenshot: safari-1-page
+- tapOn:
+    text: "More"
+    optional: true
+- waitForAnimationToEnd
+- takeScreenshot: safari-2-menu
 - tapOn:
     text: "Share"
     optional: true
-- tapOn:
-    id: "ShareButton"
-    optional: true
 - waitForAnimationToEnd:
     timeout: 5000
-- takeScreenshot: safari-2-sheet
-- swipe:
-    start: 80%, 55%
-    end: 10%, 55%
-    optional: true
-- takeScreenshot: safari-3-swiped
+- takeScreenshot: safari-3-sheet

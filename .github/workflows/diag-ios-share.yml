@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 jobs:
   share-sheet:
@@ -15,18 +16,29 @@ jobs:
     timeout-minutes: 60
     env:
       APP_VARIANT: dev
+      REUSE_RUN: '40417711291'
+      GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v7
+      - name: Reuse the app built before
+        if: env.REUSE_RUN != ''
+        run: |
+          gh run download "$REUSE_RUN" -R "$GITHUB_REPOSITORY" -n diag-ios-share -D prev
+          mkdir -p built && tar -C built -xzf prev/app.tgz
+          echo "APP=$PWD/built/$(ls built)" >> "$GITHUB_ENV"
       - uses: actions/setup-node@v7
         with:
           node-version: '24'
       - name: Install dependencies
+        if: env.REUSE_RUN == ''
         working-directory: mobile
         run: npm ci
       - name: Generate the iOS project
+        if: env.REUSE_RUN == ''
         working-directory: mobile
         run: npx expo prebuild --platform ios
       - name: Build for the simulator
+        if: env.REUSE_RUN == ''
         working-directory: mobile/ios
         run: |
           set -o pipefail
@@ -35,6 +47,7 @@ jobs:
             -configuration Release -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
             CODE_SIGNING_ALLOWED=NO build | tail -n 20
       - name: Sign ad hoc with the App Group, as Mobile CI does
+        if: env.REUSE_RUN == ''
         run: |
           app=$(find ~/Library/Developer/Xcode/DerivedData -path '*Release-iphonesimulator/*.app' -maxdepth 6 -type d | head -1)
           echo "APP=$app" >> "$GITHUB_ENV"
