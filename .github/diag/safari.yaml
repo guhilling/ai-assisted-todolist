@@ -22,3 +22,12 @@ appId: com.apple.mobilesafari
 - waitForAnimationToEnd:
     timeout: 5000
 - takeScreenshot: safari-3-sheet
+- tapOn:
+    text: "TaskFest Dev"
+    optional: true
+- waitForAnimationToEnd:
+    timeout: 8000
+- takeScreenshot: safari-4-tapped
+- waitForAnimationToEnd:
+    timeout: 8000
+- takeScreenshot: safari-5-later
