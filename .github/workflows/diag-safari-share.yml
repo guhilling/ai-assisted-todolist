@@ -15,6 +15,7 @@ jobs:
     timeout-minutes: 60
     env:
       APP_VARIANT: dev
+      MAESTRO_DRIVER_STARTUP_TIMEOUT: '240000'
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
