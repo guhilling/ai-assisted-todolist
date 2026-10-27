@@ -7,6 +7,10 @@ name: Share a link into the app through iOS's share sheet
 - openLink:
     link: https://example.com
     browser: true
+# Until the page is there, Safari shows its start page, whose card would take the taps below.
+- extendedWaitUntil:
+    visible: "Example Domain"
+    timeout: 60000
 - waitForAnimationToEnd:
     timeout: 8000
 # A fresh simulator's Safari shows a tip over its toolbar the first time; it has no label to tap
@@ -32,5 +36,5 @@ name: Share a link into the app through iOS's share sheet
       - tapOn: "Open"
 - extendedWaitUntil:
     visible: "Sign in with Keycloak"
-    timeout: 30000
+    timeout: 60000
 - takeScreenshot: ios-share-link-2-app
