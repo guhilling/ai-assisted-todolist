@@ -100,9 +100,9 @@ since that is all an iOS app's version may be, and the backend logs nothing else
   the emulator's Downloads, through Android's file picker, and sees it on the board
   ([files.md](files.md)). The app reaches the stack's storage as the browser does, at
   `s3.localhost:4566`, through one more `adb reverse`.
-- **On iOS**, the flows in `maestro/ios/` share a photo from Photos and a link from Safari into the
-  app through the real share sheet, on an iPhone simulator, with no stack behind it
-  ([sharing.md](sharing.md)); `maestro/ios/run-on-simulator.sh` boots the simulator and runs them.
+- **On iOS**, the flow in `maestro/ios/` shares a photo from Photos into the app through the real
+  share sheet, on an iPhone simulator, with no stack behind it ([sharing.md](sharing.md));
+  `maestro/ios/run-on-simulator.sh` boots the simulator and runs it.
 - **Live**, after every deploy to qa, the flows in `maestro/live/` run the released qa app against
   qa itself, signed in as a Cognito test account, and are recorded
   ([live.md](../testing/live.md)).

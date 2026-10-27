@@ -184,8 +184,8 @@ jobs:
           set -a && source mobile/maestro/maestro.env && set +a
           curl -fsSL "https://get.maestro.mobile.dev" | bash
           echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
-      # Sharing through the real share sheet (#380): from Photos and from Safari, on an iPhone
-      # simulator, into the build signed just above. No stack runs here, so each share ends at the
+      # Sharing through the real share sheet (#380): a photo from Photos, on an iPhone simulator,
+      # into the build signed just above. No stack runs here, so each share ends at the
       # app, opened signed out with the share kept; the Android flows take one on to the board.
       - name: Share into the app on a simulator
         run: bash mobile/maestro/ios/run-on-simulator.sh "$APP"

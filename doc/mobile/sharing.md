@@ -92,8 +92,8 @@ go as soon as the app has read them, with their folders (`releaseShared` in `Mai
   of each kind, and both signed with the App Group as a release signs them
   (`.github/scripts/check-share-extension.py`, `check-share-activation.swift`,
   `sign-with-app-group.sh`).
-- Mobile CI's iOS shares (`mobile/maestro/ios/`, #380): that signed build on an iPhone simulator, a
-  photo shared from Photos and a link from Safari through the real share sheet, where *TaskFest
-  Dev* must be offered, each opening the app. No stack runs on the macOS runner, so the app opens
-  signed out with the share kept; the way on to the board is the Android flows'. Their screenshots
+- Mobile CI's iOS share (`mobile/maestro/ios/`, #380): that signed build on an iPhone simulator, a
+  photo shared from Photos through the real share sheet, where *TaskFest Dev* must be offered;
+  the simulator's iOS asks before the extension opens the app, and the flow lets it. No stack runs on the macOS runner, so the app opens
+  signed out with the share kept; the way on to the board is the Android flows'. Its screenshots
   are the `maestro-output-ios` artifact.

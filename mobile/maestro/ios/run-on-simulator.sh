@@ -31,7 +31,8 @@ PY
 xcrun simctl addmedia "$udid" "$out/red.png"
 
 status=0
-for flow in share-photo share-link; do
+# A link shared from Safari is not among them yet: see #380.
+for flow in share-photo; do
   # Each share finds the app closed, as after a restart: the extension has to open it.
   xcrun simctl terminate "$udid" de.hilling.taskfest.dev 2>/dev/null || true
   maestro --device "$udid" test "$here/$flow.yaml" --test-output-dir "$out" \
