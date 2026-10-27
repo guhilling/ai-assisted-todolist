@@ -58,3 +58,7 @@ image is shown as it is -- and checks that the row shows a
 128 px thumbnail of it, which only a real browser's canvas can make, and that opening it still
 opens the photo.
 
+`tests/shortcut-badge.spec.ts` (#386) signs in on a desktop and in Chromium's phone emulation, and
+checks the `n` badge on **Add a task** is shown on the one and left out on the other: jsdom applies
+no media query, so only a real browser can tell.
+

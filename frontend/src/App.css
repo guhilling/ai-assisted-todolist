@@ -510,6 +510,14 @@ html {
   background: var(--surface);
 }
 
+/* No keyboard to press n on: a phone, a tablet without one (#386). A coarse pointer that cannot
+   hover is the closest CSS comes to asking; the shortcut still works where a keyboard is attached. */
+@media (hover: none) and (pointer: coarse) {
+  .add-row-key {
+    display: none;
+  }
+}
+
 .add-form {
   display: flex;
   flex-direction: column;
