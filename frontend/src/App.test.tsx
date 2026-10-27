@@ -974,6 +974,28 @@ describe('adding a task', () => {
     expect(screen.getByLabelText('What needs doing')).toHaveValue('Still typing')
   })
 
+  it('gives the focus back to Add a task when closed with Escape or Cancel (#383)', async () => {
+    await renderSignedIn(mockApi({ me: ALICE, tasks: [] }))
+
+    startAdding('Not now')
+    fireEvent.keyDown(screen.getByLabelText('What needs doing'), { key: 'Escape' })
+    expect(screen.getByRole('button', { name: /add a task/i })).toHaveFocus()
+
+    startAdding('Not now either')
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    expect(screen.getByRole('button', { name: /add a task/i })).toHaveFocus()
+  })
+
+  it('gives the focus back to the description when an add fails', async () => {
+    await renderSignedIn(mockApi({ me: ALICE, tasks: [], post: { status: 500 } }))
+
+    startAdding('Doomed task')
+    fireEvent.click(screen.getByRole('button', { name: 'Add' }))
+
+    await waitFor(() => expect(screen.getByText('Unable to create task.')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByLabelText('What needs doing')).toHaveFocus())
+  })
+
   it('collapses on Escape and on Cancel, forgetting what was typed', async () => {
     await renderSignedIn(mockApi({ me: ALICE, tasks: [] }))
 

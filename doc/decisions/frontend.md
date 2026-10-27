@@ -170,8 +170,10 @@ field or a modifier is held, so it cannot swallow a typed letter or shadow a bro
 
 **The row closes once a task is added** (#383), as the app's form does: the website and the app
 behave the same, and the board, not an empty form, is what is left to look at. The focus goes back
-to the row's button, so Enter or `n` starts the next task. A failed add keeps it open with what was
-typed, and so does a file that did not make it after the task was added — cleared, saying which.
+to the row's button, so Enter or `n` starts the next task — as it does after Cancel or Escape. A
+failed add keeps it open with what was typed, and so does a file that did not make it after the
+task was added — cleared, saying which. From Add until then the row is locked, so nothing typed in
+the meantime is lost when it closes.
 
 
 ## A task id is checked before it is put in a URL
