@@ -92,4 +92,8 @@ go as soon as the app has read them, with their folders (`releaseShared` in `Mai
   of each kind, and both signed with the App Group as a release signs them
   (`.github/scripts/check-share-extension.py`, `check-share-activation.swift`,
   `sign-with-app-group.sh`).
-  Mobile CI does not run the iOS app, so a share on an iPhone is tried by hand, on TestFlight.
+- Mobile CI's iOS shares (`mobile/maestro/ios/`, #380): that signed build on an iPhone simulator, a
+  photo shared from Photos and a link from Safari through the real share sheet, where *TaskFest
+  Dev* must be offered, each opening the app. No stack runs on the macOS runner, so the app opens
+  signed out with the share kept; the way on to the board is the Android flows'. Their screenshots
+  are the `maestro-output-ios` artifact.

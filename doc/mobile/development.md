@@ -100,13 +100,16 @@ since that is all an iOS app's version may be, and the backend logs nothing else
   the emulator's Downloads, through Android's file picker, and sees it on the board
   ([files.md](files.md)). The app reaches the stack's storage as the browser does, at
   `s3.localhost:4566`, through one more `adb reverse`.
+- **On iOS**, the flows in `maestro/ios/` share a photo from Photos and a link from Safari into the
+  app through the real share sheet, on an iPhone simulator, with no stack behind it
+  ([sharing.md](sharing.md)); `maestro/ios/run-on-simulator.sh` boots the simulator and runs them.
 - **Live**, after every deploy to qa, the flows in `maestro/live/` run the released qa app against
   qa itself, signed in as a Cognito test account, and are recorded
   ([live.md](../testing/live.md)).
 
 `.github/workflows/mobile-ci.yml` runs all of it on every pull request touching the app or what
 it shares with the website: the checks; a release APK of the `dev` variant on Linux; an iOS
-simulator build on macOS; and the Maestro flows on an Android emulator against the end-to-end
+simulator build on macOS, which then shares into the app on a simulator; and the Maestro flows on an Android emulator against the end-to-end
 stack, built from the same commit. The flows run in two shares at once, each on an emulator and a
 stack of its own: `board` signs in, changes the board and shares into the app, `others` has the account, the reminders,
 attaching a file and the offline board. Their screenshots are the `maestro-output-board` and
