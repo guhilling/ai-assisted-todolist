@@ -51,8 +51,9 @@ the raw share, is in [decisions/mobile-app.md](../decisions/mobile-app.md).
 - **Text and a link** are joined into the description, cut to the 255 characters the backend takes
   (`TaskCreateRequest`'s `maxLength`, which a test compares). A link stays text: nothing requests
   it.
-- **Files** are copied into the app's cache, under `shared/`, and wait in the form as picked files
-  do ([files.md](files.md)), to be attached once the task is added.
+- **Files** are copied into the app's cache, under `shared/`, and go up as soon as the form opens,
+  to its draft, as picked files do ([files.md](files.md)): by the time the form is filled in, they
+  are there, and Add only adds the task (#381).
   - A file the backend would refuse is refused at once, by the website's rule and in its words —
     one the sending app says is too large without being copied first, and a type the backend
     takes is preferred to another spelling of it (`image/jpg` of a `photo.jpg`).

@@ -45,7 +45,7 @@ import org.eclipse.microprofile.openapi.annotations.tags.Tag;
  * works for a while, the same one again while it is fresh, so the browser can keep the file
  * (#236). An image may bring a preview thumbnail the browser made, uploaded through a second link.
  * Every attachment is its task's owner's alone: someone else's task or attachment is answered like
- * a missing one.</p>
+ * a missing one. A draft (#381) takes files as a task does, so they upload before Add.</p>
  */
 @Path("/api/tasks/{taskId}/attachments")
 @Authenticated
@@ -95,7 +95,7 @@ public class AttachmentResource {
     @APIResponse(responseCode = "404", description = "No task with this id is owned by the caller.")
     public Response announce(@PathParam("taskId") Long taskId, @Valid AnnounceRequest request) {
         User owner = currentUser();
-        Task task = TaskResource.ownedTaskOrNotFound(taskId, owner);
+        Task task = TaskResource.ownedTaskOrDraftOrNotFound(taskId, owner);
         try {
             AttachmentService.Announced announced = attachments.announce(owner, task, request.fileName(),
                 request.contentType(), request.sizeBytes(), request.thumbnailSizeBytes());
@@ -191,7 +191,7 @@ public class AttachmentResource {
 
     private Attachment ownedAttachment(Long taskId, Long id) {
         User owner = currentUser();
-        return attachments.find(owner, TaskResource.ownedTaskOrNotFound(taskId, owner), id)
+        return attachments.find(owner, TaskResource.ownedTaskOrDraftOrNotFound(taskId, owner), id)
             .orElseThrow(() -> new WebApplicationException(Response.Status.NOT_FOUND));
     }
 

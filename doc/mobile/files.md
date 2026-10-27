@@ -10,9 +10,13 @@ and removed.
   the website's limits below — a PDF or an image, up to 10 MB, two per task and five in all
   (`frontend/src/attachmentPolicy.ts`, which both use). A task that holds two offers no more and
   says why; a completed task offers none, as on the website.
-- **While adding a task**, as the website's add row does: the files picked are listed with **×** to
-  let one go again, and attached once the task exists. One that cannot be attached then leaves the
-  task as it is, and the board says which file and why.
+- **While adding a task** (#381): the files picked are listed with **×** to let one go again, and
+  go up at once, one after another, to a draft task the backend keeps out of sight, so Add only
+  adds it. The form says how far an upload has got, and Add waits for it; a file that cannot be
+  uploaded is left out, and the form says which and why. **×** on a file already up takes it off
+  the draft again, and Cancel discards the draft with its files. A backend from before drafts
+  answers 404, and the files then wait for Add, as on the website, whose add row still holds them
+  until then.
 - **Refused on the phone first.** A file the backend would refuse — another type, empty, too
   large — is refused before anything is sent, by the website's own rule and in its words; the
   backend's own refusals (`TASK_FULL`, `USER_FULL`, `MISMATCH`) are worded the same way.

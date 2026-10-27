@@ -93,7 +93,9 @@ public class TaskResource {
         User owner = currentUser();
         // importance is a native enum, which sorts by its declared order, least important first
         // (TaskImportance says so): descending puts what matters most first within a day (#217).
-        List<Task> tasks = Task.<Task>find("owner = ?1 order by dueDate asc, importance desc, id asc", owner).list();
+        // A draft is no task yet (#381).
+        List<Task> tasks = Task.<Task>find("owner = ?1 and draft = false order by dueDate asc, importance desc, id asc",
+            owner).list();
         // One query for every task's attachments, so the count of statements stays constant.
         Map<Long, List<Attachment>> attached = attachments.availableOf(tasks);
         return tasks.stream()
@@ -115,6 +117,14 @@ public class TaskResource {
         task.owner = currentUser();
         apply(task, request);
         task.persist();
+        return created(task, request);
+    }
+
+    /**
+     * Answers for a task just created -- or a draft just added (#381) -- with what the request
+     * brings back.
+     */
+    Response created(Task task, TaskCreateRequest request) {
         // An undo re-creating a deleted task brings its attachments back with it (D3 on #204).
         attachments.reattach(task.owner, task, request.attachmentIds());
         return Response.status(Response.Status.CREATED)
@@ -157,22 +167,37 @@ public class TaskResource {
     }
 
     /**
-     * The owner's task with this id, or 404 -- for someone else's, too. The one place the owner
-     * predicate is written, shared with {@link AttachmentResource}.
+     * The owner's task with this id, or 404 -- for someone else's too, and for a draft, which is no
+     * task yet (#381). The one place the owner predicate is written, shared with
+     * {@link AttachmentResource} and {@link DraftResource}.
      */
     static Task ownedTaskOrNotFound(Long id, User owner) {
-        Task task = Task.<Task>find("id = ?1 and owner = ?2", id, owner).firstResult();
+        return owned("id = ?1 and owner = ?2 and draft = false", id, owner);
+    }
+
+    /** The owner's task or draft with this id, or 404: what files are attached to (#381). */
+    static Task ownedTaskOrDraftOrNotFound(Long id, User owner) {
+        return owned("id = ?1 and owner = ?2", id, owner);
+    }
+
+    /** The owner's draft with this id, or 404 -- for a task that is no draft, too. */
+    static Task ownedDraftOrNotFound(Long id, User owner) {
+        return owned("id = ?1 and owner = ?2 and draft = true", id, owner);
+    }
+
+    private static Task owned(String query, Long id, User owner) {
+        Task task = Task.<Task>find(query, id, owner).firstResult();
         if (task == null) {
             throw new WebApplicationException(Response.Status.NOT_FOUND);
         }
         return task;
     }
 
-    private User currentUser() {
+    User currentUser() {
         return userService.getOrCreateByEmail(jwt.getClaim(OidcClaims.EMAIL));
     }
 
-    private static void apply(Task task, TaskFields request) {
+    static void apply(Task task, TaskFields request) {
         task.description = request.description();
         task.dueDate = request.dueDate();
         task.importance = request.importance();

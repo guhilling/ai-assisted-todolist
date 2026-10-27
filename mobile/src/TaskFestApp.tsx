@@ -50,6 +50,15 @@ export type TaskChanges = {
   remove(caller: Caller, task: Task): Promise<void>
   /** Puts a deleted task back; it returns with a new id. */
   restore(caller: Caller, task: Task, today: string): Promise<BoardTask>
+  /**
+   * Draft tasks (#381), which the add form's files upload to while it is open. Left out, or
+   * refused by a backend from before them, the files wait for Add.
+   */
+  drafts?: {
+    start(caller: Caller): Promise<number>
+    add(caller: Caller, draftId: number, input: TaskInput): Promise<BoardTask>
+    discard(caller: Caller, draftId: number): Promise<void>
+  }
 }
 
 /** What the app needs from outside itself, handed in so tests can stand in for each. */
@@ -112,6 +121,23 @@ type Form = {
    * one closes is a new form, not the last one's with its text (#355).
    */
   share?: number
+  /** Which add form this is -- `add-<n>`, or `share-<n>` for a share's -- what its draft belongs to (#381). */
+  opened?: string
+}
+
+/**
+ * The draft task an add form's files upload to while it is open (#381), kept beside the form rather
+ * than in it: nothing here is shown, and an answer may arrive after the form has closed.
+ */
+type DraftUploads = {
+  /** The draft, once started. */
+  id?: number
+  /** Whether the backend takes no drafts, or could not start one: the files then wait for Add. */
+  unavailable?: boolean
+  /** The files already on the draft. */
+  uploaded: Map<PickedFile, Attachment>
+  /** Whether Add made it a task, so closing the form leaves it. */
+  added?: boolean
 }
 
 /** The promise's value, or null once the time is up -- never a wait without end. */
@@ -225,6 +251,14 @@ export function TaskFestApp({
   useEffect(() => {
     formNow.current = form
   }, [form])
+  /** How many add forms the Add button has opened: each one's number, for its draft (#381). */
+  const addsOpened = useRef(0)
+  /** The draft of each add form that has one, by the form's number (#381). */
+  const draftUploads = useRef(new Map<string, DraftUploads>())
+  /** Whether a file is on its way to a draft; one at a time, as the editor's uploads go. */
+  const draftBusy = useRef(false)
+  /** Raised when a draft's upload ends, so the next file waiting starts. */
+  const [, setDraftTurn] = useState(0)
   /** Whether a file is being opened: a second tap meanwhile opens nothing more. */
   const opening = useRef(false)
   /** Whether a change was refused because the board shown may not be current (#272), until it is. */
@@ -654,7 +688,14 @@ export function TaskFestApp({
           : messages.attachments.refusals[each.refusal](each.name),
       )
       .join('\n')
-    setForm({ description: share.description, pending: share.files, shared: share.files, share: number, failure: refused || undefined })
+    setForm({
+      description: share.description,
+      pending: share.files,
+      shared: share.files,
+      share: number,
+      opened: `share-${number}`,
+      failure: refused || undefined,
+    })
     setShares((waiting) => waiting.slice(1))
   }
 
@@ -790,10 +831,19 @@ export function TaskFestApp({
           replace(saved)
           keep((kept) => kept.set(saved.id, saved))
         } else {
-          const created = await changes.create(await caller(), { ...values, state: 'TODO' })
+          const draft = started?.opened === undefined ? undefined : draftUploads.current.get(started.opened)
+          const input = { ...values, state: 'TODO' } as const
+          const created =
+            changes.drafts && draft?.id !== undefined && !draft.unavailable
+              ? await changes.drafts.add(await caller(), draft.id, input)
+              : await changes.create(await caller(), input)
+          if (draft && draft.id !== undefined) {
+            draft.added = true
+          }
           setTasks((tasks) => [...tasks, created])
           keep((kept) => kept.set(created.id, created))
-          attachLater = { task: created, files: started?.pending ?? [] }
+          // What is not on the draft yet -- all of it, without one -- goes up now, as before #381.
+          attachLater = { task: created, files: (started?.pending ?? []).filter((file) => !draft?.uploaded.has(file)) }
         }
       })
       if (attachLater) {
@@ -936,6 +986,121 @@ export function TaskFestApp({
       setFailure(failures.join('\n'))
     }
   }
+
+  /** The draft of the add form with this number, made when first asked for. */
+  const draftOf = (opened: string) => {
+    let draft = draftUploads.current.get(opened)
+    if (!draft) {
+      draft = { uploaded: new Map() }
+      draftUploads.current.set(opened, draft)
+    }
+    return draft
+  }
+
+  /** Discards a draft whose form closed without Add; one that cannot be is swept on the backend. */
+  const discardDraft = (draft: DraftUploads) => {
+    const id = draft.id
+    if (id === undefined || draft.added || !changes.drafts) {
+      return
+    }
+    void caller()
+      .then((asWhom) => changes.drafts!.discard(asWhom, id))
+      .catch((cause: unknown) => console.warn('The draft could not be discarded; the backend sweeps it', cause))
+  }
+
+  /** Takes a file let go in the form off its draft, where it had got to already. */
+  const letGoFromDraft = (opened: string | undefined, file: PickedFile) => {
+    const draft = opened === undefined ? undefined : draftUploads.current.get(opened)
+    const attachment = draft?.uploaded.get(file)
+    if (!draft || draft.id === undefined || !attachment || !files) {
+      return
+    }
+    draft.uploaded.delete(file)
+    const id = draft.id
+    void caller()
+      .then((asWhom) => files.remove(asWhom, id, attachment.id))
+      .catch((cause: unknown) => console.warn('A file let go could not be taken off the draft', cause))
+  }
+
+  /**
+   * Uploads one file of the add form with this number to its draft (#381), starting the draft
+   * first; says in the form why a file could not go, and leaves it out.
+   */
+  const uploadToDraft = async (opened: string, file: PickedFile) => {
+    const draft = draftOf(opened)
+    const upload = files?.upload
+    if (!changes.drafts || !upload) {
+      return
+    }
+    if (draft.id === undefined) {
+      try {
+        draft.id = await sending(async () => changes.drafts!.start(await caller()))
+      } catch (cause) {
+        // A backend from before drafts, or none to be had now: the files wait for Add.
+        console.warn('No draft could be started; the files wait for Add', cause)
+        draft.unavailable = true
+        return
+      }
+      if (formNow.current?.opened !== opened) {
+        discardDraft(draft)
+        return
+      }
+    }
+    const id = draft.id
+    setUploading({ taskId: 'new', name: file.name, fraction: 0 })
+    try {
+      const attachment = await sending(async () =>
+        upload(await caller(), id, file, (fraction) => setUploading({ taskId: 'new', name: file.name, fraction })),
+      )
+      draft.uploaded.set(file, attachment)
+      // Let go while it went up: off the draft again.
+      if (formNow.current?.opened !== opened || !formNow.current.pending?.includes(file)) {
+        letGoFromDraft(opened, file)
+      }
+    } catch (cause) {
+      const text = refusalText(cause, file.name) ?? (await failed(cause, messages.attachments.uploadFailed(file.name)))
+      setForm((current) =>
+        current?.opened === opened
+          ? { ...current, pending: current.pending?.filter((each) => each !== file), failure: text || current.failure }
+          : current,
+      )
+    } finally {
+      setUploading(null)
+    }
+  }
+
+  // An add form's files go up while it is open (#381): one at a time, each as soon as the last one
+  // is up, to the form's draft.
+  useEffect(() => {
+    const opened = form?.opened
+    if (opened === undefined || form?.task || !changes.drafts || !files?.upload || uploading || draftBusy.current) {
+      return
+    }
+    const draft = draftOf(opened)
+    const next = draft.unavailable ? undefined : form?.pending?.find((file) => !draft.uploaded.has(file))
+    if (!next) {
+      return
+    }
+    draftBusy.current = true
+    // After this render, not in it: the upload says how far it has got from its first step.
+    queueMicrotask(() =>
+      void uploadToDraft(opened, next).finally(() => {
+        draftBusy.current = false
+        setDraftTurn((turn) => turn + 1)
+      }),
+    )
+  })
+
+  // Closed without Add -- cancelled, or closed by a sign-out -- its draft goes with its files. After
+  // every render, as the form or an upload's end may have changed which drafts are left.
+  useEffect(() => {
+    for (const [opened, draft] of draftUploads.current) {
+      if (opened !== form?.opened && !draftBusy.current) {
+        draftUploads.current.delete(opened)
+        discardDraft(draft)
+      }
+    }
+  })
 
   const toggle = async (task: BoardTask) => {
     if (refusedWhileKept() || !markBusy(task, true)) {
@@ -1159,7 +1324,12 @@ export function TaskFestApp({
               }
               deleted={deleted ? { count: deleted.tasks.length, key: deleted.key } : undefined}
               busy={busy}
-              onAdd={() => refusedWhileKept() || setForm({})}
+              onAdd={() => {
+                if (!refusedWhileKept()) {
+                  addsOpened.current += 1
+                  setForm({ opened: `add-${addsOpened.current}` })
+                }
+              }}
               onOpen={(task) => refusedWhileKept() || setForm({ task })}
               onToggle={(task) => void toggle(task)}
               onClearCompleted={() =>
@@ -1210,9 +1380,10 @@ export function TaskFestApp({
                   draft={form.description}
                   uploading={uploading?.taskId === (form.task?.id ?? 'new') ? uploading : null}
                   onAttach={files?.upload && pickFile ? (source) => void attach(source) : undefined}
-                  onUnpick={(file) =>
+                  onUnpick={(file) => {
                     setForm((current) => current && { ...current, pending: current.pending?.filter((each) => each !== file) })
-                  }
+                    letGoFromDraft(form.opened, file)
+                  }}
                   onCancel={() => setForm(null)}
                 />
               ) : null}

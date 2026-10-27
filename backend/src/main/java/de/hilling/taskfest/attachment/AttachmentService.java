@@ -211,6 +211,11 @@ public class AttachmentService {
             .collect(Collectors.groupingBy(attachment -> attachment.task.id));
     }
 
+    /** Removes every attachment of a draft being discarded (#381): nothing to undo, so at once. */
+    public void removeAll(Task draft) {
+        Attachment.<Attachment>list("task", draft).forEach(this::remove);
+    }
+
     /** Detaches a task's attachments before it is deleted, keeping them for the undo window (D3). */
     @Transactional
     public void detachAll(Task task) {

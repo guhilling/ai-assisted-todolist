@@ -21,6 +21,7 @@ export type {
 } from '../../frontend/src/generated/types'
 export {
   validateAttachmentResponse,
+  validateDraftResponse,
   validateLinkResponse,
   validateRefusalResponse,
   validateTaskResponse,
