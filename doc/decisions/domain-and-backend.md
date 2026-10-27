@@ -250,8 +250,9 @@ started longer ago than `taskfest.attachments.pending-lifetime`, an hour, as lon
 stay pending (3a); their files lose their task through `ON DELETE SET NULL` and go with the
 attachment sweep. A draft's files count toward the five per user (4a): they take storage. The
 website keeps holding files until Add (5a). The API change is an addition, so installed apps keep
-working, and an app talking to a backend from before drafts gets a 404 and lets the files wait for
-Add as before. *Rejected:* a `DRAFT` state, which every query on states would have had to leave out;
+working, and an app talking to a backend from before drafts is refused (405: the path is a task's
+to it) and lets the files wait for Add as before. Adding or discarding locks the draft's row, so a
+sweep meeting it waits and then finds it added or gone. *Rejected:* a `DRAFT` state, which every query on states would have had to leave out;
 a separate draft aggregate whose attachments move over on Add, two tables for one thing.
 
 **Rejected: malware scanning (D4).** The files are only ever opened by the person who uploaded

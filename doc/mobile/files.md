@@ -14,9 +14,10 @@ and removed.
   go up at once, one after another, to a draft task the backend keeps out of sight, so Add only
   adds it. The form says how far an upload has got, and Add waits for it; a file that cannot be
   uploaded is left out, and the form says which and why. **×** on a file already up takes it off
-  the draft again, and Cancel discards the draft with its files. A backend from before drafts
-  answers 404, and the files then wait for Add, as on the website, whose add row still holds them
-  until then.
+  the draft again, and Cancel discards the draft with its files; one left by a sign-out, or by
+  an app closed with the form open, is swept with them within the hour. A backend from before
+  drafts refuses one (405), and the files then wait for Add, as on the website, whose add row still
+  holds them until then; so does a draft swept while the form stood open longer than that.
 - **Refused on the phone first.** A file the backend would refuse — another type, empty, too
   large — is refused before anything is sent, by the website's own rule and in its words; the
   backend's own refusals (`TASK_FULL`, `USER_FULL`, `MISMATCH`) are worded the same way.

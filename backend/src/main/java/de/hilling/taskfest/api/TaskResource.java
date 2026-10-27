@@ -9,6 +9,7 @@ import de.hilling.taskfest.model.User;
 import de.hilling.taskfest.service.UserService;
 import io.quarkus.security.Authenticated;
 import jakarta.inject.Inject;
+import jakarta.persistence.LockModeType;
 import jakarta.transaction.Transactional;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.FutureOrPresent;
@@ -180,9 +181,18 @@ public class TaskResource {
         return owned("id = ?1 and owner = ?2", id, owner);
     }
 
-    /** The owner's draft with this id, or 404 -- for a task that is no draft, too. */
+    /**
+     * The owner's draft with this id, or 404 -- for a task that is no draft, too. Locked, so that
+     * {@code DraftSweep} deleting it meanwhile waits, and then finds it added or gone.
+     */
     static Task ownedDraftOrNotFound(Long id, User owner) {
-        return owned("id = ?1 and owner = ?2 and draft = true", id, owner);
+        Task draft = Task.<Task>find("id = ?1 and owner = ?2 and draft = true", id, owner)
+            .withLock(LockModeType.PESSIMISTIC_WRITE)
+            .firstResult();
+        if (draft == null) {
+            throw new WebApplicationException(Response.Status.NOT_FOUND);
+        }
+        return draft;
     }
 
     private static Task owned(String query, Long id, User owner) {

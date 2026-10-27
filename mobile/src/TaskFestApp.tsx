@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ActivityIndicator, AppState, Image, Modal, Pressable, Text, useColorScheme, View } from 'react-native'
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context'
-import { AttachmentRefusedError, SignedOutError, TimedOutError, VERSION_CHECK_MS, type BoardTask, type Caller } from './api'
+import { AttachmentRefusedError, RequestFailedError, SignedOutError, TimedOutError, VERSION_CHECK_MS, type BoardTask, type Caller } from './api'
 import { FileViewer } from './Attachments'
 import { isImage } from './files'
 import type { SharedDraft } from './incoming'
@@ -259,6 +259,8 @@ export function TaskFestApp({
   const draftBusy = useRef(false)
   /** Raised when a draft's upload ends, so the next file waiting starts. */
   const [, setDraftTurn] = useState(0)
+  /** Whether a draft is being started or a file put on it: Add waits, as it does for an upload. */
+  const [draftWorking, setDraftWorking] = useState(false)
   /** Whether a file is being opened: a second tap meanwhile opens nothing more. */
   const opening = useRef(false)
   /** Whether a change was refused because the board shown may not be current (#272), until it is. */
@@ -833,13 +835,22 @@ export function TaskFestApp({
         } else {
           const draft = started?.opened === undefined ? undefined : draftUploads.current.get(started.opened)
           const input = { ...values, state: 'TODO' } as const
-          const created =
-            changes.drafts && draft?.id !== undefined && !draft.unavailable
-              ? await changes.drafts.add(await caller(), draft.id, input)
-              : await changes.create(await caller(), input)
-          if (draft && draft.id !== undefined) {
-            draft.added = true
+          let created: BoardTask | undefined
+          if (changes.drafts && draft?.id !== undefined && !draft.unavailable) {
+            try {
+              created = await changes.drafts.add(await caller(), draft.id, input)
+              draft.added = true
+            } catch (cause) {
+              // Swept while the form stood open past the hour (#381): added the way it was before
+              // drafts, its files uploaded again from the phone.
+              if (!(cause instanceof RequestFailedError && cause.status === 404)) {
+                throw cause
+              }
+              draft.unavailable = true
+              draft.uploaded.clear()
+            }
           }
+          created ??= await changes.create(await caller(), input)
           setTasks((tasks) => [...tasks, created])
           keep((kept) => kept.set(created.id, created))
           // What is not on the draft yet -- all of it, without one -- goes up now, as before #381.
@@ -1059,6 +1070,12 @@ export function TaskFestApp({
       }
     } catch (cause) {
       const text = refusalText(cause, file.name) ?? (await failed(cause, messages.attachments.uploadFailed(file.name)))
+      if (text === null) {
+        // Nothing to say -- the board shown is not current, or the sign-in ended: the files wait
+        // for Add, as before drafts, rather than vanish.
+        draft.unavailable = true
+        return
+      }
       setForm((current) =>
         current?.opened === opened
           ? { ...current, pending: current.pending?.filter((each) => each !== file), failure: text || current.failure }
@@ -1083,12 +1100,14 @@ export function TaskFestApp({
     }
     draftBusy.current = true
     // After this render, not in it: the upload says how far it has got from its first step.
-    queueMicrotask(() =>
+    queueMicrotask(() => {
+      setDraftWorking(true)
       void uploadToDraft(opened, next).finally(() => {
         draftBusy.current = false
+        setDraftWorking(false)
         setDraftTurn((turn) => turn + 1)
-      }),
-    )
+      })
+    })
   })
 
   // Closed without Add -- cancelled, or closed by a sign-out -- its draft goes with its files. After
@@ -1375,7 +1394,7 @@ export function TaskFestApp({
                   onSave={save}
                   onDelete={form.task ? () => void remove([form.task!]) : undefined}
                   onRemoveFile={files && form.task ? (attachment) => void removeFile(form.task!, attachment) : undefined}
-                  busy={form.task ? busy.has(form.task.id) : false}
+                  busy={form.task ? busy.has(form.task.id) : draftWorking}
                   pending={form.task ? undefined : (form.pending ?? [])}
                   draft={form.description}
                   uploading={uploading?.taskId === (form.task?.id ?? 'new') ? uploading : null}

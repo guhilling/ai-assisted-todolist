@@ -32,16 +32,13 @@ import org.junit.jupiter.api.Test;
 
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.equalTo;
-import static org.hamcrest.Matchers.hasItem;
-import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * A draft task (#381): what the app's add form attaches files to before Add, so they upload while
- * the form is filled in. A task with a draft marker, invisible wherever a task is seen until it is
- * added; discarded with its files on Cancel, and swept with them once abandoned for longer than an
- * upload may stay pending.
+ * A draft task's files (#381): what the app's add form uploads before Add, so they go up while the
+ * form is filled in. Added with the task, discarded with the draft on Cancel, and swept with it once
+ * abandoned for longer than an upload may stay pending. {@link DraftResourceTest} has the rest.
  *
  * <p>Against S3 in LocalStack, like {@link AttachmentResourceTest}; each test signs in as its own
  * user, because the per-user limit counts a draft's files too.</p>
@@ -64,18 +61,6 @@ class DraftTaskTest {
     DraftSweep drafts;
 
     @Test
-    @TestSecurity(user = "draft-hidden@example.com")
-    @OidcSecurity(claims = { @Claim(key = "email", value = "draft-hidden@example.com") })
-    void shouldKeepADraftOffTheBoardAndOutOfReachAsATask() {
-        long draftId = createDraft();
-
-        given().when().get("/api/tasks").then().statusCode(200).body("id", not(hasItem((int) draftId)));
-        given().contentType(ContentType.JSON).body(fields("Not yet a task"))
-            .when().put("/api/tasks/" + draftId).then().statusCode(404);
-        given().when().delete("/api/tasks/" + draftId).then().statusCode(404);
-    }
-
-    @Test
     @TestSecurity(user = "draft-added@example.com")
     @OidcSecurity(claims = { @Claim(key = "email", value = "draft-added@example.com") })
     void shouldAddADraftWithTheFilesUploadedToIt() throws Exception {
@@ -96,24 +81,6 @@ class DraftTaskTest {
     }
 
     @Test
-    @TestSecurity(user = "draft-invalid@example.com")
-    @OidcSecurity(claims = { @Claim(key = "email", value = "draft-invalid@example.com") })
-    void shouldAddADraftOnlyWithWhatACreateTakes() {
-        long draftId = createDraft();
-
-        given().contentType(ContentType.JSON)
-            .body(Map.of("description", " ", "dueDate", LocalDate.now().plusDays(1).toString(),
-                "importance", TaskImportance.MEDIUM.name(), "state", TaskState.TODO.name()))
-            .when().post("/api/tasks/drafts/" + draftId + "/add").then().statusCode(400);
-        given().contentType(ContentType.JSON)
-            .body(Map.of("description", "Yesterday", "dueDate", LocalDate.now().minusDays(1).toString(),
-                "importance", TaskImportance.MEDIUM.name(), "state", TaskState.TODO.name()))
-            .when().post("/api/tasks/drafts/" + draftId + "/add").then().statusCode(400);
-
-        given().when().get("/api/tasks").then().body("id", not(hasItem((int) draftId)));
-    }
-
-    @Test
     @TestSecurity(user = "draft-discarded@example.com")
     @OidcSecurity(claims = { @Claim(key = "email", value = "draft-discarded@example.com") })
     void shouldDiscardADraftWithItsFilesAtOnce() throws Exception {
@@ -126,19 +93,6 @@ class DraftTaskTest {
         assertTrue(store.head(key).isEmpty());
         assertEquals(0L, QuarkusTransaction.requiringNew().call(() -> Attachment.count("id", attachmentId)));
         assertEquals(0L, QuarkusTransaction.requiringNew().call(() -> Task.count("id", draftId)));
-    }
-
-    @Test
-    @TestSecurity(user = "draft-not-mine@example.com")
-    @OidcSecurity(claims = { @Claim(key = "email", value = "draft-not-mine@example.com") })
-    void shouldAnswerATaskThatIsNoDraftLikeAMissingDraft() {
-        long taskId = given().contentType(ContentType.JSON).body(fields("Already a task"))
-            .when().post("/api/tasks").then().statusCode(201).extract().jsonPath().getLong("id");
-
-        given().contentType(ContentType.JSON).body(fields("Again"))
-            .when().post("/api/tasks/drafts/" + taskId + "/add").then().statusCode(404);
-        given().when().delete("/api/tasks/drafts/" + taskId).then().statusCode(404);
-        given().when().delete("/api/tasks/drafts/" + Long.MAX_VALUE).then().statusCode(404);
     }
 
     @Test

@@ -2,6 +2,7 @@ package de.hilling.taskfest.api;
 
 import de.hilling.taskfest.attachment.AttachmentService;
 import de.hilling.taskfest.model.Task;
+import de.hilling.taskfest.model.TaskImportance;
 import de.hilling.taskfest.model.User;
 import io.quarkus.security.Authenticated;
 import jakarta.inject.Inject;
@@ -50,11 +51,14 @@ public class DraftResource {
     @Operation(summary = "Start a draft task",
         description = "A task to attach files to before it is added; on no list until then (#381).")
     @APIResponse(responseCode = "201", description = "The draft.",
-        content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = DraftResponse.class)))
+        content = @Content(mediaType = MediaType.APPLICATION_JSON,
+            schema = @Schema(implementation = DraftResponse.class)))
     public Response create() {
         Task draft = new Task();
         draft.owner = tasks.currentUser();
         draft.draft = true;
+        // Not null in the database for every task; Add sets what the form says.
+        draft.importance = TaskImportance.MEDIUM;
         draft.persist();
         return Response.status(Response.Status.CREATED).entity(new DraftResponse(draft.id)).build();
     }

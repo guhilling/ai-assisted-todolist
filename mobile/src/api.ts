@@ -153,8 +153,8 @@ export async function createTask(caller: Caller, input: TaskInput, fetchImpl: ty
 
 /**
  * Starts a draft task (#381): what the add form's files upload to while it is open, out of sight
- * until it is added. A backend from before drafts answers 404, which the caller takes as the files
- * waiting for Add, as they did before.
+ * until it is added. A backend from before drafts refuses it -- to it the path is a task's, which
+ * takes no POST, so 405 -- and the caller lets the files wait for Add, as they did before.
  */
 export async function startDraft(caller: Caller, fetchImpl: typeof fetch = fetch): Promise<number> {
   const data = await send(caller, 'POST', '/api/tasks/drafts', fetchImpl)

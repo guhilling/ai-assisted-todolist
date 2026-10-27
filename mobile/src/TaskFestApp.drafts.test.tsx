@@ -159,9 +159,36 @@ describe('files upload while the add form is open (#381)', () => {
     expect(within(form).queryByRole('button', { name: 'Remove photo.jpg' })).toBeNull()
   })
 
+  it('waits with Add while the draft is being started', async () => {
+    const deps = dependencies()
+    deps.changes.drafts!.start = jest.fn(() => new Promise<number>(() => undefined))
+    const { user, form } = await openAdd(deps)
+    await user.type(within(form).getByLabelText('What needs doing'), 'Pay the bill')
+
+    await user.press(within(form).getByRole('button', { name: 'Choose a photo' }))
+
+    await waitFor(() => expect(within(form).getByRole('button', { name: 'Add' })).toBeDisabled())
+  })
+
+  it('adds the task as before drafts when its draft was swept while the form stood open', async () => {
+    const deps = dependencies()
+    deps.changes.drafts!.add = jest.fn().mockRejectedValue(new RequestFailedError(404))
+    const { user, form } = await openAdd(deps)
+    await user.press(within(form).getByRole('button', { name: 'Choose a photo' }))
+    await waitFor(() => expect(deps.attachments!.upload).toHaveBeenCalledTimes(1))
+    await user.type(within(form).getByLabelText('What needs doing'), 'Pay the bill')
+
+    await user.press(within(form).getByRole('button', { name: 'Add' }))
+
+    await waitFor(() => expect(deps.changes.create).toHaveBeenCalled())
+    await waitFor(() => expect(deps.attachments!.upload).toHaveBeenLastCalledWith(expect.anything(), 2, photo, expect.any(Function)))
+    expect(await screen.findByTestId('task-2')).toBeOnTheScreen()
+  })
+
   it('has the files wait for Add, as before, where the backend has no drafts yet', async () => {
     const deps = dependencies()
-    deps.changes.drafts!.start = jest.fn().mockRejectedValue(new RequestFailedError(404))
+    // /api/tasks/drafts is /api/tasks/{id} to a backend from before drafts, which takes no POST.
+    deps.changes.drafts!.start = jest.fn().mockRejectedValue(new RequestFailedError(405))
     const { user, form } = await openAdd(deps)
 
     await user.press(within(form).getByRole('button', { name: 'Choose a photo' }))

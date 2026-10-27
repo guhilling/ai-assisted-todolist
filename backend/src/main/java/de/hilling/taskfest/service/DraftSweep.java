@@ -16,7 +16,9 @@ import org.slf4j.LoggerFactory;
  * <p>The draft's row goes; its files lose their task through the foreign key's ON DELETE SET NULL,
  * and {@code AttachmentSweep} deletes them, row and object, as it does any attachment whose task went
  * without detaching it. The lifetime is {@code taskfest.attachments.pending-lifetime} (Gunnar's
- * decision on #381), so a draft lasts as long as an announced upload does.</p>
+ * decision on #381), so a draft lasts as long as an announced upload does. A draft being added or
+ * discarded is locked meanwhile; the delete waits for it, and PostgreSQL then checks the row again,
+ * so an added draft is no longer one to delete.</p>
  */
 @ApplicationScoped
 public class DraftSweep {
