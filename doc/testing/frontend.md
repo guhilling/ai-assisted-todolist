@@ -29,7 +29,7 @@ Two details are deliberate:
 
 `AttachWhileAdding.test.tsx` covers attaching in the add row (#216): files held until Add,
 refused at once by type or count, uploaded once the task exists, and a refusal after it that
-leaves the task in place. `Attachments.test.tsx` and `attachments-api.test.ts` cover files on tasks (#204): the row's list,
+leaves the task in place and the row open to say so; the row closes once everything went (#383). `Attachments.test.tsx` and `attachments-api.test.ts` cover files on tasks (#204): the row's list,
 preview, open and remove, and the editor's choose, drop, progress and refusals; and underneath,
 announce, upload and confirm. The upload goes through `XMLHttpRequest`, the only browser API that
 reports upload progress, so both stub it next to `fetch`. Opening a file is asserted to open the

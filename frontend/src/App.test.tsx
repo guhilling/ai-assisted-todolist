@@ -876,7 +876,7 @@ describe('completing a task', () => {
 })
 
 describe('adding a task', () => {
-  it('adds a task, shows it, and clears the form', async () => {
+  it('adds a task, shows it, and closes the add row, as the app does (#383)', async () => {
     const created = task({ id: 9, description: 'Buy milk', dueDate: isoIn(1) })
     const fetchMock = mockApi({ me: ALICE, tasks: [], post: { status: 201, body: created } })
     await renderSignedIn(fetchMock)
@@ -891,7 +891,9 @@ describe('adding a task', () => {
       importance: 'MEDIUM',
       state: 'TODO',
     })
-    expect(screen.getByLabelText('What needs doing')).toHaveValue('')
+    expect(screen.queryByLabelText('What needs doing')).not.toBeInTheDocument()
+    // Where the next task starts: Enter, or n, opens the row again.
+    expect(screen.getByRole('button', { name: /add a task/i })).toHaveFocus()
   })
 
   it('defaults to tomorrow, so adding a task needs no date interaction', async () => {
