@@ -23,6 +23,9 @@ at its head, opens the account sheet ([account.md](account.md)).
 - **Edit a task** — a tap on it opens the same form with its values, and with the state too: not
   started or done. A task still in progress, which none should be any more (#334), shows as not
   started and is saved so. An edit may date a task in the past, as on the website's.
+- **The keyboard leaves the buttons in reach** (#382). Add or Save, Cancel and Delete sit below the
+  form's fields, and the form gives way to the keyboard: the fields scroll in what is left above it,
+  and the buttons stay above it, so a task can be added straight from typing its description.
 - **Complete or reopen a task** — the circle in front of it, which a completed task shows ticked in the website's green.
 - **Delete a task** — from its form, at once and without "are you sure?": an offer to undo stands
   below the board for eight seconds. **Clear completed** deletes every completed task the same way.
@@ -86,4 +89,5 @@ connection — read, not changed ([decisions/mobile-app.md](../decisions/mobile-
 
 Component tests cover each piece (`TaskForm.test.tsx`, `TaskFestApp.changes.test.tsx`), and the
 Maestro flow `mobile/maestro/change-tasks.yaml` adds, edits, completes, deletes and undoes a task
-in the built app, against the end-to-end stack.
+in the built app, against the end-to-end stack; `keyboard.yaml` then adds one with the keyboard
+still open.

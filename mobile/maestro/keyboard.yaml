@@ -1,0 +1,20 @@
+# Adds a task with the keyboard still open (#382): the form's buttons stay above it, so Add is
+# tapped where it shows, not under the keyboard. Runs after the board flow, signed in.
+appId: de.hilling.taskfest.dev
+name: Add a task with the keyboard open
+---
+- tapOn: "Add a task"
+- tapOn:
+    id: "task-description"
+- inputText: "Call the plumber"
+- waitForAnimationToEnd
+- takeScreenshot: 40-keyboard-open
+- tapOn: "Add"
+# The board's row, not the description still in the form: a tap the keyboard took would leave the
+# form open with that text in it.
+- extendedWaitUntil:
+    visible: 'Mark "Call the plumber" as done'
+    timeout: 10000
+- assertNotVisible:
+    id: "task-description"
+- takeScreenshot: 41-added-with-keyboard-open

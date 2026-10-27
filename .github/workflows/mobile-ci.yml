@@ -294,6 +294,7 @@ jobs:
             maestro-offline-*.xml
             maestro-reminders.xml
             maestro-attach.xml
+            maestro-keyboard.xml
             maestro-share-*.xml
           retention-days: 14
 
