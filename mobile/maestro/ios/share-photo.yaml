@@ -35,16 +35,13 @@ name: Share a photo into the app through iOS's share sheet
       - tapOn: "More"
       - waitForAnimationToEnd
 - tapOn: "TaskFest Dev"
-# Photos prepares the photo for the extension first, which a fresh simulator takes its time over.
-- extendedWaitUntil:
-    notVisible: "Preparing.*"
-    timeout: 120000
-- takeScreenshot: ios-share-photo-2-prepared
-# The extension opens the app by its URL scheme; the simulator's iOS asks first, which another
-# release may not.
+# Photos prepares the photo for the extension first -- "Preparing…", which may show only after a
+# moment and then take a minute or two on a fresh simulator -- and the extension then opens the app
+# by its URL scheme. The simulator's iOS asks first, which another release may not.
 - extendedWaitUntil:
     visible: '(Open in .TaskFest Dev.\?|Sign in with Keycloak)'
-    timeout: 60000
+    timeout: 180000
+- takeScreenshot: ios-share-photo-2-handed-over
 - runFlow:
     when:
       visible: 'Open in .TaskFest Dev.\?'
