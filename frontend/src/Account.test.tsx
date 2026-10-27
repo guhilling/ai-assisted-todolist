@@ -70,13 +70,42 @@ describe('the account dialog (#385)', () => {
     expect(screen.getByRole('button', { name: 'Account' })).toHaveAttribute('aria-expanded', 'true')
   })
 
-  it('closes on Escape, giving the focus back to Account', async () => {
+  it('takes the focus, and closes on Escape from there, giving it back to Account', async () => {
     await signedInBoard(backend({ signedIn: true }))
 
-    fireEvent.keyDown(screen.getByRole('dialog', { name: 'Account' }), { key: 'Escape' })
+    expect(screen.getByRole('link', { name: 'Sign out' })).toHaveFocus()
+    fireEvent.keyDown(document.activeElement as Element, { key: 'Escape' })
 
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Account' })).toHaveFocus()
+  })
+
+  it('closes when the focus leaves it', async () => {
+    await signedInBoard(backend({ signedIn: true }))
+
+    fireEvent.focusIn(screen.getByRole('button', { name: /add a task/i }))
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
+  it('holds still on Account while the confirmation inside it is open', async () => {
+    await signedInBoard(backend({ signedIn: true }))
+    fireEvent.click(screen.getByRole('button', { name: 'Delete account' }))
+    fireEvent.change(screen.getByLabelText('Type your email address to confirm'), { target: { value: 'alice@' } })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Account' }))
+    fireEvent.pointerDown(screen.getByRole('heading', { level: 1, name: 'TaskFest' }))
+
+    expect(screen.getByLabelText('Type your email address to confirm')).toHaveValue('alice@')
+  })
+
+  it('closes, confirmation and all, on Escape elsewhere in it', async () => {
+    await signedInBoard(backend({ signedIn: true }))
+    fireEvent.click(screen.getByRole('button', { name: 'Delete account' }))
+
+    fireEvent.keyDown(screen.getByRole('link', { name: 'Sign out' }), { key: 'Escape' })
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
   it('closes on a click outside it', async () => {

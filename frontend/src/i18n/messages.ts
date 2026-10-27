@@ -148,7 +148,7 @@ export const en = {
     todo: 'Not started',
     done: 'Done',
   },
-  /** Deleting one's own account (#213): the header's button, its confirmation, and the note after. */
+  /** Deleting one's own account (#213): its button in the account dialog, its confirmation, and the note after. */
   account: {
     delete: 'Delete account',
     title: 'Delete your account?',
@@ -158,7 +158,10 @@ export const en = {
     confirm: 'Delete my account',
     deleting: 'Deleting…',
     deleted: 'Your account has been deleted. Signing in again starts a new, empty one.',
-    /** The mobile app's account sheet (#275): its button on the board and its title, who is signed in, and closing it. */
+    /**
+     * The account dialog on the website (#385) and the app's account sheet (#275): its button and
+     * title, who is signed in, and, in the app, closing it.
+     */
     open: 'Account',
     signedInAs: (email: string) => `Signed in as ${email}`,
     done: 'Done',

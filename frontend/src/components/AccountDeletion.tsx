@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { confirmsEmail } from '../confirmsEmail'
 import { useEscapeWithin } from '../escape'
 import { useReturnFocus } from '../focus'
@@ -9,7 +9,10 @@ type AccountDeletionProps = {
   email: string
   /** Deletes the account and says whether it went; on success the board signs out. */
   onDelete: () => Promise<boolean>
-  /** Told when the confirmation opens and closes, so the account dialog around it can hold still (#385). */
+  /**
+   * Told when the confirmation opens and closes, so the account dialog around it can hold still
+   * (#385); given, the confirmation sits in that dialog's flow rather than as a panel of its own.
+   */
   onAsking?: (asking: boolean) => void
 }
 
@@ -37,21 +40,23 @@ function AccountDeletion({ email, onDelete, onAsking }: Readonly<AccountDeletion
   // falls to the page body when the dialog unmounts, and a keyboard user starts over at the top.
   const returnFocus = useReturnFocus(asking, trigger)
 
+  // Told as it happens rather than from an effect, so the dialog around it never acts on a stale answer.
+  const ask = (now: boolean) => {
+    setAsking(now)
+    onAsking?.(now)
+  }
+
   const close = () => {
     returnFocus()
     setTyped('')
-    setAsking(false)
+    ask(false)
   }
 
   useEscapeWithin(dialog, close)
 
-  useEffect(() => {
-    onAsking?.(asking)
-  }, [asking, onAsking])
-
   if (!asking) {
     return (
-      <button type="button" className="account-delete" ref={trigger} onClick={() => setAsking(true)}>
+      <button type="button" className="account-delete" ref={trigger} onClick={() => ask(true)}>
         {messages.account.delete}
       </button>
     )
@@ -59,7 +64,7 @@ function AccountDeletion({ email, onDelete, onAsking }: Readonly<AccountDeletion
 
   return (
     <section
-      className="account-confirm"
+      className={onAsking ? 'account-confirm' : 'account-confirm header-popover'}
       role="alertdialog"
       aria-labelledby="account-confirm-title"
       aria-describedby="account-confirm-body"

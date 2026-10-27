@@ -120,10 +120,9 @@ restrict its processing, to receive it in a machine-readable form, and to object
 based on legitimate interests (Art. 15–21 GDPR).
 
 **To delete your account**, use *Account* → *Delete account* at the top of the board. After a
-confirmation,
-your account is deleted at once with everything it holds: your email address, all your tasks and
-all your files. The one exception is a file that was still being uploaded at that moment: it can
-arrive after the deletion, and is then deleted within seven days. You are then signed out.
+confirmation, your account is deleted at once with everything it holds: your email address, all your
+tasks and all your files. The one exception is a file that was still being uploaded at that moment:
+it can arrive after the deletion, and is then deleted within seven days. You are then signed out.
 Signing in again later starts a new, empty account -- and so does using a session you left open on
 another device, which cannot be ended from here. You can also write to the contact address above.
 
