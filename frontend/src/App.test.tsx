@@ -444,6 +444,7 @@ describe('in German', () => {
     expect(screen.getByRole('heading', { name: 'Morgen' })).toBeInTheDocument()
     expect(screen.getByLabelText('„Pass erneuern“ als erledigt markieren')).toBeInTheDocument()
     expect(screen.getByText('Hoch')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Konto' }))
     expect(screen.getByRole('link', { name: 'Abmelden' })).toBeInTheDocument()
   })
 
@@ -499,6 +500,8 @@ describe('signed in', () => {
     await renderSignedIn(mockApi({ me: ALICE }))
 
     expect(screen.getByText('alice@example.com')).toBeInTheDocument()
+    // Behind Account (#385).
+    fireEvent.click(screen.getByRole('button', { name: 'Account' }))
     expect(screen.getByRole('link', { name: /sign out/i })).toHaveAttribute('href', '/api/auth/logout')
   })
 

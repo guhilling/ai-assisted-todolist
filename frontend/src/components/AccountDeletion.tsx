@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { confirmsEmail } from '../confirmsEmail'
 import { useEscapeWithin } from '../escape'
 import { useReturnFocus } from '../focus'
@@ -9,10 +9,12 @@ type AccountDeletionProps = {
   email: string
   /** Deletes the account and says whether it went; on success the board signs out. */
   onDelete: () => Promise<boolean>
+  /** Told when the confirmation opens and closes, so the account dialog around it can hold still (#385). */
+  onAsking?: (asking: boolean) => void
 }
 
 /**
- * Deleting one's own account (#213): a quiet button in the header, and a confirmation that says
+ * Deleting one's own account (#213): a quiet button in the account dialog (#385), and a confirmation that says
  * plainly what goes before anything happens.
  *
  * Unlike deleting a task, there is no undo afterwards, so the confirmation comes first and the
@@ -23,7 +25,7 @@ type AccountDeletionProps = {
  * makes the address someone's own. Cancel and Escape close it, and focus goes back to the button
  * it was opened from.
  */
-function AccountDeletion({ email, onDelete }: Readonly<AccountDeletionProps>) {
+function AccountDeletion({ email, onDelete, onAsking }: Readonly<AccountDeletionProps>) {
   const { messages } = useI18n()
   const [asking, setAsking] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -42,6 +44,10 @@ function AccountDeletion({ email, onDelete }: Readonly<AccountDeletionProps>) {
   }
 
   useEscapeWithin(dialog, close)
+
+  useEffect(() => {
+    onAsking?.(asking)
+  }, [asking, onAsking])
 
   if (!asking) {
     return (

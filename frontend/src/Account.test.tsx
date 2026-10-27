@@ -48,7 +48,63 @@ async function signedInBoard(fetchMock: ReturnType<typeof backend>) {
   globalThis.fetch = fetchMock as unknown as typeof fetch
   render(<App />)
   await waitFor(() => expect(screen.getByRole('button', { name: /add a task/i })).toBeInTheDocument())
+  // Sign out and Delete account are in the account dialog (#385).
+  fireEvent.click(screen.getByRole('button', { name: 'Account' }))
 }
+
+describe('the account dialog (#385)', () => {
+  it('keeps Sign out and Delete account behind Account, as the app does', async () => {
+    globalThis.fetch = backend({ signedIn: true }) as unknown as typeof fetch
+    render(<App />)
+    await waitFor(() => expect(screen.getByRole('button', { name: /add a task/i })).toBeInTheDocument())
+
+    expect(screen.queryByRole('link', { name: 'Sign out' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Delete account' })).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Account' }))
+
+    const dialog = screen.getByRole('dialog', { name: 'Account' })
+    expect(dialog).toHaveTextContent('Signed in as alice@example.com')
+    expect(screen.getByRole('link', { name: 'Sign out' })).toHaveAttribute('href', '/api/auth/logout')
+    expect(screen.getByRole('button', { name: 'Delete account' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Account' })).toHaveAttribute('aria-expanded', 'true')
+  })
+
+  it('closes on Escape, giving the focus back to Account', async () => {
+    await signedInBoard(backend({ signedIn: true }))
+
+    fireEvent.keyDown(screen.getByRole('dialog', { name: 'Account' }), { key: 'Escape' })
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Account' })).toHaveFocus()
+  })
+
+  it('closes on a click outside it', async () => {
+    await signedInBoard(backend({ signedIn: true }))
+
+    fireEvent.pointerDown(screen.getByRole('heading', { level: 1, name: 'TaskFest' }))
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
+  it('closes on Account again', async () => {
+    await signedInBoard(backend({ signedIn: true }))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Account' }))
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
+  it('leaves itself open when Escape closes only the confirmation inside it', async () => {
+    await signedInBoard(backend({ signedIn: true }))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Delete account' }))
+    fireEvent.keyDown(screen.getByRole('alertdialog'), { key: 'Escape' })
+
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+    expect(screen.getByRole('dialog', { name: 'Account' })).toBeInTheDocument()
+  })
+})
 
 describe('deleting the account', () => {
   it('asks first, saying what goes', async () => {

@@ -119,7 +119,8 @@ You have the right to access the data held about you, to have it corrected or de
 restrict its processing, to receive it in a machine-readable form, and to object to processing
 based on legitimate interests (Art. 15–21 GDPR).
 
-**To delete your account**, use *Delete account* at the top of the board. After a confirmation,
+**To delete your account**, use *Account* → *Delete account* at the top of the board. After a
+confirmation,
 your account is deleted at once with everything it holds: your email address, all your tasks and
 all your files. The one exception is a file that was still being uploaded at that moment: it can
 arrive after the deletion, and is then deleted within seven days. You are then signed out.

@@ -129,7 +129,8 @@ Sie haben das Recht auf Auskunft über die zu Ihnen gespeicherten Daten, auf Ber
 Löschung, auf Einschränkung der Verarbeitung, auf Datenübertragbarkeit und auf Widerspruch gegen
 eine Verarbeitung, die auf berechtigten Interessen beruht (Art. 15–21 DSGVO).
 
-**Um Ihr Konto zu löschen**, wählen Sie oben auf der Übersicht *Konto löschen*. Nach einer
+**Um Ihr Konto zu löschen**, wählen Sie oben auf der Übersicht *Konto* → *Konto löschen*. Nach
+einer
 Bestätigung wird Ihr Konto sofort mit allem gelöscht, was es enthält: Ihre E-Mail-Adresse, alle
 Ihre Aufgaben und alle Ihre Dateien. Einzige Ausnahme ist eine Datei, die in diesem Moment noch
 hochgeladen wurde: Sie kann nach der Löschung ankommen und wird dann innerhalb von sieben Tagen
