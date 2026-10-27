@@ -155,6 +155,40 @@ html {
   font-size: var(--font-small);
 }
 
+/* ---------- the account dialog (#385) ---------- */
+
+/* A button that reads as the header's text link it sits among: .text-link gives it the colour. */
+.account-open {
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  cursor: pointer;
+}
+
+
+.account-menu-who {
+  margin: 0;
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+
+.account-menu-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+}
+
+/* Inside the dialog the confirmation takes the dialog's whole width, in its flow, below a rule. */
+.account-menu .account-confirm {
+  flex-basis: 100%;
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--danger);
+}
+
 /* ---------- deleting one's own account (#213) ---------- */
 
 .account-delete {
@@ -172,16 +206,17 @@ html {
   text-decoration: underline;
 }
 
-/* Anchored under the header's identity row, as the row menus are under their button, so the board
-   stays readable behind it. */
-.account-confirm {
+/* A panel anchored under the header's identity row, as the row menus are under their button, so the
+   board stays readable behind it: the account dialog (#385), and the deletion's confirmation where
+   it stands on its own (the design system offers it so). */
+.header-popover {
   position: absolute;
   top: calc(100% + var(--space-2));
   right: 0;
   z-index: 10;
   width: min(400px, calc(100vw - var(--space-8)));
   padding: var(--space-4);
-  border: 1px solid var(--danger);
+  border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--surface);
   box-shadow: 0 4px 16px color-mix(in srgb, var(--text) 15%, transparent);
@@ -191,13 +226,17 @@ html {
 /* On a phone the header wraps and the identity row starts at the left gutter, so a panel anchored
    to its right edge would hang off the screen: there it spans the page between the gutters. */
 @media (max-width: 480px) {
-  .account-confirm {
+  .header-popover {
     position: fixed;
     top: var(--space-16);
     right: var(--space-4);
     left: var(--space-4);
     width: auto;
   }
+}
+
+.header-popover.account-confirm {
+  border-color: var(--danger);
 }
 
 .account-confirm-title {

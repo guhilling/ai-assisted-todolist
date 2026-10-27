@@ -14,6 +14,7 @@ import './index.css'
 import './App.css'
 
 export { default as AccountDeletion } from './components/AccountDeletion'
+export { default as AccountMenu } from './components/AccountMenu'
 export { default as AddTaskRow } from './components/AddTaskRow'
 export { default as AttachmentList } from './components/AttachmentList'
 export type { AttachmentActions, UploadOutcome } from './components/AttachmentList'

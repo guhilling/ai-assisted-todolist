@@ -98,6 +98,8 @@ test('signs an account in and manages its tasks', async ({ page }) => {
   const afterReload = await completedRow(page, description)
   await expect(afterReload.getByRole('checkbox')).toBeChecked()
 
+  // Behind Account since #385.
+  await page.getByRole('button', { name: 'Account' }).click()
   await page.getByRole('link', { name: /sign out/i }).click()
   await expect(page.getByRole('link', { name: identity.button })).toBeVisible()
 })

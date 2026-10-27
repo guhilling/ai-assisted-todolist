@@ -176,6 +176,17 @@ task was added — cleared, saying which. From Add until then the row is locked,
 the meantime is lost when it closes.
 
 
+## Sign out and Delete account wait behind Account
+
+**Decision** (#385). The header shows who is signed in and one button, **Account**, which opens a
+dialog under it: *Signed in as …*, **Sign out** and **Delete account** — the app's account sheet,
+on the website. Escape, a click outside and Account itself close it, and the focus goes back to
+Account; while the deletion's confirmation is open inside it, Escape closes only that and a click
+outside does nothing, so a half-typed address is not lost.
+
+**Why.** Neither is something to do with a single click, and the two took the header's room. The
+dialog opens in place, as the confirmation did, so the board stays readable behind it.
+
 ## A task id is checked before it is put in a URL
 
 **Decision.** `putTask` and `deleteTask` build their URL through `taskUrl`, which throws unless

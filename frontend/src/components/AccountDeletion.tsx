@@ -9,10 +9,15 @@ type AccountDeletionProps = {
   email: string
   /** Deletes the account and says whether it went; on success the board signs out. */
   onDelete: () => Promise<boolean>
+  /**
+   * Told when the confirmation opens and closes, so the account dialog around it can hold still
+   * (#385); given, the confirmation sits in that dialog's flow rather than as a panel of its own.
+   */
+  onAsking?: (asking: boolean) => void
 }
 
 /**
- * Deleting one's own account (#213): a quiet button in the header, and a confirmation that says
+ * Deleting one's own account (#213): a quiet button in the account dialog (#385), and a confirmation that says
  * plainly what goes before anything happens.
  *
  * Unlike deleting a task, there is no undo afterwards, so the confirmation comes first and the
@@ -23,7 +28,7 @@ type AccountDeletionProps = {
  * makes the address someone's own. Cancel and Escape close it, and focus goes back to the button
  * it was opened from.
  */
-function AccountDeletion({ email, onDelete }: Readonly<AccountDeletionProps>) {
+function AccountDeletion({ email, onDelete, onAsking }: Readonly<AccountDeletionProps>) {
   const { messages } = useI18n()
   const [asking, setAsking] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -35,17 +40,23 @@ function AccountDeletion({ email, onDelete }: Readonly<AccountDeletionProps>) {
   // falls to the page body when the dialog unmounts, and a keyboard user starts over at the top.
   const returnFocus = useReturnFocus(asking, trigger)
 
+  // Told as it happens rather than from an effect, so the dialog around it never acts on a stale answer.
+  const ask = (now: boolean) => {
+    setAsking(now)
+    onAsking?.(now)
+  }
+
   const close = () => {
     returnFocus()
     setTyped('')
-    setAsking(false)
+    ask(false)
   }
 
   useEscapeWithin(dialog, close)
 
   if (!asking) {
     return (
-      <button type="button" className="account-delete" ref={trigger} onClick={() => setAsking(true)}>
+      <button type="button" className="account-delete" ref={trigger} onClick={() => ask(true)}>
         {messages.account.delete}
       </button>
     )
@@ -53,7 +64,7 @@ function AccountDeletion({ email, onDelete }: Readonly<AccountDeletionProps>) {
 
   return (
     <section
-      className="account-confirm"
+      className={onAsking ? 'account-confirm' : 'account-confirm header-popover'}
       role="alertdialog"
       aria-labelledby="account-confirm-title"
       aria-describedby="account-confirm-body"

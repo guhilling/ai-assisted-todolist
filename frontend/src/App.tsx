@@ -33,7 +33,7 @@ import {
   type TaskState,
 } from './api'
 import { rememberAccountDeleted, takeAccountDeleted } from './accountDeleted'
-import AccountDeletion from './components/AccountDeletion'
+import AccountMenu from './components/AccountMenu'
 import AddTaskRow from './components/AddTaskRow'
 import type { AttachmentActions, UploadOutcome } from './components/AttachmentList'
 import type { TaskEdit } from './components/TaskEditor'
@@ -432,10 +432,7 @@ function Board() {
         <div className="app-identity">
           <UserAvatar email={currentUser.email} name={currentUser.name} pictureUrl={currentUser.pictureUrl} />
           <span className="app-email">{currentUser.name ?? currentUser.email}</span>
-          <a className="text-link" href={authLogoutUrl}>
-            {messages.app.signOut}
-          </a>
-          <AccountDeletion email={currentUser.email} onDelete={deleteMyAccount} />
+          <AccountMenu email={currentUser.email} logoutUrl={authLogoutUrl} onDelete={deleteMyAccount} />
         </div>
       </header>
 
