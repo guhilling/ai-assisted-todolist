@@ -7,9 +7,11 @@ name: Share a link into the app through iOS's share sheet
 - openLink:
     link: https://example.com
     browser: true
-# Until the page is there, Safari shows its start page, whose card would take the taps below.
+# Until the page is there, Safari shows its start page, whose card would take the taps below. The
+# page's own text is out of Maestro's reach under the tip below, so the wait is for the tip, or for
+# the ⋯ button where there is none.
 - extendedWaitUntil:
-    visible: "Learn more"
+    visible: "(View Bookmarks.*|More)"
     timeout: 60000
 - waitForAnimationToEnd:
     timeout: 8000
