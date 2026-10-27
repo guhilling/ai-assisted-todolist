@@ -1,6 +1,7 @@
 /**
- * Where the footer's legal links go (#193, #203). Their own module, so the component file exports
- * only its component and the design system can export the addresses.
+ * Where the footer's legal links go (#193, #203), and the documentation, which the app also links
+ * at its top (#384). Their own module, so the component files export only their components, the
+ * design system can export the addresses, and the app imports the same ones.
  */
 import type { Language } from './i18n/language'
 

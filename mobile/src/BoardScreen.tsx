@@ -13,7 +13,7 @@ const UNDO_FOR_MS = 8000
 /**
  * The board (#267, #271): the website's sections and order, a tick to complete or reopen a task, a
  * tap on it to edit it, and the add button, the offer to undo a delete and any failure below. The
- * account sheet opens from the head of it (#275). The board kept on the phone is shown the same way,
+ * account sheet opens from the head of it (#275), and the documentation beside it (#384). The board kept on the phone is shown the same way,
  * with a note above it while it waits for, or could not get, the current one (#272). The offer to
  * turn the due-day reminders on stands above the board until it is answered (#273).
  *

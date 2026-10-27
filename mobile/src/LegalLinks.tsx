@@ -48,7 +48,7 @@ export function LegalLinks({
 export function AboutLink({ messages, styles }: { messages: Messages; styles: Styles }) {
   return (
     <Pressable accessibilityRole="link" style={styles.quietButton} onPress={() => void Linking.openURL(purposeUrl)}>
-      <Text style={styles.legalLink}>{messages.footer.about}</Text>
+      <Text style={styles.quietButtonText}>{messages.footer.about}</Text>
     </Pressable>
   )
 }
