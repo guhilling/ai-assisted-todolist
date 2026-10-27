@@ -876,7 +876,7 @@ describe('completing a task', () => {
 })
 
 describe('adding a task', () => {
-  it('adds a task, shows it, and clears the form', async () => {
+  it('adds a task, shows it, and closes the add row, as the app does (#383)', async () => {
     const created = task({ id: 9, description: 'Buy milk', dueDate: isoIn(1) })
     const fetchMock = mockApi({ me: ALICE, tasks: [], post: { status: 201, body: created } })
     await renderSignedIn(fetchMock)
@@ -891,7 +891,9 @@ describe('adding a task', () => {
       importance: 'MEDIUM',
       state: 'TODO',
     })
-    expect(screen.getByLabelText('What needs doing')).toHaveValue('')
+    expect(screen.queryByLabelText('What needs doing')).not.toBeInTheDocument()
+    // Where the next task starts: Enter, or n, opens the row again.
+    expect(screen.getByRole('button', { name: /add a task/i })).toHaveFocus()
   })
 
   it('defaults to tomorrow, so adding a task needs no date interaction', async () => {
@@ -970,6 +972,28 @@ describe('adding a task', () => {
     fireEvent.keyDown(screen.getByLabelText('What needs doing'), { key: 'a' })
 
     expect(screen.getByLabelText('What needs doing')).toHaveValue('Still typing')
+  })
+
+  it('gives the focus back to Add a task when closed with Escape or Cancel (#383)', async () => {
+    await renderSignedIn(mockApi({ me: ALICE, tasks: [] }))
+
+    startAdding('Not now')
+    fireEvent.keyDown(screen.getByLabelText('What needs doing'), { key: 'Escape' })
+    expect(screen.getByRole('button', { name: /add a task/i })).toHaveFocus()
+
+    startAdding('Not now either')
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    expect(screen.getByRole('button', { name: /add a task/i })).toHaveFocus()
+  })
+
+  it('gives the focus back to the description when an add fails', async () => {
+    await renderSignedIn(mockApi({ me: ALICE, tasks: [], post: { status: 500 } }))
+
+    startAdding('Doomed task')
+    fireEvent.click(screen.getByRole('button', { name: 'Add' }))
+
+    await waitFor(() => expect(screen.getByText('Unable to create task.')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByLabelText('What needs doing')).toHaveFocus())
   })
 
   it('collapses on Escape and on Cancel, forgetting what was typed', async () => {

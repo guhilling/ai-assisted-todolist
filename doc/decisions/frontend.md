@@ -168,6 +168,13 @@ reads aloud as a sentence and adds no second "High" beside the form's.
 **Also.** `n` opens the add row from anywhere on the board, ignored while the caret is in a
 field or a modifier is held, so it cannot swallow a typed letter or shadow a browser command.
 
+**The row closes once a task is added** (#383), as the app's form does: the website and the app
+behave the same, and the board, not an empty form, is what is left to look at. The focus goes back
+to the row's button, so Enter or `n` starts the next task — as it does after Cancel or Escape. A
+failed add keeps it open with what was typed, and so does a file that did not make it after the
+task was added — cleared, saying which. From Add until then the row is locked, so nothing typed in
+the meantime is lost when it closes.
+
 
 ## A task id is checked before it is put in a URL
 
@@ -403,7 +410,8 @@ and Cancel undoing it would mean deleting what was just sent.
 no task to upload to yet. The add row checks each file at once -- type, size and how many a task
 may have, with the same `checkFile` the upload uses -- and uploads the held ones, in parallel, once
 the task exists. A file refused then does not undo the task: the row names it and says why, and it
-can be attached again from the editor. The editor and the add row share the drop zone (`FileDrop`)
+can be attached again from the editor; the row stays open to say so, where it closes once
+everything went (#383). The editor and the add row share the drop zone (`FileDrop`)
 and the uploading with its progress and messages (`useUploads`).
 
 ## The mark is a panda with a ticked ear

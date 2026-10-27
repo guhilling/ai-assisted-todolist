@@ -28,10 +28,11 @@ export function useUploads(upload: AttachmentActions['upload'] | undefined) {
 
   const addProblem = (text: string) => setProblems((current) => [...current, { key: keyed(), text }])
 
+  /** Uploads one file to the task: whether it got there. */
   const uploadOne = async (task: Task, file: File) => {
     if (!upload) {
       addProblem(messages.attachments.uploadFailed(file.name))
-      return
+      return false
     }
     const key = keyed()
     setUploads((current) => [...current, { key, fileName: file.name, fraction: 0 }])
@@ -41,9 +42,13 @@ export function useUploads(upload: AttachmentActions['upload'] | undefined) {
     setUploads((current) => current.filter((each) => each.key !== key))
     if ('refusal' in outcome) {
       addProblem(messages.attachments.refusals[outcome.refusal](file.name))
-    } else if ('failed' in outcome) {
-      addProblem(messages.attachments.uploadFailed(file.name))
+      return false
     }
+    if ('failed' in outcome) {
+      addProblem(messages.attachments.uploadFailed(file.name))
+      return false
+    }
+    return true
   }
 
   return {
@@ -52,9 +57,10 @@ export function useUploads(upload: AttachmentActions['upload'] | undefined) {
     /** Adds a sentence of its own, for a file refused before any upload. */
     addProblem,
     clearProblems: () => setProblems([]),
-    /** Uploads these files to the task, all at once, and resolves when every one has finished. */
+    /** Uploads these files to the task, all at once, and resolves when every one has finished: whether all got there. */
     uploadAll: async (task: Task, files: File[]) => {
-      await Promise.all(files.map((file) => uploadOne(task, file)))
+      const arrived = await Promise.all(files.map((file) => uploadOne(task, file)))
+      return arrived.every(Boolean)
     },
   }
 }

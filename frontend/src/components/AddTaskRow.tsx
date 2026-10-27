@@ -31,9 +31,11 @@ type AddTaskRowProps = {
  * Files can be attached here too (#216). They are held in the browser until Add -- checked at once
  * for type, size and how many a task may have -- and uploaded once the task exists. A file that
  * cannot be attached then does not undo the task: the row says which and why, and it can be
- * attached again from the editor. The row clears once everything has gone, and is locked while
- * it goes -- fields, buttons, the drop zone and Escape -- so nothing typed or dropped meanwhile is
- * lost when it clears. Escape does nothing from the moment Add is pressed, while the task is
+ * attached again from the editor. Once everything has gone, the row closes, as the app's form does
+ * (#383); a file that did not make it keeps it open, cleared, to say so. However it closes, the
+ * focus returns to its button, where Enter or `n` starts the next task. From Add until then it is
+ * locked -- fields, buttons, the drop zone and Escape -- so nothing typed or dropped meanwhile is
+ * lost when it clears or closes. Escape does nothing from the moment Add is pressed, while the task is
  * created as well: closed then, the row would have its files go up for a row no longer there.
  */
 function AddTaskRow({ today, saving, onAdd, attachments }: Readonly<AddTaskRowProps>) {
@@ -43,6 +45,11 @@ function AddTaskRow({ today, saving, onAdd, attachments }: Readonly<AddTaskRowPr
   const [dueDate, setDueDate] = useState(addDays(today, 1))
   const [importance, setImportance] = useState<TaskImportance>('MEDIUM')
   const descriptionRef = useRef<HTMLInputElement>(null)
+  const opener = useRef<HTMLButtonElement>(null)
+  // Whether the row has been open, so its closing -- not the board's first drawing -- moves the focus.
+  const wasOpen = useRef(false)
+  // Set when Add did not close the row, so the description takes the focus once the row is unlocked.
+  const refocus = useRef(false)
   const form = useRef<HTMLFormElement>(null)
   const [held, setHeld] = useState<{ key: number; file: File }[]>([])
   const [sending, setSending] = useState(false)
@@ -56,9 +63,20 @@ function AddTaskRow({ today, saving, onAdd, attachments }: Readonly<AddTaskRowPr
 
   useEffect(() => {
     if (open) {
+      wasOpen.current = true
       descriptionRef.current?.focus()
+    } else if (wasOpen.current) {
+      opener.current?.focus()
     }
   }, [open])
+
+  // A locked fieldset cannot take the focus, so it is given back once React has unlocked it.
+  useEffect(() => {
+    if (open && !saving && !sending && refocus.current) {
+      refocus.current = false
+      descriptionRef.current?.focus()
+    }
+  }, [open, saving, sending])
 
   /**
    * `n` opens the add row from anywhere on the board, the way a list app is expected to work.
@@ -141,11 +159,13 @@ function AddTaskRow({ today, saving, onAdd, attachments }: Readonly<AddTaskRowPr
     const saved = await onAdd({ description: description.trim(), dueDate, importance, state: 'TODO' })
     if (!saved) {
       adding.current = false
+      refocus.current = true
       return
     }
+    let arrived = true
     if (held.length > 0) {
       setSending(true)
-      await files.uploadAll(
+      arrived = await files.uploadAll(
         saved,
         held.map((each) => each.file),
       )
@@ -153,12 +173,16 @@ function AddTaskRow({ today, saving, onAdd, attachments }: Readonly<AddTaskRowPr
     }
     adding.current = false
     reset()
-    descriptionRef.current?.focus()
+    if (arrived) {
+      setOpen(false)
+    } else {
+      refocus.current = true
+    }
   }
 
   if (!open) {
     return (
-      <button type="button" className="add-row" onClick={() => setOpen(true)}>
+      <button ref={opener} type="button" className="add-row" onClick={() => setOpen(true)}>
         <span className="add-row-plus" aria-hidden="true">
           +
         </span>
@@ -179,8 +203,8 @@ function AddTaskRow({ today, saving, onAdd, attachments }: Readonly<AddTaskRowPr
         void submit()
       }}
     >
-      {/* Locked while held files upload: the row clears when they have gone, so nothing may change meanwhile. */}
-      <fieldset className="add-form-body" disabled={sending}>
+      {/* Locked from Add until the task and its files have gone: the row then clears or closes, so nothing may change meanwhile. */}
+      <fieldset className="add-form-body" disabled={saving || sending}>
         <input
           ref={descriptionRef}
           className="add-description"

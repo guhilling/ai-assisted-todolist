@@ -109,9 +109,9 @@ describe('attaching while adding a task', () => {
     await waitFor(() => expect(FakeXhr.sent).toHaveLength(2))
     const taskRow = (await screen.findByLabelText('Mark "Pay the bill" as done')).closest('li') as HTMLElement
     await waitFor(() => expect(within(taskRow).getByRole('button', { name: 'Open scan.pdf' })).toBeInTheDocument())
-    // Everything went, so the add row is clear for the next task.
-    expect(screen.getByLabelText('What needs doing')).toHaveValue('')
-    expect(row.queryByText('scan.pdf')).not.toBeInTheDocument()
+    // Everything went, so the add row closes, as the app's form does (#383).
+    expect(screen.queryByLabelText('What needs doing')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Add a task' })).toHaveFocus()
   })
 
   it('lets a held file be dropped again before Add', async () => {
@@ -169,10 +169,9 @@ describe('attaching while adding a task', () => {
     expect(screen.getByLabelText('What needs doing')).toBeInTheDocument()
 
     finish()
-    await waitFor(() => expect(screen.getByLabelText('What needs doing')).toBeEnabled())
+    await waitFor(() => expect(screen.queryByLabelText('What needs doing')).not.toBeInTheDocument())
 
-    // Closing forgets what was said about the last attempt.
-    fireEvent.click(row.getByRole('button', { name: 'Cancel' }))
+    // Opened again, it says nothing of the last attempt.
     fireEvent.click(screen.getByRole('button', { name: 'Add a task' }))
     expect(screen.queryByText('page.html is neither a PDF nor an image.')).not.toBeInTheDocument()
   })
@@ -213,6 +212,57 @@ describe('attaching while adding a task', () => {
     ).toBeInTheDocument()
     const taskRow = screen.getByLabelText('Mark "Pay the bill" as done').closest('li') as HTMLElement
     await waitFor(() => expect(within(taskRow).getByRole('button', { name: 'Open scan.pdf' })).toBeInTheDocument())
+  })
+})
+
+describe('closing the add row after Add (#383)', () => {
+  it('stays open, cleared, when a file did not make it, so the row can say which', async () => {
+    const row = await openAddRow(
+      backend({ announce: () => ({ status: 422, body: { refusal: 'USER_FULL' } }) }),
+    )
+
+    fireEvent.change(row.getByLabelText('choose a file'), { target: { files: [pdf()] } })
+    fireEvent.click(row.getByRole('button', { name: /^Add$/ }))
+
+    expect(
+      await row.findByText('scan.pdf was not attached: you already have as many files as you can. Remove one first.'),
+    ).toBeInTheDocument()
+    expect(screen.getByLabelText('What needs doing')).toHaveValue('')
+    await waitFor(() => expect(screen.getByLabelText('What needs doing')).toHaveFocus())
+  })
+
+  it('forgets a refusal when closed with Cancel', async () => {
+    const row = await openAddRow(backend())
+    fireEvent.change(row.getByLabelText('choose a file'), {
+      target: { files: [new File(['<p>'], 'page.html', { type: 'text/html' })] },
+    })
+    expect(row.getByText('page.html is neither a PDF nor an image.')).toBeInTheDocument()
+
+    fireEvent.click(row.getByRole('button', { name: 'Cancel' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Add a task' }))
+
+    expect(screen.queryByText('page.html is neither a PDF nor an image.')).not.toBeInTheDocument()
+  })
+
+  it('locks the row while the task is created, so nothing typed then is lost, nor can it be closed', async () => {
+    let created: () => void = () => {}
+    const answers = backend()
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input).endsWith('/api/tasks') && init?.method === 'POST') {
+        return new Promise<Response>((resolve) => {
+          created = () => void answers(input, init).then(resolve)
+        })
+      }
+      return answers(input, init)
+    })
+    const row = await openAddRow(fetchMock as unknown as ReturnType<typeof backend>)
+    fireEvent.click(row.getByRole('button', { name: /^Add$/ }))
+
+    await waitFor(() => expect(screen.getByLabelText('What needs doing')).toBeDisabled())
+    expect(row.getByRole('button', { name: 'Cancel' })).toBeDisabled()
+
+    created()
+    await waitFor(() => expect(screen.queryByLabelText('What needs doing')).not.toBeInTheDocument())
   })
 })
 
