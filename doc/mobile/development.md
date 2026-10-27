@@ -90,8 +90,8 @@ since that is all an iOS app's version may be, and the backend logs nothing else
 - **`npm run lint`** (oxlint, the frontend's rules), **`npm run typecheck`**, and
   **`npm run check:deps`** — the frontend's pre-release check, run on the app's lockfile.
 - **Maestro** flows under `mobile/maestro/` drive the built app on an emulator: `sign-in.yaml`
-  signs in and sees the board, `change-tasks.yaml` changes it and `keyboard.yaml` adds a task with the keyboard open
-  ([board.md](board.md)), and
+  signs in and sees the board, `change-tasks.yaml` changes it and `keyboard.yaml` adds a task
+  with the keyboard open ([board.md](board.md)), and
   `account.yaml` opens the account sheet and signs out ([account.md](account.md)). The two flows in
   `offline/` run after the account flow, one at a time: the first loads a board, then `run-on-emulator.sh`
   removes the `adb reverse` the app reaches the backend through — airplane mode alone does not cut

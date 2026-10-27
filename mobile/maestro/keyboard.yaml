@@ -10,7 +10,11 @@ name: Add a task with the keyboard open
 - waitForAnimationToEnd
 - takeScreenshot: 40-keyboard-open
 - tapOn: "Add"
+# The board's row, not the description still in the form: a tap the keyboard took would leave the
+# form open with that text in it.
 - extendedWaitUntil:
-    visible: "Call the plumber"
+    visible: 'Mark "Call the plumber" as done'
     timeout: 10000
+- assertNotVisible:
+    id: "task-description"
 - takeScreenshot: 41-added-with-keyboard-open

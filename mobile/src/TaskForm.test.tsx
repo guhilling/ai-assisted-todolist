@@ -1,4 +1,6 @@
-import { render, screen, userEvent, within } from '@testing-library/react-native'
+import { act, render, screen, userEvent, within } from '@testing-library/react-native'
+import { DeviceEventEmitter, StyleSheet } from 'react-native'
+import { SafeAreaProvider } from 'react-native-safe-area-context'
 import type { BoardTask } from './api'
 import { stylesFor } from './styles'
 import { TaskForm } from './TaskForm'
@@ -236,6 +238,27 @@ describe('the keyboard does not hide the buttons (#382)', () => {
     expect(within(buttons).getByRole('button', { name: 'Cancel' })).toBeOnTheScreen()
     expect(within(fields).queryByRole('button', { name: 'Add' })).toBeNull()
     expect(within(fields).getByLabelText('What needs doing')).toBeOnTheScreen()
+  })
+
+  it('says a refused save beside the buttons, not at the end of the fields the keyboard scrolled away', async () => {
+    await render(form({ failure: 'Unable to create task.' }))
+
+    expect(within(screen.getByTestId('task-form-footer')).getByText('Unable to create task.')).toBeOnTheScreen()
+    expect(within(screen.getByTestId('task-form-fields')).queryByText('Unable to create task.')).toBeNull()
+  })
+
+  it('keeps the buttons clear of the home indicator, until the keyboard covers it', async () => {
+    const insets = { top: 47, bottom: 34, left: 0, right: 0 }
+    await render(
+      <SafeAreaProvider initialMetrics={{ insets, frame: { x: 0, y: 0, width: 390, height: 844 } }}>{form()}</SafeAreaProvider>,
+    )
+    const footer = () => StyleSheet.flatten(screen.getByTestId('task-form-footer').props.style)
+
+    expect(footer().paddingBottom).toBe(50)
+    await act(async () => {
+      DeviceEventEmitter.emit('keyboardDidShow', {})
+    })
+    expect(footer().paddingBottom).toBe(16)
   })
 
   it('keeps Save and Delete there too, when a task is edited', async () => {
