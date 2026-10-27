@@ -14,13 +14,18 @@ the raw share, is in [decisions/mobile-app.md](../decisions/mobile-app.md).
   by type (`mobile/src/shareExtension.ts`): those whose every item is an image, a PDF, a link or
   text — a link or text that is not a file, so a `.txt` from the Files app is not offered. (Android
   offers it, as text, and the form then says the file's type is not taken.)
-- **The share sheet says what it does**: *Create Task* — *Create Task (QA)* and *Create Task
-  (Dev)* in the other builds, so that two installed side by side can be told apart
-  (`mobile/src/variants.ts`). On iOS it is the extension's name, the one line beneath TaskFest's
-  icon (`mobile/plugins/withShareExtensionName.ts`), where the plugin would call it
-  "expo-sharing-extension". On Android it is the label of the shares the app is offered for
+- **Android's share sheet says what it does**: *Create Task* — *Create Task (QA)* and *Create
+  Task (Dev)* in the other builds, so that two installed side by side can be told apart
+  (`mobile/src/variants.ts`). It is the label of the shares the app is offered for
   (`mobile/plugins/withShareLabel.ts`), which the share sheet shows beneath the app's name, as it
   shows Maps' *Add to …*.
+- **iOS's share sheet shows the app**: TaskFest's icon and name — *TaskFest*, *TaskFest QA*,
+  *TaskFest Dev* — in the row of apps, not the extension's own name: iOS 26 names every share
+  extension there by its app. It is the row of icons, not the **Actions** list beneath it:
+  that list is for action extensions, a different kind, which TaskFest does not have. A newly
+  installed app may sit at the end of the row, or behind **More**. The extension is still called
+  *Create Task* (`mobile/plugins/withShareExtensionName.ts`), where the plugin would call it
+  "expo-sharing-extension", in case another iOS version or screen shows it.
 
 ## How a share reaches the app
 
