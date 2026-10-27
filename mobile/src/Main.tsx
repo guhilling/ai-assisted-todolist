@@ -12,16 +12,19 @@ import * as WebBrowser from 'expo-web-browser'
 import { Platform } from 'react-native'
 import { GoogleOneTapSignIn } from 'react-native-nitro-google-signin'
 import {
+  addDraft,
   announceAttachment,
   attachmentLink,
   confirmAttachment,
   createTask,
   deleteAccount,
   deleteTask,
+  discardDraft,
   fetchMinimumAppVersion,
   fetchTasks,
   removeAttachment,
   restoreTask,
+  startDraft,
   updateTask,
 } from './api'
 import { fileFlag } from './fileFlag'
@@ -213,6 +216,12 @@ const dependencies: Dependencies = {
     update: (caller, task) => updateTask({ ...caller, appVersion }, task),
     remove: (caller, task) => deleteTask({ ...caller, appVersion }, task),
     restore: (caller, task, today) => restoreTask({ ...caller, appVersion }, task, today),
+    // The add form's files upload to a draft while it is open (#381).
+    drafts: {
+      start: (caller) => startDraft({ ...caller, appVersion }),
+      add: (caller, draftId, input) => addDraft({ ...caller, appVersion }, draftId, input),
+      discard: (caller, draftId) => discardDraft({ ...caller, appVersion }, draftId),
+    },
   },
   attachments: {
     link: (caller, taskId, attachmentId, thumbnail) => attachmentLink({ ...caller, appVersion }, taskId, attachmentId, thumbnail),

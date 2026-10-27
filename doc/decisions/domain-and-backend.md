@@ -236,6 +236,25 @@ sweep deletes those rows, task gone and never detached, too. It re-checks each r
 before deleting it, so a confirm or an undo that reached it since the sweep looked wins. An undo
 re-attaches at most as many as a task may hold, whatever it names.
 
+**A draft task holds the app's files before Add (#381, Gunnar's decisions).** A file shared into
+the app, or picked in its add form, waited for Add, and then went up while the user watched. Now
+the form starts a draft on its first file -- `POST /api/tasks/drafts` -- and uploads each file to it
+through the attachment endpoints at once; Add is `POST /api/tasks/drafts/{id}/add`, validated as a
+create, and the draft becomes the task with its id and files. Cancel is `DELETE
+/api/tasks/drafts/{id}`, which removes its files at once. A draft is a `Task` with `draft = true`
+(1a), not a `TaskState`: the states are a task's progress, and a draft has made none. Its
+description and due date are null until Add (2a), which the check constraint
+`task_complete_unless_draft` allows for drafts only. It is nowhere a task is seen: the board's
+query, an update and a delete all leave drafts out. `DraftSweep` deletes, once a minute, drafts
+started longer ago than `taskfest.attachments.pending-lifetime`, an hour, as long as an upload may
+stay pending (3a); their files lose their task through `ON DELETE SET NULL` and go with the
+attachment sweep. A draft's files count toward the five per user (4a): they take storage. The
+website keeps holding files until Add (5a). The API change is an addition, so installed apps keep
+working, and an app talking to a backend from before drafts is refused (405: the path is a task's
+to it) and lets the files wait for Add as before. Adding or discarding locks the draft's row, so a
+sweep meeting it waits and then finds it added or gone. *Rejected:* a `DRAFT` state, which every query on states would have had to leave out;
+a separate draft aggregate whose attachments move over on Add, two tables for one thing.
+
 **Rejected: malware scanning (D4).** The files are only ever opened by the person who uploaded
 them, so a scan would protect someone from their own file.
 

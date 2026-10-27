@@ -211,6 +211,18 @@ public class AttachmentService {
             .collect(Collectors.groupingBy(attachment -> attachment.task.id));
     }
 
+    /**
+     * Removes every attachment of a draft being discarded (#381): nothing to undo, so at once. Each
+     * row goes in a transaction of its own, so the caller's persistence context lets go of them too:
+     * still holding them when the draft is deleted, it would flush them pointing at a deleted task.
+     */
+    public void removeAll(Task draft) {
+        for (Attachment attachment : Attachment.<Attachment>list("task", draft)) {
+            remove(attachment);
+            Attachment.getEntityManager().detach(attachment);
+        }
+    }
+
     /** Detaches a task's attachments before it is deleted, keeping them for the undo window (D3). */
     @Transactional
     public void detachAll(Task task) {

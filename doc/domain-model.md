@@ -9,7 +9,8 @@
 | **User** | Someone who owns tasks, identified by the email claim in their OIDC token. |
 | **State** | Whether a task is open (`TODO`) or done (`DONE`). `WORKING`, "in progress", is no longer offered (#334): the tasks that had it became open, and it stays in the API only until #345, because apps installed before then can still send it. The API accepts it and stores it as `TODO`, so no task is in progress again. |
 | **Importance** | How much a task matters to its owner: `LOW`, `MEDIUM` or `HIGH`. |
-| **Due date** | The day a task is meant to be finished. Always set. |
+| **Due date** | The day a task is meant to be finished. Always set, once the task is no draft. |
+| **Draft** | A task the app's add form attaches files to before Add, so they upload while the form is filled in (#381). A task with a draft marker, not a state: it has made no progress, and has no description or due date yet. Nowhere a task is seen -- not on the board, not to an update or delete -- until it is added; discarded with its files on Cancel, swept with them once abandoned for an hour. |
 | **Board** | A user's tasks, as they see them: ordered by due date, and within a day by importance, high first. |
 | **Attachment** | A file on a task: a PDF or an image. Its content lives in object storage, its name, type and size here. |
 | **Pending** | An attachment announced but not yet confirmed: its upload link is handed out, the file may or may not have arrived. Never listed. |
@@ -48,14 +49,15 @@ past the window, and uploads that were never confirmed.
 | Invariant | Enforced by |
 | --- | --- |
 | A task always has an owner | Not-null column and `@ManyToOne` on `Task.owner`; the owner is set from the token, never from the request |
-| A task's description is present and at most 255 characters | `@NotBlank` + `@Size` on `Task`, on the request records **and on `TaskResponse`**, a not-null column, and `maxLength` in the published schema, which the frontend enforces on every response |
+| A task's description is present and at most 255 characters | `@Size` and `isCompleteUnlessDraft` on `Task`, `@NotBlank` + `@Size` on the request records **and on `TaskResponse`**, the `task_complete_unless_draft` check constraint, and `maxLength` in the published schema, which the frontend enforces on every response. A draft has none yet |
+| A draft is never seen as a task | Every query in `TaskResource` that is not about drafts excludes them (`draft = false`); `DraftResource` reaches drafts only |
 | A **new** task's due date is today or later | `@FutureOrPresent` on `TaskCreateRequest` only |
 | State and importance are always set | Not-null columns; `state` defaults to `TODO` |
 | A user's email is present and unique | `@NotBlank` and a unique not-null column on `User` |
 | A user's name and picture are **not** domain state | Nothing persists them; they are read from the token per request |
 | A user sees and changes only their own tasks | Every query in `TaskResource` carries an owner predicate |
 | An attachment is a PDF, JPEG, PNG, WebP or GIF | `AttachmentKind`, checked on announce, and a native enum column |
-| An attachment is at most 10 MB, at most 2 per task, at most 5 per user | `AttachmentPolicy`, counting pending and detached ones too; the size is also signed into the upload link, so S3 refuses any other |
+| An attachment is at most 10 MB, at most 2 per task, at most 5 per user | `AttachmentPolicy`, counting pending, detached and drafts' ones too; the size is also signed into the upload link, so S3 refuses any other |
 | A user can delete only their own account | `DELETE /api/account` acts on the caller and takes no id |
 | A deleted account stays deleted after a restore | `DeletionReplay` deletes again, during every start, any account a deletion record names that was created before the deletion |
 | A user sees and opens only their own attachments | Every lookup in `AttachmentService.find` carries the owner and the task, and a download link is only signed for a found one |

@@ -1,0 +1,77 @@
+package de.hilling.taskfest.api;
+
+import de.hilling.taskfest.model.TaskImportance;
+import de.hilling.taskfest.model.TaskState;
+import io.quarkus.test.junit.QuarkusTest;
+import io.quarkus.test.security.TestSecurity;
+import io.quarkus.test.security.oidc.Claim;
+import io.quarkus.test.security.oidc.OidcSecurity;
+import io.restassured.http.ContentType;
+import java.time.LocalDate;
+import java.util.Map;
+import org.junit.jupiter.api.Test;
+
+import static io.restassured.RestAssured.given;
+import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.not;
+
+/**
+ * Draft tasks (#381) without files: out of sight until added, added only with what a create takes,
+ * and reached only as drafts. With identity faked by {@code @TestSecurity}, against the real
+ * database; {@link DraftTaskTest} has the files, against S3 in LocalStack.
+ */
+@QuarkusTest
+class DraftResourceTest {
+
+    @Test
+    @TestSecurity(user = "draft-hidden@example.com")
+    @OidcSecurity(claims = { @Claim(key = "email", value = "draft-hidden@example.com") })
+    void shouldKeepADraftOffTheBoardAndOutOfReachAsATask() {
+        long draftId = createDraft();
+
+        given().when().get("/api/tasks").then().statusCode(200).body("id", not(hasItem((int) draftId)));
+        given().contentType(ContentType.JSON).body(fields("Not yet a task"))
+            .when().put("/api/tasks/" + draftId).then().statusCode(404);
+        given().when().delete("/api/tasks/" + draftId).then().statusCode(404);
+    }
+
+    @Test
+    @TestSecurity(user = "draft-invalid@example.com")
+    @OidcSecurity(claims = { @Claim(key = "email", value = "draft-invalid@example.com") })
+    void shouldAddADraftOnlyWithWhatACreateTakes() {
+        long draftId = createDraft();
+
+        given().contentType(ContentType.JSON)
+            .body(Map.of("description", " ", "dueDate", LocalDate.now().plusDays(1).toString(),
+                "importance", TaskImportance.MEDIUM.name(), "state", TaskState.TODO.name()))
+            .when().post("/api/tasks/drafts/" + draftId + "/add").then().statusCode(400);
+        given().contentType(ContentType.JSON)
+            .body(Map.of("description", "Yesterday", "dueDate", LocalDate.now().minusDays(1).toString(),
+                "importance", TaskImportance.MEDIUM.name(), "state", TaskState.TODO.name()))
+            .when().post("/api/tasks/drafts/" + draftId + "/add").then().statusCode(400);
+
+        given().when().get("/api/tasks").then().body("id", not(hasItem((int) draftId)));
+    }
+
+    @Test
+    @TestSecurity(user = "draft-not-mine@example.com")
+    @OidcSecurity(claims = { @Claim(key = "email", value = "draft-not-mine@example.com") })
+    void shouldAnswerATaskThatIsNoDraftLikeAMissingDraft() {
+        long taskId = given().contentType(ContentType.JSON).body(fields("Already a task"))
+            .when().post("/api/tasks").then().statusCode(201).extract().jsonPath().getLong("id");
+
+        given().contentType(ContentType.JSON).body(fields("Again"))
+            .when().post("/api/tasks/drafts/" + taskId + "/add").then().statusCode(404);
+        given().when().delete("/api/tasks/drafts/" + taskId).then().statusCode(404);
+        given().when().delete("/api/tasks/drafts/" + Long.MAX_VALUE).then().statusCode(404);
+    }
+
+    private static long createDraft() {
+        return given().when().post("/api/tasks/drafts").then().statusCode(201).extract().jsonPath().getLong("id");
+    }
+
+    private static Map<String, String> fields(String description) {
+        return Map.of("description", description, "dueDate", LocalDate.now().plusDays(1).toString(),
+            "importance", TaskImportance.MEDIUM.name(), "state", TaskState.TODO.name());
+    }
+}

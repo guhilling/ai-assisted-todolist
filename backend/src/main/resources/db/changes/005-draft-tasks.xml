@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Draft tasks (#381): the app's add form attaches files to a draft, so they upload while the form is
+  filled in, and Add turns the draft into a task. A draft has no description or due date yet, so
+  the two become nullable, for drafts only, which the check constraint holds to. Every task before
+  this one is no draft.
+-->
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="005-draft-tasks" author="guhilling">
+        <addColumn tableName="task">
+            <column name="draft" type="BOOLEAN" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+        <dropNotNullConstraint tableName="task" columnName="description" columnDataType="VARCHAR(255)"/>
+        <dropNotNullConstraint tableName="task" columnName="due_date" columnDataType="DATE"/>
+        <sql>ALTER TABLE task ADD CONSTRAINT task_complete_unless_draft
+            CHECK (draft OR (description IS NOT NULL AND due_date IS NOT NULL))</sql>
+        <rollback>
+            <sql>DELETE FROM task WHERE draft</sql>
+            <sql>ALTER TABLE task DROP CONSTRAINT task_complete_unless_draft</sql>
+            <addNotNullConstraint tableName="task" columnName="due_date" columnDataType="DATE"/>
+            <addNotNullConstraint tableName="task" columnName="description" columnDataType="VARCHAR(255)"/>
+            <dropColumn tableName="task" columnName="draft"/>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

@@ -11,7 +11,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
-import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Size;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -42,13 +42,22 @@ public class Task extends PanacheEntityBase {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     public Long id;
 
-    @NotBlank
+    /** What is to be done; none yet while the task is a {@link #draft}. */
     @Size(max = MAX_DESCRIPTION_LENGTH)
-    @Column(nullable = false)
+    @Column
     public String description;
 
-    @Column(name = "due_date", nullable = false)
+    /** When it is due; none yet while the task is a {@link #draft}. */
+    @Column(name = "due_date")
     public LocalDate dueDate;
+
+    /**
+     * Whether this is a draft (#381): what the app's add form attaches files to before Add, so they
+     * upload while the form is filled in. A draft is not on the board, nor anywhere else a task is
+     * seen, until it is added; one abandoned is swept with its files.
+     */
+    @Column(nullable = false)
+    public boolean draft;
 
     /**
      * How much the task matters, as the PostgreSQL {@code task_importance} enum type.
@@ -81,4 +90,15 @@ public class Task extends PanacheEntityBase {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "owner_id", nullable = false)
     public User owner;
+
+    /**
+     * A task that is no draft has a description and a due date: what the database's
+     * {@code task_complete_unless_draft} constraint holds to, checked here before it gets there.
+     *
+     * @return whether the task is a draft or complete
+     */
+    @AssertTrue
+    public boolean isCompleteUnlessDraft() {
+        return draft || description != null && !description.isBlank() && dueDate != null;
+    }
 }

@@ -65,6 +65,15 @@ export type CurrentUserResponse = {
 };
 
 /**
+ * The `DraftResponse` the backend speaks.
+ *
+ * Generated from `doc/api/schema/DraftResponse.schema.json`. Do not edit.
+ */
+export type DraftResponse = {
+    id: number;
+};
+
+/**
  * The `Instant` the backend speaks.
  *
  * Generated from `doc/api/schema/Instant.schema.json`. Do not edit.

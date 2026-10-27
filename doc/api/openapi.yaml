@@ -136,6 +136,16 @@ components:
           examples:
           - https://example.com/avatar.jpg
           maxLength: 2048
+    DraftResponse:
+      type: object
+      required:
+      - id
+      properties:
+        id:
+          type: integer
+          format: int64
+          examples:
+          - 42
     Instant:
       type: string
       format: date-time
@@ -532,6 +542,87 @@ paths:
         "400":
           description: "A field failed validation, for example a blank description\
             \ or a due date in the past."
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+      - SecurityScheme: []
+  /api/tasks/drafts:
+    post:
+      summary: Start a draft task
+      description: A task to attach files to before it is added; on no list until
+        then (#381).
+      tags:
+      - Tasks
+      responses:
+        "201":
+          description: The draft.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DraftResponse"
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+      - SecurityScheme: []
+  /api/tasks/drafts/{id}:
+    delete:
+      summary: Discard a draft task
+      description: "Its files go with it, at once."
+      tags:
+      - Tasks
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "204":
+          description: The draft was discarded.
+        "404":
+          description: No draft with this id is owned by the caller.
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+      - SecurityScheme: []
+  /api/tasks/drafts/{id}/add:
+    post:
+      summary: Add a draft task
+      description: "Makes the draft a task, with its files, validated as a create\
+        \ is."
+      tags:
+      - Tasks
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TaskCreateRequest"
+        required: true
+      responses:
+        "201":
+          description: The task as added.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TaskResponse"
+        "400":
+          description: "A field failed validation, as for a create."
+        "404":
+          description: No draft with this id is owned by the caller.
         "401":
           description: Not Authorized
         "403":

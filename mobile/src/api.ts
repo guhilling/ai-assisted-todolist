@@ -4,6 +4,7 @@ import {
   restoreInput,
   storageUrl,
   validateAttachmentResponse,
+  validateDraftResponse,
   validateLinkResponse,
   validateRefusalResponse,
   validateTaskResponse,
@@ -148,6 +149,29 @@ export async function fetchMinimumAppVersion(
 /** Creates a task and hands it back as the backend stored it, with its new id. */
 export async function createTask(caller: Caller, input: TaskInput, fetchImpl: typeof fetch = fetch): Promise<BoardTask> {
   return readTask(await send(caller, 'POST', '/api/tasks', fetchImpl, input))
+}
+
+/**
+ * Starts a draft task (#381): what the add form's files upload to while it is open, out of sight
+ * until it is added. A backend from before drafts refuses it -- to it the path is a task's, which
+ * takes no POST, so 405 -- and the caller lets the files wait for Add, as they did before.
+ */
+export async function startDraft(caller: Caller, fetchImpl: typeof fetch = fetch): Promise<number> {
+  const data = await send(caller, 'POST', '/api/tasks/drafts', fetchImpl)
+  if (!validateDraftResponse(data)) {
+    throw new ContractBreachError('a draft')
+  }
+  return data.id
+}
+
+/** Adds a draft as the task the form describes, with the files it holds; it keeps its id. */
+export async function addDraft(caller: Caller, draftId: number, input: TaskInput, fetchImpl: typeof fetch = fetch): Promise<BoardTask> {
+  return readTask(await send(caller, 'POST', `/api/tasks/drafts/${draftId}/add`, fetchImpl, input))
+}
+
+/** Discards a draft whose form was closed without Add; its files go with it. */
+export async function discardDraft(caller: Caller, draftId: number, fetchImpl: typeof fetch = fetch): Promise<void> {
+  await send(caller, 'DELETE', `/api/tasks/drafts/${draftId}`, fetchImpl)
 }
 
 /**

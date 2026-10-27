@@ -39,6 +39,8 @@ const OUT_DIR = join(FRONTEND, 'src', 'generated');
 const VALIDATED = [
     'TaskResponse', 'CurrentUserResponse', 'AuthProvidersResponse',
     'AttachmentResponse', 'UploadResponse', 'LinkResponse', 'RefusalResponse', 'VersionResponse',
+    // The app's draft task (#381).
+    'DraftResponse',
 ];
 
 /**

@@ -16,7 +16,9 @@ the orphan clean-up counts it as referenced while its file's row exists.
 **The attachment sweep** (`AttachmentSweep`, every minute) works from the database. It deletes
 attachments detached from a deleted task once the ten-minute undo window has passed, uploads
 announced but never confirmed within an hour, and attachments whose task went without detaching
-them. Each one goes object first, then row.
+them. Each one goes object first, then row. **The draft sweep** (`DraftSweep`, every minute, #381)
+deletes draft tasks abandoned longer than that same hour; their attachments are then ones whose task
+went, and the attachment sweep takes them on its next run.
 
 **The orphan clean-up** (`OrphanSweep`, #208) works from the bucket. It lists every object and
 deletes those no attachment refers to, once they are older than **seven days**
