@@ -24,6 +24,9 @@ process.env.LIVE_BASE_URL ??= 'https://taskfest-qa.cloud.hilling.de'
  * `videos/` for the documentation to link to. A video shows the test accounts and their tasks; the
  * passwords go into a password field, as dots, and are new on every run.
  *
+ * Not tests/shortcut-badge.spec.ts (#386): it checks a stylesheet, which a deployment cannot
+ * change, and would only add two sign-ins and two videos of a key badge to every run.
+ *
  * No traces, unlike the Compose suite: a trace records what each `fill` typed and every request's
  * body, so the sign-in -- the typed password, and the form Cognito's login page posts -- would put
  * this run's passwords into the report a failed run uploads. The video and the screenshots show
@@ -31,6 +34,7 @@ process.env.LIVE_BASE_URL ??= 'https://taskfest-qa.cloud.hilling.de'
  */
 export default defineConfig({
   testDir: './tests',
+  testIgnore: 'shortcut-badge.spec.ts',
   globalSetup: ['./live/backend-state.ts', './live/test-accounts.ts'],
   globalTeardown: './live/test-accounts.ts',
   fullyParallel: false,

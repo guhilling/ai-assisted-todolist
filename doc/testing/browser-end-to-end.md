@@ -60,5 +60,6 @@ opens the photo.
 
 `tests/shortcut-badge.spec.ts` (#386) signs in on a desktop and in Chromium's phone emulation, and
 checks the `n` badge on **Add a task** is shown on the one and left out on the other: jsdom applies
-no media query, so only a real browser can tell.
+no media query, so only a real browser can tell. The live run leaves it out: a deployment cannot
+change a stylesheet.
 

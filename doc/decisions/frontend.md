@@ -167,9 +167,10 @@ reads aloud as a sentence and adds no second "High" beside the form's.
 
 **Also.** `n` opens the add row from anywhere on the board, ignored while the caret is in a
 field or a modifier is held, so it cannot swallow a typed letter or shadow a browser command. Its
-badge on **Add a task** is left out on a phone or a tablet without a keyboard (#386): a coarse
-pointer that cannot hover, `(hover: none) and (pointer: coarse)`, is the closest CSS comes to asking
-whether there is a keyboard. The shortcut itself still works wherever one is attached.
+badge on **Add a task** is left out where no precise pointer is attached, `not (any-pointer: fine)`
+(#386): a phone. CSS cannot ask whether there is a keyboard, and a mouse or trackpad is the nearest
+sign of one, so a tablet with a trackpad keyboard keeps the badge and one with a keyboard alone
+loses it. The shortcut itself still works wherever a keyboard is attached.
 
 **The row closes once a task is added** (#383), as the app's form does: the website and the app
 behave the same, and the board, not an empty form, is what is left to look at. The focus goes back
