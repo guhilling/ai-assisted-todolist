@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Pressable, ScrollView, Text, TextInput, View } from 'react-native'
+import { KeyboardAvoidingView, Pressable, ScrollView, Text, TextInput, View } from 'react-native'
 import type { BoardTask } from './api'
 import { AttachFiles, EditorFiles, PendingFiles } from './Attachments'
 import type { PickSource } from './pick'
@@ -34,6 +34,10 @@ type OfferedState = (typeof STATES)[number]
  * Saving waits for the server, as the website's editor does: the form stays open with what was
  * typed until the save went through, and a refused save leaves it there to correct. Whoever shows
  * the form closes it once `onSave` says the task was saved.
+ *
+ * The buttons sit below the fields rather than at their end, and the whole gives way to the
+ * keyboard (#382): the fields scroll in what is left above it, and Add stays in reach while the
+ * description is typed, where it used to be under the keyboard.
  */
 export function TaskForm({
   task,
@@ -127,82 +131,84 @@ export function TaskForm({
   )
 
   return (
-    <ScrollView style={styles.formScreen} contentContainerStyle={styles.form} keyboardShouldPersistTaps="handled">
-      <Text style={styles.formTitle}>{editing ? messages.editor.label(task.description) : messages.addRow.open}</Text>
-      <TextInput
-        testID="task-description"
-        style={styles.input}
-        accessibilityLabel={editing ? messages.editor.description : messages.addRow.description}
-        placeholder={messages.addRow.placeholder}
-        placeholderTextColor={theme.textMuted}
-        value={description}
-        onChangeText={setDescription}
-        autoFocus={!editing}
-      />
-
-      <Text style={styles.label}>{messages.dueDate.label}</Text>
-      <View style={styles.chips}>
-        {shortcuts.map((quick) => chip(quick.label, quick.iso === dueDate, () => setDueDate(quick.iso)))}
-        {chip(otherDate, otherDate !== messages.dueDate.other, () => setPicking(true))}
-      </View>
-      {picking ? (
-        <DueDatePicker
-          value={dueDate}
-          // A new task cannot be dated in the past; an edit can, as on the website.
-          minimum={editing ? undefined : today}
-          onPick={(picked) => {
-            setPicking(false)
-            if (picked) {
-              setDueDate(picked)
-            }
-          }}
+    <KeyboardAvoidingView style={styles.formScreen} behavior="padding">
+      <ScrollView testID="task-form-fields" style={styles.formFields} contentContainerStyle={styles.form} keyboardShouldPersistTaps="handled">
+        <Text style={styles.formTitle}>{editing ? messages.editor.label(task.description) : messages.addRow.open}</Text>
+        <TextInput
+          testID="task-description"
+          style={styles.input}
+          accessibilityLabel={editing ? messages.editor.description : messages.addRow.description}
+          placeholder={messages.addRow.placeholder}
+          placeholderTextColor={theme.textMuted}
+          value={description}
+          onChangeText={setDescription}
+          autoFocus={!editing}
         />
-      ) : null}
 
-      <Text style={styles.label}>{messages.importance.label}</Text>
-      <View style={styles.chips}>
-        {importanceLevels.map((level) =>
-          chip(messages.importance.levels[level], level === importance, () => setImportance(level)),
-        )}
-      </View>
+        <Text style={styles.label}>{messages.dueDate.label}</Text>
+        <View style={styles.chips}>
+          {shortcuts.map((quick) => chip(quick.label, quick.iso === dueDate, () => setDueDate(quick.iso)))}
+          {chip(otherDate, otherDate !== messages.dueDate.other, () => setPicking(true))}
+        </View>
+        {picking ? (
+          <DueDatePicker
+            value={dueDate}
+            // A new task cannot be dated in the past; an edit can, as on the website.
+            minimum={editing ? undefined : today}
+            onPick={(picked) => {
+              setPicking(false)
+              if (picked) {
+                setDueDate(picked)
+              }
+            }}
+          />
+        ) : null}
 
-      {editing ? (
-        <>
-          <Text style={styles.label}>{messages.taskState.label}</Text>
-          <View style={styles.chips}>
-            {STATES.map((value) => chip(stateLabels[value], value === state, () => setState(value)))}
-          </View>
-        </>
-      ) : null}
+        <Text style={styles.label}>{messages.importance.label}</Text>
+        <View style={styles.chips}>
+          {importanceLevels.map((level) =>
+            chip(messages.importance.levels[level], level === importance, () => setImportance(level)),
+          )}
+        </View>
 
-      {files.length > 0 || attachable ? <Text style={styles.label}>{messages.attachments.title}</Text> : null}
-      {task?.attachments ? (
-        <EditorFiles
-          attachments={task.attachments}
-          // A completed task's files may only be opened, as on the website.
-          removable={onRemoveFile !== undefined && task.state !== 'DONE'}
-          busy={busy}
-          messages={messages}
-          styles={styles}
-          onRemove={(attachment) => onRemoveFile?.(attachment)}
-        />
-      ) : null}
-      {pending ? (
-        <PendingFiles files={pending} disabled={saving} messages={messages} styles={styles} onUnpick={(file) => onUnpick?.(file)} />
-      ) : null}
-      {attachable ? (
-        <AttachFiles
-          count={files.length}
-          uploading={uploading}
-          disabled={busy || uploading !== null || saving}
-          messages={messages}
-          styles={styles}
-          onAttach={(source) => onAttach?.(source)}
-        />
-      ) : null}
-      {failure ? <Text style={styles.notice}>{failure}</Text> : null}
+        {editing ? (
+          <>
+            <Text style={styles.label}>{messages.taskState.label}</Text>
+            <View style={styles.chips}>
+              {STATES.map((value) => chip(stateLabels[value], value === state, () => setState(value)))}
+            </View>
+          </>
+        ) : null}
 
-      <View style={styles.formButtons}>
+        {files.length > 0 || attachable ? <Text style={styles.label}>{messages.attachments.title}</Text> : null}
+        {task?.attachments ? (
+          <EditorFiles
+            attachments={task.attachments}
+            // A completed task's files may only be opened, as on the website.
+            removable={onRemoveFile !== undefined && task.state !== 'DONE'}
+            busy={busy}
+            messages={messages}
+            styles={styles}
+            onRemove={(attachment) => onRemoveFile?.(attachment)}
+          />
+        ) : null}
+        {pending ? (
+          <PendingFiles files={pending} disabled={saving} messages={messages} styles={styles} onUnpick={(file) => onUnpick?.(file)} />
+        ) : null}
+        {attachable ? (
+          <AttachFiles
+            count={files.length}
+            uploading={uploading}
+            disabled={busy || uploading !== null || saving}
+            messages={messages}
+            styles={styles}
+            onAttach={(source) => onAttach?.(source)}
+          />
+        ) : null}
+        {failure ? <Text style={styles.notice}>{failure}</Text> : null}
+      </ScrollView>
+
+      <View testID="task-form-buttons" style={[styles.formButtons, styles.formFooter]}>
         {onDelete ? (
           <Pressable
             accessibilityRole="button"
@@ -235,6 +241,6 @@ export function TaskForm({
           </Text>
         </Pressable>
       </View>
-    </ScrollView>
+    </KeyboardAvoidingView>
   )
 }

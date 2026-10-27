@@ -94,6 +94,9 @@ export function stylesFor(theme: Theme) {
     chipText: { color: theme.text },
     chipTextActive: { color: theme.accentContrast },
     formButtons: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8 },
+    formFields: { flex: 1 },
+    // The form's buttons, below its fields and above the keyboard (#382).
+    formFooter: { padding: 16, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.border },
     boardHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 8 },
     brand: { fontSize: 20, fontWeight: '700', color: theme.brandStrong },
     account: { gap: 8 },

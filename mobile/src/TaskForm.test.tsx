@@ -1,4 +1,4 @@
-import { render, screen, userEvent } from '@testing-library/react-native'
+import { render, screen, userEvent, within } from '@testing-library/react-native'
 import type { BoardTask } from './api'
 import { stylesFor } from './styles'
 import { TaskForm } from './TaskForm'
@@ -222,5 +222,28 @@ describe('a task a share brought (#355)', () => {
     expect(onSave).toHaveBeenCalledWith(
       expect.objectContaining({ description: 'Read the article https://example.com/a', dueDate: '2026-10-17' }),
     )
+  })
+})
+
+describe('the keyboard does not hide the buttons (#382)', () => {
+  it('keeps Add and Cancel below the scrolling fields, where they stay above the keyboard', async () => {
+    await render(form())
+
+    const fields = screen.getByTestId('task-form-fields')
+    const buttons = screen.getByTestId('task-form-buttons')
+
+    expect(within(buttons).getByRole('button', { name: 'Add' })).toBeOnTheScreen()
+    expect(within(buttons).getByRole('button', { name: 'Cancel' })).toBeOnTheScreen()
+    expect(within(fields).queryByRole('button', { name: 'Add' })).toBeNull()
+    expect(within(fields).getByLabelText('What needs doing')).toBeOnTheScreen()
+  })
+
+  it('keeps Save and Delete there too, when a task is edited', async () => {
+    await render(form({ task, onDelete: jest.fn() }))
+
+    const buttons = screen.getByTestId('task-form-buttons')
+    expect(within(buttons).getByRole('button', { name: 'Save' })).toBeOnTheScreen()
+    expect(within(buttons).getByRole('button', { name: 'Delete' })).toBeOnTheScreen()
+    expect(within(screen.getByTestId('task-form-fields')).queryByRole('button', { name: 'Save' })).toBeNull()
   })
 })

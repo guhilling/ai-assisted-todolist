@@ -27,6 +27,8 @@ case "$share" in
   board)
     maestro test mobile/maestro/sign-in.yaml mobile/maestro/change-tasks.yaml \
       --format junit --output maestro-report.xml --test-output-dir maestro-output
+    # Adding with the keyboard open (#382), still signed in.
+    maestro test mobile/maestro/keyboard.yaml --format junit --output maestro-keyboard.xml --test-output-dir maestro-output
     # Sharing into the app (#355), which the board flow left signed in: text sent as another app
     # sends it -- the inner quotes keep it one argument in the emulator's shell -- and then an image
     # through the Files app's share sheet.
