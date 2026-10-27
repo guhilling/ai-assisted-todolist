@@ -9,7 +9,7 @@ name: Share a link into the app through iOS's share sheet
     browser: true
 # Until the page is there, Safari shows its start page, whose card would take the taps below.
 - extendedWaitUntil:
-    visible: "This domain is for use in documentation.*"
+    visible: "Learn more"
     timeout: 60000
 - waitForAnimationToEnd:
     timeout: 8000
