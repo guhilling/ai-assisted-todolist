@@ -34,10 +34,11 @@ name: Share a link into the app through iOS's share sheet
 # The sheet goes on laying itself out for a second or more after it shows.
 - waitForAnimationToEnd:
     timeout: 10000
-- swipe:
-    start: 50%, 10%
-    end: 50%, 10%
-    duration: 3000
+# Three seconds, by waiting for something that never shows.
+- extendedWaitUntil:
+    visible: "nothing shows this text"
+    timeout: 3000
+    optional: true
 - takeScreenshot: ios-share-link-1b-settled
 - tapOn: "TaskFest Dev"
 - takeScreenshot: ios-share-link-1c-tapped
