@@ -17,13 +17,14 @@ name: Share a link into the app through iOS's share sheet
     timeout: 8000
 # A fresh simulator's Safari points at its ⋯ menu with a tip the first time; its close button has
 # no label to tap by.
-- runFlow:
-    when:
-      visible: "View Bookmarks.*"
-    commands:
-      - tapOn:
-          point: 90%, 71%
-      - waitForAnimationToEnd
+- waitForAnimationToEnd:
+    timeout: 5000
+# The tip is drawn but not in the hierarchy Maestro sees: its close button is tapped where it is,
+# which on the page itself taps plain text.
+- tapOn:
+    point: 90%, 71%
+- waitForAnimationToEnd
+- takeScreenshot: ios-share-link-0-tip-closed
 - tapOn: "More"
 - waitForAnimationToEnd
 - tapOn: "Share"
