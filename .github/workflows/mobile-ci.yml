@@ -179,6 +179,13 @@ jobs:
             mobile/ios/expo-sharing-extension/expo-sharing-extension.entitlements
           python3 .github/scripts/check-share-extension.py signed "$app"
           echo "APP=$app" >> "$GITHUB_ENV"
+      # Before the simulator, whose flake must not cost main its cache.
+      - name: Save npm's cache
+        if: github.ref == 'refs/heads/main' && steps.npm-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: ~/.npm
+          key: ${{ steps.npm-cache.outputs.cache-primary-key }}
       - name: Install Maestro
         run: |
           set -a && source mobile/maestro/maestro.env && set +a
@@ -197,12 +204,6 @@ jobs:
             maestro-output-ios
             maestro-ios-*.xml
           retention-days: 14
-      - name: Save npm's cache
-        if: github.ref == 'refs/heads/main' && steps.npm-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v6
-        with:
-          path: ~/.npm
-          key: ${{ steps.npm-cache.outputs.cache-primary-key }}
 
   maestro:
     needs: android

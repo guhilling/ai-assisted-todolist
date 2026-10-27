@@ -1,8 +1,8 @@
 # A photo shared the way a person does it on an iPhone (#380): Photos' Share, iOS's share sheet,
 # TaskFest Dev in the row of apps -- iOS 26 names a share extension by its app there, not by its
-# own name (doc/mobile/sharing.md). The extension copies the photo and opens the app, which, signed
-# out, keeps the share for after the sign-in. No stack runs on the macOS runner, so the flow ends
-# there: offered, and handed to the app.
+# own name (doc/mobile/sharing.md). The extension takes the photo and opens the app. No stack runs on
+# the macOS runner, so the flow ends at the app's sign-in: offered, taken, and the app opened. Which
+# photo does not matter; the first of those every simulator comes with is shared.
 appId: com.apple.mobileslideshow
 name: Share a photo into the app through iOS's share sheet
 ---
@@ -27,17 +27,29 @@ name: Share a photo into the app through iOS's share sheet
 - waitForAnimationToEnd:
     timeout: 5000
 - takeScreenshot: ios-share-photo-1-sheet
+# A newly installed app may sit beyond the row's visible end; More lists them all.
+- runFlow:
+    when:
+      notVisible: "TaskFest Dev"
+    commands:
+      - tapOn: "More"
+      - waitForAnimationToEnd
 - tapOn: "TaskFest Dev"
 # Photos prepares the photo for the extension first, which a fresh simulator takes its time over.
 - extendedWaitUntil:
     notVisible: "Preparing.*"
     timeout: 120000
 - takeScreenshot: ios-share-photo-2-prepared
-# The extension opens the app by its URL scheme, and the simulator's iOS asks first.
+# The extension opens the app by its URL scheme; the simulator's iOS asks first, which another
+# release may not.
 - extendedWaitUntil:
-    visible: 'Open in .TaskFest Dev.\?'
+    visible: '(Open in .TaskFest Dev.\?|Sign in with Keycloak)'
     timeout: 60000
-- tapOn: "Open"
+- runFlow:
+    when:
+      visible: 'Open in .TaskFest Dev.\?'
+    commands:
+      - tapOn: "Open"
 - extendedWaitUntil:
     visible: "Sign in with Keycloak"
     timeout: 60000
