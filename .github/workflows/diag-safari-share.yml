@@ -1,0 +1,79 @@
+name: Diagnose Safari sharing (throwaway, #380)
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/diag-safari-share.yml'
+      - '.github/diag-safari/**'
+
+permissions:
+  contents: read
+
+jobs:
+  safari:
+    runs-on: macos-26
+    timeout-minutes: 60
+    env:
+      APP_VARIANT: dev
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+      - name: Install dependencies
+        working-directory: mobile
+        run: npm ci
+      - name: Generate the iOS project
+        working-directory: mobile
+        run: npx expo prebuild --platform ios
+      - name: Log what the extension is handed
+        run: python3 .github/diag-safari/patch.py mobile/ios/expo-sharing-extension/ShareIntoViewController.swift
+      - name: Build for the simulator
+        working-directory: mobile/ios
+        run: |
+          set -o pipefail
+          workspace=$(ls -d *.xcworkspace)
+          xcodebuild -workspace "$workspace" -scheme "${workspace%.xcworkspace}" \
+            -configuration Release -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO build | tail -n 20
+      - name: Sign with the App Group
+        run: |
+          app=$(find ~/Library/Developer/Xcode/DerivedData -path '*Release-iphonesimulator/*.app' -maxdepth 6 -type d | head -1)
+          echo "APP=$app" >> "$GITHUB_ENV"
+          bash .github/scripts/sign-with-app-group.sh "$app" \
+            "$(ls mobile/ios/*/*.entitlements | grep -v /expo-sharing-extension/)" \
+            mobile/ios/expo-sharing-extension/expo-sharing-extension.entitlements
+      - name: Install Maestro
+        run: |
+          set -a && source mobile/maestro/maestro.env && set +a
+          curl -fsSL "https://get.maestro.mobile.dev" | bash
+          echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
+      - name: Share a link from Safari
+        continue-on-error: true
+        run: |
+          udid=$(xcrun simctl list devices available -j | python3 -c '
+          import json, re, sys
+          devices = json.load(sys.stdin)["devices"]
+          def version(runtime):
+              return tuple(int(n) for n in re.findall(r"\d+", runtime.rsplit("iOS", 1)[-1]))
+          ios = sorted((r for r in devices if ".iOS-" in r), key=version, reverse=True)
+          print(next(d["udid"] for r in ios for d in devices[r] if d["name"].startswith("iPhone")))')
+          echo "UDID=$udid" >> "$GITHUB_ENV"
+          xcrun simctl bootstatus "$udid" -b
+          xcrun simctl install "$udid" "$APP"
+          echo "START=$(date '+%Y-%m-%d %H:%M:%S')" >> "$GITHUB_ENV"
+          mkdir -p out
+          maestro --device "$udid" test .github/diag-safari/share-link.yaml --test-output-dir out || true
+          xcrun simctl io "$udid" screenshot out/final.png || true
+      - name: What the extension said
+        if: always()
+        run: |
+          xcrun simctl spawn "$UDID" log show --start "$START" --style compact \
+            --predicate 'eventMessage CONTAINS "TFDIAG" OR process CONTAINS "expo-sharing"' > out/extension.log 2>&1 || true
+          grep -E "TFDIAG|rror|crash" out/extension.log | head -60
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: diag-safari
+          path: out
+          retention-days: 3

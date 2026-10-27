@@ -1,0 +1,39 @@
+# A link shared from Safari (#380): Share sits behind the ⋯ menu on iOS 26, and TaskFest Dev in the
+# share sheet's row of apps. As with the photo, the app opens signed out and keeps the share.
+appId: com.apple.mobilesafari
+name: Share a link into the app through iOS's share sheet
+---
+- launchApp
+- openLink:
+    link: https://example.com
+    browser: true
+# Until the page is there, Safari shows its start page, whose card would take the taps below. The
+# page's own text is out of Maestro's reach under the tip below, so the wait is for the tip, or for
+# the ⋯ button where there is none.
+- extendedWaitUntil:
+    visible: "(View Bookmarks.*|More)"
+    timeout: 60000
+- waitForAnimationToEnd:
+    timeout: 8000
+# A fresh simulator's Safari points at its ⋯ menu with a tip the first time; its close button has
+# no label to tap by.
+- runFlow:
+    when:
+      visible: "View Bookmarks.*"
+    commands:
+      - tapOn:
+          point: 90%, 71%
+      - waitForAnimationToEnd
+- tapOn: "More"
+- waitForAnimationToEnd
+- tapOn: "Share"
+- waitForAnimationToEnd:
+    timeout: 5000
+- takeScreenshot: ios-share-link-1-sheet
+- tapOn: "TaskFest Dev"
+# The extension opens the app by its URL scheme, and the simulator's iOS asks first.
+- extendedWaitUntil:
+    visible: '(Open in .TaskFest Dev.\?|Sign in with Keycloak)'
+    timeout: 60000
+    optional: true
+- takeScreenshot: ios-share-link-2-after
