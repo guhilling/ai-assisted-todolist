@@ -31,7 +31,16 @@ name: Share a link into the app through iOS's share sheet
 - waitForAnimationToEnd:
     timeout: 5000
 - takeScreenshot: ios-share-link-1-sheet
+# The sheet goes on laying itself out for a second or more after it shows.
+- waitForAnimationToEnd:
+    timeout: 10000
+- swipe:
+    start: 50%, 10%
+    end: 50%, 10%
+    duration: 3000
+- takeScreenshot: ios-share-link-1b-settled
 - tapOn: "TaskFest Dev"
+- takeScreenshot: ios-share-link-1c-tapped
 # The extension opens the app by its URL scheme, and the simulator's iOS asks first.
 - extendedWaitUntil:
     visible: '(Open in .TaskFest Dev.\?|Sign in with Keycloak)'
