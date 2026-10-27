@@ -33,12 +33,11 @@ name: Share a photo into the app through iOS's share sheet
     notVisible: "Preparing.*"
     timeout: 120000
 - takeScreenshot: ios-share-photo-2-prepared
-# The extension opens the app by its URL scheme; should iOS ask first, it is let.
-- runFlow:
-    when:
-      visible: "Open"
-    commands:
-      - tapOn: "Open"
+# The extension opens the app by its URL scheme, and the simulator's iOS asks first.
+- extendedWaitUntil:
+    visible: 'Open in .TaskFest Dev.\?'
+    timeout: 60000
+- tapOn: "Open"
 - extendedWaitUntil:
     visible: "Sign in with Keycloak"
     timeout: 60000
