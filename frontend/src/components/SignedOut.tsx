@@ -10,13 +10,6 @@ import taskfestMark from '../assets/taskfest-mark.svg'
 import { iconFor } from '../providerIcons'
 import { useI18n } from '../i18n/context'
 
-/**
- * Where the project explains itself: its purpose page in the published documentation, rendered and
- * with the rest of the docs around it, rather than the Markdown file on GitHub. Linked rather than
- * inlined, so the board stays a board.
- */
-export const purposeUrl = 'https://taskfest-docs.cloud.hilling.de/doc/purpose.html'
-
 type SignedOutProps = {
   providers: AuthProvidersResponse
   /**

@@ -38,10 +38,10 @@ sheet over the board.
 | Piece | Where |
 | --- | --- |
 | The sheet and its confirmation | `mobile/src/AccountScreen.tsx` |
-| The legal links and the release | `mobile/src/LegalLinks.tsx` |
+| The legal links and the release, and the link to the documentation (#384) | `mobile/src/LegalLinks.tsx` |
 | Signing out and deleting, and what a failure leads to | `mobile/src/TaskFestApp.tsx` |
 | The request | `deleteAccount` in `mobile/src/api.ts` |
-| The addresses of the legal pages, shared with the website | `frontend/src/links.ts` |
+| The addresses of the legal pages and the documentation, shared with the website | `frontend/src/links.ts` |
 
 The behaviour is tested in `mobile/src/TaskFestApp.account.test.tsx`; `mobile/maestro/account.yaml`
 opens the sheet, asks to delete and keeps the account, and signs out on an emulator. The backend's

@@ -5,6 +5,7 @@ import { FileStrip, type FileLinkSource } from './Attachments'
 import { boardOf, isChangeable } from './board'
 import type { Styles } from './styles'
 import { bucketOf, describeDueDateWithWeekday, importanceByRank, localeOf, sectionWeekday, type Attachment, type Language, type Messages } from './web'
+import { AboutLink } from './LegalLinks'
 
 /** How long the offer to undo a delete stands: the website's eight seconds. */
 const UNDO_FOR_MS = 8000
@@ -12,7 +13,7 @@ const UNDO_FOR_MS = 8000
 /**
  * The board (#267, #271): the website's sections and order, a tick to complete or reopen a task, a
  * tap on it to edit it, and the add button, the offer to undo a delete and any failure below. The
- * account sheet opens from the head of it (#275). The board kept on the phone is shown the same way,
+ * account sheet opens from the head of it (#275), and the documentation beside it (#384). The board kept on the phone is shown the same way,
  * with a note above it while it waits for, or could not get, the current one (#272). The offer to
  * turn the due-day reminders on stands above the board until it is answered (#273).
  *
@@ -149,9 +150,12 @@ export function BoardScreen({
     <View style={styles.board}>
       <View style={styles.boardHead}>
         <Text style={styles.brand}>TaskFest</Text>
-        <Pressable accessibilityRole="button" style={styles.quietButton} onPress={onAccount}>
-          <Text style={styles.quietButtonText}>{messages.account.open}</Text>
-        </Pressable>
+        <View style={styles.headActions}>
+          <AboutLink messages={messages} styles={styles} />
+          <Pressable accessibilityRole="button" style={styles.quietButton} onPress={onAccount}>
+            <Text style={styles.quietButtonText}>{messages.account.open}</Text>
+          </Pressable>
+        </View>
       </View>
       <ScrollView style={styles.board} contentContainerStyle={styles.boardContent}>
         {kept?.failed ? (
