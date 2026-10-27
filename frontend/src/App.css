@@ -549,6 +549,15 @@ html {
   background: var(--surface);
 }
 
+/* Likely no keyboard to press n on (#386): no precise pointer at all, as on a phone. CSS cannot ask
+   for a keyboard, and a mouse or trackpad is the nearest sign of one -- so a tablet with a trackpad
+   keyboard keeps the badge, one with a keyboard alone loses it. The shortcut works either way. */
+@media not (any-pointer: fine) {
+  .add-row-key {
+    display: none;
+  }
+}
+
 .add-form {
   display: flex;
   flex-direction: column;
