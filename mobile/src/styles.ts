@@ -98,6 +98,9 @@ export function stylesFor(theme: Theme) {
     // The form's buttons, below its fields and above the keyboard (#382).
     formFooter: { padding: 16, gap: 12, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.border },
     boardHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 8 },
+    headActions: { flexDirection: 'row', alignItems: 'center' },
+    // The sign-in's link to the documentation, at its top right as on the board (#384).
+    signedOutHead: { flexDirection: 'row', justifyContent: 'flex-end', paddingTop: 8 },
     brand: { fontSize: 20, fontWeight: '700', color: theme.brandStrong },
     account: { gap: 8 },
     dangerButton: { borderWidth: 1, borderColor: theme.danger, borderRadius: 6, paddingVertical: 12, paddingHorizontal: 16 },

@@ -4,6 +4,13 @@
  */
 import type { Language } from './i18n/language'
 
+/**
+ * Where the project explains itself: its purpose page in the published documentation, rendered and
+ * with the rest of the docs around it, rather than the Markdown file on GitHub. Linked rather than
+ * inlined, so the board stays a board. The website's footer and the top of the app link it (#384).
+ */
+export const purposeUrl = 'https://taskfest-docs.cloud.hilling.de/doc/purpose.html'
+
 /** The operator's imprint: Hilling IT GmbH runs TaskFest (#193). */
 export const imprintUrl = 'https://www.hilling.it/impressum/'
 

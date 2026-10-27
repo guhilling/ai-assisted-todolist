@@ -4,7 +4,9 @@ The app's one screen once signed in (#267, #271): the website's board, in the we
 order, words and colours — *Today* and *Tomorrow* with their weekday beside them (#337) — and
 everything the website does with a task; its files are in
 [files.md](files.md). **Account**,
-at its head, opens the account sheet ([account.md](account.md)).
+at its head, opens the account sheet ([account.md](account.md)); **About ↗** beside it opens the
+documentation's purpose page in the browser — the page the website's footer links as *About* —
+and the sign-in has it at its top as well (#384).
 
 ## What it does
 

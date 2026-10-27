@@ -13,7 +13,7 @@ import { isChangeable } from './board'
 import type { GoogleProvider } from './google'
 import { BoardScreen } from './BoardScreen'
 import type { KeptBoardStore } from './keptBoard'
-import { LegalLinks } from './LegalLinks'
+import { AboutLink, LegalLinks } from './LegalLinks'
 import type { ReminderScheduler } from './notifications'
 import { remindersFor } from './reminders'
 import { emailOf, isInactive, type Session } from './session'
@@ -1299,6 +1299,9 @@ function SignedOutScreen({
 }) {
   return (
     <View style={styles.board}>
+      <View style={styles.signedOutHead}>
+        <AboutLink messages={messages} styles={styles} />
+      </View>
       <View style={styles.signedOut}>
         <Text style={styles.title}>TaskFest</Text>
         <Text style={styles.muted}>{messages.signedOut.tagline}</Text>

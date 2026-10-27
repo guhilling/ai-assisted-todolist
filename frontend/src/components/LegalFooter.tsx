@@ -1,7 +1,6 @@
-import { purposeUrl } from './SignedOut'
 import { useI18n } from '../i18n/context'
 import { languageNames, languages } from '../i18n/language'
-import { imprintUrl, privacyUrls } from '../links'
+import { imprintUrl, privacyUrls, purposeUrl } from '../links'
 import type { Messages } from '../i18n/messages'
 
 /**

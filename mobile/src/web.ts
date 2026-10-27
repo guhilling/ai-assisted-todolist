@@ -32,7 +32,7 @@ export { addDays, bucketOf, calendarParts, describeDueDate, quickDates, todayIso
 export { catalogues, type Messages } from '../../frontend/src/i18n/messages'
 export { chooseLanguage, localeOf, type Language } from '../../frontend/src/i18n/language'
 export { needsDatingBack, restoreInput } from '../../frontend/src/restore'
-export { imprintUrl, privacyUrls, termsUrls } from '../../frontend/src/links'
+export { imprintUrl, privacyUrls, purposeUrl, termsUrls } from '../../frontend/src/links'
 export { confirmsEmail } from '../../frontend/src/confirmsEmail'
 export { storageUrl } from '../../frontend/src/storage'
 export { attachmentLimits, attachmentTypes, checkFile, type AttachmentRefusal } from '../../frontend/src/attachmentPolicy'

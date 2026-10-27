@@ -5,6 +5,7 @@ import { FileStrip, type FileLinkSource } from './Attachments'
 import { boardOf, isChangeable } from './board'
 import type { Styles } from './styles'
 import { bucketOf, describeDueDateWithWeekday, importanceByRank, localeOf, sectionWeekday, type Attachment, type Language, type Messages } from './web'
+import { AboutLink } from './LegalLinks'
 
 /** How long the offer to undo a delete stands: the website's eight seconds. */
 const UNDO_FOR_MS = 8000
@@ -149,9 +150,12 @@ export function BoardScreen({
     <View style={styles.board}>
       <View style={styles.boardHead}>
         <Text style={styles.brand}>TaskFest</Text>
-        <Pressable accessibilityRole="button" style={styles.quietButton} onPress={onAccount}>
-          <Text style={styles.quietButtonText}>{messages.account.open}</Text>
-        </Pressable>
+        <View style={styles.headActions}>
+          <AboutLink messages={messages} styles={styles} />
+          <Pressable accessibilityRole="button" style={styles.quietButton} onPress={onAccount}>
+            <Text style={styles.quietButtonText}>{messages.account.open}</Text>
+          </Pressable>
+        </View>
       </View>
       <ScrollView style={styles.board} contentContainerStyle={styles.boardContent}>
         {kept?.failed ? (
