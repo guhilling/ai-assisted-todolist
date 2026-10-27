@@ -81,6 +81,9 @@ jobs:
           grep -E "TFDIAG" out/extension.log | cut -c1-400 | head -40
           echo ---- not TFDIAG, after the link share
           awk -v s="$LINK_START" '$0 >= s' out/extension.log | grep -v TFDIAG | grep -iE "expo-sharing|taskfest" | cut -c1-300 | head -60
+          # Everything from the link share on, to search afterwards.
+          xcrun simctl spawn "$UDID" log show --start "$LINK_START" --style compact --info --debug > out/all-after-link.log 2>&1 || true
+          gzip -f out/all-after-link.log
           mkdir -p out/crashes
           cp ~/Library/Logs/DiagnosticReports/*expo* out/crashes/ 2>/dev/null || true
           ls -la ~/Library/Logs/DiagnosticReports/ | tail -10
