@@ -64,14 +64,26 @@ jobs:
           xcrun simctl install "$udid" "$APP"
           echo "START=$(date '+%Y-%m-%d %H:%M:%S')" >> "$GITHUB_ENV"
           mkdir -p out
+          # The control: a photo, which reaches the app.
+          maestro --device "$udid" test .github/diag-safari/share-photo.yaml --test-output-dir out || true
+          echo "LINK_START=$(date '+%Y-%m-%d %H:%M:%S')" >> "$GITHUB_ENV"
+          xcrun simctl terminate "$udid" de.hilling.taskfest.dev || true
           maestro --device "$udid" test .github/diag-safari/share-link.yaml --test-output-dir out || true
           xcrun simctl io "$udid" screenshot out/final.png || true
       - name: What the extension said
         if: always()
         run: |
-          xcrun simctl spawn "$UDID" log show --start "$START" --style compact \
-            --predicate 'eventMessage CONTAINS "TFDIAG" OR process CONTAINS "expo-sharing"' > out/extension.log 2>&1 || true
-          grep -E "TFDIAG|rror|crash" out/extension.log | head -60
+          echo "link share from $LINK_START"
+          xcrun simctl spawn "$UDID" log show --start "$START" --style compact --info --debug \
+            --predicate 'eventMessage CONTAINS "TFDIAG" OR process CONTAINS[c] "expo-sharing" OR eventMessage CONTAINS[c] "expo-sharing" OR eventMessage CONTAINS[c] "de.hilling.taskfest"' \
+            > out/extension.log 2>&1 || true
+          wc -l out/extension.log
+          grep -E "TFDIAG" out/extension.log | cut -c1-400 | head -40
+          echo ---- not TFDIAG, after the link share
+          awk -v s="$LINK_START" '$0 >= s' out/extension.log | grep -v TFDIAG | grep -iE "expo-sharing|taskfest" | cut -c1-300 | head -60
+          mkdir -p out/crashes
+          cp ~/Library/Logs/DiagnosticReports/*expo* out/crashes/ 2>/dev/null || true
+          ls -la ~/Library/Logs/DiagnosticReports/ | tail -10
       - uses: actions/upload-artifact@v7
         if: always()
         with:

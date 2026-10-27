@@ -15,6 +15,8 @@ rep("      provider.loadItem(forTypeIdentifier: UTType.url.identifier, options: 
 rep("      provider.loadItem(forTypeIdentifier: UTType.text.identifier, options: nil) { item, _ in\n",
     "      provider.loadItem(forTypeIdentifier: UTType.text.identifier, options: nil) { item, error in\n"
     "        NSLog(\"TFDIAG text item type: %@ error: %@\", String(describing: Swift.type(of: item)), String(describing: error))\n")
+rep("  private func handleShare() {\n",
+    "  private func handleShare() {\n    NSLog(\"TFDIAG handleShare, items: %@\", String(describing: extensionContext?.inputItems))\n")
 rep("      if !payload.isEmpty {\n",
     "      NSLog(\"TFDIAG payload count: %d\", payload.count)\n      if !payload.isEmpty {\n")
 p.write_text(t)
