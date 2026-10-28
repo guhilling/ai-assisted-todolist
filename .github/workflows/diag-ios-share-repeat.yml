@@ -51,7 +51,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        attempt: [1, 2, 3, 4, 5, 6]
+        attempt: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
     steps:
       - uses: actions/checkout@v7
       - uses: actions/download-artifact@v7
@@ -67,6 +67,9 @@ jobs:
           curl -fsSL "https://get.maestro.mobile.dev" | bash
           echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
       - name: Share into the app on a simulator
+        env:
+          # The driver missed Maestro's default on a freshly booted simulator in round 1.
+          MAESTRO_DRIVER_STARTUP_TIMEOUT: '180000'
         run: bash mobile/maestro/ios/run-on-simulator.sh "$APP"
       - uses: actions/upload-artifact@v7
         if: always()
