@@ -12,8 +12,8 @@ sheet over the board.
   for it, and goes back to the sign-in. Like the website's sign-out it leaves the provider's own
   session alone: it is not an RP-initiated logout, so signing in again may not ask for a password.
   The board kept for reading offline ([board.md](board.md)) with its files' previews, and the
-  scheduled reminders ([reminders.md](reminders.md)) go with it, and whatever else the app comes to keep for a
-  signed-in user is removed in the same place,
+  scheduled reminders ([reminders.md](reminders.md)) go with it, and whatever else the app comes
+  to keep for a signed-in user is removed in the same place,
   `signOut` in `mobile/src/TaskFestApp.tsx`, which every way to the sign-in goes through — a
   session the backend turns away too. A renewal under way is waited for before the keychain is
   cleared, and a start or a load begun before the sign-out gives up, so neither signs back in.

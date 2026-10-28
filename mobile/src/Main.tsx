@@ -105,7 +105,7 @@ const sharedFiles = new Directory(Paths.cache, 'shared')
  */
 const previewFiles = new Directory(Paths.cache, 'previews')
 
-/** The previews' folder, on the phone. A download lands under a name of its own first, so a cut-short one is never taken for a preview. */
+/** The previews' folder, on the phone (`previews.ts` says how a download lands in it). */
 const previewFolder: PreviewFolder = {
   find: (name) => {
     const file = new File(previewFiles, name)
@@ -115,12 +115,14 @@ const previewFolder: PreviewFolder = {
     if (!previewFiles.exists) {
       previewFiles.create({ intermediates: true, idempotent: true })
     }
-    const partial = await File.downloadFileAsync(url, new File(previewFiles, `${name}.part`), { idempotent: true })
-    const kept = new File(previewFiles, name)
+    await File.downloadFileAsync(url, new File(previewFiles, name), { idempotent: true })
+  },
+  move: (from, to) => {
+    const kept = new File(previewFiles, to)
     if (kept.exists) {
       kept.delete()
     }
-    partial.move(kept)
+    new File(previewFiles, from).move(kept)
     return kept.uri
   },
   names: () => (previewFiles.exists ? previewFiles.list().map((entry) => entry.name) : []),
