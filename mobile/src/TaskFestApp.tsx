@@ -13,6 +13,7 @@ import { isChangeable } from './board'
 import type { GoogleProvider } from './google'
 import { BoardScreen } from './BoardScreen'
 import type { KeptBoardStore } from './keptBoard'
+import { noPreviews, type PreviewStore } from './previews'
 import { AboutLink, LegalLinks } from './LegalLinks'
 import type { ReminderScheduler } from './notifications'
 import { remindersFor } from './reminders'
@@ -87,6 +88,8 @@ export type Dependencies = {
   deleteAccount(caller: Caller): Promise<void>
   /** The last board loaded, kept on the phone to be read without a connection (#272). */
   keptBoard: KeptBoardStore
+  /** The files' previews, kept on the phone to be shown without a connection too (#397); none, and each is loaded every time. */
+  previews?: PreviewStore
   /** The due-day reminders on the phone, and the permission they need (#273). */
   reminders: ReminderScheduler
   /** Whether the board's colours were explained on this phone already (#335); none, and they never are. */
@@ -222,6 +225,7 @@ export function TaskFestApp({
     documents,
     deleteAccount,
     keptBoard,
+    previews = noPreviews,
     reminders,
     legend,
     incoming,
@@ -373,6 +377,9 @@ export function TaskFestApp({
         // Never shown to anyone else regardless: it names its account.
         console.warn('The kept board could not be forgotten', failure)
       })
+      await previews.clear().catch((failure: unknown) => {
+        console.warn('The kept previews could not be forgotten', failure)
+      })
       // No reminder outlives the session it was scheduled for.
       await reminders.replace([]).catch((failure: unknown) => {
         console.warn('The reminders could not be cleared', failure)
@@ -387,7 +394,7 @@ export function TaskFestApp({
       setRefused(false)
       setState({ kind: 'signedOut', notice })
     },
-    [forgetFiles, google, keptBoard, reminders, sessions],
+    [forgetFiles, google, keptBoard, previews, reminders, sessions],
   )
 
   /** Keeps the backend's view of the board on the phone, after applying what it just agreed to. */
@@ -403,12 +410,16 @@ export function TaskFestApp({
       keptBoard.save({ account: view.account, savedAt: view.loadedAt, tasks }).catch((failure: unknown) => {
         console.warn('The board could not be kept', failure)
       })
+      // Its previews with it: those of files no longer on it go (#397).
+      previews.retain(tasks.flatMap((task) => (task.attachments ?? []).map((attachment) => attachment.id))).catch((failure: unknown) => {
+        console.warn('The kept previews could not be tidied', failure)
+      })
       // The reminders follow the same view, so a task completed or moved never reminds (#273).
       reminders.replace(remindersFor(tasks, now(), messages)).catch((failure: unknown) => {
         console.warn('The reminders could not be scheduled', failure)
       })
     },
-    [keptBoard, messages, now, reminders],
+    [keptBoard, messages, now, previews, reminders],
   )
 
   /**
@@ -596,13 +607,14 @@ export function TaskFestApp({
         // The session ran out unused: its board, its files and its reminders go with it.
         forgetFiles()
         await keptBoard.clear().catch(() => undefined)
+        await previews.clear().catch(() => undefined)
         await reminders.replace([]).catch(() => undefined)
         // Already at the sign-in, it stays as it is, with whatever it says -- "account deleted", say.
         setState((current) => (current.kind === 'signedOut' ? current : { kind: 'signedOut' }))
       }
     }
     void start()
-  }, [appVersion, attempt, fetchMinimumAppVersion, forgetFiles, keptBoard, loadFailed, reminders, sessionNow, showBoard, showKept, signOut])
+  }, [appVersion, attempt, fetchMinimumAppVersion, forgetFiles, keptBoard, loadFailed, previews, reminders, sessionNow, showBoard, showKept, signOut])
 
   const retry = () => {
     setState({ kind: 'starting' })
@@ -1223,11 +1235,23 @@ export function TaskFestApp({
   useEffect(() => {
     latestFileLink.current = fileLink
   })
-  /** `fileLink`, with one identity for the app's lifetime, so a preview asks once and not per render. */
+  /**
+   * Where a preview is shown from, with one identity for the app's lifetime, so a preview asks once
+   * and not per render: its copy kept on the phone, which needs no connection (#397), or else its
+   * link -- shown at once, and kept meanwhile for the next time.
+   */
   const previewLink = useCallback(
-    (taskId: Task['id'], attachmentId: Attachment['id'], thumbnail: boolean) =>
-      latestFileLink.current(taskId, attachmentId, thumbnail),
-    [],
+    async (taskId: Task['id'], attachmentId: Attachment['id'], thumbnail: boolean) => {
+      const kept = await previews.find(attachmentId, thumbnail).catch(() => null)
+      if (kept) {
+        return kept
+      }
+      const url = await latestFileLink.current(taskId, attachmentId, thumbnail)
+      // Not kept, it is asked for again the next time: nothing worth a notice.
+      previews.keep(attachmentId, thumbnail, url).catch(() => undefined)
+      return url
+    },
+    [previews],
   )
 
   /**
