@@ -1246,9 +1246,13 @@ export function TaskFestApp({
       if (kept) {
         return kept
       }
+      const session = signOuts.current
       const url = await latestFileLink.current(taskId, attachmentId, thumbnail)
+      // A link that arrives after a sign-out is not kept: the previews went with that session.
       // Not kept, it is asked for again the next time: nothing worth a notice.
-      previews.keep(attachmentId, thumbnail, url).catch(() => undefined)
+      if (signOuts.current === session) {
+        previews.keep(attachmentId, thumbnail, url).catch(() => undefined)
+      }
       return url
     },
     [previews],

@@ -166,6 +166,23 @@ describe('the previews kept on the phone (#397)', () => {
     expect(previews.kept.has('9')).toBe(false)
   })
 
+  it('does not keep a preview whose link arrives after signing out', async () => {
+    const previews = memoryPreviews()
+    let answer: (url: string) => void = () => undefined
+    const link = jest.fn(() => new Promise<string>((resolve) => (answer = resolve)))
+    await show(dependencies({ previews, attachments: { link, remove: jest.fn() } }))
+    await waitFor(() => expect(link).toHaveBeenCalled())
+    const user = userEvent.setup()
+
+    await user.press(screen.getByRole('button', { name: 'Account' }))
+    await user.press(screen.getByRole('button', { name: 'Sign out' }))
+    await screen.findByRole('button', { name: 'Sign in with Keycloak' })
+    answer('https://bucket.example.com/1/3/thumbnail')
+
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(previews.keep).not.toHaveBeenCalled()
+  })
+
   it('forgets the kept previews on signing out', async () => {
     const previews = memoryPreviews()
     await show(dependencies({ previews }))
