@@ -1,0 +1,78 @@
+# Throwaway (#401): builds the dev simulator app once, then shares into it on six simulators at once,
+# to catch the share check's failures with its full diagnostics. Never merged.
+name: Diagnose the iOS share check (throwaway)
+on:
+  pull_request:
+    paths: ['.github/workflows/diag-ios-share-repeat.yml']
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: macos-26
+    timeout-minutes: 40
+    env:
+      APP_VARIANT: dev
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+      - name: Install dependencies
+        working-directory: mobile
+        run: npm ci
+      - name: Generate the iOS project
+        working-directory: mobile
+        run: npx expo prebuild --platform ios
+      - name: Build for the simulator
+        working-directory: mobile/ios
+        run: |
+          set -o pipefail
+          workspace=$(ls -d *.xcworkspace)
+          xcodebuild -workspace "$workspace" -scheme "${workspace%.xcworkspace}" \
+            -configuration Release -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO build | tail -n 50
+      - name: Sign as Mobile CI does, and pack
+        run: |
+          app=$(find ~/Library/Developer/Xcode/DerivedData -path '*Release-iphonesimulator/*.app' -maxdepth 6 -type d | head -1)
+          bash .github/scripts/sign-with-app-group.sh "$app" \
+            "$(ls mobile/ios/*/*.entitlements | grep -v /expo-sharing-extension/)" \
+            mobile/ios/expo-sharing-extension/expo-sharing-extension.entitlements
+          ditto -c -k --keepParent "$app" app.zip
+      - uses: actions/upload-artifact@v7
+        with:
+          name: app
+          path: app.zip
+          retention-days: 3
+
+  share:
+    needs: build
+    runs-on: macos-26
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        attempt: [1, 2, 3, 4, 5, 6]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v7
+        with:
+          name: app
+      - name: Unpack
+        run: |
+          ditto -x -k app.zip unpacked
+          echo "APP=$(ls -d "$PWD"/unpacked/*.app)" >> "$GITHUB_ENV"
+      - name: Install Maestro
+        run: |
+          set -a && source mobile/maestro/maestro.env && set +a
+          curl -fsSL "https://get.maestro.mobile.dev" | bash
+          echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
+      - name: Share into the app on a simulator
+        run: bash mobile/maestro/ios/run-on-simulator.sh "$APP"
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: maestro-output-ios-${{ matrix.attempt }}
+          path: |
+            maestro-output-ios
+            maestro-ios-*.xml
+          retention-days: 7
