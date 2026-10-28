@@ -27,7 +27,17 @@ status=0
 for flow in share-photo; do
   # Each share finds the app closed, as after a restart: the extension has to open it.
   xcrun simctl terminate "$udid" de.hilling.taskfest.dev 2>/dev/null || true
-  maestro --device "$udid" test "$here/$flow.yaml" --test-output-dir "$out" \
+  started=$(date -u +%s)
+  # Maestro's debug output -- its screenshots and every command -- goes into the artifact too, so a
+  # failed share shows what the simulator did (#401).
+  maestro --device "$udid" test "$here/$flow.yaml" --test-output-dir "$out" --debug-output "$out/debug-$flow" \
     --format junit --output "maestro-ios-$flow.xml" || status=1
+  # How the simulator ended, and its log for the share: Photos, the share sheet, the extension and
+  # the app it opens.
+  xcrun simctl io "$udid" screenshot "$out/$flow-end.png" || true
+  xcrun simctl spawn "$udid" log show --style compact --info --debug \
+    --start "$(date -u -r "$started" '+%Y-%m-%d %H:%M:%S')" \
+    --predicate 'process CONTAINS[c] "taskfest" OR process CONTAINS[c] "expo-sharing" OR process == "sharingd" OR process == "MobileSlideShow" OR process == "SpringBoard" OR process == "runningboardd"' \
+    >"$out/$flow-simulator.log" 2>&1 || true
 done
 exit $status
