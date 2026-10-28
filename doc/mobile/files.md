@@ -58,10 +58,18 @@ and removed.
   website's own rule for links to storage (`frontend/src/storage.ts`): HTTPS, or plain HTTP to the
   phone itself, the end-to-end stack's storage. The app uses each link again for five minutes, by the
   phone's clock alone, so a preview asks once and not on every redraw, and two asking at once share
-  one request. Previews need a connection: the board kept on the phone ([board.md](board.md)) shows
-  empty boxes instead.
-- **Signing out forgets them**: the image open, the links, and the copies Android downloaded. A
-  copy still downloading then is neither shown nor kept when it arrives (`mobile/src/documents.ts`).
+  one request.
+- **Previews are kept on the phone** (#397), so the board kept for reading offline
+  ([board.md](board.md)) shows them too. Each preview the board shows — a thumbnail, or the image
+  itself where there is none — is downloaded once into the app's cache directory, under its
+  attachment's id, and shown from there from then on, with a connection or without: an attachment
+  never changes, so the copy never goes stale. One never shown online stays an empty box offline;
+  one that cannot be kept is shown from its link (`mobile/src/previews.ts`). Opening a file still
+  needs a connection: only previews are kept. Each user holds at most five files
+  (`attachmentLimits`), so the copies stay small without a limit of their own.
+- **Signing out forgets them**: the image open, the links, the kept previews, and the copies Android
+  downloaded. A copy still downloading then is neither shown nor kept when it arrives
+  (`mobile/src/documents.ts`).
 
 ## Removing them
 

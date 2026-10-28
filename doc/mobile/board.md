@@ -74,9 +74,12 @@ connection — read, not changed ([decisions/mobile-app.md](../decisions/mobile-
   refused with a message — every change is checked where it is sent, so none can slip past — and
   nothing is sent or queued to send later: an update replaces the whole task,
   so a change made to an old copy would overwrite whatever changed since.
+- **With its files' previews** (#397): each preview the board has shown is kept beside it, and one
+  whose file is no longer on the board goes when the board is next kept
+  ([files.md](files.md)). Opening a file needs a connection.
 - **It belongs to one account.** It names the address it was loaded for and is shown only to a
   session of that address, and signing out, deleting the account, or a session that has ended
-  removes it ([account.md](account.md)).
+  removes it, with its previews ([account.md](account.md)).
 
 ## Code and tests
 
@@ -87,6 +90,7 @@ connection — read, not changed ([decisions/mobile-app.md](../decisions/mobile-
 | The platform's date picker | `mobile/src/DueDatePicker.tsx` |
 | The changes, and what a failure leads to | `mobile/src/TaskFestApp.tsx` |
 | The board kept on the phone | `mobile/src/keptBoard.ts` |
+| The previews kept with it | `mobile/src/previews.ts` |
 | The requests | `mobile/src/api.ts` |
 
 Component tests cover each piece (`TaskForm.test.tsx`, `TaskFestApp.changes.test.tsx`), and the

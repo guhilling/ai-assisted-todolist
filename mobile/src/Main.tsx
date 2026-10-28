@@ -35,6 +35,7 @@ import { makeThumbnail } from './thumbnails'
 import { uploadFile, type UploadParts } from './upload'
 import { googleProviderFor } from './google'
 import { createKeptBoardStore } from './keptBoard'
+import { createPreviewStore, type PreviewFolder } from './previews'
 import { createReminderScheduler, type NotificationsApi } from './notifications'
 import { providerFor } from './provider'
 import { createSessionStore } from './staySignedIn'
@@ -97,6 +98,44 @@ const documents = new Directory(Paths.cache, 'documents')
  * was closed -- then, rather than while the app starts.
  */
 const sharedFiles = new Directory(Paths.cache, 'shared')
+
+/**
+ * Where the files' previews are kept (#397): the cache, beside the kept board -- a copy of what the
+ * backend holds, not worth a backup, and the platform's sandbox keeps it from other apps.
+ */
+const previewFiles = new Directory(Paths.cache, 'previews')
+
+/** The previews' folder, on the phone. A download lands under a name of its own first, so a cut-short one is never taken for a preview. */
+const previewFolder: PreviewFolder = {
+  find: (name) => {
+    const file = new File(previewFiles, name)
+    return file.exists ? file.uri : null
+  },
+  download: async (url, name) => {
+    if (!previewFiles.exists) {
+      previewFiles.create({ intermediates: true, idempotent: true })
+    }
+    const partial = await File.downloadFileAsync(url, new File(previewFiles, `${name}.part`), { idempotent: true })
+    const kept = new File(previewFiles, name)
+    if (kept.exists) {
+      kept.delete()
+    }
+    partial.move(kept)
+    return kept.uri
+  },
+  names: () => (previewFiles.exists ? previewFiles.list().map((entry) => entry.name) : []),
+  remove: (name) => {
+    const file = new File(previewFiles, name)
+    if (file.exists) {
+      file.delete()
+    }
+  },
+  clear: () => {
+    if (previewFiles.exists) {
+      previewFiles.delete()
+    }
+  },
+}
 let sharedCopies = 0
 
 /** Copies of shared files a run left behind, let go before the first share of this one is taken. */
@@ -287,6 +326,7 @@ const dependencies: Dependencies = {
   }),
   deleteAccount: (caller) => deleteAccount({ ...caller, appVersion }),
   keptBoard: createKeptBoardStore(new File(Paths.cache, 'board.json')),
+  previews: createPreviewStore(previewFolder),
   legend: fileFlag(new File(Paths.document, 'colours-explained'), 'explained'),
   // Only the raw share is read, never "resolved": incoming.ts says why.
   incoming: {
