@@ -23,6 +23,19 @@ name: Share a photo into the app through iOS's share sheet
     text: "Photo, .*"
     index: 0
 - waitForAnimationToEnd
+# A tap while the library is still settling may open nothing (#401): tapped again until the photo
+# is open, which is when Share is there.
+- repeat:
+    times: 3
+    commands:
+      - runFlow:
+          when:
+            notVisible: "Share"
+          commands:
+            - tapOn:
+                text: "Photo, .*"
+                index: 0
+            - waitForAnimationToEnd
 - tapOn: "Share"
 - waitForAnimationToEnd:
     timeout: 5000
