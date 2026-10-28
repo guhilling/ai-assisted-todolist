@@ -120,7 +120,10 @@ The APK the flows run is built for the emulator's x86_64 only, with Gradle's cac
 runs (`gradle/actions/setup-gradle`, written from `main`). It is not built at all when nothing it
 is made from has changed — the app, the website's sources it bundles, the workflow; the flows and
 tests aside: the APK of the run that last built it is kept in the Actions cache under a hash of
-those files, so a pull request touching only the backend goes straight to the flows. The stack
+those files, so a pull request touching only the backend goes straight to the flows. The iOS
+build is kept the same way, signed and checked, under a hash of the same files and the scripts that
+check and sign it: on a hit the `ios` job skips installing, generating and building — about eight
+of its twenty minutes — and goes straight to the share on the simulator. The stack
 starts in the background, so it comes up while the emulator is set up and boots — Postgres,
 Keycloak and LocalStack first thing, since they need nothing built — and `maestro/seed-stack.sh`
 waits for it before putting the CI task on the board.

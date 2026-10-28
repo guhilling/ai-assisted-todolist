@@ -42,6 +42,6 @@ kept to `main`, or when the restore steps' copies of a key differ.
 | The browser's system packages | `browser-packages-<os>-<arch>-<hash of e2e's lock file>`, the `.deb` files apt downloaded for Playwright's Chromium: on amd64 Ubuntu's mirror took eight minutes over them | `e2e.yml` |
 | Gradle | `gradle/actions/setup-gradle`'s own | Mobile CI's `android` job |
 
-One cache is saved from pull requests too, deliberately: Mobile CI's APK, reused while the app is
-unchanged ([mobile development](../mobile/development.md)). The emulator's setup is not in the
+Two caches are saved from pull requests too, deliberately: Mobile CI's APK and its iOS simulator
+build, each reused while the app is unchanged ([mobile development](../mobile/development.md)). The emulator's setup is not in the
 Actions cache at all but on GitHub's Container Registry, for the same reason of size.

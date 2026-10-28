@@ -138,25 +138,42 @@ jobs:
       APP_VARIANT: dev
     steps:
       - uses: actions/checkout@v7
+      # The app built and signed, kept by what it is made of, as the android job keeps its APK: a
+      # pull request touching only the backend or the flows shares into it without building it
+      # again, which is two thirds of this job. Saved only once the checks below passed on it.
+      - name: Reuse the app if it is unchanged
+        id: app
+        uses: actions/cache@v6
+        with:
+          path: mobile/build-ios/TaskFestDev.app
+          key: >-
+            taskfest-dev-ios-app-${{ hashFiles('mobile/**', 'frontend/src/**', '.github/workflows/mobile-ci.yml',
+            '.github/scripts/check-share-extension.py', '.github/scripts/check-share-activation.swift',
+            '.github/scripts/sign-with-app-group.sh', '!mobile/maestro/**', '!**/*.test.ts', '!**/*.test.tsx') }}
       - uses: actions/setup-node@v7
+        if: steps.app.outputs.cache-hit != 'true'
         with:
           node-version: '24'
       # Read on every branch, saved from main only, with no fallback there so that a new entry starts
       # clean: see doc/testing/continuous-integration.md.
       - name: Restore npm's cache
         id: npm-cache
+        if: steps.app.outputs.cache-hit != 'true'
         uses: actions/cache/restore@v6
         with:
           path: ~/.npm
           key: npm-mobile-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('mobile/package-lock.json') }}
           restore-keys: ${{ github.ref != 'refs/heads/main' && format('npm-mobile-{0}-{1}-', runner.os, runner.arch) || '' }}
       - name: Install dependencies
+        if: steps.app.outputs.cache-hit != 'true'
         working-directory: mobile
         run: npm ci
       - name: Generate the iOS project
+        if: steps.app.outputs.cache-hit != 'true'
         working-directory: mobile
         run: npx expo prebuild --platform ios
       - name: Build for the simulator
+        if: steps.app.outputs.cache-hit != 'true'
         working-directory: mobile/ios
         # pipefail, or the step's status would be tail's and a failed build would pass.
         run: |
@@ -166,6 +183,7 @@ jobs:
             -configuration Release -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
             CODE_SIGNING_ALLOWED=NO build | tail -n 50
       - name: The share extension is built, and signs, as it should be
+        if: steps.app.outputs.cache-hit != 'true'
         # Sharing into the app (#356): the extension expo-sharing's plugin generates -- its name in
         # the share sheet, its App Group, and the shares its type rule lets through.
         run: |
@@ -178,10 +196,14 @@ jobs:
             "$(ls mobile/ios/*/*.entitlements | grep -v /expo-sharing-extension/)" \
             mobile/ios/expo-sharing-extension/expo-sharing-extension.entitlements
           python3 .github/scripts/check-share-extension.py signed "$app"
-          echo "APP=$app" >> "$GITHUB_ENV"
+          # Where the cache above keeps it, under the name it has.
+          mkdir -p mobile/build-ios
+          ditto "$app" mobile/build-ios/TaskFestDev.app
+      - name: Where the app is, reused or built
+        run: echo "APP=$PWD/mobile/build-ios/TaskFestDev.app" >> "$GITHUB_ENV"
       # Before the simulator, whose flake must not cost main its cache.
       - name: Save npm's cache
-        if: github.ref == 'refs/heads/main' && steps.npm-cache.outputs.cache-hit != 'true'
+        if: github.ref == 'refs/heads/main' && steps.app.outputs.cache-hit != 'true' && steps.npm-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v6
         with:
           path: ~/.npm
