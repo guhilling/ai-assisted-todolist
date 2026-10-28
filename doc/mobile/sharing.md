@@ -97,6 +97,8 @@ go as soon as the app has read them, with their folders (`releaseShared` in `Mai
   photo shared from Photos through the real share sheet, where *TaskFest Dev* must be offered and
   must open the app; the simulator's iOS asks first, and the flow lets it. No stack runs on the
   macOS runner, so it ends at the sign-in: whether the photo was kept is not checked there, and
-  the way on to the board is the Android flows'. Its screenshots are the `maestro-output-ios`
-  artifact. Still tried by hand, on TestFlight: a link or text shared on an iPhone, and a share
+  the way on to the board is the Android flows'. Its screenshots, Maestro's debug output and the
+  simulator's log for the share are the `maestro-output-ios` artifact. **It does not fail Mobile CI
+  for now** (#401): it failed at the extension's hand-over to the app often enough that a red run
+  said nothing, so a failure is a warning on the run until it is reliable. Still tried by hand, on TestFlight: a link or text shared on an iPhone, and a share
   taken on to the board signed in.
