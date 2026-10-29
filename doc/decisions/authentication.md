@@ -2,6 +2,8 @@
 
 ## Backend-for-frontend authentication
 
+*Accepted · 2026-09-25 · #14*
+
 **Decision.** The backend is the OIDC client; tokens live in the encrypted `q_session`
 cookie and never reach the browser.
 
@@ -13,7 +15,17 @@ and a cookie session is less machinery for a single-origin app.
 the `Host` header. See [authentication.md](../authentication.md).
 
 
+## One OIDC tenant, switched per profile
+
+*Superseded · 2026-09-25 · #14 · by [A main provider per profile, and named tenants beside it](#a-main-provider-per-profile-and-named-tenants-beside-it)*
+
+One OIDC tenant, its provider chosen per profile: Google in production, Keycloak in dev and test.
+Google and Keycloak never needed to be live at once. Live tests against qa needed a second
+provider beside Google, and #143 made the others named tenants.
+
 ## A main provider per profile, and named tenants beside it
+
+*Accepted · 2026-10-07 · #143, #194*
 
 **Decision (#143, reversing the earlier "one OIDC tenant").** The default `quarkus.oidc.*` tenant
 stays the main provider — Google in production and qa, Keycloak in dev and test — at
@@ -47,6 +59,8 @@ providers' sessions and state cookies, so a browser is never two people at once.
 
 ## The email stays the identity, and every provider must verify it
 
+*Accepted · 2026-10-07 · #143, #194*
+
 **Decision (D1 on #141).** With several providers, the same email from any of them is the same
 `User`; no `(issuer, subject)` identity, no migration. A sign-in is refused unless the provider's
 ID token says `email_verified` (`VerifiedEmail`).
@@ -64,6 +78,8 @@ configuration change.
 
 ## Provider availability comes from configuration
 
+*Accepted · 2026-09-25 · #14*
+
 **Decision.** `/api/auth/providers` marks a provider usable because configuration supplied
 a client id and secret — no provider name appears anywhere in the code.
 
@@ -76,6 +92,8 @@ is also exactly what a fresh production deployment should show.
 
 
 ## Name and picture are session data, not identity
+
+*Accepted · 2026-09-28 · #63*
 
 **Decision.** `/api/auth/me` returns the signed-in person's display name and picture, read
 from the provider's token on each request. Neither is stored. `User` remains `id`, `email`,
@@ -99,6 +117,8 @@ claim. Both are non-sensitive: Google requires no verification review, and `pict
 
 
 ## Gravatar is asked by the backend, and that buys accuracy rather than privacy
+
+*Accepted · 2026-09-28 · #63*
 
 **Decision.** When a provider supplies no picture, the backend requests the address's Gravatar
 with `?d=404` and returns the URL only when one exists. SHA-256 of the trimmed, lower-cased
@@ -131,6 +151,8 @@ trade is now written down rather than decided by omission.
 
 
 ## Apps send a bearer ID token, and the audience is checked in code
+
+*Accepted · 2026-10-10 · #270*
 
 **Decision (#266, S1 on #264).** Every tenant is `hybrid`: the website keeps its code flow and
 session cookie, and an installed app sends its ID token as `Authorization: Bearer`. The tenant is

@@ -2,6 +2,8 @@
 
 ## Panache active-record entities
 
+*Accepted · 2026-09-25 · #14*
+
 **Decision.** Entities extend `PanacheEntityBase`, expose public fields and carry their own
 queries. No repository layer.
 
@@ -15,6 +17,8 @@ objects know about persistence.
 
 ## Liquibase, not Hibernate-managed schema
 
+*Accepted · 2026-09-25 · #14*
+
 **Decision.** `quarkus.hibernate-orm.schema-management.strategy=validate`, with Liquibase
 changelogs applied at startup.
 
@@ -27,6 +31,8 @@ Hibernate would have created a second table and left the first.
 
 
 ## The due-date rule applies to filing a task, not to changing one
+
+*Accepted · 2026-09-27 · #51*
 
 **Decision.** `@FutureOrPresent` lives on `TaskCreateRequest` alone. It is gone from the
 `Task` entity and absent from `TaskUpdateRequest`, so an overdue task can be edited and
@@ -52,6 +58,8 @@ than a risk: correcting a date you typed wrong is now possible.
 
 
 ## The database defines the enums, and the changelogs were squashed to say so
+
+*Accepted · 2026-09-30 · #79*
 
 **Decision.** `state` and `importance` are native PostgreSQL enum types, `task_state` and
 `task_importance`, created in `001-baseline.xml`. That file is the whole schema as one
@@ -101,6 +109,8 @@ does not.
 
 
 ## The schema carries the constraints, and every string has a bound
+
+*Accepted · 2026-09-30 · #80*
 
 **Decision.** Jakarta Bean Validation annotations on the response records, not only on the
 requests, with these bounds:
@@ -152,6 +162,8 @@ remains a devDependency and `dependencies` is still React alone. The bundle grew
 
 ## Wire identifiers are constants, and a GET's query count is asserted
 
+*Accepted · 2026-09-30 · #84*
+
 **Decision.** The OpenID Connect claim names this application reads live in `OidcClaims`, and
 `TaskQueryCountTest` holds the list endpoint to a constant number of database statements.
 
@@ -192,6 +204,8 @@ production application has no use for the numbers, so
 
 
 ## Attachments live in S3 and travel straight between it and the browser
+
+*Accepted · 2026-10-08 · #204, #209*
 
 **Decision.** A task's files (#204) are S3 objects in a private bucket. The backend never sees
 their content: it hands out presigned links, a PUT link to upload and a GET link to open, and
@@ -288,6 +302,8 @@ who could only have got it from the owner's browser.
 
 
 ## Deleting an account leaves a record outside the database
+
+*Accepted · 2026-10-08 · #213, #224*
 
 **Decision.** A user deletes their own account (#213, Gunnar's decision; no admin role).
 `DELETE /api/account` acts on the caller only. It writes a deletion record, then deletes each

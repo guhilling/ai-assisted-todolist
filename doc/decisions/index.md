@@ -1,6 +1,18 @@
 # Decisions
 
-Decisions with consequences, why they were taken, and what was rejected. Newest last.
+Decisions with consequences, why they were taken, and what was rejected, by topic.
+
+The line under each decision says when it was taken, in which issues and pull requests, and whether
+it still holds: `*Accepted · 2026-09-25 · #14*`. A decision that is revised is not edited away. It
+becomes `*Superseded · <date> · #<n> · by [<the new decision>](<chapter>.md#<anchor>)*`, keeps a short
+summary of what it said, and the new decision is added as a section of its own. Where no decision
+records the change, the issue or pull request that made it stands in: `· by #334`. A decision
+revised only in part stays accepted, with a line under the status saying what changed and where. `Accepted` and
+`Superseded` are the only two. This is deliberately lighter than formal architecture decision records
+(one numbered file per decision): it keeps the chapters, and adds what they lacked, the when and the
+what-replaced-it. The dates and numbers of the decisions taken before the line existed come from the
+commit that first wrote each one down. CI checks every line and that this index lists every decision
+(`.github/scripts/check-decisions.py`).
 
 ## [Domain, backend and persistence](domain-and-backend.md)
 
@@ -10,11 +22,15 @@ Decisions with consequences, why they were taken, and what was rejected. Newest 
 - [The database defines the enums, and the changelogs were squashed to say so](domain-and-backend.md#the-database-defines-the-enums-and-the-changelogs-were-squashed-to-say-so)
 - [The schema carries the constraints, and every string has a bound](domain-and-backend.md#the-schema-carries-the-constraints-and-every-string-has-a-bound)
 - [Wire identifiers are constants, and a GET's query count is asserted](domain-and-backend.md#wire-identifiers-are-constants-and-a-gets-query-count-is-asserted)
+- [Attachments live in S3 and travel straight between it and the browser](domain-and-backend.md#attachments-live-in-s3-and-travel-straight-between-it-and-the-browser)
+- [Deleting an account leaves a record outside the database](domain-and-backend.md#deleting-an-account-leaves-a-record-outside-the-database)
 
 ## [Authentication](authentication.md)
 
 - [Backend-for-frontend authentication](authentication.md#backend-for-frontend-authentication)
 - [One OIDC tenant, switched per profile](authentication.md#one-oidc-tenant-switched-per-profile)
+- [A main provider per profile, and named tenants beside it](authentication.md#a-main-provider-per-profile-and-named-tenants-beside-it)
+- [The email stays the identity, and every provider must verify it](authentication.md#the-email-stays-the-identity-and-every-provider-must-verify-it)
 - [Provider availability comes from configuration](authentication.md#provider-availability-comes-from-configuration)
 - [Name and picture are session data, not identity](authentication.md#name-and-picture-are-session-data-not-identity)
 - [Gravatar is asked by the backend, and that buys accuracy rather than privacy](authentication.md#gravatar-is-asked-by-the-backend-and-that-buys-accuracy-rather-than-privacy)
@@ -29,10 +45,14 @@ Decisions with consequences, why they were taken, and what was rejected. Newest 
 - [Due dates are relative words, set from defaults](frontend.md#due-dates-are-relative-words-set-from-defaults)
 - [Undo instead of a confirmation, and what it costs](frontend.md#undo-instead-of-a-confirmation-and-what-it-costs)
 - [Importance is a dot, and the word is still there](frontend.md#importance-is-a-dot-and-the-word-is-still-there)
+- [Sign out and Delete account wait behind Account](frontend.md#sign-out-and-delete-account-wait-behind-account)
 - [A task id is checked before it is put in a URL](frontend.md#a-task-id-is-checked-before-it-is-put-in-a-url)
 - [A storage link is checked before a file goes to it](frontend.md#a-storage-link-is-checked-before-a-file-goes-to-it)
 - [Responses are validated against the schema the backend publishes](frontend.md#responses-are-validated-against-the-schema-the-backend-publishes)
 - [Spacing and type are scales, not values](frontend.md#spacing-and-type-are-scales-not-values)
+- [Sign-in buttons follow Google's branding rules, and every provider looks alike](frontend.md#sign-in-buttons-follow-googles-branding-rules-and-every-provider-looks-alike)
+- [English and German, from a typed catalogue of our own](frontend.md#english-and-german-from-a-typed-catalogue-of-our-own)
+- [Files go straight to storage, with the tab opened on the click](frontend.md#files-go-straight-to-storage-with-the-tab-opened-on-the-click)
 - [The mark is a panda with a ticked ear](frontend.md#the-mark-is-a-panda-with-a-ticked-ear)
 
 ## [Testing](testing.md)
@@ -84,9 +104,12 @@ Decisions with consequences, why they were taken, and what was rejected. Newest 
 - [VPC flow logs go to S3, all traffic, for 30 days](deployment-and-aws.md#vpc-flow-logs-go-to-s3-all-traffic-for-30-days)
 - [CloudFront's `/api/*` origin comes and goes with the environment; the distribution stays](deployment-and-aws.md#cloudfronts-api-origin-comes-and-goes-with-the-environment-the-distribution-stays)
 - [CloudFront reaches the load balancer over HTTPS with the environment's own name](deployment-and-aws.md#cloudfront-reaches-the-load-balancer-over-https-with-the-environments-own-name)
+- [Encryption in transit is settled by configuration, hop by hop, not measured](deployment-and-aws.md#encryption-in-transit-is-settled-by-configuration-hop-by-hop-not-measured)
+- [The tasks run on Graviton, chosen per environment](deployment-and-aws.md#the-tasks-run-on-graviton-chosen-per-environment)
 - [ECS-native blue/green, which needed AWS provider 6](deployment-and-aws.md#ecs-native-bluegreen-which-needed-aws-provider-6)
 - [The frontend's deep links are a CloudFront Function, and a release needs no invalidation](deployment-and-aws.md#the-frontends-deep-links-are-a-cloudfront-function-and-a-release-needs-no-invalidation)
 - [Image vulnerabilities come from Amazon Inspector, through ECR's pull-through cache](deployment-and-aws.md#image-vulnerabilities-come-from-amazon-inspector-through-ecrs-pull-through-cache)
+- [qa's test accounts are a Cognito pool, and its client secret is in OpenTofu state](deployment-and-aws.md#qas-test-accounts-are-a-cognito-pool-and-its-client-secret-is-in-opentofu-state)
 
 ## [Mobile app](mobile-app.md)
 
@@ -99,4 +122,6 @@ Decisions with consequences, why they were taken, and what was rejected. Newest 
 - [Readable offline, not editable offline](mobile-app.md#readable-offline-not-editable-offline)
 - [Releases follow semantic versioning, measured by the API](mobile-app.md#releases-follow-semantic-versioning-measured-by-the-api)
 - [Testers only, one app per environment](mobile-app.md#testers-only-one-app-per-environment)
+- [Uploads with the plain tools: cloud signing on iOS, no stored Google key](mobile-app.md#uploads-with-the-plain-tools-cloud-signing-on-ios-no-stored-google-key)
 - [No crash reporting, for now](mobile-app.md#no-crash-reporting-for-now)
+- [Sharing into the app with expo-sharing, reading only the raw share](mobile-app.md#sharing-into-the-app-with-expo-sharing-reading-only-the-raw-share)

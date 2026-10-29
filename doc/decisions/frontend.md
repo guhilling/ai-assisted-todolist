@@ -2,6 +2,10 @@
 
 ## The board is the front page; the project description is a link
 
+*Accepted · 2026-09-27 · #51*
+
+*Since #194 a deployment can offer several providers at once, each with its button -- qa offers Google and its test accounts: [A main provider per profile, and named tenants beside it](authentication.md#a-main-provider-per-profile-and-named-tenants-beside-it).*
+
 **Decision.** The signed-out page is an app name, one sign-in button and a link to
 `doc/purpose.md` on GitHub. The old hero section — the tech-stack prose and the
 "Backend / Frontend / Deployment" list — is gone. Signed in, the whole page is the board.
@@ -25,6 +29,8 @@ costs nothing.
 
 ## A checkbox for done, a quiet marker for in progress
 
+*Superseded · 2026-09-27 · #51 · by #334*
+
 **Since #334, there is no marker.** Testing the app showed "in progress" was unclear, so a task is
 now open or done: the menu item and the `doing` chip are gone, and tasks in progress became open.
 The checkbox below is unchanged; the rest of this section is why the marker was ever made quiet.
@@ -44,6 +50,8 @@ something untrue.
 
 
 ## The look follows hilling.it, and the calendar loads on demand
+
+*Accepted · 2026-10-05 · #139, #164*
 
 **Decision** (#139). The palette and the heading face come from hilling.it. Its heading blue
 `#0367a5` is the accent, its green `#7fae1c` is a band along the top and, darkened to `#4d7a0a`,
@@ -70,6 +78,8 @@ nothing. The native date field stays alongside, so typing a date keeps working.
 
 ## Editing starts from the menu, and waits for the server
 
+*Accepted · 2026-10-04 · #159*
+
 **Decision** (#156). **Edit** in the row's overflow menu turns the row into a form with the same
 three fields as adding a task: description, due date and importance. Save sends them, while
 Cancel and Escape discard. Completed tasks are read-only, and reopening one is how to change it.
@@ -92,6 +102,8 @@ the right way round.
 
 
 ## Due dates are relative words, set from defaults
+
+*Accepted · 2026-09-27 · #51*
 
 **Decision.** Rows say `Today`, `Tomorrow`, `Yesterday`, `3 days ago`, a weekday name inside
 the week, then `31 Dec`. The board groups into Overdue / Today / Tomorrow / This week / Later.
@@ -121,6 +133,8 @@ headings until it is reloaded. Rows silently re-sorting under the pointer would 
 
 ## Undo instead of a confirmation, and what it costs
 
+*Accepted · 2026-09-27 · #54*
+
 **Decision.** Deleting a task is one click with no dialog. An offer to undo stands for eight
 seconds. Undo re-creates the task through the API.
 
@@ -147,6 +161,8 @@ disappear — a worse surprise than a changed id, and a silent one.
 
 
 ## Importance is a dot, and the word is still there
+
+*Accepted · 2026-09-27 · #54*
 
 **Decision.** Importance renders as a dot at the head of each row's metadata line: hollow for
 low, solid for medium, solid with a ring for high. The word is kept in the markup as
@@ -182,6 +198,8 @@ the meantime is lost when it closes.
 
 ## Sign out and Delete account wait behind Account
 
+*Accepted · 2026-10-27 · #391*
+
 **Decision** (#385). The header shows who is signed in and one button, **Account**, which opens a
 dialog under it: *Signed in as …*, **Sign out** and **Delete account** — the app's account sheet,
 on the website. Escape, a click outside and Account itself close it, and the focus goes back to
@@ -192,6 +210,8 @@ outside does nothing, so a half-typed address is not lost.
 dialog opens in place, as the confirmation did, so the board stays readable behind it.
 
 ## A task id is checked before it is put in a URL
+
+*Accepted · 2026-09-28 · #65*
 
 **Decision.** `putTask` and `deleteTask` build their URL through `taskUrl`, which throws unless
 the id is a safe integer, rather than interpolating whatever arrived.
@@ -217,6 +237,8 @@ this field. It is fixed by the next decision; the guard in `taskUrl` stays anywa
 
 ## A storage link is checked before a file goes to it
 
+*Accepted · 2026-10-11 · #298*
+
 **Decision.** The signed links the backend hands out — to upload a file or its thumbnail, and to
 open one — go through `storageUrl` in `api.ts` before anything is sent or opened. A link must be
 HTTPS, or plain HTTP only to this machine (`localhost`, `*.localhost`, `127.0.0.1`), which is
@@ -233,6 +255,8 @@ file from going anywhere but HTTPS storage.
 
 
 ## Responses are validated against the schema the backend publishes
+
+*Accepted · 2026-09-29 · #74*
 
 **Decision.** `api.ts` declares none of the shapes it receives. The types and the runtime
 validators are both generated from `doc/api/schema/*.schema.json` by `npm run generate:api`,
@@ -289,6 +313,8 @@ one.
 
 ## Spacing and type are scales, not values
 
+*Accepted · 2026-09-30 · #91*
+
 **Decision.** `App.css` defines a strict 4px spacing grid and exactly four type sizes, and every
 padding, margin, gap and font size in the stylesheet comes from them.
 
@@ -331,6 +357,8 @@ by the existing guard without changing it.
 
 ## Sign-in buttons follow Google's branding rules, and every provider looks alike
 
+*Accepted · 2026-10-07 · #198*
+
 **Decision (#190).** The sign-in buttons stand one under another. Google's is Google's official
 button, used as it comes from its branding assets — light or dark with the page — and every other
 provider's button copies its neutral style: white with a grey outline (dark in a dark theme), 40px
@@ -357,6 +385,8 @@ have done it too, at the price of an API change and a changed existing test.
 
 
 ## English and German, from a typed catalogue of our own
+
+*Accepted · 2026-10-08 · #203, #206*
 
 **Decision (#203).** Every text the frontend shows comes from `src/i18n/messages.ts`: an English
 catalogue that defines the shape, and a German one typed as that shape. The language is the
@@ -386,6 +416,8 @@ terms and the documentation site (D4).
 
 
 ## Files go straight to storage, with the tab opened on the click
+
+*Accepted · 2026-10-08 · #204, #212*
 
 **Decision.** Attaching a file (#204) is three requests from `api.ts`: announce it to the backend,
 PUT it to the presigned link that comes back, confirm it. Opening one asks for a link on the click
@@ -430,6 +462,8 @@ everything went (#383). The editor and the add row share the drop zone (`FileDro
 and the uploading with its progress and messages (`useUploads`).
 
 ## The mark is a panda with a ticked ear
+
+*Accepted · 2026-10-10 · #294*
 
 **Decision (Gunnar, 10 October 2026).** TaskFest's mark is a panda's head on a mint tile, its right
 ear a green disc with a check mark. It replaces the rounded square with an open corner and a tick

@@ -2,6 +2,8 @@
 
 ## Jib with a pinned Java 25 base image
 
+*Accepted · 2026-09-25 · #14*
+
 **Decision.** The backend image is built by Jib onto a pinned Java 25 base image — since #66 our
 own `jre-runtime`, Temurin's JRE on UBI micro
 ([containers-and-local-stack.md](containers-and-local-stack.md#the-backend-runs-on-our-own-jre-runtime-temurins-jre-on-ubi-micro)),
@@ -57,6 +59,8 @@ resolves `quay.io/ghilling/jre-runtime`, the tag and the digest, with the `docke
 
 ## sun_checks with documented relaxations
 
+*Accepted · 2026-09-25 · #14*
+
 **Decision.** Checkstyle's `sun_checks.xml` as the style baseline, with a short list of
 relaxations recorded in the header of `backend/checkstyle.xml`, and type-level Javadoc
 required via `MissingJavadocType`.
@@ -68,6 +72,8 @@ type for?" is the question that code cannot answer for itself.
 
 
 ## Apache License 2.0, as a `LICENSE` file only
+
+*Accepted · 2026-09-26 · #20*
 
 **What.** The full Apache-2.0 text as `LICENSE`, verbatim from apache.org, plus a copyright
 line in the README. No per-file license headers, and no enforcement of them.
@@ -87,6 +93,8 @@ which matters when redistributing someone else's Apache-licensed work and there 
 
 
 ## A release is a git tag, and the version lives nowhere else
+
+*Accepted · 2026-09-26 · #20*
 
 **What.** Pushing `v1.2.3` runs `release.yml`, which builds at that version and publishes
 container images tagged `1.2.3`. `backend/pom.xml` declares `<version>${revision}</version>`
@@ -115,6 +123,8 @@ go.
 
 ## SNAPSHOT dependencies fail every build, not just releases
 
+*Accepted · 2026-09-26 · #20*
+
 **What.** `requireReleaseDeps` runs at `validate` on every backend build. `requireReleaseVersion`
 is release-only, in the `release` profile. The frontend's counterpart,
 `scripts/check-no-prerelease-deps.mjs`, fails on a semver pre-release anywhere in
@@ -133,6 +143,8 @@ exactly the case worth catching.
 
 
 ## Renovate merges the small updates and asks about the large ones
+
+*Accepted · 2026-09-26 · #20*
 
 **What.** `.github/renovate.json`. Patch, minor, digest and pin updates carry
 `automerge: true`; major updates open a pull request and wait. Quarkus artifacts, React and
@@ -183,6 +195,8 @@ behind the account rather than the repository API.
 
 ## CodeQL scanning, unfiltered by path
 
+*Accepted · 2026-09-26 · #20*
+
 **What.** `codeql.yml` analyses `java-kotlin` and `javascript-typescript` on every push to
 `main`, every pull request, and weekly. The Java build mode is `manual`, compiling with
 `-DskipTests -Dcheckstyle.skip -Dquarkus.build.skip`.
@@ -219,6 +233,8 @@ not something a repository supplies. It is not a sign of a missing
 
 ## The images are published for amd64 and arm64
 
+*Accepted · 2026-10-09 · #251*
+
 **Decision.** `taskfest-backend` and `taskfest-frontend` are each one image index with an `amd64`
 and an `arm64` image, for `latest` and for every release (#249). An Apple-silicon Mac without
 Rosetta cannot run an amd64 image, and the local stacks run the published ones.
@@ -253,6 +269,8 @@ findings workflow maps it to the index's tag ([image scanning](../deployment/ima
 
 ## The runner is pinned, so an image migration is a decision
 
+*Accepted · 2026-09-29 · #75*
+
 **Decision.** Every `runs-on` in `.github/workflows/` names `ubuntu-24.04` rather than
 `ubuntu-latest` — 13 entries across 10 files.
 
@@ -273,6 +291,8 @@ and made the pinned one look like an exception with a forgotten reason.
 
 
 ## Pages deploys only from `main`
+
+*Accepted · 2026-09-29 · #75*
 
 **Decision.** `pages.yml`'s deploy job is guarded with `if: github.ref == 'refs/heads/main'`, and
 the workflow does **not** subscribe to `release: published`. `release.yml` asks it to run instead,
@@ -299,6 +319,8 @@ repository's web UI.
 
 ## Misconfiguration scanning is static, in CI, with Trivy — not AWS Config
 
+*Accepted · 2026-10-01 · #106*
+
 Most of what a
 best-practice rule set checks — public buckets, open ingress, unencrypted storage, wildcard IAM —
 is readable from the `.tf` files, so Trivy fails the pull request before the change exists. It
@@ -312,6 +334,8 @@ risk for a fixed cost; it is worth revisiting when this stops being a demo. *Not
 which would have done the same job equally well; Trivy is simply the one chosen.
 
 ## SonarCloud runs on `main` only, and a failed quality gate becomes an issue
+
+*Accepted · 2026-10-03 · #127*
 
 On pull requests it
 re-ran the entire backend suite for its coverage report, and with no path filter it was the check

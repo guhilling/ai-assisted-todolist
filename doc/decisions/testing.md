@@ -2,6 +2,8 @@
 
 ## Quarkus Dev Services, not hand-rolled Testcontainers
 
+*Accepted · 2026-09-25 · #14*
+
 **Decision.** PostgreSQL and Keycloak in dev and test come from Dev Services, driven by
 *leaving* the datasource URL and issuer unset.
 
@@ -15,6 +17,8 @@ Keycloak container needs more memory than a default Podman machine provides.
 
 ## Testing sign-in through the real code flow
 
+*Accepted · 2026-09-25 · #14*
+
 **Decision.** `KeycloakLoginFlowTest` drives the actual authorization code exchange rather
 than injecting a bearer token.
 
@@ -25,6 +29,8 @@ sign-in return 401.
 
 
 ## Coverage is measured by `quarkus-jacoco`, and gates the build
+
+*Accepted · 2026-09-26 · #18*
 
 **Decision.** The `quarkus-jacoco` extension produces the coverage report; the
 `jacoco-maven-plugin` keeps only its agent and its `check` goal, which fails `verify` below
@@ -44,6 +50,8 @@ the broken one. Removing the extension breaks nothing visibly and halves the num
 
 ## The end-to-end suite contributes no coverage
 
+*Accepted · 2026-09-26 · #18*
+
 **Decision.** Only the backend test JVM and the Vitest run feed the coverage figure. The
 Playwright suite is not instrumented, and there are no plans to instrument it.
 
@@ -58,6 +66,8 @@ work; neither tells us anything we want to act on.
 
 
 ## Mutation testing, scoped to the tests that do not boot Quarkus
+
+*Accepted · 2026-09-26 · #19*
 
 **Decision.** PIT runs at `verify` over an explicit allowlist of non-Quarkus test classes,
 and **reports without failing the build**. `targetClasses` stays wide, and each production
