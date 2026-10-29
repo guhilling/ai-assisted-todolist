@@ -11,6 +11,16 @@ if [[ -f stack-start.pid ]]; then
 fi
 docker compose -f deployment/docker/docker-compose.e2e.yml up -d --wait
 
+# The flows look for the seeded task under "Today", and the app takes today from the emulator, whose
+# clock is the runner's (emulator-ready.sh), in UTC: a run that crossed midnight found it overdue
+# instead (#407). Either share takes about five minutes from here, so a run seeding in the last
+# quarter of an hour before midnight waits for the new day first.
+until_midnight=$(( 86400 - $(date -u +%s) % 86400 ))
+if (( until_midnight < 900 )); then
+  echo "Midnight UTC is ${until_midnight} s away: waiting for the new day before seeding (#407)."
+  sleep $(( until_midnight + 5 ))
+fi
+
 token=$(curl -sS --fail http://localhost:8082/realms/taskfest/protocol/openid-connect/token \
   -d grant_type=password -d scope=openid -d client_id=taskfest-backend -d client_secret=taskfest-secret \
   -d username=gunnar -d password=gunnar | jq -r .id_token)
