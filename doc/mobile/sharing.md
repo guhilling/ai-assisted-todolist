@@ -99,6 +99,11 @@ go as soon as the app has read them, with their folders (`releaseShared` in `Mai
   macOS runner, so it ends at the sign-in: whether the photo was kept is not checked there, and
   the way on to the board is the Android flows'. Its screenshots, Maestro's debug output and the
   simulator's log for the share are the `maestro-output-ios` artifact. **It does not fail Mobile CI
-  for now** (#401): it failed at the extension's hand-over to the app often enough that a red run
-  said nothing, so a failure is a warning on the run until it is reliable. Still tried by hand, on TestFlight: a link or text shared on an iPhone, and a share
+  for now** (#401): it failed often enough that a red run said nothing, so a failure is a warning
+  on the run until it is reliable. The failures were the simulator's, before any of TaskFest's
+  code: Photos now and then never finishes preparing the photo, so iOS never starts the extension,
+  and a tap on *Open* while iOS's question was still coming in went nowhere. The flow shares the
+  photo again, once, from a restarted Photos when nothing has happened after 90 s, and taps *Open*
+  again while the question is still there. Once `main` has passed it ten times in a row, it fails
+  the run again. Still tried by hand, on TestFlight: a link or text shared on an iPhone, and a share
   taken on to the board signed in.
