@@ -126,7 +126,17 @@ check and sign it: on a hit the `ios` job skips installing, generating and build
 of its twenty minutes — and goes straight to the share on the simulator. The stack
 starts in the background, so it comes up while the emulator is set up and boots — Postgres,
 Keycloak and LocalStack first thing, since they need nothing built — and `maestro/seed-stack.sh`
-waits for it before putting the CI task on the board.
+waits for it before putting the CI task on the board, due today. The flows find it under "Today",
+so a run that would seed in the last quarter of an hour before midnight UTC waits for the new day
+first (#407).
+
+Before the flows the emulator is readied for them (#407). `emulator-ready.sh`, which the live run
+shares, gives Chrome, which the sign-in goes through, its flags in
+`/data/local/tmp/chrome-command-line`: no first-run screens, during which Google Play services
+restarting had taken Chrome down mid sign-in, and the page's accessibility tree always built, which
+had left Keycloak's form invisible to Maestro while it was on screen. `run-on-emulator.sh` then
+keeps the screen on and switches Android to three-button navigation, since a tap on the share
+sheet's bottom row had been taken for a gesture.
 
 The emulator's setup is cached (#302): the API 34 system image and an AVD with a booted snapshot,
 in a private image on GitHub's Container Registry, `ghcr.io/guhilling/taskfest-buildcache`, tagged

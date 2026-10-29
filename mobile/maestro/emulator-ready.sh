@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Waits until the emulator Mobile CI or the live run has just booted can be used, and sets its clock
-# (#267, #278). Sourced by run-on-emulator.sh and live/run-on-qa.sh, after `set -euo pipefail`; it
+# Waits until the emulator Mobile CI or the live run has just booted can be used, sets its clock
+# (#267, #278) and gives Chrome its flags (#407). Sourced by run-on-emulator.sh and live/run-on-qa.sh, after `set -euo pipefail`; it
 # leaves `retry` behind for them.
 #
 # The emulator reports itself booted a little before adb can reach it -- "adb: device offline" --
@@ -32,3 +32,12 @@ if (( drift > 30 || drift < -30 )); then
   adb wait-for-device
 fi
 
+# Chrome, which the flows sign in through, started without its first-run screens and with the
+# page's accessibility tree always built (#407). Its first run has had Google Play services restart
+# under it more than once, taking Chrome and the sign-in down with it; and Keycloak's form has been
+# on screen while the tree Maestro reads still had it empty. The emulator's image is debuggable, so
+# Chrome takes its flags from this file once it is the debug app; both outlast `pm clear`.
+retry adb shell "echo '_ --disable-fre --no-default-browser-check --no-first-run --force-renderer-accessibility' \
+  > /data/local/tmp/chrome-command-line && chmod 644 /data/local/tmp/chrome-command-line"
+retry adb shell am set-debug-app --persistent com.android.chrome
+retry adb shell am force-stop com.android.chrome

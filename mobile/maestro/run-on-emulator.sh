@@ -15,6 +15,26 @@ share="$2"
 
 source "$(dirname "$0")/emulator-ready.sh"
 
+# Awake and unlocked, however long seed-stack.sh waited for midnight to pass.
+retry adb shell svc power stayon true
+retry adb shell input keyevent KEYCODE_WAKEUP
+retry adb shell wm dismiss-keyguard
+
+# Three-button navigation rather than gestures: the share sheet opens with its first row of apps at
+# the very bottom of the screen, where a tap on Create Task (Dev) was now and then taken for the
+# start of a gesture, and the sheet went away without sharing (#407). With buttons it ends above them.
+# Waited for until the system says it navigates with buttons (mode 0), not only that the switch is on.
+retry adb shell cmd overlay enable-exclusive --category com.android.internal.systemui.navbar.threebutton
+for attempt in $(seq 30); do
+  mode="$(adb shell settings get secure navigation_mode 2>/dev/null | tr -d '\r')" || true
+  [[ "$mode" == 0 ]] && break
+  sleep 1
+done
+if [[ "$mode" != 0 ]]; then
+  echo "Android still navigates with gestures (navigation_mode ${mode:-unknown}), not three buttons." >&2
+  exit 1
+fi
+
 # The emulator's localhost is not the runner's: give it the stack's ports under the same numbers,
 # so the app and Keycloak's issuer use the addresses the browser does -- and storage's, which the
 # backend signs links to as s3.localhost:4566 (#274); Android resolves *.localhost to itself.
