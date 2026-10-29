@@ -1,0 +1,27 @@
+diff --git a/node_modules/expo-sharing/android/src/main/java/expo/modules/sharing/dataParsers/SimpleShareIntentDataParser.kt b/node_modules/expo-sharing/android/src/main/java/expo/modules/sharing/dataParsers/SimpleShareIntentDataParser.kt
+index 8dd50e8..04ec284 100644
+--- a/node_modules/expo-sharing/android/src/main/java/expo/modules/sharing/dataParsers/SimpleShareIntentDataParser.kt
++++ b/node_modules/expo-sharing/android/src/main/java/expo/modules/sharing/dataParsers/SimpleShareIntentDataParser.kt
+@@ -20,12 +20,21 @@ internal class SimpleShareIntentDataParser {
+       return if (type == "text/plain") {
+         val text = intent.getStringExtra(Intent.EXTRA_TEXT) ?: return emptyList()
+         val isUrl = android.util.Patterns.WEB_URL.matcher(text).matches()
++        // TaskFest (#414): the page's title, which Chrome sends as the subject beside a link.
++        val subject = intent.getStringExtra(Intent.EXTRA_SUBJECT)?.trim().takeIf { isUrl && !it.isNullOrEmpty() }
+ 
+-        listOf(
++        listOfNotNull(
+           SharePayload().apply {
+             value = text
+             shareType = if (isUrl) ShareType.Url else ShareType.Text
+             mimeType = "text/plain"
++          },
++          subject?.let {
++            SharePayload().apply {
++              value = it
++              shareType = ShareType.Text
++              mimeType = "text/plain"
++            }
+           }
+         )
+       } else {

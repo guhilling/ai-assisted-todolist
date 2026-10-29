@@ -68,3 +68,44 @@ export function withFolderPerFile(swift: string): string {
 `,
   )
 }
+
+/**
+ * The extension's code, as the plugin copies it from `expo-sharing`, with the title of a page shared
+ * with its link passed on to the app as text beside it (#414). Safari hands the extension the title
+ * in the item's `attributedContentText`, which the template ignores, so a link from Safari arrived
+ * as its address alone. Only beside a link, and only where the item brought no text of its own,
+ * which would otherwise be said twice.
+ *
+ * @throws Error when the template no longer reads an item as it did -- better than titles lost
+ *   unnoticed again
+ */
+export function withPageTitle(swift: string): string {
+  const read = `      for provider in attachments {
+        if let payload = await parseProvider(provider) {
+          results.append(payload)
+        }
+      }
+`
+  if (swift.split(read).length !== 2) {
+    throw new Error('The share extension no longer reads a shared item where TaskFest takes the page’s title from it.')
+  }
+  return swift.replace(
+    read,
+    `      var linked = false
+      var texted = false
+      for provider in attachments {
+        if let payload = await parseProvider(provider) {
+          results.append(payload)
+          linked = linked || payload.type == .url
+          texted = texted || payload.type == .text
+        }
+      }
+      // TaskFest (#414): the page's title, which Safari hands over beside its link.
+      if linked && !texted,
+        let title = item.attributedContentText?.string.trimmingCharacters(in: .whitespacesAndNewlines),
+        !title.isEmpty {
+        results.append(SharePayload(type: .text, value: title, mimeType: "text/plain", metadata: nil))
+      }
+`,
+  )
+}
