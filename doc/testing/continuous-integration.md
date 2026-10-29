@@ -39,6 +39,7 @@ kept to `main`, or when the restore steps' copies of a key differ.
 | --- | --- | --- |
 | Maven | `maven-<os>-<arch>-<hash of the pom.xml files>` | `backend-ci.yml` (tests, coverage, mutation testing, the image); on ARM64 `e2e.yml` |
 | npm | `npm-<frontend, e2e or mobile>-<os>-<arch>-<hash of its lock file>` | `frontend-ci.yml`; `e2e.yml`; Mobile CI's `checks` job, and its `ios` job for macOS |
+| The browser's system packages | `browser-packages-<os>-<arch>-<hash of e2e's lock file>`, the `.deb` files apt downloaded for Playwright's Chromium: on amd64 Ubuntu's mirror took eight minutes over them | `e2e.yml` |
 | Gradle | `gradle/actions/setup-gradle`'s own | Mobile CI's `android` job |
 
 One cache is saved from pull requests too, deliberately: Mobile CI's APK, reused while the app is

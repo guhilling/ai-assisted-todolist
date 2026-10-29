@@ -90,11 +90,27 @@ jobs:
       - name: Wait for the frontend
         run: curl -sS --retry 60 --retry-delay 2 --retry-all-errors --fail http://localhost:3000/api/auth/providers
 
+      # The system packages the browser needs, as apt downloaded them: on amd64 Ubuntu's mirror took
+      # eight minutes over them, mostly fonts, where arm64's took seconds. apt finds them here and
+      # downloads only what changed since. Read on every branch, saved from main only, as above.
+      - name: Restore the browser's system packages
+        id: browser-packages
+        uses: actions/cache/restore@v6
+        with:
+          path: ~/apt-archives
+          key: browser-packages-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('e2e/package-lock.json') }}
+          restore-keys: ${{ github.ref != 'refs/heads/main' && format('browser-packages-{0}-{1}-', runner.os, runner.arch) || '' }}
+
       - name: Install the end-to-end dependencies
         working-directory: e2e
         run: |
           npm ci
+          mkdir -p ~/apt-archives/partial
+          printf 'Dir::Cache::Archives "%s";\nAPT::Keep-Downloaded-Packages "true";\n' "$HOME/apt-archives" \
+            | sudo tee /etc/apt/apt.conf.d/99-browser-packages
           npx playwright install --with-deps chromium
+          # apt wrote them as root; the cache is saved as the runner.
+          sudo chown -R "$USER" ~/apt-archives
 
       - name: Collect the live checks
         # They run against a deployed environment, after a deploy (live-tests.yml), not here; but
@@ -124,6 +140,12 @@ jobs:
       - name: Stop the stack
         if: always()
         run: docker compose -f deployment/docker/docker-compose.e2e.yml down -v
+      - name: Save the browser's system packages
+        if: github.ref == 'refs/heads/main' && steps.browser-packages.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: ~/apt-archives
+          key: ${{ steps.browser-packages.outputs.cache-primary-key }}
       # Backend CI saves the x64 one; nothing else builds the backend on ARM64.
       - name: Save Maven's cache
         if: >-
