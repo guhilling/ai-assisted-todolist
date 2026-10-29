@@ -185,15 +185,16 @@ public class AttachmentService {
     }
 
     /**
-     * A link the owner's browser opens the file with, the same one again while it is fresh; empty
-     * for a link (#414), which is opened by its own URL.
+     * A link the owner's browser opens the file with, the same one again while it is fresh. For a
+     * link (#414), its own address: the board opens that directly, but an app from before links
+     * (#268) lists one as a file and asks for this.
      */
-    public Optional<AttachmentStore.DownloadLink> link(Attachment attachment) {
+    public AttachmentStore.DownloadLink link(Attachment attachment) {
         if (!attachment.kind.isFile()) {
-            return Optional.empty();
+            return new AttachmentStore.DownloadLink(attachment.url, Instant.now().plus(config.downloadLinkLifetime()));
         }
-        return Optional.of(links.get(attachment.objectKey, Instant.now(), () -> store.downloadLink(
-            attachment.objectKey, attachment.kind.contentType(), attachment.fileName, config.downloadLinkLifetime())));
+        return links.get(attachment.objectKey, Instant.now(), () -> store.downloadLink(
+            attachment.objectKey, attachment.kind.contentType(), attachment.fileName, config.downloadLinkLifetime()));
     }
 
     /** A link to the attachment's preview thumbnail, the same one again while it is fresh; empty without one. */

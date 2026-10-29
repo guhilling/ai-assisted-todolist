@@ -875,7 +875,7 @@ export function TaskFestApp({
           attachLater = {
             task: created,
             files: (started?.pending ?? []).filter((file) => !draft?.uploaded.has(file)),
-            links: started?.links ?? [],
+            links: files?.addLink ? (started?.links ?? []) : [],
           }
         }
       })
@@ -937,14 +937,22 @@ export function TaskFestApp({
       addFile(task.id, attachment)
       return null
     } catch (cause) {
-      if (cause instanceof KeptBoardShownError) {
-        setRefused(true)
-        return messages.offline.readOnly
-      }
-      return refusalText(cause, file.name) ?? (await failed(cause, messages.attachments.uploadFailed(file.name))) ?? ''
+      return attachFailure(cause, file.name, messages.attachments.uploadFailed(file.name))
     } finally {
       setUploading(null)
     }
+  }
+
+  /**
+   * Why a file or a link (#414) was not attached, in the user's words: the board kept being shown,
+   * the backend's refusal, or the fallback; '' when the failure was handled otherwise.
+   */
+  const attachFailure = async (cause: unknown, name: string, fallback: string): Promise<string> => {
+    if (cause instanceof KeptBoardShownError) {
+      setRefused(true)
+      return messages.offline.readOnly
+    }
+    return refusalText(cause, name) ?? (await failed(cause, fallback)) ?? ''
   }
 
   /**
@@ -995,7 +1003,7 @@ export function TaskFestApp({
       }
       const picked = file
       setForm((current) =>
-        sameForm(current) && (current!.pending?.length ?? 0) < attachmentLimits.perTask
+        sameForm(current) && (current!.pending?.length ?? 0) + (current!.links?.length ?? 0) < attachmentLimits.perTask
           ? { ...current!, pending: [...(current!.pending ?? []), picked] }
           : current,
       )
@@ -1038,11 +1046,7 @@ export function TaskFestApp({
       addFile(task.id, attachment)
       return null
     } catch (cause) {
-      if (cause instanceof KeptBoardShownError) {
-        setRefused(true)
-        return messages.offline.readOnly
-      }
-      return refusalText(cause, name) ?? (await failed(cause, messages.attachments.linkFailed(name))) ?? ''
+      return attachFailure(cause, name, messages.attachments.linkFailed(name))
     }
   }
 
@@ -1467,7 +1471,8 @@ export function TaskFestApp({
                   onRemoveFile={files && form.task ? (attachment) => void removeFile(form.task!, attachment) : undefined}
                   busy={form.task ? busy.has(form.task.id) : draftWorking}
                   pending={form.task ? undefined : (form.pending ?? [])}
-                  pendingLinks={form.task ? undefined : form.links}
+                  // Offered only where they can be added: none would otherwise go without a word.
+                  pendingLinks={form.task || !files?.addLink ? undefined : form.links}
                   onUnpickLink={(link) =>
                     setForm((current) => current && { ...current, links: current.links?.filter((each) => each !== link) })
                   }

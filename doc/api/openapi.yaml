@@ -906,8 +906,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/LinkResponse"
         "404":
-          description: No such available file on a task the caller owns; a link is
-            opened by its own URL.
+          description: No such available attachment on a task the caller owns.
         "401":
           description: Not Authorized
         "403":

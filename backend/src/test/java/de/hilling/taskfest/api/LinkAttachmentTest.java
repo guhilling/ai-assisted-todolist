@@ -111,12 +111,14 @@ class LinkAttachmentTest {
     @Test
     @TestSecurity(user = "link-open@example.com")
     @OidcSecurity(claims = { @Claim(key = "email", value = "link-open@example.com") })
-    void shouldHandOutNoStorageLinkForALink() {
-        // Its URL is the way to open it; there is nothing in storage to sign a link for.
+    void shouldHandOutALinksOwnAddressAsItsLink() {
+        // Its URL is the way to open it; nothing in storage to sign a link for. An app from before
+        // links (#268) asks for one all the same, and opens what it is given.
         long taskId = createTask("Open by URL");
         long id = addLink(taskId, ARTICLE, "Opened directly").extract().jsonPath().getLong("id");
 
-        given().when().get("/api/tasks/" + taskId + "/attachments/" + id + "/link").then().statusCode(404);
+        given().when().get("/api/tasks/" + taskId + "/attachments/" + id + "/link").then().statusCode(200)
+            .body("url", equalTo(ARTICLE));
         given().when().get("/api/tasks/" + taskId + "/attachments/" + id + "/thumbnail-link").then().statusCode(404);
         given().when().post("/api/tasks/" + taskId + "/attachments/" + id + "/confirm").then().statusCode(200)
             .body("url", equalTo(ARTICLE));

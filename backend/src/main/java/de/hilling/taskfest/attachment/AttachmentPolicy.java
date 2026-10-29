@@ -53,13 +53,7 @@ public final class AttachmentPolicy {
         if (sizeBytes > maxSizeBytes) {
             return Optional.of(Refusal.TOO_LARGE);
         }
-        if (onTask >= maxPerTask) {
-            return Optional.of(Refusal.TASK_FULL);
-        }
-        if (ofUser >= maxPerUser) {
-            return Optional.of(Refusal.USER_FULL);
-        }
-        return Optional.empty();
+        return countRefusal(onTask, ofUser);
     }
 
     /**
@@ -93,9 +87,14 @@ public final class AttachmentPolicy {
         if (name.isEmpty()) {
             name = url;
         }
-        return name.length() > Attachment.MAX_FILE_NAME_LENGTH
-            ? name.substring(0, Attachment.MAX_FILE_NAME_LENGTH)
-            : name;
+        if (name.length() <= Attachment.MAX_FILE_NAME_LENGTH) {
+            return name;
+        }
+        // Never through a character that takes two units, an emoji's: half of one is no character.
+        int end = Character.isHighSurrogate(name.charAt(Attachment.MAX_FILE_NAME_LENGTH - 1))
+            ? Attachment.MAX_FILE_NAME_LENGTH - 1
+            : Attachment.MAX_FILE_NAME_LENGTH;
+        return name.substring(0, end);
     }
 
     /**

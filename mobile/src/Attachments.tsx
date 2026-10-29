@@ -214,23 +214,15 @@ export function PendingFiles({
   onUnpick: (file: PickedFile) => void
 }) {
   return files.map((file) => (
-    <View key={file.uri} style={styles.editorFile}>
-      <Text aria-hidden>{isImageType(file.type) ? '🖼' : '📄'}</Text>
-      <Text style={styles.description} numberOfLines={1}>
-        {file.name}
-      </Text>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={messages.attachments.remove(file.name)}
-        accessibilityState={{ disabled }}
-        disabled={disabled}
-        hitSlop={8}
-        style={[styles.quietButton, disabled && styles.disabled]}
-        onPress={() => onUnpick(file)}
-      >
-        <Text style={styles.dangerText}>×</Text>
-      </Pressable>
-    </View>
+    <PendingRow
+      key={file.uri}
+      icon={isImageType(file.type) ? '🖼' : '📄'}
+      name={file.name}
+      disabled={disabled}
+      messages={messages}
+      styles={styles}
+      onUnpick={() => onUnpick(file)}
+    />
   ))
 }
 
@@ -252,28 +244,54 @@ export function PendingLinks({
   styles: Styles
   onUnpick: (link: SharedLink) => void
 }) {
-  return links.map((link) => {
-    const name = link.title ?? link.url
-    return (
-      <View key={link.url} style={styles.editorFile}>
-        <Text aria-hidden>🔗</Text>
-        <Text style={styles.description} numberOfLines={1}>
-          {name}
-        </Text>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={messages.attachments.remove(name)}
-          accessibilityState={{ disabled }}
-          disabled={disabled}
-          hitSlop={8}
-          style={[styles.quietButton, disabled && styles.disabled]}
-          onPress={() => onUnpick(link)}
-        >
-          <Text style={styles.dangerText}>×</Text>
-        </Pressable>
-      </View>
-    )
-  })
+  return links.map((link) => (
+    <PendingRow
+      key={link.url}
+      icon="🔗"
+      name={link.title ?? link.url}
+      disabled={disabled}
+      messages={messages}
+      styles={styles}
+      onUnpick={() => onUnpick(link)}
+    />
+  ))
+}
+
+/** One thing held for a task being added -- a file or a link -- with **×** to let it go again. */
+function PendingRow({
+  icon,
+  name,
+  disabled,
+  messages,
+  styles,
+  onUnpick,
+}: {
+  icon: string
+  name: string
+  disabled: boolean
+  messages: Messages
+  styles: Styles
+  onUnpick: () => void
+}) {
+  return (
+    <View style={styles.editorFile}>
+      <Text aria-hidden>{icon}</Text>
+      <Text style={styles.description} numberOfLines={1}>
+        {name}
+      </Text>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={messages.attachments.remove(name)}
+        accessibilityState={{ disabled }}
+        disabled={disabled}
+        hitSlop={8}
+        style={[styles.quietButton, disabled && styles.disabled]}
+        onPress={onUnpick}
+      >
+        <Text style={styles.dangerText}>×</Text>
+      </Pressable>
+    </View>
+  )
 }
 
 /**

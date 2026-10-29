@@ -99,6 +99,12 @@ class AttachmentPolicyTest {
     }
 
     @Test
+    void shouldNotCutALinksTitleThroughACharacterThatTakesTwo() {
+        String title = "a".repeat(Attachment.MAX_FILE_NAME_LENGTH - 1) + "😀 and more";
+        assertEquals("a".repeat(Attachment.MAX_FILE_NAME_LENGTH - 1), AttachmentPolicy.linkTitle(title, "https://example.com"));
+    }
+
+    @Test
     void shouldCutALinksTitleOrUrlToTheLengthTheColumnHolds() {
         String longest = "a".repeat(Attachment.MAX_FILE_NAME_LENGTH);
         assertEquals(longest, AttachmentPolicy.linkTitle(longest + "b", "https://example.com"));

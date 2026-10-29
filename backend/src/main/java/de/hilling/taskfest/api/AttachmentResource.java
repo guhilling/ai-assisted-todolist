@@ -55,8 +55,11 @@ import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 @Tag(name = "Attachments", description = "Files on a task, transferred directly between the browser and storage.")
 public class AttachmentResource {
 
-    /** The longest URL handed out; presigned S3 URLs run to a little over a thousand characters. */
-    private static final int MAX_URL_LENGTH = 4096;
+    /**
+     * The longest storage link handed out; presigned S3 URLs run to a little over a thousand
+     * characters. Not a link attachment's address, which {@link Attachment#MAX_URL_LENGTH} bounds.
+     */
+    private static final int MAX_STORAGE_LINK_LENGTH = 4096;
 
     /**
      * What a link's URL must look like: a web address with a host, nothing that runs or embeds when
@@ -178,12 +181,9 @@ public class AttachmentResource {
     @APIResponse(responseCode = "200", description = "The link and until when it works.",
         content = @Content(mediaType = MediaType.APPLICATION_JSON,
             schema = @Schema(implementation = LinkResponse.class)))
-    @APIResponse(responseCode = "404", description = "No such available file on a task the caller owns; a link "
-        + "is opened by its own URL.")
+    @APIResponse(responseCode = "404", description = "No such available attachment on a task the caller owns.")
     public Response link(@PathParam("taskId") Long taskId, @PathParam("id") Long id) {
-        return attachments.link(availableAttachment(taskId, id))
-            .map(this::linkResponse)
-            .orElseThrow(() -> new WebApplicationException(Response.Status.NOT_FOUND));
+        return linkResponse(attachments.link(availableAttachment(taskId, id)));
     }
 
     @GET
@@ -321,7 +321,7 @@ public class AttachmentResource {
      */
     public record UploadResponse(
         @NotNull AttachmentResponse attachment,
-        @NotNull @Size(max = MAX_URL_LENGTH) String url,
+        @NotNull @Size(max = MAX_STORAGE_LINK_LENGTH) String url,
         @NotNull Map<String, String> headers,
         @NotNull Instant expiresAt,
         @JsonInclude(JsonInclude.Include.NON_NULL) ThumbnailUploadResponse thumbnailUpload
@@ -335,7 +335,7 @@ public class AttachmentResource {
      * @param headers the headers the PUT must carry, exactly
      */
     public record ThumbnailUploadResponse(
-        @NotNull @Size(max = MAX_URL_LENGTH) String url,
+        @NotNull @Size(max = MAX_STORAGE_LINK_LENGTH) String url,
         @NotNull Map<String, String> headers
     ) {
     }
@@ -347,7 +347,7 @@ public class AttachmentResource {
      * @param expiresAt until when the link works
      */
     public record LinkResponse(
-        @NotNull @Size(max = MAX_URL_LENGTH) String url,
+        @NotNull @Size(max = MAX_STORAGE_LINK_LENGTH) String url,
         @NotNull Instant expiresAt
     ) {
     }

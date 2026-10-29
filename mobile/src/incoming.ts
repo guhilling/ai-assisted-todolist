@@ -1,6 +1,6 @@
 import { TYPE_BY_EXTENSION, typeOfName } from './pick'
 import type { PickedFile } from './upload'
-import { attachmentLimits, attachmentTypes, checkFile, type AttachmentRefusal } from './web'
+import { attachmentLimits, attachmentTypes, checkFile, isWebAddress, type AttachmentRefusal } from './web'
 
 /**
  * Sharing into TaskFest (#355): what another app shared, turned into a task to add -- the text as
@@ -93,8 +93,10 @@ export async function draftOf(items: SharedItem[], parts: IncomingParts): Promis
   if (items.length === 0) {
     return null
   }
-  const texts = items.filter((item) => item.shareType === 'text')
-  const links = items.filter((item) => item.shareType === 'url')
+  // A "link" the backend would not take -- Android takes "notes.md" for an address, iOS any scheme
+  // -- stays text, as every link was before #414, rather than being lost on the way.
+  const links = items.filter((item) => item.shareType === 'url' && isLinkable(item.value.trim()))
+  const texts = items.filter((item) => item.shareType === 'text' || (item.shareType === 'url' && !links.includes(item)))
   const description = cut(
     texts
       .map((item) => item.value.trim())
@@ -109,17 +111,27 @@ export async function draftOf(items: SharedItem[], parts: IncomingParts): Promis
       parts.release?.(item.value)
     }
   }
-  // After the files, which a share is mostly for: a link takes what room the task has left.
+  // After the files, which a share is mostly for: a link takes what room the task has left. The text
+  // is a link's title only when it is the one link; of several, nothing says which title is whose.
+  const title = links.length === 1 && description !== '' ? description : null
   const taken: SharedLink[] = []
   for (const item of links) {
     const url = item.value.trim()
     if (draft.files.length + taken.length === attachmentLimits.perTask) {
       draft.refused.push({ name: url, refusal: 'TASK_FULL' })
     } else {
-      taken.push({ url, title: description === '' ? null : description })
+      taken.push({ url, title })
     }
   }
   return taken.length > 0 ? { ...draft, links: taken } : draft
+}
+
+/** The longest address the backend keeps for a link (`LinkRequest`'s `maxLength`, which a test compares). */
+export const LINK_MAX_LENGTH = 2048
+
+/** Whether the backend takes this as a link's address: a web address it can keep. */
+function isLinkable(url: string) {
+  return url.length <= LINK_MAX_LENGTH && isWebAddress(url)
 }
 
 /** What the phone can tell of a file, or null when it cannot even say that: a permission withdrawn. */
