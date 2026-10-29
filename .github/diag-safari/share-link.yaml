@@ -30,7 +30,10 @@ name: Share a page from Safari
     commands:
       - tapOn: "More"
       - waitForAnimationToEnd
-- tapOn: "TaskFest Dev"
+# Safari's sheet is a scene of its own, and Maestro reads its elements' places relative to it: a
+# tap by name lands above the sheet. TaskFest Dev's icon, where the screenshot shows it.
+- tapOn:
+    point: 61%, 74%
 - takeScreenshot: link-2-tapped
 - extendedWaitUntil:
     visible: '(Open in .TaskFest Dev.\?|Sign in with Keycloak)'

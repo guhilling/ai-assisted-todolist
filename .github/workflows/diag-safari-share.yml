@@ -73,7 +73,6 @@ jobs:
           echo "PRESS_START=$(date '+%Y-%m-%d %H:%M:%S')" >> "$GITHUB_ENV"
           xcrun simctl terminate "$udid" de.hilling.taskfest.dev || true
           xcrun simctl terminate "$udid" com.apple.mobilesafari || true
-          maestro --device "$udid" test .github/diag-safari/share-link-press.yaml --test-output-dir out --debug-output out/debug-press || true
           xcrun simctl io "$udid" screenshot out/final.png || true
       - name: What the extension said
         if: always()
