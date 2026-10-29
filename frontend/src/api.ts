@@ -255,13 +255,20 @@ function toTask(data: unknown): Task {
   return task
 }
 
-/** Turns a checked attachment into one the application owns, its id checked like a task's. */
+/**
+ * Turns a checked attachment into one the application owns, its id checked like a task's; a link's
+ * address (#414) kept, a file without one as it was before links.
+ */
 function toAttachment(data: AttachmentResponse, subject: ContractSubject): Attachment {
   const id = Number(data.id)
   if (!Number.isSafeInteger(id)) {
     throw new ContractBreachError(subject, 'idNotInteger')
   }
-  return { id, fileName: data.fileName, contentType: data.contentType, sizeBytes: data.sizeBytes, thumbnail: data.thumbnail }
+  const attachment: Attachment = { id, fileName: data.fileName, contentType: data.contentType, sizeBytes: data.sizeBytes, thumbnail: data.thumbnail }
+  if (data.url !== undefined) {
+    attachment.url = data.url
+  }
+  return attachment
 }
 
 /** Turns a checked response into the task list. Each task is checked in its own right. */
