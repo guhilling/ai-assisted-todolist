@@ -141,15 +141,21 @@ jobs:
       # The app built and signed, kept by what it is made of, as the android job keeps its APK: a
       # pull request touching only the backend or the flows shares into it without building it
       # again, which is two thirds of this job. Saved only once the checks below passed on it.
+      # The key is worked out once, from the checkout alone: the cache's post step would hash
+      # mobile/** again after the build, Pods and node_modules included, which outran the two
+      # minutes GitHub gives hashFiles.
+      - name: Key the app by what it is made of
+        id: app-key
+        run: >-
+          echo "key=taskfest-dev-ios-app-${{ hashFiles('mobile/**', 'frontend/src/**', '.github/workflows/mobile-ci.yml',
+          '.github/scripts/check-share-extension.py', '.github/scripts/check-share-activation.swift',
+          '.github/scripts/sign-with-app-group.sh', '!mobile/maestro/**', '!**/*.test.ts', '!**/*.test.tsx') }}" >> "$GITHUB_OUTPUT"
       - name: Reuse the app if it is unchanged
         id: app
         uses: actions/cache@v6
         with:
           path: mobile/build-ios/TaskFestDev.app
-          key: >-
-            taskfest-dev-ios-app-${{ hashFiles('mobile/**', 'frontend/src/**', '.github/workflows/mobile-ci.yml',
-            '.github/scripts/check-share-extension.py', '.github/scripts/check-share-activation.swift',
-            '.github/scripts/sign-with-app-group.sh', '!mobile/maestro/**', '!**/*.test.ts', '!**/*.test.tsx') }}
+          key: ${{ steps.app-key.outputs.key }}
       - uses: actions/setup-node@v7
         if: steps.app.outputs.cache-hit != 'true'
         with:
