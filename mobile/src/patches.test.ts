@@ -14,4 +14,11 @@ describe('expo-sharing on Android, as patched (#414)', () => {
 
     expect(parser).toContain('intent.getStringExtra(Intent.EXTRA_SUBJECT)')
   })
+
+  it('is built from its source, which the patch changes, rather than taken precompiled', () => {
+    // Expo ships its modules for Android precompiled; the APK would otherwise never see the patch.
+    const settings = JSON.parse(readFileSync(require.resolve('../package.json'), 'utf8'))
+
+    expect(settings.expo.autolinking.android.buildFromSource).toContain('expo-sharing')
+  })
 })

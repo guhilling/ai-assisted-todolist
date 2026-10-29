@@ -74,5 +74,14 @@
         "lines": 95
       }
     }
+  },
+  "expo": {
+    "autolinking": {
+      "android": {
+        "buildFromSource": [
+          "expo-sharing"
+        ]
+      }
+    }
   }
 }

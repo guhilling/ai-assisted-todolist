@@ -61,7 +61,9 @@ the raw share, is in [decisions/mobile-app.md](../decisions/mobile-app.md).
     template to pass it on, as `withFolderPerFile` patches it for files.
   - **Chrome on Android** sends the title as the share's subject (`Intent.EXTRA_SUBJECT`), which
     expo-sharing drops; `mobile/patches/expo-sharing+<version>.patch` passes it on, applied by
-    `patch-package` on every `npm ci`, and `src/patches.test.ts` fails if it was not.
+    `patch-package` on every `npm ci`. Expo ships expo-sharing for Android precompiled, so
+    `package.json` has it built from that patched source (`expo.autolinking.android.buildFromSource`);
+    `src/patches.test.ts` fails if either is missing.
   - Text with a link inside it, as many apps share — "Read the article https://…" — stays text, as
     before: only a share that *is* a link becomes one.
 - **Files** are copied into the app's cache, under `shared/`, and go up as soon as the form opens,

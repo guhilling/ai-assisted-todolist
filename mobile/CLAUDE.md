@@ -17,7 +17,9 @@ or any page with `.md` appended), not what you remember. Add Expo packages with
 - **Builds run on GitHub Actions, not EAS** (`doc/decisions/mobile-app.md`).
 - **A dependency is patched only through `patches/`**, with `patch-package`, applied on every
   `npm ci` by `postinstall` -- never by editing `node_modules` and hoping. Each patch says why in
-  its code, and `src/patches.test.ts` checks it is in place (`doc/decisions/mobile-app.md`).
+  its code, and `src/patches.test.ts` checks it is in place (`doc/decisions/mobile-app.md`). **An
+  Expo module patched for Android must also be listed in `expo.autolinking.android.buildFromSource`**:
+  Expo ships them precompiled, and the APK would otherwise never see the patch.
 - **The website's code comes in through `src/web.ts` only.** Generated types and validators,
   texts, date and importance rules: used, never copied. **Every text is in the website's
   catalogue**, `frontend/src/i18n/messages.ts`, in both languages — one only the app shows too,

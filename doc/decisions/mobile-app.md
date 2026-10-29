@@ -332,7 +332,9 @@ active. That needs a small extension of the project's own, a few lines of Swift,
 title comes from what the browser already sends beside the link, through two patches to
 expo-sharing: on iOS, `withPageTitle` rewrites its extension template during prebuild, as
 `withFolderPerFile` does; on Android, `patch-package` applies `mobile/patches/` to its Kotlin parser
-on every `npm ci`. Both fail loudly when an update moves the code they change: the first throws
+on every `npm ci`, and `package.json` has autolinking build expo-sharing from that source
+(`expo.autolinking.android.buildFromSource`) -- Expo ships its modules for Android precompiled, and
+the first APK with the patch never saw it. Both fail loudly when an update moves the code they change: the first throws
 during prebuild, the second fails the install, and `src/patches.test.ts` fails when the patch did
 not run.
 
