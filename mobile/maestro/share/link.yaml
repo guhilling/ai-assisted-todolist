@@ -15,8 +15,9 @@ name: Share a link into the app
     element: "Add"
 - takeScreenshot: 35-shared-link
 - tapOn: "Add"
-- extendedWaitUntil:
-    visible: 'Edit "An article worth reading"'
+# The board is long by now: the task may be below the screen.
+- scrollUntilVisible:
+    element: "Open An article worth reading"
     timeout: 15000
-- assertVisible: "Open An article worth reading"
+- assertVisible: 'Edit "An article worth reading"'
 - takeScreenshot: 36-shared-link-added
