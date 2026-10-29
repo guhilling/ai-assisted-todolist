@@ -2,6 +2,8 @@
 
 ## Compose files under `deployment/docker/`
 
+*Accepted · 2026-09-30 · #94*
+
 **Decision.** Both Compose stacks moved from the repository root into `docker/`, each with
 an explicit `name:`, and later into `deployment/docker/` when the AWS material arrived and
 needed a sibling.
@@ -15,6 +17,8 @@ and the volumes do not notice.
 
 
 ## Compose probes live in scripts, not inline
+
+*Accepted · 2026-09-27 · #51*
 
 **Decision.** A healthcheck or other multi-part command in a Compose file goes in a script
 file next to it, mounted read-only, and is referenced by path:
@@ -34,6 +38,8 @@ quoting can be none of those.
 **Cost.** One more file, and a volume mount that has to stay in step with it.
 
 ## The frontend is served by Red Hat's hardened httpd
+
+*Accepted · 2026-09-27 · #55*
 
 **Decision.** The frontend image is `registry.access.redhat.com/hi/httpd:2` — Apache 2.4,
 non-root on port 8080 — instead of `nginx:1.31-alpine`. The published port changes with it, so
@@ -71,6 +77,8 @@ price of a pull request every time the image is rebuilt upstream; that is a sepa
 and has not been taken.
 
 ## The backend runs on our own jre-runtime: Temurin's JRE on UBI micro
+
+*Accepted · 2026-10-06 · #66, #179*
 
 **Decision** (#66, Gunnar). The backend image is built by Jib onto `quay.io/ghilling/jre-runtime`,
 an image of our own: the full Eclipse Temurin JRE copied onto Red Hat **UBI 10 micro**. It is

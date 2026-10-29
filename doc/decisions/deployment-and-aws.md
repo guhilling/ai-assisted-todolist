@@ -2,6 +2,8 @@
 
 ## Tearing an environment down is a parameter, not a destroy
 
+*Accepted · 2026-10-01 · #96*
+
 **Decision.** Each environment has a `running` variable, default `false`. The resources that bill
 live in `modules/environment/billable.tf`, each carrying `count = var.running ? 1 : 0`, so taking
 an environment down is `tofu apply` with the variable false. `deployment/aws-tofu/env.sh` wraps
@@ -36,6 +38,8 @@ applied without showing would be how an environment gets destroyed by muscle mem
 
 
 ## Deploy identities are OIDC roles, scoped to deploying and nothing else
+
+*Accepted · 2026-09-30 · #95*
 
 **Decision.** GitHub Actions deploys each environment by assuming an IAM **role** through GitHub's
 OIDC provider. The roles may register a task definition, update the one service, run the migration
@@ -93,6 +97,8 @@ creates the distribution can scope it to a real ARN, rather than being granted o
 
 ## OpenTofu rather than Terraform
 
+*Accepted · 2026-09-30 · #94*
+
 **Decision.** The AWS infrastructure under `deployment/aws-tofu/` is OpenTofu. The binary is
 `tofu`, CI pins 1.12.6, and `required_version` is `>= 1.10`.
 
@@ -130,12 +136,16 @@ anything exists.
 
 ## One AWS account, with IAM roles and resource tags
 
+*Accepted · 2026-09-30 · #93*
+
 This reverses an earlier decision to use
 separate accounts. The hosted zone and the certificates live in the existing account, and
 splitting turned every DNS record and every ACM validation into a cross-account operation — for
 two hostnames.
 
 ## What it costs is stated rather than glossed
+
+*Accepted · 2026-09-30 · #93*
 
 With separate accounts, "prod is never created
 by an automated agent" was enforceable because the prod account held nothing to assume. In one
@@ -151,6 +161,8 @@ resource becomes invisible to both environment budgets.
 
 ## PostgreSQL on RDS, destroyed with a final snapshot when idle
 
+*Accepted · 2026-09-30 · #93*
+
 The database is managed because
 this stands in for a commercial project and a managed database is part of what it proves.
 *Rejected: stopping the instance.* It still bills storage, and **AWS restarts a stopped instance
@@ -161,6 +173,8 @@ plain RDS. *Rejected: PostgreSQL as a container*, the original plan, for the sam
 chosen.
 
 ## The application authenticates to RDS with IAM, not a password
+
+*Accepted · 2026-10-01 · #108*
 
 The task role is the
 credential: a token signed per connection by a Quarkus `CredentialsProvider`, which Agroal asks
@@ -178,6 +192,8 @@ resource id changes with every restore, while the user travels with the snapshot
 
 ## The database user is created by a one-off ECS task, run by a person
 
+*Accepted · 2026-10-01 · #109*
+
 It is the only thing
 that needs the master credentials, and it is needed once per environment, so it is a task the
 lifecycle role may run and the deploy role may not, started by `env.sh db-bootstrap`. ECS
@@ -190,6 +206,8 @@ infrastructure for something that runs once.
 
 ## The frontend is static on S3 behind CloudFront, with `/api/*` on the same distribution
 
+*Accepted · 2026-09-30 · #93*
+
 No
 container, no task, no image to patch — which is also part of the answer to #66. The second
 origin is not optional: httpd currently serves the SPA *and* proxies the API, and that
@@ -199,6 +217,8 @@ Serving only S3 would break sign-in after deployment, where nothing local would 
 of a load balancer target, a task and a base image that needs patching forever.
 
 ## GitHub Actions, not CodePipeline
+
+*Accepted · 2026-09-30 · #93*
 
 One pipeline rather than two, and the prod gate is a
 protected environment. It runs as a **technical IAM user per environment** rather than assuming a
@@ -213,6 +233,8 @@ CodeDeploy. It no longer does: ECS has blue/green natively, which removed the ma
 
 ## Two deployment paths rather than expand-and-contract
 
+*Accepted · 2026-09-30 · #93*
+
 A release with no migration goes
 blue/green with zero downtime and an instant rollback; a release with a migration takes the
 downtime, because nothing old running means nothing needs to be backward-compatible. The image
@@ -223,6 +245,8 @@ change shipping in two releases — not worth it when downtime is acceptable. *R
 still served.
 
 ## The load balancer stays, and is internal
+
+*Accepted · 2026-09-30 · #93*
 
 It is the largest fixed cost in an environment
 (~$16 a month, idle or not), so it was challenged. It stays because **ECS blue/green shifts
@@ -249,6 +273,8 @@ secret staying secret. VPC origins remove the public address instead, at no cost
 
 ## Custom hostnames under an existing zone
 
+*Accepted · 2026-09-30 · #93*
+
 `taskfest-qa.cloud.hilling.de` and
 `taskfest.cloud.hilling.de`, as alias records to each environment's distribution. This is what
 makes the Google OIDC redirect URIs knowable before the environments exist, which matters
@@ -266,6 +292,8 @@ first deployment.
 
 ## Fargate tasks in public subnets, with no NAT gateway
 
+*Accepted · 2026-09-30 · #93*
+
 A NAT gateway is about $33 a month
 before data — more than the database, and the largest line item in an environment that would
 otherwise cost about $50. The tasks take a public IP and are reachable from nothing: the security
@@ -280,6 +308,8 @@ the deploy and lifecycle roles may *place* the service and the load balancer —
 
 ## VPC flow logs go to S3, all traffic, for 30 days
 
+*Accepted · 2026-10-01 · #106*
+
 Delivery to S3 is about half the per-GB
 price of CloudWatch Logs and needs no delivery role, and logs read when something needs
 explaining do not need CloudWatch's query console. All traffic rather than rejected-only, because
@@ -287,6 +317,8 @@ the useful question is what talked to what. The bucket is encrypted with S3-mana
 *rejected: a customer-managed KMS key*, which at about $1 a month costs more than the logs.
 
 ## CloudFront's `/api/*` origin comes and goes with the environment; the distribution stays
+
+*Accepted · 2026-10-03 · #112*
 
 A
 VPC origin names one load balancer ARN and cannot be changed or deleted while a distribution uses
@@ -301,6 +333,8 @@ untouched while the origin changed; it cannot.
 
 ## CloudFront reaches the load balancer over HTTPS with the environment's own name
 
+*Accepted · 2026-10-03 · #112*
+
 The ALB
 carries a regional ACM certificate for `taskfest-<env>.cloud.hilling.de`, the same name as
 CloudFront's own (which has to be in us-east-1). That works because `/api/*` forwards the viewer's
@@ -309,6 +343,8 @@ instead of the origin's domain name — so no second name for the load balancer 
 certificates validate through the same DNS record.
 
 ## Encryption in transit is settled by configuration, hop by hop, not measured
+
+*Accepted · 2026-10-09 · #97, #246*
 
 #97 asked to switch on AWS's VPC Encryption Controls in monitor mode and let the flow logs say
 which traffic inside qa's VPC is in cleartext. It is not switched on (Gunnar's decision): since
@@ -348,6 +384,8 @@ monitor mode for a day costs about $4.
 
 ## The tasks run on Graviton, chosen per environment
 
+*Accepted · 2026-10-09 · #252*
+
 Fargate on ARM64 costs 20% less than on x86 for the same vCPU and memory
 ([cost](../deployment/cost.md)), and the database was Graviton already (`db.t4g`). Once the images
 were published for arm64 (#249), the tasks could follow (#250). `cpu_architecture` -- a module
@@ -368,6 +406,8 @@ migrate task on x86 against an arm64 service for no saving worth having.
 
 ## ECS-native blue/green, which needed AWS provider 6
 
+*Accepted · 2026-10-03 · #112*
+
 Two target groups, a production listener
 rule ECS moves between them, a bake with both versions running (two minutes in qa, five in prod), and the circuit
 breaker for a deployment whose tasks never become healthy. Provider 5.x has no
@@ -375,6 +415,8 @@ breaker for a deployment whose tasks never become healthy. Provider 5.x has no
 every root showed no change from it. *Rejected: CodeDeploy*, which the plan had already ruled out.
 
 ## The frontend's deep links are a CloudFront Function, and a release needs no invalidation
+
+*Accepted · 2026-10-03 · #124*
 
 A
 path whose last segment has no dot is a client-side route and gets `index.html`; anything else is
@@ -387,6 +429,8 @@ frontend half of the deploy workflow came forward (#119) rather than uploading b
 the release mechanism needed testing anyway.
 
 ## Image vulnerabilities come from Amazon Inspector, through ECR's pull-through cache
+
+*Accepted · 2026-10-05 · #170*
 
 ECS pulls the backend image from ECR, which caches it from Quay on first use. Amazon Inspector
 scans what lands there, continuously, and a workflow every six hours turns fixable HIGH and CRITICAL
@@ -406,6 +450,8 @@ rather than email, like the SonarCloud gate's.
 
 
 ## qa's test accounts are a Cognito pool, and its client secret is in OpenTofu state
+
+*Accepted · 2026-10-07 · #190, #197*
 
 **Decision (#190, D2 and D4 on #141).** qa's live tests sign in with two accounts in a Cognito user
 pool, a second provider beside Google. The accounts have no stored password — the live-test run

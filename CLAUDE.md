@@ -61,6 +61,10 @@ slows things down.
   the same change as the behaviour it describes, never as a follow-up — the
   README had already drifted into documenting endpoints and task states that no
   longer existed.
+- **A decision is recorded in `doc/decisions/`** with a status line under its heading (date,
+  issues, `Accepted`); one that is revised is marked `Superseded · by …`, keeps a short summary
+  and gets a new section, rather than being edited in place. `doc/decisions/index.md` says how, and
+  CI checks it.
 - **Long topics are chapters**: `doc/<chapter>/index.md` plus one page per sub-chapter, ordered by
   the chapter's index. A reference anywhere in the repository names the exact page it means
   (`doc/deployment/database.md`, not a section of a long file), and
