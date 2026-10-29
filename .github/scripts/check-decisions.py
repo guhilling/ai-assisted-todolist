@@ -34,7 +34,7 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
 DECISIONS = ROOT / "doc" / "decisions"
 
 HEADING = re.compile(r"^## (.+)$", re.M)
-FENCE = re.compile(r"^```.*?^```", re.M | re.S)
+FENCE = re.compile(r"^(```|~~~).*?^\1", re.M | re.S)
 STATUS = re.compile(
     r"^\*(Accepted|Superseded) · (\d{4}-\d{2}-\d{2})(?: · #\d+(?:, #\d+)*)?"
     r"(?: · by (?:\[[^\]]+\]\(([^)]+)\)|#\d+))?\*$")
@@ -44,22 +44,29 @@ ENTRY = re.compile(r"^- \[(.+)\]\(([\w-]+\.md)#([^)]+)\)$")
 
 def sections(text):
     """Each decision in a chapter, as (heading, the first line of text under it)."""
+    return [(heading, line) for heading, line, _ in _sections(text)]
+
+
+def _sections(text):
+    """Each decision in a chapter, as (heading, the first line under it, the text after that)."""
     text = FENCE.sub("", text)
+    matches = list(HEADING.finditer(text))
     found = []
-    for match in HEADING.finditer(text):
-        rest = text[match.end():].lstrip("\n")
-        found.append((match.group(1), rest.split("\n", 1)[0]))
+    for match, after in zip(matches, matches[1:] + [None]):
+        rest = text[match.end():after.start() if after else len(text)].lstrip("\n")
+        line, _, body = rest.partition("\n")
+        found.append((match.group(1), line, body.strip()))
     return found
 
 
 def status_problems(text):
     """What is wrong with the status lines of a chapter's decisions, one message each."""
     problems = []
-    found = sections(text)
-    headings = [heading for heading, _ in found]
+    found = _sections(text)
+    headings = [heading for heading, _, _ in found]
     for heading in sorted({heading for heading in headings if headings.count(heading) > 1}):
         problems.append(f"{heading}: two decisions have this heading")
-    for heading, line in found:
+    for heading, line, body in found:
         match = STATUS.match(line)
         if not match:
             problems.append(f"{heading}: no status line under the heading")
@@ -67,6 +74,8 @@ def status_problems(text):
             problems.append(f"{heading}: an accepted decision names no replacement; say Superseded")
         elif match.group(1) == "Superseded" and " · by " not in line:
             problems.append(f"{heading}: a superseded decision says by which one")
+        elif match.group(1) == "Superseded" and not body:
+            problems.append(f"{heading}: a superseded decision keeps a short summary of what it said")
         else:
             try:
                 datetime.date.fromisoformat(match.group(2))

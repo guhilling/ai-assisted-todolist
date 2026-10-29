@@ -4,6 +4,8 @@
 
 *Accepted · 2026-09-27 · #51*
 
+*Since #194 a deployment can offer several providers at once, each with its button -- qa offers Google and its test accounts: [A main provider per profile, and named tenants beside it](authentication.md#a-main-provider-per-profile-and-named-tenants-beside-it).*
+
 **Decision.** The signed-out page is an app name, one sign-in button and a link to
 `doc/purpose.md` on GitHub. The old hero section — the tech-stack prose and the
 "Backend / Frontend / Deployment" list — is gone. Signed in, the whole page is the board.

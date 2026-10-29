@@ -56,6 +56,15 @@ class StatusLineTest(unittest.TestCase):
         text = chapter(("Compose probes", "*Accepted · 2026-09-27 · #51*")) + "```\n## not a decision\n```\n"
         self.assertEqual(check.status_problems(text), [])
 
+    def test_a_heading_inside_a_tilde_code_block_is_no_decision(self):
+        text = chapter(("Compose probes", "*Accepted · 2026-09-27 · #51*")) + "~~~\n## not a decision\n~~~\n"
+        self.assertEqual(check.status_problems(text), [])
+
+    def test_a_superseded_decision_keeps_a_summary(self):
+        text = "## One tenant\n\n*Superseded · 2026-09-25 · #14 · by #194*\n\n## Next\n\n*Accepted · 2026-10-07 · #194*\n\nWhy.\n"
+        self.assertEqual(check.status_problems(text),
+                         ["One tenant: a superseded decision keeps a short summary of what it said"])
+
     def test_two_decisions_of_one_name(self):
         text = chapter(("Twice", "*Accepted · 2026-09-27 · #51*"), ("Twice", "*Accepted · 2026-09-28 · #52*"))
         self.assertEqual(check.status_problems(text), ["Twice: two decisions have this heading"])
