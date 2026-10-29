@@ -7,59 +7,38 @@ appId: com.apple.mobileslideshow
 name: Share a photo into the app through iOS's share sheet
 ---
 - launchApp
-- waitForAnimationToEnd:
-    timeout: 8000
-# A fresh simulator's Photos greets its first user, once or twice; none of this is TaskFest's.
-- repeat:
-    times: 2
-    commands:
-      - runFlow:
-          when:
-            visible: "Continue"
-          commands:
-            - tapOn: "Continue"
-            - waitForAnimationToEnd
-- tapOn:
-    text: "Photo, .*"
-    index: 0
-- waitForAnimationToEnd
-# A tap while the library is still settling may open nothing (#401): tapped again until the photo
-# is open, which is when Share is there.
-- repeat:
-    times: 3
-    commands:
-      - runFlow:
-          when:
-            notVisible: "Share"
-          commands:
-            - tapOn:
-                text: "Photo, .*"
-                index: 0
-            - waitForAnimationToEnd
-- tapOn: "Share"
-- waitForAnimationToEnd:
-    timeout: 5000
-- takeScreenshot: ios-share-photo-1-sheet
-# A newly installed app may sit beyond the row's visible end; More lists them all.
-- runFlow:
-    when:
-      notVisible: "TaskFest Dev"
-    commands:
-      - tapOn: "More"
-      - waitForAnimationToEnd
-- tapOn: "TaskFest Dev"
+- runFlow: tap-share-photo.yaml
 # Photos prepares the photo for the extension first -- "Preparing…", which may show only after a
-# moment and then take a minute or two on a fresh simulator -- and the extension then opens the app
-# by its URL scheme. The simulator's iOS asks first, which another release may not.
+# moment -- and the extension then opens the app by its URL scheme. The simulator's iOS asks first,
+# which another release may not. A passing share gets there in 14 to 70 s.
 - extendedWaitUntil:
     visible: '(Open in .TaskFest Dev.\?|Sign in with Keycloak)'
-    timeout: 180000
-- takeScreenshot: ios-share-photo-2-handed-over
+    timeout: 90000
+    optional: true
+# Now and then the simulator's Photos never finishes preparing the photo, and iOS never starts the
+# extension (#401). Photos is started afresh and the photo shared again, once.
 - runFlow:
     when:
+      notVisible: '(Open in .TaskFest Dev.\?|Sign in with Keycloak)'
+    commands:
+      - takeScreenshot: ios-share-photo-1b-stuck
+      - launchApp:
+          stopApp: true
+      - runFlow: tap-share-photo.yaml
+      - extendedWaitUntil:
+          visible: '(Open in .TaskFest Dev.\?|Sign in with Keycloak)'
+          timeout: 90000
+- takeScreenshot: ios-share-photo-2-handed-over
+# A tap on Open while the question is still coming in was lost once (#401): it waits for the
+# question to settle, and taps again while it is still there.
+- waitForAnimationToEnd
+- repeat:
+    while:
       visible: 'Open in .TaskFest Dev.\?'
+    times: 3
     commands:
       - tapOn: "Open"
+      - waitForAnimationToEnd
 - extendedWaitUntil:
     visible: "Sign in with Keycloak"
     timeout: 60000

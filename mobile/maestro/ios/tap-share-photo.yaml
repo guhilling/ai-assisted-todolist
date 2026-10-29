@@ -1,0 +1,46 @@
+# Part of share-photo.yaml, which runs it twice when Photos hangs (#401): in Photos, open the first
+# photo, Share, and TaskFest Dev in the share sheet. Not a flow of its own; run-on-simulator.sh runs
+# share-photo.yaml only.
+appId: com.apple.mobileslideshow
+---
+- waitForAnimationToEnd:
+    timeout: 8000
+# A fresh simulator's Photos greets its first user, once or twice; none of this is TaskFest's.
+- repeat:
+    times: 2
+    commands:
+      - runFlow:
+          when:
+            visible: "Continue"
+          commands:
+            - tapOn: "Continue"
+            - waitForAnimationToEnd
+- tapOn:
+    text: "Photo, .*"
+    index: 0
+- waitForAnimationToEnd
+# A tap while the library is still settling may open nothing (#401): tapped again until the photo
+# is open, which is when Share is there.
+- repeat:
+    times: 3
+    commands:
+      - runFlow:
+          when:
+            notVisible: "Share"
+          commands:
+            - tapOn:
+                text: "Photo, .*"
+                index: 0
+            - waitForAnimationToEnd
+- tapOn: "Share"
+- waitForAnimationToEnd:
+    timeout: 5000
+- takeScreenshot: ios-share-photo-1-sheet
+# A newly installed app may sit beyond the row's visible end; More lists them all.
+- runFlow:
+    when:
+      notVisible: "TaskFest Dev"
+    commands:
+      - tapOn: "More"
+      - waitForAnimationToEnd
+- tapOn: "TaskFest Dev"
