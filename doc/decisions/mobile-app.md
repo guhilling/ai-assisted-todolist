@@ -323,3 +323,25 @@ least.
 to finish it."*; the app's side stays as it is, since it looks for a share whenever it becomes
 active. That needs a small extension of the project's own, a few lines of Swift, as the plan on
 #279 describes.
+
+## expo-sharing is patched for a shared page's title
+
+*Accepted · 2026-10-30 · #414*
+
+**Decision.** A link shared from a browser becomes a link titled by its page (#414), and the
+title comes from what the browser already sends beside the link, through two patches to
+expo-sharing: on iOS, `withPageTitle` rewrites its extension template during prebuild, as
+`withFolderPerFile` does; on Android, `patch-package` applies `mobile/patches/` to its Kotlin parser
+on every `npm ci`. Both fail loudly when an update moves the code they change: the first throws
+during prebuild, the second fails the install, and `src/patches.test.ts` fails when the patch did
+not run.
+
+**Why patches.** expo-sharing's JavaScript side passes on only the share's text and files: Safari's
+title (the item's attributed content text) and Chrome's (the intent's subject) never reach it. The
+patches add the title as one more text item, so the JavaScript side and "reading only the raw
+share" stay as they are. Gunnar chose to patch Android too rather than leave its description empty.
+
+**Rejected: fetching the page for its title**, which would request the shared link -- the very
+thing the app does not do. **Rejected for Android: a module of the app's own** reading the launch
+intent beside expo-sharing, which would mean a second reader of the same intent for one field.
+

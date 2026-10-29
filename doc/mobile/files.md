@@ -43,8 +43,10 @@ and removed.
 
 - **On the board** each task's row shows its files below it, as the website's does: an image as a
   64-point preview — its thumbnail when it has one, the file itself otherwise, and the file again
-  when the thumbnail cannot be had — and a PDF by its name. They stand below the row's button rather
+  when the thumbnail cannot be had — a PDF by its name, and a link (#414) by its title, with 🔗. They stand below the row's button rather
   inside it, so a screen reader reaches each one.
+- **Tapping a link** opens its address in the phone's browser — only a web address, whatever the
+  backend sent — and asks the backend for nothing: there is no file to sign a link to.
 - **Tapping one opens it.** An image opens in the app, over everything, as large as the screen
   allows, with **Close** to go back. A PDF opens in the phone's own viewer: on iOS the in-app
   browser shows it from its link; on Android it is downloaded into the app's cache and handed, by

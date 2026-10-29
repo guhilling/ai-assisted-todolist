@@ -12,7 +12,8 @@
 | **Due date** | The day a task is meant to be finished. Always set, once the task is no draft. |
 | **Draft** | A task the app's add form attaches files to before Add, so they upload while the form is filled in (#381). A task with a draft marker, not a state: it has made no progress, and has no description or due date yet. Nowhere a task is seen -- not on the board, not to an update or delete -- until it is added; discarded with its files on Cancel, swept with them once abandoned for an hour. |
 | **Board** | A user's tasks, as they see them: ordered by due date, and within a day by importance, high first. |
-| **Attachment** | A file on a task: a PDF or an image. Its content lives in object storage, its name, type and size here. |
+| **Attachment** | A file or a link on a task. A file is a PDF or an image, its content in object storage and its name, type and size here; a link (#414) is its address and title here, and nothing in storage. |
+| **Link** | An attachment that is a web address, titled by its page where the app that shared it gave the title. Available as soon as it is added: there is nothing to upload. |
 | **Pending** | An attachment announced but not yet confirmed: its upload link is handed out, the file may or may not have arrived. Never listed. |
 | **Available** | An attachment whose file has arrived as announced. The only kind the board lists and opens. |
 | **Thumbnail** | A small JPEG of an image attachment, made by the browser when the image is uploaded; what the board shows on the row. Part of its attachment, not a thing of its own. |
@@ -37,7 +38,7 @@ would argue for holding an id rather than an object; at this size the object ref
 plainly better and the trade is made knowingly.
 
 **Attachment is its own aggregate**, not part of Task's, although it is meaningless without one.
-Two things force that. Its content lives in S3, which cannot join a database transaction, so
+Two things force that. A file's content lives in S3, which cannot join a database transaction, so
 uploading is three steps -- announce, PUT straight to S3, confirm -- that each change the
 attachment and never the task. And it outlives its task for the undo window: deleting a task
 *detaches* its attachments (`task` set to null, `detachedAt` set), and the undo, which re-creates

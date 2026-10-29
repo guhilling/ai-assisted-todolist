@@ -48,9 +48,22 @@ the raw share, is in [decisions/mobile-app.md](../decisions/mobile-app.md).
 
 `mobile/src/incoming.ts` turns a share into a task to add:
 
-- **Text and a link** are joined into the description, cut to the 255 characters the backend takes
-  (`TaskCreateRequest`'s `maxLength`, which a test compares). A link stays text: nothing requests
-  it.
+- **Text** is the description, cut to the 255 characters the backend takes
+  (`TaskCreateRequest`'s `maxLength`, which a test compares).
+- **A link** becomes a link on the task (#414), not part of the description: it waits in the form,
+  listed with **×** like a picked file, and is added once the task exists, counted with the files
+  against what a task holds. The page's **title**, where the sharing app gives one, arrives as
+  text beside the link, so it is both the description and the link's title; a link shared alone
+  leaves the description empty and is listed by its address. Nothing requests the link, so there is
+  no preview of the page.
+  - **Safari** hands the title to the extension in the item's attributed content text, which
+    expo-sharing's template ignores; `withPageTitle` (`mobile/src/shareExtension.ts`) patches the
+    template to pass it on, as `withFolderPerFile` patches it for files.
+  - **Chrome on Android** sends the title as the share's subject (`Intent.EXTRA_SUBJECT`), which
+    expo-sharing drops; `mobile/patches/expo-sharing+<version>.patch` passes it on, applied by
+    `patch-package` on every `npm ci`, and `src/patches.test.ts` fails if it was not.
+  - Text with a link inside it, as many apps share — "Read the article https://…" — stays text, as
+    before: only a share that *is* a link becomes one.
 - **Files** are copied into the app's cache, under `shared/`, and go up as soon as the form opens,
   to its draft, as picked files do ([files.md](files.md)): by the time the form is filled in, they
   are there, and Add only adds the task (#381).

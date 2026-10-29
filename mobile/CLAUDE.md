@@ -15,6 +15,9 @@ or any page with `.md` appended), not what you remember. Add Expo packages with
 - **`ios/` and `android/` are generated** by `npx expo prebuild` and never committed. Native
   configuration goes in `app.config.ts` or a config plugin.
 - **Builds run on GitHub Actions, not EAS** (`doc/decisions/mobile-app.md`).
+- **A dependency is patched only through `patches/`**, with `patch-package`, applied on every
+  `npm ci` by `postinstall` -- never by editing `node_modules` and hoping. Each patch says why in
+  its code, and `src/patches.test.ts` checks it is in place (`doc/decisions/mobile-app.md`).
 - **The website's code comes in through `src/web.ts` only.** Generated types and validators,
   texts, date and importance rules: used, never copied. **Every text is in the website's
   catalogue**, `frontend/src/i18n/messages.ts`, in both languages — one only the app shows too,
