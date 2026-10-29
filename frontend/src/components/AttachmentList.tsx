@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { isWebAddress, LINK_CONTENT_TYPE, type Attachment, type AttachmentRefusal, type Task } from '../api'
+import type { Attachment, AttachmentRefusal, Task } from '../api'
+import { isWebAddress, LINK_CONTENT_TYPE } from '../webAddress'
 import { useI18n } from '../i18n/context'
 
 /** How an upload ended: done, refused for a reason the board can word, or failed. */

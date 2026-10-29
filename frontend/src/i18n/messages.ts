@@ -188,6 +188,8 @@ export const en = {
     /** The mobile app's, how far an upload has got (#274). */
     progress: (percent: number) => `${percent}%`,
     uploadFailed: (fileName: string) => `${fileName} could not be uploaded. Try again.`,
+    /** The mobile app's, of a link a share brought that could not be added to its task (#414). */
+    linkFailed: (title: string) => `${title} could not be attached. Try again.`,
     /** The mobile app's, of a file shared into it that it could not read (#355). */
     unreadable: (fileName: string) => `${fileName} could not be read.`,
     /** Why a file was refused, by the backend's reason; typed by it, so none is missing. */
@@ -391,6 +393,7 @@ export const de: Messages = {
     cameraRefused: 'TaskFest darf die Kamera nicht verwenden. Erlaube es in den Einstellungen des Telefons.',
     progress: (percent: number) => `${percent} %`,
     uploadFailed: (fileName: string) => `${fileName} konnte nicht hochgeladen werden. Versuch es noch einmal.`,
+    linkFailed: (title: string) => `${title} konnte nicht angehängt werden. Versuch es noch einmal.`,
     unreadable: (fileName: string) => `${fileName} konnte nicht gelesen werden.`,
     refusals: {
       UNSUPPORTED_TYPE: (fileName: string) => `${fileName} ist weder ein PDF noch ein Bild.`,

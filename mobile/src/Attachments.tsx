@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Image, Modal, Pressable, Text, View } from 'react-native'
-import { isImage, isImageType } from './files'
+import { isImage, isImageType, isLink } from './files'
+import type { SharedLink } from './incoming'
 import type { PickSource } from './pick'
 import type { PickedFile } from './upload'
 import type { Styles } from './styles'
@@ -8,8 +9,8 @@ import { attachmentLimits, type Attachment, type Messages, type Task } from './w
 
 /**
  * A task's files in the app (#274), as the website shows them (`frontend/src/components/AttachmentList.tsx`):
- * an image as a small preview, a PDF by its name, each opening when tapped -- an image in the app's
- * own viewer, a PDF in the phone's.
+ * an image as a small preview, a PDF by its name, a link by its title (#414), each opening when
+ * tapped -- an image in the app's own viewer, a PDF in the phone's, a link in the browser.
  */
 
 /**
@@ -50,7 +51,7 @@ export function FileStrip({
             <Preview taskId={task.id} attachment={attachment} link={link} styles={styles} />
           ) : (
             <View style={styles.fileName}>
-              <Text aria-hidden>📄</Text>
+              <Text aria-hidden>{isLink(attachment) ? '🔗' : '📄'}</Text>
               <Text style={styles.muted} numberOfLines={1}>
                 {attachment.fileName}
               </Text>
@@ -172,7 +173,7 @@ export function EditorFiles({
     <>
       {attachments.map((attachment) => (
         <View key={attachment.id} style={styles.editorFile}>
-          <Text aria-hidden>{isImage(attachment) ? '🖼' : '📄'}</Text>
+          <Text aria-hidden>{isImage(attachment) ? '🖼' : isLink(attachment) ? '🔗' : '📄'}</Text>
           <Text style={styles.description} numberOfLines={1}>
             {attachment.fileName}
           </Text>
@@ -231,6 +232,48 @@ export function PendingFiles({
       </Pressable>
     </View>
   ))
+}
+
+/**
+ * Links a share brought while adding a task (#414), by the page's title or their address, added
+ * once the task exists; each may go again first.
+ */
+export function PendingLinks({
+  links,
+  disabled,
+  messages,
+  styles,
+  onUnpick,
+}: {
+  links: SharedLink[]
+  /** While the task is being added, and its links with it, none may go. */
+  disabled: boolean
+  messages: Messages
+  styles: Styles
+  onUnpick: (link: SharedLink) => void
+}) {
+  return links.map((link) => {
+    const name = link.title ?? link.url
+    return (
+      <View key={link.url} style={styles.editorFile}>
+        <Text aria-hidden>🔗</Text>
+        <Text style={styles.description} numberOfLines={1}>
+          {name}
+        </Text>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={messages.attachments.remove(name)}
+          accessibilityState={{ disabled }}
+          disabled={disabled}
+          hitSlop={8}
+          style={[styles.quietButton, disabled && styles.disabled]}
+          onPress={() => onUnpick(link)}
+        >
+          <Text style={styles.dangerText}>×</Text>
+        </Pressable>
+      </View>
+    )
+  })
 }
 
 /**

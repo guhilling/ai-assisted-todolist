@@ -3,8 +3,13 @@ import type { PickedFile } from './upload'
 import { attachmentLimits, attachmentTypes, checkFile, type AttachmentRefusal } from './web'
 
 /**
- * Sharing into TaskFest (#355): what another app shared, turned into a task to add -- the text and
- * a link as its description, the files as the ones to attach once it exists.
+ * Sharing into TaskFest (#355): what another app shared, turned into a task to add -- the text as
+ * its description, the files as the ones to attach once it exists, and a link as a link on it
+ * (#414), titled by the page where the sharing app said its title.
+ *
+ * A page's title arrives as text beside its link: Safari's, and Chrome's subject on Android, which
+ * the build passes on as a text item of its own (`shareExtension.ts`, `patches/`). So with a link,
+ * the text is both the description and the link's title; a link alone has neither.
  *
  * Only what was shared is read. `expo-sharing` could "resolve" a share, but for a link that means
  * requesting it, and for a file a copy under whatever name the sending app gives, at the top of the
@@ -52,10 +57,18 @@ export type IncomingParts = {
 /** Why a shared file was not taken: the backend's reasons, or that the phone could not read it. */
 export type SharedRefusal = AttachmentRefusal | 'UNREADABLE'
 
-/** A task to add, as a share makes it: the files the form attaches, and those it says were refused. */
+/** A link a share brought (#414): its address, and the page's title where the sharing app gave one. */
+export type SharedLink = { url: string; title: string | null }
+
+/**
+ * A task to add, as a share makes it: the files and links the form attaches, and those it says were
+ * refused.
+ */
 export type SharedDraft = {
   description: string
   files: PickedFile[]
+  /** The links it brought (#414); none when absent. */
+  links?: SharedLink[]
   refused: { name: string; refusal: SharedRefusal }[]
 }
 
@@ -80,25 +93,33 @@ export async function draftOf(items: SharedItem[], parts: IncomingParts): Promis
   if (items.length === 0) {
     return null
   }
-  const texts = items.filter((item) => item.shareType === 'text' || item.shareType === 'url')
-  const draft: SharedDraft = {
-    description: cut(
-      texts
-        .map((item) => item.value.trim())
-        .filter((value) => value !== '')
-        .join(' '),
-    ),
-    files: [],
-    refused: [],
-  }
-  for (const item of items.filter((each) => !texts.includes(each))) {
+  const texts = items.filter((item) => item.shareType === 'text')
+  const links = items.filter((item) => item.shareType === 'url')
+  const description = cut(
+    texts
+      .map((item) => item.value.trim())
+      .filter((value) => value !== '')
+      .join(' '),
+  )
+  const draft: SharedDraft = { description, files: [], refused: [] }
+  for (const item of items.filter((each) => !texts.includes(each) && !links.includes(each))) {
     try {
       await read(item, draft, parts)
     } finally {
       parts.release?.(item.value)
     }
   }
-  return draft
+  // After the files, which a share is mostly for: a link takes what room the task has left.
+  const taken: SharedLink[] = []
+  for (const item of links) {
+    const url = item.value.trim()
+    if (draft.files.length + taken.length === attachmentLimits.perTask) {
+      draft.refused.push({ name: url, refusal: 'TASK_FULL' })
+    } else {
+      taken.push({ url, title: description === '' ? null : description })
+    }
+  }
+  return taken.length > 0 ? { ...draft, links: taken } : draft
 }
 
 /** What the phone can tell of a file, or null when it cannot even say that: a permission withdrawn. */

@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { ActivityIndicator, AppState, Image, Modal, Pressable, Text, useColorScheme, View } from 'react-native'
+import { ActivityIndicator, AppState, Image, Linking, Modal, Pressable, Text, useColorScheme, View } from 'react-native'
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context'
 import { AttachmentRefusedError, RequestFailedError, SignedOutError, TimedOutError, VERSION_CHECK_MS, type BoardTask, type Caller } from './api'
 import { FileViewer } from './Attachments'
-import { isImage } from './files'
-import type { SharedDraft } from './incoming'
+import { isImage, isLink } from './files'
+import type { SharedDraft, SharedLink } from './incoming'
 import { CameraRefusedError, type PickSource } from './pick'
 import type { PickedFile } from './upload'
 import { AccountScreen } from './AccountScreen'
@@ -35,6 +35,7 @@ import {
   catalogues,
   checkFile,
   googleSignInButton,
+  isWebAddress,
   localeOf,
   todayIso,
   type Attachment,
@@ -76,6 +77,8 @@ export type Dependencies = {
     remove(caller: Caller, taskId: Task['id'], attachmentId: Attachment['id']): Promise<void>
     /** Attaches a picked file to a task, reporting the upload's progress as a fraction (#274). */
     upload?(caller: Caller, taskId: Task['id'], file: PickedFile, onProgress: (fraction: number) => void): Promise<Attachment>
+    /** Adds a link a share brought to a task (#414). */
+    addLink?(caller: Caller, taskId: Task['id'], link: SharedLink): Promise<Attachment>
   }
   /** Picks a file to attach (#274); null when the user turned back. */
   pickFile?(source: PickSource): Promise<PickedFile | null>
@@ -119,6 +122,8 @@ type Form = {
   description?: string
   /** The files a share brought, all of them, forgotten once the form closes (#355). */
   shared?: PickedFile[]
+  /** The links a share brought, added once the task exists (#414). */
+  links?: SharedLink[]
   /**
    * Which share this is, counted: the form's key, so that a share opened straight after another
    * one closes is a new form, not the last one's with its text (#355).
@@ -706,6 +711,7 @@ export function TaskFestApp({
       description: share.description,
       pending: share.files,
       shared: share.files,
+      links: share.links,
       share: number,
       opened: `share-${number}`,
       failure: refused || undefined,
@@ -830,7 +836,7 @@ export function TaskFestApp({
   const save = async (values: TaskValues): Promise<boolean> => {
     const started = form
     const task = started?.task
-    let attachLater: { task: BoardTask; files: PickedFile[] } | undefined
+    let attachLater: { task: BoardTask; files: PickedFile[]; links: SharedLink[] } | undefined
     setFailure(undefined)
     if (task && !markBusy(task, true)) {
       return false
@@ -866,11 +872,15 @@ export function TaskFestApp({
           setTasks((tasks) => [...tasks, created])
           keep((kept) => kept.set(created.id, created))
           // What is not on the draft yet -- all of it, without one -- goes up now, as before #381.
-          attachLater = { task: created, files: (started?.pending ?? []).filter((file) => !draft?.uploaded.has(file)) }
+          attachLater = {
+            task: created,
+            files: (started?.pending ?? []).filter((file) => !draft?.uploaded.has(file)),
+            links: started?.links ?? [],
+          }
         }
       })
       if (attachLater) {
-        await attachPending(attachLater.task, attachLater.files)
+        await attachPending(attachLater.task, attachLater.files, attachLater.links)
       }
       setForm((current) => (current === started ? null : current))
       return true
@@ -997,7 +1007,7 @@ export function TaskFestApp({
   }
 
   /** Attaches the files picked while a task was added, now that it exists; says which could not be. */
-  const attachPending = async (task: BoardTask, picked: PickedFile[]) => {
+  const attachPending = async (task: BoardTask, picked: PickedFile[], links: SharedLink[] = []) => {
     const failures: string[] = []
     for (const file of picked) {
       const failure = await uploadTo(task, file, true)
@@ -1005,8 +1015,34 @@ export function TaskFestApp({
         failures.push(failure)
       }
     }
+    for (const link of links) {
+      const failure = await addLinkTo(task, link)
+      if (failure) {
+        failures.push(failure)
+      }
+    }
     if (failures.length > 0) {
       setFailure(failures.join('\n'))
+    }
+  }
+
+  /** Adds a link a share brought to its task (#414); resolves to why not, or null once added. */
+  const addLinkTo = async (task: BoardTask, link: SharedLink): Promise<string | null> => {
+    const add = files?.addLink
+    if (!add) {
+      return null
+    }
+    const name = link.title ?? link.url
+    try {
+      const attachment = await sending(async () => add(await caller(), task.id, link))
+      addFile(task.id, attachment)
+      return null
+    } catch (cause) {
+      if (cause instanceof KeptBoardShownError) {
+        setRefused(true)
+        return messages.offline.readOnly
+      }
+      return refusalText(cause, name) ?? (await failed(cause, messages.attachments.linkFailed(name))) ?? ''
     }
   }
 
@@ -1266,6 +1302,13 @@ export function TaskFestApp({
    * A link that could not be had is not a change gone wrong: nothing is reloaded or refused for it.
    */
   const openFile = async (task: BoardTask, attachment: Attachment) => {
+    // A link opens its own address in the browser (#414), and only a web address.
+    if (isLink(attachment)) {
+      if (attachment.url && isWebAddress(attachment.url)) {
+        await Linking.openURL(attachment.url).catch((cause) => console.warn('A link could not be opened', cause))
+      }
+      return
+    }
     if (opening.current) {
       return
     }
@@ -1424,6 +1467,10 @@ export function TaskFestApp({
                   onRemoveFile={files && form.task ? (attachment) => void removeFile(form.task!, attachment) : undefined}
                   busy={form.task ? busy.has(form.task.id) : draftWorking}
                   pending={form.task ? undefined : (form.pending ?? [])}
+                  pendingLinks={form.task ? undefined : form.links}
+                  onUnpickLink={(link) =>
+                    setForm((current) => current && { ...current, links: current.links?.filter((each) => each !== link) })
+                  }
                   draft={form.description}
                   uploading={uploading?.taskId === (form.task?.id ?? 'new') ? uploading : null}
                   onAttach={files?.upload && pickFile ? (source) => void attach(source) : undefined}

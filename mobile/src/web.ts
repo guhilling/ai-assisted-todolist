@@ -36,6 +36,7 @@ export { needsDatingBack, restoreInput } from '../../frontend/src/restore'
 export { imprintUrl, privacyUrls, purposeUrl, termsUrls } from '../../frontend/src/links'
 export { confirmsEmail } from '../../frontend/src/confirmsEmail'
 export { storageUrl } from '../../frontend/src/storage'
+export { isWebAddress, LINK_CONTENT_TYPE } from '../../frontend/src/webAddress'
 export { attachmentLimits, attachmentTypes, checkFile, type AttachmentRefusal } from '../../frontend/src/attachmentPolicy'
 export { MAX_THUMBNAIL_BYTES, thumbnailCrop, thumbnailSize } from '../../frontend/src/thumbnail'
 

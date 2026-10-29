@@ -13,6 +13,7 @@ function phone(files: Record<string, { name: string | null; type: string | null;
 }
 
 const text = (value: string): SharedItem => ({ shareType: 'text', value, mimeType: 'text/plain' })
+const link = (value: string): SharedItem => ({ shareType: 'url', value, mimeType: 'text/html' })
 const file = (value: string, mimeType: string, shareType: SharedItem['shareType'] = 'file'): SharedItem => ({
   shareType,
   value,
@@ -32,10 +33,35 @@ describe('a share becomes a draft task (#355)', () => {
     })
   })
 
-  it('joins text and a link into one description', async () => {
-    const shared = [text('Read the article'), { shareType: 'url', value: 'https://example.com/a', mimeType: 'text/html' } as const]
+  it('takes the text as the description and the link as a link', async () => {
+    const shared = [text('Read the article'), link('https://example.com/a')]
 
-    await expect(draftOf(shared, phone())).resolves.toMatchObject({ description: 'Read the article https://example.com/a' })
+    await expect(draftOf(shared, phone())).resolves.toMatchObject({
+      description: 'Read the article',
+      links: [{ url: 'https://example.com/a', title: 'Read the article' }],
+    })
+  })
+
+  it('takes a link shared alone as a link with no title, and leaves the description empty (#414)', async () => {
+    await expect(draftOf([link('https://example.com/a')], phone())).resolves.toEqual({
+      description: '',
+      files: [],
+      links: [{ url: 'https://example.com/a', title: null }],
+      refused: [],
+    })
+  })
+
+  it('counts a link against what a task holds, after the files, and says which was left out (#414)', async () => {
+    const parts = phone({
+      'content://media/1': { name: 'one.png', type: 'image/png' },
+      'content://media/2': { name: 'two.png', type: 'image/png' },
+    })
+    const shared = [file('content://media/1', 'image/png', 'image'), file('content://media/2', 'image/png', 'image'), link('https://example.com/a')]
+
+    const draft = await draftOf(shared, parts)
+
+    expect(draft?.links ?? []).toEqual([])
+    expect(draft?.refused).toEqual([{ name: 'https://example.com/a', refusal: 'TASK_FULL' }])
   })
 
   it('cuts a long text to what the backend takes', async () => {
@@ -220,7 +246,7 @@ describe('a share becomes a draft task (#355)', () => {
     expect(parts.copy).toHaveBeenCalledTimes(2)
   })
 
-  it('reads only what was shared: a link is taken as text and never resolved', async () => {
+  it('reads only what was shared: a link is taken as it was shared and never resolved', async () => {
     const parts = phone()
 
     await draftOf([{ shareType: 'url', value: 'https://example.com/a', mimeType: 'text/plain' }], parts)

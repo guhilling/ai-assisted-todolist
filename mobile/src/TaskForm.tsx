@@ -2,7 +2,8 @@ import { useContext, useEffect, useRef, useState } from 'react'
 import { Keyboard, KeyboardAvoidingView, Pressable, ScrollView, Text, TextInput, View } from 'react-native'
 import { SafeAreaInsetsContext } from 'react-native-safe-area-context'
 import type { BoardTask } from './api'
-import { AttachFiles, EditorFiles, PendingFiles } from './Attachments'
+import { AttachFiles, EditorFiles, PendingFiles, PendingLinks } from './Attachments'
+import type { SharedLink } from './incoming'
 import type { PickSource } from './pick'
 import type { PickedFile } from './upload'
 import { DueDatePicker } from './DueDatePicker'
@@ -54,9 +55,11 @@ export function TaskForm({
   onRemoveFile,
   busy = false,
   pending,
+  pendingLinks,
   uploading = null,
   onAttach,
   onUnpick,
+  onUnpickLink,
   onCancel,
   draft,
 }: {
@@ -78,12 +81,16 @@ export function TaskForm({
   busy?: boolean
   /** Files picked while adding the task, attached once it exists (#274). */
   pending?: PickedFile[]
+  /** Links a share brought while adding the task, added once it exists (#414). */
+  pendingLinks?: SharedLink[]
   /** The file uploading, and how far it has got. */
   uploading?: { name: string; fraction: number } | null
   /** Attaches a file from the source (#274); none where files cannot be attached here. */
   onAttach?: (source: PickSource) => void
   /** Lets a file picked while adding go again. */
   onUnpick?: (file: PickedFile) => void
+  /** Lets a link a share brought go again (#414). */
+  onUnpickLink?: (link: SharedLink) => void
   onCancel: () => void
   /** A description to add a task with, as a share brought it (#355); a task being edited has its own. */
   draft?: string
@@ -122,8 +129,8 @@ export function TaskForm({
     }
   }, [])
   const trimmed = description.trim()
-  /** The task's files, and those picked to go with it. */
-  const files = [...(task?.attachments ?? []), ...(pending ?? [])]
+  /** The task's files, and those picked to go with it, a share's links among them (#414). */
+  const files = [...(task?.attachments ?? []), ...(pending ?? []), ...(pendingLinks ?? [])]
   // Nothing is attached to a completed task, as on the website.
   const attachable = onAttach !== undefined && task?.state !== 'DONE'
   // A change to the task on its way -- a file uploading, say -- is waited for before saving or deleting.
@@ -213,6 +220,9 @@ export function TaskForm({
           ) : null}
           {pending ? (
             <PendingFiles files={pending} disabled={saving} messages={messages} styles={styles} onUnpick={(file) => onUnpick?.(file)} />
+          ) : null}
+          {pendingLinks ? (
+            <PendingLinks links={pendingLinks} disabled={saving} messages={messages} styles={styles} onUnpick={(link) => onUnpickLink?.(link)} />
           ) : null}
           {attachable ? (
             <AttachFiles

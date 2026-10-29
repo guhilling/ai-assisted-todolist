@@ -58,23 +58,6 @@ export type Task = TaskResponse
  */
 export type Attachment = AttachmentResponse
 
-/** The content type a link has among a task's attachments (#414). */
-export const LINK_CONTENT_TYPE = 'text/uri-list'
-
-/**
- * Whether a link's address may be opened from the board: a web address, and nothing that runs or
- * embeds when opened -- `javascript:`, `data:`. The backend takes no other; this holds whatever it
- * might one day let through, as the storage links are checked before use.
- */
-export function isWebAddress(url: string): boolean {
-  try {
-    const parsed = new URL(url)
-    return (parsed.protocol === 'https:' || parsed.protocol === 'http:') && parsed.host !== ''
-  } catch {
-    return false
-  }
-}
-
 /** Why an attachment was refused, as the backend names it; the board words it (#203). */
 export type { AttachmentRefusal } from './attachmentPolicy'
 

@@ -23,6 +23,7 @@ import {
   fetchMinimumAppVersion,
   fetchTasks,
   removeAttachment,
+  addLink,
   restoreTask,
   startDraft,
   updateTask,
@@ -267,6 +268,7 @@ const dependencies: Dependencies = {
   attachments: {
     link: (caller, taskId, attachmentId, thumbnail) => attachmentLink({ ...caller, appVersion }, taskId, attachmentId, thumbnail),
     remove: (caller, taskId, attachmentId) => removeAttachment({ ...caller, appVersion }, taskId, attachmentId),
+    addLink: (caller, taskId, link) => addLink({ ...caller, appVersion }, taskId, link),
     upload: (caller, taskId, file, onProgress) =>
       uploadFile(
         { ...caller, appVersion },
