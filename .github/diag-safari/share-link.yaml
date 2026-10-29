@@ -1,0 +1,49 @@
+# Throwaway (#395): a page shared from Safari's ⋯ → Share, TaskFest Dev tapped as soon as it shows.
+appId: com.apple.mobilesafari
+name: Share a page from Safari
+---
+- launchApp
+- openLink:
+    link: https://example.com
+    browser: true
+- extendedWaitUntil:
+    visible: "(View Bookmarks.*|More)"
+    timeout: 60000
+- waitForAnimationToEnd:
+    timeout: 8000
+# A fresh simulator's Safari points at its ⋯ menu with a tip; its close button is tapped where it is.
+- tapOn:
+    point: 90%, 71%
+- waitForAnimationToEnd
+- takeScreenshot: link-0-page
+- tapOn: "More"
+- waitForAnimationToEnd
+- tapOn: "Share"
+- extendedWaitUntil:
+    visible: "TaskFest Dev"
+    timeout: 20000
+    optional: true
+- takeScreenshot: link-1-sheet
+- runFlow:
+    when:
+      notVisible: "TaskFest Dev"
+    commands:
+      - tapOn: "More"
+      - waitForAnimationToEnd
+- tapOn: "TaskFest Dev"
+- takeScreenshot: link-2-tapped
+- extendedWaitUntil:
+    visible: '(Open in .TaskFest Dev.\?|Sign in with Keycloak)'
+    timeout: 60000
+    optional: true
+- takeScreenshot: link-3-after
+- runFlow:
+    when:
+      visible: 'Open in .TaskFest Dev.\?'
+    commands:
+      - tapOn: "Open"
+      - extendedWaitUntil:
+          visible: "Sign in with Keycloak"
+          timeout: 60000
+          optional: true
+      - takeScreenshot: link-4-app

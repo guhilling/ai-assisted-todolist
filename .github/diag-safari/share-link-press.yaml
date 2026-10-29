@@ -1,0 +1,37 @@
+# Throwaway (#395): a link on a page, long-pressed in Safari, Share…, TaskFest Dev.
+appId: com.apple.mobilesafari
+name: Share a link from Safari by long press
+---
+- launchApp
+- openLink:
+    link: https://example.com
+    browser: true
+- extendedWaitUntil:
+    visible: "(Learn more|More information.*)"
+    timeout: 60000
+    optional: true
+- waitForAnimationToEnd:
+    timeout: 8000
+- takeScreenshot: press-0-page
+- longPressOn: "(Learn more|More information.*)"
+- waitForAnimationToEnd
+- takeScreenshot: press-1-menu
+- tapOn: "Share.*"
+- extendedWaitUntil:
+    visible: "TaskFest Dev"
+    timeout: 20000
+    optional: true
+- takeScreenshot: press-2-sheet
+- runFlow:
+    when:
+      notVisible: "TaskFest Dev"
+    commands:
+      - tapOn: "More"
+      - waitForAnimationToEnd
+- tapOn: "TaskFest Dev"
+- takeScreenshot: press-3-tapped
+- extendedWaitUntil:
+    visible: '(Open in .TaskFest Dev.\?|Sign in with Keycloak)'
+    timeout: 60000
+    optional: true
+- takeScreenshot: press-4-after
