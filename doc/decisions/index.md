@@ -1,11 +1,13 @@
 # Decisions
 
-Decisions with consequences, why they were taken, and what was rejected. Newest last.
+Decisions with consequences, why they were taken, and what was rejected, by topic.
 
 The line under each decision says when it was taken, in which issues and pull requests, and whether
 it still holds: `*Accepted · 2026-09-25 · #14*`. A decision that is revised is not edited away. It
 becomes `*Superseded · <date> · #<n> · by [<the new decision>](<chapter>.md#<anchor>)*`, keeps a short
-summary of what it said, and the new decision is added as a section of its own. `Accepted` and
+summary of what it said, and the new decision is added as a section of its own. Where no decision
+records the change, the issue or pull request that made it stands in: `· by #334`. A decision
+revised only in part stays accepted, with a line under the status saying what changed and where. `Accepted` and
 `Superseded` are the only two. This is deliberately lighter than formal architecture decision records
 (one numbered file per decision): it keeps the chapters, and adds what they lacked, the when and the
 what-replaced-it. The dates and numbers of the decisions taken before the line existed come from the
@@ -26,6 +28,7 @@ commit that first wrote each one down. CI checks every line and that this index 
 ## [Authentication](authentication.md)
 
 - [Backend-for-frontend authentication](authentication.md#backend-for-frontend-authentication)
+- [One OIDC tenant, switched per profile](authentication.md#one-oidc-tenant-switched-per-profile)
 - [A main provider per profile, and named tenants beside it](authentication.md#a-main-provider-per-profile-and-named-tenants-beside-it)
 - [The email stays the identity, and every provider must verify it](authentication.md#the-email-stays-the-identity-and-every-provider-must-verify-it)
 - [Provider availability comes from configuration](authentication.md#provider-availability-comes-from-configuration)

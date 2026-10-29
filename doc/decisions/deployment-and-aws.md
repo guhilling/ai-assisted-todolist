@@ -147,6 +147,8 @@ two hostnames.
 
 *Accepted · 2026-09-30 · #93*
 
+*The technical IAM users below became OIDC roles soon after, with no access keys: [Deploy identities are OIDC roles, scoped to deploying and nothing else](#deploy-identities-are-oidc-roles-scoped-to-deploying-and-nothing-else).*
+
 With separate accounts, "prod is never created
 by an automated agent" was enforceable because the prod account held nothing to assume. In one
 account it is a policy: three technical IAM users, one per job, scoped by resource tag — a QA
@@ -219,6 +221,8 @@ of a load balancer target, a task and a base image that needs patching forever.
 ## GitHub Actions, not CodePipeline
 
 *Accepted · 2026-09-30 · #93*
+
+*The technical IAM users below became OIDC roles soon after, with no access keys: [Deploy identities are OIDC roles, scoped to deploying and nothing else](#deploy-identities-are-oidc-roles-scoped-to-deploying-and-nothing-else).*
 
 One pipeline rather than two, and the prod gate is a
 protected environment. It runs as a **technical IAM user per environment** rather than assuming a

@@ -15,6 +15,14 @@ and a cookie session is less machinery for a single-origin app.
 the `Host` header. See [authentication.md](../authentication.md).
 
 
+## One OIDC tenant, switched per profile
+
+*Superseded · 2026-09-25 · #14 · by [A main provider per profile, and named tenants beside it](#a-main-provider-per-profile-and-named-tenants-beside-it)*
+
+One OIDC tenant, its provider chosen per profile: Google in production, Keycloak in dev and test.
+Google and Keycloak never needed to be live at once. Live tests against qa needed a second
+provider beside Google, and #143 made the others named tenants.
+
 ## A main provider per profile, and named tenants beside it
 
 *Accepted · 2026-10-07 · #143, #194*

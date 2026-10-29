@@ -27,7 +27,7 @@ costs nothing.
 
 ## A checkbox for done, a quiet marker for in progress
 
-*Accepted · 2026-09-27 · #51*
+*Superseded · 2026-09-27 · #51 · by #334*
 
 **Since #334, there is no marker.** Testing the app showed "in progress" was unclear, so a task is
 now open or done: the menu item and the `doing` chip are gone, and tasks in progress became open.
