@@ -76,15 +76,21 @@ jobs:
       # The APK of an earlier run, when nothing it is built from has changed since: the app, the
       # website's sources it bundles, and this workflow; not the flows or the tests, which are not
       # in it. A pull request touching only the backend runs the flows without building the app
-      # again. Looked up before anything is installed, so the key covers the checkout alone.
+      # again. Looked up before anything is installed, so the key covers the checkout alone -- and
+      # worked out once, in a step of its own: the cache's post step would hash mobile/** again after
+      # the build, node_modules and Gradle's output included, which outran the two minutes GitHub
+      # gives hashFiles in the ios job (#405).
+      - name: Key the APK by what it is made of
+        id: apk-key
+        run: >-
+          echo "key=taskfest-dev-apk-${{ hashFiles('mobile/**', 'frontend/src/**', '.github/workflows/mobile-ci.yml',
+          '!mobile/maestro/**', '!**/*.test.ts', '!**/*.test.tsx') }}" >> "$GITHUB_OUTPUT"
       - name: Reuse the APK if the app is unchanged
         id: apk
         uses: actions/cache@v6
         with:
           path: mobile/android/app/build/outputs/apk/release/app-release.apk
-          key: >-
-            taskfest-dev-apk-${{ hashFiles('mobile/**', 'frontend/src/**', '.github/workflows/mobile-ci.yml',
-            '!mobile/maestro/**', '!**/*.test.ts', '!**/*.test.tsx') }}
+          key: ${{ steps.apk-key.outputs.key }}
       - uses: actions/setup-node@v7
         if: steps.apk.outputs.cache-hit != 'true'
         with:
