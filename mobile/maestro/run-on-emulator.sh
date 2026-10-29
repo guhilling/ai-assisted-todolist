@@ -15,23 +15,25 @@ share="$2"
 
 source "$(dirname "$0")/emulator-ready.sh"
 
-# Chrome, which signs the flows in through Keycloak, started without its first-run screens and with
-# the page's accessibility tree always built (#407). Its first run, at a share's first sign-in, has
-# had Google Play services restart under it more than once, taking Chrome and the sign-in down with
-# it; and Keycloak's form has been on screen while the tree Maestro reads still had it empty. The
-# emulator's image is debuggable, so Chrome takes its flags from this file once it is the debug app.
-adb shell "echo '_ --disable-fre --no-default-browser-check --no-first-run --force-renderer-accessibility' \
-  > /data/local/tmp/chrome-command-line && chmod 644 /data/local/tmp/chrome-command-line"
-retry adb shell am set-debug-app --persistent com.android.chrome
-retry adb shell am force-stop com.android.chrome
+# Awake and unlocked, however long seed-stack.sh waited for midnight to pass.
+retry adb shell svc power stayon true
+retry adb shell input keyevent KEYCODE_WAKEUP
+retry adb shell wm dismiss-keyguard
 
 # Three-button navigation rather than gestures: the share sheet opens with its first row of apps at
 # the very bottom of the screen, where a tap on Create Task (Dev) was now and then taken for the
 # start of a gesture, and the sheet went away without sharing (#407). With buttons it ends above them.
+# Waited for until the system says it navigates with buttons (mode 0), not only that the switch is on.
 retry adb shell cmd overlay enable-exclusive --category com.android.internal.systemui.navbar.threebutton
-buttons() { adb shell cmd overlay list | grep -q '\[x\] com.android.internal.systemui.navbar.threebutton'; }
-for attempt in $(seq 30); do buttons && break; sleep 1; done
-buttons
+for attempt in $(seq 30); do
+  mode="$(adb shell settings get secure navigation_mode 2>/dev/null | tr -d '\r')" || true
+  [[ "$mode" == 0 ]] && break
+  sleep 1
+done
+if [[ "$mode" != 0 ]]; then
+  echo "Android still navigates with gestures (navigation_mode ${mode:-unknown}), not three buttons." >&2
+  exit 1
+fi
 
 # The emulator's localhost is not the runner's: give it the stack's ports under the same numbers,
 # so the app and Keycloak's issuer use the addresses the browser does -- and storage's, which the

@@ -130,6 +130,14 @@ waits for it before putting the CI task on the board, due today. The flows find 
 so a run that would seed in the last quarter of an hour before midnight UTC waits for the new day
 first (#407).
 
+Before the flows the emulator is readied for them (#407). `emulator-ready.sh`, which the live run
+shares, gives Chrome, which the sign-in goes through, its flags in
+`/data/local/tmp/chrome-command-line`: no first-run screens, during which Google Play services
+restarting had taken Chrome down mid sign-in, and the page's accessibility tree always built, which
+had left Keycloak's form invisible to Maestro while it was on screen. `run-on-emulator.sh` then
+keeps the screen on and switches Android to three-button navigation, since a tap on the share
+sheet's bottom row had been taken for a gesture.
+
 The emulator's setup is cached (#302): the API 34 system image and an AVD with a booted snapshot,
 in a private image on GitHub's Container Registry, `ghcr.io/guhilling/taskfest-buildcache`, tagged
 `avd-<API level>-<image>-<arch>-emu<emulator version>-img<image revision>-<hash>`. The emulator's
@@ -143,13 +151,6 @@ and save nothing back. Without it — a tag not built yet, the registry out of r
 download — they set the emulator up and boot it cold, as before; a snapshot the emulator cannot load
 on another runner's CPU is a cold boot too. A snapshot may wake with the day it was saved, so
 `run-on-emulator.sh` sets the emulator's clock from the runner's when they differ.
-
-Before the flows, `run-on-emulator.sh` also readies the emulator for them (#407). Chrome, which the
-sign-in goes through, gets its flags from `/data/local/tmp/chrome-command-line`: no first-run
-screens, during which Google Play services restarting had taken Chrome down mid sign-in, and the
-page's accessibility tree always built, which had left Keycloak's form invisible to Maestro while
-it was on screen. And Android navigates with three buttons rather than gestures, since a tap on the
-share sheet's bottom row had been taken for a gesture.
 
 It is private because the system image is Google's, under the Android SDK licence. GitHub's API does
 not tell a workflow's own token a package's visibility, so the script asks the registry without

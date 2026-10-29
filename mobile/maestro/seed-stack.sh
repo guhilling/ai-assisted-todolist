@@ -11,10 +11,11 @@ if [[ -f stack-start.pid ]]; then
 fi
 docker compose -f deployment/docker/docker-compose.e2e.yml up -d --wait
 
-# The flows look for the seeded task under "Today", and the app takes today from the emulator, whose
-# clock is the runner's (emulator-ready.sh), in UTC: a run that crossed midnight found it overdue
-# instead (#407). Either share takes about five minutes from here, so a run seeding in the last
-# quarter of an hour before midnight waits for the new day first.
+# The flows look for the seeded task under "Today" -- every sign-in does, and a share signs in
+# several times -- and the app takes today from the emulator, whose clock is the runner's
+# (emulator-ready.sh) and whose time zone is UTC: runs that crossed midnight UTC found it overdue
+# (#407). Either share's last flow ends about four and a half minutes after this point, so a run
+# seeding in the last quarter of an hour before midnight waits for the new day first.
 until_midnight=$(( 86400 - $(date -u +%s) % 86400 ))
 if (( until_midnight < 900 )); then
   echo "Midnight UTC is ${until_midnight} s away: waiting for the new day before seeding (#407)."
