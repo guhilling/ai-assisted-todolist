@@ -63,6 +63,42 @@ public final class AttachmentPolicy {
     }
 
     /**
+     * Why a link (#414) is refused: the same counts as a file's, and no size, since it has none.
+     *
+     * @param onTask how many attachments the task already has
+     * @param ofUser how many attachments the user already has
+     * @return why the link is refused, or empty when it may be added
+     */
+    public Optional<Refusal> countRefusal(long onTask, long ofUser) {
+        if (onTask >= maxPerTask) {
+            return Optional.of(Refusal.TASK_FULL);
+        }
+        if (ofUser >= maxPerUser) {
+            return Optional.of(Refusal.USER_FULL);
+        }
+        return Optional.empty();
+    }
+
+    /**
+     * The name a link (#414) is listed under: the page's title on one line, its runs of white space
+     * made one space, or the URL itself where there is no title; at most 255 characters. Unlike a
+     * file's name, a slash or a quote stays: the title travels in no header.
+     *
+     * @param title the page's title, as the sharing app gave it; null for none
+     * @param url the link
+     * @return the name, never blank
+     */
+    public static String linkTitle(String title, String url) {
+        String name = title == null ? "" : title.replaceAll("[\\s\\p{Cntrl}]+", " ").strip();
+        if (name.isEmpty()) {
+            name = url;
+        }
+        return name.length() > Attachment.MAX_FILE_NAME_LENGTH
+            ? name.substring(0, Attachment.MAX_FILE_NAME_LENGTH)
+            : name;
+    }
+
+    /**
      * The name a file is listed and downloaded under: the original, without any path, line breaks
      * or quotes -- which would break the {@code Content-Disposition} header it travels in -- and
      * at most 255 characters.

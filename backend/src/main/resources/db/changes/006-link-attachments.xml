@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Links as attachments (#414): a link is its URL and title in its row, with no object in S3. So the
+  kind gains LINK, the object key becomes nullable, and the URL is a new column; the check
+  constraint holds that a link has a URL and no object, and a file the other way round. Every
+  attachment before this one is a file.
+
+  Two change sets, because PostgreSQL cannot use an enum label in the transaction that added it:
+  the constraint names LINK.
+-->
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="006-add-link-attachment-kind" author="guhilling">
+        <sql>ALTER TYPE attachment_kind ADD VALUE 'LINK'</sql>
+        <!-- An enum label cannot be dropped; one no row uses is harmless. -->
+        <rollback/>
+    </changeSet>
+
+    <changeSet id="006-link-attachments" author="guhilling">
+        <addColumn tableName="attachment">
+            <column name="url" type="VARCHAR(2048)"/>
+        </addColumn>
+        <dropNotNullConstraint tableName="attachment" columnName="object_key" columnDataType="VARCHAR(255)"/>
+        <sql>ALTER TABLE attachment ADD CONSTRAINT attachment_link_or_file
+            CHECK ((kind = 'LINK') = (url IS NOT NULL) AND (kind = 'LINK') = (object_key IS NULL))</sql>
+        <rollback>
+            <sql>DELETE FROM attachment WHERE kind = 'LINK'</sql>
+            <sql>ALTER TABLE attachment DROP CONSTRAINT attachment_link_or_file</sql>
+            <addNotNullConstraint tableName="attachment" columnName="object_key" columnDataType="VARCHAR(255)"/>
+            <dropColumn tableName="attachment" columnName="url"/>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

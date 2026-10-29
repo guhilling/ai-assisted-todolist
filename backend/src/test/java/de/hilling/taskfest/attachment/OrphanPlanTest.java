@@ -35,6 +35,27 @@ class OrphanPlanTest {
     }
 
     @Test
+    void shouldNeitherMissNorKeepAnObjectForALink() {
+        // A link (#414) is its row alone: no object to find missing, none to keep from deletion.
+        OrphanPlan plan = plan(
+            List.of(object("orphan", Duration.ofDays(8)), object("kept", Duration.ofDays(8))),
+            List.of(row(1, "kept", AttachmentState.AVAILABLE), row(2, null, AttachmentState.AVAILABLE)));
+
+        assertEquals(List.of("orphan"), plan.deletions());
+        assertTrue(plan.missingObjects().isEmpty());
+    }
+
+    @Test
+    void shouldHoldWhenThereAreLinksButNoFiles() {
+        // Links alone say nothing about the bucket: an empty files table still holds the deletions.
+        OrphanPlan plan = plan(List.of(object("orphan", Duration.ofDays(8))),
+            List.of(row(1, null, AttachmentState.AVAILABLE)));
+
+        assertTrue(plan.deletions().isEmpty());
+        assertEquals(OrphanPlan.Hold.NO_ATTACHMENTS, plan.hold());
+    }
+
+    @Test
     void shouldDeleteAnObjectNoRowRefersToOnceOlderThanTheMargin() {
         OrphanPlan plan = plan(
             List.of(object("orphan", Duration.ofDays(8)), object("kept", Duration.ofDays(8))),

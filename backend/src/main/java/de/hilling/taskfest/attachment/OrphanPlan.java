@@ -60,13 +60,16 @@ public record OrphanPlan(List<String> deletions, Hold hold, int orphans, int ale
      */
     public static OrphanPlan of(List<AttachmentStore.StoredObject> objects, List<Row> rows, Instant now,
                                 Duration margin, Duration alertAfter) {
+        // A link (#414) has no object, so only files' rows say anything about the bucket -- the
+        // guard against an empty database included.
+        List<Row> files = rows.stream().filter(row -> row.objectKey() != null).toList();
         // A row refers to its file and to the thumbnail it may have (#236); a missing thumbnail is
         // no missing object, since most attachments have none.
-        Set<String> referenced = rows.stream()
+        Set<String> referenced = files.stream()
             .flatMap(row -> Stream.of(row.objectKey(), Attachment.thumbnailKey(row.objectKey())))
             .collect(Collectors.toSet());
         Set<String> listedKeys = objects.stream().map(AttachmentStore.StoredObject::key).collect(Collectors.toSet());
-        List<Long> missing = rows.stream()
+        List<Long> missing = files.stream()
             .filter(row -> row.state() == AttachmentState.AVAILABLE && !listedKeys.contains(row.objectKey()))
             .map(Row::id)
             .toList();
@@ -77,7 +80,7 @@ public record OrphanPlan(List<String> deletions, Hold hold, int orphans, int ale
         Instant settled = now.minus(alertAfter);
         int alertable = (int) orphans.stream().filter(object -> object.lastModified().isBefore(settled)).count();
         Instant oldEnough = now.minus(margin);
-        Hold hold = rows.isEmpty() ? Hold.NO_ATTACHMENTS : Hold.NONE;
+        Hold hold = files.isEmpty() ? Hold.NO_ATTACHMENTS : Hold.NONE;
         List<String> deletions = hold == Hold.NONE
             ? orphans.stream()
                 .filter(object -> object.lastModified().isBefore(oldEnough))

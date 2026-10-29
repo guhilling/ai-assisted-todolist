@@ -66,6 +66,11 @@ components:
           type: boolean
           examples:
           - false
+        url:
+          type: string
+          examples:
+          - https://example.com/articles/42
+          maxLength: 2048
     AuthProviderResponse:
       required:
       - id
@@ -151,6 +156,24 @@ components:
       format: date-time
       examples:
       - 2022-03-10T16:15:50Z
+    LinkRequest:
+      type: object
+      required:
+      - url
+      properties:
+        url:
+          type: string
+          examples:
+          - https://example.com/articles/42
+          pattern: "^(?i)https?://[^\\s/?#]+[^\\s]*$"
+          maxLength: 2048
+        title:
+          type:
+          - string
+          - "null"
+          examples:
+          - An article worth reading
+          maxLength: 1024
     LinkResponse:
       type: object
       required:
@@ -738,6 +761,50 @@ paths:
           description: Bad Request
       security:
       - SecurityScheme: []
+  /api/tasks/{taskId}/attachments/links:
+    post:
+      summary: Add a link
+      description: "A web address, with the page's title where the sharing app gave\
+        \ one (#414). Counted against the same limits as files; available at once,\
+        \ with nothing to upload."
+      tags:
+      - Attachments
+      parameters:
+      - name: taskId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LinkRequest"
+        required: true
+      responses:
+        "201":
+          description: "The link, available."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AttachmentResponse"
+        "400":
+          description: The URL is not a web address.
+        "422":
+          description: "Refused: a limit reached."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RefusalResponse"
+        "404":
+          description: No task with this id is owned by the caller.
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+      - SecurityScheme: []
   /api/tasks/{taskId}/attachments/{id}:
     delete:
       summary: Remove an attachment
@@ -839,7 +906,8 @@ paths:
               schema:
                 $ref: "#/components/schemas/LinkResponse"
         "404":
-          description: No such available attachment on a task the caller owns.
+          description: No such available file on a task the caller owns; a link is
+            opened by its own URL.
         "401":
           description: Not Authorized
         "403":

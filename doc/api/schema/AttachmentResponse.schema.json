@@ -43,6 +43,13 @@
       "examples": [
         false
       ]
+    },
+    "url": {
+      "type": "string",
+      "examples": [
+        "https://example.com/articles/42"
+      ],
+      "maxLength": 2048
     }
   }
 }

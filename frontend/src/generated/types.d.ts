@@ -28,6 +28,7 @@ export type AttachmentResponse = {
     contentType: string;
     sizeBytes: number;
     thumbnail: boolean;
+    url?: string;
 };
 
 /**
@@ -79,6 +80,16 @@ export type DraftResponse = {
  * Generated from `doc/api/schema/Instant.schema.json`. Do not edit.
  */
 export type Instant = string;
+
+/**
+ * The `LinkRequest` the backend speaks.
+ *
+ * Generated from `doc/api/schema/LinkRequest.schema.json`. Do not edit.
+ */
+export type LinkRequest = {
+    url: string;
+    title?: string | null;
+};
 
 /**
  * The `LinkResponse` the backend speaks.
