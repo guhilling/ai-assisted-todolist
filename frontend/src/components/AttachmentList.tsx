@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import type { Attachment, AttachmentRefusal, Task } from '../api'
+import { isWebAddress, LINK_CONTENT_TYPE, type Attachment, type AttachmentRefusal, type Task } from '../api'
 import { useI18n } from '../i18n/context'
 
 /** How an upload ended: done, refused for a reason the board can word, or failed. */
@@ -32,8 +32,10 @@ type AttachmentListProps = {
 }
 
 /**
- * A task's files on its row: an image as a small preview (D2 on #204), a PDF by its name, each
- * opening in a new tab when clicked, and each removable while the task is open.
+ * A task's files and links on its row: an image as a small preview (D2 on #204), a PDF by its name,
+ * a link by its title (#414), each opening in a new tab when clicked, and each removable while the
+ * task is open. A link opens its own address, as a real link does; one that is no web address is
+ * shown, but not linked.
  *
  * The preview is the image's thumbnail when it has one (#236) -- a few kilobytes the browser made
  * while uploading it -- and the file itself otherwise, through a link asked for when the row
@@ -50,21 +52,25 @@ function AttachmentList({ task, actions, removable }: Readonly<AttachmentListPro
     <ul className="attachment-list">
       {attachments.map((attachment) => (
         <li key={attachment.id} className="attachment-item">
-          <button
-            type="button"
-            className="attachment-open"
-            aria-label={messages.attachments.open(attachment.fileName)}
-            onClick={() => actions.open(task, attachment)}
-          >
-            {attachment.contentType.startsWith('image/') ? (
-              <Preview taskId={task.id} attachment={attachment} link={actions.link} />
-            ) : (
-              <span className="attachment-name">
-                <span aria-hidden="true">📄 </span>
-                {attachment.fileName}
-              </span>
-            )}
-          </button>
+          {attachment.contentType === LINK_CONTENT_TYPE ? (
+            <LinkEntry attachment={attachment} />
+          ) : (
+            <button
+              type="button"
+              className="attachment-open"
+              aria-label={messages.attachments.open(attachment.fileName)}
+              onClick={() => actions.open(task, attachment)}
+            >
+              {attachment.contentType.startsWith('image/') ? (
+                <Preview taskId={task.id} attachment={attachment} link={actions.link} />
+              ) : (
+                <span className="attachment-name">
+                  <span aria-hidden="true">📄 </span>
+                  {attachment.fileName}
+                </span>
+              )}
+            </button>
+          )}
           {removable ? (
             <button
               type="button"
@@ -78,6 +84,30 @@ function AttachmentList({ task, actions, removable }: Readonly<AttachmentListPro
         </li>
       ))}
     </ul>
+  )
+}
+
+/** A link (#414) by its title, opening its address in a new tab -- when it is a web address. */
+function LinkEntry({ attachment }: Readonly<{ attachment: Attachment }>) {
+  const { messages } = useI18n()
+  const name = (
+    <span className="attachment-name">
+      <span aria-hidden="true">🔗 </span>
+      {attachment.fileName}
+    </span>
+  )
+  return attachment.url && isWebAddress(attachment.url) ? (
+    <a
+      className="attachment-open"
+      href={attachment.url}
+      target="_blank"
+      rel="noopener noreferrer"
+      aria-label={messages.attachments.open(attachment.fileName)}
+    >
+      {name}
+    </a>
+  ) : (
+    name
   )
 }
 
