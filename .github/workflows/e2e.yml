@@ -141,7 +141,7 @@ jobs:
         if: always()
         run: docker compose -f deployment/docker/docker-compose.e2e.yml down -v
       - name: Save the browser's system packages
-        if: steps.browser-packages.outputs.cache-hit != 'true'
+        if: github.ref == 'refs/heads/main' && steps.browser-packages.outputs.cache-hit != 'true'
         uses: actions/cache/save@v6
         with:
           path: ~/apt-archives
