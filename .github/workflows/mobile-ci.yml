@@ -156,9 +156,11 @@ jobs:
           echo "key=taskfest-dev-ios-app-${{ hashFiles('mobile/**', 'frontend/src/**', '.github/workflows/mobile-ci.yml',
           '.github/scripts/check-share-extension.py', '.github/scripts/check-share-activation.swift',
           '.github/scripts/sign-with-app-group.sh', '!mobile/maestro/**', '!**/*.test.ts', '!**/*.test.tsx') }}" >> "$GITHUB_OUTPUT"
+      # Restored and saved apart, not by actions/cache, which saves only when the whole job passes:
+      # a failed share would cost the next run the build.
       - name: Reuse the app if it is unchanged
         id: app
-        uses: actions/cache@v6
+        uses: actions/cache/restore@v6
         with:
           path: mobile/build-ios/TaskFestDev.app
           key: ${{ steps.app-key.outputs.key }}
@@ -213,7 +215,13 @@ jobs:
           ditto "$app" mobile/build-ios/TaskFestDev.app
       - name: Where the app is, reused or built
         run: echo "APP=$PWD/mobile/build-ios/TaskFestDev.app" >> "$GITHUB_ENV"
-      # Before the simulator, whose flake must not cost main its cache.
+      # Before the simulator, so that a failed share costs neither cache.
+      - name: Keep the app for the next run
+        if: steps.app.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: mobile/build-ios/TaskFestDev.app
+          key: ${{ steps.app-key.outputs.key }}
       - name: Save npm's cache
         if: github.ref == 'refs/heads/main' && steps.app.outputs.cache-hit != 'true' && steps.npm-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v6
@@ -228,16 +236,17 @@ jobs:
       # Sharing through the real share sheet (#380): a photo from Photos, on an iPhone simulator,
       # into the build signed just above. No stack runs here, so each share ends at the
       # app, opened signed out with the share kept; the Android flows take one on to the board.
-      # It fails the job again since main passed it ten times in a row (#401). The failures that had
-      # made it a warning were the simulator's -- Photos never finishing the photo, a tap on Open lost
-      # while the question came in -- and the flow now retries both, and is run once more when Maestro's
-      # own driver failed (run-on-simulator.sh). Its artifact keeps what to read.
+      # It fails the job (#401); doc/mobile/sharing.md says how it is kept reliable.
       - name: Share into the app on a simulator
+        id: share
         env:
           # Maestro's driver on a freshly booted simulator took longer than its default to start, and once
           # longer than 180 s (#401).
           MAESTRO_DRIVER_STARTUP_TIMEOUT: '300000'
         run: bash mobile/maestro/ios/run-on-simulator.sh "$APP"
+      - name: Say where to look when the share failed
+        if: failure() && steps.share.outcome == 'failure'
+        run: echo "::error title=iOS share check failed::The artifact maestro-output-ios has the screenshots, Maestro's debug and console output, and the simulator's log."
       - uses: actions/upload-artifact@v7
         if: always()
         with:
