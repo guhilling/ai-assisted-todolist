@@ -14,7 +14,8 @@ so a container engine has to be running. Keycloak follows `taskfest.auth.enabled
 one. Each Keycloak start costs about 25 s, and every test profile restarts Quarkus with its
 Dev Services, so this halved backend CI (#134). A new test that needs a real sign-in turns
 `taskfest.auth.enabled` on in its profile; one that only needs a user uses `@TestSecurity`, which
-needs no Keycloak at all. Fifty-two tests across ten classes:
+needs no Keycloak at all. About three hundred tests in sixty classes, thirty-five of which boot
+Quarkus; the ones that show how the layers are meant to be used:
 
 - **`AuthProviderMappingTest`** — the only test here that does not boot Quarkus. Provider
   availability is a decision about configuration, so feeding `AuthProvidersConfig` directly
