@@ -1092,8 +1092,8 @@ describe('the keyboard shortcut', () => {
   })
 
   it('opens the add row with n pressed the moment the board is shown', async () => {
-    // Pressed from a MutationObserver, the instant "Add a task" is in the page and before anything
-    // else runs: a listener added by an effect after that would miss the key (#396).
+    // Pressed from a MutationObserver, the instant "Add a task" is in the page: after React's
+    // commit, before its passive effects run, so a listener added by one would miss the key (#396).
     globalThis.fetch = mockApi({ me: ALICE, tasks: [] }) as unknown as typeof fetch
     let pressed = false
     const observer = new MutationObserver(() => {
@@ -1103,9 +1103,9 @@ describe('the keyboard shortcut', () => {
       }
     })
     observer.observe(document.body, { childList: true, subtree: true })
-    render(<App />)
-
     try {
+      render(<App />)
+
       expect(await screen.findByLabelText('What needs doing')).toBeInTheDocument()
     } finally {
       observer.disconnect()
