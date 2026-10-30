@@ -88,7 +88,8 @@ DDD, and project context all still apply here).
   the row menu a `<details>`, so keyboard handling and roles come for free.
 - **A keyboard shortcut must not swallow typing.** The `n` shortcut ignores events whose target
   is inside an `input`, `textarea`, `select` or `[contenteditable]`, and any event with a
-  modifier held.
+  modifier held. It listens from a `useLayoutEffect`, so a key pressed as the board appears is not
+  lost to an effect that has not run yet (#396).
 
 ## TypeScript
 

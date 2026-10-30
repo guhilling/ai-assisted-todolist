@@ -1091,6 +1091,27 @@ describe('the keyboard shortcut', () => {
     expect(screen.getByLabelText('What needs doing')).toBeInTheDocument()
   })
 
+  it('opens the add row with n pressed the moment the board is shown', async () => {
+    // Pressed from a MutationObserver, the instant "Add a task" is in the page: after React's
+    // commit, before its passive effects run, so a listener added by one would miss the key (#396).
+    globalThis.fetch = mockApi({ me: ALICE, tasks: [] }) as unknown as typeof fetch
+    let pressed = false
+    const observer = new MutationObserver(() => {
+      if (!pressed && screen.queryByRole('button', { name: /add a task/i })) {
+        pressed = true
+        fireEvent.keyDown(document.body, { key: 'n' })
+      }
+    })
+    observer.observe(document.body, { childList: true, subtree: true })
+    try {
+      render(<App />)
+
+      expect(await screen.findByLabelText('What needs doing')).toBeInTheDocument()
+    } finally {
+      observer.disconnect()
+    }
+  })
+
   it('leaves the letter alone when it lands in a field', async () => {
     // A row's checkbox is a real input, so it stands in for "the caret is somewhere that
     // takes typing" -- where the shortcut must not swallow the letter.
