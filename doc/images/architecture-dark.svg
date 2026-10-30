@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 500"
-     width="1000" height="500" role="img" aria-label="The browser talks only to CloudFront, which serves the app from S3 and passes /api to the Quarkus backend. The backend is the OIDC client: it exchanges the code with the identity provider, Google, itself and returns an encrypted session cookie, so the browser never holds a token. The database is PostgreSQL on RDS. Files attached to tasks go straight between the browser and S3 through presigned links the backend signs, so their content never passes through it."
+     width="1000" height="500" role="img" aria-label="The browser talks only to CloudFront, which serves the app from S3 and passes /api to the Quarkus backend. The backend is the OIDC client: it exchanges the code with the identity provider, Google, itself and returns an encrypted session cookie, so the browser never holds a token. The iOS and Android apps sign in with the identity provider themselves and send their /api requests through CloudFront too, with the ID token as a Bearer token. The database is PostgreSQL on RDS. Files attached to tasks go straight between the browser or the apps and S3 through presigned links the backend signs, so their content never passes through it."
      font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif">
   <defs>
     <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7"
@@ -15,6 +15,10 @@
   <rect x="30" y="190" width="150" height="72" rx="10" fill="#1f2b3d" stroke="#8ab4f8" stroke-width="1.5"/>
   <text x="105.0" y="221.5" text-anchor="middle" font-size="13" font-weight="600" fill="#e6eaee">Browser</text>
   <text x="105.0" y="240.5" text-anchor="middle" font-size="11.5" font-weight="400" fill="#9aa5b1">the SPA</text>
+  <rect x="282" y="32" width="170" height="64" rx="10" fill="#1f2b3d" stroke="#8ab4f8" stroke-width="1.5"/>
+  <rect x="270" y="44" width="170" height="64" rx="10" fill="#1f2b3d" stroke="#8ab4f8" stroke-width="1.5"/>
+  <text x="355.0" y="71.5" text-anchor="middle" font-size="13" font-weight="600" fill="#e6eaee">iOS and Android apps</text>
+  <text x="355.0" y="90.5" text-anchor="middle" font-size="11.5" font-weight="400" fill="#9aa5b1">one Expo codebase</text>
   <rect x="270" y="190" width="170" height="72" rx="10" fill="#3a2a17" stroke="#f6ad55" stroke-width="1.5"/>
   <text x="355.0" y="221.5" text-anchor="middle" font-size="13" font-weight="600" fill="#e6eaee">CloudFront</text>
   <text x="355.0" y="240.5" text-anchor="middle" font-size="11.5" font-weight="400" fill="#9aa5b1">static files + /api</text>
@@ -41,8 +45,13 @@
   <polyline points="625,190 625,104" fill="none" stroke="#9aa5b1" stroke-width="1.6" marker-end="url(#arrow)"/>
   <text x="640" y="148" text-anchor="start" font-size="11" fill="#9aa5b1">code exchange,</text>
   <text x="640" y="163" text-anchor="start" font-size="11" fill="#9aa5b1">server to server</text>
-  <polyline points="105,190 105,72 530,72" fill="none" stroke="#9aa5b1" stroke-width="1.6" marker-end="url(#arrow)"/>
-  <text x="310" y="62" text-anchor="middle" font-size="11.5" fill="#9aa5b1">redirected to sign in</text>
+  <polyline points="105,190 105,16 580,16 580,40" fill="none" stroke="#9aa5b1" stroke-width="1.6" marker-end="url(#arrow)"/>
+  <text x="187" y="34" text-anchor="middle" font-size="11.5" fill="#9aa5b1">redirected to sign in</text>
+  <polyline points="440,76 530,76" fill="none" stroke="#9aa5b1" stroke-width="1.6" marker-end="url(#arrow)"/>
+  <text x="485" y="66" text-anchor="middle" font-size="11.5" fill="#9aa5b1">sign in</text>
+  <polyline points="355,108 355,190" fill="none" stroke="#9aa5b1" stroke-width="1.6" marker-end="url(#arrow)"/>
+  <text x="367" y="145" text-anchor="start" font-size="11" fill="#9aa5b1">/api, with the</text>
+  <text x="367" y="160" text-anchor="start" font-size="11" fill="#9aa5b1">ID token as Bearer</text>
   <polyline points="625,262 625,312 105,312 105,262" fill="none" stroke="#8ab4f8" stroke-width="1.6" marker-end="url(#arrow-accent)"/>
   <text x="365" y="334" text-anchor="middle" font-size="12" fill="#8ab4f8">encrypted session cookie</text>
   <text x="365" y="352" text-anchor="middle" font-size="12" fill="#8ab4f8">the browser never holds a token</text>
@@ -50,6 +59,6 @@
   <text x="712" y="372" text-anchor="start" font-size="11" fill="#9aa5b1">signs links, checks,</text>
   <text x="712" y="387" text-anchor="start" font-size="11" fill="#9aa5b1">deletes</text>
   <polyline points="55,262 55,454 810,454" fill="none" stroke="#8ab4f8" stroke-width="1.6" marker-end="url(#arrow-accent)"/>
-  <text x="380" y="444" text-anchor="middle" font-size="12" fill="#8ab4f8">files, straight: presigned PUT and GET</text>
+  <text x="380" y="444" text-anchor="middle" font-size="12" fill="#8ab4f8">files, straight from the browser and the apps: presigned PUT and GET</text>
   <text x="380" y="476" text-anchor="middle" font-size="12" fill="#8ab4f8">file content never passes through the backend</text>
 </svg>

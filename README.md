@@ -14,13 +14,18 @@
 [![CodeQL](https://github.com/guhilling/ai-assisted-todolist/actions/workflows/codeql.yml/badge.svg?branch=main)](https://github.com/guhilling/ai-assisted-todolist/actions/workflows/codeql.yml)
 [![Quality gate](https://sonarcloud.io/api/project_badges/measure?project=guhilling_ai-assisted-todolist&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=guhilling_ai-assisted-todolist)
 
-TaskFest is a browser-based task list: tasks with due dates, importance and workflow state,
-private to whoever signed in. Quarkus backend, React + TypeScript frontend, PostgreSQL persistence,
-OpenID Connect sign-in.
+TaskFest is a task list on the web and as an app for iOS and Android: tasks with due dates,
+importance and workflow state, private to whoever signed in. Quarkus backend, React + TypeScript
+website, an Expo app, PostgreSQL persistence, OpenID Connect sign-in.
 
 📖 **[The documentation and the API reference are published at
 taskfest-docs.cloud.hilling.de](https://taskfest-docs.cloud.hilling.de/)** —
 everything under `doc/` rendered, plus the OpenAPI contract for `main` and for every release.
+
+It is deliberately small. A signed-in user keeps a board of tasks and attaches files to them.
+The website and the apps show the same board, and the apps add a reminder on the day a task is
+due, a board that stays readable offline, and a way to turn what another app shares into a task.
+It runs on AWS, and the apps reach testers through TestFlight and Play's internal testing.
 
 The todo list is not really the point — this repository exists to build up experience with
 AI-assisted software development. See [doc/purpose.md](doc/purpose.md). That is also why the
@@ -31,16 +36,19 @@ experiment, and the application inside it is TaskFest.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="doc/images/architecture-dark.svg">
-  <img alt="The browser talks only to CloudFront, which serves the app from S3 and passes /api to the Quarkus backend. The backend is the OIDC client: it exchanges the code with the identity provider, Google, itself and returns an encrypted session cookie, so the browser never holds a token. The database is PostgreSQL on RDS. Files attached to tasks go straight between the browser and S3 through presigned links the backend signs, so their content never passes through it." src="doc/images/architecture-light.svg">
+  <img alt="The browser talks only to CloudFront, which serves the app from S3 and passes /api to the Quarkus backend. The backend is the OIDC client: it exchanges the code with the identity provider, Google, itself and returns an encrypted session cookie, so the browser never holds a token. The iOS and Android apps sign in with the identity provider themselves and send their /api requests through CloudFront too, with the ID token as a Bearer token. The database is PostgreSQL on RDS. Files attached to tasks go straight between the browser or the apps and S3 through presigned links the backend signs, so their content never passes through it." src="doc/images/architecture-light.svg">
 </picture>
 
 The backend is a *backend-for-frontend*: it is the OIDC client, it performs the code
 exchange itself, and what reaches the browser is an encrypted session cookie rather than a
 token. One origin for the app and its API, so the SPA needs no API base URL: in AWS that origin
 is CloudFront, locally and in the end-to-end stack it is httpd, and in development Vite. Blue is
-this project's code, orange an AWS service, green someone else's. The one cross-origin
-path is a file attached to a task: the browser uploads and downloads it straight to and from S3,
-through links the backend signs, which is what the bucket's CORS rule is for.
+this project's code, orange an AWS service, green someone else's. The iOS and Android apps,
+drawn as one because they work alike, cannot carry the cookie: they sign in with the identity
+provider themselves and send the ID token as a Bearer token, through the same CloudFront. The one
+cross-origin path is a file attached to a task: the browser and the apps upload and download it
+straight to and from S3, through links the backend signs; the bucket's CORS rule is there for the
+browser's requests.
 [architecture.md](doc/architecture.md) has the deployment shape and
 [authentication.md](doc/authentication.md) the sign-in flow in full.
 
@@ -92,6 +100,7 @@ question, so start from the question rather than the filename.
 | --- | --- |
 | [local-development/](doc/local-development/index.md) | *How do I run it, and what do I do when it misbehaves?* |
 | [testing/](doc/testing/index.md) | *What is tested where, and which checks can fail my build?* |
+| [mobile/](doc/mobile/index.md) | *What does the app do, and how is it built, tested and handed to testers?* |
 | [deployment/](doc/deployment/index.md) | *Where will this run on AWS, who may change it, and what does it cost?* |
 | [releasing.md](doc/releasing.md) | *How do I cut a release, and what does it publish?* |
 | [decisions/](doc/decisions/index.md) | *Why is it like this — and what was tried and rejected?* |
@@ -100,13 +109,14 @@ question, so start from the question rather than the filename.
 settings in this repository look removable and are not, and it says which and why.
 
 Code-level documentation lives in the code, as Javadoc and TSDoc. The conventions are in
-[backend/CLAUDE.md](backend/CLAUDE.md) and [frontend/CLAUDE.md](frontend/CLAUDE.md), and
-the backend build enforces them.
+[backend/CLAUDE.md](backend/CLAUDE.md), [frontend/CLAUDE.md](frontend/CLAUDE.md) and
+[mobile/CLAUDE.md](mobile/CLAUDE.md), and the backend build enforces them.
 
 ## Repository layout
 
 - `backend/` — Quarkus REST API, published as `quay.io/ghilling/taskfest-backend`
 - `frontend/` — React + TypeScript SPA, published as `quay.io/ghilling/taskfest-frontend`
+- `mobile/` — the iOS and Android app, one Expo codebase, released to TestFlight and Play's internal testing
 - `e2e/` — Playwright browser tests driving the whole stack through a real sign-in
 - `keycloak/` — realm export with the local test accounts, shared by Dev Services and CI
 - `deployment/` — everything that deploys the app: `docker/` for the Compose stacks,
