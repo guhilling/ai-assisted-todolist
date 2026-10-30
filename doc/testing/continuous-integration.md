@@ -5,13 +5,16 @@
 | `backend-ci.yml` | style, backend tests, the coverage gate, packaging, container image build |
 | `frontend-ci.yml` | install, lint, build, frontend image build |
 | `e2e.yml` | builds both images, brings the stack up, runs Playwright |
+| `mobile-ci.yml` | the app's checks and tests, a release APK and an iOS simulator build, the Maestro flows on an emulator and the share on a simulator ([mobile development](../mobile/development.md)) |
 | `live-tests.yml` | after each deploy to qa (and by hand): the [live checks](live.md) against the environment itself |
 | `sonarcloud.yml` | both test suites with coverage, then the Sonar scan |
+| `docs-ci.yml` | the scripts' own tests under `.github/scripts/`, and the consistency checks: doc references, decision records, one PostgreSQL version, one CORS rule |
+| `tofu-ci.yml` | `tofu fmt` and `validate` of the AWS roots, and that the two environments match |
 
 `e2e.yml` uploads the Playwright HTML report as an artifact when it fails, and dumps the
 Compose logs — start there rather than trying to reproduce locally.
 
-All four are advisory: `main` requires a pull request, but no status check is required to
+All of them are advisory: `main` requires a pull request, but no status check is required to
 merge. Do not treat a red build as optional anyway.
 
 ## Caches
