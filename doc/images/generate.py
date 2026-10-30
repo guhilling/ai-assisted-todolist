@@ -169,6 +169,9 @@ def architecture(p: Palette) -> str:
     parts = [
         # Ours in blue, AWS services in orange, someone else's in green.
         box(30, row_y, 150, box_h, ["Browser", "the SPA"], p, accent=True),
+        # The iOS and the Android app work alike, so they are one box with another behind it.
+        box(282, 32, 170, 64, [], p, accent=True),
+        box(270, 44, 170, 64, ["iOS and Android apps", "one Expo codebase"], p, accent=True),
         box(270, row_y, 170, box_h, ["CloudFront", "static files + /api"], p, tint="aws"),
         box(530, row_y, 190, box_h, ["Quarkus backend", "the OIDC client"], p, accent=True),
         box(810, row_y, 160, box_h, ["PostgreSQL", "RDS \u00b7 Liquibase"], p, tint="aws"),
@@ -189,8 +192,15 @@ def architecture(p: Palette) -> str:
         arrow([(625, row_y), (625, 104)], p),
         label(640, 148, "code exchange,", p, anchor="start", size=11),
         label(640, 163, "server to server", p, anchor="start", size=11),
-        arrow([(105, row_y), (105, 72), (530, 72)], p),
-        label(310, 62, "redirected to sign in", p),
+        arrow([(105, row_y), (105, 16), (580, 16), (580, 40)], p),
+        label(187, 34, "redirected to sign in", p),
+
+        # The apps sign in themselves and send the ID token they got; the cookie is the browser's.
+        arrow([(440, 76), (530, 76)], p),
+        label(485, 66, "sign in", p),
+        arrow([(355, 108), (355, row_y)], p),
+        label(367, 145, "/api, with the", p, anchor="start", size=11),
+        label(367, 160, "ID token as Bearer", p, anchor="start", size=11),
 
         # The claim this picture exists to make, routed clear of the row above it.
         arrow([(625, bottom), (625, 312), (105, 312), (105, bottom)], p, accent=True),
@@ -203,15 +213,19 @@ def architecture(p: Palette) -> str:
         label(712, 372, "signs links, checks,", p, anchor="start", size=11),
         label(712, 387, "deletes", p, anchor="start", size=11),
         arrow([(55, bottom), (55, 454), (810, 454)], p, accent=True),
-        label(380, 444, "files, straight: presigned PUT and GET", p, accent=True, size=12),
+        label(380, 444, "files, straight from the browser and the apps: presigned PUT and GET", p,
+              accent=True, size=12),
         label(380, 476, "file content never passes through the backend", p, accent=True, size=12),
     ]
     aria = (
         "The browser talks only to CloudFront, which serves the app from S3 and passes /api to "
         "the Quarkus backend. The backend is the OIDC client: it exchanges the code with the "
         "identity provider, Google, itself and returns an encrypted session cookie, so the browser "
-        "never holds a token. The database is PostgreSQL on RDS. Files attached to tasks go straight between the browser and S3 "
-        "through presigned links the backend signs, so their content never passes through it."
+        "never holds a token. The iOS and Android apps sign in with the identity provider "
+        "themselves and send their /api requests through CloudFront too, with the ID token as a "
+        "Bearer token. The database is PostgreSQL on RDS. Files attached to tasks go straight "
+        "between the browser or the apps and S3 through presigned links the backend signs, so "
+        "their content never passes through it."
     )
     return document(w, h, "\n  ".join(parts), p, aria)
 

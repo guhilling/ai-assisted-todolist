@@ -2,9 +2,11 @@
 
 ## What this is
 
-A browser-based todo list. A signed-in user keeps a small board of tasks, each with a
-description, a due date, an importance and a workflow state. Tasks are private to their
-owner. That is the whole product.
+A todo list, on the web and as an app for iOS and Android. A signed-in user keeps a small
+board of tasks, each with a description, a due date, an importance and a workflow state, and
+files attached to it. The website and the apps show the same board; the apps also remind on the
+day a task is due, keep the board readable offline, and turn what another app shares into a
+task. Tasks are private to their owner. That is the whole product.
 
 ## Why it exists
 
@@ -16,16 +18,18 @@ That goal shapes several things that would otherwise look like over-engineering 
 application this small:
 
 - **The domain is deliberately modest** so that attention goes to the process rather than
-  to domain complexity. There is no sharing, no recurrence, no notifications.
-- **The stack is deliberately current** — Quarkus 3.25, Java 25, React 19, TypeScript 6 —
-  because working near the edge is where the friction, and therefore the learning, is.
+  to domain complexity. There is no sharing between users, no recurrence, and no reminder
+  beyond the apps' one on the due day.
+- **The stack is deliberately current** — Quarkus 3, Java 25, React 19, TypeScript 7, and
+  Expo for the apps — because working near the edge is where the friction, and therefore the
+  learning, is. Renovate keeps it there.
 - **Clarity beats speed.** Explanations and commit messages are expected to say *why*, not
   just *what*. A change that works but leaves nobody wiser has missed the point.
 
 ## Working conventions
 
 These follow from the goal, and are stated in full in the `CLAUDE.md` files at the
-repository root and in `backend/` and `frontend/`:
+repository root and in `backend/`, `frontend/` and `mobile/`:
 
 - **Ask, don't guess.** An underspecified requirement is surfaced, not silently resolved
   with a plausible default. A wrong guess that compiles is the expensive failure mode.
@@ -33,15 +37,16 @@ repository root and in `backend/` and `frontend/`:
   This holds on both sides of the stack.
 - **Domain-driven planning.** Features are thought about in domain terms — language,
   entities, aggregates — before endpoints, tables or components.
-- **Automate every check that can be automated.** Tests, coverage, linting, style and the
-  browser end-to-end run all execute in GitHub Actions. A convention that only lives in a
+- **Automate every check that can be automated.** Tests, coverage, linting, style, the
+  browser end-to-end run and the apps' runs on an emulator and a simulator all execute in
+  GitHub Actions. A convention that only lives in a
   document is one nobody will enforce at three in the afternoon.
 - **Documentation is part of the change**, not a follow-up: Javadoc and TSDoc saying what
   a type is *for*, and this folder for anything larger than a single type.
 
 ## What is deliberately absent
 
-No user registration, no password handling, no roles or permissions beyond ownership, no
-multi-tenancy, and nothing deployed to AWS yet. The target is chosen and planned in
-[deployment.md](deployment/index.md), and `deployment/aws-tofu/` has begun to implement it, but
-no environment has been created.
+No user registration, no password handling, no roles or permissions beyond ownership, and no
+multi-tenancy. It runs on AWS, in a `qa` and a `prod` environment
+([deployment](deployment/index.md)), and the apps reach testers through TestFlight and Play's
+internal testing ([distribution](mobile/distribution.md)), not the stores' public listings.

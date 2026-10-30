@@ -2,11 +2,12 @@
 
 ## The pieces
 
-Three deployable components and one external dependency:
+Three deployable components, the apps, and one external dependency:
 
 | Component | What it is | Where it lives |
 | --- | --- | --- |
 | Frontend | React 19 + TypeScript single-page app, served as static files: from S3 through CloudFront in AWS, by Apache httpd locally | `frontend/` |
+| Mobile apps | iOS and Android, one Expo (React Native, TypeScript) codebase; released to TestFlight and Play's internal testing, not deployed | `mobile/` |
 | Backend | Quarkus 3 REST API on Java 25, also the OIDC client | `backend/` |
 | Database | PostgreSQL 18, schema managed by Liquibase; RDS in AWS | — |
 | Identity provider | Google in production; a Keycloak container in development and tests | `keycloak/` |
@@ -16,7 +17,7 @@ Three deployable components and one external dependency:
 
 ```
 browser ──▶ CloudFront ──▶ Quarkus ──▶ PostgreSQL (RDS)
-            (static files from S3,
+apps ─────▶ (static files from S3,
              /api to the backend)
 ```
 
@@ -27,7 +28,9 @@ the end-to-end stack httpd plays the same part, serving the assets on `:8080` an
 to the backend's TLS port, `:8443`; the image's `prod` profile serves nothing else (#247);
 in development Vite's dev server does, serving the app on `:5173` and proxying `/api` to the
 backend on `:8080`. Either way the SPA makes same-origin requests and needs no CORS handling and
-no API base URL.
+no API base URL. The apps send their `/api` requests to the same address: the qa and prod
+variants are each built with their environment's CloudFront as the one base URL, the dev variant
+with a local stack ([mobile/development.md](mobile/development.md)).
 
 Both proxies must preserve the original `Host` header — Vite with `changeOrigin: false`,
 httpd with `ProxyPreserveHost On`. The backend builds the OIDC `redirect_uri` from that
