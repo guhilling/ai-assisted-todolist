@@ -119,6 +119,10 @@ go as soon as the app has read them, with their folders (`releaseShared` in `Mai
   code: Photos now and then never finishes preparing the photo, so iOS never starts the extension,
   and a tap on *Open* while iOS's question was still coming in went nowhere. The flow shares the
   photo again, once, from a restarted Photos when nothing has happened after 90 s, and taps *Open*
-  again while the question is still there. Once `main` has passed it ten times in a row, it fails
+  again while the question is still there. Maestro's own driver failed too, three times in nineteen
+  runs and never in the share: on the freshly booted simulator it started too slowly, or went away
+  mid-tap. It now has 300 s to start, and `run-on-simulator.sh` runs the flow once more when
+  `driver-failed.sh` finds the driver, not the flow, failed; any other failure fails at once. Each
+  run's console output is in the artifact. Once `main` has passed it ten times in a row, it fails
   the run again. Still tried by hand, on TestFlight: a link or text shared on an iPhone, and a share
   taken on to the board signed in.
