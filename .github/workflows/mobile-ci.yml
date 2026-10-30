@@ -228,19 +228,16 @@ jobs:
       # Sharing through the real share sheet (#380): a photo from Photos, on an iPhone simulator,
       # into the build signed just above. No stack runs here, so each share ends at the
       # app, opened signed out with the share kept; the Android flows take one on to the board.
-      # It does not fail the job until it is reliable (#401): it failed at the extension's hand-over
-      # to the app often enough that a red run said nothing. Its artifact keeps what to read.
+      # It fails the job again since main passed it ten times in a row (#401). The failures that had
+      # made it a warning were the simulator's -- Photos never finishing the photo, a tap on Open lost
+      # while the question came in -- and the flow now retries both, and is run once more when Maestro's
+      # own driver failed (run-on-simulator.sh). Its artifact keeps what to read.
       - name: Share into the app on a simulator
-        id: share
-        continue-on-error: true
         env:
           # Maestro's driver on a freshly booted simulator took longer than its default to start, and once
           # longer than 180 s (#401).
           MAESTRO_DRIVER_STARTUP_TIMEOUT: '300000'
         run: bash mobile/maestro/ios/run-on-simulator.sh "$APP"
-      - name: Say so when the share failed
-        if: steps.share.outcome == 'failure'
-        run: echo "::warning title=iOS share check failed::Not failing the job until it is reliable (#401). The artifact maestro-output-ios has the screenshots and the simulator's log."
       - uses: actions/upload-artifact@v7
         if: always()
         with:
