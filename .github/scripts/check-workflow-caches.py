@@ -5,8 +5,8 @@ setup-java's and setup-node's own `cache:` input saves an entry from every branc
 to a pom.xml or a package-lock.json; Renovate's pull requests alone filled the 10 GB Actions cache
 that way. So those caches are restored with actions/cache/restore and saved with actions/cache/save
 only on main, which every branch can read from. This names a setup step with a `cache:` input, the
-combined actions/cache on their directories, and a save step whose condition does not keep it to
-main. The restore steps' keys are copies, so it also names a cache whose copies differ.
+combined actions/cache on their directories, and a save of them whose condition does not keep it
+to main; a build of the app is saved from pull requests too, deliberately. The restore steps' keys are copies, so it also names a cache whose copies differ.
 
 The workflows are read by indentation, without a YAML parser, which the script tests do without:
 a step is a `- ` line and everything indented deeper below it.
@@ -19,7 +19,7 @@ import re
 import sys
 
 MAIN_ONLY = "github.ref == 'refs/heads/main'"
-# The directories the combined actions/cache must not save from every branch.
+# The directories that must not be saved from every branch.
 DEPENDENCY_CACHES = ("~/.m2", "~/.npm")
 
 
@@ -73,7 +73,7 @@ def problems(text):
         if action == "actions/cache" and caches:
             found.append(f"{uses}: saves {', '.join(caches)} from every branch; restore with "
                          "actions/cache/restore and save from main with actions/cache/save instead")
-        if action == "actions/cache/save" and not _main_only(_value(step, "if") or ""):
+        if action == "actions/cache/save" and caches and not _main_only(_value(step, "if") or ""):
             found.append(f"{uses}: saves from any branch; its `if:` needs {MAIN_ONLY} as one of its "
                          "`&&` parts, and no `||`")
     return found
