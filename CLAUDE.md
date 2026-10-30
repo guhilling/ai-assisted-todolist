@@ -148,6 +148,11 @@ slows things down.
   code to make it pass, then refactor. This applies to both backend
   (JUnit/Quarkus test framework) and frontend (whatever test runner is
   configured) work. Don't write production code without a test driving it.
+- **The smallest change that passes the test.** Reuse before adding: look for what the codebase
+  has before writing a helper, a type, an option or a dependency. No abstraction for one caller,
+  no parameter nobody asked for, no handling of a case that cannot occur; a shortcut taken on
+  purpose is said so in the code. The test, the TSDoc or Javadoc and the page in `/doc` are part
+  of the change, never the lines to save.
 - **DDD for planning.** When planning a feature or change, think in terms of
   the domain first: ubiquitous language, entities, value objects, aggregates,
   and bounded contexts, before jumping to REST endpoints, database schema, or
