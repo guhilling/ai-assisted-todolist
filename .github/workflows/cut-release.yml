@@ -88,16 +88,26 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: v${{ steps.version.outputs.version }}
-        # An annotated tag, which says who tagged and when, as release.yml insists (#333): the tag
-        # object first, with whoever started this as its tagger, then the ref to it. The API refuses
-        # a ref that already exists.
+          REASON: ${{ steps.version.outputs.reason }}
+        # An annotated tag, which says who tagged, when and why, as release.yml insists (#333): the
+        # tag object first, with whoever started this as its tagger and the step's reason as its
+        # message, then the ref to it. That the tag is free is checked before the object is written,
+        # since a tag pushed by hand meanwhile would otherwise leave a tag object nothing names.
         run: |
-          tag=$(gh api "repos/$GITHUB_REPOSITORY/git/tags" -f tag="$TAG" -f message="TaskFest $TAG" \
+          if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG" > /dev/null 2> "$RUNNER_TEMP/tag.err"; then
+            echo "::error::$TAG exists already; main was tagged by hand since this run started."
+            exit 1
+          elif ! grep -q 'HTTP 404' "$RUNNER_TEMP/tag.err"; then
+            echo "::error::Could not find out whether $TAG exists already: $(cat "$RUNNER_TEMP/tag.err")"
+            exit 1
+          fi
+          tag=$(gh api "repos/$GITHUB_REPOSITORY/git/tags" -f tag="$TAG" \
+            -f message="$(printf 'TaskFest %s\n\n%s' "$TAG" "$REASON")" \
             -f object="$GITHUB_SHA" -f type=commit \
             -f "tagger[name]=$GITHUB_ACTOR" -f "tagger[email]=$GITHUB_ACTOR_ID+$GITHUB_ACTOR@users.noreply.github.com" \
             -f "tagger[date]=$(date -u +%Y-%m-%dT%H:%M:%SZ)" -q .sha)
           gh api "repos/$GITHUB_REPOSITORY/git/refs" -f ref="refs/tags/$TAG" -f sha="$tag" > /dev/null
-          echo "Tagged $GITHUB_SHA as $TAG."
+          echo "Tagged $GITHUB_SHA as $TAG: $REASON"
 
       - name: Start the release
         if: ${{ !inputs.dry-run }}

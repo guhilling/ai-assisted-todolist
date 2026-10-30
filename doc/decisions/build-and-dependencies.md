@@ -124,9 +124,10 @@ go.
 
 *Accepted · 2026-10-30 · #333*
 
-**What.** `release.yml`'s `gate` refuses a lightweight tag: it asks GitHub for the tag's kind, and
-that the tag object names the commit the run builds. `cut-release.yml` creates annotated tags, with
-whoever started it as the tagger, and `doc/releasing.md` tags by hand with `git tag -a`.
+**What.** `release.yml`'s `gate` refuses a lightweight tag: it lists the tag on `origin`, where
+only an annotated one comes with the commit it names, which must be the one the run builds.
+`cut-release.yml` creates annotated tags, with whoever started it as the tagger and the reason for
+the version's step as the message, and `doc/releasing.md` tags by hand with `git tag -a`.
 
 **Why.** An annotated tag says who tagged, when and why; a lightweight one is only a name for a
 commit, which is all `git tag v1.0.0` made and all `cut-release.yml` made up to v1.2.0. GitHub cannot

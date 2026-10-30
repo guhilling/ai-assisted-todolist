@@ -60,30 +60,28 @@ jobs:
           echo "$GITHUB_REF_NAME is not released yet."
 
       - name: Refuse a lightweight tag
-        # An annotated tag says who tagged and when (#333); `git tag -a` makes one, cut-release.yml
-        # too. GitHub is asked rather than the checkout, which need not keep the tag object -- and
-        # whether the tag still names this run's commit, which a re-run of an old run need not.
-        env:
-          GH_TOKEN: ${{ github.token }}
+        # An annotated tag says who tagged, when and why (#333); `git tag -a` makes one, cut-release.yml
+        # too. origin is asked rather than the checkout, which need not keep the tag object: for an
+        # annotated tag ls-remote lists a second, peeled line (`^{}`, asked for by name) with the
+        # commit the tag names, for a lightweight one it does not. The commit must be the one checked
+        # out, which a re-run of an old run's need not be.
         run: |
-          if ! ref=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$GITHUB_REF_NAME" -q '.object.type + " " + .object.sha' 2>&1); then
-            echo "::error::Could not find out what kind of tag $GITHUB_REF_NAME is: $ref"
+          tags=$(git ls-remote --tags origin "refs/tags/$GITHUB_REF_NAME" "refs/tags/$GITHUB_REF_NAME^{}")
+          if [ -z "$tags" ]; then
+            echo "::error::$GITHUB_REF_NAME is not on origin any more."
             exit 1
           fi
-          read -r kind object <<< "$ref"
-          if [ "$kind" != tag ]; then
+          target=$(awk -v peeled="refs/tags/$GITHUB_REF_NAME^{}" '$2 == peeled { print $1 }' <<< "$tags")
+          if [ -z "$target" ]; then
             echo "::error::$GITHUB_REF_NAME is a lightweight tag. Tag with git tag -a, as doc/releasing.md says."
             exit 1
           fi
-          if ! target=$(gh api "repos/$GITHUB_REPOSITORY/git/tags/$object" -q .object.sha 2>&1); then
-            echo "::error::Could not read the tag object of $GITHUB_REF_NAME: $target"
+          built=$(git rev-parse 'HEAD^{commit}')
+          if [ "$target" != "$built" ]; then
+            echo "::error::$GITHUB_REF_NAME now names $target, not $built, which this run builds."
             exit 1
           fi
-          if [ "$target" != "$GITHUB_SHA" ]; then
-            echo "::error::$GITHUB_REF_NAME now names $target, not $GITHUB_SHA, which this run builds."
-            exit 1
-          fi
-          echo "$GITHUB_REF_NAME is an annotated tag of $GITHUB_SHA."
+          echo "$GITHUB_REF_NAME is an annotated tag of $built."
 
       - name: Refuse a tag that is not on main
         # A tag on a side branch would publish code that never went through a pull request.

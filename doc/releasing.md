@@ -10,9 +10,11 @@ git push origin v1.0.0
 
 That is the whole procedure either way: a tag. Everything else is `.github/workflows/release.yml`.
 
-The tag is **annotated** (#333): a tag object that says who tagged, when and why, not a bare name
-for a commit. `release.yml` refuses a lightweight one — `git tag v1.0.0` without `-a` — so nothing
-is released from it; delete it and tag again with `-a`. `cut-release.yml` makes annotated tags.
+The tag is **annotated** (#333): a tag object that says who tagged and when, and in its message
+why — `cut-release.yml` writes the reason for the version's step there; by hand, say what the
+release is for. It is not a bare name for a commit: `release.yml` refuses a lightweight one —
+`git tag v1.0.0` without `-a` — so nothing is released from it. Delete it, on `origin` too, and
+tag again with `-a`: the two lines under [If a release fails](#if-a-release-fails).
 
 ## The version lives in the tag and nowhere else
 

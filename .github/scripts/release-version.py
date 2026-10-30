@@ -47,9 +47,14 @@ MINIMUM_APP_VERSION = re.compile(r"^taskfest\.minimum-app-version=.*$", re.MULTI
 
 @dataclasses.dataclass
 class Decision:
-    """The next release's version, or None when the step asked for is refused, and why."""
+    """The next release's version, or None when the step asked for is refused, and why.
+
+    `reason` is why the step was taken, in plain words on one line, for the tag's message (#333):
+    the summary says the same with oasdiff's findings, for the run's page.
+    """
     version: str | None
     summary: str
+    reason: str = ""
 
 
 def tag(version):
@@ -149,7 +154,7 @@ def decide(bump, latest, changes, missing=()):
     summary = f"## Release {version}\n\n{why}\n\n{reasons}"
     if step == "major" and latest[0] > 0:
         summary += _MAJOR_STEPS
-    return Decision(version, summary)
+    return Decision(version, summary, why.replace("**", ""))
 
 
 _MAJOR_STEPS = """
@@ -223,7 +228,7 @@ def main(argv=None):
     if decision.version is None:
         print("::error::No release: see the run's summary.", file=sys.stderr)
         return 1
-    _write("GITHUB_OUTPUT", f"version={decision.version}\n")
+    _write("GITHUB_OUTPUT", f"version={decision.version}\nreason={decision.reason}\n")
     return 0
 
 
