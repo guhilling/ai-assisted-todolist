@@ -9,6 +9,12 @@ on:
 permissions:
   contents: read
 
+# One push at a time, in order: two pushes to main close together would race for `latest`, and the
+# older build can finish last. A newer push waits; GitHub keeps one waiting run per group.
+concurrency:
+  group: publish-images
+  cancel-in-progress: false
+
 env:
   # Every platform the images are published for (#249), in one place for both images and the check.
   PLATFORMS: linux/amd64,linux/arm64

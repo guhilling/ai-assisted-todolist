@@ -1,4 +1,4 @@
-import { render, screen, userEvent, waitFor, within } from '@testing-library/react-native'
+import { act, render, screen, userEvent, waitFor, within } from '@testing-library/react-native'
 import { RequestFailedError, type BoardTask } from './api'
 import type { SharedDraft } from './incoming'
 import type { Session } from './session'
@@ -168,6 +168,24 @@ describe('files upload while the add form is open (#381)', () => {
     await user.press(within(form).getByRole('button', { name: 'Choose a photo' }))
 
     await waitFor(() => expect(within(form).getByRole('button', { name: 'Add' })).toBeDisabled())
+  })
+
+  it('discards a draft that was started only after its form was cancelled, once', async () => {
+    const deps = dependencies()
+    let started!: (id: number) => void
+    deps.changes.drafts!.start = jest.fn(() => new Promise<number>((resolve) => { started = resolve }))
+    const { user, form } = await openAdd(deps)
+    await user.press(within(form).getByRole('button', { name: 'Choose a photo' }))
+    await waitFor(() => expect(deps.changes.drafts!.start).toHaveBeenCalled())
+    await user.press(within(form).getByRole('button', { name: 'Cancel' }))
+
+    await act(async () => started(DRAFT))
+
+    await waitFor(() => expect(deps.changes.drafts!.discard).toHaveBeenCalledWith(expect.anything(), DRAFT))
+    // Once the upload's end has re-rendered the board: the clean-up after every render must not
+    // find the draft still listed and discard it a second time.
+    await act(async () => undefined)
+    expect(deps.changes.drafts!.discard).toHaveBeenCalledTimes(1)
   })
 
   it('adds the task as before drafts when its draft was swept while the form stood open', async () => {

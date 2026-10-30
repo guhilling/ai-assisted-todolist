@@ -314,8 +314,13 @@ def previous_release(version):
 def changelog_differs(running, version):
     if running == version:
         return False
-    diff = subprocess.run(["git", "diff", "--quiet", running, version, "--", CHANGELOG_DIR])
-    return diff.returncode != 0
+    # --quiet exits 1 for a difference and 0 for none; anything else is git failing -- a release
+    # whose tag was deleted, say -- which must not pass for a migration and take the service down.
+    command = ["git", "diff", "--quiet", running, version, "--", CHANGELOG_DIR]
+    diff = subprocess.run(command)
+    if diff.returncode not in (0, 1):
+        raise subprocess.CalledProcessError(diff.returncode, command)
+    return diff.returncode == 1
 
 
 def summary(text):

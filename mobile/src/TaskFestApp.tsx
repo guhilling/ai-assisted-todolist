@@ -1105,6 +1105,8 @@ export function TaskFestApp({
         return
       }
       if (formNow.current?.opened !== opened) {
+        // Off the list first: the clean-up after the next render would otherwise discard it again.
+        draftUploads.current.delete(opened)
         discardDraft(draft)
         return
       }
