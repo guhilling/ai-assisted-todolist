@@ -234,8 +234,9 @@ jobs:
         id: share
         continue-on-error: true
         env:
-          # Maestro's driver on a freshly booted simulator took longer than its default to start (#401).
-          MAESTRO_DRIVER_STARTUP_TIMEOUT: '180000'
+          # Maestro's driver on a freshly booted simulator took longer than its default to start, and once
+          # longer than 180 s (#401).
+          MAESTRO_DRIVER_STARTUP_TIMEOUT: '300000'
         run: bash mobile/maestro/ios/run-on-simulator.sh "$APP"
       - name: Say so when the share failed
         if: steps.share.outcome == 'failure'

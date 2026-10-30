@@ -25,13 +25,24 @@ xcrun simctl install "$udid" "$app"
 status=0
 # A link shared from Safari is not among them yet: see #380.
 for flow in share-photo; do
-  # Each share finds the app closed, as after a restart: the extension has to open it.
-  xcrun simctl terminate "$udid" de.hilling.taskfest.dev 2>/dev/null || true
   started=$(date -u +%s)
-  # Maestro's debug output -- its screenshots and every command -- goes into the artifact too, so a
-  # failed share shows what the simulator did (#401).
-  maestro --device "$udid" test "$here/$flow.yaml" --test-output-dir "$out" --debug-output "$out/debug-$flow" \
-    --format junit --output "maestro-ios-$flow.xml" || status=1
+  # Run once more when Maestro's own driver failed rather than the flow (#401); driver-failed.sh
+  # says which. Each run keeps its own console output and debug output in the artifact.
+  for run in 1 2; do
+    # Each share finds the app closed, as after a restart: the extension has to open it.
+    xcrun simctl terminate "$udid" de.hilling.taskfest.dev 2>/dev/null || true
+    flow_status=0
+    # Maestro's debug output -- its screenshots and every command -- goes into the artifact too, so
+    # a failed share shows what the simulator did (#401).
+    maestro --device "$udid" test "$here/$flow.yaml" --test-output-dir "$out" --debug-output "$out/debug-$flow-$run" \
+      --format junit --output "maestro-ios-$flow.xml" 2>&1 | tee "$out/$flow-$run-console.txt" || flow_status=1
+    if (( flow_status == 0 )) || (( run == 2 )) ||
+       ! bash "$here/driver-failed.sh" "$out/$flow-$run-console.txt" "maestro-ios-$flow.xml"; then
+      break
+    fi
+    echo "::warning title=Maestro's driver failed::$flow is run once more (#401)."
+  done
+  (( flow_status == 0 )) || status=1
   # How the simulator ended, and its log for the share: Photos, the share sheet, the extension and
   # the app it opens.
   xcrun simctl io "$udid" screenshot "$out/$flow-end.png" || true
