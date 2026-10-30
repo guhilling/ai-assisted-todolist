@@ -191,6 +191,26 @@ class SummaryTest(unittest.TestCase):
         self.assertIn("0.x", summary)
 
 
+class ReasonTest(unittest.TestCase):
+    """The tag's message carries why the step was taken (#333), in plain words on one line."""
+
+    def test_the_apis_decision_is_the_reason(self):
+        self.assertEqual("The API decides: a minor.", release.decide("auto", (1, 4, 2), ADDED).reason)
+
+    def test_a_step_asked_for_says_so_and_what_the_api_needed(self):
+        reason = release.decide("major", (1, 4, 2), UNCHANGED).reason
+        self.assertEqual("A major was asked for; the API alone would have needed a patch.", reason)
+
+    def test_it_has_no_markdown_and_no_line_break(self):
+        for bump, latest in (("auto", (1, 4, 2)), ("patch", (0, 17, 0)), ("auto", (0, 17, 0))):
+            reason = release.decide(bump, latest, ADDED).reason
+            self.assertNotIn("*", reason, reason)
+            self.assertNotIn("\n", reason, reason)
+
+    def test_a_refusal_has_none(self):
+        self.assertEqual("", release.decide("patch", (1, 4, 2), REMOVED).reason)
+
+
 class SameOasdiffTest(unittest.TestCase):
     """The release decides with the oasdiff Backend CI gates with (#297)."""
 
