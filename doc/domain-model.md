@@ -15,7 +15,7 @@
 | **Attachment** | A file or a link on a task. A file is a PDF or an image, its content in object storage and its name, type and size here; a link (#414) is its address and title here, and nothing in storage. |
 | **Link** | An attachment that is a web address, titled by its page where the app that shared it gave the title. Available as soon as it is added: there is nothing to upload. |
 | **Pending** | An attachment announced but not yet confirmed: its upload link is handed out, the file may or may not have arrived. Never listed. |
-| **Available** | An attachment whose file has arrived as announced. The only kind the board lists and opens. |
+| **Available** | An attachment the board lists and opens: a file once it has arrived as announced, a link as soon as it is added. |
 | **Thumbnail** | A small JPEG of an image attachment, made by the browser when the image is uploaded; what the board shows on the row. Part of its attachment, not a thing of its own. |
 | **Detached** | An attachment whose task was deleted, kept for the undo window in case the deletion is undone. |
 | **Account deletion** | A user deleting their own account: every task, every attachment and the user go at once, with no undo. |
@@ -57,7 +57,8 @@ past the window, and uploads that were never confirmed.
 | A user's email is present and unique | `@NotBlank` and a unique not-null column on `User` |
 | A user's name and picture are **not** domain state | Nothing persists them; they are read from the token per request |
 | A user sees and changes only their own tasks | Every query in `TaskResource` carries an owner predicate |
-| An attachment is a PDF, JPEG, PNG, WebP or GIF | `AttachmentKind`, checked on announce, and a native enum column |
+| An attachment is a PDF, JPEG, PNG, WebP or GIF file, or a link (#414) | `AttachmentKind`, a file's checked on announce, and a native enum column |
+| A link has a web address and no object; a file has an object and no address | `LinkRequest`'s pattern, and the `attachment_link_or_file` check constraint |
 | An attachment is at most 10 MB, at most 2 per task, at most 5 per user | `AttachmentPolicy`, counting pending, detached and drafts' ones too; the size is also signed into the upload link, so S3 refuses any other |
 | A user can delete only their own account | `DELETE /api/account` acts on the caller and takes no id |
 | A deleted account stays deleted after a restore | `DeletionReplay` deletes again, during every start, any account a deletion record names that was created before the deletion |

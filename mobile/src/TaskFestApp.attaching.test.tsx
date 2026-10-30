@@ -111,7 +111,7 @@ describe('attaching a file in the editor (#274)', () => {
     await user.press(within(editor).getByRole('button', { name: 'Choose a photo' }))
 
     expect(
-      await within(editor).findByText('photo.jpg was not attached: you already have as many files as you can. Remove one first.'),
+      await within(editor).findByText('photo.jpg was not attached: you already have as many attachments as you can. Remove one first.'),
     ).toBeOnTheScreen()
   })
 
@@ -145,7 +145,7 @@ describe('attaching a file in the editor (#274)', () => {
     const full = { ...task, attachments: [attached(photo, 3), attached(scan, 4)] }
     const { editor } = await editTask(dependencies({ fetchTasks: jest.fn().mockResolvedValue([full]) }))
 
-    expect(within(editor).getByText('This task holds the most files it can (2).')).toBeOnTheScreen()
+    expect(within(editor).getByText('This task holds the most attachments it can (2).')).toBeOnTheScreen()
     expect(within(editor).queryByRole('button', { name: 'Choose a file' })).toBeNull()
   })
 

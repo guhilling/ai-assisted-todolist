@@ -33,7 +33,7 @@ public record OrphanPlan(List<String> deletions, Hold hold, int orphans, int ale
     public enum Hold {
         /** Nothing held it. */
         NONE,
-        /** The database holds no attachments, so it cannot tell an orphan from a file. */
+        /** The database holds no file attachments -- links have no object -- so it cannot tell an orphan from a file. */
         NO_ATTACHMENTS
     }
 

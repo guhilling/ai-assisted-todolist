@@ -11,7 +11,7 @@
       "examples": [
         "https://example.com/articles/42"
       ],
-      "pattern": "^(?i)https?://[^\\s/?#]+[^\\s]*$",
+      "pattern": "^(?i)https?://[^\\s/?#:]+(:[0-9]{1,5})?([/?#][^\\s]*)?$",
       "maxLength": 2048
     },
     "title": {

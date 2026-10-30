@@ -138,7 +138,7 @@ describe('a share opens "Add a task" (#355)', () => {
 
     const form = await screen.findByTestId('task-form')
     expect(within(form).getByText(/notes\.docx is neither a PDF nor an image\./)).toBeOnTheScreen()
-    expect(within(form).getByText(/third\.png was not attached: this task already holds as many files as it can\./)).toBeOnTheScreen()
+    expect(within(form).getByText(/third\.png was not attached: this task already holds as many attachments as it can\./)).toBeOnTheScreen()
     expect(within(form).getByText(/gone\.pdf could not be read\./)).toBeOnTheScreen()
   })
 

@@ -96,6 +96,7 @@ class AttachmentPolicyTest {
         assertEquals("A/B testing \"done right\"", AttachmentPolicy.linkTitle("A/B testing \"done right\"", url));
         assertEquals(url, AttachmentPolicy.linkTitle(null, url));
         assertEquals(url, AttachmentPolicy.linkTitle(" \n ", url));
+        assertEquals(url, AttachmentPolicy.linkTitle("\u00a0\u2007\u202f", url));
     }
 
     @Test

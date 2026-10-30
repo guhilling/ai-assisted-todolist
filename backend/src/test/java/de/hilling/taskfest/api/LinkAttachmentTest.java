@@ -91,7 +91,7 @@ class LinkAttachmentTest {
         long taskId = createTask("Only the web");
 
         for (String url : List.of("javascript:alert(1)", "data:text/html,hi", "ftp://example.com/x",
-                "https://", "https://example.com/with space", "")) {
+                "https://", "https://example.com/with space", "https://example.com:bad/path", "")) {
             addLink(taskId, url, "Nope").statusCode(400);
         }
         given().when().get("/api/tasks").then().body("find { it.id == " + taskId + " }.attachments", empty());
@@ -106,6 +106,31 @@ class LinkAttachmentTest {
         addLink(taskId, ARTICLE, "One").statusCode(201);
         addLink(taskId, ARTICLE, "Two").statusCode(201);
         addLink(taskId, ARTICLE, "Three").statusCode(422).body("refusal", equalTo("TASK_FULL"));
+    }
+
+    @Test
+    @TestSecurity(user = "file-and-links@example.com")
+    @OidcSecurity(claims = { @Claim(key = "email", value = "file-and-links@example.com") })
+    void shouldCountFilesAndLinksTogetherAgainstTheTasksLimit() {
+        long taskId = createTask("A file and a link");
+        given().contentType(ContentType.JSON)
+            .body(Map.of("fileName", "a.pdf", "contentType", AttachmentKind.PDF.contentType(), "sizeBytes", 10))
+            .when().post("/api/tasks/" + taskId + "/attachments").then().statusCode(201);
+
+        addLink(taskId, ARTICLE, "One").statusCode(201);
+        addLink(taskId, ARTICLE, "Two").statusCode(422).body("refusal", equalTo("TASK_FULL"));
+    }
+
+    @Test
+    @TestSecurity(user = "no-body@example.com")
+    @OidcSecurity(claims = { @Claim(key = "email", value = "no-body@example.com") })
+    void shouldRefuseABodyThatIsNull() {
+        long taskId = createTask("Nothing sent");
+
+        given().contentType(ContentType.JSON).body("null")
+            .when().post("/api/tasks/" + taskId + "/attachments/links").then().statusCode(400);
+        given().contentType(ContentType.JSON).body("null")
+            .when().post("/api/tasks/" + taskId + "/attachments").then().statusCode(400);
     }
 
     @Test

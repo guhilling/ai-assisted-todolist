@@ -90,6 +90,15 @@ describe('a link on a task (#414)', () => {
     expect(deps.documents!.open).not.toHaveBeenCalled()
   })
 
+  it('says so when the browser cannot open it', async () => {
+    jest.spyOn(Linking, 'openURL').mockRejectedValue(new Error('no browser'))
+    const user = await start(dependencies())
+
+    await user.press(await screen.findByRole('button', { name: 'Open An article worth reading' }))
+
+    expect(await screen.findByText('Unable to open the link.')).toBeOnTheScreen()
+  })
+
   it('is not opened when its address is no web address', async () => {
     const opened = jest.spyOn(Linking, 'openURL').mockResolvedValue(true)
     const user = await start(dependencies({ fetchTasks: jest.fn().mockResolvedValue([{ ...task, attachments: [{ ...link, url: 'javascript:alert(1)' }] }]) }))

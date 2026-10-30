@@ -65,7 +65,7 @@ public class AttachmentResource {
      * What a link's URL must look like: a web address with a host, nothing that runs or embeds when
      * opened -- {@code javascript:}, {@code data:} -- and no white space.
      */
-    private static final String WEB_ADDRESS = "^(?i)https?://[^\\s/?#]+[^\\s]*$";
+    private static final String WEB_ADDRESS = "^(?i)https?://[^\\s/?#:]+(:[0-9]{1,5})?([/?#][^\\s]*)?$";
 
     /** The longest title a client may give a link; longer than what is kept, which is cut to fit. */
     private static final int MAX_GIVEN_TITLE_LENGTH = 1024;
@@ -107,7 +107,7 @@ public class AttachmentResource {
         content = @Content(mediaType = MediaType.APPLICATION_JSON,
             schema = @Schema(implementation = RefusalResponse.class)))
     @APIResponse(responseCode = "404", description = "No task with this id is owned by the caller.")
-    public Response announce(@PathParam("taskId") Long taskId, @Valid AnnounceRequest request) {
+    public Response announce(@PathParam("taskId") Long taskId, @NotNull @Valid AnnounceRequest request) {
         User owner = currentUser();
         Task task = TaskResource.ownedTaskOrDraftOrNotFound(taskId, owner);
         try {
@@ -139,7 +139,7 @@ public class AttachmentResource {
         content = @Content(mediaType = MediaType.APPLICATION_JSON,
             schema = @Schema(implementation = RefusalResponse.class)))
     @APIResponse(responseCode = "404", description = "No task with this id is owned by the caller.")
-    public Response addLink(@PathParam("taskId") Long taskId, @Valid LinkRequest request) {
+    public Response addLink(@PathParam("taskId") Long taskId, @NotNull @Valid LinkRequest request) {
         User owner = currentUser();
         Task task = TaskResource.ownedTaskOrDraftOrNotFound(taskId, owner);
         try {

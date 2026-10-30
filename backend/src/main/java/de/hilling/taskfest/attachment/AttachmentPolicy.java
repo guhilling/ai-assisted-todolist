@@ -83,7 +83,8 @@ public final class AttachmentPolicy {
      * @return the name, never blank
      */
     public static String linkTitle(String title, String url) {
-        String name = title == null ? "" : title.replaceAll("[\\s\\p{Cntrl}]+", " ").strip();
+        // Unicode's white space too: a title of no-break spaces alone is as blank as one of spaces.
+        String name = title == null ? "" : title.replaceAll("[\\s\\p{Cntrl}\\p{Z}]+", " ").strip();
         if (name.isEmpty()) {
             name = url;
         }

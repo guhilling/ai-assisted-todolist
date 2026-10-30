@@ -154,6 +154,8 @@ export type RequestErrorKey =
   | 'unaddressable'
   | 'uploadAttachment'
   | 'openAttachment'
+  /** The mobile app's: a link on a task (#414) the phone's browser would not open. */
+  | 'openLink'
   | 'removeAttachment'
   | 'deleteAccount'
 
@@ -166,6 +168,7 @@ const requestErrorMessages: Record<RequestErrorKey, string> = {
   unaddressable: 'That task could not be addressed.',
   uploadAttachment: 'Unable to upload the file.',
   openAttachment: 'Unable to open the file.',
+  openLink: 'Unable to open the link.',
   removeAttachment: 'Unable to remove the file.',
   deleteAccount: 'Unable to delete your account.',
 }

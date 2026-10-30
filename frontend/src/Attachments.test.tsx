@@ -288,7 +288,7 @@ describe('in the editor', () => {
     fireEvent.change(editor.getByLabelText('choose a file'), { target: { files: [pdfFile()] } })
 
     expect(
-      await editor.findByText('Scan.pdf was not attached: you already have as many files as you can. Remove one first.'),
+      await editor.findByText('Scan.pdf was not attached: you already have as many attachments as you can. Remove one first.'),
     ).toBeInTheDocument()
   })
 
@@ -319,7 +319,7 @@ describe('in the editor', () => {
 
     const editor = openEditor('Pay the invoice')
 
-    expect(editor.getByText('This task holds the most files it can (2).')).toBeInTheDocument()
+    expect(editor.getByText('This task holds the most attachments it can (2).')).toBeInTheDocument()
     expect(editor.queryByLabelText('choose a file')).not.toBeInTheDocument()
   })
 

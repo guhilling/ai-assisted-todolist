@@ -296,7 +296,7 @@ function PendingRow({
 
 /**
  * The ways to attach a file (#274) -- the camera, the photo library, the files -- with the
- * website's limits, or why there is none: the task holds as many files as it can. While a file
+ * website's limits, or why there is none: the task holds as many attachments as it can. While a file
  * uploads, how far it has got.
  */
 export function AttachFiles({

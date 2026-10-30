@@ -1309,7 +1309,14 @@ export function TaskFestApp({
     // A link opens its own address in the browser (#414), and only a web address.
     if (isLink(attachment)) {
       if (attachment.url && isWebAddress(attachment.url)) {
-        await Linking.openURL(attachment.url).catch((cause) => console.warn('A link could not be opened', cause))
+        const session = signOuts.current
+        setFailure(undefined)
+        await Linking.openURL(attachment.url).catch((cause) => {
+          console.warn('A link could not be opened', cause)
+          if (session === signOuts.current) {
+            setFailure(messages.errors.openLink)
+          }
+        })
       }
       return
     }

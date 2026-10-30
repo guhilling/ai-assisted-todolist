@@ -15,8 +15,9 @@
         http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
     <changeSet id="006-add-link-attachment-kind" author="guhilling">
-        <sql>ALTER TYPE attachment_kind ADD VALUE 'LINK'</sql>
-        <!-- An enum label cannot be dropped; one no row uses is harmless. -->
+        <sql>ALTER TYPE attachment_kind ADD VALUE IF NOT EXISTS 'LINK'</sql>
+        <!-- An enum label cannot be dropped; one no row uses is harmless, and IF NOT EXISTS lets the
+             change set run again after a rollback that left it. -->
         <rollback/>
     </changeSet>
 
