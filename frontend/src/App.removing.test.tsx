@@ -204,4 +204,81 @@ describe('removing tasks', () => {
     await waitFor(() => expect(screen.getByText('Completed (2)')).toBeInTheDocument())
     expect(fetchMock.mock.calls.filter(([, init]) => init?.method === 'POST')).toHaveLength(2)
   })
+
+  it('puts back what could be restored when one of several restores fails (#426)', async () => {
+    const one = task({ id: 26, description: 'Done one', dueDate: isoIn(2), state: 'DONE' })
+    const two = task({ id: 27, description: 'Done two', dueDate: isoIn(3), state: 'DONE' })
+    const fetchMock = stubApi({
+      me: ALICE,
+      tasks: [one, two],
+      post: (sent) => (sent.description === 'Done two' ? { status: 500 } : { status: 201, body: { ...sent, id: 91 } }),
+    })
+    await renderSignedIn(fetchMock)
+    fireEvent.click(screen.getByRole('button', { name: /clear completed/i }))
+    await waitFor(() => expect(screen.getByText('2 tasks deleted')).toBeInTheDocument())
+
+    fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
+
+    await waitFor(() => expect(screen.getByText('Unable to create task.')).toBeInTheDocument())
+    expect(screen.getByText('Done one')).toBeInTheDocument()
+    expect(screen.queryByText('Done two')).not.toBeInTheDocument()
+  })
+
+  it('keeps a restored task whose date could not be put back, and says so (#426)', async () => {
+    const overdue = isoIn(-5)
+    const gone = task({ id: 28, description: 'Long overdue', dueDate: overdue })
+    const fetchMock = stubApi({ me: ALICE, tasks: [gone], echoPost: true, put: { status: 500 } })
+    await renderSignedIn(fetchMock)
+    fireEvent.click(openMenu('Long overdue').getByRole('button', { name: 'Delete' }))
+    await waitFor(() => expect(screen.getByText('Task deleted')).toBeInTheDocument())
+
+    fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
+
+    await waitFor(() => expect(screen.getByText('Unable to update task.')).toBeInTheDocument())
+    expect(screen.getByLabelText('Mark "Long overdue" as done')).toBeInTheDocument()
+  })
+
+  it('joins a second delete to the offer and restarts its countdown (#426)', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    try {
+      const tasks = [task({ id: 29, description: 'First' }), task({ id: 30, description: 'Second' })]
+      await renderSignedIn(stubApi({ me: ALICE, tasks }))
+      fireEvent.click(openMenu('First').getByRole('button', { name: 'Delete' }))
+      await waitFor(() => expect(screen.getByText('Task deleted')).toBeInTheDocument())
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(7000)
+      })
+
+      fireEvent.click(openMenu('Second').getByRole('button', { name: 'Delete' }))
+
+      await waitFor(() => expect(screen.getByText('2 tasks deleted')).toBeInTheDocument())
+      // Seven more seconds: the first task's eight would be over, the offer's own are not.
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(7000)
+      })
+      expect(screen.getByText('2 tasks deleted')).toBeInTheDocument()
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1500)
+      })
+      await waitFor(() => expect(screen.queryByText('2 tasks deleted')).not.toBeInTheDocument())
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('puts both back when the undo follows a second delete (#426)', async () => {
+    const tasks = [task({ id: 31, description: 'First' }), task({ id: 32, description: 'Second' })]
+    const fetchMock = stubApi({ me: ALICE, tasks, echoPost: true })
+    await renderSignedIn(fetchMock)
+    fireEvent.click(openMenu('First').getByRole('button', { name: 'Delete' }))
+    await waitFor(() => expect(screen.getByText('Task deleted')).toBeInTheDocument())
+    fireEvent.click(openMenu('Second').getByRole('button', { name: 'Delete' }))
+    await waitFor(() => expect(screen.getByText('2 tasks deleted')).toBeInTheDocument())
+
+    fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
+
+    await waitFor(() => expect(screen.getByLabelText('Mark "First" as done')).toBeInTheDocument())
+    expect(screen.getByLabelText('Mark "Second" as done')).toBeInTheDocument()
+    expect(fetchMock.mock.calls.filter(([, init]) => init?.method === 'POST')).toHaveLength(2)
+  })
 })

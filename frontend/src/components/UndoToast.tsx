@@ -18,7 +18,8 @@ type UndoToastProps = {
  * and learning to click through it.
  *
  * `onDismiss` has to be referentially stable, or every render of the board would restart the
- * countdown.
+ * countdown. The board keys the toast by its offer, so a delete that joins a standing offer gets
+ * a new toast, and the countdown starts afresh for both (#426).
  */
 function UndoToast({ count, onUndo, onDismiss }: Readonly<UndoToastProps>) {
   const { messages } = useI18n()

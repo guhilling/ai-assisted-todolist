@@ -19,6 +19,7 @@ import {
   fetchEnvironmentName,
   fetchCurrentUser,
   fetchTasks,
+  NotDatedBackError,
   postTask,
   putTask,
   removeAttachment,
@@ -147,7 +148,8 @@ function Board() {
   const [accountDeleted] = useState(takeAccountDeleted)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [deleted, setDeleted] = useState<Task[] | null>(null)
+  /** The offer to undo: the tasks it would put back, and its number, by which the toast is keyed. */
+  const [deleted, setDeleted] = useState<{ tasks: Task[]; offer: number } | null>(null)
 
   /**
    * Read once per mount rather than per render, so a board left open overnight does not
@@ -293,10 +295,18 @@ function Board() {
     }
   }
 
+  /**
+   * Offers to put `tasks` back. A delete while an offer stands joins it, and each offer has a
+   * number of its own, so that the toast starts its countdown afresh (#426): the first task's undo
+   * was otherwise lost without a word, and the second's cut to what was left of the first's.
+   */
+  const offerUndo = (tasks: Task[]) =>
+    setDeleted((current) => ({ tasks: [...(current?.tasks ?? []), ...tasks], offer: (current?.offer ?? 0) + 1 }))
+
   const removeTask = async (task: Task) => {
     setError(null)
     if (await deleteOne(task)) {
-      setDeleted([task])
+      offerUndo([task])
     }
   }
 
@@ -306,7 +316,7 @@ function Board() {
     const outcomes = await Promise.all(completedTasks.map(async (task) => ((await deleteOne(task)) ? task : null)))
     const gone = outcomes.filter((task): task is Task => task !== null)
     if (gone.length > 0) {
-      setDeleted(gone)
+      offerUndo(gone)
     }
   }
 
@@ -317,11 +327,26 @@ function Board() {
     setDeleted(null)
     setError(null)
 
-    try {
-      const restored = await Promise.all(tasksToRestore.map((task) => restoreTask(task, today)))
+    // Each restore stands on its own (#426): what came back is shown, whatever another one did,
+    // and the first thing that went wrong is reported.
+    const outcomes = await Promise.allSettled(tasksToRestore.map((task) => restoreTask(task, today)))
+    const restored: Task[] = []
+    let failure: unknown
+    for (const outcome of outcomes) {
+      if (outcome.status === 'fulfilled') {
+        restored.push(outcome.value)
+      } else if (outcome.reason instanceof NotDatedBackError) {
+        restored.push(outcome.reason.task)
+        failure ??= outcome.reason.cause
+      } else {
+        failure ??= outcome.reason
+      }
+    }
+    if (restored.length > 0) {
       setTasks((current) => [...current, ...restored])
-    } catch (restoreError) {
-      reportFailure(restoreError, 'restoring')
+    }
+    if (failure !== undefined) {
+      reportFailure(failure, 'restoring')
     }
   }
 
@@ -490,8 +515,9 @@ function Board() {
 
       {deleted ? (
         <UndoToast
-          count={deleted.length}
-          onUndo={() => void restoreDeleted(deleted)}
+          key={deleted.offer}
+          count={deleted.tasks.length}
+          onUndo={() => void restoreDeleted(deleted.tasks)}
           onDismiss={dismissUndo}
         />
       ) : null}

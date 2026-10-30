@@ -482,7 +482,26 @@ export async function restoreTask(task: Task, today: string) {
   if (!needsDatingBack(created, task)) {
     return created
   }
-  return putTask({ ...created, dueDate: task.dueDate })
+  try {
+    return await putTask({ ...created, dueDate: task.dueDate })
+  } catch (cause) {
+    throw new NotDatedBackError(created, cause)
+  }
+}
+
+/**
+ * An undo that re-created the task but could not date it back to the deleted one's day (#426).
+ * The task exists, dated today, so it carries the task for the board to show -- one that exists
+ * unseen is worse than one with the wrong date -- and why the date could not be put back.
+ */
+export class NotDatedBackError extends Error {
+  readonly task: Task
+
+  constructor(task: Task, cause: unknown) {
+    super('The task was restored, but not to its own date.', { cause })
+    this.name = 'NotDatedBackError'
+    this.task = task
+  }
 }
 
 export { attachmentLimits, attachmentTypes, checkFile } from './attachmentPolicy'
