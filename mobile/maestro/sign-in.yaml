@@ -6,27 +6,20 @@ name: Sign in and see the board
 ---
 # Clearing the app's data closes its last task, and Android has once killed the newly launched
 # process while still closing that task: the app never attached and the screen stayed white, however
-# long the wait. Launched again, it comes up.
+# long the wait. Launched again, it comes up. Keycloak's form has once been on screen but not in the
+# page's accessibility tree, so Maestro never saw it, and Chrome has once been killed as it opened
+# the page (#420): so the sign-in is in the retry too. Each try starts Chrome afresh, which closes a
+# tab left open, and the app, which a sign-in still under way would otherwise make ignore the tap.
 - retry:
     maxRetries: 2
     commands:
+      - stopApp: com.android.chrome
       - launchApp:
           clearState: true
       - extendedWaitUntil:
           visible: "Sign in with Keycloak"
           timeout: 30000
-- takeScreenshot: 01-signed-out
-# Keycloak's form has once been on screen but not in the page's accessibility tree, so Maestro never
-# saw it, and Chrome has once been killed as it opened the page (#420). Tried once more, then: Back
-# closes a tab still open, and the sign-in starts again.
-- retry:
-    maxRetries: 1
-    commands:
-      - runFlow:
-          when:
-            notVisible: "Sign in with Keycloak"
-          commands:
-            - back
+      - takeScreenshot: 01-signed-out
       - tapOn: "Sign in with Keycloak"
       # A fresh emulator's Chrome greets its first user; none of this is TaskFest's.
       - runFlow:

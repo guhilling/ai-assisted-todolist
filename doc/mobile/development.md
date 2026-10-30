@@ -136,17 +136,16 @@ shares, gives Chrome, which the sign-in goes through, its flags in
 restarting had taken Chrome down mid sign-in, and the page's accessibility tree always built, which
 had left Keycloak's form invisible to Maestro while it was on screen. It still did once, and Chrome
 was once killed as it opened the page, the emulator out of memory (#420): the emulator has 4096 MB
-since, and `maestro/sign-in.yaml` tries the sign-in once more when the form does not show, closing
-a tab left open first. `run-on-emulator.sh` then
-keeps the screen on and switches Android to three-button navigation, since a tap on the share
-sheet's bottom row had been taken for a gesture.
+since, and `maestro/sign-in.yaml` retries the sign-in with the launch, each try with Chrome and
+the app started afresh. `run-on-emulator.sh` then keeps the screen on and switches Android to
+three-button navigation, since a tap on the share sheet's bottom row had been taken for a gesture.
 
 The emulator's setup is cached (#302): the API 34 system image and an AVD with a booted snapshot,
 in a private image on GitHub's Container Registry, `ghcr.io/guhilling/taskfest-buildcache`, tagged
 `avd-<API level>-<image>-<arch>-emu<emulator version>-img<image revision>-<hash>`. The emulator's
-settings live in `maestro/emulator.env` for both workflows; the hash covers that file and
-`maestro/emulator-cache.sh`, and the versions are the newest stable ones in Google's package index
-(`.github/scripts/android-revisions.py`), since the emulator action always installs those and a
+settings live in `maestro/emulator.env` for the three workflows that boot it; the hash covers
+that file and `maestro/emulator-cache.sh`, and the versions are the newest stable ones in
+Google's package index (`.github/scripts/android-revisions.py`), since the emulator action always installs those and a
 snapshot only loads into the pair that saved it. `emulator-cache.yml` writes it, from `main` only:
 on a push that changes the setup, daily — so a new emulator from Google is cached before many pull
 requests boot cold — and from the Actions tab. The emulator jobs restore it, boot from the snapshot
