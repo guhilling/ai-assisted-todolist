@@ -7,25 +7,16 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
-import { addDays, todayIso } from './dates'
-
-function json(value: unknown, status = 200) {
-  return Promise.resolve(new Response(value === null ? null : JSON.stringify(value), { status }))
-}
+import { stubApi } from './testing/api'
+import { ALICE, isoIn } from './testing/board'
 
 function board(photo: Record<string, unknown>, thumbnailLinkStatus = 200) {
-  globalThis.fetch = vi.fn((input: RequestInfo | URL) => {
-    const url = String(input)
-    if (url.includes('/api/auth/me')) return json({ email: 'alice@example.com' })
-    if (url.includes('/api/auth/providers')) return json({ enabled: true, providers: [] })
-    if (url.endsWith('/thumbnail-link') && thumbnailLinkStatus !== 200) return json(null, thumbnailLinkStatus)
-    if (url.endsWith('/thumbnail-link')) return json({ url: 'https://bucket.example.com/thumbnail', expiresAt: '2099-01-01T00:00:00Z' })
-    if (url.endsWith('/link')) return json({ url: 'https://bucket.example.com/file', expiresAt: '2099-01-01T00:00:00Z' })
-    if (url.endsWith('/api/tasks')) {
-      return json([{ id: 1, description: 'Holiday', dueDate: addDays(todayIso(), 1), importance: 'LOW', state: 'TODO',
-        attachments: [{ id: 8, fileName: 'beach.jpg', contentType: 'image/jpeg', sizeBytes: 9000000, ...photo }] }])
-    }
-    return json(null, 404)
+  globalThis.fetch = stubApi({
+    me: ALICE,
+    tasks: [{ id: 1, description: 'Holiday', dueDate: isoIn(1), importance: 'LOW', state: 'TODO',
+      attachments: [{ id: 8, fileName: 'beach.jpg', contentType: 'image/jpeg', sizeBytes: 9000000, ...photo }] }],
+    thumbnailLink: { status: thumbnailLinkStatus },
+    link: { url: 'https://bucket.example.com/file' },
   }) as unknown as typeof fetch
   render(<App />)
 }

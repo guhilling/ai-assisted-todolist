@@ -8,8 +8,8 @@ about what exists and how to run it.
 | Layer | Where | Boots | Runs in |
 | --- | --- | --- | --- |
 | Backend unit / integration | `backend/src/test/**` | Quarkus + real PostgreSQL + Keycloak via Dev Services | `backend-ci.yml`, `sonarcloud.yml` |
-| Frontend unit | `frontend/src/dates.test.ts` | nothing; pure functions | `frontend-ci.yml`, `sonarcloud.yml` |
-| Frontend component | `frontend/src/App.test.tsx` | jsdom, stubbed `fetch` | `frontend-ci.yml`, `sonarcloud.yml` |
+| Frontend unit | `frontend/src/*.test.ts` (`dates.test.ts`, `api.test.ts`, …) | nothing; pure functions | `frontend-ci.yml`, `sonarcloud.yml` |
+| Frontend component | `frontend/src/*.test.tsx` (`App.*.test.tsx` by feature, …) | jsdom, stubbed `fetch` from `frontend/src/testing/` | `frontend-ci.yml`, `sonarcloud.yml` |
 | Browser end-to-end | `e2e/tests/` | the whole containerised stack | `e2e.yml` |
 | Mobile unit / component | `mobile/src/**/*.test.ts(x)` | nothing; `jest-expo` and React Native Testing Library | `mobile-ci.yml` |
 | Mobile end-to-end | `mobile/maestro/` | the app on an Android emulator, against the containerised stack | `mobile-ci.yml` |
