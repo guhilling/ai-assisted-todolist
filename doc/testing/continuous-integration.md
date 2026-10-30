@@ -32,8 +32,8 @@ restores with `actions/cache/restore`, and one job per cache saves with `actions
 `if: github.ref == 'refs/heads/main'`, skipped when the exact key is there already. The saving job is
 the one whose build needs the most, since the other jobs only read the entry it leaves.
 `.github/scripts/check-workflow-caches.py`, run by the script tests, fails when a setup action's
-`cache:` input or the combined `actions/cache` comes back for these directories, when a save of them is not
-kept to `main`, or when the restore steps' copies of a key differ.
+`cache:` input or the combined `actions/cache` comes back for these directories, when a save of
+them is not kept to `main`, or when the restore steps' copies of a key differ.
 
 | Cache | Key | Saved by, on `main` |
 | --- | --- | --- |
