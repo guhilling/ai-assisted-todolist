@@ -94,6 +94,16 @@ class CheckTest(unittest.TestCase):
         self.assertEqual(len(found), 1, found)
         self.assertIn("actions/cache/save", found[0])
 
+    def test_a_save_of_something_else_from_any_branch_passes(self):
+        # A build of the app, saved from pull requests too while the app is unchanged (#401).
+        self.assertEqual(check.problems(workflow("""
+            - uses: actions/cache/save@v6
+              if: steps.app.outputs.cache-hit != 'true'
+              with:
+                path: mobile/build-ios/TaskFestDev.app
+                key: taskfest-dev-ios-app-x
+            """)), [])
+
     def test_a_condition_that_adds_other_refs_is_named(self):
         found = check.problems(workflow("""
             - uses: actions/cache/save@v6
