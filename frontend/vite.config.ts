@@ -47,10 +47,13 @@ export default defineConfig({
       // src/generated is written by `npm run generate:api`. Its correctness is the schemas' and
       // Ajv's, tested through api.ts rather than directly, and declaration files have nothing
       // to count anyway.
+      // src/testing is the tests' own support -- the stubbed backend and the fixtures -- and is
+      // no more covered code than the test files that use it.
       exclude: [
         'src/main.tsx',
         'src/setupTests.ts',
         'src/generated/**',
+        'src/testing/**',
         'src/**/*.test.{ts,tsx}',
       ],
       // The suite is at 100% on all four. The gate sits just below so a genuinely

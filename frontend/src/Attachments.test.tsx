@@ -8,10 +8,11 @@
  */
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import App from './App'
 import TaskRow from './components/TaskRow'
-import { addDays, todayIso } from './dates'
+import { todayIso } from './dates'
 import { de, en } from './i18n/messages'
+import { stubApi } from './testing/api'
+import { ALICE, isoIn, renderSignedIn } from './testing/board'
 
 const PDF = { id: 7, fileName: 'Rechnung.pdf', contentType: 'application/pdf', sizeBytes: 48213, thumbnail: false }
 const PHOTO = { id: 8, fileName: 'Quittung.jpg', contentType: 'image/jpeg', sizeBytes: 90000, thumbnail: false }
@@ -20,57 +21,12 @@ function task(overrides: Record<string, unknown> = {}) {
   return {
     id: 1,
     description: 'Pay the invoice',
-    dueDate: addDays(todayIso(), 1),
+    dueDate: isoIn(1),
     importance: 'MEDIUM',
     state: 'TODO',
     attachments: [],
     ...overrides,
   }
-}
-
-function json(value: unknown, status = 200) {
-  return Promise.resolve(new Response(value === null ? null : JSON.stringify(value), { status }))
-}
-
-/** The backend, by method and path; `announce` and `confirm` decide how an upload goes. */
-function mockBackend(options: {
-  tasks: unknown[]
-  /** How a link request is answered; the default is a working link. */
-  linkStatus?: number
-  announce?: { status: number; body: unknown }
-  confirm?: { status: number; body: unknown }
-  remove?: number
-}) {
-  return vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
-    const url = String(input)
-    const method = init?.method ?? 'GET'
-    if (url.includes('/api/auth/me')) {
-      return json({ email: 'alice@example.com' })
-    }
-    if (url.includes('/api/auth/providers')) {
-      return json({ enabled: true, providers: [] })
-    }
-    const link = url.match(/\/attachments\/(\d+)\/link$/)
-    if (link && options.linkStatus) {
-      return json(null, options.linkStatus)
-    }
-    if (link) {
-      return json({ url: `https://bucket.example.com/object-${link[1]}`, expiresAt: '2026-10-08T10:15:30Z' })
-    }
-    if (url.endsWith('/confirm')) {
-      return json(options.confirm?.body ?? null, options.confirm?.status ?? 200)
-    }
-    if (url.match(/\/attachments\/\d+$/) && method === 'DELETE') {
-      return json(null, options.remove ?? 204)
-    }
-    if (url.endsWith('/attachments') && method === 'POST') {
-      return json(options.announce?.body ?? null, options.announce?.status ?? 201)
-    }
-    if (url.endsWith('/api/tasks')) {
-      return json(options.tasks)
-    }
-    return json(null, 404)
-  })
 }
 
 /** Storage's side of an upload: reports half the file sent, then answers 200. */
@@ -90,12 +46,7 @@ class FakeXhr {
   }
 }
 
-async function renderBoard(fetchMock: ReturnType<typeof mockBackend>) {
-  globalThis.fetch = fetchMock as unknown as typeof fetch
-  render(<App />)
-  await waitFor(() => expect(screen.getByRole('button', { name: /add a task/i })).toBeInTheDocument())
-}
-
+/** The row's queries, so a file's controls can be addressed unambiguously. */
 function rowFor(description: string) {
   return within(screen.getByLabelText(`Mark "${description}" as done`).closest('li') as HTMLElement)
 }
@@ -122,7 +73,7 @@ afterEach(() => {
 
 describe('on the row', () => {
   it('lists a PDF by name and shows an image inline', async () => {
-    await renderBoard(mockBackend({ tasks: [task({ attachments: [PDF, PHOTO] })] }))
+    await renderSignedIn(stubApi({ me: ALICE, tasks: [task({ attachments: [PDF, PHOTO] })] }))
 
     const row = rowFor('Pay the invoice')
     expect(row.getByRole('button', { name: 'Open Rechnung.pdf' })).toHaveTextContent('Rechnung.pdf')
@@ -132,7 +83,7 @@ describe('on the row', () => {
   })
 
   it('opens a file in a new tab through a link asked for on the click', async () => {
-    await renderBoard(mockBackend({ tasks: [task({ attachments: [PDF] })] }))
+    await renderSignedIn(stubApi({ me: ALICE, tasks: [task({ attachments: [PDF] })] }))
     const tab = { location: { href: '' }, opener: {} as unknown, close: vi.fn() }
     const open = vi.spyOn(window, 'open').mockReturnValue(tab as unknown as Window)
 
@@ -145,8 +96,8 @@ describe('on the row', () => {
   })
 
   it('removes a file', async () => {
-    const backend = mockBackend({ tasks: [task({ attachments: [PDF] })] })
-    await renderBoard(backend)
+    const backend = stubApi({ me: ALICE, tasks: [task({ attachments: [PDF] })] })
+    await renderSignedIn(backend)
 
     fireEvent.click(rowFor('Pay the invoice').getByRole('button', { name: 'Remove Rechnung.pdf' }))
 
@@ -155,7 +106,7 @@ describe('on the row', () => {
   })
 
   it('keeps a file whose removal failed, and says so', async () => {
-    await renderBoard(mockBackend({ tasks: [task({ attachments: [PDF] })], remove: 500 }))
+    await renderSignedIn(stubApi({ me: ALICE, tasks: [task({ attachments: [PDF] })], remove: 500 }))
 
     fireEvent.click(rowFor('Pay the invoice').getByRole('button', { name: 'Remove Rechnung.pdf' }))
 
@@ -164,7 +115,7 @@ describe('on the row', () => {
   })
 
   it('lets a completed task be opened but not changed', async () => {
-    await renderBoard(mockBackend({ tasks: [task({ state: 'DONE', attachments: [PDF] })] }))
+    await renderSignedIn(stubApi({ me: ALICE, tasks: [task({ state: 'DONE', attachments: [PDF] })] }))
 
     expect(rowFor('Pay the invoice').getByRole('button', { name: 'Open Rechnung.pdf' })).toBeInTheDocument()
     expect(rowFor('Pay the invoice').queryByRole('button', { name: 'Remove Rechnung.pdf' })).not.toBeInTheDocument()
@@ -173,7 +124,7 @@ describe('on the row', () => {
 
 describe('when something goes wrong', () => {
   it('closes the tab again and says so when a file cannot be opened', async () => {
-    await renderBoard(mockBackend({ tasks: [task({ attachments: [PDF] })], linkStatus: 500 }))
+    await renderSignedIn(stubApi({ me: ALICE, tasks: [task({ attachments: [PDF] })], link: { status: 500 } }))
     const tab = { location: { href: '' }, opener: {} as unknown, close: vi.fn() }
     vi.spyOn(window, 'open').mockReturnValue(tab as unknown as Window)
 
@@ -184,7 +135,7 @@ describe('when something goes wrong', () => {
   })
 
   it('does nothing more when the browser blocked the tab', async () => {
-    await renderBoard(mockBackend({ tasks: [task({ attachments: [PDF] })] }))
+    await renderSignedIn(stubApi({ me: ALICE, tasks: [task({ attachments: [PDF] })] }))
     const open = vi.spyOn(window, 'open').mockReturnValue(null)
 
     fireEvent.click(rowFor('Pay the invoice').getByRole('button', { name: 'Open Rechnung.pdf' }))
@@ -194,7 +145,7 @@ describe('when something goes wrong', () => {
   })
 
   it('keeps an image whose preview could not be had as a box that still opens it', async () => {
-    await renderBoard(mockBackend({ tasks: [task({ attachments: [PHOTO] })], linkStatus: 500 }))
+    await renderSignedIn(stubApi({ me: ALICE, tasks: [task({ attachments: [PHOTO] })], link: { status: 500 } }))
 
     const open = rowFor('Pay the invoice').getByRole('button', { name: 'Open Quittung.jpg' })
 
@@ -203,7 +154,7 @@ describe('when something goes wrong', () => {
   })
 
   it('signs the board out when the session ends during an upload', async () => {
-    await renderBoard(mockBackend({ tasks: [task()], announce: { status: 401, body: null } }))
+    await renderSignedIn(stubApi({ me: ALICE, tasks: [task()], announce: { status: 401, body: null } }))
     const editor = openEditor('Pay the invoice')
 
     fireEvent.change(editor.getByLabelText('choose a file'), { target: { files: [pdfFile()] } })
@@ -224,7 +175,7 @@ describe('the refusals', () => {
 
 describe('in the editor', () => {
   it('shows where a file being dragged will land', async () => {
-    await renderBoard(mockBackend({ tasks: [task()] }))
+    await renderSignedIn(stubApi({ me: ALICE, tasks: [task()] }))
     const editor = openEditor('Pay the invoice')
     const zone = editor.getByText('Drop a PDF or image here, or').closest('div') as HTMLElement
 
@@ -236,7 +187,7 @@ describe('in the editor', () => {
   })
 
   it('says the limits before anything is chosen', async () => {
-    await renderBoard(mockBackend({ tasks: [task()] }))
+    await renderSignedIn(stubApi({ me: ALICE, tasks: [task()] }))
 
     const editor = openEditor('Pay the invoice')
 
@@ -245,8 +196,9 @@ describe('in the editor', () => {
 
   it('uploads a chosen file and lists it on the row', async () => {
     const scan = { id: 9, fileName: 'Scan.pdf', contentType: 'application/pdf', sizeBytes: 4, thumbnail: false }
-    await renderBoard(
-      mockBackend({
+    await renderSignedIn(
+      stubApi({
+        me: ALICE,
         tasks: [task()],
         announce: { status: 201, body: { attachment: scan, url: 'https://bucket.example.com/put', headers: {}, expiresAt: '2026-10-08T10:15:30Z' } },
         confirm: { status: 200, body: scan },
@@ -265,8 +217,9 @@ describe('in the editor', () => {
 
   it('uploads a dropped file', async () => {
     const scan = { id: 9, fileName: 'Scan.pdf', contentType: 'application/pdf', sizeBytes: 4, thumbnail: false }
-    await renderBoard(
-      mockBackend({
+    await renderSignedIn(
+      stubApi({
+        me: ALICE,
         tasks: [task()],
         announce: { status: 201, body: { attachment: scan, url: 'https://bucket.example.com/put', headers: {}, expiresAt: '2026-10-08T10:15:30Z' } },
         confirm: { status: 200, body: scan },
@@ -282,7 +235,7 @@ describe('in the editor', () => {
   })
 
   it('says why a file was refused', async () => {
-    await renderBoard(mockBackend({ tasks: [task()], announce: { status: 422, body: { refusal: 'USER_FULL' } } }))
+    await renderSignedIn(stubApi({ me: ALICE, tasks: [task()], announce: { status: 422, body: { refusal: 'USER_FULL' } } }))
     const editor = openEditor('Pay the invoice')
 
     fireEvent.change(editor.getByLabelText('choose a file'), { target: { files: [pdfFile()] } })
@@ -293,8 +246,8 @@ describe('in the editor', () => {
   })
 
   it('refuses a file of another type without uploading it', async () => {
-    const backend = mockBackend({ tasks: [task()] })
-    await renderBoard(backend)
+    const backend = stubApi({ me: ALICE, tasks: [task()] })
+    await renderSignedIn(backend)
     const editor = openEditor('Pay the invoice')
 
     fireEvent.change(editor.getByLabelText('choose a file'), {
@@ -306,7 +259,7 @@ describe('in the editor', () => {
   })
 
   it('says an upload failed', async () => {
-    await renderBoard(mockBackend({ tasks: [task()], announce: { status: 500, body: null } }))
+    await renderSignedIn(stubApi({ me: ALICE, tasks: [task()], announce: { status: 500, body: null } }))
     const editor = openEditor('Pay the invoice')
 
     fireEvent.change(editor.getByLabelText('choose a file'), { target: { files: [pdfFile()] } })
@@ -315,7 +268,7 @@ describe('in the editor', () => {
   })
 
   it('offers no more files once a task holds as many as it can', async () => {
-    await renderBoard(mockBackend({ tasks: [task({ attachments: [PDF, PHOTO] })] }))
+    await renderSignedIn(stubApi({ me: ALICE, tasks: [task({ attachments: [PDF, PHOTO] })] }))
 
     const editor = openEditor('Pay the invoice')
 
@@ -336,8 +289,9 @@ describe('in the editor', () => {
     }
     vi.stubGlobal('XMLHttpRequest', SlowXhr)
     const scan = { id: 9, fileName: 'Scan.pdf', contentType: 'application/pdf', sizeBytes: 4, thumbnail: false }
-    await renderBoard(
-      mockBackend({
+    await renderSignedIn(
+      stubApi({
+        me: ALICE,
         tasks: [task()],
         announce: { status: 201, body: { attachment: scan, url: 'https://bucket.example.com/put', headers: {}, expiresAt: '2026-10-08T10:15:30Z' } },
         confirm: { status: 200, body: scan },

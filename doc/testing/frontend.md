@@ -8,12 +8,23 @@ npm run lint            # oxlint
 npm run build           # tsc -b && vite build
 ```
 
-`App.test.tsx` renders the board against a stubbed `fetch` and checks what the user sees and
-does in each state: signed out, signed in, adding, completing, deleting, clearing, and each
-way the backend can refuse. `mockApi` routes on the method as well as the path, because list,
-create, update and delete all share the `/api/tasks` URL and only the method tells them apart.
+The `App.*.test.tsx` files render the board against a stubbed `fetch` and check what the user
+sees and does in each state, one file per feature: `App.signedOut.test.tsx` the page before
+sign-in, the paused page and the footer; `App.language.test.tsx` the board in German and the
+switch; `App.signedIn.test.tsx` the session, who it says is signed in, and its expiry;
+`App.board.test.tsx` how the rows are grouped, ordered and worded; `App.adding.test.tsx`,
+`App.completing.test.tsx`, `App.removing.test.tsx` and `App.editing.test.tsx` each change a
+user can make, and each way the backend can refuse it.
 
-Two details are deliberate:
+What they share is under `src/testing/`. `api.ts` is the one stubbed backend, `stubApi(options)`:
+it answers every route the board, the account dialog and the attachments reach, as a working
+backend would unless an option says otherwise, and routes on the method as well as the path,
+because list, create, update and delete all share the `/api/tasks` URL and only the method tells
+them apart. `board.tsx` holds the fixtures (`task`, `ALICE`, the providers) and the ways a test
+reaches the board, a row, its menu and the add row. A helper one file alone needs stays in that
+file. Coverage leaves `src/testing/` out, as it does the test files.
+
+Three details are deliberate:
 
 - **Fixture dates are computed from the real today**, not hardcoded. The board reads the clock
   once on mount and groups rows by how far away they are, so a fixed date would change which
@@ -31,9 +42,12 @@ Two details are deliberate:
 refused at once by type or count, uploaded once the task exists, and a refusal after it that
 leaves the task in place and the row open to say so; the row closes once everything went, locked
 until then (#383). `Attachments.test.tsx` and `attachments-api.test.ts` cover files on tasks
-(#204): the row's list, preview, open and remove, and the editor's choose, drop, progress and refusals; and underneath,
-announce, upload and confirm. The upload goes through `XMLHttpRequest`, the only browser API that
-reports upload progress, so both stub it next to `fetch`. Opening a file is asserted to open the
+(#204): the row's list, preview, open and remove, and the editor's choose, drop, progress and
+refusals; and underneath, announce, upload and confirm. The upload goes through
+`XMLHttpRequest`, the only browser API that reports upload progress, so both stub it next to
+`fetch` -- each its own way, because one records what was sent and the other where to. The
+account dialog and the deletion behind it (#213) are `Account.test.tsx`; all of these answer
+the backend through `stubApi` too. Opening a file is asserted to open the
 tab *on the click* and point it at the link afterwards, because a tab opened once a request has
 come back is what popup blockers block. `ThumbnailPreview.test.tsx` covers the row's thumbnail and
 its fallback to the file (#236), `thumbnail.test.ts` the thumbnail's size and making one against a

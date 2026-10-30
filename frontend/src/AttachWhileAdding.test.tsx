@@ -8,49 +8,12 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
-
-const CREATED_ID = 41
-
-function json(value: unknown, status = 200) {
-  return Promise.resolve(new Response(value === null ? null : JSON.stringify(value), { status }))
-}
+import { stubApi, type Announced, type Answer, type ApiStub } from './testing/api'
+import { ALICE, renderSignedIn } from './testing/board'
 
 /** The backend: echoes a created task with a fresh id, and answers its uploads as `announce` says. */
-function backend(options: { announce?: (fileName: string) => { status: number; body: unknown } | undefined } = {}) {
-  return vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
-    const url = String(input)
-    const method = init?.method ?? 'GET'
-    if (url.includes('/api/auth/me')) {
-      return json({ email: 'alice@example.com' })
-    }
-    if (url.includes('/api/auth/providers')) {
-      return json({ enabled: true, providers: [] })
-    }
-    if (url.endsWith(`/api/tasks/${CREATED_ID}/attachments`) && method === 'POST') {
-      const { fileName, contentType, sizeBytes } = JSON.parse(String(init?.body))
-      const answer = options.announce?.(fileName)
-      if (answer) {
-        return json(answer.body, answer.status)
-      }
-      const attachment = { id: fileName.length, fileName, contentType, sizeBytes, thumbnail: false }
-      return json({ attachment, url: `https://bucket.example.com/${fileName}`, headers: {}, expiresAt: '2026-10-08T10:15:30Z' }, 201)
-    }
-    if (url.includes('/confirm')) {
-      const id = Number(url.split('/').at(-2))
-      const name = id === 'scan.pdf'.length ? 'scan.pdf' : 'photo.png'
-      return json({ id, fileName: name, contentType: name.endsWith('pdf') ? 'application/pdf' : 'image/png', sizeBytes: 4, thumbnail: false })
-    }
-    if (url.endsWith('/link')) {
-      return json({ url: 'https://bucket.example.com/preview', expiresAt: '2026-10-08T10:15:30Z' })
-    }
-    if (url.endsWith('/api/tasks') && method === 'POST') {
-      return json({ ...JSON.parse(String(init?.body)), id: CREATED_ID, attachments: [] }, 201)
-    }
-    if (url.endsWith('/api/tasks')) {
-      return json([])
-    }
-    return json(null, 404)
-  })
+function backend(options: { announce?: (announced: Announced) => Answer | undefined } = {}) {
+  return stubApi({ me: ALICE, echoPost: true, announce: options.announce })
 }
 
 /** Storage: takes every PUT. */
@@ -75,10 +38,9 @@ class FakeXhr {
 const pdf = () => new File(['%PDF'], 'scan.pdf', { type: 'application/pdf' })
 const png = () => new File(['png!'], 'photo.png', { type: 'image/png' })
 
-async function openAddRow(fetchMock: ReturnType<typeof backend>) {
-  globalThis.fetch = fetchMock as unknown as typeof fetch
-  render(<App />)
-  fireEvent.click(await screen.findByRole('button', { name: 'Add a task' }))
+async function openAddRow(fetchMock: ApiStub) {
+  await renderSignedIn(fetchMock)
+  fireEvent.click(screen.getByRole('button', { name: 'Add a task' }))
   fireEvent.change(screen.getByLabelText('What needs doing'), { target: { value: 'Pay the bill' } })
   return within(document.querySelector('.add-form') as HTMLElement)
 }
@@ -187,7 +149,7 @@ describe('attaching while adding a task', () => {
       }
       return answers(input, init)
     })
-    const row = await openAddRow(fetchMock as unknown as ReturnType<typeof backend>)
+    const row = await openAddRow(fetchMock)
     fireEvent.change(row.getByLabelText('choose a file'), { target: { files: [pdf()] } })
     fireEvent.click(row.getByRole('button', { name: /^Add$/ }))
 
@@ -201,7 +163,7 @@ describe('attaching while adding a task', () => {
 
   it('keeps the task when a file is refused after it, and says which and why', async () => {
     const row = await openAddRow(
-      backend({ announce: (fileName) => (fileName === 'photo.png' ? { status: 422, body: { refusal: 'USER_FULL' } } : undefined) }),
+      backend({ announce: ({ fileName }) => (fileName === 'photo.png' ? { status: 422, body: { refusal: 'USER_FULL' } } : undefined) }),
     )
 
     fireEvent.change(row.getByLabelText('choose a file'), { target: { files: [pdf(), png()] } })
@@ -255,7 +217,7 @@ describe('closing the add row after Add (#383)', () => {
       }
       return answers(input, init)
     })
-    const row = await openAddRow(fetchMock as unknown as ReturnType<typeof backend>)
+    const row = await openAddRow(fetchMock)
     fireEvent.click(row.getByRole('button', { name: /^Add$/ }))
 
     await waitFor(() => expect(screen.getByLabelText('What needs doing')).toBeDisabled())
@@ -269,16 +231,10 @@ describe('closing the add row after Add (#383)', () => {
 describe('choosing several files in the editor', () => {
   it('refuses those beyond the room the task has, without sending them', async () => {
     const one = { id: 5, fileName: 'first.pdf', contentType: 'application/pdf', sizeBytes: 4, thumbnail: false }
-    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
-      const url = String(input)
-      if (url.includes('/api/auth/me')) return json({ email: 'alice@example.com' })
-      if (url.includes('/api/auth/providers')) return json({ enabled: true, providers: [] })
-      if (url.endsWith('/link')) return json({ url: 'https://bucket.example.com/x', expiresAt: '2026-10-08T10:15:30Z' })
-      if (url.endsWith('/attachments') && init?.method === 'POST') return json({ refusal: 'TASK_FULL' }, 422)
-      if (url.endsWith('/api/tasks')) {
-        return json([{ id: 7, description: 'One left', dueDate: '2099-01-01', importance: 'LOW', state: 'TODO', attachments: [one] }])
-      }
-      return json(null, 404)
+    const fetchMock = stubApi({
+      me: ALICE,
+      tasks: [{ id: 7, description: 'One left', dueDate: '2099-01-01', importance: 'LOW', state: 'TODO', attachments: [one] }],
+      announce: { status: 422, body: { refusal: 'TASK_FULL' } },
     })
     globalThis.fetch = fetchMock as unknown as typeof fetch
     render(<App />)

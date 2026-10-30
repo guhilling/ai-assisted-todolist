@@ -7,29 +7,8 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
-
-function json(value: unknown, status = 200) {
-  return Promise.resolve(new Response(value === null ? null : JSON.stringify(value), { status }))
-}
-
-function backend(options: { signedIn: boolean; deleteStatus?: number }) {
-  return vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
-    const url = String(input)
-    if (url.includes('/api/auth/me')) {
-      return options.signedIn ? json({ email: 'alice@example.com' }) : json(null, 401)
-    }
-    if (url.includes('/api/auth/providers')) {
-      return json({ enabled: true, providers: [] })
-    }
-    if (url.endsWith('/api/account') && init?.method === 'DELETE') {
-      return json(null, options.deleteStatus ?? 204)
-    }
-    if (url.endsWith('/api/tasks')) {
-      return json([])
-    }
-    return json(null, 404)
-  })
-}
+import { stubApi, type ApiStub } from './testing/api'
+import { ALICE, renderSignedIn } from './testing/board'
 
 let assign: ReturnType<typeof vi.fn>
 
@@ -44,17 +23,15 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-async function signedInBoard(fetchMock: ReturnType<typeof backend>) {
-  globalThis.fetch = fetchMock as unknown as typeof fetch
-  render(<App />)
-  await waitFor(() => expect(screen.getByRole('button', { name: /add a task/i })).toBeInTheDocument())
+async function signedInBoard(fetchMock: ApiStub) {
+  await renderSignedIn(fetchMock)
   // Sign out and Delete account are in the account dialog (#385).
   fireEvent.click(screen.getByRole('button', { name: 'Account' }))
 }
 
 describe('the account dialog (#385)', () => {
   it('keeps Sign out and Delete account behind Account, as the app does', async () => {
-    globalThis.fetch = backend({ signedIn: true }) as unknown as typeof fetch
+    globalThis.fetch = stubApi({ me: ALICE }) as unknown as typeof fetch
     render(<App />)
     await waitFor(() => expect(screen.getByRole('button', { name: /add a task/i })).toBeInTheDocument())
 
@@ -71,7 +48,7 @@ describe('the account dialog (#385)', () => {
   })
 
   it('takes the focus, and closes on Escape from there, giving it back to Account', async () => {
-    await signedInBoard(backend({ signedIn: true }))
+    await signedInBoard(stubApi({ me: ALICE }))
 
     expect(screen.getByRole('link', { name: 'Sign out' })).toHaveFocus()
     fireEvent.keyDown(document.activeElement as Element, { key: 'Escape' })
@@ -81,7 +58,7 @@ describe('the account dialog (#385)', () => {
   })
 
   it('closes when the focus leaves it', async () => {
-    await signedInBoard(backend({ signedIn: true }))
+    await signedInBoard(stubApi({ me: ALICE }))
 
     fireEvent.focusIn(screen.getByRole('button', { name: /add a task/i }))
 
@@ -89,7 +66,7 @@ describe('the account dialog (#385)', () => {
   })
 
   it('holds still on Account while the confirmation inside it is open', async () => {
-    await signedInBoard(backend({ signedIn: true }))
+    await signedInBoard(stubApi({ me: ALICE }))
     fireEvent.click(screen.getByRole('button', { name: 'Delete account' }))
     fireEvent.change(screen.getByLabelText('Type your email address to confirm'), { target: { value: 'alice@' } })
 
@@ -100,7 +77,7 @@ describe('the account dialog (#385)', () => {
   })
 
   it('closes, confirmation and all, on Escape elsewhere in it', async () => {
-    await signedInBoard(backend({ signedIn: true }))
+    await signedInBoard(stubApi({ me: ALICE }))
     fireEvent.click(screen.getByRole('button', { name: 'Delete account' }))
 
     fireEvent.keyDown(screen.getByRole('link', { name: 'Sign out' }), { key: 'Escape' })
@@ -109,7 +86,7 @@ describe('the account dialog (#385)', () => {
   })
 
   it('closes on a click outside it', async () => {
-    await signedInBoard(backend({ signedIn: true }))
+    await signedInBoard(stubApi({ me: ALICE }))
 
     fireEvent.pointerDown(screen.getByRole('heading', { level: 1, name: 'TaskFest' }))
 
@@ -117,7 +94,7 @@ describe('the account dialog (#385)', () => {
   })
 
   it('closes on Account again', async () => {
-    await signedInBoard(backend({ signedIn: true }))
+    await signedInBoard(stubApi({ me: ALICE }))
 
     fireEvent.click(screen.getByRole('button', { name: 'Account' }))
 
@@ -125,7 +102,7 @@ describe('the account dialog (#385)', () => {
   })
 
   it('leaves itself open when Escape closes only the confirmation inside it', async () => {
-    await signedInBoard(backend({ signedIn: true }))
+    await signedInBoard(stubApi({ me: ALICE }))
 
     fireEvent.click(screen.getByRole('button', { name: 'Delete account' }))
     fireEvent.keyDown(screen.getByRole('alertdialog'), { key: 'Escape' })
@@ -137,7 +114,7 @@ describe('the account dialog (#385)', () => {
 
 describe('deleting the account', () => {
   it('asks first, saying what goes', async () => {
-    const fetchMock = backend({ signedIn: true })
+    const fetchMock = stubApi({ me: ALICE })
     await signedInBoard(fetchMock)
 
     fireEvent.click(screen.getByRole('button', { name: 'Delete account' }))
@@ -148,7 +125,7 @@ describe('deleting the account', () => {
   })
 
   it('does nothing when cancelled', async () => {
-    const fetchMock = backend({ signedIn: true })
+    const fetchMock = stubApi({ me: ALICE })
     await signedInBoard(fetchMock)
 
     fireEvent.click(screen.getByRole('button', { name: 'Delete account' }))
@@ -159,7 +136,7 @@ describe('deleting the account', () => {
   })
 
   it('puts focus back on the button the confirmation was opened from', async () => {
-    await signedInBoard(backend({ signedIn: true }))
+    await signedInBoard(stubApi({ me: ALICE }))
 
     fireEvent.click(screen.getByRole('button', { name: 'Delete account' }))
     fireEvent.click(screen.getByRole('button', { name: 'Keep my account' }))
@@ -168,7 +145,7 @@ describe('deleting the account', () => {
   })
 
   it('closes on Escape, as the row menus do', async () => {
-    await signedInBoard(backend({ signedIn: true }))
+    await signedInBoard(stubApi({ me: ALICE }))
 
     fireEvent.click(screen.getByRole('button', { name: 'Delete account' }))
     fireEvent.keyDown(screen.getByRole('alertdialog'), { key: 'Escape' })
@@ -178,7 +155,7 @@ describe('deleting the account', () => {
   })
 
   it('deletes, then signs out and leaves a note for the signed-out page', async () => {
-    const fetchMock = backend({ signedIn: true })
+    const fetchMock = stubApi({ me: ALICE })
     await signedInBoard(fetchMock)
 
     fireEvent.click(screen.getByRole('button', { name: 'Delete account' }))
@@ -191,7 +168,7 @@ describe('deleting the account', () => {
   })
 
   it('says so when the deletion failed, and stays signed in', async () => {
-    await signedInBoard(backend({ signedIn: true, deleteStatus: 500 }))
+    await signedInBoard(stubApi({ me: ALICE, deleteAccount: { status: 500 } }))
 
     fireEvent.click(screen.getByRole('button', { name: 'Delete account' }))
     fireEvent.change(screen.getByLabelText('Type your email address to confirm'), { target: { value: 'alice@example.com' } })
@@ -204,7 +181,7 @@ describe('deleting the account', () => {
 
 describe('confirming by email address', () => {
   it('keeps the delete button disabled until the address is typed', async () => {
-    await signedInBoard(backend({ signedIn: true }))
+    await signedInBoard(stubApi({ me: ALICE }))
 
     fireEvent.click(screen.getByRole('button', { name: 'Delete account' }))
 
@@ -212,7 +189,7 @@ describe('confirming by email address', () => {
   })
 
   it('stays disabled for any other address', async () => {
-    await signedInBoard(backend({ signedIn: true }))
+    await signedInBoard(stubApi({ me: ALICE }))
     fireEvent.click(screen.getByRole('button', { name: 'Delete account' }))
 
     fireEvent.change(screen.getByLabelText('Type your email address to confirm'), { target: { value: 'bob@example.com' } })
@@ -221,7 +198,7 @@ describe('confirming by email address', () => {
   })
 
   it('accepts the address in any case and with spaces around it', async () => {
-    await signedInBoard(backend({ signedIn: true }))
+    await signedInBoard(stubApi({ me: ALICE }))
     fireEvent.click(screen.getByRole('button', { name: 'Delete account' }))
 
     fireEvent.change(screen.getByLabelText('Type your email address to confirm'), { target: { value: ' Alice@Example.com ' } })
@@ -233,7 +210,7 @@ describe('confirming by email address', () => {
 describe('after the deletion', () => {
   it('says once on the signed-out page that the account is gone', async () => {
     sessionStorage.setItem('taskfest.accountDeleted', 'true')
-    globalThis.fetch = backend({ signedIn: false }) as unknown as typeof fetch
+    globalThis.fetch = stubApi() as unknown as typeof fetch
 
     render(<App />)
 

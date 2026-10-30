@@ -23,6 +23,12 @@ DDD, and project context all still apply here).
 - **Prefer driving the UI over calling the module functions directly.** The interaction tests
   tick checkboxes and use the add row, so what they pin down is what a user does, not the
   shape of the API layer.
+- **The board's tests are one file per feature** (`App.signedOut.test.tsx`, `App.adding.test.tsx`,
+  …), and what they share lives in `src/testing/`: `api.ts` is the one stubbed `fetch`
+  (`stubApi`), `board.tsx` the fixtures and the ways a test reaches a row or the add row. A new
+  test for a feature goes in that feature's file; a helper goes to `src/testing/` only once a
+  second file needs it. Five files once carried a `fetch` stub each, and `App.test.tsx` had
+  grown to 1,700 lines before the split.
 - **`dates.ts` is the exception, and is tested directly.** It is the only pure logic here and
   the only place an off-by-one hides. Every function takes today as an ISO string rather than
   reading the clock, so a render is a pure function of its inputs and no test fakes a clock.
@@ -53,6 +59,8 @@ DDD, and project context all still apply here).
   (`language.ts`), the provider and `useI18n()`, and how a failure is worded (`failures.ts`).
 - `App.tsx` holds state and composition, and nothing else.
 - `components/` holds the pieces. They take callbacks and data; none of them fetches.
+- `testing/` holds what the component tests share -- the stubbed backend and the board's fixtures
+  -- and nothing the app imports. `vite.config.ts` keeps it out of the coverage report.
 - This split replaced a single 413-line `App.tsx`. Its own header comment had named the API
   functions as the seam to cut first, which is where the cut was made.
 
