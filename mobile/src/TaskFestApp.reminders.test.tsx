@@ -2,22 +2,17 @@ import { render, screen, userEvent } from '@testing-library/react-native'
 import type { BoardTask } from './api'
 import type { ReminderPermission, ReminderScheduler } from './notifications'
 import type { Session } from './session'
-import type { SessionStore } from './staySignedIn'
 import { TaskFestApp, type Dependencies } from './TaskFestApp'
+import { HOUR, dependencies as appDependencies, memorySessions, tokenWith } from './testing'
 import { variants } from './variants'
 
 jest.mock('./DueDatePicker', () => ({ DueDatePicker: () => null }))
 
-/** 10 October 2026, 06:00 on the phone's clock: before any 08:00 the tests look at. */
+/** 10 October 2026, 06:00 on the phone's clock: before any 08:00 the tests look at. Not the shared NOW, which is UTC. */
 const NOW = new Date(2026, 9, 10, 6, 0).getTime()
-const HOUR = 3600 * 1000
 const OFFER = 'Get a reminder at 08:00 on days tasks are due?'
 
-function tokenWith(payload: object) {
-  const encoded = btoa(JSON.stringify(payload)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
-  return `header.${encoded}.signature`
-}
-
+// Ada signed in on this clock, and a board to be reminded of: two tasks due tomorrow, one overdue.
 const idToken = tokenWith({ exp: NOW / 1000 + 3600, email: 'ada@example.com' })
 const session: Session = { idToken, refreshToken: 'r', expiresAt: NOW + HOUR, lastUsedAt: NOW }
 const water: BoardTask = { id: 1, description: 'Water the plants', dueDate: '2026-10-11', importance: 'HIGH', state: 'TODO' }
@@ -25,15 +20,6 @@ const train: BoardTask = { id: 2, description: 'Book the train', dueDate: '2026-
 const rent: BoardTask = { id: 3, description: 'Pay the rent', dueDate: '2026-10-01', importance: 'MEDIUM', state: 'TODO' }
 
 const at8 = (day: number) => new Date(2026, 9, day, 8, 0)
-
-function memorySessions(initial: Session | null): SessionStore {
-  let stored = initial
-  return {
-    save: async (next) => void (stored = next),
-    load: async () => stored,
-    clear: async () => void (stored = null),
-  }
-}
 
 function scheduler(permission: ReminderPermission, { declined = false, allows = true } = {}) {
   let current = permission
@@ -49,20 +35,16 @@ function scheduler(permission: ReminderPermission, { declined = false, allows = 
   } satisfies ReminderScheduler
 }
 
+/** The board above, a backend that agrees to every change, and the reminders allowed. */
 function dependencies(overrides: Partial<Dependencies> = {}): Dependencies {
-  return {
+  return appDependencies({
     sessions: memorySessions(session),
-    provider: { signIn: jest.fn(), refresh: jest.fn() },
     fetchTasks: jest.fn().mockResolvedValue([water, train, rent]),
-    fetchMinimumAppVersion: jest.fn().mockResolvedValue('0.0.0'),
     changes: { create: jest.fn(), update: jest.fn(async (_caller, task) => task), remove: jest.fn(), restore: jest.fn() },
-    deleteAccount: jest.fn().mockResolvedValue(undefined),
-    keptBoard: { load: jest.fn().mockResolvedValue(null), save: jest.fn().mockResolvedValue(undefined), clear: jest.fn().mockResolvedValue(undefined) },
     reminders: scheduler('granted'),
-    appVersion: '1.2.0',
     now: () => NOW,
     ...overrides,
-  }
+  })
 }
 
 async function start(overrides: Partial<Dependencies> = {}) {

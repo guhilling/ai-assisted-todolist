@@ -84,7 +84,10 @@ since that is all an iOS app's version may be, and the backend logs nothing else
 
 - **Unit and component tests** run on Jest with `jest-expo` and React Native Testing Library:
   `npm test`, or `npm run test:coverage`, which fails below the floor in `package.json`. As
-  everywhere in this project, the test comes first.
+  everywhere in this project, the test comes first. What the tests share -- the clock they run on,
+  a signed-in session, a board of three tasks, stores in memory and the app's `dependencies()`
+  with every stand-in in place -- lives in `src/testing.ts`, which the coverage leaves out; a test
+  file passes overrides for what differs, or keeps a constant of its own and says so.
   A test may take up to 15 seconds (`testTimeout`): the first in a file pays for loading the app,
   which on CI's runners with coverage took longer than Jest's default 5 more than once.
 - **`npm run lint`** (oxlint, the frontend's rules), **`npm run typecheck`**, and

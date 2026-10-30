@@ -40,4 +40,6 @@ or any page with `.md` appended), not what you remember. Add Expo packages with
 - **Colours come from the website** (`src/theme.ts`, checked against `frontend/src/App.css`).
 - **TSDoc on every module and exported type**, saying what it is for, as in `frontend/CLAUDE.md`.
 - Test first: Jest with `jest-expo` and React Native Testing Library for logic and components,
-  Maestro (`maestro/`) for the built app.
+  Maestro (`maestro/`) for the built app. The fixtures the tests share -- the clock, a session, a
+  board, stores in memory and `dependencies()` -- live in `src/testing.ts`; a test file overrides
+  what differs for it.

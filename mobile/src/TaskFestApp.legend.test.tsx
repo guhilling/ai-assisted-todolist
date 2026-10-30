@@ -1,7 +1,7 @@
 import { render, screen, userEvent } from '@testing-library/react-native'
 import type { Session } from './session'
-import type { SessionStore } from './staySignedIn'
 import { TaskFestApp, type Dependencies } from './TaskFestApp'
+import { HOUR, NOW, dependencies as appDependencies, memorySessions } from './testing'
 import { light } from './theme'
 import { variants } from './variants'
 import type { Task } from './web'
@@ -11,8 +11,7 @@ import type { Task } from './web'
  * the red date, above the first board with tasks, until dismissed once on this phone.
  */
 
-const NOW = Date.UTC(2026, 9, 10, 9)
-const HOUR = 3600 * 1000
+// An opaque token, rather than the shared session: nothing here reads who is signed in.
 const session: Session = { idToken: 'stored', refreshToken: 'r', expiresAt: NOW + HOUR, lastUsedAt: NOW }
 const tasks: Task[] = [{ id: 1, description: 'Pack the suitcase', dueDate: '2026-10-11', importance: 'HIGH', state: 'TODO' }]
 const LEGEND = 'Importance: High, Medium, Low.'
@@ -21,21 +20,14 @@ function legend(seen = false) {
   return { seen: jest.fn().mockResolvedValue(seen), dismiss: jest.fn().mockResolvedValue(undefined) }
 }
 
+/** One task due tomorrow, and the reminders answered. */
 function dependencies(overrides: Partial<Dependencies> = {}): Dependencies {
-  const sessions: SessionStore = { save: async () => undefined, load: async () => session, clear: async () => undefined }
-  return {
-    sessions,
-    provider: { signIn: jest.fn(), refresh: jest.fn() },
+  return appDependencies({
+    sessions: memorySessions(session),
     fetchTasks: jest.fn().mockResolvedValue(tasks),
-    fetchMinimumAppVersion: jest.fn().mockResolvedValue('0.0.0'),
-    changes: { create: jest.fn(), update: jest.fn(), remove: jest.fn(), restore: jest.fn() },
-    deleteAccount: jest.fn(),
-    keptBoard: { load: jest.fn().mockResolvedValue(null), save: jest.fn().mockResolvedValue(undefined), clear: jest.fn().mockResolvedValue(undefined) },
     reminders: { permission: jest.fn().mockResolvedValue('denied'), ask: jest.fn(), replace: jest.fn().mockResolvedValue(undefined), answered: jest.fn().mockResolvedValue(true), decline: jest.fn() },
-    appVersion: '1.2.0',
-    now: () => NOW,
     ...overrides,
-  }
+  })
 }
 
 describe('the colours, explained on first use (#335)', () => {

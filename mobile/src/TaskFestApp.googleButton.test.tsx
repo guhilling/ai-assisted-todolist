@@ -1,39 +1,21 @@
 import { render, screen, userEvent, within } from '@testing-library/react-native'
 import type { Dependencies } from './TaskFestApp'
 import { TaskFestApp } from './TaskFestApp'
-import { variantOf } from './variants'
+import { dependencies as appDependencies, memorySessions, prod, qa } from './testing'
 import { googleSignInButton } from './web'
 
 let mockScheme: 'light' | 'dark' = 'light'
 jest.mock('react-native/Libraries/Utilities/useColorScheme', () => ({ __esModule: true, default: () => mockScheme }))
 
-const GOOGLE = {
-  TASKFEST_GOOGLE_WEB_CLIENT_ID: '1234-web.apps.googleusercontent.com',
-  TASKFEST_QA_GOOGLE_IOS_CLIENT_ID: '1234-qa.apps.googleusercontent.com',
-  TASKFEST_PROD_GOOGLE_IOS_CLIENT_ID: '1234-prod.apps.googleusercontent.com',
-}
-const prod = variantOf('prod', GOOGLE)
-const qa = variantOf('qa', {
-  ...GOOGLE,
-  TASKFEST_QA_COGNITO_ISSUER: 'https://cognito-idp.eu-central-1.amazonaws.com/pool',
-  TASKFEST_QA_APP_CLIENT_ID: 'app-client',
-})
-
+/** Nobody signed in, nothing on the board, and a Google sign-in that is turned back from. */
 function dependencies(overrides: Partial<Dependencies> = {}): Dependencies {
-  return {
-    sessions: { save: jest.fn().mockResolvedValue(undefined), load: jest.fn().mockResolvedValue(null), clear: jest.fn().mockResolvedValue(undefined) },
-    provider: { signIn: jest.fn(), refresh: jest.fn() },
+  return appDependencies({
+    sessions: memorySessions(null),
     google: { signIn: jest.fn().mockResolvedValue(null), renew: jest.fn(), signOut: jest.fn() },
     fetchTasks: jest.fn().mockResolvedValue([]),
-    fetchMinimumAppVersion: jest.fn().mockResolvedValue('0.0.0'),
-    changes: { create: jest.fn(), update: jest.fn(), remove: jest.fn(), restore: jest.fn() },
-    deleteAccount: jest.fn(),
-    keptBoard: { load: jest.fn().mockResolvedValue(null), save: jest.fn().mockResolvedValue(undefined), clear: jest.fn().mockResolvedValue(undefined) },
-    reminders: { permission: jest.fn().mockResolvedValue('denied'), ask: jest.fn(), replace: jest.fn().mockResolvedValue(undefined), answered: jest.fn().mockResolvedValue(false), decline: jest.fn() },
-    appVersion: '1.2.0',
     now: () => Date.UTC(2026, 9, 18, 9),
     ...overrides,
-  }
+  })
 }
 
 afterEach(() => {

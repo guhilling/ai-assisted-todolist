@@ -1,51 +1,17 @@
 import { act, fireEvent, render, screen, userEvent, within } from '@testing-library/react-native'
-import { AppState, Linking } from 'react-native'
-import { RequestFailedError, SignedOutError, type BoardTask } from './api'
-import type { Session } from './session'
-import type { SessionStore, Tokens } from './staySignedIn'
+import { Linking } from 'react-native'
+import { RequestFailedError, SignedOutError } from './api'
+import type { Tokens } from './staySignedIn'
 import { TaskFestApp, type Dependencies } from './TaskFestApp'
+import { BASE, NOW, dependencies as appDependencies, foreground, idToken, memorySessions, session, tokenWith, water } from './testing'
 import { variants } from './variants'
 import type { Language } from './web'
 
 jest.mock('./DueDatePicker', () => ({ DueDatePicker: () => null }))
 
-const NOW = Date.UTC(2026, 9, 10, 9)
-const HOUR = 3600 * 1000
-const BASE = 'http://localhost:3000'
-
-function tokenWith(payload: object) {
-  const encoded = btoa(JSON.stringify(payload)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
-  return `header.${encoded}.signature`
-}
-
-const idToken = tokenWith({ exp: NOW / 1000 + 3600, email: 'ada@example.com' })
-const session: Session = { idToken, refreshToken: 'r', expiresAt: NOW + HOUR, lastUsedAt: NOW }
-const water: BoardTask = { id: 1, description: 'Water the plants', dueDate: '2026-10-10', importance: 'HIGH', state: 'TODO' }
-
-function memorySessions(initial: Session | null): SessionStore & { current: () => Session | null } {
-  let stored = initial
-  return {
-    current: () => stored,
-    save: async (next) => void (stored = next),
-    load: async () => stored,
-    clear: async () => void (stored = null),
-  }
-}
-
+/** One task on the board. */
 function dependencies(overrides: Partial<Dependencies> = {}): Dependencies {
-  return {
-    sessions: memorySessions(session),
-    provider: { signIn: jest.fn(), refresh: jest.fn() },
-    fetchTasks: jest.fn().mockResolvedValue([water]),
-    fetchMinimumAppVersion: jest.fn().mockResolvedValue('0.0.0'),
-    changes: { create: jest.fn(), update: jest.fn(), remove: jest.fn(), restore: jest.fn() },
-    deleteAccount: jest.fn().mockResolvedValue(undefined),
-    keptBoard: { load: jest.fn().mockResolvedValue(null), save: jest.fn().mockResolvedValue(undefined), clear: jest.fn().mockResolvedValue(undefined) },
-    reminders: { permission: jest.fn().mockResolvedValue('denied'), ask: jest.fn(), replace: jest.fn().mockResolvedValue(undefined), answered: jest.fn().mockResolvedValue(false), decline: jest.fn() },
-    appVersion: '1.2.0',
-    now: () => NOW,
-    ...overrides,
-  }
+  return appDependencies({ fetchTasks: jest.fn().mockResolvedValue([water]), ...overrides })
 }
 
 async function openAccount(overrides: Partial<Dependencies> = {}, language: Language = 'en') {
@@ -217,16 +183,6 @@ describe('the account, from the app (#275)', () => {
     expect(Linking.openURL).toHaveBeenNthCalledWith(2, 'https://taskfest-docs.cloud.hilling.de/doc/nutzungsbedingungen.html')
   })
 })
-
-/** Hands back what the app does when it comes back to the foreground. */
-function foreground() {
-  let onChange: (state: string) => void = () => undefined
-  jest.spyOn(AppState, 'addEventListener').mockImplementation((_type, listener) => {
-    onChange = listener as (state: string) => void
-    return { remove: jest.fn() } as never
-  })
-  return () => act(async () => onChange('active'))
-}
 
 async function confirmDelete(user: ReturnType<typeof userEvent.setup>) {
   await user.press(screen.getByRole('button', { name: 'Delete account' }))

@@ -57,6 +57,7 @@
     "collectCoverageFrom": [
       "src/**/*.{ts,tsx}",
       "!src/Main.tsx",
+      "!src/testing.ts",
       "!src/**/*.d.ts"
     ],
     "modulePaths": [

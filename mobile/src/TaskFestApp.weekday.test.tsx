@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react-native'
 import type { Session } from './session'
-import type { SessionStore } from './staySignedIn'
 import { TaskFestApp, type Dependencies } from './TaskFestApp'
+import { HOUR, dependencies as appDependencies, memorySessions } from './testing'
 import { variants } from './variants'
 import type { Task } from './web'
 
@@ -11,9 +11,8 @@ import type { Task } from './web'
  * Saturday.
  */
 
-// Local noon, so it is 10 October on the phone's clock in any time zone.
+// Local noon, not the shared NOW, so it is 10 October on the phone's clock in any time zone.
 const NOW = new Date(2026, 9, 10, 12).getTime()
-const HOUR = 3600 * 1000
 const session: Session = { idToken: 'stored', refreshToken: 'r', expiresAt: NOW + HOUR, lastUsedAt: NOW }
 
 const tasks: Task[] = [
@@ -24,23 +23,12 @@ const tasks: Task[] = [
 ]
 
 function dependencies(): Dependencies {
-  const sessions: SessionStore = {
-    save: async () => undefined,
-    load: async () => session,
-    clear: async () => undefined,
-  }
-  return {
-    sessions,
-    provider: { signIn: jest.fn(), refresh: jest.fn() },
+  return appDependencies({
+    sessions: memorySessions(session),
     fetchTasks: jest.fn().mockResolvedValue(tasks),
-    fetchMinimumAppVersion: jest.fn().mockResolvedValue('0.0.0'),
-    changes: { create: jest.fn(), update: jest.fn(), remove: jest.fn(), restore: jest.fn() },
-    deleteAccount: jest.fn(),
-    keptBoard: { load: jest.fn().mockResolvedValue(null), save: jest.fn().mockResolvedValue(undefined), clear: jest.fn().mockResolvedValue(undefined) },
     reminders: { permission: jest.fn().mockResolvedValue('denied'), ask: jest.fn(), replace: jest.fn().mockResolvedValue(undefined), answered: jest.fn().mockResolvedValue(true), decline: jest.fn() },
-    appVersion: '1.2.0',
     now: () => NOW,
-  }
+  })
 }
 
 describe('the weekday beside today and tomorrow (#337)', () => {

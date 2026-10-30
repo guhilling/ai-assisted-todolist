@@ -2,51 +2,16 @@ import { act, render, screen, userEvent } from '@testing-library/react-native'
 import { AppState } from 'react-native'
 import { SignedOutError } from './api'
 import type { Session } from './session'
-import type { SessionStore } from './staySignedIn'
 import { TaskFestApp, type Dependencies } from './TaskFestApp'
+import { HOUR, NOW, dependencies as appDependencies, memorySessions, tasks, tokenWith } from './testing'
 import { variants } from './variants'
-import type { Task } from './web'
 
-const NOW = Date.UTC(2026, 9, 10, 9)
-const TODAY = '2026-10-10'
-const HOUR = 3600 * 1000
-
-function tokenWith(payload: object) {
-  return `h.${btoa(JSON.stringify(payload)).replace(/=+$/, '')}.s`
-}
-
+// An opaque token: the sign-in's own tokens are made in the tests that need one.
 const session: Session = { idToken: 'stored', refreshToken: 'r', expiresAt: NOW + HOUR, lastUsedAt: NOW }
 
-const tasks: Task[] = [
-  { id: 1, description: 'Water the plants', dueDate: TODAY, importance: 'HIGH', state: 'TODO' },
-  { id: 2, description: 'Book the train', dueDate: '2026-10-11', importance: 'LOW', state: 'WORKING' },
-  { id: 3, description: 'Pay the rent', dueDate: '2026-10-01', importance: 'MEDIUM', state: 'DONE' },
-]
-
-function memorySessions(initial: Session | null): SessionStore & { current: () => Session | null } {
-  let stored = initial
-  return {
-    current: () => stored,
-    save: async (next) => void (stored = next),
-    load: async () => stored,
-    clear: async () => void (stored = null),
-  }
-}
-
+/** Nobody signed in: most tests here start at the sign-in. */
 function dependencies(overrides: Partial<Dependencies> = {}): Dependencies {
-  return {
-    sessions: memorySessions(null),
-    provider: { signIn: jest.fn(), refresh: jest.fn() },
-    fetchTasks: jest.fn().mockResolvedValue(tasks),
-    fetchMinimumAppVersion: jest.fn().mockResolvedValue('0.0.0'),
-    changes: { create: jest.fn(), update: jest.fn(), remove: jest.fn(), restore: jest.fn() },
-    deleteAccount: jest.fn(),
-    keptBoard: { load: jest.fn().mockResolvedValue(null), save: jest.fn().mockResolvedValue(undefined), clear: jest.fn().mockResolvedValue(undefined) },
-    reminders: { permission: jest.fn().mockResolvedValue('denied'), ask: jest.fn(), replace: jest.fn().mockResolvedValue(undefined), answered: jest.fn().mockResolvedValue(false), decline: jest.fn() },
-    appVersion: '1.2.0',
-    now: () => NOW,
-    ...overrides,
-  }
+  return appDependencies({ sessions: memorySessions(null), ...overrides })
 }
 
 describe('the app', () => {

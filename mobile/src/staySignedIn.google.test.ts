@@ -1,21 +1,9 @@
 import type { Session } from './session'
-import { RenewalUnavailableError, createSessionStore, currentSession, sessionFromTokens, type KeyValueStore } from './staySignedIn'
+import { RenewalUnavailableError, createSessionStore, currentSession, sessionFromTokens } from './staySignedIn'
+import { HOUR, memoryStore, tokenWith } from './testing'
 
-function tokenWith(payload: object) {
-  return `h.${btoa(JSON.stringify(payload)).replace(/=+$/, '')}.s`
-}
-
-function memoryStore(): KeyValueStore {
-  const values = new Map<string, string>()
-  return {
-    getItemAsync: async (key) => values.get(key) ?? null,
-    setItemAsync: async (key, value) => void values.set(key, value),
-    deleteItemAsync: async (key) => void values.delete(key),
-  }
-}
-
+// Its own day, rather than the shared NOW.
 const NOW = Date.UTC(2026, 9, 17, 12)
-const HOUR = 3600 * 1000
 
 /** Google hands the app no refresh token: its own SDK renews the sign-in (#280). */
 const google: Session = {

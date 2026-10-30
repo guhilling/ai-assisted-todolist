@@ -4,8 +4,8 @@ import { SignedOutError, type BoardTask } from './api'
 import type { SharedDraft } from './incoming'
 import type { KeptBoardStore } from './keptBoard'
 import type { Session } from './session'
-import type { SessionStore } from './staySignedIn'
 import { TaskFestApp, type Dependencies } from './TaskFestApp'
+import { HOUR, dependencies as appDependencies, memorySessions, tokenWith } from './testing'
 import type { PickedFile } from './upload'
 import { variantOf } from './variants'
 
@@ -15,19 +15,14 @@ import { variantOf } from './variants'
  * closed.
  */
 
+// Its own day, and Alice signed in on it, rather than the shared NOW and session.
 const NOW = Date.UTC(2026, 9, 20, 9)
-const HOUR = 3600 * 1000
-const idToken = `h.${btoa(JSON.stringify({ exp: (NOW + HOUR) / 1000, email: 'alice@example.com' })).replace(/=+$/, '')}.s`
+const idToken = tokenWith({ exp: (NOW + HOUR) / 1000, email: 'alice@example.com' })
 const session: Session = { idToken, refreshToken: 'r', expiresAt: NOW + HOUR, lastUsedAt: NOW }
 
 const task: BoardTask = { id: 1, description: 'Water the plants', dueDate: '2026-10-20', importance: 'HIGH', state: 'TODO', attachments: [] }
 const scan: PickedFile = { uri: 'file:///cache/shared/1-scan.pdf', name: 'scan.pdf', type: 'application/pdf', size: 90_000 }
 const share: SharedDraft = { description: 'Read the article https://example.com/a', files: [scan], refused: [] }
-
-function memorySessions(initial: Session | null): SessionStore {
-  let stored = initial
-  return { save: async (next) => void (stored = next), load: async () => stored, clear: async () => void (stored = null) }
-}
 
 /** A phone that has a share waiting, taken once. */
 function sharing(...drafts: (SharedDraft | null)[]) {
@@ -38,12 +33,11 @@ function sharing(...drafts: (SharedDraft | null)[]) {
   return { take, forget: jest.fn().mockResolvedValue(undefined) }
 }
 
+/** One task without files, a share waiting, and the backend the files go to. */
 function dependencies(overrides: Partial<Dependencies> = {}): Dependencies {
-  return {
+  return appDependencies({
     sessions: memorySessions(session),
-    provider: { signIn: jest.fn(), refresh: jest.fn() },
     fetchTasks: jest.fn().mockResolvedValue([task]),
-    fetchMinimumAppVersion: jest.fn().mockResolvedValue('0.0.0'),
     changes: {
       create: jest.fn((_caller, input) => Promise.resolve({ id: 2, attachments: [], ...input })),
       update: jest.fn(),
@@ -59,14 +53,11 @@ function dependencies(overrides: Partial<Dependencies> = {}): Dependencies {
     },
     pickFile: jest.fn(),
     documents: { open: jest.fn(), forget: jest.fn().mockResolvedValue(undefined) },
-    deleteAccount: jest.fn(),
-    keptBoard: { load: jest.fn().mockResolvedValue(null), save: jest.fn().mockResolvedValue(undefined), clear: jest.fn().mockResolvedValue(undefined) },
     reminders: { permission: jest.fn().mockResolvedValue('denied'), ask: jest.fn(), replace: jest.fn().mockResolvedValue(undefined), answered: jest.fn().mockResolvedValue(true), decline: jest.fn() },
     incoming: sharing(share),
-    appVersion: '1.2.0',
     now: () => NOW,
     ...overrides,
-  }
+  })
 }
 
 async function start(deps: Dependencies) {

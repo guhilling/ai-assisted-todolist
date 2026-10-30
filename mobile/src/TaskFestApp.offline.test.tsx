@@ -2,77 +2,31 @@ import { act, render, screen, userEvent } from '@testing-library/react-native'
 import { AppState } from 'react-native'
 import { SignedOutError, type BoardTask } from './api'
 import type { KeptBoard, KeptBoardStore } from './keptBoard'
-import type { Session } from './session'
-import type { SessionStore } from './staySignedIn'
 import { TaskFestApp, type Dependencies } from './TaskFestApp'
+import { HOUR, NOW, dependencies as appDependencies, foreground, memoryBoard, memorySessions, session, water } from './testing'
 import { variants } from './variants'
 import type { Language } from './web'
 
-/** Hands back what the app does when it comes back to the foreground. */
-function foreground() {
-  let onChange: (state: string) => void = () => undefined
-  jest.spyOn(AppState, 'addEventListener').mockImplementation((_type, listener) => {
-    onChange = listener as (state: string) => void
-    return { remove: jest.fn() } as never
-  })
-  return () => act(async () => onChange('active'))
-}
-
 jest.mock('./DueDatePicker', () => ({ DueDatePicker: () => null }))
 
-const NOW = Date.UTC(2026, 9, 10, 9)
-const HOUR = 3600 * 1000
 const OFFLINE = /^No connection\. These are your tasks as of .+, and they may not be current\.$/
 
-function tokenWith(payload: object) {
-  const encoded = btoa(JSON.stringify(payload)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
-  return `header.${encoded}.signature`
-}
-
-const idToken = tokenWith({ exp: NOW / 1000 + 3600, email: 'ada@example.com' })
-const session: Session = { idToken, refreshToken: 'r', expiresAt: NOW + HOUR, lastUsedAt: NOW }
-const water: BoardTask = { id: 1, description: 'Water the plants', dueDate: '2026-10-10', importance: 'HIGH', state: 'TODO' }
+// Not yet begun, unlike the shared train.
 const train: BoardTask = { id: 2, description: 'Book the train', dueDate: '2026-10-11', importance: 'LOW', state: 'TODO' }
 const kept: KeptBoard = { account: 'ada@example.com', savedAt: NOW - HOUR, tasks: [water] }
-
-function memorySessions(initial: Session | null): SessionStore & { current: () => Session | null } {
-  let stored = initial
-  return {
-    current: () => stored,
-    save: async (next) => void (stored = next),
-    load: async () => stored,
-    clear: async () => void (stored = null),
-  }
-}
-
-function memoryBoard(initial: KeptBoard | null): KeptBoardStore & { current: () => KeptBoard | null } {
-  let stored = initial
-  return {
-    current: () => stored,
-    load: async () => stored,
-    save: jest.fn(async (board: KeptBoard) => void (stored = board)),
-    clear: async () => void (stored = null),
-  }
-}
 
 /** A load that never answers: the network has not got back yet. */
 const pending = () => new Promise<BoardTask[]>(() => undefined)
 const noConnection = () => Promise.reject(new TypeError('Network request failed'))
 
+/** Two tasks to do, a backend that agrees to every change, and a board kept in memory. */
 function dependencies(overrides: Partial<Dependencies> = {}): Dependencies {
-  return {
-    sessions: memorySessions(session),
-    provider: { signIn: jest.fn(), refresh: jest.fn() },
+  return appDependencies({
     fetchTasks: jest.fn().mockResolvedValue([water, train]),
-    fetchMinimumAppVersion: jest.fn().mockResolvedValue('0.0.0'),
     changes: { create: jest.fn(), update: jest.fn(async (_caller, task) => task), remove: jest.fn(), restore: jest.fn() },
-    deleteAccount: jest.fn().mockResolvedValue(undefined),
     keptBoard: memoryBoard(null),
-    reminders: { permission: jest.fn().mockResolvedValue('denied'), ask: jest.fn(), replace: jest.fn().mockResolvedValue(undefined), answered: jest.fn().mockResolvedValue(false), decline: jest.fn() },
-    appVersion: '1.2.0',
-    now: () => NOW,
     ...overrides,
-  }
+  })
 }
 
 async function start(overrides: Partial<Dependencies> = {}, language: Language = 'en') {

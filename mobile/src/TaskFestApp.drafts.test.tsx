@@ -2,8 +2,8 @@ import { render, screen, userEvent, waitFor, within } from '@testing-library/rea
 import { RequestFailedError, type BoardTask } from './api'
 import type { SharedDraft } from './incoming'
 import type { Session } from './session'
-import type { SessionStore } from './staySignedIn'
 import { TaskFestApp, type Dependencies } from './TaskFestApp'
+import { HOUR, dependencies as appDependencies, memorySessions, tokenWith } from './testing'
 import type { PickedFile } from './upload'
 import { variantOf } from './variants'
 
@@ -14,9 +14,9 @@ import { variantOf } from './variants'
  * before.
  */
 
+// Its own day, and Alice signed in on it, rather than the shared NOW and session.
 const NOW = Date.UTC(2026, 9, 18, 9)
-const HOUR = 3600 * 1000
-const idToken = `h.${btoa(JSON.stringify({ exp: (NOW + HOUR) / 1000, email: 'alice@example.com' })).replace(/=+$/, '')}.s`
+const idToken = tokenWith({ exp: (NOW + HOUR) / 1000, email: 'alice@example.com' })
 const session: Session = { idToken, refreshToken: 'r', expiresAt: NOW + HOUR, lastUsedAt: NOW }
 
 const task: BoardTask = { id: 1, description: 'Water the plants', dueDate: '2026-10-18', importance: 'HIGH', state: 'TODO', attachments: [] }
@@ -28,22 +28,16 @@ function attached(file: PickedFile, id: number) {
   return { id, fileName: file.name, contentType: file.type, sizeBytes: file.size, thumbnail: false }
 }
 
-function memorySessions(initial: Session | null): SessionStore {
-  let stored = initial
-  return { save: async (next) => void (stored = next), load: async () => stored, clear: async () => void (stored = null) }
-}
-
 function sharing(share: SharedDraft) {
   return { take: jest.fn().mockResolvedValueOnce(share).mockResolvedValue(null), forget: jest.fn().mockResolvedValue(undefined) }
 }
 
+/** One task without files, a photo to pick, and a backend with drafts. */
 function dependencies(overrides: Partial<Dependencies> = {}): Dependencies {
   let id = 10
-  return {
+  return appDependencies({
     sessions: memorySessions(session),
-    provider: { signIn: jest.fn(), refresh: jest.fn() },
     fetchTasks: jest.fn().mockResolvedValue([task]),
-    fetchMinimumAppVersion: jest.fn().mockResolvedValue('0.0.0'),
     changes: {
       create: jest.fn((_caller, input) => Promise.resolve({ id: 2, attachments: [], ...input })),
       update: jest.fn(),
@@ -64,13 +58,10 @@ function dependencies(overrides: Partial<Dependencies> = {}): Dependencies {
     },
     pickFile: jest.fn().mockResolvedValue(photo),
     documents: { open: jest.fn(), forget: jest.fn().mockResolvedValue(undefined) },
-    deleteAccount: jest.fn(),
-    keptBoard: { load: jest.fn().mockResolvedValue(null), save: jest.fn().mockResolvedValue(undefined), clear: jest.fn().mockResolvedValue(undefined) },
     reminders: { permission: jest.fn().mockResolvedValue('denied'), ask: jest.fn(), replace: jest.fn().mockResolvedValue(undefined), answered: jest.fn().mockResolvedValue(true), decline: jest.fn() },
-    appVersion: '1.2.0',
     now: () => NOW,
     ...overrides,
-  }
+  })
 }
 
 async function openAdd(deps: Dependencies) {
