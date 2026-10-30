@@ -59,6 +59,19 @@ jobs:
           fi
           echo "$GITHUB_REF_NAME is not released yet."
 
+      - name: Refuse a lightweight tag
+        # An annotated tag says who tagged and when (#333); `git tag -a` makes one, cut-release.yml
+        # too. GitHub is asked rather than the checkout, which need not keep the tag object.
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          kind=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$GITHUB_REF_NAME" -q .object.type)
+          if [ "$kind" != tag ]; then
+            echo "::error::$GITHUB_REF_NAME is a lightweight tag. Tag with git tag -a, as doc/releasing.md says."
+            exit 1
+          fi
+          echo "$GITHUB_REF_NAME is an annotated tag."
+
       - name: Refuse a tag that is not on main
         # A tag on a side branch would publish code that never went through a pull request.
         # main is fetched explicitly rather than relying on the checkout of a tag ref

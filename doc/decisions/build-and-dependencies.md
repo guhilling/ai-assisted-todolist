@@ -120,6 +120,11 @@ over one tag. That is the opposite of the usual container convention and is the 
 likely thing to surprise someone. `doc/releasing.md` says so and says where the change would
 go.
 
+**Annotated tags (#333, 2026-10-30).** A release tag is an annotated one, which says who tagged and
+when: `release.yml`'s `gate` refuses a lightweight tag, asking GitHub for the tag's kind, and
+`cut-release.yml` makes annotated tags. Who may push a `v*` tag at all would take a tag ruleset,
+which is Gunnar's to set up.
+
 
 ## SNAPSHOT dependencies fail every build, not just releases
 
