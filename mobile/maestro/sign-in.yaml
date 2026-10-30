@@ -16,26 +16,37 @@ name: Sign in and see the board
           visible: "Sign in with Keycloak"
           timeout: 30000
 - takeScreenshot: 01-signed-out
-- tapOn: "Sign in with Keycloak"
-# A fresh emulator's Chrome greets its first user; none of this is TaskFest's.
-- runFlow:
-    when:
-      visible: "Accept & continue"
+# Keycloak's form has once been on screen but not in the page's accessibility tree, so Maestro never
+# saw it, and Chrome has once been killed as it opened the page (#420). Tried once more, then: Back
+# closes a tab still open, and the sign-in starts again.
+- retry:
+    maxRetries: 1
     commands:
-      - tapOn: "Accept & continue"
-- runFlow:
-    when:
-      visible: "No thanks"
-    commands:
-      - tapOn: "No thanks"
-- runFlow:
-    when:
-      visible: "Use without an account"
-    commands:
-      - tapOn: "Use without an account"
-- extendedWaitUntil:
-    visible: "Username or email"
-    timeout: 30000
+      - runFlow:
+          when:
+            notVisible: "Sign in with Keycloak"
+          commands:
+            - back
+      - tapOn: "Sign in with Keycloak"
+      # A fresh emulator's Chrome greets its first user; none of this is TaskFest's.
+      - runFlow:
+          when:
+            visible: "Accept & continue"
+          commands:
+            - tapOn: "Accept & continue"
+      - runFlow:
+          when:
+            visible: "No thanks"
+          commands:
+            - tapOn: "No thanks"
+      - runFlow:
+          when:
+            visible: "Use without an account"
+          commands:
+            - tapOn: "Use without an account"
+      - extendedWaitUntil:
+          visible: "Username or email"
+          timeout: 30000
 - takeScreenshot: 02-keycloak
 - tapOn: "Username or email"
 - inputText: "gunnar"

@@ -350,6 +350,7 @@ jobs:
           api-level: ${{ env.EMULATOR_API_LEVEL }}
           target: ${{ env.EMULATOR_TARGET }}
           arch: ${{ env.EMULATOR_ARCH }}
+          ram-size: ${{ env.EMULATOR_RAM_SIZE }}
           # The restored AVD and its snapshot, when there are; a new AVD, booted cold, when not.
           # Nothing is saved back: every run starts from main's snapshot.
           force-avd-creation: false

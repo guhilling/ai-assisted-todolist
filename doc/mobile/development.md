@@ -134,7 +134,10 @@ Before the flows the emulator is readied for them (#407). `emulator-ready.sh`, w
 shares, gives Chrome, which the sign-in goes through, its flags in
 `/data/local/tmp/chrome-command-line`: no first-run screens, during which Google Play services
 restarting had taken Chrome down mid sign-in, and the page's accessibility tree always built, which
-had left Keycloak's form invisible to Maestro while it was on screen. `run-on-emulator.sh` then
+had left Keycloak's form invisible to Maestro while it was on screen. It still did once, and Chrome
+was once killed as it opened the page, the emulator out of memory (#420): the emulator has 4096 MB
+since, and `maestro/sign-in.yaml` tries the sign-in once more when the form does not show, closing
+a tab left open first. `run-on-emulator.sh` then
 keeps the screen on and switches Android to three-button navigation, since a tap on the share
 sheet's bottom row had been taken for a gesture.
 
