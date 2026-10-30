@@ -10,6 +10,9 @@ if [[ -f stack-start.pid ]]; then
   cat stack-start.log
 fi
 docker compose -f deployment/docker/docker-compose.e2e.yml up -d --wait
+# --wait returns once httpd's container runs, not once it listens: the frontend has no health
+# check. The same probe e2e.yml makes before its browser, so the seed below never meets a reset.
+curl -sS --retry 60 --retry-delay 2 --retry-all-errors --fail http://localhost:3000/api/auth/providers > /dev/null
 
 # The flows look for the seeded task under "Today" -- every sign-in does, and a share signs in
 # several times -- and the app takes today from the emulator, whose clock is the runner's

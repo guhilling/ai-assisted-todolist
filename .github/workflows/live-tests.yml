@@ -147,7 +147,9 @@ jobs:
         # ffmpeg for each video's poster frame; without it the videos are published without one.
         run: |
           sudo apt-get install -y --no-install-recommends ffmpeg >/dev/null || echo "::warning::no ffmpeg, so no posters"
-          version=$(curl -fsS "$LIVE_BASE_URL/api/version" | jq -r .version || echo unknown)
+          # jq -e, so that a backend that cannot be reached leaves "unknown", not an empty version:
+          # jq on empty input prints nothing and exits 0, so curl's failure alone never fell back.
+          version=$(curl -fsS "$LIVE_BASE_URL/api/version" | jq -er .version || echo unknown)
           python3 ../.github/scripts/collect-live-videos.py live-videos/report.json live-videos/out \
             --environment "$ENVIRONMENT" --version "$version" --run-url "$RUN_URL" \
             --recorded-at "$(date -u +%Y-%m-%dT%H:%M:%SZ)"

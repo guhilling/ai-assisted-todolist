@@ -12,7 +12,9 @@ Run with:  python3 -m unittest discover -s .github/scripts -p 'test_*.py'
 
 import importlib.util
 import pathlib
+import subprocess
 import unittest
+from unittest import mock
 
 _spec = importlib.util.spec_from_file_location(
     "deploy_backend", pathlib.Path(__file__).with_name("deploy-backend.py"))
@@ -325,6 +327,29 @@ class SnapshotRetentionTest(unittest.TestCase):
         snapshots = [_snapshot(f"taskfest-qa-db-pre-release-v0-{n}-0-x", f"2026-10-0{n}T10:00:00Z") for n in range(1, 4)]
         snapshots.append(_snapshot("taskfest-qa-db-pre-release-v0-9-0-x", "2026-10-09T10:00:00Z", "creating"))
         self.assertEqual(deploy.snapshots_to_delete(snapshots, "qa"), [])
+
+
+class ChangelogDiffersTest(unittest.TestCase):
+    """Only git's own verdict picks the downtime path: a git error is an error, not a difference."""
+
+    def _differs(self, returncode):
+        with mock.patch.object(deploy.subprocess, "run", return_value=mock.Mock(returncode=returncode)):
+            return deploy.changelog_differs("v1.1.0", "v1.2.0")
+
+    def test_a_difference_is_a_difference(self):
+        self.assertTrue(self._differs(1))
+
+    def test_no_difference_is_none(self):
+        self.assertFalse(self._differs(0))
+
+    def test_a_git_error_is_raised_not_taken_for_a_difference(self):
+        with self.assertRaises(subprocess.CalledProcessError):
+            self._differs(128)
+
+    def test_the_same_release_differs_from_nothing_without_asking_git(self):
+        with mock.patch.object(deploy.subprocess, "run") as run:
+            self.assertFalse(deploy.changelog_differs("v1.2.0", "v1.2.0"))
+        run.assert_not_called()
 
 
 class MigrationTaskTest(unittest.TestCase):
