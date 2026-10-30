@@ -61,16 +61,29 @@ jobs:
 
       - name: Refuse a lightweight tag
         # An annotated tag says who tagged and when (#333); `git tag -a` makes one, cut-release.yml
-        # too. GitHub is asked rather than the checkout, which need not keep the tag object.
+        # too. GitHub is asked rather than the checkout, which need not keep the tag object -- and
+        # whether the tag still names this run's commit, which a re-run of an old run need not.
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          kind=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$GITHUB_REF_NAME" -q .object.type)
+          if ! ref=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$GITHUB_REF_NAME" -q '.object.type + " " + .object.sha' 2>&1); then
+            echo "::error::Could not find out what kind of tag $GITHUB_REF_NAME is: $ref"
+            exit 1
+          fi
+          read -r kind object <<< "$ref"
           if [ "$kind" != tag ]; then
             echo "::error::$GITHUB_REF_NAME is a lightweight tag. Tag with git tag -a, as doc/releasing.md says."
             exit 1
           fi
-          echo "$GITHUB_REF_NAME is an annotated tag."
+          if ! target=$(gh api "repos/$GITHUB_REPOSITORY/git/tags/$object" -q .object.sha 2>&1); then
+            echo "::error::Could not read the tag object of $GITHUB_REF_NAME: $target"
+            exit 1
+          fi
+          if [ "$target" != "$GITHUB_SHA" ]; then
+            echo "::error::$GITHUB_REF_NAME now names $target, not $GITHUB_SHA, which this run builds."
+            exit 1
+          fi
+          echo "$GITHUB_REF_NAME is an annotated tag of $GITHUB_SHA."
 
       - name: Refuse a tag that is not on main
         # A tag on a side branch would publish code that never went through a pull request.

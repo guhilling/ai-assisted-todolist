@@ -89,10 +89,13 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG: v${{ steps.version.outputs.version }}
         # An annotated tag, which says who tagged and when, as release.yml insists (#333): the tag
-        # object first, then the ref to it. The API refuses a ref that already exists.
+        # object first, with whoever started this as its tagger, then the ref to it. The API refuses
+        # a ref that already exists.
         run: |
           tag=$(gh api "repos/$GITHUB_REPOSITORY/git/tags" -f tag="$TAG" -f message="TaskFest $TAG" \
-            -f object="$GITHUB_SHA" -f type=commit -q .sha)
+            -f object="$GITHUB_SHA" -f type=commit \
+            -f "tagger[name]=$GITHUB_ACTOR" -f "tagger[email]=$GITHUB_ACTOR_ID+$GITHUB_ACTOR@users.noreply.github.com" \
+            -f "tagger[date]=$(date -u +%Y-%m-%dT%H:%M:%SZ)" -q .sha)
           gh api "repos/$GITHUB_REPOSITORY/git/refs" -f ref="refs/tags/$TAG" -f sha="$tag" > /dev/null
           echo "Tagged $GITHUB_SHA as $TAG."
 
