@@ -2,32 +2,14 @@ import { act, fireEvent, render, screen, userEvent, within } from '@testing-libr
 import { AppState } from 'react-native'
 import { RequestFailedError, SignedOutError, TimedOutError, type BoardTask } from './api'
 import type { Session } from './session'
-import type { SessionStore } from './staySignedIn'
 import { TaskFestApp, type Dependencies, type TaskChanges } from './TaskFestApp'
+import { BASE, HOUR, NOW, TODAY, dependencies as appDependencies, memorySessions, rent, train, water } from './testing'
 import { variants } from './variants'
 
 jest.mock('./DueDatePicker', () => ({ DueDatePicker: () => null }))
 
-const NOW = Date.UTC(2026, 9, 10, 9)
-const TODAY = '2026-10-10'
-const HOUR = 3600 * 1000
-const BASE = 'http://localhost:3000'
-
+// An opaque token, which the assertions on what the backend was sent name.
 const session: Session = { idToken: 'stored', refreshToken: 'r', expiresAt: NOW + HOUR, lastUsedAt: NOW }
-
-const water: BoardTask = { id: 1, description: 'Water the plants', dueDate: TODAY, importance: 'HIGH', state: 'TODO' }
-const train: BoardTask = { id: 2, description: 'Book the train', dueDate: '2026-10-11', importance: 'LOW', state: 'WORKING' }
-const rent: BoardTask = { id: 3, description: 'Pay the rent', dueDate: '2026-10-01', importance: 'MEDIUM', state: 'DONE' }
-
-function memorySessions(initial: Session | null): SessionStore & { current: () => Session | null } {
-  let stored = initial
-  return {
-    current: () => stored,
-    save: async (next) => void (stored = next),
-    load: async () => stored,
-    clear: async () => void (stored = null),
-  }
-}
 
 function backend(overrides: Partial<TaskChanges> = {}): TaskChanges {
   return {
@@ -40,19 +22,7 @@ function backend(overrides: Partial<TaskChanges> = {}): TaskChanges {
 }
 
 function dependencies(changes: TaskChanges, overrides: Partial<Dependencies> = {}): Dependencies {
-  return {
-    sessions: memorySessions(session),
-    provider: { signIn: jest.fn(), refresh: jest.fn() },
-    fetchTasks: jest.fn().mockResolvedValue([water, train, rent]),
-    fetchMinimumAppVersion: jest.fn().mockResolvedValue('0.0.0'),
-    appVersion: '1.2.0',
-    now: () => NOW,
-    changes,
-    deleteAccount: jest.fn(),
-    keptBoard: { load: jest.fn().mockResolvedValue(null), save: jest.fn().mockResolvedValue(undefined), clear: jest.fn().mockResolvedValue(undefined) },
-    reminders: { permission: jest.fn().mockResolvedValue('denied'), ask: jest.fn(), replace: jest.fn().mockResolvedValue(undefined), answered: jest.fn().mockResolvedValue(false), decline: jest.fn() },
-    ...overrides,
-  }
+  return appDependencies({ sessions: memorySessions(session), changes, ...overrides })
 }
 
 async function showBoard(changes: TaskChanges, overrides: Partial<Dependencies> = {}) {

@@ -1,11 +1,7 @@
 import { INACTIVITY_LIMIT_MS, emailOf, expiryOf, isInactive, needsRefresh, used, type Session } from './session'
+import { tokenWith } from './testing'
 
-/** A token with the given payload; the header and signature do not matter to the app. */
-function tokenWith(payload: object) {
-  const encoded = btoa(JSON.stringify(payload)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
-  return `header.${encoded}.signature`
-}
-
+// Noon, not the shared NOW, and a session of its own.
 const NOW = Date.UTC(2026, 9, 10, 12, 0, 0)
 
 const session: Session = {

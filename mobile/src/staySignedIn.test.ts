@@ -1,29 +1,9 @@
 import { INACTIVITY_LIMIT_MS, type Session } from './session'
-import {
-  RenewalUnavailableError,
-  createSessionStore,
-  currentSession,
-  sessionFromTokens,
-  type KeyValueStore,
-  type Tokens,
-} from './staySignedIn'
+import { RenewalUnavailableError, createSessionStore, currentSession, sessionFromTokens, type Tokens } from './staySignedIn'
+import { HOUR, memoryStore, tokenWith } from './testing'
 
-function tokenWith(payload: object) {
-  return `h.${btoa(JSON.stringify(payload)).replace(/=+$/, '')}.s`
-}
-
-function memoryStore(): KeyValueStore & { values: Map<string, string> } {
-  const values = new Map<string, string>()
-  return {
-    values,
-    getItemAsync: async (key) => values.get(key) ?? null,
-    setItemAsync: async (key, value) => void values.set(key, value),
-    deleteItemAsync: async (key) => void values.delete(key),
-  }
-}
-
+// Noon, not the shared NOW, and a session with a refresh token the assertions name.
 const NOW = Date.UTC(2026, 9, 10, 12)
-const HOUR = 3600 * 1000
 
 const session: Session = {
   idToken: tokenWith({ exp: (NOW + HOUR) / 1000 }),

@@ -1,61 +1,27 @@
 import { act, render, screen, userEvent } from '@testing-library/react-native'
 import { AppState } from 'react-native'
 import type { Session } from './session'
-import type { SessionStore } from './staySignedIn'
 import { TaskFestApp, type Dependencies } from './TaskFestApp'
-import { variantOf } from './variants'
+import { HOUR, dependencies as appDependencies, memorySessions, prod, qa, tokenWith } from './testing'
 import type { Task } from './web'
 
+// Its own day, with a task due on it, rather than the shared NOW and board.
 const NOW = Date.UTC(2026, 9, 17, 9)
-const HOUR = 3600 * 1000
-
-function tokenWith(payload: object) {
-  return `h.${btoa(JSON.stringify(payload)).replace(/=+$/, '')}.s`
-}
-
 const tasks: Task[] = [{ id: 1, description: 'Water the plants', dueDate: '2026-10-17', importance: 'HIGH', state: 'TODO' }]
-
-const GOOGLE = {
-  TASKFEST_GOOGLE_WEB_CLIENT_ID: '1234-web.apps.googleusercontent.com',
-  TASKFEST_QA_GOOGLE_IOS_CLIENT_ID: '1234-qa.apps.googleusercontent.com',
-  TASKFEST_PROD_GOOGLE_IOS_CLIENT_ID: '1234-prod.apps.googleusercontent.com',
-}
-const prod = variantOf('prod', GOOGLE)
-const qa = variantOf('qa', {
-  ...GOOGLE,
-  TASKFEST_QA_COGNITO_ISSUER: 'https://cognito-idp.eu-central-1.amazonaws.com/pool',
-  TASKFEST_QA_APP_CLIENT_ID: 'app-client',
-})
-
-function memorySessions(initial: Session | null): SessionStore & { current: () => Session | null } {
-  let stored = initial
-  return {
-    current: () => stored,
-    save: async (next) => void (stored = next),
-    load: async () => stored,
-    clear: async () => void (stored = null),
-  }
-}
 
 function googleProvider() {
   return { signIn: jest.fn(), renew: jest.fn(), signOut: jest.fn().mockResolvedValue(undefined) }
 }
 
+/** Nobody signed in, and Google's sign-in to hand. */
 function dependencies(overrides: Partial<Dependencies> = {}): Dependencies {
-  return {
+  return appDependencies({
     sessions: memorySessions(null),
-    provider: { signIn: jest.fn(), refresh: jest.fn() },
     google: googleProvider(),
     fetchTasks: jest.fn().mockResolvedValue(tasks),
-    fetchMinimumAppVersion: jest.fn().mockResolvedValue('0.0.0'),
-    changes: { create: jest.fn(), update: jest.fn(), remove: jest.fn(), restore: jest.fn() },
-    deleteAccount: jest.fn(),
-    keptBoard: { load: jest.fn().mockResolvedValue(null), save: jest.fn().mockResolvedValue(undefined), clear: jest.fn().mockResolvedValue(undefined) },
-    reminders: { permission: jest.fn().mockResolvedValue('denied'), ask: jest.fn(), replace: jest.fn().mockResolvedValue(undefined), answered: jest.fn().mockResolvedValue(false), decline: jest.fn() },
-    appVersion: '1.2.0',
     now: () => NOW,
     ...overrides,
-  }
+  })
 }
 
 describe('signing in with Google, in the app (#280)', () => {

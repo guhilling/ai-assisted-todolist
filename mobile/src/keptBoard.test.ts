@@ -1,7 +1,6 @@
 import type { BoardTask } from './api'
 import { createKeptBoardStore, type TextFile } from './keptBoard'
-
-const water: BoardTask = { id: 1, description: 'Water the plants', dueDate: '2026-10-10', importance: 'HIGH', state: 'TODO' }
+import { water } from './testing'
 
 function memoryFile(initial?: string): TextFile & { content: () => string | undefined } {
   let content = initial

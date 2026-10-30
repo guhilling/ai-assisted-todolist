@@ -1,10 +1,9 @@
 import { fireEvent, render, screen, userEvent, waitFor } from '@testing-library/react-native'
 import type { BoardTask } from './api'
-import type { KeptBoard } from './keptBoard'
 import type { PreviewStore } from './previews'
 import type { Session } from './session'
-import type { SessionStore } from './staySignedIn'
 import { TaskFestApp, type Dependencies } from './TaskFestApp'
+import { HOUR, dependencies as appDependencies, linkTo, memoryBoard, memorySessions, tokenWith } from './testing'
 import { variantOf } from './variants'
 
 /**
@@ -13,8 +12,10 @@ import { variantOf } from './variants'
  * board -- until its attachment has left the board or the session ends.
  */
 
+// Its own day, and Alice signed in on it, rather than the shared NOW and session.
 const NOW = Date.UTC(2026, 9, 28, 9)
-const HOUR = 3600 * 1000
+const idToken = tokenWith({ exp: (NOW + HOUR) / 1000, email: 'alice@example.com' })
+const session: Session = { idToken, refreshToken: 'r', expiresAt: NOW + HOUR, lastUsedAt: NOW }
 
 const photo = { id: 3, fileName: 'photo.jpg', contentType: 'image/jpeg', sizeBytes: 2_000_000, thumbnail: true }
 const sketch = { id: 4, fileName: 'sketch.png', contentType: 'image/png', sizeBytes: 30_000, thumbnail: false }
@@ -27,24 +28,6 @@ const withFiles: BoardTask = {
   importance: 'HIGH',
   state: 'TODO',
   attachments: [photo, sketch, scan],
-}
-
-function memorySessions(initial: Session | null): SessionStore {
-  let stored = initial
-  return {
-    save: async (next) => void (stored = next),
-    load: async () => stored,
-    clear: async () => void (stored = null),
-  }
-}
-
-const idToken = `h.${btoa(JSON.stringify({ exp: (NOW + HOUR) / 1000, email: 'alice@example.com' })).replace(/=+$/, '')}.s`
-const session: Session = { idToken, refreshToken: 'r', expiresAt: NOW + HOUR, lastUsedAt: NOW }
-
-/** Links as the backend signs them: one per file, another for its thumbnail. */
-function linkTo(_caller: unknown, taskId: number, attachmentId: number, thumbnail: boolean) {
-  const which = thumbnail ? 'thumbnail' : 'file'
-  return Promise.resolve(`https://bucket.example.com/${taskId}/${attachmentId}/${which}`)
 }
 
 /** Previews in memory, by their file's name (`3`, or `4-file` for a file itself): what each was downloaded from. */
@@ -66,31 +49,18 @@ function memoryPreviews(initial: Record<string, string> = {}): PreviewStore & { 
   }
 }
 
-function memoryBoard(initial: KeptBoard | null) {
-  let stored = initial
-  return {
-    load: async () => stored,
-    save: async (board: KeptBoard) => void (stored = board),
-    clear: async () => void (stored = null),
-  }
-}
-
+/** One task with three files, the backend that links them, and a board kept in memory. */
 function dependencies(overrides: Partial<Dependencies> = {}): Dependencies {
-  return {
+  return appDependencies({
     sessions: memorySessions(session),
-    provider: { signIn: jest.fn(), refresh: jest.fn() },
     fetchTasks: jest.fn().mockResolvedValue([withFiles]),
-    fetchMinimumAppVersion: jest.fn().mockResolvedValue('0.0.0'),
-    changes: { create: jest.fn(), update: jest.fn(), remove: jest.fn(), restore: jest.fn() },
     attachments: { link: jest.fn(linkTo), remove: jest.fn().mockResolvedValue(undefined) },
     documents: { open: jest.fn().mockResolvedValue(undefined), forget: jest.fn().mockResolvedValue(undefined) },
-    deleteAccount: jest.fn(),
     keptBoard: memoryBoard(null),
     reminders: { permission: jest.fn().mockResolvedValue('denied'), ask: jest.fn(), replace: jest.fn().mockResolvedValue(undefined), answered: jest.fn().mockResolvedValue(true), decline: jest.fn() },
-    appVersion: '1.2.0',
     now: () => NOW,
     ...overrides,
-  }
+  })
 }
 
 const dev = variantOf('dev', {})
