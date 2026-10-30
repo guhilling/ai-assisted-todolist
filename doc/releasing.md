@@ -4,11 +4,15 @@ From GitHub: **Actions → Cut a release → Run workflow**, on `main`, which pi
 ([below](#cutting-a-release-from-github)). Or by hand, with a version of your choosing:
 
 ```bash
-git tag v1.0.0
+git tag -a v1.0.0 -m "TaskFest v1.0.0"
 git push origin v1.0.0
 ```
 
 That is the whole procedure either way: a tag. Everything else is `.github/workflows/release.yml`.
+
+The tag is **annotated** (#333): a tag object that says who tagged, when and why, not a bare name
+for a commit. `release.yml` refuses a lightweight one — `git tag v1.0.0` without `-a` — so nothing
+is released from it; delete it and tag again with `-a`. `cut-release.yml` makes annotated tags.
 
 ## The version lives in the tag and nowhere else
 
@@ -106,7 +110,7 @@ images over a released version; when GitHub cannot say, it refuses as well.
 
 | Job | What it does |
 | --- | --- |
-| `gate` | Derives the version, refuses a tag that is not on `main`, then runs the full backend `verify` and the full frontend suite at the release version, and packs the frontend build — built with `VITE_TASKFEST_VERSION` from the tag, which the page's footer shows (a build that is no release says *Development build*) |
+| `gate` | Derives the version, refuses a lightweight tag and one that is not on `main`, then runs the full backend `verify` and the full frontend suite at the release version, and packs the frontend build — built with `VITE_TASKFEST_VERSION` from the tag, which the page's footer shows (a build that is no release says *Development build*) |
 | `publish` | Builds and pushes `taskfest-backend` and `taskfest-frontend` to Quay, tagged with the version, each for `amd64` and `arm64` in one image index, and checks both are there (#249) |
 | `announce` | Creates the GitHub Release, with notes generated from the pull requests since the previous release, and attaches the API contract and `taskfest-frontend-<version>.tar.gz` — the build `deploy-frontend.yml` puts into a site bucket |
 | `mobile` | Once the release exists, builds the app's qa and prod variants for a final release, signed, and uploads them to TestFlight and Play internal testing through `mobile-release.yml` — see [Distribution to testers](mobile/distribution.md). A platform whose accounts are not set up yet is skipped |
@@ -210,7 +214,7 @@ two images. Fix the cause on `main` through a pull request, then delete and re-p
 
 ```bash
 git tag -d v1.0.0 && git push origin :refs/tags/v1.0.0
-git tag v1.0.0 <new-sha> && git push origin v1.0.0
+git tag -a v1.0.0 -m "TaskFest v1.0.0" <new-sha> && git push origin v1.0.0
 ```
 
 Re-pushing a tag that already has a GitHub Release will not overwrite the release; delete

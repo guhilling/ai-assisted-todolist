@@ -70,6 +70,7 @@ commit that first wrote each one down. CI checks every line and that this index 
 - [sun_checks with documented relaxations](build-and-dependencies.md#sun_checks-with-documented-relaxations)
 - [Apache License 2.0, as a `LICENSE` file only](build-and-dependencies.md#apache-license-20-as-a-license-file-only)
 - [A release is a git tag, and the version lives nowhere else](build-and-dependencies.md#a-release-is-a-git-tag-and-the-version-lives-nowhere-else)
+- [A release tag is annotated](build-and-dependencies.md#a-release-tag-is-annotated)
 - [SNAPSHOT dependencies fail every build, not just releases](build-and-dependencies.md#snapshot-dependencies-fail-every-build-not-just-releases)
 - [Renovate merges the small updates and asks about the large ones](build-and-dependencies.md#renovate-merges-the-small-updates-and-asks-about-the-large-ones)
 - [CodeQL scanning, unfiltered by path](build-and-dependencies.md#codeql-scanning-unfiltered-by-path)

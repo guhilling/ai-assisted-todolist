@@ -120,6 +120,22 @@ over one tag. That is the opposite of the usual container convention and is the 
 likely thing to surprise someone. `doc/releasing.md` says so and says where the change would
 go.
 
+## A release tag is annotated
+
+*Accepted · 2026-10-30 · #333*
+
+**What.** `release.yml`'s `gate` refuses a lightweight tag: it asks GitHub for the tag's kind, and
+that the tag object names the commit the run builds. `cut-release.yml` creates annotated tags, with
+whoever started it as the tagger, and `doc/releasing.md` tags by hand with `git tag -a`.
+
+**Why.** An annotated tag says who tagged, when and why; a lightweight one is only a name for a
+commit, which is all `git tag v1.0.0` made and all `cut-release.yml` made up to v1.2.0. GitHub cannot
+require annotated tags, so the gate does: a lightweight tag can still be pushed, but nothing is
+released from it.
+
+**Not yet.** Who may push a `v*` tag at all would take a tag ruleset, which is Gunnar's to set up.
+A pre-push hook was left out, since nothing could enforce it.
+
 
 ## SNAPSHOT dependencies fail every build, not just releases
 
