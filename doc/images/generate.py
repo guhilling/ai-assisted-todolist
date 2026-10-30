@@ -304,8 +304,9 @@ def identities(p: Palette) -> str:
 
 
 def workflow(p: Palette) -> str:
-    """What every change passes through, and the one gate that deliberately does not block."""
-    w, h = 1090, 420
+    """What every change passes through, the one gate that deliberately does not block, and
+    what a release leaves to watch."""
+    w, h = 1090, 520
     row_y, box_h = 172, 56
     gates = [
         "Checkstyle + Javadoc",
@@ -352,14 +353,28 @@ def workflow(p: Palette) -> str:
     parts += [
         # The loop closes: nobody starts the next change by hand.
         arrow([(1005, 228), (1005, 372), (95, 372), (95, 228)], p),
-        label(550, 392, "Renovate opens the next change; a git tag cuts a release", p),
+        label(550, 392, "Renovate opens the next change", p),
+
+        # A release, from main: deployed to qa, tested there from outside, and recorded. The
+        # newest run's videos are what the documentation site shows of the running app.
+        arrow([(1040, 228), (1040, 440)], p),
+        box(950, 440, 110, 52, ["git tag", "a release"], p),
+        arrow([(950, 466), (910, 466)], p),
+        box(750, 440, 160, 52, ["Deploy to qa"], p),
+        arrow([(750, 466), (710, 466)], p),
+        box(510, 440, 200, 52, ["Live tests on qa", "website and app, recorded"], p),
+        arrow([(510, 466), (470, 466)], p),
+        box(270, 440, 200, 52, ["Videos", "on the documentation site"], p),
     ]
     aria = (
         "Every change starts from a question rather than a guess, then a failing test, then "
         "the change and its documentation in one commit. A pull request must pass Checkstyle, "
         "the tests and coverage gate, CodeQL, and the browser end-to-end run before it is "
         "squashed onto main. SonarCloud then analyses main, and a failed quality gate becomes "
-        "a GitHub issue. PIT mutation testing reports but does not block."
+        "a GitHub issue. PIT mutation testing reports but does not block. A git tag on main "
+        "cuts a release, which is deployed to qa and tested there from outside, the website's "
+        "scenarios and the app's flows each recorded; the newest run's videos are published on "
+        "the documentation site."
     )
     return document(w, h, "\n  ".join(parts), p, aria)
 

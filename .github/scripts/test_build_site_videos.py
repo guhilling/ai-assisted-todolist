@@ -56,5 +56,20 @@ class VideosPageTest(unittest.TestCase):
             self.assertIn("No recording of the app's flows is available", page)
 
 
+class LandingPageTest(unittest.TestCase):
+
+    def test_offers_the_videos_among_its_ways_in(self):
+        # The README's own link to them names the site, so the landing page drops it with the
+        # paragraph that points at the site; a card is how the page itself offers them.
+        with tempfile.TemporaryDirectory() as raw:
+            root = pathlib.Path(raw)
+
+            site.build_landing(root, [("main", "main")])
+
+            page = (root / "index.html").read_text()
+            cards = page[page.index('<div class="cards">'):page.index('<div class="prose">')]
+            self.assertIn('href="videos/"', cards)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -59,8 +59,11 @@ a:hover { text-decoration-thickness: 2px; }
   top: 0;
   z-index: 10;
   display: flex;
+  /* On a phone the name and the five links do not fit one row: the links go under the name
+     rather than widening the page past the screen. */
+  flex-wrap: wrap;
   align-items: center;
-  gap: 1.25rem;
+  gap: 0.4rem 1.25rem;
   padding: 0.7rem clamp(1rem, 4vw, 2.5rem);
   background: color-mix(in srgb, var(--bg) 88%, transparent);
   backdrop-filter: blur(12px);
@@ -75,11 +78,12 @@ a:hover { text-decoration-thickness: 2px; }
   color: var(--text);
   text-decoration: none;
   letter-spacing: -0.01em;
+  white-space: nowrap;
 }
 
 .masthead__home img { display: block; width: 26px; height: 26px; }
 
-.masthead nav { margin-left: auto; display: flex; gap: 1.1rem; font-size: 0.92rem; }
+.masthead nav { margin-left: auto; display: flex; flex-wrap: wrap; gap: 0.3rem 1.1rem; font-size: 0.92rem; }
 .masthead nav a { color: var(--muted); text-decoration: none; }
 .masthead nav a:hover,
 .masthead nav a[aria-current="page"] { color: var(--text); }
@@ -264,10 +268,10 @@ pre code { padding: 0; background: none; border: 0; white-space: pre; }
 
 .cards {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
   gap: 1rem;
-  /* Wider than the prose below it, so four cards sit in one row rather than leaving an orphan. */
-  max-width: 64rem;
+  /* Wider than the prose below it, so the five cards sit in one row rather than leaving an orphan. */
+  max-width: 76rem;
   margin: 2.5rem auto 0;
   padding: 0 clamp(1rem, 4vw, 2.5rem);
 }

@@ -22,6 +22,9 @@ website, an Expo app, PostgreSQL persistence, OpenID Connect sign-in.
 taskfest-docs.cloud.hilling.de](https://taskfest-docs.cloud.hilling.de/)** —
 everything under `doc/` rendered, plus the OpenAPI contract for `main` and for every release.
 
+🎬 **[Watch it run](https://taskfest-docs.cloud.hilling.de/videos/)** — the newest live run
+against qa, recorded: each signed-in scenario on the website, and each of the app's flows.
+
 It is deliberately small. A signed-in user keeps a board of tasks and attaches files to them.
 The website and the apps show the same board, and the apps add a reminder on the day a task is
 due, a board that stays readable offline, and a way to turn what another app shares into a task.
@@ -56,7 +59,7 @@ browser's requests.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="doc/images/workflow-dark.svg">
-  <img alt="Every change starts from a question rather than a guess, then a failing test, then the change and its documentation in one commit. A pull request must pass Checkstyle, the tests and coverage gate, CodeQL, and the browser end-to-end run before it is squashed onto main. SonarCloud then analyses main, and a failed quality gate becomes a GitHub issue. PIT mutation testing reports but does not block." src="doc/images/workflow-light.svg">
+  <img alt="Every change starts from a question rather than a guess, then a failing test, then the change and its documentation in one commit. A pull request must pass Checkstyle, the tests and coverage gate, CodeQL, and the browser end-to-end run before it is squashed onto main. SonarCloud then analyses main, and a failed quality gate becomes a GitHub issue. PIT mutation testing reports but does not block. A git tag on main cuts a release, which is deployed to qa and tested there from outside, the website's scenarios and the app's flows each recorded; the newest run's videos are published on the documentation site." src="doc/images/workflow-light.svg">
 </picture>
 
 Anything that can be checked by a machine is, so that a convention does not depend on

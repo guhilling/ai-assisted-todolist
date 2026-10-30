@@ -745,6 +745,8 @@ def build_landing(site: pathlib.Path, versions: list[tuple[str, str]]) -> None:
         ("Instructions to Claude", "instructions/",
          "The working agreement this repository is built under, published because it is the "
          "method rather than a description of it."),
+        ("Videos", "videos/",
+         "The newest live run against qa, recorded: the website's scenarios and the app's flows."),
         ("API reference", f"api/{newest}/",
          "The REST contract as OpenAPI 3.1, with one JSON Schema per type beside it."),
         ("Source", REPO_URL,
