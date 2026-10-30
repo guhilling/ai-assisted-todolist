@@ -85,6 +85,8 @@ export const en = {
     unaddressable: 'That task could not be addressed.',
     uploadAttachment: 'Unable to upload the file.',
     openAttachment: 'Unable to open the file.',
+    /** The mobile app's, when the browser would not open a link on a task (#414). */
+    openLink: 'Unable to open the link.',
     removeAttachment: 'Unable to remove the file.',
     deleteAccount: 'Unable to delete your account.',
   } as Record<RequestErrorKey, string>,
@@ -173,7 +175,7 @@ export const en = {
     choose: 'choose a file',
     limits: (megabytes: number, perTask: number, perUser: number) =>
       `PDF or image, up to ${megabytes} MB · ${perTask} per task, ${perUser} in all`,
-    full: (perTask: number) => `This task holds the most files it can (${perTask}).`,
+    full: (perTask: number) => `This task holds the most attachments it can (${perTask}).`,
     uploading: (fileName: string) => `Uploading ${fileName}`,
     open: (fileName: string) => `Open ${fileName}`,
     remove: (fileName: string) => `Remove ${fileName}`,
@@ -188,6 +190,8 @@ export const en = {
     /** The mobile app's, how far an upload has got (#274). */
     progress: (percent: number) => `${percent}%`,
     uploadFailed: (fileName: string) => `${fileName} could not be uploaded. Try again.`,
+    /** The mobile app's, of a link a share brought that could not be added to its task (#414). */
+    linkFailed: (title: string) => `${title} could not be attached. Try again.`,
     /** The mobile app's, of a file shared into it that it could not read (#355). */
     unreadable: (fileName: string) => `${fileName} could not be read.`,
     /** Why a file was refused, by the backend's reason; typed by it, so none is missing. */
@@ -195,8 +199,8 @@ export const en = {
       UNSUPPORTED_TYPE: (fileName: string) => `${fileName} is neither a PDF nor an image.`,
       EMPTY: (fileName: string) => `${fileName} is empty.`,
       TOO_LARGE: (fileName: string) => `${fileName} is larger than the limit.`,
-      TASK_FULL: (fileName: string) => `${fileName} was not attached: this task already holds as many files as it can.`,
-      USER_FULL: (fileName: string) => `${fileName} was not attached: you already have as many files as you can. Remove one first.`,
+      TASK_FULL: (fileName: string) => `${fileName} was not attached: this task already holds as many attachments as it can.`,
+      USER_FULL: (fileName: string) => `${fileName} was not attached: you already have as many attachments as you can. Remove one first.`,
       MISMATCH: (fileName: string) => `${fileName} did not arrive as sent and was discarded. Try again.`,
     } as Record<AttachmentRefusal, (fileName: string) => string>,
   },
@@ -303,6 +307,7 @@ export const de: Messages = {
     unaddressable: 'Diese Aufgabe lässt sich nicht ansprechen.',
     uploadAttachment: 'Die Datei konnte nicht hochgeladen werden.',
     openAttachment: 'Die Datei konnte nicht geöffnet werden.',
+    openLink: 'Der Link konnte nicht geöffnet werden.',
     removeAttachment: 'Die Datei konnte nicht entfernt werden.',
     deleteAccount: 'Dein Konto konnte nicht gelöscht werden.',
   },
@@ -380,7 +385,7 @@ export const de: Messages = {
     choose: 'Datei auswählen',
     limits: (megabytes: number, perTask: number, perUser: number) =>
       `PDF oder Bild, bis ${megabytes} MB · ${perTask} pro Aufgabe, ${perUser} insgesamt`,
-    full: (perTask: number) => `Diese Aufgabe hat schon so viele Dateien, wie sie haben kann (${perTask}).`,
+    full: (perTask: number) => `Diese Aufgabe hat schon so viele Anhänge, wie sie haben kann (${perTask}).`,
     uploading: (fileName: string) => `${fileName} wird hochgeladen`,
     open: (fileName: string) => `${fileName} öffnen`,
     remove: (fileName: string) => `${fileName} entfernen`,
@@ -391,14 +396,15 @@ export const de: Messages = {
     cameraRefused: 'TaskFest darf die Kamera nicht verwenden. Erlaube es in den Einstellungen des Telefons.',
     progress: (percent: number) => `${percent} %`,
     uploadFailed: (fileName: string) => `${fileName} konnte nicht hochgeladen werden. Versuch es noch einmal.`,
+    linkFailed: (title: string) => `${title} konnte nicht angehängt werden. Versuch es noch einmal.`,
     unreadable: (fileName: string) => `${fileName} konnte nicht gelesen werden.`,
     refusals: {
       UNSUPPORTED_TYPE: (fileName: string) => `${fileName} ist weder ein PDF noch ein Bild.`,
       EMPTY: (fileName: string) => `${fileName} ist leer.`,
       TOO_LARGE: (fileName: string) => `${fileName} ist größer als erlaubt.`,
-      TASK_FULL: (fileName: string) => `${fileName} wurde nicht angehängt: Diese Aufgabe hat schon so viele Dateien, wie sie haben kann.`,
+      TASK_FULL: (fileName: string) => `${fileName} wurde nicht angehängt: Diese Aufgabe hat schon so viele Anhänge, wie sie haben kann.`,
       USER_FULL: (fileName: string) =>
-        `${fileName} wurde nicht angehängt: Du hast schon so viele Dateien, wie du haben kannst. Entferne zuerst eine.`,
+        `${fileName} wurde nicht angehängt: Du hast schon so viele Anhänge, wie du haben kannst. Entferne zuerst einen.`,
       MISMATCH: (fileName: string) =>
         `${fileName} ist nicht so angekommen, wie es gesendet wurde, und wurde verworfen. Versuch es noch einmal.`,
     },

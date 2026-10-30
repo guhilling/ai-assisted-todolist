@@ -24,6 +24,7 @@ commit that first wrote each one down. CI checks every line and that this index 
 - [Wire identifiers are constants, and a GET's query count is asserted](domain-and-backend.md#wire-identifiers-are-constants-and-a-gets-query-count-is-asserted)
 - [Attachments live in S3 and travel straight between it and the browser](domain-and-backend.md#attachments-live-in-s3-and-travel-straight-between-it-and-the-browser)
 - [Deleting an account leaves a record outside the database](domain-and-backend.md#deleting-an-account-leaves-a-record-outside-the-database)
+- [A link is a kind of attachment, kept in its row](domain-and-backend.md#a-link-is-a-kind-of-attachment-kept-in-its-row)
 
 ## [Authentication](authentication.md)
 
@@ -125,3 +126,4 @@ commit that first wrote each one down. CI checks every line and that this index 
 - [Uploads with the plain tools: cloud signing on iOS, no stored Google key](mobile-app.md#uploads-with-the-plain-tools-cloud-signing-on-ios-no-stored-google-key)
 - [No crash reporting, for now](mobile-app.md#no-crash-reporting-for-now)
 - [Sharing into the app with expo-sharing, reading only the raw share](mobile-app.md#sharing-into-the-app-with-expo-sharing-reading-only-the-raw-share)
+- [expo-sharing is patched for a shared page's title](mobile-app.md#expo-sharing-is-patched-for-a-shared-pages-title)

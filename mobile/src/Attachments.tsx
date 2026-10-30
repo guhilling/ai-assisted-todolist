@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Image, Modal, Pressable, Text, View } from 'react-native'
-import { isImage, isImageType } from './files'
+import { isImage, isImageType, isLink } from './files'
+import type { SharedLink } from './incoming'
 import type { PickSource } from './pick'
 import type { PickedFile } from './upload'
 import type { Styles } from './styles'
@@ -8,8 +9,8 @@ import { attachmentLimits, type Attachment, type Messages, type Task } from './w
 
 /**
  * A task's files in the app (#274), as the website shows them (`frontend/src/components/AttachmentList.tsx`):
- * an image as a small preview, a PDF by its name, each opening when tapped -- an image in the app's
- * own viewer, a PDF in the phone's.
+ * an image as a small preview, a PDF by its name, a link by its title (#414), each opening when
+ * tapped -- an image in the app's own viewer, a PDF in the phone's, a link in the browser.
  */
 
 /**
@@ -50,7 +51,7 @@ export function FileStrip({
             <Preview taskId={task.id} attachment={attachment} link={link} styles={styles} />
           ) : (
             <View style={styles.fileName}>
-              <Text aria-hidden>📄</Text>
+              <Text aria-hidden>{isLink(attachment) ? '🔗' : '📄'}</Text>
               <Text style={styles.muted} numberOfLines={1}>
                 {attachment.fileName}
               </Text>
@@ -172,7 +173,7 @@ export function EditorFiles({
     <>
       {attachments.map((attachment) => (
         <View key={attachment.id} style={styles.editorFile}>
-          <Text aria-hidden>{isImage(attachment) ? '🖼' : '📄'}</Text>
+          <Text aria-hidden>{isImage(attachment) ? '🖼' : isLink(attachment) ? '🔗' : '📄'}</Text>
           <Text style={styles.description} numberOfLines={1}>
             {attachment.fileName}
           </Text>
@@ -213,29 +214,89 @@ export function PendingFiles({
   onUnpick: (file: PickedFile) => void
 }) {
   return files.map((file) => (
-    <View key={file.uri} style={styles.editorFile}>
-      <Text aria-hidden>{isImageType(file.type) ? '🖼' : '📄'}</Text>
-      <Text style={styles.description} numberOfLines={1}>
-        {file.name}
-      </Text>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={messages.attachments.remove(file.name)}
-        accessibilityState={{ disabled }}
-        disabled={disabled}
-        hitSlop={8}
-        style={[styles.quietButton, disabled && styles.disabled]}
-        onPress={() => onUnpick(file)}
-      >
-        <Text style={styles.dangerText}>×</Text>
-      </Pressable>
-    </View>
+    <PendingRow
+      key={file.uri}
+      icon={isImageType(file.type) ? '🖼' : '📄'}
+      name={file.name}
+      disabled={disabled}
+      messages={messages}
+      styles={styles}
+      onUnpick={() => onUnpick(file)}
+    />
   ))
 }
 
 /**
+ * Links a share brought while adding a task (#414), by the page's title or their address, added
+ * once the task exists; each may go again first.
+ */
+export function PendingLinks({
+  links,
+  disabled,
+  messages,
+  styles,
+  onUnpick,
+}: {
+  links: SharedLink[]
+  /** While the task is being added, and its links with it, none may go. */
+  disabled: boolean
+  messages: Messages
+  styles: Styles
+  onUnpick: (link: SharedLink) => void
+}) {
+  return links.map((link) => (
+    <PendingRow
+      key={link.url}
+      icon="🔗"
+      name={link.title ?? link.url}
+      disabled={disabled}
+      messages={messages}
+      styles={styles}
+      onUnpick={() => onUnpick(link)}
+    />
+  ))
+}
+
+/** One thing held for a task being added -- a file or a link -- with **×** to let it go again. */
+function PendingRow({
+  icon,
+  name,
+  disabled,
+  messages,
+  styles,
+  onUnpick,
+}: {
+  icon: string
+  name: string
+  disabled: boolean
+  messages: Messages
+  styles: Styles
+  onUnpick: () => void
+}) {
+  return (
+    <View style={styles.editorFile}>
+      <Text aria-hidden>{icon}</Text>
+      <Text style={styles.description} numberOfLines={1}>
+        {name}
+      </Text>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={messages.attachments.remove(name)}
+        accessibilityState={{ disabled }}
+        disabled={disabled}
+        hitSlop={8}
+        style={[styles.quietButton, disabled && styles.disabled]}
+        onPress={onUnpick}
+      >
+        <Text style={styles.dangerText}>×</Text>
+      </Pressable>
+    </View>
+  )
+}
+
+/**
  * The ways to attach a file (#274) -- the camera, the photo library, the files -- with the
- * website's limits, or why there is none: the task holds as many files as it can. While a file
+ * website's limits, or why there is none: the task holds as many attachments as it can. While a file
  * uploads, how far it has got.
  */
 export function AttachFiles({

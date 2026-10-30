@@ -81,4 +81,35 @@ class AttachmentPolicyTest {
         assertEquals(longest, AttachmentPolicy.cleanFileName(longest));
         assertEquals(longest, AttachmentPolicy.cleanFileName(longest + "b"));
     }
+
+    @Test
+    void shouldCountALinkAgainstTheSameLimitsWithoutASize() {
+        assertEquals(Optional.empty(), policy.countRefusal(1, 4));
+        assertEquals(Optional.of(AttachmentPolicy.Refusal.TASK_FULL), policy.countRefusal(2, 0));
+        assertEquals(Optional.of(AttachmentPolicy.Refusal.USER_FULL), policy.countRefusal(0, 5));
+    }
+
+    @Test
+    void shouldListALinkUnderItsTitleOnOneLine() {
+        String url = "https://example.com/a";
+        assertEquals("Breaking: news", AttachmentPolicy.linkTitle("  Breaking:\n\tnews ", url));
+        assertEquals("A/B testing \"done right\"", AttachmentPolicy.linkTitle("A/B testing \"done right\"", url));
+        assertEquals(url, AttachmentPolicy.linkTitle(null, url));
+        assertEquals(url, AttachmentPolicy.linkTitle(" \n ", url));
+        assertEquals(url, AttachmentPolicy.linkTitle("\u00a0\u2007\u202f", url));
+    }
+
+    @Test
+    void shouldNotCutALinksTitleThroughACharacterThatTakesTwo() {
+        String title = "a".repeat(Attachment.MAX_FILE_NAME_LENGTH - 1) + "😀 and more";
+        assertEquals("a".repeat(Attachment.MAX_FILE_NAME_LENGTH - 1), AttachmentPolicy.linkTitle(title, "https://example.com"));
+    }
+
+    @Test
+    void shouldCutALinksTitleOrUrlToTheLengthTheColumnHolds() {
+        String longest = "a".repeat(Attachment.MAX_FILE_NAME_LENGTH);
+        assertEquals(longest, AttachmentPolicy.linkTitle(longest + "b", "https://example.com"));
+        assertEquals(Attachment.MAX_FILE_NAME_LENGTH,
+            AttachmentPolicy.linkTitle(null, "https://example.com/" + longest).length());
+    }
 }

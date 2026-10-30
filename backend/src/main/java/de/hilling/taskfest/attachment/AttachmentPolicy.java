@@ -53,6 +53,17 @@ public final class AttachmentPolicy {
         if (sizeBytes > maxSizeBytes) {
             return Optional.of(Refusal.TOO_LARGE);
         }
+        return countRefusal(onTask, ofUser);
+    }
+
+    /**
+     * Why a link (#414) is refused: the same counts as a file's, and no size, since it has none.
+     *
+     * @param onTask how many attachments the task already has
+     * @param ofUser how many attachments the user already has
+     * @return why the link is refused, or empty when it may be added
+     */
+    public Optional<Refusal> countRefusal(long onTask, long ofUser) {
         if (onTask >= maxPerTask) {
             return Optional.of(Refusal.TASK_FULL);
         }
@@ -60,6 +71,31 @@ public final class AttachmentPolicy {
             return Optional.of(Refusal.USER_FULL);
         }
         return Optional.empty();
+    }
+
+    /**
+     * The name a link (#414) is listed under: the page's title on one line, its runs of white space
+     * made one space, or the URL itself where there is no title; at most 255 characters. Unlike a
+     * file's name, a slash or a quote stays: the title travels in no header.
+     *
+     * @param title the page's title, as the sharing app gave it; null for none
+     * @param url the link
+     * @return the name, never blank
+     */
+    public static String linkTitle(String title, String url) {
+        // Unicode's white space too: a title of no-break spaces alone is as blank as one of spaces.
+        String name = title == null ? "" : title.replaceAll("[\\s\\p{Cntrl}\\p{Z}]+", " ").strip();
+        if (name.isEmpty()) {
+            name = url;
+        }
+        if (name.length() <= Attachment.MAX_FILE_NAME_LENGTH) {
+            return name;
+        }
+        // Never through a character that takes two units, an emoji's: half of one is no character.
+        int end = Character.isHighSurrogate(name.charAt(Attachment.MAX_FILE_NAME_LENGTH - 1))
+            ? Attachment.MAX_FILE_NAME_LENGTH - 1
+            : Attachment.MAX_FILE_NAME_LENGTH;
+        return name.substring(0, end);
     }
 
     /**

@@ -57,6 +57,12 @@ case "$share" in
     maestro test mobile/maestro/share/text.yaml --format junit --output maestro-share-text.xml --test-output-dir maestro-output
     retry bash "$(dirname "$0")/put-attach-image.sh"
     maestro test mobile/maestro/share/share-sheet.yaml --format junit --output maestro-share-sheet.xml --test-output-dir maestro-output
+    # A link, as Chrome shares a page (#414): the address as the text, the title as the subject. Last,
+    # as its task would push the others' below the screen, where their flows look for them.
+    adb shell am start -a android.intent.action.SEND -t text/plain -p de.hilling.taskfest.dev \
+      --es android.intent.extra.TEXT "'https://example.com/articles/42'" \
+      --es android.intent.extra.SUBJECT "'An article worth reading'"
+    maestro test mobile/maestro/share/link.yaml --format junit --output maestro-share-link.xml --test-output-dir maestro-output
     exit 0
     ;;
   others) ;;

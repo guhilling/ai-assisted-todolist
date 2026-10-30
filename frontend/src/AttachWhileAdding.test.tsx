@@ -139,7 +139,7 @@ describe('attaching while adding a task', () => {
 
     fireEvent.change(row.getByLabelText('choose a file'), { target: { files: [pdf(), png()] } })
 
-    expect(row.getByText('This task holds the most files it can (2).')).toBeInTheDocument()
+    expect(row.getByText('This task holds the most attachments it can (2).')).toBeInTheDocument()
     expect(row.queryByLabelText('choose a file')).not.toBeInTheDocument()
   })
 
@@ -208,7 +208,7 @@ describe('attaching while adding a task', () => {
     fireEvent.click(row.getByRole('button', { name: /^Add$/ }))
 
     expect(
-      await row.findByText('photo.png was not attached: you already have as many files as you can. Remove one first.'),
+      await row.findByText('photo.png was not attached: you already have as many attachments as you can. Remove one first.'),
     ).toBeInTheDocument()
     const taskRow = screen.getByLabelText('Mark "Pay the bill" as done').closest('li') as HTMLElement
     await waitFor(() => expect(within(taskRow).getByRole('button', { name: 'Open scan.pdf' })).toBeInTheDocument())
@@ -225,7 +225,7 @@ describe('closing the add row after Add (#383)', () => {
     fireEvent.click(row.getByRole('button', { name: /^Add$/ }))
 
     expect(
-      await row.findByText('scan.pdf was not attached: you already have as many files as you can. Remove one first.'),
+      await row.findByText('scan.pdf was not attached: you already have as many attachments as you can. Remove one first.'),
     ).toBeInTheDocument()
     expect(screen.getByLabelText('What needs doing')).toHaveValue('')
     await waitFor(() => expect(screen.getByLabelText('What needs doing')).toHaveFocus())
@@ -291,7 +291,7 @@ describe('choosing several files in the editor', () => {
     fireEvent.change(editor.getByLabelText('choose a file'), { target: { files: [pdf(), png()] } })
 
     // Room for one: the second is refused here, and only the first is announced.
-    expect(await editor.findByText('photo.png was not attached: this task already holds as many files as it can.'))
+    expect(await editor.findByText('photo.png was not attached: this task already holds as many attachments as it can.'))
       .toBeInTheDocument()
     const announced = fetchMock.mock.calls.filter(([url, init]) => String(url).endsWith('/attachments') && init?.method === 'POST')
     expect(announced).toHaveLength(1)

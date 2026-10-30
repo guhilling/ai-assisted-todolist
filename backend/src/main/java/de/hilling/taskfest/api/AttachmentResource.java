@@ -15,6 +15,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.DELETE;
@@ -37,15 +38,16 @@ import org.eclipse.microprofile.openapi.annotations.responses.APIResponse;
 import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 
 /**
- * A task's attachments (#204). The browser moves the file content itself, straight to and from S3,
- * through links handed out here; this resource only ever sees metadata.
+ * A task's attachments: files (#204) and links (#414). The browser moves a file's content itself,
+ * straight to and from S3, through links handed out here; this resource only ever sees metadata. A
+ * link is added in one step and opened by its own URL.
  *
  * <p>Uploading is three steps: announce the file (name, type, size) and get a link that accepts
  * exactly that file; PUT the file to the link; confirm. Opening a file is asking for a link that
  * works for a while, the same one again while it is fresh, so the browser can keep the file
  * (#236). An image may bring a preview thumbnail the browser made, uploaded through a second link.
  * Every attachment is its task's owner's alone: someone else's task or attachment is answered like
- * a missing one. A draft (#381) takes files as a task does, so they upload before Add.</p>
+ * a missing one. A draft (#381) takes files and links as a task does, so they upload before Add.</p>
  */
 @Path("/api/tasks/{taskId}/attachments")
 @Authenticated
@@ -53,8 +55,20 @@ import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 @Tag(name = "Attachments", description = "Files on a task, transferred directly between the browser and storage.")
 public class AttachmentResource {
 
-    /** The longest URL handed out; presigned S3 URLs run to a little over a thousand characters. */
-    private static final int MAX_URL_LENGTH = 4096;
+    /**
+     * The longest storage link handed out; presigned S3 URLs run to a little over a thousand
+     * characters. Not a link attachment's address, which {@link Attachment#MAX_URL_LENGTH} bounds.
+     */
+    private static final int MAX_STORAGE_LINK_LENGTH = 4096;
+
+    /**
+     * What a link's URL must look like: a web address with a host, nothing that runs or embeds when
+     * opened -- {@code javascript:}, {@code data:} -- and no white space.
+     */
+    private static final String WEB_ADDRESS = "^(?i)https?://[^\\s/?#:]+(:[0-9]{1,5})?([/?#][^\\s]*)?$";
+
+    /** The longest title a client may give a link; longer than what is kept, which is cut to fit. */
+    private static final int MAX_GIVEN_TITLE_LENGTH = 1024;
 
     /** The longest media type a client may announce. */
     private static final int MAX_CONTENT_TYPE_LENGTH = 255;
@@ -93,7 +107,7 @@ public class AttachmentResource {
         content = @Content(mediaType = MediaType.APPLICATION_JSON,
             schema = @Schema(implementation = RefusalResponse.class)))
     @APIResponse(responseCode = "404", description = "No task with this id is owned by the caller.")
-    public Response announce(@PathParam("taskId") Long taskId, @Valid AnnounceRequest request) {
+    public Response announce(@PathParam("taskId") Long taskId, @NotNull @Valid AnnounceRequest request) {
         User owner = currentUser();
         Task task = TaskResource.ownedTaskOrDraftOrNotFound(taskId, owner);
         try {
@@ -107,6 +121,30 @@ public class AttachmentResource {
                 .entity(new UploadResponse(toResponse(announced.attachment()), upload.url(), upload.headers(),
                     upload.expiresAt(), thumbnailUpload))
                 .build();
+        } catch (AttachmentService.Refused refused) {
+            throw refusal(refused);
+        }
+    }
+
+    @POST
+    @Path("/links")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Operation(summary = "Add a link", description = "A web address, with the page's title where the sharing app "
+        + "gave one (#414). Counted against the same limits as files; available at once, with nothing to upload.")
+    @APIResponse(responseCode = "201", description = "The link, available.",
+        content = @Content(mediaType = MediaType.APPLICATION_JSON,
+            schema = @Schema(implementation = AttachmentResponse.class)))
+    @APIResponse(responseCode = "400", description = "The URL is not a web address.")
+    @APIResponse(responseCode = "422", description = "Refused: a limit reached.",
+        content = @Content(mediaType = MediaType.APPLICATION_JSON,
+            schema = @Schema(implementation = RefusalResponse.class)))
+    @APIResponse(responseCode = "404", description = "No task with this id is owned by the caller.")
+    public Response addLink(@PathParam("taskId") Long taskId, @NotNull @Valid LinkRequest request) {
+        User owner = currentUser();
+        Task task = TaskResource.ownedTaskOrDraftOrNotFound(taskId, owner);
+        try {
+            Attachment link = attachments.addLink(owner, task, request.url(), request.title());
+            return Response.status(Response.Status.CREATED).entity(toResponse(link)).build();
         } catch (AttachmentService.Refused refused) {
             throw refusal(refused);
         }
@@ -208,7 +246,7 @@ public class AttachmentResource {
 
     static AttachmentResponse toResponse(Attachment attachment) {
         return new AttachmentResponse(attachment.id, attachment.fileName, attachment.kind.contentType(),
-            attachment.sizeBytes, attachment.thumbnail);
+            attachment.sizeBytes, attachment.thumbnail, attachment.url);
     }
 
     /**
@@ -233,20 +271,39 @@ public class AttachmentResource {
     }
 
     /**
-     * One attachment as the board lists it.
+     * A link to add to a task (#414).
+     *
+     * @param url its address: http or https, with a host, and no white space
+     * @param title the page's title, where the sharing app gave one; kept on one line and cut to 255.
+     *     Absent or blank, the link is listed under its URL
+     */
+    public record LinkRequest(
+        @NotBlank @Size(max = Attachment.MAX_URL_LENGTH) @Pattern(regexp = WEB_ADDRESS)
+        @Schema(example = "https://example.com/articles/42") String url,
+        @Size(max = MAX_GIVEN_TITLE_LENGTH) @Schema(example = "An article worth reading", nullable = true) String title
+    ) {
+    }
+
+    /**
+     * One attachment as the board lists it: a file, or a link (#414).
      *
      * @param id its id
-     * @param fileName the name it is listed and opened under
-     * @param contentType its media type
-     * @param sizeBytes its size in bytes
+     * @param fileName the name it is listed under: a file's name, which it is also opened under, or a
+     *     link's title
+     * @param contentType its media type; {@code text/uri-list} for a link
+     * @param sizeBytes its size in bytes; 0 for a link
      * @param thumbnail whether it has a preview thumbnail, which its row then shows (#236)
+     * @param url a link's address, which it is opened by; left out for a file, which is opened through
+     *     a storage link. Left out rather than null, as {@code UploadResponse.thumbnailUpload} is
      */
     public record AttachmentResponse(
         @NotNull @Schema(example = "7") Long id,
         @NotNull @Size(max = Attachment.MAX_FILE_NAME_LENGTH) @Schema(example = "Rechnung.pdf") String fileName,
         @NotNull @Size(max = MAX_CONTENT_TYPE_LENGTH) @Schema(example = "application/pdf") String contentType,
         @NotNull @Schema(example = "48213") Long sizeBytes,
-        @NotNull @Schema(example = "false") Boolean thumbnail
+        @NotNull @Schema(example = "false") Boolean thumbnail,
+        @JsonInclude(JsonInclude.Include.NON_NULL) @Size(max = Attachment.MAX_URL_LENGTH)
+        @Schema(example = "https://example.com/articles/42") String url
     ) {
     }
 
@@ -264,7 +321,7 @@ public class AttachmentResource {
      */
     public record UploadResponse(
         @NotNull AttachmentResponse attachment,
-        @NotNull @Size(max = MAX_URL_LENGTH) String url,
+        @NotNull @Size(max = MAX_STORAGE_LINK_LENGTH) String url,
         @NotNull Map<String, String> headers,
         @NotNull Instant expiresAt,
         @JsonInclude(JsonInclude.Include.NON_NULL) ThumbnailUploadResponse thumbnailUpload
@@ -278,7 +335,7 @@ public class AttachmentResource {
      * @param headers the headers the PUT must carry, exactly
      */
     public record ThumbnailUploadResponse(
-        @NotNull @Size(max = MAX_URL_LENGTH) String url,
+        @NotNull @Size(max = MAX_STORAGE_LINK_LENGTH) String url,
         @NotNull Map<String, String> headers
     ) {
     }
@@ -290,7 +347,7 @@ public class AttachmentResource {
      * @param expiresAt until when the link works
      */
     public record LinkResponse(
-        @NotNull @Size(max = MAX_URL_LENGTH) String url,
+        @NotNull @Size(max = MAX_STORAGE_LINK_LENGTH) String url,
         @NotNull Instant expiresAt
     ) {
     }

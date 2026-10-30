@@ -357,3 +357,31 @@ the orphan clean-up of #208 removes it within seven days. The privacy policy say
 can compute its hash and see that an account with it was deleted. That is said in the privacy
 policy. A keyed hash (HMAC) would avoid it at the price of a secret to keep and rotate; for a demo
 project the plain hash Gunnar chose is the proportionate answer.
+
+## A link is a kind of attachment, kept in its row
+
+*Accepted · 2026-10-30 · #414*
+
+**Decision.** A link shared into the app is an attachment of the kind `LINK` (`text/uri-list`):
+its address and title in the attachment's row, `object_key` null, nothing in S3, available as soon
+as it is added through `POST /api/tasks/{id}/attachments/links`. It counts against the same limits
+as a file, goes through a task's undo window like one, and the board lists it beside the files with
+its `url`, which it is opened by. A check constraint holds that a link has a URL and no object, a
+file the other way round. Only `http` and `https` addresses with a host are taken, and the board
+checks again before opening one.
+
+**Why an attachment, not a field on the task.** It is what a shared image already is: something
+the task carries, listed and removed the same way, with the same limits, the same undo and the same
+place on the board. A field would have been a second way of carrying content, with its own rules
+for each of those. The kind already said what a file is; a link is one more answer to that.
+
+**Why in the database rather than as a small object in S3.** There is nothing to stream: an
+address and a title fit a row, and keeping them there spares a link the three-step upload, the
+signed links and the orphan clean-up. Gunnar proposed it (30 October 2026), with the preview of
+the page left out.
+
+**Rejected: a preview of the page** -- its `og:image` -- which needs the page fetched. On the phone
+that would undo "reading only the raw share" ([mobile-app.md](mobile-app.md)); on the backend, a
+server fetching any address a user gives it is a request forgery risk that needs careful limits.
+Gunnar decided it was not worth it.
+

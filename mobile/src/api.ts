@@ -294,6 +294,26 @@ export async function confirmAttachment(
   return data
 }
 
+/**
+ * Adds a link to a task (#414): its address, and the page's title where the sharing app gave one.
+ * Available at once; nothing is uploaded.
+ *
+ * @throws AttachmentRefusedError when the backend refuses it, saying why: the task or the user full
+ */
+export async function addLink(
+  caller: Caller,
+  taskId: Task['id'],
+  link: { url: string; title: string | null },
+  fetchImpl: typeof fetch = fetch,
+): Promise<Attachment> {
+  const body = link.title === null ? { url: link.url } : link
+  const data = await send(caller, 'POST', `/api/tasks/${taskId}/attachments/links`, fetchImpl, body)
+  if (!validateAttachmentResponse(data)) {
+    throw new ContractBreachError('an attachment')
+  }
+  return data
+}
+
 /** Removes a file from its task, for good: unlike a task, a removed file has no undo. */
 export async function removeAttachment(
   caller: Caller,

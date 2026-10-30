@@ -84,7 +84,7 @@ public class OrphanedObjects {
             LOG.info("Deleted {} object(s) no attachment refers to: {}", deleted.size(), deleted);
         }
         if (plan.hold() == OrphanPlan.Hold.NO_ATTACHMENTS && plan.listed() > 0) {
-            LOG.warn("The database holds no attachments but the bucket holds {} object(s); deleted none.",
+            LOG.warn("The database holds no file attachments but the bucket holds {} object(s); deleted none.",
                 plan.listed());
         }
         if (!missing.isEmpty()) {

@@ -271,6 +271,13 @@ describe('a task with attachments', () => {
     await expect(fetchTasks()).resolves.toEqual([{ ...TASK, attachments: [PDF_ATTACHMENT] }])
   })
 
+  it('keeps a link with its address, which it is opened by (#414)', async () => {
+    const LINK = { id: 9, fileName: 'An article', contentType: 'text/uri-list', sizeBytes: 0, thumbnail: false, url: 'https://example.com/a' }
+    backend([['GET', '/api/tasks', 200, [{ ...TASK, attachments: [PDF_ATTACHMENT, LINK] }]]])
+
+    await expect(fetchTasks()).resolves.toEqual([{ ...TASK, attachments: [PDF_ATTACHMENT, LINK] }])
+  })
+
   it('brings its attachments back with an undo', async () => {
     const calls = backend([['POST', '/api/tasks', 201, { ...TASK, id: 9, attachments: [PDF_ATTACHMENT] }]])
 

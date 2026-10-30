@@ -52,8 +52,9 @@ export type { TaskImportance, TaskState } from './generated/types'
 export type Task = TaskResponse
 
 /**
- * A file on a task (#204): its name, type and size. The content is in storage, reached through a
- * link asked for when it is opened.
+ * A file or a link on a task. A file (#204) has its name, type and size, and its content in
+ * storage, reached through a link asked for when it is opened. A link (#414) has its title as its
+ * name and its own `url`, which it is opened by.
  */
 export type Attachment = AttachmentResponse
 
@@ -153,6 +154,8 @@ export type RequestErrorKey =
   | 'unaddressable'
   | 'uploadAttachment'
   | 'openAttachment'
+  /** The mobile app's: a link on a task (#414) the phone's browser would not open. */
+  | 'openLink'
   | 'removeAttachment'
   | 'deleteAccount'
 
@@ -165,6 +168,7 @@ const requestErrorMessages: Record<RequestErrorKey, string> = {
   unaddressable: 'That task could not be addressed.',
   uploadAttachment: 'Unable to upload the file.',
   openAttachment: 'Unable to open the file.',
+  openLink: 'Unable to open the link.',
   removeAttachment: 'Unable to remove the file.',
   deleteAccount: 'Unable to delete your account.',
 }
@@ -254,13 +258,20 @@ function toTask(data: unknown): Task {
   return task
 }
 
-/** Turns a checked attachment into one the application owns, its id checked like a task's. */
+/**
+ * Turns a checked attachment into one the application owns, its id checked like a task's; a link's
+ * address (#414) kept, a file without one as it was before links.
+ */
 function toAttachment(data: AttachmentResponse, subject: ContractSubject): Attachment {
   const id = Number(data.id)
   if (!Number.isSafeInteger(id)) {
     throw new ContractBreachError(subject, 'idNotInteger')
   }
-  return { id, fileName: data.fileName, contentType: data.contentType, sizeBytes: data.sizeBytes, thumbnail: data.thumbnail }
+  const attachment: Attachment = { id, fileName: data.fileName, contentType: data.contentType, sizeBytes: data.sizeBytes, thumbnail: data.thumbnail }
+  if (data.url !== undefined) {
+    attachment.url = data.url
+  }
+  return attachment
 }
 
 /** Turns a checked response into the task list. Each task is checked in its own right. */

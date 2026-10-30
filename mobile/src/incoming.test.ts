@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { DESCRIPTION_MAX_LENGTH, draftOf, type IncomingParts, type SharedItem } from './incoming'
+import { DESCRIPTION_MAX_LENGTH, draftOf, LINK_MAX_LENGTH, type IncomingParts, type SharedItem } from './incoming'
 
 /** Reading what another app shared (#355), with a phone whose files are made up here. */
 function phone(files: Record<string, { name: string | null; type: string | null; size?: number | null }> = {}): IncomingParts {
@@ -13,6 +13,7 @@ function phone(files: Record<string, { name: string | null; type: string | null;
 }
 
 const text = (value: string): SharedItem => ({ shareType: 'text', value, mimeType: 'text/plain' })
+const link = (value: string): SharedItem => ({ shareType: 'url', value, mimeType: 'text/html' })
 const file = (value: string, mimeType: string, shareType: SharedItem['shareType'] = 'file'): SharedItem => ({
   shareType,
   value,
@@ -32,10 +33,57 @@ describe('a share becomes a draft task (#355)', () => {
     })
   })
 
-  it('joins text and a link into one description', async () => {
-    const shared = [text('Read the article'), { shareType: 'url', value: 'https://example.com/a', mimeType: 'text/html' } as const]
+  it('takes the text as the description and the link as a link', async () => {
+    const shared = [text('Read the article'), link('https://example.com/a')]
 
-    await expect(draftOf(shared, phone())).resolves.toMatchObject({ description: 'Read the article https://example.com/a' })
+    await expect(draftOf(shared, phone())).resolves.toMatchObject({
+      description: 'Read the article',
+      links: [{ url: 'https://example.com/a', title: 'Read the article' }],
+    })
+  })
+
+  it('takes a link shared alone as a link with no title, and leaves the description empty (#414)', async () => {
+    await expect(draftOf([link('https://example.com/a')], phone())).resolves.toEqual({
+      description: '',
+      files: [],
+      links: [{ url: 'https://example.com/a', title: null }],
+      refused: [],
+    })
+  })
+
+  it('keeps a "link" the backend would not take as text: no web address, or too long (#414)', async () => {
+    // Android takes "notes.md" for an address, iOS any scheme; the backend only http and https.
+    for (const value of ['notes.md', 'mailto:alice@example.com', `https://example.com/${'a'.repeat(2048)}`]) {
+      const draft = await draftOf([link(value)], phone())
+
+      expect(draft?.description).toBe(value.slice(0, DESCRIPTION_MAX_LENGTH))
+      expect(draft?.links ?? []).toEqual([])
+    }
+  })
+
+  it('titles a link by the text only when it is the one link: of several, each goes by its address (#414)', async () => {
+    const shared = [text('Two pages'), link('https://example.com/a'), link('https://example.com/b')]
+
+    await expect(draftOf(shared, phone())).resolves.toMatchObject({
+      description: 'Two pages',
+      links: [
+        { url: 'https://example.com/a', title: null },
+        { url: 'https://example.com/b', title: null },
+      ],
+    })
+  })
+
+  it('counts a link against what a task holds, after the files, and says which was left out (#414)', async () => {
+    const parts = phone({
+      'content://media/1': { name: 'one.png', type: 'image/png' },
+      'content://media/2': { name: 'two.png', type: 'image/png' },
+    })
+    const shared = [file('content://media/1', 'image/png', 'image'), file('content://media/2', 'image/png', 'image'), link('https://example.com/a')]
+
+    const draft = await draftOf(shared, parts)
+
+    expect(draft?.links ?? []).toEqual([])
+    expect(draft?.refused).toEqual([{ name: 'https://example.com/a', refusal: 'TASK_FULL' }])
   })
 
   it('cuts a long text to what the backend takes', async () => {
@@ -54,6 +102,12 @@ describe('a share becomes a draft task (#355)', () => {
     const schema = JSON.parse(readFileSync(join(__dirname, '../../doc/api/schema/TaskCreateRequest.schema.json'), 'utf8'))
 
     expect(DESCRIPTION_MAX_LENGTH).toBe(schema.properties.description.maxLength)
+  })
+
+  it('has the backend’s limit for a link’s address (#414)', () => {
+    const schema = JSON.parse(readFileSync(join(__dirname, '../../doc/api/schema/LinkRequest.schema.json'), 'utf8'))
+
+    expect(LINK_MAX_LENGTH).toBe(schema.properties.url.maxLength)
   })
 
   it('copies a shared file into the app, as the sending app names it', async () => {
@@ -220,7 +274,7 @@ describe('a share becomes a draft task (#355)', () => {
     expect(parts.copy).toHaveBeenCalledTimes(2)
   })
 
-  it('reads only what was shared: a link is taken as text and never resolved', async () => {
+  it('reads only what was shared: a link is taken as it was shared and never resolved', async () => {
     const parts = phone()
 
     await draftOf([{ shareType: 'url', value: 'https://example.com/a', mimeType: 'text/plain' }], parts)

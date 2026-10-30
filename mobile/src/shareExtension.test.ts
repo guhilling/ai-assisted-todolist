@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs'
-import { SHARE_ACTIVATION_RULE, withDisplayName, withFolderPerFile } from './shareExtension'
+import { SHARE_ACTIVATION_RULE, withDisplayName, withFolderPerFile, withPageTitle } from './shareExtension'
 
 /** The iOS share extension (#356), as expo-sharing's plugin writes it and the app's plugin names it. */
 const written = `<?xml version="1.0" encoding="UTF-8"?>
@@ -55,6 +55,31 @@ describe('where the share extension leaves a shared file for the app (#356)', ()
   it('says so when expo-sharing no longer copies a file as it did', () => {
     expect(() => withFolderPerFile('class ShareIntoViewController {}')).toThrow(
       'The share extension no longer copies a shared file where TaskFest gives it a folder of its own.',
+    )
+  })
+})
+
+describe('the title of a page shared with its link (#414)', () => {
+  const template = readFileSync(require.resolve('expo-sharing/plugin/template-files/ios/ShareIntoViewController.swift'), 'utf8')
+
+  it('is passed on as text beside the link, from what Safari hands the extension with it', () => {
+    const changed = withPageTitle(template)
+
+    expect(changed).toContain('item.attributedContentText?.string')
+    expect(changed).toContain('SharePayload(type: .text, value: title, mimeType: "text/plain", metadata: nil)')
+    // Only beside a link, and only where the item brought no text of its own.
+    expect(changed).toContain('if linked && !texted')
+  })
+
+  it('goes with the folder per file, in either order', () => {
+    const both = withFolderPerFile(withPageTitle(template))
+
+    expect(both).toBe(withPageTitle(withFolderPerFile(template)))
+  })
+
+  it('says so when expo-sharing no longer reads an item as it did', () => {
+    expect(() => withPageTitle('class ShareIntoViewController {}')).toThrow(
+      'The share extension no longer reads a shared item where TaskFest takes the page’s title from it.',
     )
   })
 })

@@ -29,7 +29,8 @@ behind: an upload whose pending row was swept while its file was still arriving,
 restored from a snapshot older than files written since.
 
 **One guard keeps it from wiping the bucket**, which is unversioned and survives `down`
-(`OrphanPlan`): a database holding no attachments at all deletes nothing, and a warning says so.
+(`OrphanPlan`): a database holding no files at all deletes nothing, and a warning says so. Links
+(#414) have no object and count for nothing here, neither as missing nor as referencing one.
 That guard holds only until the first attachment exists -- after that, every file older than seven
 days that no attachment refers to goes on the next hourly run. A database restored from an *older*
 snapshot is not guarded against either: files written since it was taken are orphans to it, and go

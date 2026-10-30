@@ -947,6 +947,11 @@ html {
   overflow-wrap: anywhere;
 }
 
+/* A link on a task (#414) is a real link, looking like its file neighbours, not underlined. */
+a.attachment-open {
+  text-decoration: none;
+}
+
 /* Square, so a portrait and a landscape photo take the same room on the row. */
 .attachment-preview {
   display: block;

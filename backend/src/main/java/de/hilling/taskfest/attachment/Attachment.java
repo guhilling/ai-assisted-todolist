@@ -19,7 +19,8 @@ import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
 /**
- * A file attached to a task (#204): its metadata here, its content in S3 under {@link #objectKey}.
+ * A file or a link attached to a task: a file's metadata here and its content in S3 under
+ * {@link #objectKey} (#204); a link's URL and title here, and nothing in S3 (#414).
  *
  * <p>Its own aggregate, not part of the task's (doc/domain-model.md), and its owner's alone. The
  * owner is kept on the attachment because an attachment outlives its task for the undo window: deleting a task
@@ -31,8 +32,11 @@ import org.hibernate.type.SqlTypes;
 @Table(name = "attachment")
 public class Attachment extends PanacheEntityBase {
 
-    /** The longest file name kept; longer ones are cut. */
+    /** The longest file name, or link title, kept; longer ones are cut. */
     public static final int MAX_FILE_NAME_LENGTH = 255;
+
+    /** The longest URL a link may have: what browsers and the sites people share stay well within. */
+    public static final int MAX_URL_LENGTH = 2048;
 
     /** What a thumbnail's key adds to its file's: no slash, so the orphan clean-up sees it (#236). */
     private static final String THUMBNAIL_SUFFIX = ".thumbnail";
@@ -61,9 +65,13 @@ public class Attachment extends PanacheEntityBase {
     @Column(name = "size_bytes", nullable = false)
     public long sizeBytes;
 
-    /** Where the content is in the environment's attachment bucket. */
-    @Column(name = "object_key", nullable = false, unique = true)
+    /** Where a file's content is in the environment's attachment bucket; null for a link. */
+    @Column(name = "object_key", unique = true)
     public String objectKey;
+
+    /** A link's address (#414); null for a file. */
+    @Column(length = MAX_URL_LENGTH)
+    public String url;
 
     @Enumerated(EnumType.STRING)
     @JdbcTypeCode(SqlTypes.NAMED_ENUM)

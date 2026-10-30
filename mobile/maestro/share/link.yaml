@@ -1,0 +1,23 @@
+# A link shared as Chrome shares a page (#414): its address as the text, the page's title as the
+# subject. "Add a task" opens with the title as the description and the link waiting, and the task is
+# added with the link on it, listed by the title. run-on-emulator.sh shares the link.
+appId: de.hilling.taskfest.dev
+name: Share a link into the app
+---
+- extendedWaitUntil:
+    visible: "Remove An article worth reading"
+    timeout: 20000
+- assertVisible: "Add a task"
+- assertVisible: "An article worth reading"
+- tapOn: "In 1 week"
+# Scrolled to rather than hideKeyboard, as in text.yaml: Back would close the form.
+- scrollUntilVisible:
+    element: "Add"
+- takeScreenshot: 35-shared-link
+- tapOn: "Add"
+# The board is long by now: the task may be below the screen.
+- scrollUntilVisible:
+    element: "Open An article worth reading"
+    timeout: 15000
+- assertVisible: 'Edit "An article worth reading"'
+- takeScreenshot: 36-shared-link-added

@@ -18,8 +18,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Attaching files to tasks (#204): announcing an upload, confirming it, opening, removing, and what
- * happens to a task's attachments when it is deleted and undone.
+ * Attaching files and links to tasks: announcing a file's upload, confirming it, opening, removing
+ * (#204); adding a link (#414); and what happens to a task's attachments when it is deleted and
+ * undone.
  *
  * <p>The database and S3 cannot change in one transaction, so every step orders its two halves to
  * fail safely: an upload is announced (row, pending) before the link is handed out and confirmed
@@ -121,6 +122,30 @@ public class AttachmentService {
     }
 
     /**
+     * Adds a link (#414): counted against the same limits as a file, and available at once, since
+     * there is nothing to upload. Its URL has been checked to be a web address on the way in.
+     *
+     * @param title the page's title, or null where the sharing app gave none
+     * @throws Refused when a limit is reached
+     */
+    @Transactional
+    public Attachment addLink(User owner, Task task, String url, String title) {
+        lockAttachmentsOf(owner);
+        policy.countRefusal(Attachment.count("task", task), Attachment.count("owner", owner)).ifPresent(refusal -> {
+            throw new Refused(refusal.name());
+        });
+        Attachment attachment = new Attachment();
+        attachment.task = task;
+        attachment.owner = owner;
+        attachment.fileName = AttachmentPolicy.linkTitle(title, url);
+        attachment.kind = AttachmentKind.LINK;
+        attachment.url = url;
+        attachment.state = AttachmentState.AVAILABLE;
+        attachment.persist();
+        return attachment;
+    }
+
+    /**
      * Confirms an upload: the object must be in S3 with the announced size and type, which the
      * signed link already enforced; this is the check that it arrived at all. A mismatch -- which
      * the link should make impossible -- deletes object and row.
@@ -159,10 +184,17 @@ public class AttachmentService {
         return Optional.of(attachment);
     }
 
-    /** A link the owner's browser opens the file with, the same one again while it is fresh. */
+    /**
+     * A link the owner's browser opens the file with, the same one again while it is fresh. For a
+     * link (#414), its own address: the board opens that directly, but an app from before links
+     * (#268) lists one as a file and asks for this.
+     */
     public AttachmentStore.DownloadLink link(Attachment attachment) {
-        return links.get(attachment.objectKey, Instant.now(), () -> store.downloadLink(attachment.objectKey,
-            attachment.kind.contentType(), attachment.fileName, config.downloadLinkLifetime()));
+        if (!attachment.kind.isFile()) {
+            return new AttachmentStore.DownloadLink(attachment.url, Instant.now().plus(config.downloadLinkLifetime()));
+        }
+        return links.get(attachment.objectKey, Instant.now(), () -> store.downloadLink(
+            attachment.objectKey, attachment.kind.contentType(), attachment.fileName, config.downloadLinkLifetime()));
     }
 
     /** A link to the attachment's preview thumbnail, the same one again while it is fresh; empty without one. */
@@ -186,8 +218,14 @@ public class AttachmentService {
         QuarkusTransaction.requiringNew().run(() -> Attachment.delete("id", attachment.id));
     }
 
-    /** Deletes the file and the thumbnail it may have; deleting one that is not there is no error. */
+    /**
+     * Deletes the file and the thumbnail it may have; deleting one that is not there is no error. A
+     * link has neither.
+     */
     private void deleteObjects(Attachment attachment) {
+        if (attachment.objectKey == null) {
+            return;
+        }
         store.delete(attachment.objectKey);
         store.delete(Attachment.thumbnailKey(attachment.objectKey));
     }
