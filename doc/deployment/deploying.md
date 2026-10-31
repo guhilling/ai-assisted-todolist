@@ -53,7 +53,9 @@ environment and a tag — which is also the rollback, with the previous tag — 
    counts. This is the check the image-label design above describes, done in git instead.
 4. Otherwise it registers a task definition that differs in the image only from the
    **configuration last applied** — the newest active revision the deploy role did not register
-   itself, usually tofu's (#189) — points the service at it and waits until that deployment's
+   itself, usually tofu's (#189), and only one carrying this environment's own execution role: the
+   other environment's roles can register a revision in this family, but never with that role
+   (#429); with none of its own left the deploy stops before changing anything — points the service at it and waits until that deployment's
    rollout has completed, bake included — up to 30 minutes, where ECS's own waiter would give up
    after ten.
 

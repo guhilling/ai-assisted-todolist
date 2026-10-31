@@ -361,7 +361,8 @@ def with_roles(task_definition, environment):
 
 class ForeignRevisionTest(unittest.TestCase):
     """The other environment's roles may register a revision in this family (#429) -- the call
-    cannot be scoped -- but only with their own roles: a deploy never carries one of those."""
+    cannot be scoped -- but never with this environment's execution role, which every revision of
+    its own carries: iam:PassRole is pinned. A deploy carries only one of its own."""
 
     describe = AppliedRevisionTest.describe
 
@@ -377,6 +378,24 @@ class ForeignRevisionTest(unittest.TestCase):
         planted = {**revision(6, ADMIN), "taskRoleArn": None, "executionRoleArn": None}
         self.assertIs(running, deploy.applied_revision(self.describe(running, planted), running,
                                                        "taskfest-qa-deploy", environment="qa"))
+
+    def test_a_revision_of_its_own_without_a_task_role_counts(self):
+        # The database bootstrap task has an execution role only.
+        running = with_roles(revision(5, DEPLOY), "qa")
+        applied = {**with_roles(revision(6, ADMIN), "qa"), "taskRoleArn": None}
+        self.assertIs(applied, deploy.applied_revision(self.describe(running, applied), running,
+                                                       "taskfest-qa-deploy", environment="qa"))
+
+    def test_with_only_deploys_copies_of_its_own_the_newest_of_those_is_carried(self):
+        # The migrate family's fallback is its newest revision, which may be the planted one.
+        copy = with_roles(revision(6, DEPLOY), "qa")
+        planted = with_roles(revision(7, ADMIN), "prod")
+        self.assertIs(copy, deploy.applied_revision(self.describe(copy, planted), planted,
+                                                    "taskfest-qa-deploy", environment="qa"))
+
+    def test_nothing_migrated_when_nothing_of_its_own_is_left(self):
+        # Raised before the migrate task starts, so the old version is restarted, not restored.
+        self.assertTrue(issubclass(deploy.ForeignRevision, deploy.NothingMigrated))
 
     def test_with_nothing_of_its_own_left_the_deploy_stops(self):
         # The migrate family's fallback is its newest revision, which may be the planted one.

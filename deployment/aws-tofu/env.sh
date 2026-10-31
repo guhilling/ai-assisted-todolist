@@ -248,12 +248,13 @@ tfvars_region() {
 # The task runs where the backend will: a public subnet for its outbound calls, and the tasks
 # security group, which is the only one the database admits.
 #
-# It runs the family's newest revision -- after a deploy that migrated, that is the deploy's -- but
-# only one that carries this environment's own task roles, and by its ARN, so what runs is what was
-# checked (#429). Either environment's roles may register a revision in any family, since
-# RegisterTaskDefinition cannot be scoped, but only with their own roles: iam:PassRole is pinned.
+# It runs the family's newest active revision that carries this environment's own execution role --
+# after a deploy that migrated, the deploy's -- by its ARN, so what runs is what was checked (#429).
+# Every revision OpenTofu or a deploy registers carries that role. The other environment's roles
+# may register a revision in this family too, since RegisterTaskDefinition cannot be scoped, but
+# never with this role: iam:PassRole is pinned.
 run_one_off() {
-    local which="$1" family definition task_role execution_role cluster subnets group region task_arn task_id exit_code reason
+    local which="$1" family revisions candidate role definition="" cluster subnets group region task_arn task_id exit_code reason
 
     if [[ "$(run_tofu output -json db_endpoint 2>/dev/null || echo null)" == "null" ]]; then
         echo "${ENVIRONMENT} is down, so there is no database to ${which}." >&2
@@ -271,14 +272,30 @@ run_one_off() {
     subnets="$(run_tofu output -json public_subnet_ids | tr -d '[]" \n')"
     region="$(tfvars_region)"
 
-    read -r definition task_role execution_role <<< "$(aws ecs describe-task-definition --region "$region" \
-        --task-definition "$family" \
-        --query 'taskDefinition.[taskDefinitionArn,taskRoleArn,executionRoleArn]' --output text)"
-    if [[ "$task_role" != arn:aws:iam::*:role/taskfest-${ENVIRONMENT}-task ||
-          "$execution_role" != arn:aws:iam::*:role/taskfest-${ENVIRONMENT}-task-execution ]]; then
-        echo "Refusing to run ${definition}: it carries the roles ${task_role} and ${execution_role}," >&2
-        echo "not ${ENVIRONMENT}'s own. Someone registered it outside OpenTofu and the deploy; run" >&2
-        echo "'./env.sh up ${ENVIRONMENT}' to register this environment's own revision again." >&2
+    # Checked by hand: a failing $(...) does not stop the script here, and AWS's own message
+    # (an expired session, say) says more than "no revision of its own" would.
+    if ! revisions="$(aws ecs list-task-definitions --region "$region" --family-prefix "$family" \
+        --status ACTIVE --sort DESC --query 'taskDefinitionArns' --output text)"; then
+        echo "Could not list ${family}'s revisions." >&2
+        exit 1
+    fi
+    for candidate in $revisions; do
+        # The family prefix also matches longer family names; only this family's revisions count.
+        [[ "${candidate##*/}" == "${family}:"* ]] || continue
+        if ! role="$(aws ecs describe-task-definition --region "$region" --task-definition "$candidate" \
+            --query 'taskDefinition.executionRoleArn' --output text)"; then
+            echo "Could not read ${candidate}." >&2
+            exit 1
+        fi
+        if [[ "$role" == arn:aws:iam::*:role/taskfest-${ENVIRONMENT}-task-execution ]]; then
+            definition="$candidate"
+            break
+        fi
+        echo "Passing over ${candidate}: its execution role is ${role}, not ${ENVIRONMENT}'s own." >&2
+    done
+    if [[ -z "$definition" ]]; then
+        echo "${family} has no active revision with ${ENVIRONMENT}'s own execution role." >&2
+        echo "Run './env.sh up ${ENVIRONMENT}' to register OpenTofu's again." >&2
         exit 1
     fi
 

@@ -124,10 +124,10 @@ data "aws_iam_policy_document" "deploy" {
   #
   # It is tolerable because a task definition nobody runs is inert, and the calls that would run
   # or deploy one -- UpdateService above, RunTask below -- are both scoped to this environment's
-  # service, family and cluster. A revision the other environment's roles register here can carry
-  # only their roles -- PassRole below -- and env.sh and deploy-backend.py pass over any revision
-  # without this environment's own (#429). If that ever stops being true, this is the statement to
-  # revisit.
+  # service, family and cluster. A revision the other environment's roles register here carries
+  # their own roles or none, never this environment's execution role -- PassRole below -- and
+  # env.sh and deploy-backend.py pass over any revision without it (#429). If that ever stops being
+  # true, this is the statement to revisit.
   statement {
     sid = "RegisterTaskDefinitionsWhichCannotBeScoped"
     actions = [
