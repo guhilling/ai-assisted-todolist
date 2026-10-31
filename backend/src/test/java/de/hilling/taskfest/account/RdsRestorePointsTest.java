@@ -80,6 +80,17 @@ class RdsRestorePointsTest {
     }
 
     @Test
+    void shouldDateACopiedSnapshotByItsData() {
+        // A copy's own creation time is the copy's; the data it restores is as old as the original.
+        DBSnapshot copy = DBSnapshot.builder()
+            .snapshotCreateTime(Instant.parse("2026-10-07T00:00:00Z"))
+            .originalSnapshotCreateTime(SNAPSHOT)
+            .build();
+
+        assertEquals(Optional.of(SNAPSHOT), new RdsRestorePoints(listing(copy), "taskfest-qa-db").oldest());
+    }
+
+    @Test
     void shouldKnowNothingWhenRdsListsNothing() {
         // No restorable point at all is far likelier a wrong instance name than a database
         // without backups, so it keeps every record rather than deleting them all.
@@ -132,5 +143,31 @@ class RdsRestorePointsTest {
         };
 
         assertEquals(Optional.empty(), new RdsRestorePoints(failing, "taskfest-qa-db").oldest());
+    }
+
+    /** RDS listing just the given snapshot, on one page, and no retained backup. */
+    private static RdsClient listing(DBSnapshot snapshot) {
+        return new RdsClient() {
+            @Override
+            public DescribeDbSnapshotsResponse describeDBSnapshots(DescribeDbSnapshotsRequest request) {
+                return DescribeDbSnapshotsResponse.builder().dbSnapshots(snapshot).build();
+            }
+
+            @Override
+            public DescribeDbInstanceAutomatedBackupsResponse describeDBInstanceAutomatedBackups(
+                    DescribeDbInstanceAutomatedBackupsRequest request) {
+                return DescribeDbInstanceAutomatedBackupsResponse.builder().build();
+            }
+
+            @Override
+            public String serviceName() {
+                return "rds";
+            }
+
+            @Override
+            public void close() {
+                // A fake holds no connection, so there is nothing to close.
+            }
+        };
     }
 }

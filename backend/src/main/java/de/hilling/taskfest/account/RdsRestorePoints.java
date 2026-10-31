@@ -36,13 +36,22 @@ public class RdsRestorePoints implements RestorePoints {
         this.instance = instance;
     }
 
+    /**
+     * When a snapshot's data was taken: a copy's own creation time is the copy's, and its original's
+     * is kept beside it (#434). The earlier of the two, so a copy never makes the data look newer.
+     */
+    private static Instant dataTakenAt(DBSnapshot snapshot) {
+        return Stream.of(snapshot.snapshotCreateTime(), snapshot.originalSnapshotCreateTime())
+            .filter(Objects::nonNull).min(Instant::compareTo).orElse(null);
+    }
+
     @Override
     public Optional<Instant> oldest() {
         try {
             // Every page: final snapshots pile up with each `down`, and the oldest may be on the last.
             Stream<Instant> snapshots = rds.describeDBSnapshotsPaginator(
                     request -> request.dbInstanceIdentifier(instance))
-                .dbSnapshots().stream().map(DBSnapshot::snapshotCreateTime);
+                .dbSnapshots().stream().map(RdsRestorePoints::dataTakenAt);
             Stream<Instant> backups = rds.describeDBInstanceAutomatedBackupsPaginator(
                     request -> request.dbInstanceIdentifier(instance))
                 .dbInstanceAutomatedBackups().stream()

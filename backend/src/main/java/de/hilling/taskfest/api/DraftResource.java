@@ -6,6 +6,7 @@ import de.hilling.taskfest.model.TaskImportance;
 import de.hilling.taskfest.model.User;
 import io.quarkus.security.Authenticated;
 import jakarta.inject.Inject;
+import jakarta.persistence.LockModeType;
 import jakarta.transaction.Transactional;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
@@ -33,13 +34,21 @@ import org.eclipse.microprofile.openapi.annotations.tags.Tag;
  * through {@link AttachmentResource} as a task does, which count toward the owner's limit. Adding
  * it validates what a create does and makes it a task; adding it again updates that task, so a
  * retry whose first answer was lost adds nothing twice (#427). Discarding it removes its files at
- * once; one abandoned is swept with them by {@link de.hilling.taskfest.service.DraftSweep}.</p>
+ * once; one abandoned is swept with them by {@link de.hilling.taskfest.service.DraftSweep}. A user
+ * has at most {@value #MAX_OPEN_DRAFTS} open at once (#434): every one is a row until the sweep,
+ * and the app opens one per add form.</p>
  */
 @Path("/api/tasks/drafts")
 @Produces(MediaType.APPLICATION_JSON)
 @Authenticated
 @Tag(name = "Tasks", description = "Everything a signed-in user can do to their own tasks.")
 public class DraftResource {
+
+    /** How many drafts a user may have open at once: Gunnar's choice on #434. */
+    static final int MAX_OPEN_DRAFTS = 5;
+
+    /** The status a draft beyond that is refused with, as an attachment beyond its limits is. */
+    private static final int UNPROCESSABLE = 422;
 
     @Inject
     TaskResource tasks;
@@ -54,9 +63,17 @@ public class DraftResource {
     @APIResponse(responseCode = "201", description = "The draft.",
         content = @Content(mediaType = MediaType.APPLICATION_JSON,
             schema = @Schema(implementation = DraftResponse.class)))
+    @APIResponse(responseCode = "422", description = "Refused: the caller has five drafts open already (#434).")
     public Response create() {
+        User owner = tasks.currentUser();
+        // Under the lock that counting attachments takes, so two drafts started at once cannot both
+        // count four and both fit.
+        User.findById(owner.id, LockModeType.PESSIMISTIC_WRITE);
+        if (Task.count("owner = ?1 and draft = true", owner) >= MAX_OPEN_DRAFTS) {
+            return Response.status(UNPROCESSABLE).build();
+        }
         Task draft = new Task();
-        draft.owner = tasks.currentUser();
+        draft.owner = owner;
         draft.draft = true;
         // Not null in the database for every task; Add sets what the form says.
         draft.importance = TaskImportance.MEDIUM;
@@ -76,7 +93,7 @@ public class DraftResource {
             schema = @Schema(implementation = TaskResource.TaskResponse.class)))
     @APIResponse(responseCode = "400", description = "A field failed validation, as for a create.")
     @APIResponse(responseCode = "404", description = "No draft or task with this id is owned by the caller.")
-    public Response add(@PathParam("id") Long id, @Valid TaskResource.TaskCreateRequest request) {
+    public Response add(@PathParam("id") Long id, @NotNull @Valid TaskResource.TaskCreateRequest request) {
         Task draft = TaskResource.lockedTaskOrDraftOrNotFound(id, tasks.currentUser());
         TaskResource.apply(draft, request);
         draft.draft = false;

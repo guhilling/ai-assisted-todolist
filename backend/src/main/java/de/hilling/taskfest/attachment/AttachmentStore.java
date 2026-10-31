@@ -40,7 +40,7 @@ public class AttachmentStore {
     private final S3Presigner presigner;
     private final String bucket;
 
-    /** The client's own credentials, which the download links are signed with explicitly. */
+    /** The client's own credentials, which the links are signed with explicitly. */
     private final IdentityProvider<? extends AwsCredentialsIdentity> credentials;
 
     AttachmentStore(S3Client s3, S3Presigner presigner, AttachmentsConfig config) {
@@ -75,11 +75,15 @@ public class AttachmentStore {
      * itself rather than on what the browser said.
      */
     public UploadLink uploadLink(String key, String contentType, long sizeBytes, Duration lifetime) {
+        // Signed with resolved credentials and clipped to their end, as a download link is (#434).
+        AwsCredentialsIdentity identity = credentials.resolveIdentity().join();
         PresignedPutObjectRequest signed = presigner.presignPutObject(request -> request
             .signatureDuration(lifetime)
             .putObjectRequest(put -> put.bucket(bucket).key(key)
                 .contentType(contentType)
-                .contentLength(sizeBytes)));
+                .contentLength(sizeBytes)
+                .overrideConfiguration(override -> override.credentialsProvider(
+                    StaticCredentialsProvider.create(asCredentials(identity))))));
         // The browser sends Host and Content-Length itself, and may not set them; everything else
         // that was signed it has to send exactly.
         Map<String, String> headers = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
@@ -88,7 +92,8 @@ public class AttachmentStore {
                 headers.put(name, String.join(",", values));
             }
         });
-        return new UploadLink(signed.url().toString(), Map.copyOf(headers), signed.expiration());
+        return new UploadLink(signed.url().toString(), Map.copyOf(headers),
+            worksUntil(signed.expiration(), identity.expirationTime()));
     }
 
     /**
