@@ -77,9 +77,9 @@ Four consequences worth being plain about:
 - **`ecs:RegisterTaskDefinition` cannot be scoped to a resource.** The call creates one, so there
   is no ARN or tag for a condition to match, and the qa role can register a revision in prod's
   family. It is tolerable because a task definition nobody runs is inert and the calls that would
-  run or deploy one are both scoped to this environment; `env.sh migrate` and `db-bootstrap` run the
-  revision OpenTofu recorded, never the family's newest, which would be whatever was registered
-  last (#429) — but "denied everything tagged
+  run or deploy one are both scoped to this environment. Such a revision can carry only the qa role's
+  own task roles, since `iam:PassRole` is pinned, and `env.sh migrate`, `db-bootstrap` and
+  `deploy-backend.py` pass over any revision without this environment's own (#429) — but "denied everything tagged
   `env=prod`" is not literally achievable, and claiming it would be a wall that is not there.
 - **`iam:PassRole` is the statement that decides whether the rest is safe.** Running a task means
   handing it a role; granted on `*`, that one permission escalates "redeploy the application" to

@@ -42,7 +42,8 @@ applied without showing would be how an environment gets destroyed by muscle mem
 *Accepted · 2026-09-30 · #95*
 
 Revised in part: `RunTask` cannot be pinned to the environment's network, a limit added to the two
-below, and `env.sh` runs the task revision OpenTofu recorded (#429).
+below, and `env.sh` and `deploy-backend.py` pass over a task revision without this environment's own
+task roles (#429).
 
 **Decision.** GitHub Actions deploys each environment by assuming an IAM **role** through GitHub's
 OIDC provider. The roles may register a task definition, update the one service, run the migration
@@ -82,7 +83,9 @@ writes its secret into OpenTofu state in cleartext, and with roles the question 
 
 - `ecs:RegisterTaskDefinition` cannot be scoped to a resource, because the call creates one and
   there is no ARN or tag to condition on. The qa role can therefore register a revision in prod's
-  task definition family. This is accepted: a task definition nobody runs is inert, and both calls
+  task definition family, though only with its own roles, since `iam:PassRole` is pinned; `env.sh`
+  and `deploy-backend.py` carry or run only a revision with this environment's own task roles
+  (#429). This is accepted: a task definition nobody runs is inert, and both calls
   that could run or deploy one are scoped to this environment's cluster and service. `RunTask`,
   though, has no condition key for the network a task runs in, so a one-off task can be started in
   the other environment's subnets; it carries only its own environment's roles, so it holds no

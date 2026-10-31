@@ -144,14 +144,14 @@ output "backend_task_count" {
   value       = module.environment.backend_task_count
 }
 
-output "db_bootstrap_task_definition" {
-  description = "The revision of the task that creates the application's database user."
-  value       = module.environment.db_bootstrap_task_definition
+output "db_bootstrap_task_family" {
+  description = "The task that creates the application's database user."
+  value       = module.environment.db_bootstrap_task_family
 }
 
-output "migrate_task_definition" {
-  description = "The revision of the task that runs Liquibase over IAM authentication."
-  value       = module.environment.migrate_task_definition
+output "migrate_task_family" {
+  description = "The task that runs Liquibase over IAM authentication."
+  value       = module.environment.migrate_task_family
 }
 
 output "url" {

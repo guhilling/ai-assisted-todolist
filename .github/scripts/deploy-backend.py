@@ -102,7 +102,7 @@ def next_task_definition(base, image):
     return new
 
 
-def applied_revision(describe, running, deploy_role, limit=100):
+def applied_revision(describe, running, deploy_role, limit=100, environment=None):
     """The revision whose configuration a deploy carries: the one last applied (#189).
 
     The service ignores task_definition in tofu, so an apply that changes the backend's
@@ -115,21 +115,44 @@ def applied_revision(describe, running, deploy_role, limit=100):
 
     Falls back to the running revision when no applied one is active, or the family cannot be read.
 
+    With `environment`, a revision counts only if it carries that environment's own task roles
+    (#429), the fallback too: the other environment's roles may register a revision in this family,
+    since RegisterTaskDefinition cannot be scoped, but only with their own roles -- iam:PassRole is
+    pinned. Raises ForeignRevision when nothing of its own is left.
+
     describe: returns a task definition for a family or `family:revision`, raising if it cannot.
     """
+    def own(task_definition):
+        return environment is None or carries_own_roles(task_definition, environment)
+
     family = running["family"]
     try:
         newest = describe(family)
     except Exception:  # noqa: BLE001 -- any failure to read the family means: keep what runs
-        return running
-    for number in range(newest["revision"], max(newest["revision"] - limit, 0), -1):
+        newest = None
+    for number in range(newest["revision"], max(newest["revision"] - limit, 0), -1) if newest else ():
         try:
             candidate = newest if number == newest["revision"] else describe(f"{family}:{number}")
         except Exception:  # noqa: BLE001 -- a revision deleted for good is simply not a candidate
             continue
-        if candidate.get("status") == "ACTIVE" and not registered_by_role(candidate, deploy_role):
+        if candidate.get("status") == "ACTIVE" and not registered_by_role(candidate, deploy_role) and own(candidate):
             return candidate
+    if not own(running):
+        raise ForeignRevision(f"{running.get('taskDefinitionArn')} carries {running.get('taskRoleArn')}, "
+                              f"not {environment}'s own task role: nothing of {environment}'s own to carry")
     return running
+
+
+class ForeignRevision(RuntimeError):
+    """A family holds no revision of this environment's own to carry (#429)."""
+
+
+def carries_own_roles(task_definition, environment):
+    """Whether a revision carries `environment`'s own task role and task execution role."""
+    def name(arn):
+        return (arn or "").rpartition(":role/")[2]
+    return (name(task_definition.get("taskRoleArn")) == f"{PROJECT}-{environment}-task"
+            and name(task_definition.get("executionRoleArn")) == f"{PROJECT}-{environment}-task-execution")
 
 
 def registered_by_role(task_definition, role):
@@ -437,7 +460,8 @@ class Downtime:
         family = f"{PROJECT}-{self.environment}-migrate"
         describe = lambda name: aws("ecs", "describe-task-definition", "--task-definition", name)["taskDefinition"]
         # Its newest revision is only the fallback; applied_revision reads the family itself.
-        registered = register_release(applied_revision(describe, describe(family), self.deploy_role), image)
+        registered = register_release(
+            applied_revision(describe, describe(family), self.deploy_role, environment=self.environment), image)
         started = aws(
             "ecs", "run-task", "--cluster", self.cluster, "--task-definition", registered["taskDefinitionArn"],
             "--launch-type", "FARGATE", "--started-by", "deploy-backend",
@@ -640,7 +664,7 @@ def main():
 
     base = applied_revision(
         lambda name: aws("ecs", "describe-task-definition", "--task-definition", name)["taskDefinition"],
-        running, f"{PROJECT}-{args.environment}-deploy") if active else None
+        running, f"{PROJECT}-{args.environment}-deploy", environment=args.environment) if active else None
     action = decide(bool(active), active and changelog_differs(running_version, args.version),
                     downgrade=is_older(args.version, running_version),
                     without_arm64=bool(base) and runs_on_arm64(base) and not has_arm64_image(args.version))

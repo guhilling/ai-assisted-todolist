@@ -246,11 +246,14 @@ tfvars_region() {
 # Both exist only while the environment is up -- they point at the database -- so asking for one
 # while it is down is answered with that, not with an ECS error about a missing task definition.
 # The task runs where the backend will: a public subnet for its outbound calls, and the tasks
-# security group, which is the only one the database admits. It runs the revision OpenTofu
-# registered, never the family's newest: the deploy role may register a revision in any family,
-# so the newest is whatever was registered last (#429).
+# security group, which is the only one the database admits.
+#
+# It runs the family's newest revision -- after a deploy that migrated, that is the deploy's -- but
+# only one that carries this environment's own task roles, and by its ARN, so what runs is what was
+# checked (#429). Either environment's roles may register a revision in any family, since
+# RegisterTaskDefinition cannot be scoped, but only with their own roles: iam:PassRole is pinned.
 run_one_off() {
-    local which="$1" definition cluster subnets group region task_arn task_id exit_code reason
+    local which="$1" family definition task_role execution_role cluster subnets group region task_arn task_id exit_code reason
 
     if [[ "$(run_tofu output -json db_endpoint 2>/dev/null || echo null)" == "null" ]]; then
         echo "${ENVIRONMENT} is down, so there is no database to ${which}." >&2
@@ -259,14 +262,25 @@ run_one_off() {
     fi
 
     case "$which" in
-        db-bootstrap) definition="$(run_tofu output -raw db_bootstrap_task_definition)" ;;
-        migrate)      definition="$(run_tofu output -raw migrate_task_definition)" ;;
+        db-bootstrap) family="$(run_tofu output -raw db_bootstrap_task_family)" ;;
+        migrate)      family="$(run_tofu output -raw migrate_task_family)" ;;
     esac
     cluster="$(run_tofu output -raw cluster_name)"
     group="$(run_tofu output -raw tasks_security_group_id)"
     # ["subnet-a","subnet-b"] -> subnet-a,subnet-b, the shape the shorthand below wants.
     subnets="$(run_tofu output -json public_subnet_ids | tr -d '[]" \n')"
     region="$(tfvars_region)"
+
+    read -r definition task_role execution_role <<< "$(aws ecs describe-task-definition --region "$region" \
+        --task-definition "$family" \
+        --query 'taskDefinition.[taskDefinitionArn,taskRoleArn,executionRoleArn]' --output text)"
+    if [[ "$task_role" != arn:aws:iam::*:role/taskfest-${ENVIRONMENT}-task ||
+          "$execution_role" != arn:aws:iam::*:role/taskfest-${ENVIRONMENT}-task-execution ]]; then
+        echo "Refusing to run ${definition}: it carries the roles ${task_role} and ${execution_role}," >&2
+        echo "not ${ENVIRONMENT}'s own. Someone registered it outside OpenTofu and the deploy; run" >&2
+        echo "'./env.sh up ${ENVIRONMENT}' to register this environment's own revision again." >&2
+        exit 1
+    fi
 
     task_arn="$(aws ecs run-task --region "$region" --cluster "$cluster" --task-definition "$definition" \
         --launch-type FARGATE --started-by env.sh \
