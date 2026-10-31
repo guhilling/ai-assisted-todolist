@@ -17,6 +17,12 @@ sheet over the board.
   `signOut` in `mobile/src/TaskFestApp.tsx`, which every way to the sign-in goes through — a
   session the backend turns away too. A renewal under way is waited for before the keychain is
   cleared, and a start or a load begun before the sign-out gives up, so neither signs back in.
+  Once a sign-out has begun, the keychain is left empty (#428): a session asked for while it is
+  being cleared is none, rather than one read, renewed and saved back after the clear. Nor does
+  anything answered for the account signed out of reach whoever signs in next. A change, an upload
+  or a link the backend answers late is dropped: not shown on the next board, not kept on the
+  phone, no reminder scheduled, and no reason to sign the next account out. The files still
+  waiting to go up are not sent as the next account.
   While the sheet is open, coming back to the foreground does not start the app over: its own
   legal links leave the app, and a half-typed confirmation would be lost.
 - **Delete account** — the website's confirmation, in its words: everything goes, for good, and

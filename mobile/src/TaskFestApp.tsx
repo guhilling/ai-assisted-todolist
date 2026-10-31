@@ -331,13 +331,22 @@ export function TaskFestApp({
   )
   /** Raised by every sign-out, so a start or a load begun before one does not sign back in after it. */
   const signOuts = useRef(0)
-  /** The renewal under way, shared, so the refresh token is never spent twice at once. */
+  /**
+   * The renewal under way, shared, so the refresh token is never spent twice at once -- or, while
+   * the app signs out, the sign-out's own forgetting of the session, which hands out none.
+   */
   const renewal = useRef<Promise<Session | null> | null>(null)
 
   const sessionNow = useCallback(() => {
-    renewal.current ??= currentSession(sessions, provider.refresh, now(), google && renewWithGoogle(google)).finally(() => {
-      renewal.current = null
-    })
+    if (!renewal.current) {
+      const renewing: Promise<Session | null> = currentSession(sessions, provider.refresh, now(), google && renewWithGoogle(google)).finally(() => {
+        // A sign-out may have taken its place meanwhile (#428): that one stays until it is done.
+        if (renewal.current === renewing) {
+          renewal.current = null
+        }
+      })
+      renewal.current = renewing
+    }
     return renewal.current
   }, [google, now, provider, renewWithGoogle, sessions])
 
@@ -358,19 +367,35 @@ export function TaskFestApp({
    * The one way out: whatever the app keeps for a signed-in user goes here.
    *
    * A renewal under way would save its session after the keychain was cleared, so it is waited for
-   * first; and a start or a load begun before the sign-out finds it counted and gives up.
+   * first; and a start, a load or a change begun before the sign-out finds it counted and gives up.
    */
   const signOut = useCallback(
     async (notice?: SignedOutNotice) => {
       signOuts.current += 1
       // Before anything is awaited: a change answered meanwhile must not keep the board again.
       agreed.current = null
-      await renewal.current?.catch(() => undefined)
-      const kept = await sessions.load().catch(() => null)
-      await sessions.clear().catch((failure: unknown) => {
-        // The screen signs out regardless; the next start finds the session again, at worst.
-        console.warn('The kept session could not be forgotten', failure)
-      })
+      // The keychain is cleared after the renewal under way, and stands in for one until it is: a
+      // session asked for meanwhile is none, rather than one read from the keychain being cleared,
+      // renewed and saved back into it after the clear (#428).
+      const forgetting = (renewal.current ?? Promise.resolve(null))
+        .catch(() => null)
+        .then(async () => {
+          const kept = await sessions.load().catch(() => null)
+          await sessions.clear().catch((failure: unknown) => {
+            // The screen signs out regardless; the next start finds the session again, at worst.
+            console.warn('The kept session could not be forgotten', failure)
+          })
+          return kept
+        })
+      const forgotten: Promise<Session | null> = forgetting
+        .then(() => null)
+        .finally(() => {
+          if (renewal.current === forgotten) {
+            renewal.current = null
+          }
+        })
+      renewal.current = forgotten
+      const kept = await forgetting
       // Google's SDK remembers the account too; forgotten, the next sign-in asks which one. Not
       // waited for: a native call that never answers must not keep the board on the screen.
       if (kept?.via === 'google') {
@@ -836,6 +861,9 @@ export function TaskFestApp({
   const save = async (values: TaskValues): Promise<boolean> => {
     const started = form
     const task = started?.task
+    // The sign-in the change is made in: an answer arriving after a sign-out is the old account's,
+    // and is dropped -- the next account may be signed in by then, its board shown (#428).
+    const signedIn = signOuts.current
     let attachLater: { task: BoardTask; files: PickedFile[]; links: SharedLink[] } | undefined
     setFailure(undefined)
     if (task && !markBusy(task, true)) {
@@ -848,6 +876,9 @@ export function TaskFestApp({
       await sending(async () => {
         if (task) {
           const saved = await changes.update(await caller(), { ...task, ...values })
+          if (signOuts.current !== signedIn) {
+            return
+          }
           replace(saved)
           keep((kept) => kept.set(saved.id, saved))
         } else {
@@ -869,6 +900,9 @@ export function TaskFestApp({
             }
           }
           created ??= await changes.create(await caller(), input)
+          if (signOuts.current !== signedIn) {
+            return
+          }
           setTasks((tasks) => [...tasks, created])
           keep((kept) => kept.set(created.id, created))
           // What is not on the draft yet -- all of it, without one -- goes up now, as before #381.
@@ -885,6 +919,9 @@ export function TaskFestApp({
       setForm((current) => (current === started ? null : current))
       return true
     } catch (cause) {
+      if (signOuts.current !== signedIn) {
+        return false
+      }
       const text = await failed(cause, task ? messages.errors.updateTask : messages.errors.createTask)
       if (text) {
         setForm((current) => (current === started && current ? { ...current, failure: text } : current))
@@ -929,14 +966,21 @@ export function TaskFestApp({
       return null
     }
     const taskId = adding ? 'new' : task.id
+    const signedIn = signOuts.current
     setUploading({ taskId, name: file.name, fraction: 0 })
     try {
       const attachment = await sending(async () =>
         upload(await caller(), task.id, file, (fraction) => setUploading({ taskId, name: file.name, fraction })),
       )
-      addFile(task.id, attachment)
+      // Answered after a sign-out: the task is the old account's, whatever board is shown (#428).
+      if (signOuts.current === signedIn) {
+        addFile(task.id, attachment)
+      }
       return null
     } catch (cause) {
+      if (signOuts.current !== signedIn) {
+        return null
+      }
       return attachFailure(cause, file.name, messages.attachments.uploadFailed(file.name))
     } finally {
       setUploading(null)
@@ -1016,20 +1060,29 @@ export function TaskFestApp({
 
   /** Attaches the files picked while a task was added, now that it exists; says which could not be. */
   const attachPending = async (task: BoardTask, picked: PickedFile[], links: SharedLink[] = []) => {
+    const signedIn = signOuts.current
+    // What still waits after a sign-out is not sent: it would go as whoever signed in next (#428).
+    const signedOutSince = () => signOuts.current !== signedIn
     const failures: string[] = []
     for (const file of picked) {
+      if (signedOutSince()) {
+        return
+      }
       const failure = await uploadTo(task, file, true)
       if (failure) {
         failures.push(failure)
       }
     }
     for (const link of links) {
+      if (signedOutSince()) {
+        return
+      }
       const failure = await addLinkTo(task, link)
       if (failure) {
         failures.push(failure)
       }
     }
-    if (failures.length > 0) {
+    if (failures.length > 0 && !signedOutSince()) {
       setFailure(failures.join('\n'))
     }
   }
@@ -1041,11 +1094,18 @@ export function TaskFestApp({
       return null
     }
     const name = link.title ?? link.url
+    const signedIn = signOuts.current
     try {
       const attachment = await sending(async () => add(await caller(), task.id, link))
-      addFile(task.id, attachment)
+      // As for a file: answered after a sign-out, it is the old account's (#428).
+      if (signOuts.current === signedIn) {
+        addFile(task.id, attachment)
+      }
       return null
     } catch (cause) {
+      if (signOuts.current !== signedIn) {
+        return null
+      }
       return attachFailure(cause, name, messages.attachments.linkFailed(name))
     }
   }
@@ -1180,13 +1240,21 @@ export function TaskFestApp({
       return
     }
     const next: BoardTask = { ...task, state: task.state === 'DONE' ? 'TODO' : 'DONE' }
+    const signedIn = signOuts.current
     setFailure(undefined)
     replace(next)
     try {
       const saved = await sending(async () => changes.update(await caller(), next))
+      // Answered after a sign-out: the next account's task of the same id is not this one (#428).
+      if (signOuts.current !== signedIn) {
+        return
+      }
       replace(saved)
       keep((kept) => kept.set(saved.id, saved))
     } catch (cause) {
+      if (signOuts.current !== signedIn) {
+        return
+      }
       replace(task)
       setFailure((await failed(cause, messages.errors.updateTask)) ?? undefined)
     } finally {
@@ -1200,6 +1268,7 @@ export function TaskFestApp({
     setFailure(undefined)
     setForm(null)
     setTasks((current) => current.filter((task) => !gone.has(task.id)))
+    const signedIn = signOuts.current
     const outcomes = await sending(() =>
       caller().then(
         (session) => Promise.allSettled(tasks.map((task) => changes.remove(session, task))),
@@ -1207,6 +1276,10 @@ export function TaskFestApp({
         (cause: unknown) => tasks.map((): PromiseSettledResult<void> => ({ status: 'rejected', reason: cause })),
       ),
     )
+    // Answered after a sign-out, it is the old account's: nothing to put back, keep or undo (#428).
+    if (signOuts.current !== signedIn) {
+      return
+    }
     const kept = tasks.filter((_task, index) => outcomes[index].status === 'rejected')
     const removed = tasks.filter((_task, index) => outcomes[index].status === 'fulfilled')
     if (kept.length > 0) {
@@ -1233,12 +1306,16 @@ export function TaskFestApp({
     }
     offerUndo(null)
     setFailure(undefined)
+    const signedIn = signOuts.current
     const outcomes = await sending(() =>
       caller().then(
         (session) => Promise.allSettled(tasks.map((task) => changes.restore(session, task, today))),
         (cause: unknown) => tasks.map((): PromiseSettledResult<BoardTask> => ({ status: 'rejected', reason: cause })),
       ),
     )
+    if (signOuts.current !== signedIn) {
+      return
+    }
     const restored = outcomes.flatMap((outcome) => (outcome.status === 'fulfilled' ? [outcome.value] : []))
     setTasks((current) => [...current, ...restored])
     keep((kept) => restored.forEach((task) => kept.set(task.id, task)))
@@ -1366,8 +1443,13 @@ export function TaskFestApp({
     const without = (each: BoardTask): BoardTask =>
       each.id === task.id ? { ...each, attachments: each.attachments?.filter((kept) => kept.id !== attachment.id) } : each
     setForm((current) => (current?.task?.id === task.id ? { ...current, failure: undefined } : current))
+    const signedIn = signOuts.current
     try {
       await sending(async () => files.remove(await caller(), task.id, attachment.id))
+      // Answered after a sign-out: the board and the form shown are no longer the old account's (#428).
+      if (signOuts.current !== signedIn) {
+        return
+      }
       for (const thumbnail of [false, true]) {
         links.current.delete(`${task.id}/${attachment.id}/${thumbnail}`)
       }
@@ -1380,6 +1462,9 @@ export function TaskFestApp({
       })
       setForm((current) => (current?.task?.id === task.id ? { ...current, task: without(current.task) } : current))
     } catch (cause) {
+      if (signOuts.current !== signedIn) {
+        return
+      }
       const text = await failed(cause, messages.errors.removeAttachment)
       if (text) {
         setForm((current) => (current?.task?.id === task.id ? { ...current, failure: text } : current))

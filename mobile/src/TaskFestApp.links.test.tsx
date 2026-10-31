@@ -1,10 +1,10 @@
-import { render, screen, userEvent, waitFor, within } from '@testing-library/react-native'
+import { act, render, screen, userEvent, waitFor, within } from '@testing-library/react-native'
 import { Linking } from 'react-native'
 import type { BoardTask } from './api'
 import type { SharedDraft } from './incoming'
 import type { Session } from './session'
 import { TaskFestApp, type Dependencies } from './TaskFestApp'
-import { HOUR, dependencies as appDependencies, memorySessions, tokenWith } from './testing'
+import { HOUR, dependencies as appDependencies, memoryBoard, memorySessions, tokenWith } from './testing'
 import { variantOf } from './variants'
 
 /**
@@ -142,5 +142,38 @@ describe('a shared link (#414)', () => {
 
     const form = await screen.findByTestId('task-form')
     expect(within(form).getByRole('button', { name: `Remove ${ARTICLE}` })).toBeOnTheScreen()
+  })
+})
+
+describe('a link answered after a sign-out (#428)', () => {
+  it('is added to no task of whoever signed in next', async () => {
+    let answer: () => void = () => undefined
+    const addLink = jest.fn(() => new Promise<typeof link>((resolve) => (answer = () => resolve({ ...link, id: 10 }))))
+    // Bea's task has the id Alice's new one was given: the late answer would land on it.
+    const beas: BoardTask = { id: 2, description: 'Call the bank', dueDate: '2026-10-31', importance: 'LOW', state: 'TODO', attachments: [] }
+    const keptBoard = memoryBoard(null)
+    const beasToken = tokenWith({ exp: (NOW + HOUR) / 1000, email: 'bea@example.com' })
+    const deps = dependencies({
+      incoming: sharing(shared),
+      keptBoard,
+      fetchTasks: jest.fn().mockResolvedValueOnce([task]).mockResolvedValue([beas]),
+      provider: { signIn: jest.fn().mockResolvedValue({ idToken: beasToken, refreshToken: 'b' }), refresh: jest.fn() },
+    })
+    deps.attachments!.addLink = addLink
+    const user = await start(deps)
+    const form = await screen.findByTestId('task-form')
+
+    await user.press(within(form).getByRole('button', { name: 'Add' }))
+    await waitFor(() => expect(addLink).toHaveBeenCalled())
+    await user.press(within(form).getByRole('button', { name: 'Cancel' }))
+    await user.press(screen.getByRole('button', { name: 'Account' }))
+    await user.press(screen.getByRole('button', { name: 'Sign out' }))
+    await user.press(await screen.findByRole('button', { name: 'Sign in with Keycloak' }))
+    await screen.findByText('Call the bank')
+    const kept = (keptBoard.save as jest.Mock).mock.calls.length
+    await act(async () => answer())
+
+    expect(within(screen.getByTestId('task-2')).queryByRole('button', { name: 'Open An article worth reading' })).toBeNull()
+    expect(keptBoard.save).toHaveBeenCalledTimes(kept)
   })
 })
