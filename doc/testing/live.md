@@ -56,7 +56,7 @@ visible one is addressed — and the accounts. One scenario runs in qa only: bot
 - **Passwords are set per run and stored nowhere** (D2 on #141). The job assumes
   `taskfest-qa-live-test`, which may set the accounts' passwords and find the pool by name, nothing
   else. It trusts only jobs in the GitHub environment `qa-live-test` — not `qa`, which the deploy
-  role trusts: this job runs npm and a browser, and must not be able to assume the deploy role. It
+  role trusts: this job runs npm and a browser, and must not be able to assume the deploy role. Like `qa`, it admits `main` and `v*` tags only. It
   sets a fresh random password on each account and runs the scenarios in the same step,
   so the passwords exist in that step's environment only, masked in the log.
 - **Test data stays contained.** Before and after a run, `e2e/live/test-accounts.ts` signs in as

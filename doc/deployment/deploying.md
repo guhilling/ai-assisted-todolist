@@ -144,7 +144,10 @@ environment itself; a failure fails the deploying run, and rolls nothing back.
 **The approval gate is settings, not code**: *Settings → Environments → `prod`*, with Gunnar as
 required reviewer and deployments allowed from `main` and `v*` tags only. Nothing creates it — a
 job naming an environment that does not exist gets one made on the spot, unprotected — so the
-first prod deploy, on 2026-10-18, ran ungated before the rules were added.
+first prod deploy, on 2026-10-18, ran ungated before the rules were added. `qa` and the live
+checks' `qa-live-test` admit the same `main` and `v*` tags, with no reviewer (2026-10-31): the
+deploy and live-test roles trust a job by its environment's name, so without the rule a workflow
+pushed on any branch could deploy to qa.
 
 **Deep links** are a CloudFront Function on the default behaviour (`spa-routing.js`): a path whose
 last segment has no dot gets `index.html`, and a path that names a file is passed through, so a
