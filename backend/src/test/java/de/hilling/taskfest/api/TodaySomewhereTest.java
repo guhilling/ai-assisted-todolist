@@ -3,6 +3,8 @@ package de.hilling.taskfest.api;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 
+import de.hilling.taskfest.model.TaskImportance;
+import de.hilling.taskfest.model.TaskState;
 import jakarta.validation.Validation;
 import jakarta.validation.Validator;
 import java.time.Clock;
@@ -37,6 +39,28 @@ class TodaySomewhereTest {
     @Test
     void shouldLeaveAMissingDateToNotNull() {
         assertThat(validAt("2026-10-31T12:00:00Z", null), is(true));
+    }
+
+    /**
+     * The rule a new task's due date is held to, not the old {@code @FutureOrPresent}: the HTTP
+     * test can tell the two apart only before 12:00 UTC, this one always (CodeRabbit on #450).
+     */
+    @Test
+    void shouldHoldANewTasksDueDateToTodaySomewhere() {
+        var request = new TaskResource.TaskCreateRequest(
+            "Renew the passport", LocalDate.parse("2026-10-30"), TaskImportance.HIGH, TaskState.TODO, null);
+
+        assertThat(violationsAt("2026-10-31T06:00:00Z", request), is(0));
+    }
+
+    private static int violationsAt(String instant, Object bean) {
+        Clock clock = Clock.fixed(Instant.parse(instant), ZoneOffset.UTC);
+        try (var factory = Validation.byDefaultProvider().configure()
+                .clockProvider(() -> clock)
+                .messageInterpolator(new ParameterMessageInterpolator())
+                .buildValidatorFactory()) {
+            return factory.getValidator().validate(bean).size();
+        }
     }
 
     private static boolean validAt(String instant, String date) {
