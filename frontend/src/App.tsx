@@ -339,7 +339,8 @@ function Board() {
         restored.push(outcome.value)
       } else if (outcome.reason instanceof NotDatedBackError) {
         restored.push(outcome.reason.task)
-        notDatedBack.push(outcome.reason.cause)
+        // Said as itself, unless the session it failed on has gone.
+        notDatedBack.push(outcome.reason.cause instanceof SessionExpiredError ? outcome.reason.cause : outcome.reason)
       } else {
         lost.push(outcome.reason)
       }

@@ -212,6 +212,8 @@ export const en = {
     deleted: (count: number) => (count === 1 ? 'Task deleted' : `${count} tasks deleted`),
     undo: 'Undo',
     dismiss: 'Dismiss',
+    /** An undo that re-created an overdue task but could not date it back (#426). */
+    notDatedBack: 'Task restored, but due today: its own date could not be set back.',
   },
   /** The words a due date is described with: `dates.ts`. */
   dates: {
@@ -417,6 +419,7 @@ export const de: Messages = {
     deleted: (count: number) => (count === 1 ? 'Aufgabe gelöscht' : `${count} Aufgaben gelöscht`),
     undo: 'Rückgängig',
     dismiss: 'Schließen',
+    notDatedBack: 'Aufgabe wiederhergestellt, aber heute fällig: ihr eigenes Datum ließ sich nicht zurücksetzen.',
   },
   dates: {
     today: 'Heute',

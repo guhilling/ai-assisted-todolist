@@ -234,7 +234,9 @@ describe('removing tasks', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
 
-    await waitFor(() => expect(screen.getByText('Unable to update task.')).toBeInTheDocument())
+    await waitFor(() =>
+      expect(screen.getByText('Task restored, but due today: its own date could not be set back.')).toBeInTheDocument(),
+    )
     expect(screen.getByLabelText('Mark "Long overdue" as done')).toBeInTheDocument()
   })
 
