@@ -77,7 +77,10 @@ Four consequences worth being plain about:
 - **`ecs:RegisterTaskDefinition` cannot be scoped to a resource.** The call creates one, so there
   is no ARN or tag for a condition to match, and the qa role can register a revision in prod's
   family. It is tolerable because a task definition nobody runs is inert and the calls that would
-  run or deploy one are both scoped to this environment — but "denied everything tagged
+  run or deploy one are both scoped to this environment. Such a revision carries qa's own roles or
+  none, never prod's execution role, since `iam:PassRole` is pinned; `env.sh migrate`,
+  `db-bootstrap` and `deploy-backend.py` pass over any revision without the environment's own
+  execution role, which every revision of its own carries (#429) — but "denied everything tagged
   `env=prod`" is not literally achievable, and claiming it would be a wall that is not there.
 - **`iam:PassRole` is the statement that decides whether the rest is safe.** Running a task means
   handing it a role; granted on `*`, that one permission escalates "redeploy the application" to
@@ -93,7 +96,11 @@ Four consequences worth being plain about:
   `rds:PubliclyAccessible = false`. **RDS is the gap:** it has no condition key for security
   groups, so the lifecycle role could attach the other environment's database group to its own
   instance. The subnet group is foundation and not the role's to create. That is accepted because
-  the role is assumed by a person with MFA.
+  the role is assumed by a person with MFA. **`ecs:RunTask` is the other gap** (#429): it has no
+  subnet or security-group condition key either, so either role may start its environment's
+  one-off task in the other environment's subnets and tasks security group, with an image of its
+  choosing — a network path to that database's port. The task carries only its own environment's
+  roles (`iam:PassRole` above), so it holds no credentials the other database accepts.
 - **Local credentials are the remaining hole.** An agent running with an administrator profile
   on a developer machine could reach prod, because nothing structural stops it. The mitigation is
   that the profile available locally is itself least-privilege and explicitly denies

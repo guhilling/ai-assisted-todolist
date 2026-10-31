@@ -352,6 +352,58 @@ class ChangelogDiffersTest(unittest.TestCase):
         run.assert_not_called()
 
 
+def with_roles(task_definition, environment):
+    """`task_definition` carrying `environment`'s own task roles."""
+    return {**task_definition,
+            "taskRoleArn": f"arn:aws:iam::1:role/taskfest-{environment}-task",
+            "executionRoleArn": f"arn:aws:iam::1:role/taskfest-{environment}-task-execution"}
+
+
+class ForeignRevisionTest(unittest.TestCase):
+    """The other environment's roles may register a revision in this family (#429) -- the call
+    cannot be scoped -- but never with this environment's execution role, which every revision of
+    its own carries: iam:PassRole is pinned. A deploy carries only one of its own."""
+
+    describe = AppliedRevisionTest.describe
+
+    def test_a_revision_with_the_other_environments_roles_is_passed_over(self):
+        running = with_roles(revision(5, DEPLOY), "qa")
+        applied = with_roles(revision(6, ADMIN), "qa")
+        planted = with_roles(revision(7, "arn:aws:sts::1:assumed-role/taskfest-prod-deploy/GitHubActions"), "prod")
+        self.assertIs(applied, deploy.applied_revision(self.describe(running, applied, planted), running,
+                                                       "taskfest-qa-deploy", environment="qa"))
+
+    def test_a_revision_without_roles_is_passed_over(self):
+        running = with_roles(revision(5, DEPLOY), "qa")
+        planted = {**revision(6, ADMIN), "taskRoleArn": None, "executionRoleArn": None}
+        self.assertIs(running, deploy.applied_revision(self.describe(running, planted), running,
+                                                       "taskfest-qa-deploy", environment="qa"))
+
+    def test_a_revision_of_its_own_without_a_task_role_counts(self):
+        # The database bootstrap task has an execution role only.
+        running = with_roles(revision(5, DEPLOY), "qa")
+        applied = {**with_roles(revision(6, ADMIN), "qa"), "taskRoleArn": None}
+        self.assertIs(applied, deploy.applied_revision(self.describe(running, applied), running,
+                                                       "taskfest-qa-deploy", environment="qa"))
+
+    def test_with_only_deploys_copies_of_its_own_the_newest_of_those_is_carried(self):
+        # The migrate family's fallback is its newest revision, which may be the planted one.
+        copy = with_roles(revision(6, DEPLOY), "qa")
+        planted = with_roles(revision(7, ADMIN), "prod")
+        self.assertIs(copy, deploy.applied_revision(self.describe(copy, planted), planted,
+                                                    "taskfest-qa-deploy", environment="qa"))
+
+    def test_nothing_migrated_when_nothing_of_its_own_is_left(self):
+        # Raised before the migrate task starts, so the old version is restarted, not restored.
+        self.assertTrue(issubclass(deploy.ForeignRevision, deploy.NothingMigrated))
+
+    def test_with_nothing_of_its_own_left_the_deploy_stops(self):
+        # The migrate family's fallback is its newest revision, which may be the planted one.
+        planted = with_roles(revision(7, ADMIN), "prod")
+        with self.assertRaises(deploy.ForeignRevision):
+            deploy.applied_revision(self.describe(planted), planted, "taskfest-qa-deploy", environment="qa")
+
+
 class MigrationTaskTest(unittest.TestCase):
 
     def test_it_runs_in_the_services_network(self):
