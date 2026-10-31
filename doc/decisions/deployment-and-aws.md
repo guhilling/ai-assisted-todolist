@@ -219,7 +219,8 @@ changes with every restore. Only the task's own execution role, `taskfest-<env>-
 may read it, and only the lifecycle role may pass that role. It was the execution role all tasks
 share at first, which the deploy role may pass: since it may also register any task definition, a
 revision of its choosing, the backend's included, could have had ECS inject the master secret
-(#454). `env.sh db-bootstrap` runs only a revision with that role. *Rejected: the backend creating its own user at start-up*, which
+(#454). `env.sh db-bootstrap` runs only a revision with that role, and the deploy role's `UpdateService`
+may point the service only at the backend's own family, never at a bootstrap revision. *Rejected: the backend creating its own user at start-up*, which
 would put the master credentials in the service. *Rejected: a Lambda in the VPC*, which is more
 infrastructure for something that runs once.
 
