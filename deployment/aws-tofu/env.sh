@@ -246,9 +246,11 @@ tfvars_region() {
 # Both exist only while the environment is up -- they point at the database -- so asking for one
 # while it is down is answered with that, not with an ECS error about a missing task definition.
 # The task runs where the backend will: a public subnet for its outbound calls, and the tasks
-# security group, which is the only one the database admits.
+# security group, which is the only one the database admits. It runs the revision OpenTofu
+# registered, never the family's newest: the deploy role may register a revision in any family,
+# so the newest is whatever was registered last (#429).
 run_one_off() {
-    local which="$1" family cluster subnets group region task_arn task_id exit_code reason
+    local which="$1" definition cluster subnets group region task_arn task_id exit_code reason
 
     if [[ "$(run_tofu output -json db_endpoint 2>/dev/null || echo null)" == "null" ]]; then
         echo "${ENVIRONMENT} is down, so there is no database to ${which}." >&2
@@ -257,8 +259,8 @@ run_one_off() {
     fi
 
     case "$which" in
-        db-bootstrap) family="$(run_tofu output -raw db_bootstrap_task_family)" ;;
-        migrate)      family="$(run_tofu output -raw migrate_task_family)" ;;
+        db-bootstrap) definition="$(run_tofu output -raw db_bootstrap_task_definition)" ;;
+        migrate)      definition="$(run_tofu output -raw migrate_task_definition)" ;;
     esac
     cluster="$(run_tofu output -raw cluster_name)"
     group="$(run_tofu output -raw tasks_security_group_id)"
@@ -266,7 +268,7 @@ run_one_off() {
     subnets="$(run_tofu output -json public_subnet_ids | tr -d '[]" \n')"
     region="$(tfvars_region)"
 
-    task_arn="$(aws ecs run-task --region "$region" --cluster "$cluster" --task-definition "$family" \
+    task_arn="$(aws ecs run-task --region "$region" --cluster "$cluster" --task-definition "$definition" \
         --launch-type FARGATE --started-by env.sh \
         --network-configuration "awsvpcConfiguration={subnets=[${subnets}],securityGroups=[${group}],assignPublicIp=ENABLED}" \
         --query 'tasks[0].taskArn' --output text)"

@@ -83,14 +83,16 @@ output "backend_task_count" {
   value       = local.backend_task_count
 }
 
-output "db_bootstrap_task_family" {
-  description = "The task that creates the application's database user. Run by env.sh db-bootstrap."
-  value       = local.db_bootstrap_family
+# The revisions OpenTofu registered, not the families: a family's newest revision is whatever was
+# registered last, and the deploy role may register one in any family (#429). Null while down.
+output "db_bootstrap_task_definition" {
+  description = "The revision of the task that creates the application's database user. Run by env.sh db-bootstrap."
+  value       = one(aws_ecs_task_definition.db_bootstrap[*].arn)
 }
 
-output "migrate_task_family" {
-  description = "The task that runs Liquibase over IAM authentication. Run by env.sh migrate."
-  value       = local.migrate_family
+output "migrate_task_definition" {
+  description = "The revision of the task that runs Liquibase over IAM authentication. Run by env.sh migrate."
+  value       = one(aws_ecs_task_definition.migrate[*].arn)
 }
 
 output "url" {

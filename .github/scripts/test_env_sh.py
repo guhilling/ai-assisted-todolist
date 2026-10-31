@@ -116,5 +116,69 @@ class AccountTest(unittest.TestCase):
         self.assertEqual(result.returncode, 1)
         self.assertIn("other-plain (from AWS_PROFILE)", result.stderr)
 
+FAKE_TOFU = """#!/usr/bin/env bash
+# OpenTofu's outputs for qa while it is up; every other command succeeds and prints nothing.
+shift  # -chdir=...
+[[ "$1" == output ]] || exit 0
+case "${@: -1}" in
+  db_endpoint) echo '"taskfest-qa.example.com"' ;;
+  migrate_task_definition) echo "arn:aws:ecs:eu-central-1:123456789012:task-definition/taskfest-qa-migrate:7" ;;
+  db_bootstrap_task_definition) echo "arn:aws:ecs:eu-central-1:123456789012:task-definition/taskfest-qa-db-bootstrap:3" ;;
+  cluster_name) echo taskfest-qa ;;
+  tasks_security_group_id) echo sg-tasks ;;
+  public_subnet_ids) echo '["subnet-a","subnet-b"]' ;;
+  *) exit 1 ;;
+esac
+"""
+
+FAKE_AWS = """#!/usr/bin/env bash
+# The AWS CLI as far as a one-off task needs it: the lifecycle profile, and ECS answering that the
+# task ran and exited 0. Each call is written to $AWS_CALLS.
+echo "$*" >> "$AWS_CALLS"
+case "$1 $2" in
+  "configure list-profiles") echo taskfest-qa-lifecycle ;;
+  "configure get") [[ "$3" == role_arn ]] && echo arn:aws:iam::123456789012:role/taskfest-qa-lifecycle ;;
+  "configure export-credentials") [[ "$3" == help ]] || echo "export AWS_ACCESS_KEY_ID=fake" ;;
+  "ecs run-task") echo arn:aws:ecs:eu-central-1:123456789012:task/taskfest-qa/abc ;;
+  "ecs describe-tasks") echo 0 ;;
+esac
+exit 0
+"""
+
+
+@unittest.skipUnless(shutil.which("bash"), "needs bash")
+class OneOffTaskTest(unittest.TestCase):
+    """`env.sh migrate` and `db-bootstrap` run the task definition revision OpenTofu recorded (#429),
+    not the family's newest: anyone allowed to register a revision -- the deploy role may, on any
+    family -- would otherwise choose what the next migration runs."""
+
+    def setUp(self):
+        self.work = tempfile.TemporaryDirectory()
+        work = pathlib.Path(self.work.name)
+        for name, script in (("tofu", FAKE_TOFU), ("aws", FAKE_AWS)):
+            (work / name).write_text(script)
+            (work / name).chmod(0o755)
+        self.calls = work / "aws-calls"
+        self.env = {"PATH": f"{work}:{os.environ['PATH']}", "HOME": self.work.name,
+                    "AWS_CALLS": str(self.calls)}
+
+    def tearDown(self):
+        self.work.cleanup()
+
+    def run_task(self, which):
+        result = subprocess.run(["bash", str(ENV_SH), which, "qa"], env=self.env,
+                                capture_output=True, text=True, timeout=60)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        return next(line for line in self.calls.read_text().splitlines() if line.startswith("ecs run-task"))
+
+    def test_migrate_runs_the_recorded_revision(self):
+        self.assertIn("--task-definition arn:aws:ecs:eu-central-1:123456789012:task-definition/taskfest-qa-migrate:7 ",
+                      self.run_task("migrate"))
+
+    def test_db_bootstrap_runs_the_recorded_revision(self):
+        self.assertIn("--task-definition arn:aws:ecs:eu-central-1:123456789012:task-definition/taskfest-qa-db-bootstrap:3 ",
+                      self.run_task("db-bootstrap"))
+
+
 if __name__ == "__main__":
     unittest.main()
