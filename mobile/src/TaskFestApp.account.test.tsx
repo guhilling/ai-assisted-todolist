@@ -592,6 +592,23 @@ describe('an answer for the account signed out of (#428)', () => {
     expect(within(screen.getByTestId('task-1')).queryByRole('button', { name: 'Open photo.jpg' })).toBeNull()
   })
 
+  it('does not sign the next account out when an upload says the session had ended', async () => {
+    const uploaded = late<ReturnType<typeof attached>>()
+    const deps = twoAccounts({
+      attachments: { link: jest.fn(linkTo), remove: jest.fn(), upload: jest.fn(() => uploaded.promise) },
+      pickFile: jest.fn().mockResolvedValue(photo),
+    })
+    const user = await showAdas(deps)
+
+    await user.press(screen.getByRole('button', { name: 'Edit "Water the plants"' }))
+    await user.press(screen.getByRole('button', { name: 'Take a photo' }))
+    await user.press(screen.getByRole('button', { name: 'Cancel' }))
+    const stillBeas = await switchToBea(user, deps)
+    await act(async () => uploaded.refuse(new SignedOutError()))
+
+    stillBeas()
+  })
+
   it('sends none of the files still waiting as the next account', async () => {
     const uploaded = late<ReturnType<typeof attached>>()
     const upload = jest.fn().mockReturnValueOnce(uploaded.promise).mockImplementation((_caller, _taskId, file: PickedFile) => Promise.resolve(attached(file, 8)))
@@ -632,6 +649,104 @@ describe('an answer for the account signed out of (#428)', () => {
     await act(async () => gone.answer())
 
     stillBeas()
+  })
+})
+
+describe('an answer for the account signed out of, found in review (#428)', () => {
+  const withScan: BoardTask = { ...water, attachments: [attached(scan, 5)] }
+
+  it('does not sign the next account out when a file’s link says the session had ended', async () => {
+    const linked = late<string>()
+    const deps = twoAccounts({
+      fetchTasks: jest.fn().mockResolvedValueOnce([withScan]).mockResolvedValue([bank]),
+      attachments: { link: jest.fn(() => linked.promise), remove: jest.fn() },
+      documents: { open: jest.fn(), forget: jest.fn().mockResolvedValue(undefined) },
+    })
+    const user = await showAdas(deps)
+
+    await user.press(screen.getByRole('button', { name: 'Open scan.pdf' }))
+    const stillBeas = await switchToBea(user, deps)
+    await act(async () => linked.refuse(new SignedOutError()))
+
+    stillBeas()
+  })
+
+  it('still says the account was deleted when a file was opened while it signed out', async () => {
+    const sessions = slowKeychain(session)
+    const deps = dependencies({
+      sessions,
+      fetchTasks: jest.fn().mockResolvedValue([withScan]),
+      deleteAccount: jest.fn(async () => sessions.hold('clear')),
+      attachments: { link: jest.fn(linkTo), remove: jest.fn() },
+      documents: { open: jest.fn(), forget: jest.fn().mockResolvedValue(undefined) },
+    })
+    const user = await showAdas(deps)
+
+    await user.press(screen.getByRole('button', { name: 'Account' }))
+    await confirmDelete(user)
+    await user.press(screen.getByRole('button', { name: 'Open scan.pdf' }))
+    await act(async () => sessions.letGo())
+
+    expect(
+      await screen.findByText('Your account has been deleted. Signing in again starts a new, empty one.'),
+    ).toBeOnTheScreen()
+    expect(screen.queryByText('Your session has expired. Sign in again to carry on.')).toBeNull()
+  })
+
+  // Another change finding the session ended signs out while the delete is on its way.
+  it.each([
+    ['deleted', (deleted: ReturnType<typeof late<void>>) => deleted.answer()],
+    ['refused', (deleted: ReturnType<typeof late<void>>) => deleted.refuse(new SignedOutError())],
+  ])('does not sign the next account out when the delete is %s late', async (_answer, settle) => {
+    const saved = late<BoardTask>()
+    const deleted = late<void>()
+    const deps = twoAccounts({
+      changes: { create: jest.fn(), update: jest.fn(() => saved.promise), remove: jest.fn(), restore: jest.fn() },
+      deleteAccount: jest.fn(() => deleted.promise),
+    })
+    const user = await showAdas(deps)
+
+    await user.press(screen.getByRole('checkbox', { name: 'Mark "Water the plants" as done' }))
+    await user.press(screen.getByRole('button', { name: 'Account' }))
+    await confirmDelete(user)
+    await act(async () => saved.refuse(new SignedOutError()))
+    await user.press(await screen.findByRole('button', { name: 'Sign in with Keycloak' }))
+    await screen.findByText('Call the bank')
+    await act(async () => settle(deleted))
+
+    expect(screen.getByText('Call the bank')).toBeOnTheScreen()
+    expect(screen.queryByText('Your account has been deleted. Signing in again starts a new, empty one.')).toBeNull()
+    expect((deps.sessions as ReturnType<typeof memorySessions>).current()).toMatchObject({ idToken: beasToken })
+  })
+
+  it('leaves the next account’s upload, and how far it has got, to it', async () => {
+    const uploads: { progress: (fraction: number) => void; done: ReturnType<typeof late<ReturnType<typeof attached>>> }[] = []
+    const upload = jest.fn((_caller, _taskId, _file: PickedFile, progress: (fraction: number) => void) => {
+      const done = late<ReturnType<typeof attached>>()
+      uploads.push({ progress, done })
+      return done.promise
+    })
+    const deps = twoAccounts({
+      fetchTasks: jest.fn().mockResolvedValueOnce([water]).mockResolvedValue([{ ...bank, id: 2 }]),
+      attachments: { link: jest.fn(linkTo), remove: jest.fn(), upload },
+      pickFile: jest.fn().mockResolvedValueOnce(photo).mockResolvedValueOnce(scan),
+    })
+    const user = await showAdas(deps)
+
+    await user.press(screen.getByRole('button', { name: 'Edit "Water the plants"' }))
+    await user.press(screen.getByRole('button', { name: 'Take a photo' }))
+    await user.press(screen.getByRole('button', { name: 'Cancel' }))
+    await switchToBea(user, deps)
+    await user.press(screen.getByRole('button', { name: 'Edit "Call the bank"' }))
+    const editor = await screen.findByTestId('task-form')
+    expect(within(editor).queryByText('Uploading photo.jpg')).toBeNull()
+    await user.press(within(editor).getByRole('button', { name: 'Choose a file' }))
+    await act(async () => uploads[1].progress(0.42))
+    await act(async () => uploads[0].progress(0.9))
+    await act(async () => uploads[0].done.answer(attached(photo, 9)))
+
+    expect(within(editor).getByText('Uploading scan.pdf')).toBeOnTheScreen()
+    expect(within(editor).getByText('42%')).toBeOnTheScreen()
   })
 })
 

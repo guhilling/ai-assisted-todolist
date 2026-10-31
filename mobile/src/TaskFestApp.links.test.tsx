@@ -1,6 +1,6 @@
 import { act, render, screen, userEvent, waitFor, within } from '@testing-library/react-native'
 import { Linking } from 'react-native'
-import type { BoardTask } from './api'
+import { SignedOutError, type BoardTask } from './api'
 import type { SharedDraft } from './incoming'
 import type { Session } from './session'
 import { TaskFestApp, type Dependencies } from './TaskFestApp'
@@ -146,34 +146,80 @@ describe('a shared link (#414)', () => {
 })
 
 describe('a link answered after a sign-out (#428)', () => {
+  // Bea's task has the id Alice's new one was given: a late answer would land on it.
+  const beas: BoardTask = { id: 2, description: 'Call the bank', dueDate: '2026-10-31', importance: 'LOW', state: 'TODO', attachments: [] }
+  const beasToken = tokenWith({ exp: (NOW + HOUR) / 1000, email: 'bea@example.com' })
+
+  /** Alice's board, and Bea's once Alice has signed out and Bea signed in. */
+  function twoAccounts(overrides: Partial<Dependencies> = {}) {
+    return dependencies({
+      incoming: sharing(shared),
+      keptBoard: memoryBoard(null),
+      fetchTasks: jest.fn().mockResolvedValueOnce([task]).mockResolvedValue([beas]),
+      provider: { signIn: jest.fn().mockResolvedValue({ idToken: beasToken, refreshToken: 'b' }), refresh: jest.fn() },
+      ...overrides,
+    })
+  }
+
+  /** Alice cancels the form, signs out, and Bea signs in. */
+  async function switchToBea(user: ReturnType<typeof userEvent.setup>) {
+    await user.press(within(screen.getByTestId('task-form')).getByRole('button', { name: 'Cancel' }))
+    await user.press(screen.getByRole('button', { name: 'Account' }))
+    await user.press(screen.getByRole('button', { name: 'Sign out' }))
+    await user.press(await screen.findByRole('button', { name: 'Sign in with Keycloak' }))
+    await screen.findByText('Call the bank')
+  }
+
   it('is added to no task of whoever signed in next', async () => {
     let answer: () => void = () => undefined
     const addLink = jest.fn(() => new Promise<typeof link>((resolve) => (answer = () => resolve({ ...link, id: 10 }))))
-    // Bea's task has the id Alice's new one was given: the late answer would land on it.
-    const beas: BoardTask = { id: 2, description: 'Call the bank', dueDate: '2026-10-31', importance: 'LOW', state: 'TODO', attachments: [] }
-    const keptBoard = memoryBoard(null)
-    const beasToken = tokenWith({ exp: (NOW + HOUR) / 1000, email: 'bea@example.com' })
-    const deps = dependencies({
-      incoming: sharing(shared),
-      keptBoard,
-      fetchTasks: jest.fn().mockResolvedValueOnce([task]).mockResolvedValue([beas]),
-      provider: { signIn: jest.fn().mockResolvedValue({ idToken: beasToken, refreshToken: 'b' }), refresh: jest.fn() },
-    })
+    const deps = twoAccounts()
+    const keptBoard = deps.keptBoard
     deps.attachments!.addLink = addLink
     const user = await start(deps)
     const form = await screen.findByTestId('task-form')
 
     await user.press(within(form).getByRole('button', { name: 'Add' }))
     await waitFor(() => expect(addLink).toHaveBeenCalled())
-    await user.press(within(form).getByRole('button', { name: 'Cancel' }))
-    await user.press(screen.getByRole('button', { name: 'Account' }))
-    await user.press(screen.getByRole('button', { name: 'Sign out' }))
-    await user.press(await screen.findByRole('button', { name: 'Sign in with Keycloak' }))
-    await screen.findByText('Call the bank')
+    await switchToBea(user)
     const kept = (keptBoard.save as jest.Mock).mock.calls.length
     await act(async () => answer())
 
     expect(within(screen.getByTestId('task-2')).queryByRole('button', { name: 'Open An article worth reading' })).toBeNull()
     expect(keptBoard.save).toHaveBeenCalledTimes(kept)
+  })
+
+  it('does not sign whoever signed in next out when it says the session had ended', async () => {
+    let refuse: () => void = () => undefined
+    const deps = twoAccounts()
+    deps.attachments!.addLink = jest.fn(() => new Promise<typeof link>((_resolve, reject) => (refuse = () => reject(new SignedOutError()))))
+    const user = await start(deps)
+    const form = await screen.findByTestId('task-form')
+
+    await user.press(within(form).getByRole('button', { name: 'Add' }))
+    await waitFor(() => expect(deps.attachments!.addLink).toHaveBeenCalled())
+    await switchToBea(user)
+    await act(async () => refuse())
+
+    expect(screen.getByText('Call the bank')).toBeOnTheScreen()
+    expect(screen.queryByText('Your session has expired. Sign in again to carry on.')).toBeNull()
+  })
+
+  it('is not sent as whoever signed in next while a file before it was still going up', async () => {
+    const photo = { uri: 'file:///cache/photo.jpg', name: 'photo.jpg', type: 'image/jpeg', size: 2_000_000 }
+    let uploaded: () => void = () => undefined
+    const deps = twoAccounts({ incoming: sharing({ ...shared, files: [photo] }) })
+    deps.attachments!.upload = jest.fn(
+      () => new Promise((resolve) => (uploaded = () => resolve({ id: 11, fileName: 'photo.jpg', contentType: 'image/jpeg', sizeBytes: 2_000_000, thumbnail: false }))),
+    )
+    const user = await start(deps)
+    const form = await screen.findByTestId('task-form')
+
+    await user.press(within(form).getByRole('button', { name: 'Add' }))
+    await waitFor(() => expect(deps.attachments!.upload).toHaveBeenCalled())
+    await switchToBea(user)
+    await act(async () => uploaded())
+
+    expect(deps.attachments!.addLink).not.toHaveBeenCalled()
   })
 })

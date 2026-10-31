@@ -1,5 +1,5 @@
 import { act, render, screen, userEvent, waitFor, within } from '@testing-library/react-native'
-import { RequestFailedError, type BoardTask } from './api'
+import { RequestFailedError, SignedOutError, type BoardTask } from './api'
 import type { SharedDraft } from './incoming'
 import type { Session } from './session'
 import { TaskFestApp, type Dependencies } from './TaskFestApp'
@@ -208,5 +208,102 @@ describe('files upload while the add form is open (#381)', () => {
 
     await waitFor(() => expect(deps.attachments!.upload).toHaveBeenCalledWith(expect.anything(), 2, photo, expect.any(Function)))
     expect(deps.changes.create).toHaveBeenCalled()
+  })
+})
+
+describe('a draft answered after a sign-out (#428)', () => {
+  const beasToken = tokenWith({ exp: (NOW + HOUR) / 1000, email: 'bea@example.com' })
+  const beas: BoardTask = { id: 5, description: 'Call the bank', dueDate: '2026-10-19', importance: 'LOW', state: 'TODO', attachments: [] }
+  const asBea = expect.objectContaining({ idToken: beasToken })
+
+  /** Alice's board, and Bea's once Alice has signed out and Bea signed in. */
+  function twoAccounts() {
+    return dependencies({
+      fetchTasks: jest.fn().mockResolvedValueOnce([task]).mockResolvedValue([beas]),
+      provider: { signIn: jest.fn().mockResolvedValue({ idToken: beasToken, refreshToken: 'b' }), refresh: jest.fn() },
+    })
+  }
+
+  /** A promise the test settles when it likes: a backend that answers late. */
+  function late<T>() {
+    let answer: (value: T) => void = () => undefined
+    let refuse: (cause: unknown) => void = () => undefined
+    const promise = new Promise<T>((resolve, reject) => {
+      answer = resolve
+      refuse = reject
+    })
+    return { promise, answer, refuse }
+  }
+
+  /** Alice cancels the form, signs out, and Bea signs in. */
+  async function switchToBea(user: ReturnType<typeof userEvent.setup>) {
+    await user.press(within(screen.getByTestId('task-form')).getByRole('button', { name: 'Cancel' }))
+    await user.press(screen.getByRole('button', { name: 'Account' }))
+    await user.press(screen.getByRole('button', { name: 'Sign out' }))
+    await user.press(await screen.findByRole('button', { name: 'Sign in with Keycloak' }))
+    await screen.findByText('Call the bank')
+  }
+
+  it('adds no task as the next account when the draft turns out to have been swept', async () => {
+    const deps = twoAccounts()
+    const added = late<BoardTask>()
+    deps.changes.drafts!.add = jest.fn(() => added.promise)
+    const { user, form } = await openAdd(deps)
+    await user.press(within(form).getByRole('button', { name: 'Choose a photo' }))
+    await waitFor(() => expect(deps.attachments!.upload).toHaveBeenCalledTimes(1))
+    await user.type(within(form).getByLabelText('What needs doing'), 'Pay the bill')
+    await user.press(within(form).getByRole('button', { name: 'Add' }))
+
+    await switchToBea(user)
+    await act(async () => added.refuse(new RequestFailedError(404)))
+
+    expect(deps.changes.create).not.toHaveBeenCalled()
+    expect(screen.queryByText('Pay the bill')).toBeNull()
+  })
+
+  it('does not sign the next account out when an upload says the session had ended', async () => {
+    const deps = twoAccounts()
+    const uploaded = late<ReturnType<typeof attached>>()
+    deps.attachments!.upload = jest.fn(() => uploaded.promise)
+    const { user, form } = await openAdd(deps)
+    await user.press(within(form).getByRole('button', { name: 'Choose a photo' }))
+    await waitFor(() => expect(deps.attachments!.upload).toHaveBeenCalledTimes(1))
+
+    await switchToBea(user)
+    await act(async () => uploaded.refuse(new SignedOutError()))
+
+    expect(screen.getByText('Call the bank')).toBeOnTheScreen()
+    expect(screen.queryByText('Your session has expired. Sign in again to carry on.')).toBeNull()
+  })
+
+  it('touches no draft as the next account when an upload answers late', async () => {
+    const deps = twoAccounts()
+    const uploaded = late<ReturnType<typeof attached>>()
+    deps.attachments!.upload = jest.fn(() => uploaded.promise)
+    const { user, form } = await openAdd(deps)
+    await user.press(within(form).getByRole('button', { name: 'Choose a photo' }))
+    await waitFor(() => expect(deps.attachments!.upload).toHaveBeenCalledTimes(1))
+
+    await switchToBea(user)
+    await act(async () => uploaded.answer(attached(photo, 10)))
+    await act(async () => undefined)
+
+    expect(deps.attachments!.remove).not.toHaveBeenCalledWith(asBea, DRAFT, 10)
+    expect(deps.changes.drafts!.discard).not.toHaveBeenCalledWith(asBea, DRAFT)
+  })
+
+  it('discards no draft as the next account when it is started late', async () => {
+    const deps = twoAccounts()
+    const started = late<number>()
+    deps.changes.drafts!.start = jest.fn(() => started.promise)
+    const { user, form } = await openAdd(deps)
+    await user.press(within(form).getByRole('button', { name: 'Choose a photo' }))
+    await waitFor(() => expect(deps.changes.drafts!.start).toHaveBeenCalled())
+
+    await switchToBea(user)
+    await act(async () => started.answer(DRAFT))
+    await act(async () => undefined)
+
+    expect(deps.changes.drafts!.discard).not.toHaveBeenCalledWith(asBea, DRAFT)
   })
 })
