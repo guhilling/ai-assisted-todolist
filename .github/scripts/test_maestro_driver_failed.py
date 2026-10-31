@@ -72,6 +72,16 @@ class DriverFailedTest(unittest.TestCase):
     def test_the_android_driver_failing_a_call(self):
         self.assertEqual(self.run_on("[Failed] Sign in and see the board (183ms)\n", ANDROID_DEVICE_CALL), 0)
 
+    def test_the_android_driver_failing_its_first_call_said_only_on_the_console(self):
+        # Maestro may write no report when it never got going.
+        self.assertEqual(self.run_on("maestro.android.DeviceCallFailedException: 'deviceInfo' failed: "
+                                     "INTERNAL - error in frame handler\n"), 0)
+
+    def test_the_android_driver_failing_mid_flow_is_the_flows(self):
+        # A step may already have changed the board, or used up a share: run again, it would not
+        # start where the first run did.
+        self.assertEqual(self.run_on(ANDROID_DEVICE_CALL.replace("'deviceInfo'", "'tap'")), 1)
+
     def test_a_failed_check_is_the_flows(self):
         self.assertEqual(self.run_on("[Failed] Share a photo (2m 36s)\n", ASSERTION), 1)
 

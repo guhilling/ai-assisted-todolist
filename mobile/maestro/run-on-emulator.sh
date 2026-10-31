@@ -17,11 +17,10 @@ here="$(dirname "$0")"
 source "$here/emulator-ready.sh"
 
 # `maestro test` for the given flows, its JUnit report going to the first argument, run once more
-# when Maestro's own driver failed rather than the flow (#445), as the iOS share flow is (#401):
-# driver-failed.sh says which. Each run's console output stays in the artifact, the first failure's
-# too.
+# when Maestro's own driver failed before the flow began (#445), as the iOS share flow is (#401):
+# driver-failed.sh says which. The first run's console output and report stay in the artifact.
 flows() {
-  local report="$1" console
+  local report="$1" console run
   shift
   mkdir -p maestro-output
   for run in 1 2; do
@@ -32,6 +31,7 @@ flows() {
     if (( run == 2 )) || ! bash "$here/driver-failed.sh" "$console" "$report"; then
       return 1
     fi
+    cp "$report" "maestro-output/$(basename "$report" .xml)-1.xml" 2>/dev/null || true
     echo "::warning title=Maestro's driver failed::$* is run once more (#445)."
   done
 }
@@ -75,7 +75,7 @@ case "$share" in
     adb shell am start -a android.intent.action.SEND -t text/plain -p de.hilling.taskfest.dev \
       --es android.intent.extra.TEXT "'Read the article https://example.com/a'"
     flows maestro-share-text.xml mobile/maestro/share/text.yaml
-    retry bash "$(dirname "$0")/put-attach-image.sh"
+    retry bash "$here/put-attach-image.sh"
     flows maestro-share-sheet.xml mobile/maestro/share/share-sheet.yaml
     # A link, as Chrome shares a page (#414): the address as the text, the title as the subject. Last,
     # as its task would push the others' below the screen, where their flows look for them.
@@ -117,7 +117,7 @@ if [[ "$scheduled" != true ]]; then
 fi
 
 # Attaching (#274): an image in the emulator's Downloads, for the file picker to offer.
-retry bash "$(dirname "$0")/put-attach-image.sh"
+retry bash "$here/put-attach-image.sh"
 flows maestro-attach.xml mobile/maestro/attach.yaml
 
 # Offline (#272): keep a board, take the backend away -- the app reaches it through adb reverse,
