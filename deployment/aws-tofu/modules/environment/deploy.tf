@@ -104,6 +104,11 @@ data "aws_iam_policy_document" "deploy" {
   #
   # ForAllValues because an ordinary deploy sends no network configuration, so the key is absent,
   # and ForAllValues passes on an absent key where StringEquals would deny every deploy.
+  #
+  # The task definition is pinned to the backend's family too. Without that, this role could point
+  # the service at a bootstrap revision OpenTofu registered, whose execution role reads the master
+  # secret, and ECS would inject it into the service's tasks (#454). IfExists because a call that
+  # only scales the service names no task definition.
   statement {
     sid = "UpdateTheBackendServiceWithinThisEnvironmentsSubnets"
     actions = [
@@ -116,6 +121,12 @@ data "aws_iam_policy_document" "deploy" {
       test     = "ForAllValues:StringEquals"
       variable = "ecs:subnet"
       values   = aws_subnet.public[*].id
+    }
+
+    condition {
+      test     = "ArnLikeIfExists"
+      variable = "ecs:task-definition"
+      values   = ["arn:aws:ecs:${local.region}:${local.account}:task-definition/${local.service_name}:*"]
     }
   }
 

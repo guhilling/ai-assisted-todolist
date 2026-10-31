@@ -250,11 +250,11 @@ tfvars_region() {
 #
 # It runs the family's newest active revision that carries this environment's own execution role
 # for that task -- after a deploy that migrated, the deploy's -- by its ARN, so what runs is what
-# was checked (#429). Every revision OpenTofu or a deploy registers carries that role. The other
-# environment's roles may register a revision in this family too, since RegisterTaskDefinition
-# cannot be scoped, but never with this role: iam:PassRole is pinned. The bootstrap task's role is
-# one only the lifecycle role may pass, so a revision the deploy role registered never runs as it
-# (#454).
+# was checked (#429). For migrate, that is the role every revision OpenTofu or a deploy registers
+# carries. For db-bootstrap, it is a role of its own that only the lifecycle role may pass, so only
+# OpenTofu's revisions carry it, never one the deploy role registered (#454). The other
+# environment's roles may register a revision in either family too, since RegisterTaskDefinition
+# cannot be scoped, but never with this environment's roles: iam:PassRole is pinned.
 run_one_off() {
     local which="$1" family own_role revisions candidate role definition="" cluster subnets group region task_arn task_id exit_code reason
 
@@ -295,10 +295,11 @@ run_one_off() {
             definition="$candidate"
             break
         fi
-        echo "Passing over ${candidate}: its execution role is ${role}, not ${ENVIRONMENT}'s own." >&2
+        echo "Passing over ${candidate}: its execution role is ${role}, not ${own_role}." >&2
     done
     if [[ -z "$definition" ]]; then
         echo "${family} has no active revision with ${ENVIRONMENT}'s own execution role." >&2
+        echo "Its revisions need ${own_role}." >&2
         echo "Run './env.sh up ${ENVIRONMENT}' to register OpenTofu's again." >&2
         exit 1
     fi

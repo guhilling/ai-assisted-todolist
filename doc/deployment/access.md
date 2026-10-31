@@ -85,8 +85,9 @@ Four consequences worth being plain about:
   `env=prod`" is not literally achievable, and claiming it would be a wall that is not there.
 - **`iam:PassRole` is the statement that decides whether the rest is safe.** Running a task means
   handing it a role; granted on `*`, that one permission escalates "redeploy the application" to
-  account administrator in a single step. It names the two task roles for this environment and
-  conditions on `iam:PassedToService = ecs-tasks.amazonaws.com`.
+  account administrator in a single step. The deploy role's names the two task roles for this
+  environment; the lifecycle role's also names the bootstrap task's execution role, the only one
+  that reads the master secret (#454). Both condition on `iam:PassedToService = ecs-tasks.amazonaws.com`.
 - **An ARN says which resource, not where it goes.** `ecs:UpdateService` also takes a network
   configuration, so a role scoped to the qa service could still move it into prod's subnets with
   prod's tasks security group — a path to prod's database. Both roles that create or update the

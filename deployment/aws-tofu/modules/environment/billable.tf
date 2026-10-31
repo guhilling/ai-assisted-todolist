@@ -108,7 +108,8 @@ locals {
 #
 # The only place the master credentials are ever used, and the only task that receives them:
 # ECS injects them from the RDS-managed secret when the task starts, so a rotation since the last
-# run does not matter. Its execution role is the only one that may read that secret (ecs.tf). The long-running service never has them -- see doc/deployment/database.md.
+# run does not matter. Its execution role is the only one that may read that secret (ecs.tf).
+# The long-running service never has them -- see doc/deployment/database.md.
 #
 # psql verifies the server against the region's RDS CA bundle, passed in as a variable because
 # the postgres image does not carry it, and written to a file because libpq wants a path. The
