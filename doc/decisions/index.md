@@ -114,6 +114,7 @@ commit that first wrote each one down. CI checks every line and that this index 
 - [The frontend's deep links are a CloudFront Function, and a release needs no invalidation](deployment-and-aws.md#the-frontends-deep-links-are-a-cloudfront-function-and-a-release-needs-no-invalidation)
 - [Image vulnerabilities come from Amazon Inspector, through ECR's pull-through cache](deployment-and-aws.md#image-vulnerabilities-come-from-amazon-inspector-through-ecrs-pull-through-cache)
 - [qa's test accounts are a Cognito pool, and its client secret is in OpenTofu state](deployment-and-aws.md#qas-test-accounts-are-a-cognito-pool-and-its-client-secret-is-in-opentofu-state)
+- [The monitoring user reads no files and no secrets](deployment-and-aws.md#the-monitoring-user-reads-no-files-and-no-secrets)
 
 ## [Mobile app](mobile-app.md)
 
