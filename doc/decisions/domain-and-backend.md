@@ -423,12 +423,17 @@ Add on any task of the caller's therefore replaces its fields, as a `PUT` would.
 
 **Decision.** `POST /api/tasks/drafts` refuses a user who has five drafts open already, with a
 422 and no body. Adding or discarding one makes room again; the count is taken under the lock on
-the user's row that counting attachments takes, so two drafts started at once cannot both fit.
+the user's row that counting attachments takes (`User.lockRow`), so two drafts started at once
+cannot both fit.
 
-**Why.** Every draft is a row until the sweep removes it, an hour after it was abandoned, so
-anyone signed in could fill the table by calling the endpoint in a loop. The app opens one per
-add form; five leaves room for forms left open and retries. Gunnar's choice (2026-10-31).
+**Why.** Every draft is a row its owner never sees, until the sweep removes it an hour after it
+was abandoned, so a client starting drafts in a loop left rows behind that nobody would notice.
+The app opens one per add form; five leaves room for forms left open and retries. Gunnar's choice
+(2026-10-31). It bounds drafts only: tasks, which their owner does see, have no per-user bound,
+and neither does adding a draft and starting the next.
 
 **Cost.** A sixth add form, while five drafts are open, gets none: the app then lets its files
-wait for Add, as it does with a backend from before drafts. **Rejected: handing back an open
+wait for Add, as it does with a backend from before drafts. Drafts left by a sign-out or an app
+closed with the form open count until they are swept, so five of them hold the next forms off
+drafts for up to an hour. **Rejected: handing back an open
 draft instead of a new one**, which would let two forms share one draft and its files.

@@ -91,6 +91,14 @@ class RdsRestorePointsTest {
     }
 
     @Test
+    void shouldNotCountACopyRdsHasNotFinished() {
+        // Not restorable yet: its original's time alone must not let records be pruned.
+        DBSnapshot copying = DBSnapshot.builder().originalSnapshotCreateTime(SNAPSHOT).build();
+
+        assertEquals(Optional.empty(), new RdsRestorePoints(listing(copying), "taskfest-qa-db").oldest());
+    }
+
+    @Test
     void shouldKnowNothingWhenRdsListsNothing() {
         // No restorable point at all is far likelier a wrong instance name than a database
         // without backups, so it keeps every record rather than deleting them all.

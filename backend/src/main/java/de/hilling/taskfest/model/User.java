@@ -6,6 +6,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.LockModeType;
 import jakarta.persistence.Table;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
@@ -44,4 +45,14 @@ public class User extends PanacheEntityBase {
 
     @Column(name = "created_at", nullable = false)
     public Instant createdAt = Instant.now();
+
+    /**
+     * Locks this user's row until the transaction ends. What counts a user's rows against a limit
+     * -- attachments, open drafts (#434) -- takes it first: two files announced at once, a
+     * multi-file drop, or two drafts started at once would otherwise both count the same total and
+     * both fit.
+     */
+    public void lockRow() {
+        findById(id, LockModeType.PESSIMISTIC_WRITE);
+    }
 }

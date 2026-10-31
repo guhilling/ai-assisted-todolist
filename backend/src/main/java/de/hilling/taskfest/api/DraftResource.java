@@ -6,7 +6,6 @@ import de.hilling.taskfest.model.TaskImportance;
 import de.hilling.taskfest.model.User;
 import io.quarkus.security.Authenticated;
 import jakarta.inject.Inject;
-import jakarta.persistence.LockModeType;
 import jakarta.transaction.Transactional;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
@@ -47,9 +46,6 @@ public class DraftResource {
     /** How many drafts a user may have open at once: Gunnar's choice on #434. */
     static final int MAX_OPEN_DRAFTS = 5;
 
-    /** The status a draft beyond that is refused with, as an attachment beyond its limits is. */
-    private static final int UNPROCESSABLE = 422;
-
     @Inject
     TaskResource tasks;
 
@@ -63,14 +59,14 @@ public class DraftResource {
     @APIResponse(responseCode = "201", description = "The draft.",
         content = @Content(mediaType = MediaType.APPLICATION_JSON,
             schema = @Schema(implementation = DraftResponse.class)))
-    @APIResponse(responseCode = "422", description = "Refused: the caller has five drafts open already (#434).")
+    @APIResponse(responseCode = "422",
+        description = "Refused: the caller has " + MAX_OPEN_DRAFTS + " drafts open already (#434).")
     public Response create() {
         User owner = tasks.currentUser();
-        // Under the lock that counting attachments takes, so two drafts started at once cannot both
-        // count four and both fit.
-        User.findById(owner.id, LockModeType.PESSIMISTIC_WRITE);
+        owner.lockRow();
         if (Task.count("owner = ?1 and draft = true", owner) >= MAX_OPEN_DRAFTS) {
-            return Response.status(UNPROCESSABLE).build();
+            // Refused as an attachment beyond its limits is.
+            return Response.status(AttachmentResource.UNPROCESSABLE).build();
         }
         Task draft = new Task();
         draft.owner = owner;

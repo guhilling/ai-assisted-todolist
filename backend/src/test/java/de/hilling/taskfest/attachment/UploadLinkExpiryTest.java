@@ -26,15 +26,17 @@ class UploadLinkExpiryTest {
         StaticCredentialsProvider session = StaticCredentialsProvider.create(AwsSessionCredentials.builder()
             .accessKeyId("ASIAEXAMPLE").secretAccessKey("example-secret").sessionToken("example-token")
             .expirationTime(sessionEnds).build());
-        S3Client s3 = S3Client.builder().region(Region.EU_CENTRAL_1).credentialsProvider(session).build();
-        S3Presigner presigner = S3Presigner.builder().region(Region.EU_CENTRAL_1).credentialsProvider(session).build();
         // The store reads only the bucket's name from its configuration.
         AttachmentsConfig config = (AttachmentsConfig) Proxy.newProxyInstance(AttachmentsConfig.class.getClassLoader(),
             new Class<?>[] { AttachmentsConfig.class }, (proxy, method, args) -> "taskfest-test-attachments");
-        AttachmentStore store = new AttachmentStore(s3, presigner, config);
+        try (S3Client s3 = S3Client.builder().region(Region.EU_CENTRAL_1).credentialsProvider(session).build();
+             S3Presigner presigner = S3Presigner.builder().region(Region.EU_CENTRAL_1).credentialsProvider(session)
+                 .build()) {
+            AttachmentStore store = new AttachmentStore(s3, presigner, config);
 
-        AttachmentStore.UploadLink link = store.uploadLink("key", "image/png", 1, Duration.ofMinutes(15));
+            AttachmentStore.UploadLink link = store.uploadLink("key", "image/png", 1, Duration.ofMinutes(15));
 
-        assertEquals(sessionEnds, link.expiresAt());
+            assertEquals(sessionEnds, link.expiresAt());
+        }
     }
 }

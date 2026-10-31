@@ -38,11 +38,13 @@ public class RdsRestorePoints implements RestorePoints {
 
     /**
      * When a snapshot's data was taken: a copy's own creation time is the copy's, and its original's
-     * is kept beside it (#434). The earlier of the two, so a copy never makes the data look newer.
+     * is kept beside it (#434), so the earlier of the two. A snapshot without a time of its own, one
+     * RDS has not finished, counts as none, as it did before, whatever its original's says.
      */
     private static Instant dataTakenAt(DBSnapshot snapshot) {
-        return Stream.of(snapshot.snapshotCreateTime(), snapshot.originalSnapshotCreateTime())
-            .filter(Objects::nonNull).min(Instant::compareTo).orElse(null);
+        Instant own = snapshot.snapshotCreateTime();
+        Instant original = snapshot.originalSnapshotCreateTime();
+        return own == null || original == null || own.isBefore(original) ? own : original;
     }
 
     @Override

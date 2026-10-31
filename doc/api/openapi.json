@@ -853,7 +853,7 @@
             }
           },
           "422": {
-            "description": "Refused: the caller has five drafts open already (#434)."
+            "description": "Refused: the caller has 5 drafts open already (#434)."
           },
           "401": {
             "description": "Not Authorized"
