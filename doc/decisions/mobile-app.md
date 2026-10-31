@@ -268,6 +268,9 @@ closed test of 12 testers for 14 days that a personal one needs before a public 
 
 *Accepted · 2026-10-17 · #276, #318*
 
+Revised in part: a store release also waits for Gunnar's approval
+([Store releases wait for Gunnar's approval](#store-releases-wait-for-gunnars-approval), #363).
+
 **Decision.** The release workflow uploads with the platforms' own tools, not fastlane:
 `xcodebuild` signs and uploads to TestFlight, Gradle signs the bundle and a small script calls
 Google Play's publishing API. iOS signs with Apple's **cloud-managed distribution certificate**,
@@ -347,3 +350,27 @@ share" stay as they are. Gunnar chose to patch Android too rather than leave its
 thing the app does not do. **Rejected for Android: a module of the app's own** reading the launch
 intent beside expo-sharing, which would mean a second reader of the same intent for one field.
 
+## Store releases wait for Gunnar's approval
+
+*Accepted · 2026-10-31 · #363*
+
+**Decision.** The `app-stores` environment has Gunnar as its required reviewer, as `prod` has. A
+release's two store jobs reach it together, and one approval in the run lets both through. `qa`
+and `qa-live-test` admit `main` and `v*` tags only, as `prod` does, without a reviewer.
+
+**Why.** The review apps, CodeRabbit and Greptile, may write the repository's contents and
+workflows, so a breach of either could push a `v*` tag that points at a workflow of its own. The
+tag-only rule admits it, and the store credentials, the Admin key among them, would be in its
+hands. A reviewer is the one thing such a tag cannot get past. The apps are trusted; this is the
+fallback for their breach. qa is open to testers only, so a forged tag deploying there is the
+risk accepted; the branch policy keeps a workflow on any other branch from deploying there at all,
+since the deploy and live-test roles trust a job by its environment's name.
+
+**Cost.** One click per release before it reaches TestFlight and Play. A release nobody approves
+uploads nothing, and GitHub fails the waiting jobs after 30 days.
+
+**Rejected: a tag ruleset that lets only Gunnar create `v*` tags.** `cut-release.yml` (#297)
+creates the tag with the workflow's own token, so GitHub Actions would have to bypass the ruleset,
+and then any workflow pushed on a branch could create the tag in its place. Tagging through a token
+of Gunnar's, kept in an environment only `main` reaches, would hold, at the price of a token to
+create and renew; tagging by hand would retire `cut-release.yml`. Neither is worth it for a fallback.

@@ -130,3 +130,4 @@ commit that first wrote each one down. CI checks every line and that this index 
 - [No crash reporting, for now](mobile-app.md#no-crash-reporting-for-now)
 - [Sharing into the app with expo-sharing, reading only the raw share](mobile-app.md#sharing-into-the-app-with-expo-sharing-reading-only-the-raw-share)
 - [expo-sharing is patched for a shared page's title](mobile-app.md#expo-sharing-is-patched-for-a-shared-pages-title)
+- [Store releases wait for Gunnar's approval](mobile-app.md#store-releases-wait-for-gunnars-approval)

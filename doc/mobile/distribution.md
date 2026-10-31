@@ -39,14 +39,17 @@ committed.
 ### GitHub: the `app-stores` environment
 
 The store credentials are **environment secrets** of `app-stores`, which admits **tags beginning
-with `v`** and no branch or pull request: the App Store Connect key is an Admin key. That rule is
+with `v`** and no branch or pull request, and only once Gunnar approves: the App Store Connect key
+is an Admin key ([the decision](../decisions/mobile-app.md#store-releases-wait-for-gunnars-approval)). That rule is
 coarse; the `numbers` job, which runs before any job enters the environment, accepts only exact
 `vX.Y.Z` tags, and only those with a GitHub Release.
 
 1. *Settings → Environments → New environment*: `app-stores`.
 2. *Deployment branches and tags → Selected branches and tags → Add rule*: type **Tag**, pattern
    `v*`.
-3. Its secrets are added in the steps below. The **repository variables** (*Settings → Secrets and
+3. *Required reviewers*: Gunnar, with *Prevent self-review* off. A release's two store jobs then
+   wait together, and one *Review deployments* in its run lets both through.
+4. Its secrets are added in the steps below. The **repository variables** (*Settings → Secrets and
    variables → Actions → Variables*) are not secret, and a job's `if` can read only those.
 
 | Name | Kind | Value |
