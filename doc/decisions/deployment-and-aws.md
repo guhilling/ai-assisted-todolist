@@ -85,7 +85,8 @@ writes its secret into OpenTofu state in cleartext, and with roles the question 
   there is no ARN or tag to condition on. The qa role can therefore register a revision in prod's
   task definition family, though with its own roles or none, never prod's execution role, since
   `iam:PassRole` is pinned; `env.sh` and `deploy-backend.py` carry or run only a revision with the
-  environment's own execution role, which every revision of its own carries (#429). This is accepted: a task definition nobody runs is inert, and both calls
+  environment's own execution role, which every revision of its own carries (#429). The bootstrap
+  task's execution role, the one that reads the master secret, is not among those it may pass (#454). This is accepted: a task definition nobody runs is inert, and both calls
   that could run or deploy one are scoped to this environment's cluster and service. `RunTask`,
   though, has no condition key for the network a task runs in, so a one-off task can be started in
   the other environment's subnets; it carries only its own environment's roles, so it holds no
@@ -205,13 +206,21 @@ resource id changes with every restore, while the user travels with the snapshot
 
 *Accepted · 2026-10-01 · #109*
 
+Revised in part: the task starts with an execution role of its own, the only one that may read the
+master secret, and the deploy role may not pass it (#454).
+
 It is the only thing
 that needs the master credentials, and it is needed once per environment, so it is a task the
 lifecycle role may run and the deploy role may not, started by `env.sh db-bootstrap`. ECS
 injects the credentials when the task starts, so the seven-day rotation that ruled out injecting
 them into the service does not apply to a task that lives for seconds. The master secret is
 matched by the `aws:rds:primaryDBInstanceArn` tag RDS puts on it, because its name is random and
-changes with every restore. *Rejected: the backend creating its own user at start-up*, which
+changes with every restore. Only the task's own execution role, `taskfest-<env>-db-bootstrap-execution`,
+may read it, and only the lifecycle role may pass that role. It was the execution role all tasks
+share at first, which the deploy role may pass: since it may also register any task definition, a
+revision of its choosing, the backend's included, could have had ECS inject the master secret
+(#454). `env.sh db-bootstrap` runs only a revision with that role, and the deploy role's `UpdateService`
+may point the service only at the backend's own family, never at a bootstrap revision. *Rejected: the backend creating its own user at start-up*, which
 would put the master credentials in the service. *Rejected: a Lambda in the VPC*, which is more
 infrastructure for something that runs once.
 

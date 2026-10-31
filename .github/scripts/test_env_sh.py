@@ -136,8 +136,8 @@ esac
 
 FAKE_AWS = """#!/usr/bin/env bash
 # The AWS CLI as far as a one-off task needs it: the lifecycle profile, a family of two active
-# revisions, 7 with the execution role in $NEWEST_ROLE and 6 with qa's own, and ECS answering that
-# the task ran and exited 0. Each call is written to $AWS_CALLS.
+# revisions, 7 with the execution role in $NEWEST_ROLE and 6 with qa's own for that family (#454),
+# and ECS answering that the task ran and exited 0. Each call is written to $AWS_CALLS.
 echo "$*" >> "$AWS_CALLS"
 case "$1 $2" in
   "configure list-profiles") echo taskfest-qa-lifecycle ;;
@@ -147,9 +147,11 @@ case "$1 $2" in
     family="$(sed -n 's/.*--family-prefix \\([^ ]*\\).*/\\1/p' <<< "$*")"
     printf 'arn:aws:ecs:eu-central-1:123456789012:task-definition/%s:%s\t' "$family" 7 "$family" 6; echo ;;
   "ecs describe-task-definition")
+    own=arn:aws:iam::123456789012:role/taskfest-qa-task-execution
+    [[ "$*" == *db-bootstrap* ]] && own=arn:aws:iam::123456789012:role/taskfest-qa-db-bootstrap-execution
     case "$*" in
-      *:7*) echo "$NEWEST_ROLE" ;;
-      *:6*) echo arn:aws:iam::123456789012:role/taskfest-qa-task-execution ;;
+      *:7*) echo "${NEWEST_ROLE:-$own}" ;;
+      *:6*) echo "$own" ;;
     esac ;;
   "ecs run-task") echo arn:aws:ecs:eu-central-1:123456789012:task/taskfest-qa/abc ;;
   "ecs describe-tasks") echo 0 ;;
@@ -161,8 +163,8 @@ exit 0
 @unittest.skipUnless(shutil.which("bash"), "needs bash")
 class OneOffTaskTest(unittest.TestCase):
     """`env.sh migrate` and `db-bootstrap` run their family's newest revision that carries this
-    environment's own execution role (#429): the other environment's roles may register a revision
-    in this family too, but never with that role, since iam:PassRole is pinned."""
+    environment's own execution role for that task (#429, #454): the other environment's roles may
+    register a revision in this family too, but never with that role, since iam:PassRole is pinned."""
 
     def setUp(self):
         self.work = tempfile.TemporaryDirectory()
@@ -172,7 +174,7 @@ class OneOffTaskTest(unittest.TestCase):
             (work / name).chmod(0o755)
         self.calls = work / "aws-calls"
         self.env = {"PATH": f"{work}:{os.environ['PATH']}", "HOME": self.work.name,
-                    "AWS_CALLS": str(self.calls), "NEWEST_ROLE": OWN_ROLE}
+                    "AWS_CALLS": str(self.calls)}
 
     def tearDown(self):
         self.work.cleanup()
@@ -205,15 +207,33 @@ class OneOffTaskTest(unittest.TestCase):
 
         self.assertIn("task-definition/taskfest-qa-db-bootstrap:6 ", self.run_task("db-bootstrap"))
 
+    def test_db_bootstrap_passes_over_a_newer_revision_with_the_shared_execution_role(self):
+        # The deploy role may pass that one, so it never reads the master secret (#454).
+        self.env["NEWEST_ROLE"] = OWN_ROLE
+
+        self.assertIn("task-definition/taskfest-qa-db-bootstrap:6 ", self.run_task("db-bootstrap"))
+
     def test_a_family_with_no_revision_of_its_own_runs_nothing(self):
         (pathlib.Path(self.work.name) / "aws").write_text(FAKE_AWS.replace(
-            "*:6*) echo arn:aws:iam::123456789012:role/taskfest-qa-task-execution", "*:6*) echo None"))
+            '*:6*) echo "$own"', "*:6*) echo None"))
         self.env["NEWEST_ROLE"] = OWN_ROLE.replace("taskfest-qa-", "taskfest-prod-")
 
         result = self.run_env_sh("migrate")
 
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("taskfest-qa-migrate has no active revision with qa's own execution role.", result.stderr)
+        self.assertNotIn("ecs run-task", self.calls.read_text())
+
+    def test_a_bootstrap_family_with_no_revision_of_its_own_runs_nothing(self):
+        # Both its revisions carry the shared execution role, which the deploy role may pass (#454).
+        self.env["NEWEST_ROLE"] = OWN_ROLE
+        (pathlib.Path(self.work.name) / "aws").write_text(FAKE_AWS.replace('*:6*) echo "$own"', f"*:6*) echo {OWN_ROLE}"))
+
+        result = self.run_env_sh("db-bootstrap")
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("taskfest-qa-db-bootstrap has no active revision with qa's own execution role.", result.stderr)
+        self.assertIn("Its revisions need taskfest-qa-db-bootstrap-execution.", result.stderr)
         self.assertNotIn("ecs run-task", self.calls.read_text())
 
     def test_a_family_that_cannot_be_read_stops_with_aws_s_own_error(self):

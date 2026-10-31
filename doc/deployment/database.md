@@ -91,6 +91,8 @@ now created with no tasks and scaled up by `up` once the database is ready
 `db-bootstrap` runs `psql` from the official PostgreSQL image (pulled from ECR Public's mirror,
 which has no Docker Hub rate limit) with the SQL in `modules/environment/db-bootstrap.sql`. It is
 the only task that receives the master credentials, and the only one the deploy role cannot run.
+Its execution role, `taskfest-<env>-db-bootstrap-execution`, is the only one that may read the master
+secret, and the deploy role cannot pass it (#454).
 It verifies the server with the region's RDS CA bundle, which is committed under
 `modules/environment/rds-ca/` and passed in as a variable, because the image does not carry it.
 Every statement is idempotent, so running it again — or on a restored database, which already has

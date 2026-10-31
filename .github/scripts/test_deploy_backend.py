@@ -380,7 +380,7 @@ class ForeignRevisionTest(unittest.TestCase):
                                                        "taskfest-qa-deploy", environment="qa"))
 
     def test_a_revision_of_its_own_without_a_task_role_counts(self):
-        # The database bootstrap task has an execution role only.
+        # A revision may carry an execution role only; it still counts as the environment's own.
         running = with_roles(revision(5, DEPLOY), "qa")
         applied = {**with_roles(revision(6, ADMIN), "qa"), "taskRoleArn": None}
         self.assertIs(applied, deploy.applied_revision(self.describe(running, applied), running,

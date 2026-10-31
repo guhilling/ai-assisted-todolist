@@ -38,6 +38,8 @@ locals {
   task_execution_role = "${local.name}-task-execution"
   task_role           = "${local.name}-task"
   ecs_infrastructure  = "${local.name}-ecs-infrastructure"
+  # Passed by the lifecycle role only, never by this one (#454).
+  db_bootstrap_execution_role = "${local.name}-db-bootstrap-execution"
 
   # The snapshots the downtime path takes before migrating (#215), named by deploy-backend.py.
   # A final snapshot is `-final-`, so it never matches this.
@@ -102,6 +104,11 @@ data "aws_iam_policy_document" "deploy" {
   #
   # ForAllValues because an ordinary deploy sends no network configuration, so the key is absent,
   # and ForAllValues passes on an absent key where StringEquals would deny every deploy.
+  #
+  # The task definition is pinned to the backend's family too. Without that, this role could point
+  # the service at a bootstrap revision OpenTofu registered, whose execution role reads the master
+  # secret, and ECS would inject it into the service's tasks (#454). IfExists because a call that
+  # only scales the service names no task definition.
   statement {
     sid = "UpdateTheBackendServiceWithinThisEnvironmentsSubnets"
     actions = [
@@ -114,6 +121,12 @@ data "aws_iam_policy_document" "deploy" {
       test     = "ForAllValues:StringEquals"
       variable = "ecs:subnet"
       values   = aws_subnet.public[*].id
+    }
+
+    condition {
+      test     = "ArnLikeIfExists"
+      variable = "ecs:task-definition"
+      values   = ["arn:aws:ecs:${local.region}:${local.account}:task-definition/${local.service_name}:*"]
     }
   }
 
@@ -179,7 +192,8 @@ data "aws_iam_policy_document" "deploy" {
   # deployer attach *any* role in the account to a task and read that role's credentials out of
   # it -- turning "redeploy the application" into account administrator in a single step. So it
   # names exactly the two roles this environment's tasks use, and the condition means they can
-  # only ever be passed to ECS.
+  # only ever be passed to ECS. Not the bootstrap task's execution role, the one that reads the
+  # master secret: with it, a revision of this role's choosing could have ECS inject that (#454).
   statement {
     sid     = "PassOnlyThisEnvironmentsTaskRolesAndOnlyToEcs"
     actions = ["iam:PassRole"]

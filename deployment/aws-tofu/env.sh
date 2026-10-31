@@ -248,13 +248,15 @@ tfvars_region() {
 # The task runs where the backend will: a public subnet for its outbound calls, and the tasks
 # security group, which is the only one the database admits.
 #
-# It runs the family's newest active revision that carries this environment's own execution role --
-# after a deploy that migrated, the deploy's -- by its ARN, so what runs is what was checked (#429).
-# Every revision OpenTofu or a deploy registers carries that role. The other environment's roles
-# may register a revision in this family too, since RegisterTaskDefinition cannot be scoped, but
-# never with this role: iam:PassRole is pinned.
+# It runs the family's newest active revision that carries this environment's own execution role
+# for that task -- after a deploy that migrated, the deploy's -- by its ARN, so what runs is what
+# was checked (#429). For migrate, that is the role every revision OpenTofu or a deploy registers
+# carries. For db-bootstrap, it is a role of its own that only the lifecycle role may pass, so only
+# OpenTofu's revisions carry it, never one the deploy role registered (#454). The other
+# environment's roles may register a revision in either family too, since RegisterTaskDefinition
+# cannot be scoped, but never with this environment's roles: iam:PassRole is pinned.
 run_one_off() {
-    local which="$1" family revisions candidate role definition="" cluster subnets group region task_arn task_id exit_code reason
+    local which="$1" family own_role revisions candidate role definition="" cluster subnets group region task_arn task_id exit_code reason
 
     if [[ "$(run_tofu output -json db_endpoint 2>/dev/null || echo null)" == "null" ]]; then
         echo "${ENVIRONMENT} is down, so there is no database to ${which}." >&2
@@ -263,8 +265,10 @@ run_one_off() {
     fi
 
     case "$which" in
-        db-bootstrap) family="$(run_tofu output -raw db_bootstrap_task_family)" ;;
-        migrate)      family="$(run_tofu output -raw migrate_task_family)" ;;
+        db-bootstrap) family="$(run_tofu output -raw db_bootstrap_task_family)"
+                      own_role="taskfest-${ENVIRONMENT}-db-bootstrap-execution" ;;
+        migrate)      family="$(run_tofu output -raw migrate_task_family)"
+                      own_role="taskfest-${ENVIRONMENT}-task-execution" ;;
     esac
     cluster="$(run_tofu output -raw cluster_name)"
     group="$(run_tofu output -raw tasks_security_group_id)"
@@ -287,14 +291,15 @@ run_one_off() {
             echo "Could not read ${candidate}." >&2
             exit 1
         fi
-        if [[ "$role" == arn:aws:iam::*:role/taskfest-${ENVIRONMENT}-task-execution ]]; then
+        if [[ "$role" == arn:aws:iam::*:role/${own_role} ]]; then
             definition="$candidate"
             break
         fi
-        echo "Passing over ${candidate}: its execution role is ${role}, not ${ENVIRONMENT}'s own." >&2
+        echo "Passing over ${candidate}: its execution role is ${role}, not ${own_role}." >&2
     done
     if [[ -z "$definition" ]]; then
         echo "${family} has no active revision with ${ENVIRONMENT}'s own execution role." >&2
+        echo "Its revisions need ${own_role}." >&2
         echo "Run './env.sh up ${ENVIRONMENT}' to register OpenTofu's again." >&2
         exit 1
     fi

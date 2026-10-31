@@ -282,10 +282,11 @@ def identities(p: Palette) -> str:
 
         box(left_x, 470, left_w, 84,
             ["taskfest-monitoring", "read-only, everywhere", "a person at a console"], p),
-        box(right_x, 470, right_w, 84,
+        box(right_x, 470, right_w, 104,
             ["taskfest-<env>-task-execution \u00b7 -task",
              "what the container runs as \u2014 nobody assumes these",
-             "pulls the image, reads the database secret, writes logs"], p),
+             "pulls the image, reads the sign-in secrets, writes logs",
+             "not -db-bootstrap-execution, which reads the master secret: lifecycle only"], p),
         arrow([(725, rows[2] + box_h), (725, 470)], p),
         label(738, 452, "iam:PassRole \u2014 only these two, only to ECS", p, anchor="start"),
     ]
@@ -297,7 +298,8 @@ def identities(p: Palette) -> str:
         "line, the only unattended identity is the deploy role, assumed from GitHub Actions "
         "through OIDC, which may update the service and the site bucket and cannot create, "
         "change or delete any infrastructure. Separately, the task roles are what the "
-        "container runs as rather than an identity anyone assumes, and a read-only user "
+        "container runs as rather than an identity anyone assumes; only the bootstrap task's "
+        "execution role reads the master secret, and only the lifecycle role may pass it. A read-only user "
         "exists for looking at things."
     )
     return document(w, h, "\n  ".join(parts), p, aria)
