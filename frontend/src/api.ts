@@ -527,27 +527,62 @@ async function ensureNotRefused(response: Response) {
 }
 
 /**
+ * How long an upload may take nothing more before it is given up (#431): a connection that hangs
+ * rather than drops would otherwise keep it, and the add row locked behind it, without end. Counted
+ * from the last progress, so a slow upload that keeps moving is never cut off.
+ */
+const UPLOAD_STALL_MS = 30_000
+
+/**
+ * How long storage may take to answer once the whole file is handed over (#431). Longer than a
+ * stall, because the browser counts a byte as sent once it is in the network's buffer: on a slow
+ * line the last of the file is still on its way with nothing more to report.
+ */
+const UPLOAD_ANSWER_MS = 120_000
+
+/**
  * PUTs the file to the signed link, reporting progress as a fraction.
  *
  * `XMLHttpRequest` rather than `fetch`, because only it reports how much of an upload has gone.
  * The headers are the ones the link was signed for, sent exactly; the browser adds Content-Length
- * itself, and storage refuses a file of any other size.
+ * itself, and storage refuses a file of any other size. It is aborted, and fails, once
+ * {@link UPLOAD_STALL_MS} pass without progress, or {@link UPLOAD_ANSWER_MS} without an answer
+ * after the whole file has been handed over.
  */
 function putToStorage(url: string, headers: Record<string, string>, file: Blob, onProgress: (fraction: number) => void) {
   return new Promise<void>((resolve, reject) => {
     const request = new XMLHttpRequest()
+    let stalled: ReturnType<typeof setTimeout> | undefined
+    const watch = (ms = UPLOAD_STALL_MS) => {
+      clearTimeout(stalled)
+      stalled = setTimeout(() => request.abort(), ms)
+    }
+    const fail = () => {
+      clearTimeout(stalled)
+      reject(new RequestError('uploadAttachment'))
+    }
     request.open('PUT', url)
     for (const [name, value] of Object.entries(headers)) {
       request.setRequestHeader(name, value)
     }
     request.upload.onprogress = (event) => {
+      watch(event.lengthComputable && event.loaded >= event.total ? UPLOAD_ANSWER_MS : UPLOAD_STALL_MS)
       if (event.lengthComputable) {
         onProgress(event.loaded / event.total)
       }
     }
-    request.onload = () =>
-      request.status >= 200 && request.status < 300 ? resolve() : reject(new RequestError('uploadAttachment'))
-    request.onerror = () => reject(new RequestError('uploadAttachment'))
+    request.upload.onload = () => watch(UPLOAD_ANSWER_MS)
+    request.onload = () => {
+      clearTimeout(stalled)
+      if (request.status >= 200 && request.status < 300) {
+        resolve()
+      } else {
+        fail()
+      }
+    }
+    request.onerror = fail
+    request.onabort = fail
+    watch()
     request.send(file)
   })
 }
