@@ -5,6 +5,7 @@ import type { Session } from './session'
 import { TaskFestApp, type Dependencies, type TaskChanges } from './TaskFestApp'
 import { BASE, HOUR, NOW, TODAY, dependencies as appDependencies, memorySessions, rent, train, water } from './testing'
 import { variants } from './variants'
+import { NotDatedBackError } from './web'
 
 jest.mock('./DueDatePicker', () => ({ DueDatePicker: () => null }))
 
@@ -283,7 +284,7 @@ describe('changing the board from the app (#271)', () => {
       await user.press(screen.getByRole('button', { name: 'Delete' }))
       await act(async () => jest.advanceTimersByTime(2000))
 
-      expect(screen.getByText('Task deleted')).toBeOnTheScreen()
+      expect(screen.getByText('2 tasks deleted')).toBeOnTheScreen()
     } finally {
       jest.useRealTimers()
     }
@@ -305,6 +306,91 @@ describe('changing the board from the app (#271)', () => {
     expect(await screen.findByText('Pay the rent')).toBeOnTheScreen()
     expect(screen.queryByText('Post the letter')).toBeNull()
     expect(screen.getByText('Unexpected error while restoring data.')).toBeOnTheScreen()
+  })
+
+  it('shows a task put back but not to its own date, and says so (#426)', async () => {
+    const today = { ...train, id: 102, dueDate: TODAY }
+    const changes = backend({ restore: jest.fn().mockRejectedValue(new NotDatedBackError(today, new RequestFailedError(500))) })
+    const user = await showBoard(changes)
+
+    await user.press(screen.getByRole('button', { name: 'Edit "Book the train"' }))
+    await user.press(screen.getByRole('button', { name: 'Delete' }))
+    await user.press(screen.getByRole('button', { name: 'Undo' }))
+
+    expect(await screen.findByText('Task restored, but due today: its own date could not be set back.')).toBeOnTheScreen()
+    expect(screen.getByTestId('task-102')).toBeOnTheScreen()
+  })
+
+  it('says a task not put back at all before one not dated back (#426)', async () => {
+    const done = { ...water, id: 4, description: 'Post the letter', state: 'DONE' as const }
+    const restore = jest.fn(async (_caller, task: BoardTask) => {
+      if (task.id === done.id) {
+        throw new RequestFailedError(500)
+      }
+      throw new NotDatedBackError({ ...task, id: task.id + 100, dueDate: TODAY }, new RequestFailedError(500))
+    })
+    const user = await showBoard(backend({ restore }), { fetchTasks: jest.fn().mockResolvedValue([water, rent, done]) })
+
+    await user.press(screen.getByRole('button', { name: 'Clear completed' }))
+    await user.press(screen.getByRole('button', { name: 'Undo' }))
+
+    expect(await screen.findByText('Unexpected error while restoring data.')).toBeOnTheScreen()
+    expect(screen.getByText('Pay the rent')).toBeOnTheScreen()
+  })
+
+  it('signs out when the session ended, whatever else an undo met (#426)', async () => {
+    const done = { ...water, id: 4, description: 'Post the letter', state: 'DONE' as const }
+    const restore = jest.fn(async (_caller, task: BoardTask) => {
+      throw task.id === done.id ? new RequestFailedError(500) : new SignedOutError()
+    })
+    const user = await showBoard(backend({ restore }), { fetchTasks: jest.fn().mockResolvedValue([water, done, rent]) })
+
+    await user.press(screen.getByRole('button', { name: 'Clear completed' }))
+    await user.press(screen.getByRole('button', { name: 'Undo' }))
+
+    expect(await screen.findByText('Your session has expired. Sign in again to carry on.')).toBeOnTheScreen()
+  })
+
+  it('signs out when the session ended while a restored task was being dated back (#426)', async () => {
+    const changes = backend({ restore: jest.fn().mockRejectedValue(new NotDatedBackError({ ...train, id: 102, dueDate: TODAY }, new SignedOutError())) })
+    const user = await showBoard(changes)
+
+    await user.press(screen.getByRole('button', { name: 'Edit "Book the train"' }))
+    await user.press(screen.getByRole('button', { name: 'Delete' }))
+    await user.press(screen.getByRole('button', { name: 'Undo' }))
+
+    expect(await screen.findByText('Your session has expired. Sign in again to carry on.')).toBeOnTheScreen()
+  })
+
+  it('loads the board again when dating a restored task back got no answer in time (#311, #426)', async () => {
+    const fetchTasks = jest.fn().mockResolvedValue([water, train, rent])
+    const changes = backend({ restore: jest.fn().mockRejectedValue(new NotDatedBackError({ ...train, id: 102, dueDate: TODAY }, new TimedOutError(10_000))) })
+    const user = await showBoard(changes, { fetchTasks })
+
+    await user.press(screen.getByRole('button', { name: 'Edit "Book the train"' }))
+    await user.press(screen.getByRole('button', { name: 'Delete' }))
+    await user.press(screen.getByRole('button', { name: 'Undo' }))
+
+    expect(await screen.findByText('Task restored, but due today: its own date could not be set back.')).toBeOnTheScreen()
+    expect(fetchTasks).toHaveBeenCalledTimes(2)
+  })
+
+  it('joins a second delete to the offer standing, and puts both back (#426)', async () => {
+    const changes = backend()
+    const user = await showBoard(changes)
+
+    await user.press(screen.getByRole('button', { name: 'Edit "Book the train"' }))
+    await user.press(screen.getByRole('button', { name: 'Delete' }))
+    await user.press(screen.getByRole('button', { name: 'Edit "Water the plants"' }))
+    await user.press(screen.getByRole('button', { name: 'Delete' }))
+
+    expect(screen.getByText('2 tasks deleted')).toBeOnTheScreen()
+    await user.press(screen.getByRole('button', { name: 'Undo' }))
+
+    expect(changes.restore).toHaveBeenCalledWith(expect.anything(), train, TODAY)
+    expect(changes.restore).toHaveBeenCalledWith(expect.anything(), water, TODAY)
+    expect(await screen.findByText('Book the train')).toBeOnTheScreen()
+    expect(screen.getByText('Water the plants')).toBeOnTheScreen()
   })
 
   it('puts deleted tasks back once, however quickly undo is tapped', async () => {

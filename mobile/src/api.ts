@@ -1,6 +1,7 @@
 import {
   importanceRank,
   needsDatingBack,
+  NotDatedBackError,
   restoreInput,
   storageUrl,
   validateAttachmentResponse,
@@ -198,7 +199,8 @@ export async function deleteAccount(caller: Caller, fetchImpl: typeof fetch = fe
 
 /**
  * Puts a deleted task back, with its files, by the website's own rule (`restoreInput`): a task
- * already overdue is created today and then dated back. It returns with a new id.
+ * already overdue is created today and then dated back. It returns with a new id, or, when it could
+ * not be dated back, throws a `NotDatedBackError` carrying the task created today (#426).
  */
 export async function restoreTask(
   caller: Caller,
@@ -207,7 +209,14 @@ export async function restoreTask(
   fetchImpl: typeof fetch = fetch,
 ): Promise<BoardTask> {
   const created = await createTask(caller, restoreInput(task, today), fetchImpl)
-  return needsDatingBack(created, task) ? updateTask(caller, { ...created, dueDate: task.dueDate }, fetchImpl) : created
+  if (!needsDatingBack(created, task)) {
+    return created
+  }
+  try {
+    return await updateTask(caller, { ...created, dueDate: task.dueDate }, fetchImpl)
+  } catch (cause) {
+    throw new NotDatedBackError(created, cause)
+  }
 }
 
 /**

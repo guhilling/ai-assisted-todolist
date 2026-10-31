@@ -26,3 +26,19 @@ export function restoreInput(task: TaskResponse, today: string): TaskCreateReque
 export function needsDatingBack(created: TaskResponse, deleted: TaskResponse) {
   return created.dueDate !== deleted.dueDate
 }
+
+/**
+ * An undo that re-created the task but could not date it back to the deleted one's day (#426).
+ * The task exists, dated today, so it carries the task for the board to show -- one that exists
+ * unseen is worse than one with the wrong date -- and why the date could not be put back. The
+ * website's undo and the app's both throw it.
+ */
+export class NotDatedBackError extends Error {
+  readonly task: TaskResponse
+
+  constructor(task: TaskResponse, cause: unknown) {
+    super('The task was restored, but not to its own date.', { cause })
+    this.name = 'NotDatedBackError'
+    this.task = task
+  }
+}

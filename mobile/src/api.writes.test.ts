@@ -1,4 +1,5 @@
 import { ContractBreachError, RequestFailedError, SignedOutError, createTask, deleteTask, restoreTask, updateTask } from './api'
+import { NotDatedBackError } from './web'
 
 const BASE = 'https://taskfest.example'
 const caller = { baseUrl: BASE, idToken: 'the-token', appVersion: '1.4.0' }
@@ -99,5 +100,15 @@ describe('changing tasks, as the app asks the backend (#271)', () => {
     expect(JSON.parse(fetchImpl.mock.calls[0][1].body).dueDate).toBe('2026-10-10')
     expect(fetchImpl.mock.calls[1][0]).toBe(`${BASE}/api/tasks/8`)
     expect(JSON.parse(fetchImpl.mock.calls[1][1].body).dueDate).toBe('2026-10-01')
+  })
+
+  it('hands back the task created today when it cannot be dated back, and why (#426)', async () => {
+    const overdue = { ...aTask, dueDate: '2026-10-01' }
+    const today = { ...overdue, id: 8, dueDate: '2026-10-10' }
+
+    const restored = restoreTask(caller, overdue, '2026-10-10', respond([201, today], [500]))
+
+    await expect(restored).rejects.toBeInstanceOf(NotDatedBackError)
+    await expect(restored).rejects.toMatchObject({ task: today, cause: expect.any(RequestFailedError) })
   })
 })

@@ -1,4 +1,4 @@
-import { ContractBreachError, RequestError } from '../api'
+import { ContractBreachError, NotDatedBackError, RequestError } from '../api'
 import type { Language } from './language'
 import type { Messages } from './messages'
 
@@ -22,6 +22,9 @@ export function describeFailure(cause: unknown, fallback: string, messages: Mess
   }
   if (cause instanceof RequestError) {
     return messages.errors[cause.key]
+  }
+  if (cause instanceof NotDatedBackError) {
+    return messages.undo.notDatedBack
   }
   return language === 'en' && cause instanceof Error ? cause.message : fallback
 }

@@ -32,7 +32,7 @@ export { compareCompleted, compareOpen, importanceByRank, importanceLevels, impo
 export { addDays, bucketOf, calendarParts, describeDueDate, quickDates, todayIso, describeDueDateWithWeekday, sectionWeekday, weekdayBeside, type DueBucket } from '../../frontend/src/dates'
 export { catalogues, type Messages } from '../../frontend/src/i18n/messages'
 export { chooseLanguage, localeOf, type Language } from '../../frontend/src/i18n/language'
-export { needsDatingBack, restoreInput } from '../../frontend/src/restore'
+export { NotDatedBackError, needsDatingBack, restoreInput } from '../../frontend/src/restore'
 export { imprintUrl, privacyUrls, purposeUrl, termsUrls } from '../../frontend/src/links'
 export { confirmsEmail } from '../../frontend/src/confirmsEmail'
 export { storageUrl } from '../../frontend/src/storage'

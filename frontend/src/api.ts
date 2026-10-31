@@ -18,7 +18,7 @@ import type {
   TaskCreateRequest,
   TaskResponse,
 } from './generated/types'
-import { needsDatingBack, restoreInput } from './restore'
+import { NotDatedBackError, needsDatingBack, restoreInput } from './restore'
 import { makeThumbnail as makeImageThumbnail } from './thumbnail'
 import {
   validateAttachmentResponse,
@@ -482,9 +482,14 @@ export async function restoreTask(task: Task, today: string) {
   if (!needsDatingBack(created, task)) {
     return created
   }
-  return putTask({ ...created, dueDate: task.dueDate })
+  try {
+    return await putTask({ ...created, dueDate: task.dueDate })
+  } catch (cause) {
+    throw new NotDatedBackError(created, cause)
+  }
 }
 
+export { NotDatedBackError } from './restore'
 export { attachmentLimits, attachmentTypes, checkFile } from './attachmentPolicy'
 
 /** An attachment refused, for the board to say why in the visitor's language. */
