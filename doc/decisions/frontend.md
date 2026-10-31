@@ -501,25 +501,39 @@ like an app icon. Two bamboo variants (a stalk behind the head, a tick drawn as 
 drawn; the plain tick stays legible at 16 pixels, where bamboo turns into a green smudge.
 
 
-## Only a task's latest save is shown, and a stalled upload is given up
+## A task's saves go one after another, and a stalled upload is given up
 
 *Accepted · 2026-10-31 · #431*
 
-**Decision.** The website counts the saves it starts for each task, a tick's or an edit's, and
-shows a save's answer, or rolls its tick back, only while it is still the task's latest; an earlier
-one's failure is still reported. A save's answer sets the task's fields and leaves its files as the
-board has them. An editor that is saving ignores Escape and disables Cancel until the answer has
-come. An upload to storage that takes nothing more for 30 seconds is aborted and fails as any
-other failed upload does, which unlocks the add row.
+**Decision.** The website sends a task's saves, a tick's or an edit's, one after another: each
+waits until the one before it has its answer. Only the last one queued has a say on the board: its
+answer is shown, and its failure rolls the task back to what the server last said and is reported.
+An earlier one's answer is passed over and its failure kept quiet, unless the session has ended. A
+save's answer sets the task's fields and leaves its files as the board has them. An editor that is
+saving ignores Escape and disables Cancel until the answer has come. An upload to storage that
+takes nothing more for 30 seconds is aborted and fails as any other failed upload does, which
+unlocks the add row; once the whole file is handed over, storage has two minutes to answer.
 
-**Why.** Answers do not come back in the order their requests went: a tick answered after the
-untick that followed it left the board showing done while the task was open, and a file confirmed
-while an edit was on its way vanished from the row when the edit's answer, given before the
-confirmation, came last. An editor closed while saving looked discarded and was saved all the same.
-A connection that hangs rather than drops never settled an upload, so the add row stayed locked
-until a reload. Thirty seconds without progress counts a hanging connection as none, as the app's
-ten seconds do for a request ([mobile-app.md](mobile-app.md), #311), and never cuts off a slow
-upload that is still moving. Gunnar's choice (2026-10-31).
+**Why.** Two PUTs on their way at once may be applied by the server in either order, and their
+answers come back in either order too: a tick answered after the untick that followed it left the
+board showing done while the task was open. Filtering answers in the browser alone would still let
+the board and the database disagree, so the saves are sent in order instead, and the checkbox still
+flips at once. Rolling back to the server's last answer, rather than to the task as shown before
+the click, keeps a tick clicked on another tick that failed from leaving something untrue. An
+earlier failure is kept quiet because the save after it sends the whole task as the board shows it,
+so it says what happens. A file confirmed while an edit was on its way vanished from the row when
+the edit's answer, given before the confirmation, came last. An editor closed while saving looked
+discarded and was saved all the same. A connection that hangs rather than drops never settled an
+upload, so the add row stayed locked until a reload. Thirty seconds without progress count a
+hanging connection as none, as the app's ten seconds do for a request
+([mobile-app.md](mobile-app.md), #311), and never cut off a slow upload that is still moving; the
+browser counts a byte as sent once it is in the network's buffer, so the last of a file on a slow
+line is still on its way with nothing to report, which the two minutes allow for. Gunnar's choices
+(2026-10-31).
+
+**Cost.** A quick tick and untick wait one round trip between their requests. An edit saved after
+a tick that failed saves the task as the board showed it, the tick included, and says nothing of
+the failure.
 
 **Rejected: a fixed limit for the whole upload**, such as the link's ten minutes. A file of 10 MB
 on a slow line takes long enough that any limit short enough to help would cut it off, and one long

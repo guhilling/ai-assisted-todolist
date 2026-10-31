@@ -57,7 +57,7 @@ commit that first wrote each one down. CI checks every line and that this index 
 - [English and German, from a typed catalogue of our own](frontend.md#english-and-german-from-a-typed-catalogue-of-our-own)
 - [Files go straight to storage, with the tab opened on the click](frontend.md#files-go-straight-to-storage-with-the-tab-opened-on-the-click)
 - [The mark is a panda with a ticked ear](frontend.md#the-mark-is-a-panda-with-a-ticked-ear)
-- [Only a task's latest save is shown, and a stalled upload is given up](frontend.md#only-a-tasks-latest-save-is-shown-and-a-stalled-upload-is-given-up)
+- [A task's saves go one after another, and a stalled upload is given up](frontend.md#a-tasks-saves-go-one-after-another-and-a-stalled-upload-is-given-up)
 
 ## [Testing](testing.md)
 

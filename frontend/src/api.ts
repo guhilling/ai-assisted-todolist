@@ -534,20 +534,28 @@ async function ensureNotRefused(response: Response) {
 const UPLOAD_STALL_MS = 30_000
 
 /**
+ * How long storage may take to answer once the whole file is handed over (#431). Longer than a
+ * stall, because the browser counts a byte as sent once it is in the network's buffer: on a slow
+ * line the last of the file is still on its way with nothing more to report.
+ */
+const UPLOAD_ANSWER_MS = 120_000
+
+/**
  * PUTs the file to the signed link, reporting progress as a fraction.
  *
  * `XMLHttpRequest` rather than `fetch`, because only it reports how much of an upload has gone.
  * The headers are the ones the link was signed for, sent exactly; the browser adds Content-Length
  * itself, and storage refuses a file of any other size. It is aborted, and fails, once
- * {@link UPLOAD_STALL_MS} pass without progress.
+ * {@link UPLOAD_STALL_MS} pass without progress, or {@link UPLOAD_ANSWER_MS} without an answer
+ * after the whole file has been handed over.
  */
 function putToStorage(url: string, headers: Record<string, string>, file: Blob, onProgress: (fraction: number) => void) {
   return new Promise<void>((resolve, reject) => {
     const request = new XMLHttpRequest()
     let stalled: ReturnType<typeof setTimeout> | undefined
-    const watch = () => {
+    const watch = (ms = UPLOAD_STALL_MS) => {
       clearTimeout(stalled)
-      stalled = setTimeout(() => request.abort(), UPLOAD_STALL_MS)
+      stalled = setTimeout(() => request.abort(), ms)
     }
     const fail = () => {
       clearTimeout(stalled)
@@ -558,11 +566,12 @@ function putToStorage(url: string, headers: Record<string, string>, file: Blob, 
       request.setRequestHeader(name, value)
     }
     request.upload.onprogress = (event) => {
-      watch()
+      watch(event.lengthComputable && event.loaded >= event.total ? UPLOAD_ANSWER_MS : UPLOAD_STALL_MS)
       if (event.lengthComputable) {
         onProgress(event.loaded / event.total)
       }
     }
+    request.upload.onload = () => watch(UPLOAD_ANSWER_MS)
     request.onload = () => {
       clearTimeout(stalled)
       if (request.status >= 200 && request.status < 300) {
@@ -573,7 +582,6 @@ function putToStorage(url: string, headers: Record<string, string>, file: Blob, 
     }
     request.onerror = fail
     request.onabort = fail
-    request.ontimeout = fail
     watch()
     request.send(file)
   })

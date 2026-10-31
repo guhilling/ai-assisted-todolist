@@ -239,42 +239,71 @@ function Board() {
       current.map((task) => (task.id === saved.id ? { ...saved, attachments: task.attachments } : task)),
     )
 
-  /** How many saves each task has had started, so that only the latest one's answer is shown (#431). */
-  const saves = useRef(new Map<Task['id'], number>())
+  /**
+   * Each task's saves still on their way (#431): the end of its queue, how many wait in it, and the
+   * task as the server last said it was. A task no save is on its way for has none.
+   */
+  const saveQueues = useRef(new Map<Task['id'], { end: Promise<void>; waiting: number; confirmed: Task }>())
 
-  /** Starts a save of a task; what it returns says whether that save is still the task's latest. */
-  const startSave = (taskId: Task['id']) => {
-    const number = (saves.current.get(taskId) ?? 0) + 1
-    saves.current.set(taskId, number)
-    return () => saves.current.get(taskId) === number
+  /**
+   * Sends a task's saves one after another (#431), each once the one before it has its answer, so
+   * the server applies them in the order they were made: two PUTs on their way at once may be
+   * applied the other way round, and the board would then show what the server does not hold.
+   *
+   * Only the last one queued has a say on the board. Its answer is shown; its failure rolls the task
+   * back to what the server last said and is reported. An earlier one's answer is passed over and
+   * its failure kept quiet, since the save after it sends the whole task as the board shows it --
+   * unless the session has ended, which is said at once.
+   *
+   * @param shown the task as the board shows it, which is the server's when no save is on its way
+   * @returns whether this save went through
+   */
+  const queueSave = async (shown: Task, sent: Task) => {
+    const queue = saveQueues.current.get(shown.id) ?? { end: Promise.resolve(), waiting: 0, confirmed: shown }
+    saveQueues.current.set(shown.id, queue)
+    queue.waiting += 1
+    const turn = queue.end
+    let done = () => {}
+    queue.end = new Promise((resolve) => {
+      done = resolve
+    })
+    await turn
+    try {
+      const saved = await putTask(sent)
+      queue.confirmed = saved
+      if (queue.waiting === 1) {
+        showSaved(saved)
+      }
+      return true
+    } catch (updateError) {
+      if (queue.waiting === 1) {
+        showSaved(queue.confirmed)
+        reportFailure(updateError, 'updating')
+      } else if (updateError instanceof SessionExpiredError) {
+        reportFailure(updateError, 'updating')
+      }
+      return false
+    } finally {
+      queue.waiting -= 1
+      if (queue.waiting === 0) {
+        saveQueues.current.delete(shown.id)
+      }
+      done()
+    }
   }
 
   /**
    * Saves a tick or an untick, showing it before the server has agreed. A task is open or done
    * (#334), so those are the only states the board sets.
    *
-   * Ticking a checkbox has to feel immediate, and a round trip does not. The previous task is
-   * put back if the save fails, so a rejected change never leaves the board claiming something
-   * untrue. A tick answered after a later one is not shown, nor rolled back, since the later one
-   * says what the board should (#431); its failure is still reported.
+   * Ticking a checkbox has to feel immediate, and a round trip does not. The task is put back as
+   * the server last had it if the save fails, so a rejected change never leaves the board claiming
+   * something untrue; a tick made while another is on its way waits for it ({@link queueSave}).
    */
   const saveState = async (task: Task, nextState: Extract<TaskState, 'TODO' | 'DONE'>) => {
-    const previous = task
-    const isLatest = startSave(task.id)
     setError(null)
     showSaved({ ...task, state: nextState })
-
-    try {
-      const saved = await putTask({ ...task, state: nextState })
-      if (isLatest()) {
-        showSaved(saved)
-      }
-    } catch (updateError) {
-      if (isLatest()) {
-        showSaved(previous)
-      }
-      reportFailure(updateError, 'updating')
-    }
+    await queueSave(task, { ...task, state: nextState })
   }
 
   /**
@@ -282,22 +311,12 @@ function Board() {
    *
    * Unlike a tick, an edit is a form someone has just filled in, so a moment's "Saving…" is
    * expected -- and keeping the form open until the server agrees means a refused edit leaves
-   * what was typed in place to correct, instead of rolling the row back and losing it.
+   * what was typed in place to correct, instead of rolling the row back and losing it. It waits
+   * for a tick still on its way, as a tick does.
    */
   const editTask = async (task: Task, changes: TaskEdit) => {
-    const isLatest = startSave(task.id)
     setError(null)
-
-    try {
-      const saved = await putTask({ ...task, ...changes })
-      if (isLatest()) {
-        showSaved(saved)
-      }
-      return true
-    } catch (updateError) {
-      reportFailure(updateError, 'updating')
-      return false
-    }
+    return queueSave(task, { ...task, ...changes })
   }
 
   const toggleDone = (task: Task) => void saveState(task, task.state === 'DONE' ? 'TODO' : 'DONE')

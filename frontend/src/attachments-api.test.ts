@@ -85,7 +85,10 @@ class StalledXhr {
   static last: StalledXhr | undefined
   aborted = false
   status = 0
-  upload = { onprogress: null as ((event: { loaded: number; total: number; lengthComputable: boolean }) => void) | null }
+  upload = {
+    onprogress: null as ((event: { loaded: number; total: number; lengthComputable: boolean }) => void) | null,
+    onload: null as (() => void) | null,
+  }
   onload: (() => void) | null = null
   onerror: (() => void) | null = null
   onabort: (() => void) | null = null
@@ -197,6 +200,31 @@ describe('uploading an attachment', () => {
       expect(await failure).toEqual(new RequestError('uploadAttachment'))
       expect(StalledXhr.last?.aborted).toBe(true)
       expect(calls.map((call) => call.url)).toEqual(['/api/tasks/3/attachments'])
+    } finally {
+      StalledXhr.last = undefined
+      vi.useRealTimers()
+    }
+  })
+
+  it('waits up to two minutes for storage to answer once the whole file is handed over', async () => {
+    vi.useFakeTimers()
+    try {
+      vi.stubGlobal('XMLHttpRequest', StalledXhr)
+      backend([['POST', '/api/tasks/3/attachments', 201, UPLOAD]])
+
+      const failure = uploadAttachment(3, file('Rechnung.pdf', 'application/pdf'), () => {}).catch(
+        (error: unknown) => error,
+      )
+      await vi.waitFor(() => expect(StalledXhr.last).toBeDefined())
+      // On a slow line the last of it may still be on its way, with no progress to report.
+      StalledXhr.last?.upload.onprogress?.({ loaded: 12, total: 12, lengthComputable: true })
+      StalledXhr.last?.upload.onload?.()
+      await vi.advanceTimersByTimeAsync(119_000)
+      expect(StalledXhr.last?.aborted).toBe(false)
+      await vi.advanceTimersByTimeAsync(1_000)
+
+      expect(await failure).toEqual(new RequestError('uploadAttachment'))
+      expect(StalledXhr.last?.aborted).toBe(true)
     } finally {
       StalledXhr.last = undefined
       vi.useRealTimers()
