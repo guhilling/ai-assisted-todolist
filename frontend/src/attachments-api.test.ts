@@ -80,6 +80,26 @@ class FakeXhr {
   }
 }
 
+/** Storage that takes the upload and then nothing more: a connection that hangs rather than drops. */
+class StalledXhr {
+  static last: StalledXhr | undefined
+  aborted = false
+  status = 0
+  upload = { onprogress: null as ((event: { loaded: number; total: number; lengthComputable: boolean }) => void) | null }
+  onload: (() => void) | null = null
+  onerror: (() => void) | null = null
+  onabort: (() => void) | null = null
+  open() {}
+  setRequestHeader() {}
+  send() {
+    StalledXhr.last = this
+  }
+  abort() {
+    this.aborted = true
+    this.onabort?.()
+  }
+}
+
 function file(name: string, type: string, size = 12) {
   return new File(['x'.repeat(size)], name, { type })
 }
@@ -156,6 +176,31 @@ describe('uploading an attachment', () => {
     await expect(uploadAttachment(3, file('Rechnung.pdf', 'application/pdf'), () => {})).rejects.toEqual(
       new RequestError('uploadAttachment'),
     )
+  })
+
+  it('gives an upload up once storage has taken nothing more for 30 seconds', async () => {
+    vi.useFakeTimers()
+    try {
+      vi.stubGlobal('XMLHttpRequest', StalledXhr)
+      const calls = backend([['POST', '/api/tasks/3/attachments', 201, UPLOAD]])
+
+      const upload = uploadAttachment(3, file('Rechnung.pdf', 'application/pdf'), () => {})
+      const failure = upload.catch((error: unknown) => error)
+      await vi.waitFor(() => expect(StalledXhr.last).toBeDefined())
+      // Still moving at 29 seconds, so the 30 start again from there.
+      await vi.advanceTimersByTimeAsync(29_000)
+      StalledXhr.last?.upload.onprogress?.({ loaded: 6, total: 12, lengthComputable: true })
+      await vi.advanceTimersByTimeAsync(29_000)
+      expect(StalledXhr.last?.aborted).toBe(false)
+      await vi.advanceTimersByTimeAsync(1_000)
+
+      expect(await failure).toEqual(new RequestError('uploadAttachment'))
+      expect(StalledXhr.last?.aborted).toBe(true)
+      expect(calls.map((call) => call.url)).toEqual(['/api/tasks/3/attachments'])
+    } finally {
+      StalledXhr.last = undefined
+      vi.useRealTimers()
+    }
   })
 
   it('passes on a confirm that found the file not as announced', async () => {

@@ -4,7 +4,7 @@
  * The wire lives in `api.ts` and the due-date words in `dates.ts`, so what remains here is
  * state and the decisions that depend on more than one piece of it.
  */
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
 import {
   AttachmentRefusedError,
@@ -230,8 +230,24 @@ function Board() {
     void loadSession()
   }, [])
 
-  const replaceTask = (updated: Task) =>
-    setTasks((current) => current.map((task) => (task.id === updated.id ? updated : task)))
+  /**
+   * Shows what a save says of a task's fields, leaving its files as the board has them (#431): a
+   * file confirmed while the save was on its way is not in an answer the backend gave before it.
+   */
+  const showSaved = (saved: Task) =>
+    setTasks((current) =>
+      current.map((task) => (task.id === saved.id ? { ...saved, attachments: task.attachments } : task)),
+    )
+
+  /** How many saves each task has had started, so that only the latest one's answer is shown (#431). */
+  const saves = useRef(new Map<Task['id'], number>())
+
+  /** Starts a save of a task; what it returns says whether that save is still the task's latest. */
+  const startSave = (taskId: Task['id']) => {
+    const number = (saves.current.get(taskId) ?? 0) + 1
+    saves.current.set(taskId, number)
+    return () => saves.current.get(taskId) === number
+  }
 
   /**
    * Saves a tick or an untick, showing it before the server has agreed. A task is open or done
@@ -239,17 +255,24 @@ function Board() {
    *
    * Ticking a checkbox has to feel immediate, and a round trip does not. The previous task is
    * put back if the save fails, so a rejected change never leaves the board claiming something
-   * untrue.
+   * untrue. A tick answered after a later one is not shown, nor rolled back, since the later one
+   * says what the board should (#431); its failure is still reported.
    */
   const saveState = async (task: Task, nextState: Extract<TaskState, 'TODO' | 'DONE'>) => {
     const previous = task
+    const isLatest = startSave(task.id)
     setError(null)
-    replaceTask({ ...task, state: nextState })
+    showSaved({ ...task, state: nextState })
 
     try {
-      replaceTask(await putTask({ ...task, state: nextState }))
+      const saved = await putTask({ ...task, state: nextState })
+      if (isLatest()) {
+        showSaved(saved)
+      }
     } catch (updateError) {
-      replaceTask(previous)
+      if (isLatest()) {
+        showSaved(previous)
+      }
       reportFailure(updateError, 'updating')
     }
   }
@@ -262,10 +285,14 @@ function Board() {
    * what was typed in place to correct, instead of rolling the row back and losing it.
    */
   const editTask = async (task: Task, changes: TaskEdit) => {
+    const isLatest = startSave(task.id)
     setError(null)
 
     try {
-      replaceTask(await putTask({ ...task, ...changes }))
+      const saved = await putTask({ ...task, ...changes })
+      if (isLatest()) {
+        showSaved(saved)
+      }
       return true
     } catch (updateError) {
       reportFailure(updateError, 'updating')

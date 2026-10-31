@@ -500,3 +500,27 @@ it reads the same on light and dark pages and needs no colour variants, and it i
 like an app icon. Two bamboo variants (a stalk behind the head, a tick drawn as bamboo) were also
 drawn; the plain tick stays legible at 16 pixels, where bamboo turns into a green smudge.
 
+
+## Only a task's latest save is shown, and a stalled upload is given up
+
+*Accepted · 2026-10-31 · #431*
+
+**Decision.** The website counts the saves it starts for each task, a tick's or an edit's, and
+shows a save's answer, or rolls its tick back, only while it is still the task's latest; an earlier
+one's failure is still reported. A save's answer sets the task's fields and leaves its files as the
+board has them. An editor that is saving ignores Escape and disables Cancel until the answer has
+come. An upload to storage that takes nothing more for 30 seconds is aborted and fails as any
+other failed upload does, which unlocks the add row.
+
+**Why.** Answers do not come back in the order their requests went: a tick answered after the
+untick that followed it left the board showing done while the task was open, and a file confirmed
+while an edit was on its way vanished from the row when the edit's answer, given before the
+confirmation, came last. An editor closed while saving looked discarded and was saved all the same.
+A connection that hangs rather than drops never settled an upload, so the add row stayed locked
+until a reload. Thirty seconds without progress counts a hanging connection as none, as the app's
+ten seconds do for a request ([mobile-app.md](mobile-app.md), #311), and never cuts off a slow
+upload that is still moving. Gunnar's choice (2026-10-31).
+
+**Rejected: a fixed limit for the whole upload**, such as the link's ten minutes. A file of 10 MB
+on a slow line takes long enough that any limit short enough to help would cut it off, and one long
+enough would keep the row locked for minutes.
