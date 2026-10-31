@@ -327,8 +327,9 @@ function Board() {
     setDeleted(null)
     setError(null)
 
-    // Each restore stands on its own (#426): what came back is shown, whatever another one did. A
-    // task that did not come back at all is the failure reported, before one only left dated today.
+    // Each restore stands on its own (#426): what came back is shown, whatever another one did. An
+    // expired session is the failure said first, since it signs out; then a task that did not come
+    // back at all, before one only left dated today.
     const outcomes = await Promise.allSettled(tasksToRestore.map((task) => restoreTask(task, today)))
     const restored: Task[] = []
     const lost: unknown[] = []
@@ -348,7 +349,7 @@ function Board() {
     }
     const failures = [...lost, ...notDatedBack]
     if (failures.length > 0) {
-      reportFailure(failures[0], 'restoring')
+      reportFailure(failures.find((failure) => failure instanceof SessionExpiredError) ?? failures[0], 'restoring')
     }
   }
 

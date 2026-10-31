@@ -257,6 +257,24 @@ describe('removing tasks', () => {
     expect(screen.getByText('Done overdue')).toBeInTheDocument()
   })
 
+  it('says the session has expired when one restore finds it gone, whatever else failed (#426)', async () => {
+    const overdue = task({ id: 35, description: 'Done overdue', dueDate: isoIn(-5), state: 'DONE' })
+    const lost = task({ id: 36, description: 'Done lost', dueDate: isoIn(-6), state: 'DONE' })
+    const fetchMock = stubApi({
+      me: ALICE,
+      tasks: [overdue, lost],
+      post: (sent) => (sent.description === 'Done lost' ? { status: 500 } : { status: 201, body: { ...sent, id: 93 } }),
+      put: { status: 401 },
+    })
+    await renderSignedIn(fetchMock)
+    fireEvent.click(screen.getByRole('button', { name: /clear completed/i }))
+    await waitFor(() => expect(screen.getByText('2 tasks deleted')).toBeInTheDocument())
+
+    fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
+
+    await waitFor(() => expect(screen.getByText(/your session has expired/i)).toBeInTheDocument())
+  })
+
   it('joins a second delete to the offer and restarts its countdown (#426)', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
     try {
