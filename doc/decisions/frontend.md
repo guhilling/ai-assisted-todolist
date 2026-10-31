@@ -160,6 +160,24 @@ server during the window, so a reload mid-offer resurrects something the user ha
 disappear — a worse surprise than a changed id, and a silent one.
 
 
+## A second delete joins the undo offer
+
+*Accepted · 2026-10-31 · #426*
+
+**What.** A delete while an undo offer stands joins it ("2 tasks deleted"), and the offer's eight
+seconds start afresh; Undo puts every task in it back. Each restore stands on its own: what came
+back is shown, and a task re-created but not dated back to its own day is shown too, dated today,
+with the failure said.
+
+**Why.** The second delete used to replace the offer without a new countdown, so the first task's
+undo was lost without a word and the second's cut to what was left of the first's; and a failed
+restore among several left the ones already re-created off the board until a reload. Keying the
+toast by the newest deletion alone would have fixed the countdown but still lost the first task.
+
+**Cost.** An offer joined by a delete every few seconds stands as long as that goes on, and could in
+principle outlast the ten minutes a deleted task's files are kept for it (domain-and-backend.md,
+D3); the task would then come back without them.
+
 ## Importance is a dot, and the word is still there
 
 *Accepted · 2026-09-27 · #54*

@@ -46,6 +46,7 @@ commit that first wrote each one down. CI checks every line and that this index 
 - [Editing starts from the menu, and waits for the server](frontend.md#editing-starts-from-the-menu-and-waits-for-the-server)
 - [Due dates are relative words, set from defaults](frontend.md#due-dates-are-relative-words-set-from-defaults)
 - [Undo instead of a confirmation, and what it costs](frontend.md#undo-instead-of-a-confirmation-and-what-it-costs)
+- [A second delete joins the undo offer](frontend.md#a-second-delete-joins-the-undo-offer)
 - [Importance is a dot, and the word is still there](frontend.md#importance-is-a-dot-and-the-word-is-still-there)
 - [Sign out and Delete account wait behind Account](frontend.md#sign-out-and-delete-account-wait-behind-account)
 - [A task id is checked before it is put in a URL](frontend.md#a-task-id-is-checked-before-it-is-put-in-a-url)

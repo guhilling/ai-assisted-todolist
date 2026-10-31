@@ -327,26 +327,28 @@ function Board() {
     setDeleted(null)
     setError(null)
 
-    // Each restore stands on its own (#426): what came back is shown, whatever another one did,
-    // and the first thing that went wrong is reported.
+    // Each restore stands on its own (#426): what came back is shown, whatever another one did. A
+    // task that did not come back at all is the failure reported, before one only left dated today.
     const outcomes = await Promise.allSettled(tasksToRestore.map((task) => restoreTask(task, today)))
     const restored: Task[] = []
-    let failure: unknown
+    const lost: unknown[] = []
+    const notDatedBack: unknown[] = []
     for (const outcome of outcomes) {
       if (outcome.status === 'fulfilled') {
         restored.push(outcome.value)
       } else if (outcome.reason instanceof NotDatedBackError) {
         restored.push(outcome.reason.task)
-        failure ??= outcome.reason.cause
+        notDatedBack.push(outcome.reason.cause)
       } else {
-        failure ??= outcome.reason
+        lost.push(outcome.reason)
       }
     }
     if (restored.length > 0) {
       setTasks((current) => [...current, ...restored])
     }
-    if (failure !== undefined) {
-      reportFailure(failure, 'restoring')
+    const failures = [...lost, ...notDatedBack]
+    if (failures.length > 0) {
+      reportFailure(failures[0], 'restoring')
     }
   }
 
