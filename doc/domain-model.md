@@ -52,7 +52,7 @@ past the window, and uploads that were never confirmed.
 | A task always has an owner | Not-null column and `@ManyToOne` on `Task.owner`; the owner is set from the token, never from the request |
 | A task's description is present and at most 255 characters | `@Size` and `isCompleteUnlessDraft` on `Task`, `@NotBlank` + `@Size` on the request records **and on `TaskResponse`**, the `task_complete_unless_draft` check constraint, and `maxLength` in the published schema, which the frontend enforces on every response. A draft has none yet |
 | A draft is never seen as a task | Every query in `TaskResource` that is not about drafts excludes them (`draft = false`); `DraftResource` reaches drafts only |
-| A **new** task's due date is today or later, in someone's zone: no earlier than yesterday in UTC (#425) | `@TodaySomewhere` on `TaskCreateRequest` only |
+| A **new** task's due date is today or later, in someone's zone: no earlier than today in UTC-12 (#425) | `@TodaySomewhere` on `TaskCreateRequest` only |
 | State and importance are always set | Not-null columns; `state` defaults to `TODO` |
 | A user's email is present and unique | `@NotBlank` and a unique not-null column on `User` |
 | A user's name and picture are **not** domain state | Nothing persists them; they are read from the token per request |

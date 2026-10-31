@@ -35,7 +35,7 @@ Hibernate would have created a second table and left the first.
 *Accepted · 2026-09-27 · #51*
 
 Revised in part: "today" is anyone's today, so the rule is `@TodaySomewhere` now
-([A new task's due date may be yesterday in UTC](#a-new-tasks-due-date-may-be-yesterday-in-utc), #425).
+([A new task's due date may be today anywhere](#a-new-tasks-due-date-may-be-today-anywhere), #425).
 
 **Decision.** `@FutureOrPresent` lives on `TaskCreateRequest` alone. It is gone from the
 `Task` entity and absent from `TaskUpdateRequest`, so an overdue task can be edited and
@@ -419,20 +419,20 @@ a task that was a draft from one created directly**, with a column of its own, s
 are added again: a migration for a difference only a client misusing the endpoint would meet. An
 Add on any task of the caller's therefore replaces its fields, as a `PUT` would.
 
-## A new task's due date may be yesterday in UTC
+## A new task's due date may be today anywhere
 
 *Accepted · 2026-10-31 · #425*
 
-**Decision.** A new task's due date is refused only before yesterday in UTC (`@TodaySomewhere` on
+**Decision.** A new task's due date is refused only before today in UTC-12 (`@TodaySomewhere` on
 `TaskCreateRequest`), in place of `@FutureOrPresent`, which judged it by the server's clock.
 
 **Why.** The server runs in UTC; the website and the app take "today" in the user's zone. At 21:00
 in New York it is already the next day in UTC, so a task due today was refused as past, and an undo
-of an overdue task, which re-creates it dated the client's today, failed the same way. No zone is
-more than a day behind UTC, so UTC's yesterday is always someone's today. Gunnar's choice
-(2026-10-31).
+of an overdue task, which re-creates it dated the client's today, failed the same way. UTC-12 is
+the westernmost zone, so its today is the earliest date that is still today anywhere. Gunnar's
+choice (2026-10-31); an earlier draft took yesterday in UTC, which from noon UTC is nobody's today.
 
-**Cost.** A user ahead of UTC can file a task due yesterday. An update can set a past date anyway,
+**Cost.** A user ahead of UTC-12 can file a task due yesterday. An update can set a past date anyway,
 so nothing new becomes possible.
 
 **Rejected: the client's own day sent with each request.** Exact, but it changes the API and both

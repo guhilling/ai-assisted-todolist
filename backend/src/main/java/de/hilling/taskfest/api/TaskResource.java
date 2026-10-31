@@ -254,8 +254,8 @@ public class TaskResource {
      *
      * <p>It exists so the {@link Task} entity never reaches the wire: there is no id and no
      * owner here, so neither can be spoofed by a request body. This is the one shape that
-     * requires {@code dueDate} to be today or later — filing something new in the past is
-     * almost always a mistyped year.</p>
+     * requires {@code dueDate} to be today or later somewhere ({@link TodaySomewhere}) — filing
+     * something new in the past is almost always a mistyped year.</p>
      *
      * <p>The fields are declared again in {@link TaskUpdateRequest} rather than shared
      * through validation groups. {@code @Valid} validates only the {@code Default} group, so

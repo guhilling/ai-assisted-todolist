@@ -319,6 +319,7 @@
                          slower, or break it outright. -->
                     <targetTests>
                         <param>de.hilling.taskfest.api.AuthProviderMappingTest</param>
+                        <param>de.hilling.taskfest.api.TodaySomewhereTest</param>
                         <param>de.hilling.taskfest.service.GravatarUrlTest</param>
                         <param>de.hilling.taskfest.service.GravatarServiceTest</param>
                         <param>de.hilling.taskfest.datasource.RdsIamCredentialsProviderTest</param>

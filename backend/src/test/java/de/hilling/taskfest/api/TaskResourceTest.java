@@ -244,15 +244,16 @@ class TaskResourceTest {
     @OidcSecurity(claims = { @Claim(key = "email", value = ALICE) })
     void shouldAcceptADueDateThatIsStillTodaySomewhereBehindUtc() {
         // 21:00 in New York is already tomorrow in UTC: the user's today is UTC's yesterday (#425).
-        LocalDate yesterdayInUtc = LocalDate.now(ZoneOffset.UTC).minusDays(1);
+        // Today in UTC-12 is that yesterday until noon UTC, and never later than New York's today.
+        LocalDate todayWesternmost = LocalDate.now(ZoneOffset.ofHours(-12));
 
         given()
             .contentType(ContentType.JSON)
-            .body(taskJson("Due today in New York", yesterdayInUtc.toString(), TaskImportance.MEDIUM, TaskState.TODO))
+            .body(taskJson("Due today in New York", todayWesternmost.toString(), TaskImportance.MEDIUM, TaskState.TODO))
             .when().post("/api/tasks")
             .then()
             .statusCode(201)
-            .body("dueDate", equalTo(yesterdayInUtc.toString()));
+            .body("dueDate", equalTo(todayWesternmost.toString()));
     }
 
     static Stream<Arguments> invalidTaskRequests() {
@@ -264,7 +265,7 @@ class TaskResourceTest {
                     TaskImportance.MEDIUM, TaskState.TODO)),
             // Two days ago: yesterday may still be someone's today (#425).
             Arguments.of("a due date in the past",
-                taskJson("Yesterday's job", LocalDate.now().minusDays(2).toString(),
+                taskJson("Yesterday's job", LocalDate.now(ZoneOffset.UTC).minusDays(2).toString(),
                     TaskImportance.MEDIUM, TaskState.TODO)),
             Arguments.of("no importance", taskJson("Unrated job", tomorrow, null, TaskState.TODO)),
             Arguments.of("no state", taskJson("Stateless job", tomorrow, TaskImportance.MEDIUM, null)));
@@ -279,7 +280,7 @@ class TaskResourceTest {
 
         given()
             .contentType(ContentType.JSON)
-            .body(taskJson(description, LocalDate.now().minusDays(2).toString(),
+            .body(taskJson(description, LocalDate.now(ZoneOffset.UTC).minusDays(2).toString(),
                 TaskImportance.HIGH, TaskState.TODO))
             .when().post("/api/tasks")
             .then()

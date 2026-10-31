@@ -8,18 +8,17 @@ import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
-import java.time.Clock;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 
 /**
- * A date that is today, or later, somewhere: no earlier than yesterday in UTC.
+ * A date that is today, or later, somewhere: no earlier than today in UTC-12.
  *
  * <p>{@code @FutureOrPresent} judged a due date by the server's clock, UTC in the container,
  * while the website and the app take "today" in the user's zone (#425). At 21:00 in New York it
- * is already tomorrow in UTC, so a task due today was refused as past. No zone is more than a day
- * behind UTC, so yesterday in UTC is someone's today. The cost is that a user ahead of UTC may set
- * yesterday's date, which an update can do anyway.</p>
+ * is already tomorrow in UTC, so a task due today was refused as past. UTC-12 is the westernmost
+ * zone, so its today is the earliest date that is still today anywhere. The cost is that a user
+ * ahead of it may set yesterday's date, which an update can do anyway.</p>
  */
 @Target({ ElementType.FIELD, ElementType.PARAMETER, ElementType.RECORD_COMPONENT })
 @Retention(RetentionPolicy.RUNTIME)
@@ -35,14 +34,18 @@ public @interface TodaySomewhere {
     /** Bean Validation's payload; none is used. */
     Class<? extends Payload>[] payload() default {};
 
-    /** Checks a date against yesterday in UTC; a missing date is {@code @NotNull}'s to refuse. */
+    /**
+     * Checks a date against today in UTC-12, on Bean Validation's clock; a missing date is
+     * {@code @NotNull}'s to refuse.
+     */
     final class Validator implements ConstraintValidator<TodaySomewhere, LocalDate> {
 
-        private final Clock clock = Clock.system(ZoneOffset.UTC);
+        private static final ZoneOffset WESTERNMOST = ZoneOffset.ofHours(-12);
 
         @Override
         public boolean isValid(LocalDate value, ConstraintValidatorContext context) {
-            return value == null || !value.isBefore(LocalDate.now(clock).minusDays(1));
+            return value == null || !value.isBefore(
+                LocalDate.now(context.getClockProvider().getClock().withZone(WESTERNMOST)));
         }
     }
 }
