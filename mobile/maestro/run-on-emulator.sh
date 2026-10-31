@@ -12,8 +12,29 @@ set -euo pipefail
 
 apk="$1"
 share="$2"
+here="$(dirname "$0")"
 
-source "$(dirname "$0")/emulator-ready.sh"
+source "$here/emulator-ready.sh"
+
+# `maestro test` for the given flows, its JUnit report going to the first argument, run once more
+# when Maestro's own driver failed rather than the flow (#445), as the iOS share flow is (#401):
+# driver-failed.sh says which. Each run's console output stays in the artifact, the first failure's
+# too.
+flows() {
+  local report="$1" console
+  shift
+  mkdir -p maestro-output
+  for run in 1 2; do
+    console="maestro-output/$(basename "$report" .xml)-$run-console.txt"
+    if maestro test "$@" --format junit --output "$report" --test-output-dir maestro-output 2>&1 | tee "$console"; then
+      return 0
+    fi
+    if (( run == 2 )) || ! bash "$here/driver-failed.sh" "$console" "$report"; then
+      return 1
+    fi
+    echo "::warning title=Maestro's driver failed::$* is run once more (#445)."
+  done
+}
 
 # Awake and unlocked, however long seed-stack.sh waited for midnight to pass.
 retry adb shell svc power stayon true
@@ -45,24 +66,23 @@ retry adb install -r "$apk"
 
 case "$share" in
   board)
-    maestro test mobile/maestro/sign-in.yaml mobile/maestro/change-tasks.yaml \
-      --format junit --output maestro-report.xml --test-output-dir maestro-output
+    flows maestro-report.xml mobile/maestro/sign-in.yaml mobile/maestro/change-tasks.yaml
     # Adding with the keyboard open (#382), still signed in.
-    maestro test mobile/maestro/keyboard.yaml --format junit --output maestro-keyboard.xml --test-output-dir maestro-output
+    flows maestro-keyboard.xml mobile/maestro/keyboard.yaml
     # Sharing into the app (#355), which the board flow left signed in: text sent as another app
     # sends it -- the inner quotes keep it one argument in the emulator's shell -- and then an image
     # through the Files app's share sheet.
     adb shell am start -a android.intent.action.SEND -t text/plain -p de.hilling.taskfest.dev \
       --es android.intent.extra.TEXT "'Read the article https://example.com/a'"
-    maestro test mobile/maestro/share/text.yaml --format junit --output maestro-share-text.xml --test-output-dir maestro-output
+    flows maestro-share-text.xml mobile/maestro/share/text.yaml
     retry bash "$(dirname "$0")/put-attach-image.sh"
-    maestro test mobile/maestro/share/share-sheet.yaml --format junit --output maestro-share-sheet.xml --test-output-dir maestro-output
+    flows maestro-share-sheet.xml mobile/maestro/share/share-sheet.yaml
     # A link, as Chrome shares a page (#414): the address as the text, the title as the subject. Last,
     # as its task would push the others' below the screen, where their flows look for them.
     adb shell am start -a android.intent.action.SEND -t text/plain -p de.hilling.taskfest.dev \
       --es android.intent.extra.TEXT "'https://example.com/articles/42'" \
       --es android.intent.extra.SUBJECT "'An article worth reading'"
-    maestro test mobile/maestro/share/link.yaml --format junit --output maestro-share-link.xml --test-output-dir maestro-output
+    flows maestro-share-link.xml mobile/maestro/share/link.yaml
     exit 0
     ;;
   others) ;;
@@ -72,13 +92,13 @@ case "$share" in
     ;;
 esac
 
-maestro test mobile/maestro/account.yaml --format junit --output maestro-report.xml --test-output-dir maestro-output
+flows maestro-report.xml mobile/maestro/account.yaml
 
 # Reminders (#273): turn them on, then make sure Android holds a pending alarm of the app's
 # (`Alarm{... origWhen <ms> ... <package>}`) set for 08:00 in the emulator's own time zone -- not
 # merely the package's name somewhere in the statistics. Any day's 08:00: which day "tomorrow" is
 # was the emulator's to decide when the task was added, and a run may cross midnight.
-maestro test mobile/maestro/reminders/turn-on.yaml --format junit --output maestro-reminders.xml --test-output-dir maestro-output
+flows maestro-reminders.xml mobile/maestro/reminders/turn-on.yaml
 zone="$(adb shell getprop persist.sys.timezone | tr -d '\r')"
 alarms="$(adb shell dumpsys alarm)"
 scheduled=false
@@ -98,10 +118,10 @@ fi
 
 # Attaching (#274): an image in the emulator's Downloads, for the file picker to offer.
 retry bash "$(dirname "$0")/put-attach-image.sh"
-maestro test mobile/maestro/attach.yaml --format junit --output maestro-attach.xml --test-output-dir maestro-output
+flows maestro-attach.xml mobile/maestro/attach.yaml
 
 # Offline (#272): keep a board, take the backend away -- the app reaches it through adb reverse,
 # which airplane mode does not cut -- and read the kept board.
-maestro test mobile/maestro/offline/1-keep.yaml --format junit --output maestro-offline-1.xml --test-output-dir maestro-output
+flows maestro-offline-1.xml mobile/maestro/offline/1-keep.yaml
 retry adb reverse --remove tcp:3000
-maestro test mobile/maestro/offline/2-offline.yaml --format junit --output maestro-offline-2.xml --test-output-dir maestro-output
+flows maestro-offline-2.xml mobile/maestro/offline/2-offline.yaml
