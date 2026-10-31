@@ -18,7 +18,7 @@ import type {
   TaskCreateRequest,
   TaskResponse,
 } from './generated/types'
-import { needsDatingBack, restoreInput } from './restore'
+import { NotDatedBackError, needsDatingBack, restoreInput } from './restore'
 import { makeThumbnail as makeImageThumbnail } from './thumbnail'
 import {
   validateAttachmentResponse,
@@ -489,21 +489,7 @@ export async function restoreTask(task: Task, today: string) {
   }
 }
 
-/**
- * An undo that re-created the task but could not date it back to the deleted one's day (#426).
- * The task exists, dated today, so it carries the task for the board to show -- one that exists
- * unseen is worse than one with the wrong date -- and why the date could not be put back.
- */
-export class NotDatedBackError extends Error {
-  readonly task: Task
-
-  constructor(task: Task, cause: unknown) {
-    super('The task was restored, but not to its own date.', { cause })
-    this.name = 'NotDatedBackError'
-    this.task = task
-  }
-}
-
+export { NotDatedBackError } from './restore'
 export { attachmentLimits, attachmentTypes, checkFile } from './attachmentPolicy'
 
 /** An attachment refused, for the board to say why in the visitor's language. */

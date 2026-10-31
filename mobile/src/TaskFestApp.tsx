@@ -37,6 +37,7 @@ import {
   googleSignInButton,
   isWebAddress,
   localeOf,
+  NotDatedBackError,
   todayIso,
   type Attachment,
   type Language,
@@ -878,11 +879,15 @@ export function TaskFestApp({
     return true
   }
 
-  /** Offers to put deleted tasks back, each delete with its own countdown; null withdraws it. */
+  /**
+   * Offers to put deleted tasks back, joining any offer still standing, each delete restarting the
+   * countdown for all of them (#426); null withdraws it.
+   */
   const offerUndo = (tasks: BoardTask[] | null) => {
-    undoable.current = tasks
+    const offered = tasks && [...(undoable.current ?? []), ...tasks]
+    undoable.current = offered
     deletes.current += 1
-    setDeleted(tasks && { tasks, key: deletes.current })
+    setDeleted(offered && { tasks: offered, key: deletes.current })
   }
 
   /** Saves the form; whatever form is open by the time the backend answers is left alone. */
@@ -1374,12 +1379,25 @@ export function TaskFestApp({
     if (signedOut()) {
       return
     }
-    const restored = outcomes.flatMap((outcome) => (outcome.status === 'fulfilled' ? [outcome.value] : []))
+    // A task put back but not to its own date is shown all the same (#426): it exists.
+    const restored = outcomes.flatMap((outcome) =>
+      outcome.status === 'fulfilled' ? [outcome.value] : outcome.reason instanceof NotDatedBackError ? [outcome.reason.task] : [],
+    )
     setTasks((current) => [...current, ...restored])
     keep((kept) => restored.forEach((task) => kept.set(task.id, task)))
-    const refused = outcomes.find((outcome) => outcome.status === 'rejected')
-    if (refused) {
-      setFailure((await failed(refused.reason, messages.failures.restoring)) ?? undefined)
+    // One failure is said: an ended session first, which signs out, then a task not put back at
+    // all, then one not put back to its own date (#426), as on the website.
+    const reasons = outcomes.flatMap((outcome) => (outcome.status === 'rejected' ? [outcome.reason as unknown] : []))
+    const failures = [
+      ...reasons.filter((reason) => !(reason instanceof NotDatedBackError)),
+      ...reasons.flatMap((reason) =>
+        reason instanceof NotDatedBackError ? [reason.cause instanceof SignedOutError ? reason.cause : reason] : [],
+      ),
+    ]
+    const cause = failures.find((failure) => failure instanceof SignedOutError) ?? failures[0]
+    if (failures.length > 0) {
+      const text = cause instanceof NotDatedBackError ? messages.undo.notDatedBack : messages.failures.restoring
+      setFailure((await failed(cause, text)) ?? undefined)
     }
   }
 

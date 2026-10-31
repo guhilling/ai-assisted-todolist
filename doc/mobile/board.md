@@ -31,7 +31,10 @@ and the sign-in has it at its top as well (#384).
 - **Complete or reopen a task** — the circle in front of it, which a completed task shows ticked in the website's green.
 - **Delete a task** — from its form, at once and without "are you sure?": an offer to undo stands
   below the board for eight seconds. **Clear completed** deletes every completed task the same way.
-  Undo puts a task back with its files, as the website's does.
+  A delete while the offer stands joins it ("2 tasks deleted") and starts its eight seconds afresh.
+  Undo puts a task back with its files, as the website's does, and each task on its own: what came
+  back is shown, one that could not be dated back to its own day is shown dated today, and the
+  failure is said (#426).
 
 ## How a change behaves
 

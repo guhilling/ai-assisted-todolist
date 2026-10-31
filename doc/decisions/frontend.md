@@ -167,7 +167,9 @@ disappear — a worse surprise than a changed id, and a silent one.
 **What.** A delete while an undo offer stands joins it ("2 tasks deleted"), and the offer's eight
 seconds start afresh; Undo puts every task in it back. Each restore stands on its own: what came
 back is shown, and a task re-created but not dated back to its own day is shown too, dated today,
-with the failure said.
+with the failure said. One failure is said: an ended session first, then a task not put back at all,
+then one not put back to its own date. The app's undo does the same, with the same texts and the
+website's `NotDatedBackError` (`frontend/src/restore.ts`).
 
 **Why.** The second delete used to replace the offer without a new countdown, so the first task's
 undo was lost without a word and the second's cut to what was left of the first's; and a failed
