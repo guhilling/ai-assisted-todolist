@@ -564,7 +564,7 @@ paths:
                 $ref: "#/components/schemas/TaskResponse"
         "400":
           description: "A field failed validation, for example a blank description\
-            \ or a due date in the past."
+            \ or a due date that is past everywhere."
         "401":
           description: Not Authorized
         "403":
