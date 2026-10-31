@@ -140,7 +140,7 @@ def release_tags() -> list[str]:
 
 def latest_release(tags: list[str]) -> str | None:
     """The newest final release, `vX.Y.Z`, among `tags`, newest first: a pre-release is never the latest, as on GitHub."""
-    return next((tag for tag in tags if re.fullmatch(r"v\d+\.\d+\.\d+", tag)), None)
+    return next((tag for tag in tags if re.fullmatch(r"v[0-9]+\.[0-9]+\.[0-9]+", tag)), None)
 
 
 def contract_files(ref: str | None) -> dict[str, str]:

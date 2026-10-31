@@ -30,8 +30,8 @@ installed or deployed `pom.xml` keeps the literal `${revision}` unless
 published. Nothing outside this repository ever consumes the backend's POM. If that changes,
 `flatten-maven-plugin` becomes necessary.
 
-Tags are `vMAJOR.MINOR.PATCH`, optionally with a suffix of letters, digits and dots
-(`v1.1.0-rc.1`). The workflow's trigger matches those two shapes only, so an unrelated tag does not
+Tags are `vMAJOR.MINOR.PATCH`, optionally with a suffix of dot-separated parts of letters and
+digits (`v1.1.0-rc.1`). The workflow's trigger matches those two shapes only, so an unrelated tag does not
 start a release, and its `gate` refuses any other suffix (#433), as the deploy workflows do. A tag
 with a suffix becomes a GitHub pre-release, never the repository's latest release.
 

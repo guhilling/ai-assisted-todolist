@@ -64,6 +64,10 @@ class ReleaseTagsTest(unittest.TestCase):
 
         self.assertEqual(site.latest_release(self.tags()), "v1.2.0")
 
+    def test_only_ascii_digits_make_a_final_release(self):
+        # Python's \d also takes other scripts' digits, which git allows in a tag name.
+        self.assertEqual(site.latest_release(["v1.2.\u0663", "v1.2.0"]), "v1.2.0")
+
     def test_there_is_no_latest_without_a_final_release(self):
         self.release("v0.1.0-rc.1")
 
