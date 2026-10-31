@@ -84,9 +84,10 @@ resource "aws_cloudwatch_query_definition" "backend" {
   query_string    = trimspace(each.value)
 }
 
-# The role ECS uses to start a task: write its log stream, and, for the bootstrap task only,
-# fetch the master credentials it injects. It is not what the container runs as -- that is the
-# task role in database.tf -- and the application never sees these permissions.
+# The role ECS uses to start the backend and migration tasks: pull the image, write the log
+# stream and fetch the sign-in secrets it injects. It is not what the container runs as -- that is
+# the task role in database.tf -- and the application never sees these permissions. The bootstrap
+# task has a role of its own, below, because the deploy role may pass this one (#454).
 data "aws_iam_policy_document" "task_execution_trust" {
   statement {
     actions = ["sts:AssumeRole"]
@@ -125,7 +126,7 @@ locals {
 
 resource "aws_iam_role" "task_execution" {
   name               = local.task_execution_role
-  description        = "Lets ECS start ${var.environment} tasks: their logs, and the master secret for the bootstrap task."
+  description        = "Lets ECS start ${var.environment}'s backend and migration tasks: the image, their logs and the sign-in secrets."
   assume_role_policy = data.aws_iam_policy_document.task_execution_trust.json
 
   tags = { Name = local.task_execution_role }
@@ -181,6 +182,36 @@ data "aws_iam_policy_document" "task_execution" {
       resources = [aws_ssm_parameter.test_client_secret[0].arn]
     }
   }
+}
+
+resource "aws_iam_role_policy" "task_execution" {
+  name   = local.task_execution_role
+  role   = aws_iam_role.task_execution.id
+  policy = data.aws_iam_policy_document.task_execution.json
+}
+
+# The role ECS uses to start the bootstrap task, the one thing that needs the master credentials.
+# A role of its own because the deploy role may pass the one above and may register any task
+# definition: with the master secret on that role, a revision of its choosing -- the backend's
+# included -- could have ECS inject the secret (#454). Only the lifecycle role may pass this one.
+# The image comes from ECR Public, which needs no login.
+resource "aws_iam_role" "db_bootstrap_execution" {
+  name               = local.db_bootstrap_execution_role
+  description        = "Lets ECS start ${var.environment}'s bootstrap task: its logs and the master secret."
+  assume_role_policy = data.aws_iam_policy_document.task_execution_trust.json
+
+  tags = { Name = local.db_bootstrap_execution_role }
+}
+
+data "aws_iam_policy_document" "db_bootstrap_execution" {
+  statement {
+    sid = "WriteThisEnvironmentsTaskLogs"
+    actions = [
+      "logs:CreateLogStream",
+      "logs:PutLogEvents",
+    ]
+    resources = ["${aws_cloudwatch_log_group.ecs.arn}:*"]
+  }
 
   # The secret's name is random per instance (rds!db-<uuid>) and changes with every restore, so
   # it is matched by the tag RDS puts on it instead: the ARN of the instance it belongs to, which
@@ -199,10 +230,10 @@ data "aws_iam_policy_document" "task_execution" {
   }
 }
 
-resource "aws_iam_role_policy" "task_execution" {
-  name   = local.task_execution_role
-  role   = aws_iam_role.task_execution.id
-  policy = data.aws_iam_policy_document.task_execution.json
+resource "aws_iam_role_policy" "db_bootstrap_execution" {
+  name   = local.db_bootstrap_execution_role
+  role   = aws_iam_role.db_bootstrap_execution.id
+  policy = data.aws_iam_policy_document.db_bootstrap_execution.json
 }
 
 # The role ECS itself uses for a blue/green deployment: it moves the production listener rule from

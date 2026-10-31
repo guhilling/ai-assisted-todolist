@@ -80,7 +80,8 @@ Four consequences worth being plain about:
   run or deploy one are both scoped to this environment. Such a revision carries qa's own roles or
   none, never prod's execution role, since `iam:PassRole` is pinned; `env.sh migrate`,
   `db-bootstrap` and `deploy-backend.py` pass over any revision without the environment's own
-  execution role, which every revision of its own carries (#429) — but "denied everything tagged
+  execution role, which every revision of its own carries (#429); `db-bootstrap`'s is a role of its
+  own, which alone reads the master secret and which the deploy role cannot pass (#454) — but "denied everything tagged
   `env=prod`" is not literally achievable, and claiming it would be a wall that is not there.
 - **`iam:PassRole` is the statement that decides whether the rest is safe.** Running a task means
   handing it a role; granted on `*`, that one permission escalates "redeploy the application" to

@@ -449,12 +449,15 @@ data "aws_iam_policy_document" "lifecycle" {
   # Same trap, same answer as in deploy.tf: creating a service means handing it a role, and on
   # "*" this one permission would be an escalation to whatever the most privileged role in the
   # account can do.
+  # Unlike the deploy role, this one also passes the bootstrap task's execution role: it registers
+  # and runs that task.
   statement {
     sid     = "PassOnlyThisEnvironmentsTaskRolesAndOnlyToEcs"
     actions = ["iam:PassRole"]
     resources = [
       "arn:aws:iam::${local.account}:role/${local.task_execution_role}",
       "arn:aws:iam::${local.account}:role/${local.task_role}",
+      "arn:aws:iam::${local.account}:role/${local.db_bootstrap_execution_role}",
     ]
 
     condition {
