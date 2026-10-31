@@ -37,7 +37,7 @@ for flow in share-photo; do
     maestro --device "$udid" test "$here/$flow.yaml" --test-output-dir "$out" --debug-output "$out/debug-$flow-$run" \
       --format junit --output "maestro-ios-$flow.xml" 2>&1 | tee "$out/$flow-$run-console.txt" || flow_status=1
     if (( flow_status == 0 )) || (( run == 2 )) ||
-       ! bash "$here/driver-failed.sh" "$out/$flow-$run-console.txt" "maestro-ios-$flow.xml"; then
+       ! bash "$here/../driver-failed.sh" "$out/$flow-$run-console.txt" "maestro-ios-$flow.xml"; then
       break
     fi
     echo "::warning title=Maestro's driver failed::$flow is run once more (#401)."

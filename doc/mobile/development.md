@@ -143,6 +143,13 @@ since, and `maestro/sign-in.yaml` retries the sign-in with the launch, each try 
 the app started afresh. `run-on-emulator.sh` then keeps the screen on and switches Android to
 three-button navigation, since a tap on the share sheet's bottom row had been taken for a gesture.
 
+A flow that fails because Maestro's own driver did before the flow began runs once more (#445): on
+one run the emulator's driver failed its first call (`DeviceCallFailedException: 'deviceInfo'
+failed`), before any step, and a re-run passed. `maestro/driver-failed.sh`, which the iOS share flow
+uses too (#401), tells the two apart by the exception Maestro reports. Only that first call counts:
+a run after a later one would start from a board or a share the first run had already changed. Any
+other failure fails at once, and the first run's console output and report are in the artifact.
+
 The emulator's setup is cached (#302): the API 34 system image and an AVD with a booted snapshot,
 in a private image on GitHub's Container Registry, `ghcr.io/guhilling/taskfest-buildcache`, tagged
 `avd-<API level>-<image>-<arch>-emu<emulator version>-img<image revision>-<hash>`. The emulator's

@@ -1,8 +1,10 @@
 """
-Pins down mobile/maestro/ios/driver-failed.sh, which tells a failure of Maestro's own driver from a
+Pins down mobile/maestro/driver-failed.sh, which tells a failure of Maestro's own driver from a
 failure of the flow. Mobile CI runs the iOS share flow once more after the first kind only (#401):
 on a freshly booted simulator the driver sometimes starts too slowly, or goes away mid-tap, before
 anything is shared. A flow that fails a check, or Photos never finishing, still fails at once.
+The Android flows do the same (#445): the emulator's driver has failed its first call, before any
+step ran.
 
 Each test hands the script files written the way Maestro writes them: its console output and its
 JUnit report.
@@ -15,7 +17,7 @@ import subprocess
 import tempfile
 import unittest
 
-SCRIPT = pathlib.Path(__file__).resolve().parents[2] / "mobile" / "maestro" / "ios" / "driver-failed.sh"
+SCRIPT = pathlib.Path(__file__).resolve().parents[2] / "mobile" / "maestro" / "driver-failed.sh"
 
 UNREACHABLE = """\
 <testcase id="Share a photo" status="ERROR">
@@ -33,6 +35,14 @@ SERVER_ERROR = "maestro.utils.network.XCUITestServerError$Unreachable: Transport
 ASSERTION = """\
 <testcase id="Share a photo" status="ERROR">
   <failure>Assertion is false: "Task title" is visible</failure>
+</testcase>
+"""
+ANDROID_DEVICE_CALL = """\
+<testcase id="Sign in and see the board" status="ERROR">
+  <failure>maestro.android.DeviceCallFailedException: 'deviceInfo' failed: INTERNAL - error in frame handler
+\tat maestro.android.AndroidDeviceConnectionModelKt.orThrow(AndroidDeviceConnectionModel.kt:79)
+\tat maestro.drivers.AndroidDriver.deviceInfo(AndroidDriver.kt:205)
+</failure>
 </testcase>
 """
 PASSED = '<testcase id="Share a photo" status="SUCCESS"/>\n'
@@ -58,6 +68,19 @@ class DriverFailedTest(unittest.TestCase):
 
     def test_the_driver_server_unreachable(self):
         self.assertEqual(self.run_on(SERVER_ERROR), 0)
+
+    def test_the_android_driver_failing_a_call(self):
+        self.assertEqual(self.run_on("[Failed] Sign in and see the board (183ms)\n", ANDROID_DEVICE_CALL), 0)
+
+    def test_the_android_driver_failing_its_first_call_said_only_on_the_console(self):
+        # Maestro may write no report when it never got going.
+        self.assertEqual(self.run_on("maestro.android.DeviceCallFailedException: 'deviceInfo' failed: "
+                                     "INTERNAL - error in frame handler\n"), 0)
+
+    def test_the_android_driver_failing_mid_flow_is_the_flows(self):
+        # A step may already have changed the board, or used up a share: run again, it would not
+        # start where the first run did.
+        self.assertEqual(self.run_on(ANDROID_DEVICE_CALL.replace("'deviceInfo'", "'tap'")), 1)
 
     def test_a_failed_check_is_the_flows(self):
         self.assertEqual(self.run_on("[Failed] Share a photo (2m 36s)\n", ASSERTION), 1)
