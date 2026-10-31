@@ -9,6 +9,7 @@ Run with:  python3 -m unittest discover -s .github/scripts -p 'test_*.py'
 """
 
 import importlib.util
+import os
 import pathlib
 import subprocess
 import tempfile
@@ -32,8 +33,10 @@ class ReleaseTagsTest(unittest.TestCase):
         self.work.cleanup()
 
     def git(self, *args):
+        # Not the developer's own configuration: a signed tag would want a message and a key.
         subprocess.run(["git", "-c", "user.name=Test", "-c", "user.email=test@example.com", *args],
-                       cwd=self.repo, check=True, capture_output=True)
+                       cwd=self.repo, check=True, capture_output=True,
+                       env={**os.environ, "GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_NOSYSTEM": "1"})
 
     def release(self, *tags):
         for tag in tags:
@@ -53,6 +56,11 @@ class ReleaseTagsTest(unittest.TestCase):
 
     def test_the_latest_is_the_newest_final_release(self):
         self.release("v1.2.0", "v1.3.0-rc.1")
+
+        self.assertEqual(site.latest_release(self.tags()), "v1.2.0")
+
+    def test_a_tag_that_is_no_version_is_never_the_latest(self):
+        self.release("v1.2.0", "v1.3")
 
         self.assertEqual(site.latest_release(self.tags()), "v1.2.0")
 
