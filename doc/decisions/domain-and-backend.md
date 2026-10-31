@@ -347,7 +347,8 @@ session; the deleted data stays deleted either way.
 **How long a record is kept (Gunnar's decision).** Exactly as long as a snapshot or backup older
 than the deletion exists: each run deletes the records older than the oldest restorable point of
 the environment's database, from RDS's listing of its snapshots and retained backups, every page of
-it (`RdsRestorePoints`). When that cannot be known -- RDS refused, listed nothing, or no instance is
+it (`RdsRestorePoints`); a copied snapshot counts from its original's time, which is how old its
+data is (#434). When that cannot be known -- RDS refused, listed nothing, or no instance is
 configured, as everywhere but AWS -- nothing is pruned. A record whose account is still there (its
 re-deletion failed) is kept, and a record rewritten since it was read stays. Pruning runs daily,
 not at start-up, so RDS never stands between a start and the first request.
@@ -415,3 +416,24 @@ edited before the retry. **Rejected: telling
 a task that was a draft from one created directly**, with a column of its own, so that only those
 are added again: a migration for a difference only a client misusing the endpoint would meet. An
 Add on any task of the caller's therefore replaces its fields, as a `PUT` would.
+
+## A user has at most five open drafts
+
+*Accepted · 2026-10-31 · #434*
+
+**Decision.** `POST /api/tasks/drafts` refuses a user who has five drafts open already, with a
+422 and no body. Adding or discarding one makes room again; the count is taken under the lock on
+the user's row that counting attachments takes (`User.lockRow`), so two drafts started at once
+cannot both fit.
+
+**Why.** Every draft is a row its owner never sees, until the sweep removes it an hour after it
+was abandoned, so a client starting drafts in a loop left rows behind that nobody would notice.
+The app opens one per add form; five leaves room for forms left open and retries. Gunnar's choice
+(2026-10-31). It bounds drafts only: tasks, which their owner does see, have no per-user bound,
+and neither does adding a draft and starting the next.
+
+**Cost.** A sixth add form, while five drafts are open, gets none: the app then lets its files
+wait for Add, as it does with a backend from before drafts. Drafts left by a sign-out or an app
+closed with the form open count until they are swept, so five of them hold the next forms off
+drafts for up to an hour. **Rejected: handing back an open
+draft instead of a new one**, which would let two forms share one draft and its files.

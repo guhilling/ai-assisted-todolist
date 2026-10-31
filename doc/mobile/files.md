@@ -16,7 +16,8 @@ and removed.
   uploaded is left out, and the form says which and why. **×** on a file already up takes it off
   the draft again, and Cancel discards the draft with its files; one left by a sign-out, or by
   an app closed with the form open, is swept with them within the hour. A backend from before
-  drafts refuses one (405), and the files then wait for Add, as on the website, whose add row still
+  drafts refuses one (405), as one does to a user with five open already (422, #434), and the
+  files then wait for Add, as on the website, whose add row still
   holds them until then; so does a draft swept while the form stood open longer than that. An
   Add whose answer was lost, and is tried again, adds nothing twice: the backend applies it to the
   task the draft became, and the board shows that task once (#427).

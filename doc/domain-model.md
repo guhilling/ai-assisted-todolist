@@ -10,7 +10,7 @@
 | **State** | Whether a task is open (`TODO`) or done (`DONE`). `WORKING`, "in progress", is no longer offered (#334): the tasks that had it became open, and it stays in the API only until #345, because apps installed before then can still send it. The API accepts it and stores it as `TODO`, so no task is in progress again. |
 | **Importance** | How much a task matters to its owner: `LOW`, `MEDIUM` or `HIGH`. |
 | **Due date** | The day a task is meant to be finished. Always set, once the task is no draft. |
-| **Draft** | A task the app's add form attaches files to before Add, so they upload while the form is filled in (#381). A task with a draft marker, not a state: it has made no progress, and has no description or due date yet. Nowhere a task is seen -- not on the board, not to an update or delete -- until it is added; discarded with its files on Cancel, swept with them once abandoned for an hour. |
+| **Draft** | A task the app's add form attaches files to before Add, so they upload while the form is filled in (#381). A task with a draft marker, not a state: it has made no progress, and has no description or due date yet. Nowhere a task is seen -- not on the board, not to an update or delete -- until it is added; discarded with its files on Cancel, swept with them once abandoned for an hour. At most five are open per user; a sixth is refused (#434). |
 | **Board** | A user's tasks, as they see them: ordered by due date, and within a day by importance, high first. |
 | **Attachment** | A file or a link on a task. A file is a PDF or an image, its content in object storage and its name, type and size here; a link (#414) is its address and title here, and nothing in storage. |
 | **Link** | An attachment that is a web address, titled by its page where the app that shared it gave the title. Available as soon as it is added: there is nothing to upload. |
@@ -52,6 +52,7 @@ past the window, and uploads that were never confirmed.
 | A task always has an owner | Not-null column and `@ManyToOne` on `Task.owner`; the owner is set from the token, never from the request |
 | A task's description is present and at most 255 characters | `@Size` and `isCompleteUnlessDraft` on `Task`, `@NotBlank` + `@Size` on the request records **and on `TaskResponse`**, the `task_complete_unless_draft` check constraint, and `maxLength` in the published schema, which the frontend enforces on every response. A draft has none yet |
 | A draft is never seen as a task | Every query in `TaskResource` that is not about drafts excludes them (`draft = false`); `DraftResource` reaches drafts only |
+| A user has at most five open drafts (#434) | `DraftResource.create`, which counts them under the lock on the user's row (`User.lockRow`) |
 | A **new** task's due date is today or later | `@FutureOrPresent` on `TaskCreateRequest` only |
 | State and importance are always set | Not-null columns; `state` defaults to `TODO` |
 | A user's email is present and unique | `@NotBlank` and a unique not-null column on `User` |

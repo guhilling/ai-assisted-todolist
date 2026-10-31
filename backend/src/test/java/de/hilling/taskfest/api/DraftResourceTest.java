@@ -116,6 +116,36 @@ class DraftResourceTest {
             QuarkusTransaction.requiringNew().call(() -> Task.<Task>findById(othersTaskId).description));
     }
 
+    @Test
+    @TestSecurity(user = "draft-empty@example.com")
+    @OidcSecurity(claims = { @Claim(key = "email", value = "draft-empty@example.com") })
+    void shouldRefuseToAddADraftWithAnEmptyBody() {
+        long draftId = createDraft();
+
+        given().contentType(ContentType.JSON)
+            .when().post("/api/tasks/drafts/" + draftId + "/add").then().statusCode(400);
+    }
+
+    @Test
+    @TestSecurity(user = "draft-many@example.com")
+    @OidcSecurity(claims = { @Claim(key = "email", value = "draft-many@example.com") })
+    void shouldRefuseASixthOpenDraftAndTakeOneOnceAnotherIsGone() {
+        long first = createDraft();
+        long second = createDraft();
+        for (int i = 0; i < 3; i++) {
+            createDraft();
+        }
+
+        given().when().post("/api/tasks/drafts").then().statusCode(422);
+
+        given().when().delete("/api/tasks/drafts/" + first).then().statusCode(204);
+        createDraft();
+        given().contentType(ContentType.JSON).body(fields("No draft any more"))
+            .when().post("/api/tasks/drafts/" + second + "/add").then().statusCode(201);
+        createDraft();
+        given().when().post("/api/tasks/drafts").then().statusCode(422);
+    }
+
     private static long createDraft() {
         return given().when().post("/api/tasks/drafts").then().statusCode(201).extract().jsonPath().getLong("id");
     }

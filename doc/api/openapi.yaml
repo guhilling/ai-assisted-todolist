@@ -585,6 +585,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/DraftResponse"
+        "422":
+          description: "Refused: the caller has 5 drafts open already (#434)."
         "401":
           description: Not Authorized
         "403":
