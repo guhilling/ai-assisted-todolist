@@ -31,9 +31,10 @@ jobs:
       - name: Derive the version from the tag
         id: version
         # A push matches the trigger's tag patterns already; a start from the Actions tab may name
-        # any branch or tag, and only a release tag is one.
+        # any branch or tag, and only a release tag is one. A pre-release's suffix is letters, digits
+        # and dots, as the deploy workflows also insist (#433): the version reaches shell commands.
         run: |
-          if [ "$GITHUB_REF_TYPE" != tag ] || ! [[ "$GITHUB_REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-.+)?$ ]]; then
+          if [ "$GITHUB_REF_TYPE" != tag ] || ! [[ "$GITHUB_REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]]; then
             echo "::error::A release is made for a tag vX.Y.Z, not for $GITHUB_REF_NAME."
             exit 1
           fi
@@ -116,7 +117,9 @@ jobs:
         # verify then runs the tests, the coverage gate, Checkstyle and PIT. It also writes
         # target/openapi (quarkus.smallrye-openapi.store-schema-directory), which the next
         # step turns into the contract announce attaches to the GitHub Release.
-        run: ./mvnw -B -Prelease -Drevision=${{ steps.version.outputs.version }} verify
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: ./mvnw -B -Prelease -Drevision="$VERSION" verify
 
       - name: Regenerate the API contract at the release version
         # The committed doc/api says 1.0.0-SNAPSHOT, because that is what main's revision
@@ -170,7 +173,9 @@ jobs:
         # deploy-frontend.yml -- built once here and never rebuilt at deploy time, which is what
         # makes rolling back the frontend "deploy the previous release" (doc/deployment/deploying.md).
         # The archive holds the contents of dist/, not the directory.
-        run: tar -czf "taskfest-frontend-${{ steps.version.outputs.version }}.tar.gz" -C frontend/dist .
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: tar -czf "taskfest-frontend-$VERSION.tar.gz" -C frontend/dist .
 
       - name: Upload the frontend build
         uses: actions/upload-artifact@v7
@@ -230,7 +235,7 @@ jobs:
         # Jib cannot retry a base image download that breaks off; the script can, and only that.
         run: >
           $GITHUB_WORKSPACE/.github/scripts/retry-on-broken-download.sh
-          ./mvnw -B -Prelease -Drevision=${{ needs.gate.outputs.version }}
+          ./mvnw -B -Prelease -Drevision="$IMAGE_TAG"
           package -DskipTests
           -Dquarkus.container-image.build=true
           -Dquarkus.container-image.push=true
@@ -238,20 +243,24 @@ jobs:
 
       - name: Publish the frontend image
         if: matrix.name == 'frontend'
+        env:
+          VERSION: ${{ needs.gate.outputs.version }}
         run: >
           docker buildx build --push
           --platform "$PLATFORMS"
-          --tag quay.io/ghilling/taskfest-frontend:${{ needs.gate.outputs.version }}
-          --build-arg VITE_TASKFEST_VERSION=${{ needs.gate.outputs.version }}
+          --tag "quay.io/ghilling/taskfest-frontend:$VERSION"
+          --build-arg "VITE_TASKFEST_VERSION=$VERSION"
           -f docker/Dockerfile .
 
       # The tag must be one image index with every platform built (#249), or a machine of the
       # missing one pulls nothing it can run.
       - name: Check the image is published for every platform
         working-directory: .
+        env:
+          VERSION: ${{ needs.gate.outputs.version }}
         run: >
           python3 .github/scripts/check-image-platforms.py
-          "quay.io/ghilling/taskfest-${{ matrix.name }}:${{ needs.gate.outputs.version }}" "$PLATFORMS"
+          "quay.io/ghilling/taskfest-${{ matrix.name }}:$VERSION" "$PLATFORMS"
 
   announce:
     name: GitHub Release
@@ -281,12 +290,19 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ needs.gate.outputs.version }}
         # --verify-tag refuses to invent a tag if the ref has gone; --generate-notes builds
-        # the body from the pull requests merged since the previous release.
+        # the body from the pull requests merged since the previous release. A pre-release is
+        # marked as one and never made the repository's latest (#433): it would otherwise be, and
+        # its final release's notes would list only what came after it.
         run: |
+          prerelease=()
+          if [[ "$VERSION" == *-* ]]; then
+            prerelease=(--prerelease --latest=false)
+          fi
           gh release create "$GITHUB_REF_NAME" \
             --verify-tag \
             --title "$VERSION" \
-            --generate-notes
+            --generate-notes \
+            "${prerelease[@]}"
 
       - name: Attach the API contract to the release
         env:
