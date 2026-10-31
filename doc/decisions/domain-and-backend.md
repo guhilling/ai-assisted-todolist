@@ -207,6 +207,9 @@ production application has no use for the numbers, so
 
 *Accepted · 2026-10-08 · #204, #209*
 
+Revised in part: adding a draft again updates the task it became, where it was a 404
+([Adding a draft again updates the task it became](#adding-a-draft-again-updates-the-task-it-became), #427).
+
 **Decision.** A task's files (#204) are S3 objects in a private bucket. The backend never sees
 their content: it hands out presigned links, a PUT link to upload and a GET link to open, and
 keeps the name, type, size and object key in the `attachment` table.
@@ -266,8 +269,7 @@ attachment sweep. A draft's files count toward the five per user (4a): they take
 website keeps holding files until Add (5a). The API change is an addition, so installed apps keep
 working, and an app talking to a backend from before drafts is refused (405: the path is a task's
 to it) and lets the files wait for Add as before. Adding or discarding locks the draft's row, so a
-sweep meeting it waits and then finds it added or gone. Adding it again updates the task it became
-([below](#adding-a-draft-again-updates-the-task-it-became), #427). *Rejected:* a `DRAFT` state, which every query on states would have had to leave out;
+sweep meeting it waits and then finds it added or gone. *Rejected:* a `DRAFT` state, which every query on states would have had to leave out;
 a separate draft aggregate whose attachments move over on Add, two tables for one thing.
 
 **Rejected: malware scanning (D4).** The files are only ever opened by the person who uploaded
@@ -401,9 +403,15 @@ task a second time and uploaded every file again. Taking the Add again makes the
 and it carries what was edited in between, a typo fixed after the failure for one. The app only
 has to show the task once, when the reload after the failure had already brought it.
 
+**Cost.** A task deleted elsewhere between the lost answer and the retry is still a 404, read as a
+sweep, and added again with its files: rare, and the user did press Add. An installed app from
+before this lists a retried task twice until the board is next loaded, where it used to create it
+twice for good. The retry's values replace the task's, its state included, so a task marked done
+in between is open again.
+
 **Rejected: the app looking for the draft's id on the board after a 404**, which was #442's first
-version. It needed a whole board fetched on the save path for one row, threw away whatever was
-edited before the retry, and read a task deleted elsewhere in between as swept. **Rejected: telling
+version. It needed a whole board fetched on the save path for one row, and threw away whatever was
+edited before the retry. **Rejected: telling
 a task that was a draft from one created directly**, with a column of its own, so that only those
 are added again: a migration for a difference only a client misusing the endpoint would meet. An
 Add on any task of the caller's therefore replaces its fields, as a `PUT` would.

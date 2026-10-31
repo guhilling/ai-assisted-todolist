@@ -917,7 +917,8 @@ export function TaskFestApp({
               draft.added = true
             } catch (cause) {
               // Swept while the form stood open past the hour (#381): added the way it was before
-              // drafts, its files uploaded again from the phone.
+              // drafts, its files uploaded again from the phone. A task the draft became is no 404
+              // (#427); one deleted elsewhere after a lost answer is, and is added again.
               if (!(cause instanceof RequestFailedError && cause.status === 404)) {
                 throw cause
               }
