@@ -148,6 +148,30 @@ data "aws_iam_policy_document" "read_only_guard" {
     actions   = ["s3:GetObject", "s3:GetObjectVersion"]
     resources = ["arn:aws:s3:::${var.state_bucket}/*"]
   }
+
+  # Nor people's files, the network's flow logs, or a secret (#430). Watching the environments
+  # needs none of them: what was uploaded and who connected where are the users' business, and
+  # qa's Cognito client secret is for administrators and the environment's own roles only
+  # (doc/decisions/deployment-and-aws.md). ReadOnlyAccess grants every one of these reads.
+  statement {
+    sid    = "NeverReadPeoplesFilesOrSecrets"
+    effect = "Deny"
+    actions = [
+      "s3:GetObject",
+      "s3:GetObjectVersion",
+      "ssm:GetParameter",
+      "ssm:GetParameters",
+      "ssm:GetParametersByPath",
+      "ssm:GetParameterHistory",
+      "cognito-idp:DescribeUserPoolClient",
+    ]
+    resources = [
+      "arn:aws:s3:::${var.project}-*-attachments/*",
+      "arn:aws:s3:::${var.project}-*-flow-logs/*",
+      "arn:aws:ssm:*:*:parameter/*",
+      "arn:aws:cognito-idp:*:*:userpool/*",
+    ]
+  }
 }
 
 resource "aws_iam_group_policy" "read_only_guard" {
