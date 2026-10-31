@@ -933,7 +933,8 @@ export function TaskFestApp({
           if (signedOut()) {
             return
           }
-          setTasks((tasks) => [...tasks, created])
+          // A retried Add whose first answer was lost brings a task the reload may have shown (#427).
+          setTasks((tasks) => [...tasks.filter((shown) => shown.id !== created.id), created])
           keep((kept) => kept.set(created.id, created))
           // What is not on the draft yet -- all of it, without one -- goes up now, as before #381.
           attachLater = {

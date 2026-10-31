@@ -1,5 +1,5 @@
 import { act, render, screen, userEvent, waitFor, within } from '@testing-library/react-native'
-import { RequestFailedError, SignedOutError, type BoardTask } from './api'
+import { RequestFailedError, SignedOutError, TimedOutError, type BoardTask } from './api'
 import type { SharedDraft } from './incoming'
 import type { Session } from './session'
 import { TaskFestApp, type Dependencies } from './TaskFestApp'
@@ -192,6 +192,32 @@ describe('files upload while the add form is open (#381)', () => {
     await waitFor(() => expect(deps.changes.create).toHaveBeenCalled())
     await waitFor(() => expect(deps.attachments!.upload).toHaveBeenLastCalledWith(expect.anything(), 2, photo, expect.any(Function)))
     expect(await screen.findByTestId('task-2')).toBeOnTheScreen()
+  })
+
+  it('shows a task once that an Add retried after a lost answer brought again, with its new values (#427)', async () => {
+    const added: BoardTask = { id: DRAFT, description: 'Pay the bill', dueDate: '2026-10-19', importance: 'MEDIUM', state: 'TODO', attachments: [attached(photo, 10)] }
+    // The backend made the draft the task, but the answer was lost; the reload brings the task.
+    const deps = dependencies({ fetchTasks: jest.fn().mockResolvedValueOnce([task]).mockResolvedValue([task, added]) })
+    deps.changes.drafts!.add = jest.fn()
+      .mockRejectedValueOnce(new TimedOutError(10_000))
+      .mockResolvedValue({ ...added, description: 'Pay the bill today' })
+    const { user, form } = await openAdd(deps)
+    await user.press(within(form).getByRole('button', { name: 'Choose a photo' }))
+    await waitFor(() => expect(deps.attachments!.upload).toHaveBeenCalledTimes(1))
+    await user.type(within(form).getByLabelText('What needs doing'), 'Pay the bill')
+    await user.press(within(form).getByRole('button', { name: 'Add' }))
+    expect(await within(form).findByText('Unable to create task.')).toBeOnTheScreen()
+    await waitFor(() => expect(screen.getByTestId(`task-${DRAFT}`)).toBeOnTheScreen())
+
+    await user.type(within(form).getByLabelText('What needs doing'), ' today')
+    await user.press(within(form).getByRole('button', { name: 'Add' }))
+
+    await waitFor(() => expect(screen.queryByTestId('task-form')).toBeNull())
+    expect(deps.changes.drafts!.add).toHaveBeenLastCalledWith(expect.anything(), DRAFT, expect.objectContaining({ description: 'Pay the bill today' }))
+    expect(deps.changes.create).not.toHaveBeenCalled()
+    expect(deps.attachments!.upload).toHaveBeenCalledTimes(1)
+    expect(screen.getAllByTestId(`task-${DRAFT}`)).toHaveLength(1)
+    expect(within(screen.getByTestId(`task-${DRAFT}`)).getByText('Pay the bill today')).toBeOnTheScreen()
   })
 
   it('has the files wait for Add, as before, where the backend has no drafts yet', async () => {

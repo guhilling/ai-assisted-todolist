@@ -17,7 +17,9 @@ and removed.
   the draft again, and Cancel discards the draft with its files; one left by a sign-out, or by
   an app closed with the form open, is swept with them within the hour. A backend from before
   drafts refuses one (405), and the files then wait for Add, as on the website, whose add row still
-  holds them until then; so does a draft swept while the form stood open longer than that.
+  holds them until then; so does a draft swept while the form stood open longer than that. An
+  Add whose answer was lost, and is tried again, adds nothing twice: the backend applies it to the
+  task the draft became, and the board shows that task once (#427).
 - **Refused on the phone first.** A file the backend would refuse — another type, empty, too
   large — is refused before anything is sent, by the website's own rule and in its words; the
   backend's own refusals (`TASK_FULL`, `USER_FULL`, `MISMATCH`) are worded the same way.

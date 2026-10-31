@@ -25,6 +25,7 @@ commit that first wrote each one down. CI checks every line and that this index 
 - [Attachments live in S3 and travel straight between it and the browser](domain-and-backend.md#attachments-live-in-s3-and-travel-straight-between-it-and-the-browser)
 - [Deleting an account leaves a record outside the database](domain-and-backend.md#deleting-an-account-leaves-a-record-outside-the-database)
 - [A link is a kind of attachment, kept in its row](domain-and-backend.md#a-link-is-a-kind-of-attachment-kept-in-its-row)
+- [Adding a draft again updates the task it became](domain-and-backend.md#adding-a-draft-again-updates-the-task-it-became)
 
 ## [Authentication](authentication.md)
 

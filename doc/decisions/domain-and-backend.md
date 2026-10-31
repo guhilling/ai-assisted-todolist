@@ -266,7 +266,8 @@ attachment sweep. A draft's files count toward the five per user (4a): they take
 website keeps holding files until Add (5a). The API change is an addition, so installed apps keep
 working, and an app talking to a backend from before drafts is refused (405: the path is a task's
 to it) and lets the files wait for Add as before. Adding or discarding locks the draft's row, so a
-sweep meeting it waits and then finds it added or gone. *Rejected:* a `DRAFT` state, which every query on states would have had to leave out;
+sweep meeting it waits and then finds it added or gone. Adding it again updates the task it became
+([below](#adding-a-draft-again-updates-the-task-it-became), #427). *Rejected:* a `DRAFT` state, which every query on states would have had to leave out;
 a separate draft aggregate whose attachments move over on Add, two tables for one thing.
 
 **Rejected: malware scanning (D4).** The files are only ever opened by the person who uploaded
@@ -385,3 +386,24 @@ that would undo "reading only the raw share" ([mobile-app.md](mobile-app.md)); o
 server fetching any address a user gives it is a request forgery risk that needs careful limits.
 Gunnar decided it was not worth it.
 
+## Adding a draft again updates the task it became
+
+*Accepted · 2026-10-31 · #427, #442*
+
+**Decision.** `POST /api/tasks/drafts/{id}/add` takes a task the caller owns as well as a draft:
+it applies the request's values to it, as the first Add did, and answers the same way, 201 with
+the task. A 404 now means that no draft or task with that id is the caller's: swept, or never
+theirs. The row is locked as before, so a second Add waits for the first and then finds a task.
+
+**Why.** An Add can time out after the backend has made the draft the task. The app's form still
+says it could not add, and the next Add met a 404, which the app read as a sweep: it created the
+task a second time and uploaded every file again. Taking the Add again makes the retry harmless,
+and it carries what was edited in between, a typo fixed after the failure for one. The app only
+has to show the task once, when the reload after the failure had already brought it.
+
+**Rejected: the app looking for the draft's id on the board after a 404**, which was #442's first
+version. It needed a whole board fetched on the save path for one row, threw away whatever was
+edited before the retry, and read a task deleted elsewhere in between as swept. **Rejected: telling
+a task that was a draft from one created directly**, with a column of its own, so that only those
+are added again: a migration for a difference only a client misusing the endpoint would meet. An
+Add on any task of the caller's therefore replaces its fields, as a `PUT` would.

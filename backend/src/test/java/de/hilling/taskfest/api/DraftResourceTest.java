@@ -12,6 +12,8 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 import static io.restassured.RestAssured.given;
+import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.not;
 
@@ -54,14 +56,32 @@ class DraftResourceTest {
     }
 
     @Test
+    @TestSecurity(user = "draft-added-twice@example.com")
+    @OidcSecurity(claims = { @Claim(key = "email", value = "draft-added-twice@example.com") })
+    void shouldAddADraftAgainAsTheTaskItBecameWithTheNewValues() {
+        long draftId = createDraft();
+        given().contentType(ContentType.JSON).body(fields("Its answer was lost"))
+            .when().post("/api/tasks/drafts/" + draftId + "/add").then().statusCode(201);
+
+        given().contentType(ContentType.JSON).body(fields("Typo fixed"))
+            .when().post("/api/tasks/drafts/" + draftId + "/add").then().statusCode(201)
+            .body("id", equalTo((int) draftId)).body("description", equalTo("Typo fixed"));
+
+        given().when().get("/api/tasks").then()
+            .body("findAll { it.id == " + draftId + " }.description", contains("Typo fixed"));
+    }
+
+    @Test
     @TestSecurity(user = "draft-not-mine@example.com")
     @OidcSecurity(claims = { @Claim(key = "email", value = "draft-not-mine@example.com") })
-    void shouldAnswerATaskThatIsNoDraftLikeAMissingDraft() {
+    void shouldDiscardOnlyADraftButAddATaskAgain() {
         long taskId = given().contentType(ContentType.JSON).body(fields("Already a task"))
             .when().post("/api/tasks").then().statusCode(201).extract().jsonPath().getLong("id");
 
+        // Adding a task again is what a retry does when the first answer was lost (#427).
         given().contentType(ContentType.JSON).body(fields("Again"))
-            .when().post("/api/tasks/drafts/" + taskId + "/add").then().statusCode(404);
+            .when().post("/api/tasks/drafts/" + taskId + "/add").then().statusCode(201)
+            .body("description", equalTo("Again"));
         given().when().delete("/api/tasks/drafts/" + taskId).then().statusCode(404);
         given().when().delete("/api/tasks/drafts/" + Long.MAX_VALUE).then().statusCode(404);
     }
