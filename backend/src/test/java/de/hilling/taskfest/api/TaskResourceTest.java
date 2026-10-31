@@ -11,6 +11,7 @@ import io.quarkus.test.security.oidc.Claim;
 import io.quarkus.test.security.oidc.OidcSecurity;
 import io.restassured.http.ContentType;
 import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -238,6 +239,22 @@ class TaskResourceTest {
             .statusCode(400);
     }
 
+    @Test
+    @TestSecurity(user = ALICE)
+    @OidcSecurity(claims = { @Claim(key = "email", value = ALICE) })
+    void shouldAcceptADueDateThatIsStillTodaySomewhereBehindUtc() {
+        // 21:00 in New York is already tomorrow in UTC: the user's today is UTC's yesterday (#425).
+        LocalDate yesterdayInUtc = LocalDate.now(ZoneOffset.UTC).minusDays(1);
+
+        given()
+            .contentType(ContentType.JSON)
+            .body(taskJson("Due today in New York", yesterdayInUtc.toString(), TaskImportance.MEDIUM, TaskState.TODO))
+            .when().post("/api/tasks")
+            .then()
+            .statusCode(201)
+            .body("dueDate", equalTo(yesterdayInUtc.toString()));
+    }
+
     static Stream<Arguments> invalidTaskRequests() {
         String tomorrow = LocalDate.now().plusDays(1).toString();
         return Stream.of(
@@ -245,8 +262,9 @@ class TaskResourceTest {
             Arguments.of("a description past the column length",
                 taskJson("x".repeat(Task.MAX_DESCRIPTION_LENGTH + 1), tomorrow,
                     TaskImportance.MEDIUM, TaskState.TODO)),
+            // Two days ago: yesterday may still be someone's today (#425).
             Arguments.of("a due date in the past",
-                taskJson("Yesterday's job", LocalDate.now().minusDays(1).toString(),
+                taskJson("Yesterday's job", LocalDate.now().minusDays(2).toString(),
                     TaskImportance.MEDIUM, TaskState.TODO)),
             Arguments.of("no importance", taskJson("Unrated job", tomorrow, null, TaskState.TODO)),
             Arguments.of("no state", taskJson("Stateless job", tomorrow, TaskImportance.MEDIUM, null)));
@@ -261,7 +279,7 @@ class TaskResourceTest {
 
         given()
             .contentType(ContentType.JSON)
-            .body(taskJson(description, LocalDate.now().minusDays(1).toString(),
+            .body(taskJson(description, LocalDate.now().minusDays(2).toString(),
                 TaskImportance.HIGH, TaskState.TODO))
             .when().post("/api/tasks")
             .then()

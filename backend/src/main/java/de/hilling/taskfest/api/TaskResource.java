@@ -12,7 +12,6 @@ import jakarta.inject.Inject;
 import jakarta.persistence.LockModeType;
 import jakarta.transaction.Transactional;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.FutureOrPresent;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -112,7 +111,7 @@ public class TaskResource {
             schema = @Schema(implementation = TaskResponse.class),
             examples = @ExampleObject(name = "task", value = EXAMPLE_TASK)))
     @APIResponse(responseCode = "400", description = "A field failed validation, for example a blank "
-        + "description or a due date in the past.")
+        + "description or a due date that is past everywhere.")
     public Response create(@Valid TaskCreateRequest request) {
         Task task = new Task();
         task.owner = currentUser();
@@ -265,7 +264,7 @@ public class TaskResource {
      * that way, and the duplication is four lines.</p>
      *
      * @param description what is to be done, never blank
-     * @param dueDate when it is due, today or later
+     * @param dueDate when it is due, today or later somewhere ({@link TodaySomewhere})
      * @param importance how much it matters
      * @param state where it stands in the workflow
      * @param attachmentIds attachments of the task an undo re-creates, to attach again; usually absent
@@ -273,7 +272,7 @@ public class TaskResource {
     public record TaskCreateRequest(
         @NotBlank @Size(max = Task.MAX_DESCRIPTION_LENGTH) @Schema(example = "Renew the passport")
         String description,
-        @NotNull @FutureOrPresent @Schema(example = "2026-11-30") LocalDate dueDate,
+        @NotNull @TodaySomewhere @Schema(example = "2026-11-30") LocalDate dueDate,
         @NotNull @Schema(example = "HIGH") TaskImportance importance,
         @NotNull @Schema(example = "TODO") TaskState state,
         @Size(max = MAX_REATTACHED) @Schema(description = "Attachments of a task deleted moments ago, for an undo "
