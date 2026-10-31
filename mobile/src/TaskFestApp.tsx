@@ -51,7 +51,10 @@ export type TaskChanges = {
   create(caller: Caller, input: TaskInput): Promise<BoardTask>
   update(caller: Caller, task: Task): Promise<BoardTask>
   remove(caller: Caller, task: Task): Promise<void>
-  /** Puts a deleted task back; it returns with a new id. */
+  /**
+   * Puts a deleted task back; it returns with a new id. Created but not dated back to its own day,
+   * it rejects with a `NotDatedBackError` carrying the task, which exists and is shown (#426).
+   */
   restore(caller: Caller, task: Task, today: string): Promise<BoardTask>
   /**
    * Draft tasks (#381), which the add form's files upload to while it is open. Left out, or
@@ -813,16 +816,18 @@ export function TaskFestApp({
    * @returns the text, or null once the app has signed out or said why nothing could be changed
    */
   const failed = async (cause: unknown, text: string): Promise<string | null> => {
-    if (cause instanceof SignedOutError) {
+    // A task put back but not to its own date failed on the update that dates it back (#426).
+    const reason = cause instanceof NotDatedBackError ? cause.cause : cause
+    if (reason instanceof SignedOutError) {
       await signOut('sessionExpired')
       return null
     }
-    if (cause instanceof KeptBoardShownError) {
+    if (reason instanceof KeptBoardShownError) {
       setRefused(true)
       return null
     }
     console.warn('A change was not saved', cause)
-    if (cause instanceof TimedOutError) {
+    if (reason instanceof TimedOutError) {
       reload()
     }
     return text
@@ -1380,21 +1385,26 @@ export function TaskFestApp({
       return
     }
     // A task put back but not to its own date is shown all the same (#426): it exists.
-    const restored = outcomes.flatMap((outcome) =>
-      outcome.status === 'fulfilled' ? [outcome.value] : outcome.reason instanceof NotDatedBackError ? [outcome.reason.task] : [],
-    )
+    const restored: BoardTask[] = []
+    const lost: unknown[] = []
+    const notDatedBack: NotDatedBackError[] = []
+    for (const outcome of outcomes) {
+      if (outcome.status === 'fulfilled') {
+        restored.push(outcome.value)
+      } else if (outcome.reason instanceof NotDatedBackError) {
+        restored.push(outcome.reason.task)
+        notDatedBack.push(outcome.reason)
+      } else {
+        lost.push(outcome.reason)
+      }
+    }
     setTasks((current) => [...current, ...restored])
     keep((kept) => restored.forEach((task) => kept.set(task.id, task)))
     // One failure is said: an ended session first, which signs out, then a task not put back at
     // all, then one not put back to its own date (#426), as on the website.
-    const reasons = outcomes.flatMap((outcome) => (outcome.status === 'rejected' ? [outcome.reason as unknown] : []))
-    const failures = [
-      ...reasons.filter((reason) => !(reason instanceof NotDatedBackError)),
-      ...reasons.flatMap((reason) =>
-        reason instanceof NotDatedBackError ? [reason.cause instanceof SignedOutError ? reason.cause : reason] : [],
-      ),
-    ]
-    const cause = failures.find((failure) => failure instanceof SignedOutError) ?? failures[0]
+    const failures = [...lost, ...notDatedBack]
+    const ended = failures.find((failure) => (failure instanceof NotDatedBackError ? failure.cause : failure) instanceof SignedOutError)
+    const cause = ended ?? failures[0]
     if (failures.length > 0) {
       const text = cause instanceof NotDatedBackError ? messages.undo.notDatedBack : messages.failures.restoring
       setFailure((await failed(cause, text)) ?? undefined)
