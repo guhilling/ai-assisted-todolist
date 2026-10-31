@@ -224,6 +224,18 @@ class OneOffTaskTest(unittest.TestCase):
         self.assertIn("taskfest-qa-migrate has no active revision with qa's own execution role.", result.stderr)
         self.assertNotIn("ecs run-task", self.calls.read_text())
 
+    def test_a_bootstrap_family_with_no_revision_of_its_own_runs_nothing(self):
+        # Both its revisions carry the shared execution role, which the deploy role may pass (#454).
+        self.env["NEWEST_ROLE"] = OWN_ROLE
+        (pathlib.Path(self.work.name) / "aws").write_text(FAKE_AWS.replace('*:6*) echo "$own"', f"*:6*) echo {OWN_ROLE}"))
+
+        result = self.run_env_sh("db-bootstrap")
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("taskfest-qa-db-bootstrap has no active revision with qa's own execution role.", result.stderr)
+        self.assertIn("Its revisions need taskfest-qa-db-bootstrap-execution.", result.stderr)
+        self.assertNotIn("ecs run-task", self.calls.read_text())
+
     def test_a_family_that_cannot_be_read_stops_with_aws_s_own_error(self):
         (pathlib.Path(self.work.name) / "aws").write_text(FAKE_AWS.replace(
             '"ecs list-task-definitions")', '"ecs list-task-definitions") echo "ExpiredToken" >&2; exit 254 ;;\n  "unused")'))
