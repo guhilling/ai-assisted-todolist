@@ -218,6 +218,12 @@ describe('files upload while the add form is open (#381)', () => {
     expect(deps.attachments!.upload).toHaveBeenCalledTimes(1)
     expect(screen.getAllByTestId(`task-${DRAFT}`)).toHaveLength(1)
     expect(within(screen.getByTestId(`task-${DRAFT}`)).getByText('Pay the bill today')).toBeOnTheScreen()
+    // Kept for reading offline with its new values, too.
+    await waitFor(() =>
+      expect(deps.keptBoard.save).toHaveBeenLastCalledWith(
+        expect.objectContaining({ tasks: expect.arrayContaining([expect.objectContaining({ id: DRAFT, description: 'Pay the bill today' })]) }),
+      ),
+    )
   })
 
   it('has the files wait for Add, as before, where the backend has no drafts yet', async () => {
