@@ -95,7 +95,11 @@ Four consequences worth being plain about:
   `rds:PubliclyAccessible = false`. **RDS is the gap:** it has no condition key for security
   groups, so the lifecycle role could attach the other environment's database group to its own
   instance. The subnet group is foundation and not the role's to create. That is accepted because
-  the role is assumed by a person with MFA.
+  the role is assumed by a person with MFA. **`ecs:RunTask` is the other gap** (#429): it has no
+  subnet or security-group condition key either, so either role may start its environment's
+  one-off task in the other environment's subnets and tasks security group, with an image of its
+  choosing — a network path to that database's port. The task carries only its own environment's
+  roles (`iam:PassRole` above), so it holds no credentials the other database accepts.
 - **Local credentials are the remaining hole.** An agent running with an administrator profile
   on a developer machine could reach prod, because nothing structural stops it. The mitigation is
   that the profile available locally is itself least-privilege and explicitly denies

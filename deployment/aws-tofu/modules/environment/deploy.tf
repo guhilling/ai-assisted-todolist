@@ -123,8 +123,9 @@ data "aws_iam_policy_document" "deploy" {
   # prod's family.
   #
   # It is tolerable because a task definition nobody runs is inert, and the calls that would run
-  # or deploy one -- UpdateService above, RunTask below -- are both scoped. If that ever stops
-  # being true, this is the statement to revisit.
+  # or deploy one -- UpdateService above, RunTask below -- are both scoped to this environment's
+  # service, family and cluster; env.sh runs the revision OpenTofu recorded, never the family's
+  # newest (#429). If that ever stops being true, this is the statement to revisit.
   statement {
     sid = "RegisterTaskDefinitionsWhichCannotBeScoped"
     actions = [
@@ -136,6 +137,12 @@ data "aws_iam_policy_document" "deploy" {
 
   # The one-off Liquibase task, and watching it finish. Restricted to the migration family, and
   # to this environment's cluster.
+  #
+  # Not to this environment's subnets, unlike UpdateService: RunTask has no ecs:subnet or
+  # security-group condition key (#429). So this role could run a migration task of its own family,
+  # with an image of its choosing, in the other environment's subnets and tasks security group: a
+  # network path to that database's port. It is tolerable because the task can carry only this
+  # environment's roles -- PassRole below -- so it holds no credentials the other database accepts.
   statement {
     sid       = "RunTheMigrationTask"
     actions   = ["ecs:RunTask"]
