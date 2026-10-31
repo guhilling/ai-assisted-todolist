@@ -619,7 +619,8 @@ paths:
     post:
       summary: Add a draft task
       description: "Makes the draft a task, with its files, validated as a create\
-        \ is."
+        \ is. Adding it again, as a retry whose answer was lost does, applies the\
+        \ values to the task (#427)."
       tags:
       - Tasks
       parameters:
@@ -645,7 +646,7 @@ paths:
         "400":
           description: "A field failed validation, as for a create."
         "404":
-          description: No draft with this id is owned by the caller.
+          description: No draft or task with this id is owned by the caller.
         "401":
           description: Not Authorized
         "403":

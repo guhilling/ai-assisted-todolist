@@ -186,13 +186,25 @@ public class TaskResource {
      * {@code DraftSweep} deleting it meanwhile waits, and then finds it added or gone.
      */
     static Task ownedDraftOrNotFound(Long id, User owner) {
-        Task draft = Task.<Task>find("id = ?1 and owner = ?2 and draft = true", id, owner)
+        return locked("id = ?1 and owner = ?2 and draft = true", id, owner);
+    }
+
+    /**
+     * The owner's draft or task with this id, locked as {@link #ownedDraftOrNotFound} is, or 404:
+     * what an Add is applied to, since one whose answer was lost is retried on a task (#427).
+     */
+    static Task lockedTaskOrDraftOrNotFound(Long id, User owner) {
+        return locked("id = ?1 and owner = ?2", id, owner);
+    }
+
+    private static Task locked(String query, Long id, User owner) {
+        Task task = Task.<Task>find(query, id, owner)
             .withLock(LockModeType.PESSIMISTIC_WRITE)
             .firstResult();
-        if (draft == null) {
+        if (task == null) {
             throw new WebApplicationException(Response.Status.NOT_FOUND);
         }
-        return draft;
+        return task;
     }
 
     private static Task owned(String query, Long id, User owner) {

@@ -31,8 +31,9 @@ import org.eclipse.microprofile.openapi.annotations.tags.Tag;
  * progress, and a draft has made none. It has no description or due date until it is added, and is
  * nowhere a task is seen -- not on the board, not to an update or a delete -- but takes files
  * through {@link AttachmentResource} as a task does, which count toward the owner's limit. Adding
- * it validates what a create does and makes it a task; discarding it removes its files at once;
- * one abandoned is swept with them by {@link de.hilling.taskfest.service.DraftSweep}.</p>
+ * it validates what a create does and makes it a task; adding it again updates that task, so a
+ * retry whose first answer was lost adds nothing twice (#427). Discarding it removes its files at
+ * once; one abandoned is swept with them by {@link de.hilling.taskfest.service.DraftSweep}.</p>
  */
 @Path("/api/tasks/drafts")
 @Produces(MediaType.APPLICATION_JSON)
@@ -68,14 +69,15 @@ public class DraftResource {
     @Consumes(MediaType.APPLICATION_JSON)
     @Transactional
     @Operation(summary = "Add a draft task",
-        description = "Makes the draft a task, with its files, validated as a create is.")
+        description = "Makes the draft a task, with its files, validated as a create is. Adding it"
+            + " again, as a retry whose answer was lost does, applies the values to the task (#427).")
     @APIResponse(responseCode = "201", description = "The task as added.",
         content = @Content(mediaType = MediaType.APPLICATION_JSON,
             schema = @Schema(implementation = TaskResource.TaskResponse.class)))
     @APIResponse(responseCode = "400", description = "A field failed validation, as for a create.")
-    @APIResponse(responseCode = "404", description = "No draft with this id is owned by the caller.")
+    @APIResponse(responseCode = "404", description = "No draft or task with this id is owned by the caller.")
     public Response add(@PathParam("id") Long id, @Valid TaskResource.TaskCreateRequest request) {
-        Task draft = TaskResource.ownedDraftOrNotFound(id, tasks.currentUser());
+        Task draft = TaskResource.lockedTaskOrDraftOrNotFound(id, tasks.currentUser());
         TaskResource.apply(draft, request);
         draft.draft = false;
         return tasks.created(draft, request);

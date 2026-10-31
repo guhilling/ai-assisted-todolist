@@ -75,9 +75,11 @@ class DraftTaskTest {
 
         given().when().get("/api/tasks").then().statusCode(200)
             .body("find { it.id == " + draftId + " }.attachments.fileName", equalTo(List.of("Scan.pdf")));
-        // Added, it is a task like any other, and no draft any more.
+        // Added again, as a retry whose answer was lost does: the same task, its file still on it (#427).
         given().contentType(ContentType.JSON).body(fields("File the scan"))
-            .when().post("/api/tasks/drafts/" + draftId + "/add").then().statusCode(404);
+            .when().post("/api/tasks/drafts/" + draftId + "/add").then().statusCode(201)
+            .body("id", equalTo((int) draftId))
+            .body("attachments.id", equalTo(List.of((int) attachmentId)));
     }
 
     @Test
