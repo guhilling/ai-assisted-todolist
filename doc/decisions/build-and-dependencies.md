@@ -163,7 +163,13 @@ exactly the case worth catching.
 
 *Accepted · 2026-09-26 · #20*
 
-**What.** `.github/renovate.json`. Patch, minor, digest and pin updates carry
+Revised in part: the policy shared with hilling-it-website (`config:recommended`, the schedule,
+automerge with `platformAutomerge: false`, majors waiting, labels, timezone, `prConcurrentLimit`)
+is the preset `default.json` in [dev-conventions](https://github.com/guhilling/dev-conventions),
+pinned by tag. `.github/renovate.json` extends it and keeps only this repository's managers and
+rules, one of which makes a new version of the preset wait for a human (#456).
+
+**What.** The preset, extended by `.github/renovate.json`. Patch, minor, digest and pin updates carry
 `automerge: true`; major updates open a pull request and wait. Quarkus artifacts, React and
 its type definitions, and the frontend test tooling are each grouped into one pull request.
 
@@ -299,7 +305,7 @@ commit that reveals it is unrelated to the cause.
 **It does not become a manual chore, which was the obvious objection.** Renovate's
 `github-actions` manager — already the one updating `actions/*` here — extracts a runner label as
 a `github-runner` dependency. So `ubuntu-26.04` arrives as a pull request, and because 24 → 26 is
-a *major* update, `.github/renovate.json` makes it wait for a human rather than automerging. The
+a *major* update, the Renovate policy makes it wait for a human rather than automerging. The
 pin turns the migration from something that happens into something that is approved.
 
 **Rejected: pinning only the workflow that raised the notice.** The notice was on all 13 entries,
@@ -366,3 +372,37 @@ every check is green and cannot leave one out. *Not done: reusing backend CI's c
 instead of re-running the tests*, which would need artifacts handed between workflows for a
 saving that no longer blocks anything. The cost is that a finding is seen after the merge, not
 before — accepted, because it then becomes an issue like any other piece of work.
+
+## The conventions shared with other repositories come from one public repository
+
+*Accepted · 2026-10-31 · #400, #455, #456*
+
+hilling-it-website adopted this project's conventions by copying files, and the copies drifted
+within weeks: its doc-reference check had a better regex than this one, and nothing carried a fix
+from one to the other. What is generic now comes from
+[guhilling/dev-conventions](https://github.com/guhilling/dev-conventions), and each repository
+keeps only what is its own. The investigation is on #400.
+
+| Part | Shared? | How |
+|---|---|---|
+| `check-doc-references` | Yes (#455) | A composite action, pinned by SHA with the tag in a comment; Renovate's github-actions manager bumps it |
+| The Renovate policy | Yes (#456) | The repository's default preset, `github>guhilling/dev-conventions#vX.Y.Z`; the `renovate-config` manager bumps it |
+| The story and epic forms | Planned (#457) | Account defaults from a public `guhilling/.github`, unversioned |
+| The generic CLAUDE.md rules and hilling-it-website's guard hooks | Planned (#458) | A Claude Code plugin from the same repository, its rules injected at session start |
+| `check-decisions.py` | Later | Once hilling-it-website writes status lines under its decisions |
+| `build-site.py`, `doc/images/generate.py` | No | One consumer each; hilling-it-website has no docs site and no diagrams |
+| `REVIEW.md` | No | CodeRabbit reads the repository's own files |
+
+**Gunnar's answers.** The repository is **public**: a private repository's actions can be used
+only by private callers, and this one is public. There is **one** repository for the action, the
+preset and the plugin, not one each. The rules are **always on**, injected by a SessionStart hook,
+because a skill is loaded only when a session decides to. A release is a **lightweight `vX.Y.Z`
+tag**, with no GitHub Release, unlike this repository's annotated release tags: nothing is
+published from it but the tag. **No GitHub Pro** for hilling-it-website, so it keeps its local
+push guard instead of a ruleset.
+
+**Cost.** Every shared change becomes a tag in dev-conventions plus a Renovate pull request in
+each repository, merged by itself when it is a patch or minor. For two repositories that is worth
+it where copies drift, the checks, and the forms come free. *Rejected: copying with a note to keep
+the copies in step*, which is what failed. *Rejected: a repository per piece*, more tags and
+settings for no gain at this size.

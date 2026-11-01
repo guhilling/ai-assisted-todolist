@@ -86,9 +86,10 @@ In this repository, stopping to ask applies especially to:
   (`requireReleaseDeps` at `validate`); the npm counterpart is
   `npm run check:deps` in `frontend/`. Do not move either into a release-only
   path — the point is to fail when the dependency is added.
-- Renovate's configuration is `.github/renovate.json`, and `main` requires no status checks
-  because the `main-branch` ruleset names none. Renovate also moves the plugin's tag in
-  `.claude/settings.json`.
+- Renovate's configuration is `.github/renovate.json`, which extends the shared preset from
+  [dev-conventions](https://github.com/guhilling/dev-conventions) and adds this repository's own
+  rules to it. `main` requires no status checks because the `main-branch` ruleset names none.
+  Renovate also moves the plugin's tag in `.claude/settings.json`.
 - The project is licensed **Apache-2.0** (`LICENSE`, verbatim). There are
   deliberately no per-file license headers — see `doc/decisions/build-and-dependencies.md`.
 

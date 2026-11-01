@@ -97,7 +97,7 @@ public class AttachmentService {
     public Announced announce(User owner, Task task, String fileName, String contentType, long sizeBytes,
                               Long thumbnailSizeBytes) {
         AttachmentKind kind = AttachmentKind.of(contentType).orElseThrow(() -> new Refused("UNSUPPORTED_TYPE"));
-        lockAttachmentsOf(owner);
+        owner.lockRow();
         long onTask = Attachment.count("task", task);
         long ofUser = Attachment.count("owner", owner);
         policy.refusal(sizeBytes, onTask, ofUser).ifPresent(refusal -> {
@@ -130,7 +130,7 @@ public class AttachmentService {
      */
     @Transactional
     public Attachment addLink(User owner, Task task, String url, String title) {
-        lockAttachmentsOf(owner);
+        owner.lockRow();
         policy.countRefusal(Attachment.count("task", task), Attachment.count("owner", owner)).ifPresent(refusal -> {
             throw new Refused(refusal.name());
         });
@@ -277,7 +277,7 @@ public class AttachmentService {
         if (ids == null || ids.isEmpty()) {
             return;
         }
-        lockAttachmentsOf(owner);
+        owner.lockRow();
         // At most as many as the task may hold: an undo names one task's, but nothing stops a
         // request naming two deleted tasks' at once.
         long room = config.maxPerTask() - Attachment.count("task", task);
@@ -292,15 +292,6 @@ public class AttachmentService {
                 attachment.task = task;
                 attachment.detachedAt = null;
             });
-    }
-
-    /**
-     * Serialises the changes that count a user's attachments, by locking the user's row: two
-     * files announced at once -- a multi-file drop -- would otherwise both count the same total
-     * and both fit.
-     */
-    private static void lockAttachmentsOf(User owner) {
-        User.findById(owner.id, LockModeType.PESSIMISTIC_WRITE);
     }
 
     /** What the sweep deletes, as of ?1 minus the undo window and ?3 minus the pending lifetime. */

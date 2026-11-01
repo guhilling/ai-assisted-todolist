@@ -36,7 +36,7 @@ Three technical identities, one job each:
 | `taskfest-<env>-lifecycle` (role) | create and destroy what bills: RDS, the load balancer, the Fargate service — and the CloudFront VPC origin that follows the load balancer | a person assuming it, **with MFA** |
 | `taskfest-qa-deploy` (role) | redeploy the qa application; **no infrastructure** | GitHub Actions, unattended |
 | `taskfest-prod-deploy` (role) | redeploy the prod application; **no infrastructure** | GitHub Actions, **only from the `prod` environment**, which requires approval |
-| `taskfest-monitoring` (user) | read-only, everywhere | dashboards and a local CLI profile; can change nothing |
+| `taskfest-monitoring` (user) | read-only, everywhere but the state, people's files, the flow logs and secrets (#430) | dashboards and a local CLI profile; can change nothing |
 
 **Why a separate lifecycle role, rather than just using the admin user.** Standing an environment
 up and tearing it down again is the routine operation in this project's cost model, not a one-off

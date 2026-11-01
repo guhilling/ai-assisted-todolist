@@ -12,6 +12,7 @@
 # files of at most 10 MB a user -- it costs fractions of a cent a month.
 
 locals {
+  # The monitoring user is denied its objects by this name (account/main.tf, #430).
   attachments_bucket = "${local.name}-attachments"
 }
 
