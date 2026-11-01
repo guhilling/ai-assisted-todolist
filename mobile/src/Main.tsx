@@ -30,7 +30,7 @@ import {
 } from './api'
 import { fileFlag } from './fileFlag'
 import { documentsFor } from './documents'
-import { draftOf } from './incoming'
+import { sharesFrom } from './incoming'
 import { pickFile, type PickedPhoto } from './pick'
 import { makeThumbnail } from './thumbnails'
 import { uploadFile, type UploadParts } from './upload'
@@ -41,8 +41,9 @@ import { createReminderScheduler, type NotificationsApi } from './notifications'
 import { providerFor } from './provider'
 import { createSessionStore } from './staySignedIn'
 import { TaskFestApp, type Dependencies } from './TaskFestApp'
+import { transferMs, withinLimit } from './timeLimit'
 import { variantFromConfig } from './variants'
-import { attachmentTypes, catalogues, chooseLanguage } from './web'
+import { attachmentLimits, attachmentTypes, catalogues, chooseLanguage } from './web'
 
 /** The variant this build was made as: `app.config.ts` put it into the app's configuration. */
 const variant = variantFromConfig(Constants.expoConfig?.extra?.variant)
@@ -116,7 +117,11 @@ const previewFolder: PreviewFolder = {
     if (!previewFiles.exists) {
       previewFiles.create({ intermediates: true, idempotent: true })
     }
-    await File.downloadFileAsync(url, new File(previewFiles, name), { idempotent: true })
+    // Within the time the largest file the backend takes may need, aborted after it (#432).
+    await withinLimit(
+      (signal) => File.downloadFileAsync(url, new File(previewFiles, name), { idempotent: true, signal }),
+      transferMs(attachmentLimits.maxSizeBytes),
+    )
   },
   move: (from, to) => {
     const kept = new File(previewFiles, to)
@@ -157,6 +162,22 @@ function discardCopy(uri: string) {
   const copy = new File(uri)
   if (copy.exists) {
     copy.delete()
+  }
+}
+
+/**
+ * Lets a picked file go (#432), or a thumbnail or JPEG made of one -- only from the app's cache,
+ * where the pickers and the image manipulator put their copies: a file anywhere else is not the
+ * app's to delete.
+ */
+function discardPicked(uri: string) {
+  if (!uri.startsWith(Paths.cache.uri)) {
+    return
+  }
+  try {
+    discardCopy(uri)
+  } catch (failure) {
+    console.warn('A picked file could not be let go', failure)
   }
 }
 
@@ -221,11 +242,19 @@ async function savedJpeg(
 /** The phone's side of uploading a file (#274): a PUT straight to storage, and a photo's thumbnail. */
 const uploadParts: UploadParts = {
   put: async (uri, url, headers, onProgress) => {
-    const result = await new File(uri).upload(url, {
-      httpMethod: 'PUT',
-      headers,
-      onProgress: onProgress && ((progress) => onProgress(progress.totalBytes > 0 ? progress.bytesSent / progress.totalBytes : 0)),
-    })
+    const file = new File(uri)
+    // Within the time a file of its size may need, and aborted after it (#432): a PUT that hangs
+    // would leave the upload shown, and the foreground start held, for the rest of the run.
+    const result = await withinLimit(
+      (signal) =>
+        file.upload(url, {
+          httpMethod: 'PUT',
+          headers,
+          onProgress: onProgress && ((progress) => onProgress(progress.totalBytes > 0 ? progress.bytesSent / progress.totalBytes : 0)),
+          signal,
+        }),
+      transferMs(file.size),
+    )
     if (result.status < 200 || result.status >= 300) {
       throw new Error(`Storage answered ${result.status}.`)
     }
@@ -242,6 +271,7 @@ const uploadParts: UploadParts = {
       },
       render: (uri, crop, size) => savedJpeg(uri, (context) => context.crop(crop).resize(size), 0.8),
     }),
+  discard: discardPicked,
 }
 
 /** Android's flag letting the viewer read the one file it is handed. */
@@ -300,15 +330,22 @@ const dependencies: Dependencies = {
       },
       sizeOf: (uri) => new File(uri).size,
       toJpeg: (uri) => savedJpeg(uri, (context) => context, 0.9),
+      discard: discardPicked,
       now: () => Date.now(),
     }),
+  forgetPicked: async (files) => files.forEach((file) => discardPicked(file.uri)),
   documents: documentsFor(Platform.OS, {
     openBrowser: (url) => WebBrowser.openBrowserAsync(url),
     download: async (url, fileName) => {
       if (!documents.exists) {
         documents.create()
       }
-      return File.downloadFileAsync(url, new File(documents, fileName), { idempotent: true })
+      // As a preview's: within the largest file's time, and aborted after it (#432), so a download
+      // that hangs does not keep every other file from opening for the rest of the run.
+      return withinLimit(
+        (signal) => File.downloadFileAsync(url, new File(documents, fileName), { idempotent: true, signal }),
+        transferMs(attachmentLimits.maxSizeBytes),
+      )
     },
     view: (contentUri, mimeType) =>
       IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
@@ -332,15 +369,12 @@ const dependencies: Dependencies = {
   keptBoard: createKeptBoardStore(new File(Paths.cache, 'board.json')),
   previews: createPreviewStore(previewFolder),
   legend: fileFlag(new File(Paths.document, 'colours-explained'), 'explained'),
-  // Only the raw share is read, never "resolved": incoming.ts says why.
+  // Only the raw share is read, never "resolved": incoming.ts says why. It stays with expo-sharing
+  // until its form opens (#432).
   incoming: {
-    take: async () => {
-      const items = Sharing.getSharedPayloads()
-      Sharing.clearSharedPayloads()
-      if (items.length > 0) {
-        forgetLeftShares()
-      }
-      return draftOf(items, {
+    ...sharesFrom(
+      { read: () => Sharing.getSharedPayloads(), clear: () => Sharing.clearSharedPayloads() },
+      {
         describe: (uri) => {
           const file = new File(uri)
           return { name: file.name, type: file.type || null, size: file.size || null }
@@ -357,8 +391,9 @@ const dependencies: Dependencies = {
         toJpeg: (uri) => savedJpeg(uri, (context) => context, 0.9),
         discard: discardCopy,
         release: releaseShared,
-      })
-    },
+      },
+      forgetLeftShares,
+    ),
     forget: async (files) => files.forEach((file) => discardCopy(file.uri)),
   },
   reminders: createReminderScheduler(

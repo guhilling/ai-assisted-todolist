@@ -73,6 +73,9 @@ connection — read, not changed ([decisions/mobile-app.md](../decisions/mobile-
 - **Without a connection** — the load fails, or the sign-in cannot be renewed — the kept board stays,
   with a note saying when it was loaded and that it may not be current, and **Try again**. A board
   already shown that fails to load again in the foreground stays the same way.
+- **The latest load decides** (#432). Loads that overlap — the app back in the foreground twice
+  before the first answered — each ask, but only the answer to the latest one asked for is shown and
+  kept, or its failure said; an older one arriving after it changes nothing.
 - **Nothing on it can be changed.** A tick, the form, Add a task, Clear completed and Undo are
   refused with a message — every change is checked where it is sent, so none can slip past — and
   nothing is sent or queued to send later: an update replaces the whole task,

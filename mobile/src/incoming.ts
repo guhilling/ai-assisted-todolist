@@ -126,6 +126,69 @@ export async function draftOf(items: SharedItem[], parts: IncomingParts): Promis
   return taken.length > 0 ? { ...draft, links: taken } : draft
 }
 
+/** What another app shared, as the platform keeps it for the app: `expo-sharing`'s payloads. */
+export type ShareInbox = {
+  /** The share kept, or none. */
+  read(): SharedItem[]
+  /** Lets it go: the app is done with it. */
+  clear(): void
+}
+
+/** The shares the app takes, and the one it tells when a share's form has opened. */
+export type IncomingShares = {
+  /** The share kept, as a draft, the first time this run sees it; null when there is none new. */
+  take(): Promise<SharedDraft | null>
+  /** The draft's form has opened: the share is let go where the platform keeps it, with its files. */
+  settle(draft: SharedDraft): void
+}
+
+/**
+ * The shares the platform keeps, taken as drafts (#432). A share stays where the platform keeps it
+ * -- an iPhone's App Group, which outlives the app -- until its form opens, and so do the files the
+ * share extension left there: an app the system ends before the board could take the share, while
+ * the user signs in, finds it again the next time it starts.
+ *
+ * So a share is taken once a run, however often the app comes back to the foreground meanwhile,
+ * and only the latest is kept: the platform keeps one, which a newer share replaces, so one that
+ * waits behind another lives only as long as the run. `forgetLeft` lets go the copies an earlier
+ * run left behind, before a share is copied anew.
+ */
+export function sharesFrom(inbox: ShareInbox, parts: IncomingParts, forgetLeft: () => void = () => undefined): IncomingShares {
+  /** The share last taken, as the platform holds it; null when none is, or it was let go. */
+  let taken: string | null = null
+  const kept = new Map<SharedDraft, { share: string; files: string[] }>()
+  const { release, ...reading } = parts
+  return {
+    async take() {
+      const items = inbox.read()
+      const share = JSON.stringify(items)
+      if (items.length === 0 || share === taken) {
+        return null
+      }
+      forgetLeft()
+      // Its files stay where the extension left them until the form opens: `settle` lets them go.
+      const draft = (await draftOf(items, reading))!
+      taken = share
+      const files = items.filter((item) => item.shareType !== 'text' && item.shareType !== 'url').map((item) => item.value)
+      kept.set(draft, { share, files })
+      return draft
+    },
+    settle(draft) {
+      const known = kept.get(draft)
+      if (!known) {
+        return
+      }
+      kept.delete(draft)
+      known.files.forEach((uri) => release?.(uri))
+      // A newer share has replaced it there meanwhile: that one stays, until its own form opens.
+      if (JSON.stringify(inbox.read()) === known.share) {
+        inbox.clear()
+        taken = null
+      }
+    },
+  }
+}
+
 /** The longest address the backend keeps for a link (`LinkRequest`'s `maxLength`, which a test compares). */
 export const LINK_MAX_LENGTH = 2048
 

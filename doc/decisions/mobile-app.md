@@ -211,6 +211,15 @@ for an answer the backend gives in well under one, and short enough that nobody 
 first. Two exceptions: the sign-in in the browser takes as long as its user does, and the version
 check at start gives up after three seconds (`VERSION_CHECK_MS`), since the start waits for it.
 
+A file's transfer to or from storage is held to the same rule, by its size rather than ten seconds
+(#432): ten seconds, and the file's bytes at 64 KiB/s, a poor mobile connection (`transferMs`), and
+the native transfer is aborted when the time is up. That is the upload's PUT, by the file's own
+size, and the downloads of a preview and of a document Android opens, by the largest file the
+backend takes (10 MB, 170 s), since their size is not known before they arrive. Without it, a
+transfer that hung left the upload shown, or a file being opened, for the rest of the run, and the
+app never started over in the foreground. Watching for a transfer that stops making progress would
+end a hung one sooner; a bound by size is the smaller change, and one rule for all three.
+
 A change that got no answer in time may have reached the backend all the same, its answer only slow.
 So it is reported as failed, as before, and the board is loaded again at once: it shows whether the
 change arrived, and until a load works the board counts as possibly out of date and refuses changes

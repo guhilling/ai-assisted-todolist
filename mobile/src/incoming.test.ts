@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { DESCRIPTION_MAX_LENGTH, draftOf, LINK_MAX_LENGTH, type IncomingParts, type SharedItem } from './incoming'
+import { DESCRIPTION_MAX_LENGTH, draftOf, LINK_MAX_LENGTH, sharesFrom, type IncomingParts, type ShareInbox, type SharedItem } from './incoming'
 
 /** Reading what another app shared (#355), with a phone whose files are made up here. */
 function phone(files: Record<string, { name: string | null; type: string | null; size?: number | null }> = {}): IncomingParts {
@@ -316,5 +316,95 @@ describe('the shared files themselves, once read (#356)', () => {
       'file:///group/notes.docx',
       'file:///group/gone.pdf',
     ])
+  })
+})
+
+describe('a share stays with the platform until its form opens (#432)', () => {
+  /** expo-sharing's payloads, as the platform keeps them: in the App Group on an iPhone. */
+  function inbox(...items: SharedItem[]): ShareInbox & { items: SharedItem[] } {
+    const kept = {
+      items,
+      read: () => kept.items,
+      clear: jest.fn(() => void (kept.items = [])),
+    }
+    return kept
+  }
+  const photo = file('file:///group/1/photo.jpg', 'image/jpeg')
+  const parts = () => ({ ...phone({ 'file:///group/1/photo.jpg': { name: 'photo.jpg', type: 'image/jpeg' } }), release: jest.fn() })
+
+  it('is read without being cleared, and its files are not let go yet', async () => {
+    const platform = inbox(text('Holiday'), photo)
+    const phoneParts = parts()
+
+    const draft = await sharesFrom(platform, phoneParts).take()
+
+    expect(draft).toMatchObject({ description: 'Holiday', files: [{ name: 'photo.jpg' }] })
+    expect(platform.clear).not.toHaveBeenCalled()
+    expect(phoneParts.release).not.toHaveBeenCalled()
+  })
+
+  it('is taken once in a run, however often the app comes back to the foreground', async () => {
+    const shares = sharesFrom(inbox(text('Holiday')), parts())
+
+    await shares.take()
+
+    await expect(shares.take()).resolves.toBeNull()
+  })
+
+  it('is taken again by the next run when this one ended before its form opened', async () => {
+    const platform = inbox(text('Holiday'))
+    await sharesFrom(platform, parts()).take()
+
+    await expect(sharesFrom(platform, parts()).take()).resolves.toMatchObject({ description: 'Holiday' })
+  })
+
+  it('is cleared, and its files let go, once its form opens', async () => {
+    const platform = inbox(text('Holiday'), photo)
+    const phoneParts = parts()
+    const shares = sharesFrom(platform, phoneParts)
+    const draft = (await shares.take())!
+
+    shares.settle(draft)
+
+    expect(platform.clear).toHaveBeenCalled()
+    expect(phoneParts.release).toHaveBeenCalledWith('file:///group/1/photo.jpg')
+  })
+
+  it('leaves a newer share in place, which has replaced it there meanwhile', async () => {
+    const platform = inbox(text('Holiday'))
+    const shares = sharesFrom(platform, parts())
+    const first = (await shares.take())!
+    platform.items = [text('Groceries')]
+    await shares.take()
+
+    shares.settle(first)
+
+    expect(platform.clear).not.toHaveBeenCalled()
+  })
+
+  it('takes the same share again once the last one was cleared', async () => {
+    const platform = inbox(text('Holiday'))
+    const shares = sharesFrom(platform, parts())
+    shares.settle((await shares.take())!)
+    platform.items = [text('Holiday')]
+
+    await expect(shares.take()).resolves.toMatchObject({ description: 'Holiday' })
+  })
+
+  it('lets the files of an earlier run go before its first share is copied', async () => {
+    const forgetLeft = jest.fn()
+    const shares = sharesFrom(inbox(text('Holiday')), parts(), forgetLeft)
+
+    await shares.take()
+    await shares.take()
+
+    expect(forgetLeft).toHaveBeenCalledTimes(1)
+  })
+
+  it('is nothing when nothing was shared', async () => {
+    const forgetLeft = jest.fn()
+
+    await expect(sharesFrom(inbox(), parts(), forgetLeft).take()).resolves.toBeNull()
+    expect(forgetLeft).not.toHaveBeenCalled()
   })
 })

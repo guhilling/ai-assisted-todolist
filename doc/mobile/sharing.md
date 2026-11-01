@@ -83,7 +83,14 @@ the raw share, is in [decisions/mobile-app.md](../decisions/mobile-app.md).
 ## When the form opens
 
 `TaskFestApp` takes a share when the app starts and whenever it comes back to the foreground, and
-opens the form once the board can take it:
+opens the form once the board can take it. Until then the share stays where the platform keeps it
+(#432, `sharesFrom` in `mobile/src/incoming.ts`): it is read but not cleared, and the files the iOS
+extension left are not let go, so an app the system ends while the share waits — signed out, the
+user off to another app for a password — finds it again when it next starts. It is taken once a
+run, however often the app comes back meanwhile, and cleared once its form opens, unless a newer
+share has replaced it there. The platform keeps one share, so a share waiting behind another lives
+only as long as the run. On Android the share is the intent that started the app, held in memory:
+whether Android hands it over again to an app it ended depends on how the user comes back to it.
 
 - **Signed out**, it waits for the sign-in.
 - **Over the board kept on the phone**, which takes no change ([board.md](board.md)), it waits
@@ -96,12 +103,14 @@ opens the form once the board can take it:
 The copies go once the form is closed — added, cancelled, or closed by a sign-out — and none of
 its files is uploading any more; copies the form does not keep go at once; and copies a run left
 behind go before the next run's first share. On iOS the extension's own copies, in the App Group,
-go as soon as the app has read them, with their folders (`releaseShared` in `Main.tsx`).
+go when the share's form opens, with their folders (`releaseShared` in `Main.tsx`).
 
 ## Tested
 
-- `incoming.test.ts`: what a share becomes, names and refusals included.
-- `TaskFestApp.sharing.test.tsx`: when the form opens, and when the copies go.
+- `incoming.test.ts`: what a share becomes, names and refusals included; and that it stays with
+  the platform until its form opens (#432).
+- `TaskFestApp.sharing.test.tsx`: when the form opens, when the copies go, and when the share is
+  let go where the platform keeps it.
 - Mobile CI's `board` share (`mobile/maestro/share/`): text sent to the app as another app sends
   it, and an image through the Files app's real share sheet, each added to the board.
 - Mobile CI's iOS build: the extension's name, its App Group, its rule evaluated against shares
