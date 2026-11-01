@@ -15,6 +15,7 @@ share="$2"
 here="$(dirname "$0")"
 
 source "$here/emulator-ready.sh"
+echo "TEMPORARY (#461): an ordinary failure, to prove it fails the job" >&2; exit 1
 
 # `maestro test` for the given flows, its JUnit report going to the first argument, run once more
 # when Maestro's own driver failed before the flow began (#445), as the iOS share flow is (#401):
