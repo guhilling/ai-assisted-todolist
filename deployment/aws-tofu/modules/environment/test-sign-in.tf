@@ -120,7 +120,9 @@ resource "aws_cognito_user_pool_client" "backend" {
 
 # The mobile app's own client in the pool (#267): public, since an installed app cannot keep a
 # secret, so it signs in with the code flow and PKCE through the system browser and returns to the
-# qa build's scheme. The backend accepts its ID tokens as bearer tokens: the task definition names
+# qa build's scheme -- written out rather than derived from var.environment, because prod's build
+# is not `de.hilling.taskfest.prod` (mobile/src/variants.ts), and test_sign_in's validation keeps
+# the pool to qa (#435). The backend accepts its ID tokens as bearer tokens: the task definition names
 # it in TASKFEST_OIDC_COGNITO_APP_CLIENT_ID (billable.tf), and application.properties lists it as an
 # audience of the cognito tenant.
 resource "aws_cognito_user_pool_client" "app" {

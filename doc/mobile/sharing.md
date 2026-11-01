@@ -141,5 +141,23 @@ go when the share's form is closed, with their folders (`releaseShared` in `Main
   run. Those numbers are the photo's. The Safari share is younger and less proven: its own
   stumbles were the simulator's too -- a tap on Safari's first-run tip or on the menu's *Share*
   that came while it was still opening and went nowhere -- and it now taps again while either is
-  still there. Its final version passed in all three runs on #464, which is few. Still tried by
-  hand, on TestFlight: text shared on an iPhone, and a share taken on to the board signed in.
+  still there. Its final version passed in all three runs on #464, which is few.
+  Three more of the simulator's stumbles followed (#473). The first share of a photo once came
+  through late, after Photos had been restarted for the second, and its question stood in the way:
+  a question still there after the restart is now answered, as one on time would be, since the
+  extension has taken the photo and is opening the app, and the photo is not shared again.
+  TaskFest's extension stalled in Safari too, at its compose view (*Cancel* / *Post*), or never
+  started, and handed nothing over in 90 s: the Safari flow now shares again, once, from a
+  restarted Safari, the way the photo's does. A question that comes late there is turned down
+  rather than answered, because a photo's late share asks the same, and only the new share may
+  pass the flow; a late share that reached the app's sign-in is not shared again. And a tap
+  on *Open* hung in Maestro's XCTest runner for nearly three minutes while the app it opened was
+  starting; the runner gave the request up and Maestro failed with an error of no name, which its
+  report calls *Unknown error*. `driver-failed.sh` counts that as the driver's only when Maestro's
+  log says a tap failed at most a minute after the runner's log says it gave a request up, so the
+  flow runs once more; an unknown error alone, or one long after a request the runner got over,
+  still fails at once. The tap on *Open* also lets the question be
+  gone by the time it looks. Either flow still fails at once when *TaskFest Dev* is not offered,
+  and when the app never opens: after the second share, or, for the photo, after a late first
+  share whose question was answered instead. Still tried by hand, on TestFlight:
+  text shared on an iPhone, and a share taken on to the board signed in.

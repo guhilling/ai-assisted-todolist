@@ -51,12 +51,19 @@ resource "aws_ecr_repository_creation_template" "quay" {
   lifecycle_policy = local.cache_lifecycle_policy
 }
 
-# The template applies to repositories created from now on; the backend's was created by its first
-# pull, with the policy of the time, so it gets the current one here. The repository itself stays
-# the cache's: only its lifecycle policy is managed.
-resource "aws_ecr_lifecycle_policy" "backend_cache" {
-  repository = "quay/ghilling/taskfest-backend"
-  policy     = local.cache_lifecycle_policy
+# The template is the only place the cached repositories get their lifecycle policy from (#435).
+# This root used to set it on the backend's repository as well, which existed before the template
+# had the current policy -- but that repository is created by ECS's first pull, so on a fresh
+# account this root failed with RepositoryNotFoundException before any environment could run.
+# Forgotten rather than destroyed: the existing account's repository keeps the policy it has, and
+# one created from now on gets the template's. Should the policy change, the existing repository
+# needs it once by hand (doc/deployment/image-scanning.md).
+removed {
+  from = aws_ecr_lifecycle_policy.backend_cache
+
+  lifecycle {
+    destroy = false
+  }
 }
 
 # Inspector for ECR only. EC2, Lambda and code scanning are left off: there is nothing of those to

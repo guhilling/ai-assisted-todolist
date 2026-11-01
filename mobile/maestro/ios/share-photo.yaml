@@ -24,20 +24,36 @@ name: Share a photo into the app through iOS's share sheet
       - takeScreenshot: ios-share-photo-1b-stuck
       - launchApp:
           stopApp: true
-      - runFlow: tap-share-photo.yaml
+      # The first share may come through after all, late: its question then stands over the
+      # restarted Photos, and a second share cannot get past it (#473). It is answered below, like
+      # one on time -- the extension has taken the photo and is opening the app, which is what
+      # this flow is for -- and the photo is not shared again.
+      - extendedWaitUntil:
+          visible: 'Open in .TaskFest Dev.\?'
+          timeout: 10000
+          optional: true
+      - runFlow:
+          when:
+            notVisible: 'Open in .TaskFest Dev.\?'
+          commands:
+            - runFlow: tap-share-photo.yaml
       - extendedWaitUntil:
           visible: '(Open in .TaskFest Dev.\?|Sign in with Keycloak)'
           timeout: 90000
 - takeScreenshot: ios-share-photo-2-handed-over
 # A tap on Open while the question is still coming in was lost once (#401): it waits for the
-# question to settle, and taps again while it is still there.
+# question to settle, and taps again while it is still there. The question may be gone by the
+# time Open is looked for, the app already opening (#473), so the tap may find nothing; that the
+# app opened is checked next.
 - waitForAnimationToEnd
 - repeat:
     while:
       visible: 'Open in .TaskFest Dev.\?'
     times: 3
     commands:
-      - tapOn: "Open"
+      - tapOn:
+          text: "Open"
+          optional: true
       - waitForAnimationToEnd
 - extendedWaitUntil:
     visible: "Sign in with Keycloak"
