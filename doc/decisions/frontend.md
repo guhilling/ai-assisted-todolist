@@ -505,37 +505,40 @@ drawn; the plain tick stays legible at 16 pixels, where bamboo turns into a gree
 
 *Accepted · 2026-10-31 · #431*
 
-**Decision.** The website sends a task's saves, a tick's or an edit's, one after another: each
-waits until the one before it has its answer. Only the last one queued has a say on the board: its
-answer is shown, and its failure rolls the task back to what the server last said and is reported.
-An earlier one's answer is passed over and its failure kept quiet, unless the session has ended. A
-save's answer sets the task's fields, keeps the files the board has and adds those it lists that
-the board has not removed. An editor that is
-saving ignores Escape and disables Cancel until the answer has come. An upload to storage that
-takes nothing more for 30 seconds is aborted and fails as any other failed upload does, which
-unlocks the add row; once the whole file is handed over, storage has two minutes to answer.
+**Decision.** The website sends a task's saves, a tick's or an edit's, one after another: each waits
+until the one before it has its answer. Only the last one queued has a say on the board: its answer
+is shown, and its failure rolls the task back to what the server last said and is reported. An
+earlier one's answer is passed over and its failure kept quiet, unless the session has ended. A
+save's answer sets the task's fields, keeps the files the board has and adds those it lists that the
+board has not removed. A task being deleted sends none of its saves still waiting and says nothing
+of the one on its way. An editor that is saving ignores Escape and disables Cancel until the answer
+has come. An upload to storage that takes nothing more for 30 seconds is aborted and fails as any
+other failed upload does, which unlocks the add row; once the whole file is handed over, storage has
+two minutes to answer.
 
 **Why.** Two PUTs on their way at once may be applied by the server in either order, and their
 answers come back in either order too: a tick answered after the untick that followed it left the
 board showing done while the task was open. Filtering answers in the browser alone would still let
 the board and the database disagree, so the saves are sent in order instead, and the checkbox still
-flips at once. Rolling back to the server's last answer, rather than to the task as shown before
-the click, keeps a tick clicked on another tick that failed from leaving something untrue. An
-earlier failure is kept quiet because the save after it sends the whole task as the board shows it,
-so it says what happens. A file confirmed while an edit was on its way vanished from the row when
-the edit's answer, given before the confirmation, came last. A file attached in another tab is known to the board
-only from an answer, and one the board removed is still in an answer given before the removal. An editor closed while saving looked
-discarded and was saved all the same. A connection that hangs rather than drops never settled an
-upload, so the add row stayed locked until a reload. Thirty seconds without progress count a
-hanging connection as none, as the app's ten seconds do for a request
-([mobile-app.md](mobile-app.md), #311), and never cut off a slow upload that is still moving; the
-browser counts a byte as sent once it is in the network's buffer, so the last of a file on a slow
-line is still on its way with nothing to report, which the two minutes allow for. Gunnar's choices
-(2026-10-31).
+flips at once. Rolling back to the server's last answer, rather than to the task as shown before the
+click, keeps a tick clicked on another tick that failed from leaving something untrue. An earlier
+failure is kept quiet because the save after it sends the whole task as the board shows it, so it
+says what happens. A file confirmed while an edit was on its way vanished from the row when the
+edit's answer, given before the confirmation, came last. A file attached in another tab is known to
+the board only from an answer, and one the board removed is still in an answer given before the
+removal. A save sent after its task was deleted was refused, and the board said it could not update
+a task whose deletion had worked. An editor closed while saving looked discarded and was saved all
+the same. A connection that hangs rather than drops never settled an upload, so the add row stayed
+locked until a reload. Thirty seconds without progress count a hanging connection as none, as the
+app's ten seconds do for a request ([mobile-app.md](mobile-app.md), #311), and never cut off a slow
+upload that is still moving; the browser counts a byte as sent once it is in the network's buffer,
+so the last of a file on a slow line is still on its way with nothing to report, which the two
+minutes allow for. Gunnar's choices (2026-10-31).
 
-**Cost.** A quick tick and untick wait one round trip between their requests. An edit saved after
-a tick that failed saves the task as the board showed it, the tick included, and says nothing of
-the failure.
+**Cost.** A quick tick and untick wait one round trip between their requests. An edit saved after a
+tick that failed saves the task as the board showed it, the tick included, and says nothing of the
+failure. A save passed over while its task was being deleted stays unsent if the deletion fails, and
+the row comes back as it was deleted.
 
 **Rejected: a fixed limit for the whole upload**, such as the link's ten minutes. A file of 10 MB
 on a slow line takes long enough that any limit short enough to help would cut it off, and one long

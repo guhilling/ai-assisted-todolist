@@ -104,6 +104,42 @@ describe("a task's saves, one after another", () => {
   })
 })
 
+describe('a task deleted while its saves are on their way', () => {
+  it('sends none of the saves still waiting, and says nothing of them', async () => {
+    const { fetchMock, held } = holdingPuts({ me: ALICE, tasks: [task({ id: 58, description: 'Gone meanwhile' })] })
+    await renderSignedIn(fetchMock)
+
+    fireEvent.click(checkbox('Gone meanwhile'))
+    fireEvent.click(checkbox('Gone meanwhile'))
+    await waitFor(() => expect(held).toHaveLength(1))
+    fireEvent.click(openMenu('Gone meanwhile').getByRole('button', { name: 'Delete' }))
+    await waitFor(() => expect(screen.queryByLabelText('Mark "Gone meanwhile" as done')).not.toBeInTheDocument())
+
+    held[0].answer(200, task({ id: 58, description: 'Gone meanwhile', state: 'DONE' }))
+    await settle()
+    await settle()
+
+    expect(held).toHaveLength(1)
+    expect(screen.queryByText('Unable to update task.')).not.toBeInTheDocument()
+  })
+
+  it('says nothing of the save on its way failing because the task is gone', async () => {
+    const { fetchMock, held } = holdingPuts({ me: ALICE, tasks: [task({ id: 59, description: 'Deleted first' })] })
+    await renderSignedIn(fetchMock)
+
+    fireEvent.click(checkbox('Deleted first'))
+    await waitFor(() => expect(held).toHaveLength(1))
+    fireEvent.click(openMenu('Deleted first').getByRole('button', { name: 'Delete' }))
+    await waitFor(() => expect(screen.queryByLabelText('Mark "Deleted first" as done')).not.toBeInTheDocument())
+
+    // The server applied the delete first.
+    held[0].answer(404)
+    await settle()
+
+    expect(screen.queryByText('Unable to update task.')).not.toBeInTheDocument()
+  })
+})
+
 describe('an editor that is saving', () => {
   it('stays open, Cancel and Escape included, until the save has an answer', async () => {
     const { fetchMock, held } = holdingPuts({ me: ALICE, tasks: [task({ id: 53, description: 'Slow save' })] })

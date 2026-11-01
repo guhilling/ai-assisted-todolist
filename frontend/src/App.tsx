@@ -257,10 +257,13 @@ function Board() {
     )
 
   /**
-   * Each task's saves still on their way (#431): the end of its queue, how many wait in it, and the
-   * task as the server last said it was. A task no save is on its way for has none.
+   * Each task's saves still on their way (#431): the end of its queue, how many wait in it, the task
+   * as the server last said it was, and whether it is being deleted. A task no save is on its way
+   * for has none.
    */
-  const saveQueues = useRef(new Map<Task['id'], { end: Promise<void>; waiting: number; confirmed: Task }>())
+  const saveQueues = useRef(
+    new Map<Task['id'], { end: Promise<void>; waiting: number; confirmed: Task; deleted: boolean }>(),
+  )
 
   /**
    * Sends a task's saves one after another (#431), each once the one before it has its answer, so
@@ -270,13 +273,20 @@ function Board() {
    * Only the last one queued has a say on the board. Its answer is shown; its failure rolls the task
    * back to what the server last said and is reported. An earlier one's answer is passed over and
    * its failure kept quiet, since the save after it sends the whole task as the board shows it --
-   * unless the session has ended, which is said at once.
+   * unless the session has ended, which is said at once. A task being deleted sends none of the
+   * saves still waiting and is quiet about the one on its way, which the server may refuse for
+   * the task being gone.
    *
    * @param shown the task as the board shows it, which is the server's when no save is on its way
    * @returns whether this save went through
    */
   const queueSave = async (shown: Task, sent: Task) => {
-    const queue = saveQueues.current.get(shown.id) ?? { end: Promise.resolve(), waiting: 0, confirmed: shown }
+    const queue = saveQueues.current.get(shown.id) ?? {
+      end: Promise.resolve(),
+      waiting: 0,
+      confirmed: shown,
+      deleted: false,
+    }
     saveQueues.current.set(shown.id, queue)
     queue.waiting += 1
     const turn = queue.end
@@ -286,6 +296,9 @@ function Board() {
     })
     await turn
     try {
+      if (queue.deleted) {
+        return false
+      }
       const saved = await putTask(sent)
       queue.confirmed = saved
       if (queue.waiting === 1) {
@@ -293,7 +306,7 @@ function Board() {
       }
       return true
     } catch (updateError) {
-      if (queue.waiting === 1) {
+      if (queue.waiting === 1 && !queue.deleted) {
         showSaved(queue.confirmed)
         reportFailure(updateError, 'updating')
       } else if (updateError instanceof SessionExpiredError) {
@@ -347,11 +360,20 @@ function Board() {
    */
   const deleteOne = async (task: Task) => {
     setTasks((current) => current.filter((candidate) => candidate.id !== task.id))
+    const saves = saveQueues.current.get(task.id)
+    if (saves) {
+      saves.deleted = true
+    }
 
     try {
       await deleteTask(task)
       return true
     } catch (deleteError) {
+      // A save passed over meanwhile stays unsent, a shortcut taken on purpose: the row comes back
+      // as it was deleted, and the next tick or edit saves it whole.
+      if (saves) {
+        saves.deleted = false
+      }
       setTasks((current) => [...current, task])
       reportFailure(deleteError, 'deleting')
       return false
