@@ -163,12 +163,13 @@ exactly the case worth catching.
 
 *Accepted · 2026-09-26 · #20*
 
-Revised in part: the policy shared with hilling-it-website (the schedule, automerge with
-`platformAutomerge: false`, majors waiting, labels, timezone) is the preset `default.json` in
-[dev-conventions](https://github.com/guhilling/dev-conventions), pinned by tag. `.github/renovate.json`
-extends it and keeps only this repository's managers and groups (#456).
+Revised in part: the policy shared with hilling-it-website (`config:recommended`, the schedule,
+automerge with `platformAutomerge: false`, majors waiting, labels, timezone, `prConcurrentLimit`)
+is the preset `default.json` in [dev-conventions](https://github.com/guhilling/dev-conventions),
+pinned by tag. `.github/renovate.json` extends it and keeps only this repository's managers and
+rules, one of which makes a new version of the preset wait for a human (#456).
 
-**What.** `.github/renovate.json`. Patch, minor, digest and pin updates carry
+**What.** The preset, extended by `.github/renovate.json`. Patch, minor, digest and pin updates carry
 `automerge: true`; major updates open a pull request and wait. Quarkus artifacts, React and
 its type definitions, and the frontend test tooling are each grouped into one pull request.
 
@@ -304,7 +305,7 @@ commit that reveals it is unrelated to the cause.
 **It does not become a manual chore, which was the obvious objection.** Renovate's
 `github-actions` manager — already the one updating `actions/*` here — extracts a runner label as
 a `github-runner` dependency. So `ubuntu-26.04` arrives as a pull request, and because 24 → 26 is
-a *major* update, `.github/renovate.json` makes it wait for a human rather than automerging. The
+a *major* update, the Renovate policy makes it wait for a human rather than automerging. The
 pin turns the migration from something that happens into something that is approved.
 
 **Rejected: pinning only the workflow that raised the notice.** The notice was on all 13 entries,

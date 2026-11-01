@@ -2,12 +2,11 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "description": [
     "The shared policy -- the schedule and why it stays, automerge with platformAutomerge off, majors",
-    "waiting -- comes from guhilling/dev-conventions (#456). This file adds only this repository's",
-    "own managers and rules. See doc/decisions/build-and-dependencies.md."
+    "waiting -- comes from the preset in guhilling/dev-conventions (ai-assisted-todolist#456). This",
+    "file adds only this repository's own managers and rules. See doc/decisions/build-and-dependencies.md."
   ],
   "extends": [
-    "github>guhilling/dev-conventions#v1.1.0",
-    ":dependencyDashboard"
+    "github>guhilling/dev-conventions#v1.1.0"
   ],
   "customManagers": [
     {
@@ -46,6 +45,11 @@
     }
   ],
   "packageRules": [
+    {
+      "description": "A new version of the shared preset waits for a human, even as a minor: it changes this repository's Renovate policy, which no check here exercises, so every check being green says nothing about it (#456).",
+      "matchManagers": ["renovate-config"],
+      "automerge": false
+    },
     {
       "description": "bundletool is used only by the live tests' app job (#278), which no pull request runs: every check being green says nothing about a new one, so its updates wait for a human, who runs the live tests on the branch first.",
       "matchPackageNames": ["google/bundletool"],

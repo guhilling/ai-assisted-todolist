@@ -113,7 +113,7 @@ slows things down.
   `.github/renovate.json` extends and adds this repository's own rules to. The
   `platformAutomerge: false` in the preset is load-bearing: the
   `main-branch` ruleset requires no status checks, so GitHub's own auto-merge
-  would merge before anything had run. The `schedule` there is deliberate and
+  would merge before anything had run. The preset's `schedule` is deliberate and
   restricts pull request *creation* only — Renovate acting outside it is
   expected, because it can be run directly from the Mend dashboard, so never
   remove it as leftover setup debris.
