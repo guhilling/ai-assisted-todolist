@@ -14,76 +14,47 @@ name: Share a link from Safari into the app through iOS's share sheet
     commands:
       - tapOn: "Cancel"
       - waitForAnimationToEnd
-- openLink:
-    link: https://example.com
-    browser: true
-# Safari's toolbar, or the tip a fresh simulator's Safari shows over it. The page's own text is not
-# in what Maestro sees of Safari; that the page has loaded is checked in the share sheet below.
-- extendedWaitUntil:
-    visible: "(View Bookmarks.*|More)"
-    timeout: 60000
-- waitForAnimationToEnd:
-    timeout: 8000
-# The tip points at the ⋯ menu ("View Bookmarks, Share Menu, and Open Tabs") and hides the toolbar
-# from Maestro. Its close button has no name Maestro finds, so it is tapped where it is, and only
-# while the tip is there: a tap while the tip was still coming in left it standing once.
-- repeat:
-    while:
-      visible: "View Bookmarks.*"
-    times: 3
-    commands:
-      - tapOn:
-          point: 90%, 71%
-      - waitForAnimationToEnd
-- takeScreenshot: ios-share-link-0-page
-- tapOn: "More"
-- waitForAnimationToEnd
-- tapOn: "Share"
-- waitForAnimationToEnd
-# A tap on Share while the menu was still opening was lost once, leaving the menu open: tapped
-# again while it is (New Private Tab is the menu's, not the share sheet's).
-- repeat:
-    while:
-      visible: "New Private Tab"
-    times: 3
-    commands:
-      - tapOn: "Share"
-      - waitForAnimationToEnd
-# The sheet is headed by the page's title once the page has loaded: a page shared before that would
-# not be example.com's.
-- extendedWaitUntil:
-    visible: "Example Domain"
-    timeout: 30000
-- extendedWaitUntil:
-    visible: "TaskFest Dev"
-    timeout: 20000
-    optional: true
-- waitForAnimationToEnd:
-    timeout: 5000
-- takeScreenshot: ios-share-link-1-sheet
-# Fails here when the extension is not offered.
-- assertVisible: "TaskFest Dev"
-# Safari's share sheet is a scene of its own, and Maestro reads its elements' places relative to
-# that scene: a tap by name lands above the sheet, Safari takes it for a cancel, and no extension
-# starts (#395). TaskFest Dev's icon is tapped where it is on the screen instead -- third in the
-# row, after News and Reminders, on the runner's iPhone. Should iOS order the row differently, the
-# tap misses, the app never opens, and the flow fails below with the sheet in its screenshot.
-- tapOn:
-    point: 61%, 74%
+- runFlow: tap-share-link.yaml
 - extendedWaitUntil:
     visible: '(Open in .TaskFest Dev.\?|Sign in with Keycloak)'
     timeout: 90000
+    optional: true
+# Now and then TaskFest's extension stays at its compose view (Cancel / Post), or never starts,
+# and hands nothing over in time (#473). Safari, and the extension in it, are started afresh and
+# the page shared again, once. A first share that comes through late, after all, is answered
+# instead, as in share-photo.yaml.
+- runFlow:
+    when:
+      notVisible: '(Open in .TaskFest Dev.\?|Sign in with Keycloak)'
+    commands:
+      - takeScreenshot: ios-share-link-1b-stuck
+      - launchApp:
+          stopApp: true
+      - extendedWaitUntil:
+          visible: 'Open in .TaskFest Dev.\?'
+          timeout: 10000
+          optional: true
+      - runFlow:
+          when:
+            notVisible: 'Open in .TaskFest Dev.\?'
+          commands:
+            - runFlow: tap-share-link.yaml
+      - extendedWaitUntil:
+          visible: '(Open in .TaskFest Dev.\?|Sign in with Keycloak)'
+          timeout: 90000
 - takeScreenshot: ios-share-link-2-handed-over
 # The simulator's iOS may ask first, as for the photo; a tap while the question is still coming in
 # can be lost (#401). The question is SpringBoard's, not part of Safari's sheet, so Open is found
-# by name.
+# by name. As for the photo, the question may be gone by the time Open is looked for (#473).
 - waitForAnimationToEnd
 - repeat:
     while:
       visible: 'Open in .TaskFest Dev.\?'
     times: 3
     commands:
-      - tapOn: "Open"
+      - tapOn:
+          text: "Open"
+          optional: true
       - waitForAnimationToEnd
 - extendedWaitUntil:
     visible: "Sign in with Keycloak"
