@@ -31,22 +31,25 @@ export async function addTask(page: Page, description: string, dueDate: string, 
 
 /**
  * Opens a file from its task's row, which the board does in a new tab pointed at a signed link,
- * and returns that link. The tab is closed again once its answer has come in whole: closed while
- * a large photo was still arriving, it once hung in Chromium (#485). And closed at once, because
- * the live run records every tab and publishes the largest video as the scenario's
- * (doc/testing/live.md). A PDF is downloaded rather than shown by a headless browser, so its
- * request may end without an answer; the tab is closed all the same.
+ * and returns that link. The tab is closed again once it is done with the file: closed while a
+ * large photo was still arriving, it once hung in Chromium (#485). Done means the photo's answer
+ * has come in whole, or, for a PDF, which a headless browser downloads rather than shows and whose
+ * answer then never finishes, that the download has started. And closed at once, because the live
+ * run records every tab and publishes the largest video as the scenario's (doc/testing/live.md).
  */
 export async function openFile(page: Page, row: Locator, name: string) {
+  const popup = page.waitForEvent('popup')
   const opened = page.context().waitForEvent(
     'request',
     (request) => request.url().includes('X-Amz-Signature') && request.resourceType() === 'document',
   )
   await row.getByRole('button', { name: `Open ${name}` }).click()
+  // The tab opens on the click and is pointed at the link only once the board has it, so the
+  // download cannot have started before this waits for it.
+  const tab = await popup
+  const downloaded = tab.waitForEvent('download').catch(() => undefined)
   const request = await opened
-  await (await request.response())?.finished()
-  for (const tab of page.context().pages().filter((other) => other !== page)) {
-    await tab.close()
-  }
+  await Promise.race([request.response().then((response) => response?.finished()), downloaded])
+  await tab.close()
   return request.url()
 }
