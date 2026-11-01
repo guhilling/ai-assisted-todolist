@@ -56,6 +56,10 @@ class EmulatorLostTest(unittest.TestCase):
     def test_the_emulator_no_longer_listed(self):
         self.assertEqual(self.run_on(NOT_FOUND, UNKNOWN_ERROR), 0)
 
+    def test_the_emulator_no_longer_listed_in_a_later_file(self):
+        # Any file may say it, not only the first: the script is handed the console and the report.
+        self.assertEqual(self.run_on(UNKNOWN_ERROR, NOT_FOUND), 0)
+
     def test_the_emulator_merely_offline_is_not_lost(self):
         # adb calls an emulator offline for a moment now and then (emulator-ready.sh): a flow that
         # failed by itself meanwhile would be run again, and its failure hidden.
