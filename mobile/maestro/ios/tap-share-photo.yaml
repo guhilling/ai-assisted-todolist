@@ -1,6 +1,6 @@
 # Part of share-photo.yaml, which runs it twice when Photos hangs (#401): in Photos, open the first
 # photo, Share, and TaskFest Dev in the share sheet. Not a flow of its own; run-on-simulator.sh runs
-# share-photo.yaml only.
+# share-photo.yaml and share-link.yaml, never this file directly.
 appId: com.apple.mobileslideshow
 ---
 - waitForAnimationToEnd:
