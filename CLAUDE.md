@@ -122,10 +122,16 @@ slows things down.
 
 ## Issues
 
+- **The issue forms are account defaults** from the public
+  [guhilling/.github](https://github.com/guhilling/.github) repository (`.github/ISSUE_TEMPLATE/`
+  there), used by every repository of the account that has none of its own. Change them there.
+  A local `.github/ISSUE_TEMPLATE/` turns every default off, `config.yml` included, so
+  `docs-ci.yml` fails on one. GitHub drops a label that does not exist without a word, so `story`
+  and `epic` must exist in each repository that takes the forms.
 - A piece of work Claude should finish without a conversation first is written with the
-  **Story** issue form (`.github/ISSUE_TEMPLATE/story.yml`): what and why, **done when**,
+  **Story** issue form (`story.yml` there): what and why, **done when**,
   constraints, **decisions — yours or mine**, out of scope.
-- A goal too large for one story is an **Epic** (`.github/ISSUE_TEMPLATE/epic.yml`). It is never
+- A goal too large for one story is an **Epic** (`epic.yml` there). It is never
   implemented directly: it starts with an investigation — options compared, with references —
   whose result is a decision for Gunnar, and is then split into stories linked as sub-issues.
 - **Prefer the outcome to the mechanism.** A named mechanism that turns out not to work costs a
