@@ -393,6 +393,8 @@ data "aws_iam_policy_document" "lifecycle" {
   # The two one-off tasks, started by a person through env.sh: creating the database user and
   # running the migrations. Only those two families and only in this environment's cluster --
   # the bootstrap task carries the master credentials, which is why the deploy role cannot run it.
+  # Not pinned to this environment's subnets: RunTask has no condition key for them (#429, and
+  # deploy.tf's RunTheMigrationTask says why that is tolerable).
   statement {
     sid     = "RunTheOneOffTasks"
     actions = ["ecs:RunTask"]
@@ -447,12 +449,15 @@ data "aws_iam_policy_document" "lifecycle" {
   # Same trap, same answer as in deploy.tf: creating a service means handing it a role, and on
   # "*" this one permission would be an escalation to whatever the most privileged role in the
   # account can do.
+  # Unlike the deploy role, this one also passes the bootstrap task's execution role: it registers
+  # and runs that task.
   statement {
     sid     = "PassOnlyThisEnvironmentsTaskRolesAndOnlyToEcs"
     actions = ["iam:PassRole"]
     resources = [
       "arn:aws:iam::${local.account}:role/${local.task_execution_role}",
       "arn:aws:iam::${local.account}:role/${local.task_role}",
+      "arn:aws:iam::${local.account}:role/${local.db_bootstrap_execution_role}",
     ]
 
     condition {

@@ -101,7 +101,7 @@ to see it:
 - Published, with a rendered reference, at
   [taskfest-docs.cloud.hilling.de](https://taskfest-docs.cloud.hilling.de/):
   `/api/main/` tracks the current code, `/api/v1.2.3/` is each release and `/api/latest/` the
-  newest. Every release also attaches the same documents as downloadable assets.
+  newest final release. Every release also attaches the same documents as downloadable assets.
 
 The spec is **OpenAPI 3.1**, and that is load-bearing rather than incidental: only from 3.1
 onwards are the component schemas JSON Schema documents, which is what lets the frontend

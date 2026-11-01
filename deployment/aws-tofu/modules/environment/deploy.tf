@@ -38,6 +38,8 @@ locals {
   task_execution_role = "${local.name}-task-execution"
   task_role           = "${local.name}-task"
   ecs_infrastructure  = "${local.name}-ecs-infrastructure"
+  # Passed by the lifecycle role only, never by this one (#454).
+  db_bootstrap_execution_role = "${local.name}-db-bootstrap-execution"
 
   # The snapshots the downtime path takes before migrating (#215), named by deploy-backend.py.
   # A final snapshot is `-final-`, so it never matches this.
@@ -102,6 +104,11 @@ data "aws_iam_policy_document" "deploy" {
   #
   # ForAllValues because an ordinary deploy sends no network configuration, so the key is absent,
   # and ForAllValues passes on an absent key where StringEquals would deny every deploy.
+  #
+  # The task definition is pinned to the backend's family too. Without that, this role could point
+  # the service at a bootstrap revision OpenTofu registered, whose execution role reads the master
+  # secret, and ECS would inject it into the service's tasks (#454). IfExists because a call that
+  # only scales the service names no task definition.
   statement {
     sid = "UpdateTheBackendServiceWithinThisEnvironmentsSubnets"
     actions = [
@@ -115,6 +122,12 @@ data "aws_iam_policy_document" "deploy" {
       variable = "ecs:subnet"
       values   = aws_subnet.public[*].id
     }
+
+    condition {
+      test     = "ArnLikeIfExists"
+      variable = "ecs:task-definition"
+      values   = ["arn:aws:ecs:${local.region}:${local.account}:task-definition/${local.service_name}:*"]
+    }
   }
 
   # Registering a task definition cannot be restricted to a resource: the call *creates* one, so
@@ -123,8 +136,11 @@ data "aws_iam_policy_document" "deploy" {
   # prod's family.
   #
   # It is tolerable because a task definition nobody runs is inert, and the calls that would run
-  # or deploy one -- UpdateService above, RunTask below -- are both scoped. If that ever stops
-  # being true, this is the statement to revisit.
+  # or deploy one -- UpdateService above, RunTask below -- are both scoped to this environment's
+  # service, family and cluster. A revision the other environment's roles register here carries
+  # their own roles or none, never this environment's execution role -- PassRole below -- and
+  # env.sh and deploy-backend.py pass over any revision without it (#429). If that ever stops being
+  # true, this is the statement to revisit.
   statement {
     sid = "RegisterTaskDefinitionsWhichCannotBeScoped"
     actions = [
@@ -136,6 +152,12 @@ data "aws_iam_policy_document" "deploy" {
 
   # The one-off Liquibase task, and watching it finish. Restricted to the migration family, and
   # to this environment's cluster.
+  #
+  # Not to this environment's subnets, unlike UpdateService: RunTask has no ecs:subnet or
+  # security-group condition key (#429). So this role could run a migration task of its own family,
+  # with an image of its choosing, in the other environment's subnets and tasks security group: a
+  # network path to that database's port. It is tolerable because the task can carry only this
+  # environment's roles -- PassRole below -- so it holds no credentials the other database accepts.
   statement {
     sid       = "RunTheMigrationTask"
     actions   = ["ecs:RunTask"]
@@ -170,7 +192,8 @@ data "aws_iam_policy_document" "deploy" {
   # deployer attach *any* role in the account to a task and read that role's credentials out of
   # it -- turning "redeploy the application" into account administrator in a single step. So it
   # names exactly the two roles this environment's tasks use, and the condition means they can
-  # only ever be passed to ECS.
+  # only ever be passed to ECS. Not the bootstrap task's execution role, the one that reads the
+  # master secret: with it, a revision of this role's choosing could have ECS inject that (#454).
   statement {
     sid     = "PassOnlyThisEnvironmentsTaskRolesAndOnlyToEcs"
     actions = ["iam:PassRole"]

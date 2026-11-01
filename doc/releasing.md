@@ -30,8 +30,10 @@ installed or deployed `pom.xml` keeps the literal `${revision}` unless
 published. Nothing outside this repository ever consumes the backend's POM. If that changes,
 `flatten-maven-plugin` becomes necessary.
 
-Tags are `vMAJOR.MINOR.PATCH`, optionally with a suffix (`v1.1.0-rc.1`). The workflow's
-trigger matches those two shapes only, so an unrelated tag does not start a release.
+Tags are `vMAJOR.MINOR.PATCH`, optionally with a suffix of dot-separated parts of letters and
+digits (`v1.1.0-rc.1`). The workflow's trigger matches those two shapes only, so an unrelated tag does not
+start a release, and its `gate` refuses any other suffix (#433), as the deploy workflows do. A tag
+with a suffix becomes a GitHub pre-release, never the repository's latest release.
 
 ## Which number to raise
 
@@ -114,7 +116,7 @@ images over a released version; when GitHub cannot say, it refuses as well.
 | --- | --- |
 | `gate` | Derives the version, refuses a lightweight tag and one that is not on `main`, then runs the full backend `verify` and the full frontend suite at the release version, and packs the frontend build — built with `VITE_TASKFEST_VERSION` from the tag, which the page's footer shows (a build that is no release says *Development build*) |
 | `publish` | Builds and pushes `taskfest-backend` and `taskfest-frontend` to Quay, tagged with the version, each for `amd64` and `arm64` in one image index, and checks both are there (#249) |
-| `announce` | Creates the GitHub Release, with notes generated from the pull requests since the previous release, and attaches the API contract and `taskfest-frontend-<version>.tar.gz` — the build `deploy-frontend.yml` puts into a site bucket |
+| `announce` | Creates the GitHub Release — a pre-release, not the latest, for a tag with a suffix — with notes generated from the pull requests since the previous final release, so a final release's notes cover its pre-releases too, and attaches the API contract and `taskfest-frontend-<version>.tar.gz` — the build `deploy-frontend.yml` puts into a site bucket |
 | `mobile` | Once the release exists, builds the app's qa and prod variants for a final release, signed, and uploads them to TestFlight and Play internal testing through `mobile-release.yml`, once Gunnar approves the `app-stores` deployment in the run — see [Distribution to testers](mobile/distribution.md). A platform whose accounts are not set up yet is skipped |
 | `deploy-backend-qa`, `deploy-frontend-qa` | Deploy a final release — not a pre-release — to qa, backend first, through `deploy-backend.yml` and `deploy-frontend.yml` — see [Deploying](deployment/deploying.md). A qa that is down is skipped without failing the release; a release that changes the database changelog takes the downtime path described below, and its frontend follows once the backend serves. prod is always deployed by hand |
 
@@ -179,7 +181,7 @@ afterwards is what makes the attached spec claim the version it describes.
 
 The same contract is also on GitHub Pages, at
 [taskfest-docs.cloud.hilling.de](https://taskfest-docs.cloud.hilling.de/):
-`/api/v1.2.3/` per release, `/api/latest/` for the newest, and `/api/main/` tracking the
+`/api/v1.2.3/` per release, `/api/latest/` for the newest final release, never a pre-release (#433), and `/api/main/` tracking the
 current code. `pages.yml` rebuilds the whole site from git history, so nothing is carried over
 between deployments. It patches `info.version` from the tag for a released version; the release
 assets need no such patch, which is why those are the authoritative download.

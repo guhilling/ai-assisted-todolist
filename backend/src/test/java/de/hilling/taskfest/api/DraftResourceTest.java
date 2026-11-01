@@ -11,6 +11,7 @@ import io.quarkus.test.security.oidc.Claim;
 import io.quarkus.test.security.oidc.OidcSecurity;
 import io.restassured.http.ContentType;
 import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -58,7 +59,7 @@ class DraftResourceTest {
                 "importance", TaskImportance.MEDIUM.name(), "state", TaskState.TODO.name()))
             .when().post("/api/tasks/drafts/" + draftId + "/add").then().statusCode(400);
         given().contentType(ContentType.JSON)
-            .body(Map.of("description", "Yesterday", "dueDate", LocalDate.now().minusDays(1).toString(),
+            .body(Map.of("description", "Yesterday", "dueDate", LocalDate.now(ZoneOffset.UTC).minusDays(2).toString(),
                 "importance", TaskImportance.MEDIUM.name(), "state", TaskState.TODO.name()))
             .when().post("/api/tasks/drafts/" + draftId + "/add").then().statusCode(400);
 

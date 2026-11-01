@@ -17,7 +17,8 @@ What it does, in order:
    version is read from its image tag; if it is `latest`, the previous release counts.
 4. Without a migration, blue/green: registers a task definition that differs in the image only
    from the configuration last applied -- the newest active revision this deploy role did not
-   register, usually tofu's (#189) -- points the service at it, and waits until that deployment's
+   register, usually tofu's (#189), and only one with this environment's own execution role
+   (#429) -- points the service at it, and waits until that deployment's
    rollout completes -- bake included -- or fails. Redeploying the running version keeps its exact
    image, which is how a configuration change is rolled out without a release.
 5. With a migration, the downtime path (#215), because blue/green keeps both versions live, which
@@ -102,7 +103,7 @@ def next_task_definition(base, image):
     return new
 
 
-def applied_revision(describe, running, deploy_role, limit=100):
+def applied_revision(describe, running, deploy_role, limit=100, environment=None):
     """The revision whose configuration a deploy carries: the one last applied (#189).
 
     The service ignores task_definition in tofu, so an apply that changes the backend's
@@ -115,21 +116,47 @@ def applied_revision(describe, running, deploy_role, limit=100):
 
     Falls back to the running revision when no applied one is active, or the family cannot be read.
 
+    With `environment`, a revision counts only if it carries that environment's own execution role
+    (#429), which every revision of its own does: the other environment's roles may register a
+    revision in this family, since RegisterTaskDefinition cannot be scoped, but never with this
+    role, since iam:PassRole is pinned. A fallback that is not its own gives way to the newest
+    active revision that is, a deploy's copy included; with none, ForeignRevision. Without
+    `environment` nothing is checked, which only the tests of #189's rule rely on.
+
     describe: returns a task definition for a family or `family:revision`, raising if it cannot.
     """
+    def own(task_definition):
+        return environment is None or carries_own_execution_role(task_definition, environment)
+
     family = running["family"]
     try:
         newest = describe(family)
     except Exception:  # noqa: BLE001 -- any failure to read the family means: keep what runs
-        return running
-    for number in range(newest["revision"], max(newest["revision"] - limit, 0), -1):
+        newest = None
+    own_copy = None
+    for number in range(newest["revision"], max(newest["revision"] - limit, 0), -1) if newest else ():
         try:
             candidate = newest if number == newest["revision"] else describe(f"{family}:{number}")
         except Exception:  # noqa: BLE001 -- a revision deleted for good is simply not a candidate
             continue
-        if candidate.get("status") == "ACTIVE" and not registered_by_role(candidate, deploy_role):
+        if candidate.get("status") != "ACTIVE" or not own(candidate):
+            continue
+        if not registered_by_role(candidate, deploy_role):
             return candidate
-    return running
+        own_copy = own_copy or candidate
+    if own(running):
+        return running
+    if own_copy:
+        return own_copy
+    raise ForeignRevision(f"{running.get('taskDefinitionArn')} carries the execution role "
+                          f"{running.get('executionRoleArn')}, and {family} has no active revision "
+                          f"with {environment}'s own")
+
+
+def carries_own_execution_role(task_definition, environment):
+    """Whether a revision carries `environment`'s own task execution role."""
+    return ((task_definition.get("executionRoleArn") or "").rpartition(":role/")[2]
+            == f"{PROJECT}-{environment}-task-execution")
 
 
 def registered_by_role(task_definition, role):
@@ -391,6 +418,11 @@ class NothingMigrated(RuntimeError):
     """The migrate task was never placed, so the schema is untouched and the old version can return."""
 
 
+class ForeignRevision(NothingMigrated):
+    """A family holds no revision of this environment's own to carry (#429). Raised before anything
+    runs, so as a migration it is one that did not happen: the old version is restarted."""
+
+
 class Cancelled(RuntimeError):
     """The run was cancelled; the step it interrupted is recovered from like any failure."""
 
@@ -437,7 +469,8 @@ class Downtime:
         family = f"{PROJECT}-{self.environment}-migrate"
         describe = lambda name: aws("ecs", "describe-task-definition", "--task-definition", name)["taskDefinition"]
         # Its newest revision is only the fallback; applied_revision reads the family itself.
-        registered = register_release(applied_revision(describe, describe(family), self.deploy_role), image)
+        registered = register_release(
+            applied_revision(describe, describe(family), self.deploy_role, environment=self.environment), image)
         started = aws(
             "ecs", "run-task", "--cluster", self.cluster, "--task-definition", registered["taskDefinitionArn"],
             "--launch-type", "FARGATE", "--started-by", "deploy-backend",
@@ -638,9 +671,14 @@ def main():
         return print_startup_image(args, region, account, active, running_image)
     running_version = (version_of(running_image) if running_image else None) or previous_release(args.version)
 
-    base = applied_revision(
-        lambda name: aws("ecs", "describe-task-definition", "--task-definition", name)["taskDefinition"],
-        running, f"{PROJECT}-{args.environment}-deploy") if active else None
+    try:
+        base = applied_revision(
+            lambda name: aws("ecs", "describe-task-definition", "--task-definition", name)["taskDefinition"],
+            running, f"{PROJECT}-{args.environment}-deploy", environment=args.environment) if active else None
+    except ForeignRevision as error:
+        # Before anything has changed: the service still runs what it ran.
+        summary(f"::error::{args.version} not deployed to {args.environment} (runs {running_version}): {error}.")
+        return 1
     action = decide(bool(active), active and changelog_differs(running_version, args.version),
                     downgrade=is_older(args.version, running_version),
                     without_arm64=bool(base) and runs_on_arm64(base) and not has_arm64_image(args.version))

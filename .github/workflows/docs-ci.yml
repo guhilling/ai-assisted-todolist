@@ -84,8 +84,12 @@ jobs:
       - name: Every doc/ path named anywhere exists
         # The site build catches a dead link between pages; this catches the rest -- a code
         # comment or a CLAUDE.md naming a page that moved. Splitting the long documents into
-        # chapters moved 47 such references at once.
-        run: python3 .github/scripts/check-doc-references.py
+        # chapters moved 47 such references at once. Shared with hilling-it-website (#455);
+        # doc/api/ holds generated files, not documentation.
+        uses: guhilling/dev-conventions/check-doc-references@8b07d0e22028147900706eb4d1f293ce59a90a32 # v1.0.0
+        with:
+          exclude: |
+            doc/api/
       - name: Every decision says when it was taken, and the index lists them all
         # The status line under each decision (#409), and an index that had drifted to thirteen
         # decisions missing and one long renamed.

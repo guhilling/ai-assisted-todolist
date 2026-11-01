@@ -16,7 +16,7 @@ account it becomes a **policy** guarantee, which is weaker:
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="../images/identities-dark.svg">
-  <img alt="Three identities, in order of how much they may do. A human IAM admin creates the free foundation once: the VPC, subnets, security groups, IAM, the certificate and the DNS records. A role that same human assumes creates and destroys everything that bills: the database, the load balancer and the Fargate service. Below the line, the only unattended identity is the deploy role, assumed from GitHub Actions through OIDC, which may update the service and the site bucket and cannot create, change or delete any infrastructure. Separately, the task roles are what the container runs as rather than an identity anyone assumes, and a read-only user exists for looking at things." src="../images/identities-light.svg">
+  <img alt="Three identities, in order of how much they may do. A human IAM admin creates the free foundation once: the VPC, subnets, security groups, IAM, the certificate and the DNS records. A role that same human assumes creates and destroys everything that bills: the database, the load balancer and the Fargate service. Below the line, the only unattended identity is the deploy role, assumed from GitHub Actions through OIDC, which may update the service and the site bucket and cannot create, change or delete any infrastructure. Separately, the task roles are what the container runs as rather than an identity anyone assumes; only the bootstrap task's execution role reads the master secret, and only the lifecycle role may pass it. A read-only user exists for looking at things." src="../images/identities-light.svg">
 </picture>
 
 The ordering principle is **what a mistake costs**, which is not the same as what a resource
@@ -36,7 +36,7 @@ Three technical identities, one job each:
 | `taskfest-<env>-lifecycle` (role) | create and destroy what bills: RDS, the load balancer, the Fargate service — and the CloudFront VPC origin that follows the load balancer | a person assuming it, **with MFA** |
 | `taskfest-qa-deploy` (role) | redeploy the qa application; **no infrastructure** | GitHub Actions, unattended |
 | `taskfest-prod-deploy` (role) | redeploy the prod application; **no infrastructure** | GitHub Actions, **only from the `prod` environment**, which requires approval |
-| `taskfest-monitoring` (user) | read-only, everywhere | dashboards and a local CLI profile; can change nothing |
+| `taskfest-monitoring` (user) | read-only, everywhere but the state, people's files, the flow logs and secrets (#430) | dashboards and a local CLI profile; can change nothing |
 
 **Why a separate lifecycle role, rather than just using the admin user.** Standing an environment
 up and tearing it down again is the routine operation in this project's cost model, not a one-off
@@ -77,12 +77,17 @@ Four consequences worth being plain about:
 - **`ecs:RegisterTaskDefinition` cannot be scoped to a resource.** The call creates one, so there
   is no ARN or tag for a condition to match, and the qa role can register a revision in prod's
   family. It is tolerable because a task definition nobody runs is inert and the calls that would
-  run or deploy one are both scoped to this environment — but "denied everything tagged
+  run or deploy one are both scoped to this environment. Such a revision carries qa's own roles or
+  none, never prod's execution role, since `iam:PassRole` is pinned; `env.sh migrate`,
+  `db-bootstrap` and `deploy-backend.py` pass over any revision without the environment's own
+  execution role, which every revision of its own carries (#429); `db-bootstrap`'s is a role of its
+  own, which alone reads the master secret and which the deploy role cannot pass (#454) — but "denied everything tagged
   `env=prod`" is not literally achievable, and claiming it would be a wall that is not there.
 - **`iam:PassRole` is the statement that decides whether the rest is safe.** Running a task means
   handing it a role; granted on `*`, that one permission escalates "redeploy the application" to
-  account administrator in a single step. It names the two task roles for this environment and
-  conditions on `iam:PassedToService = ecs-tasks.amazonaws.com`.
+  account administrator in a single step. The deploy role's names the two task roles for this
+  environment; the lifecycle role's also names the bootstrap task's execution role, the only one
+  that reads the master secret (#454). Both condition on `iam:PassedToService = ecs-tasks.amazonaws.com`.
 - **An ARN says which resource, not where it goes.** `ecs:UpdateService` also takes a network
   configuration, so a role scoped to the qa service could still move it into prod's subnets with
   prod's tasks security group — a path to prod's database. Both roles that create or update the
@@ -93,7 +98,11 @@ Four consequences worth being plain about:
   `rds:PubliclyAccessible = false`. **RDS is the gap:** it has no condition key for security
   groups, so the lifecycle role could attach the other environment's database group to its own
   instance. The subnet group is foundation and not the role's to create. That is accepted because
-  the role is assumed by a person with MFA.
+  the role is assumed by a person with MFA. **`ecs:RunTask` is the other gap** (#429): it has no
+  subnet or security-group condition key either, so either role may start its environment's
+  one-off task in the other environment's subnets and tasks security group, with an image of its
+  choosing — a network path to that database's port. The task carries only its own environment's
+  roles (`iam:PassRole` above), so it holds no credentials the other database accepts.
 - **Local credentials are the remaining hole.** An agent running with an administrator profile
   on a developer machine could reach prod, because nothing structural stops it. The mitigation is
   that the profile available locally is itself least-privilege and explicitly denies

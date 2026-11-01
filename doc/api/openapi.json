@@ -818,7 +818,7 @@
             }
           },
           "400": {
-            "description": "A field failed validation, for example a blank description or a due date in the past."
+            "description": "A field failed validation, for example a blank description or a due date that is past everywhere."
           },
           "401": {
             "description": "Not Authorized"

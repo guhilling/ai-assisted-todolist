@@ -68,7 +68,8 @@ slows things down.
 - **Long topics are chapters**: `doc/<chapter>/index.md` plus one page per sub-chapter, ordered by
   the chapter's index. A reference anywhere in the repository names the exact page it means
   (`doc/deployment/database.md`, not a section of a long file), and
-  `.github/scripts/check-doc-references.py` fails CI when one names a page that does not exist.
+  the shared `check-doc-references` action from [dev-conventions](https://github.com/guhilling/dev-conventions)
+  fails CI when one names a page that does not exist.
 - **The API contract is generated and drift-gated, never written twice.** The backend's
   OpenAPI document and the per-type JSON Schemas under `doc/api/` come from
   `doc/api/generate.py`; the frontend's wire types and response validators under

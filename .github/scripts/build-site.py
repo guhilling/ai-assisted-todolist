@@ -15,7 +15,7 @@ What it produces:
     api/index.html        the versions of the contract
     api/main/             the moving snapshot: doc/api as it is on main
     api/v1.2.3/           one per release tag, read out of git history
-    api/latest/           a copy of the newest release
+    api/latest/           a copy of the newest final release
     videos/               the newest live run's recording of qa's signed-in scenarios and of the
                           app's flows, when the workflow passes `--videos` and `--app-videos` with
                           them (live-tests.yml, pages.yml)
@@ -129,9 +129,18 @@ def git(*args: str) -> str:
 
 
 def release_tags() -> list[str]:
-    """Release tags, newest first. `-v:refname` sorts 1.10.0 above 1.9.0, which a text sort does not."""
-    listed = git("tag", "--list", "v[0-9]*", "--sort=-v:refname").split()
+    """
+    Release tags, newest first. `-v:refname` sorts 1.10.0 above 1.9.0, which a text sort does not,
+    and `versionsort.suffix=-` puts a pre-release after its final release (#433): without it,
+    v1.3.0-rc.1 sorts above v1.3.0.
+    """
+    listed = git("-c", "versionsort.suffix=-", "tag", "--list", "v[0-9]*", "--sort=-v:refname").split()
     return [tag for tag in listed if f"{CONTRACT}/openapi.json" in git("ls-tree", "-r", "--name-only", tag)]
+
+
+def latest_release(tags: list[str]) -> str | None:
+    """The newest final release, `vX.Y.Z`, among `tags`, newest first: a pre-release is never the latest, as on GitHub."""
+    return next((tag for tag in tags if re.fullmatch(r"v[0-9]+\.[0-9]+\.[0-9]+", tag)), None)
 
 
 def contract_files(ref: str | None) -> dict[str, str]:
@@ -894,9 +903,10 @@ def main(argv: list[str]) -> int:
     for tag in tags:
         write_files(site / "api" / tag, with_version(contract_files(tag), tag.removeprefix("v")))
         published.append((tag, tag))
-    if tags:
-        shutil.copytree(site / "api" / tags[0], site / "api" / "latest")
-        published.insert(0, ("latest", f"latest ({tags[0]})"))
+    latest = latest_release(tags)
+    if latest:
+        shutil.copytree(site / "api" / latest, site / "api" / "latest")
+        published.insert(0, ("latest", f"latest ({latest})"))
 
     pages = []
     for slug, label in published:

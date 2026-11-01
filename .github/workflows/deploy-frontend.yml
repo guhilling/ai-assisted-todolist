@@ -54,7 +54,7 @@ jobs:
       - name: Refuse anything but a release tag
         # The input reaches a shell and a download; only the shape release.yml publishes gets in.
         run: |
-          if [[ ! "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]]; then
+          if [[ ! "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z]+(\.[0-9A-Za-z]+)*)?$ ]]; then
             echo "::error::'$VERSION' is not a release tag like v1.2.3"
             exit 1
           fi
