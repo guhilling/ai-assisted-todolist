@@ -18,28 +18,11 @@ import subprocess
 import tempfile
 import unittest
 
-MAESTRO_DIR = pathlib.Path(__file__).resolve().parents[2] / "mobile" / "maestro"
-
-# What emulator-ready.sh leaves behind for the script: `retry`.
-EMULATOR_READY = "retry() { \"$@\"; }\n"
-
-# Android navigates with three buttons at once; every other call succeeds and says nothing.
-ADB = """#!/usr/bin/env bash
-[[ "$*" == *navigation_mode* ]] && echo 0
-exit 0
-"""
-
-# Fails every run with $MAESTRO_SAYS, counting the runs in $MAESTRO_RUNS.
-MAESTRO = """#!/usr/bin/env bash
-echo run >> "$MAESTRO_RUNS"
-echo "$MAESTRO_SAYS"
-exit 1
-"""
+# The stand-ins test_run_on_emulator.py runs the script with, shared rather than copied.
+from test_run_on_emulator import ADB, DRIVER_FAILED, EMULATOR_READY, MAESTRO, MAESTRO_DIR
 
 NOT_FOUND = ("java.io.IOException: Command failed (host:transport:emulator-5554): "
              "device 'emulator-5554' not found")
-DRIVER_FAILED = ("maestro.android.DeviceCallFailedException: 'deviceInfo' failed: "
-                 "INTERNAL - error in frame handler")
 
 
 @unittest.skipUnless(shutil.which("bash"), "needs bash")

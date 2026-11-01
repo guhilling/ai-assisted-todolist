@@ -12,9 +12,13 @@
 # runs the whole share once more on a freshly booted emulator and a fresh stack -- not the flow
 # alone, which would start from a board the first run may already have changed. Maestro's driver
 # failing on an emulator that is still there is driver-failed.sh's, and is run again in place.
+#
+# Only adb no longer listing the emulator counts, not its calling it offline: it does that for a
+# moment now and then (emulator-ready.sh), and a flow that failed by itself meanwhile would be run
+# again, its failure hidden.
 set -uo pipefail
 
-lost="device 'emulator-[0-9]+' not found|: device offline"
+lost="device 'emulator-[0-9]+' not found"
 
 # A file Maestro never wrote counts as saying nothing; with none at all, grep would read stdin.
 (( $# > 0 )) && grep -q -s -E "$lost" "$@"

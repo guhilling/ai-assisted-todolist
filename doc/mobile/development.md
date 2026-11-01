@@ -155,10 +155,11 @@ start of the reminders flow, its process ended without a word, adb called it off
 longer listed it, and the action could not reach it to shut it down. The logs do not say why, and
 the boot was the same as on every passing run. A flow cannot run again on an emulator that is gone,
 so `run-on-emulator.sh` stops there when `maestro/emulator-lost.sh` recognises it — Maestro saying
-the device is offline or not found — and leaves `emulator-lost.txt` naming the flow. Mobile CI then
-records what the runner saw (the kernel's OOM kills, memory and disk, the emulator's crash
-reports), keeps the first run's output in `emulator-lost/`, starts the stack again from nothing and
-runs the whole share once more on a freshly booted emulator: the flow alone would start from a
+adb no longer lists the device; merely offline, which adb calls it for a moment now and then, does
+not count — and leaves `emulator-lost.txt` naming the flow. Mobile CI then records what the runner
+saw (the kernel's OOM kills, memory and disk, the emulator's crash reports), keeps the first run's
+output in `emulator-lost/`, starts the stack again from nothing, clears away what is left of the old
+emulator and runs the whole share once more on a freshly booted one: the flow alone would start from a
 board the first run may already have changed. Only then; any other failure fails the job. Every
 run also keeps `runner-vmstat.log`, the runner's memory and swap every ten seconds, in the artifact.
 

@@ -56,8 +56,10 @@ class EmulatorLostTest(unittest.TestCase):
     def test_the_emulator_no_longer_listed(self):
         self.assertEqual(self.run_on(NOT_FOUND, UNKNOWN_ERROR), 0)
 
-    def test_the_emulator_offline(self):
-        self.assertEqual(self.run_on(OFFLINE), 0)
+    def test_the_emulator_merely_offline_is_not_lost(self):
+        # adb calls an emulator offline for a moment now and then (emulator-ready.sh): a flow that
+        # failed by itself meanwhile would be run again, and its failure hidden.
+        self.assertEqual(self.run_on(OFFLINE), 1)
 
     def test_the_driver_failing_its_first_call_is_the_drivers(self):
         # driver-failed.sh's case: the emulator is still there, the flow runs again on it.

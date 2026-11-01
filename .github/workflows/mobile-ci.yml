@@ -377,20 +377,22 @@ jobs:
       - name: Say what the runner saw of the emulator going away, and start afresh
         id: afresh
         if: steps.flows.outcome == 'failure' && hashFiles('emulator-lost.txt') != ''
-        # A kernel's OOM kill or the emulator's crash report would say why it went (#461). The first
-        # run's output is kept in emulator-lost/, and the stack starts again from nothing, so the
-        # share's second run starts from the board its first one did.
+        # A kernel's OOM kill or the emulator's crash report would say why it went (#461); only best
+        # effort, so that collecting it never stands in the second run's way. The first run's output
+        # is kept in emulator-lost/, and the stack starts again from nothing, so the share's second
+        # run starts from the board its first one did.
         run: |
-          echo "::warning title=The emulator went away::$(cat emulator-lost.txt) lost its emulator; the ${{ matrix.share }} share runs once more on a freshly booted one (#461)."
           mkdir emulator-lost
-          { sudo dmesg -T | grep -i -E 'oom|killed process|qemu|emulator' || echo 'Nothing in dmesg.'; } | tee emulator-lost/dmesg.txt
-          { free -m; df -h /; } | tee emulator-lost/runner.txt
+          { sudo dmesg -T | grep -i -E 'oom|killed process|qemu|emulator' || echo 'Nothing in dmesg.'; } | tee emulator-lost/dmesg.txt || true
+          { free -m; df -h /; } | tee emulator-lost/runner.txt || true
           cp -r /tmp/android-runner emulator-lost/ 2>/dev/null || true
-          docker compose -f deployment/docker/docker-compose.e2e.yml logs --no-color > emulator-lost/stack.log
+          docker compose -f deployment/docker/docker-compose.e2e.yml logs --no-color > emulator-lost/stack.log || true
+          mv emulator-lost.txt maestro-output maestro-*.xml emulator-lost/ 2>/dev/null || true
           docker compose -f deployment/docker/docker-compose.e2e.yml down -v
-          mv emulator-lost.txt maestro-output emulator-lost/
-          mv maestro-*.xml emulator-lost/ 2>/dev/null || true
-          # The emulator that went never removed its locks, which would keep the AVD from booting.
+          # Whatever is left of the emulator that went, and adb's memory of it, would keep the new
+          # one off emulator-5554 or put it beside it; its locks would keep the AVD from booting.
+          pkill -9 -f qemu-system || true
+          "$ANDROID_HOME/platform-tools/adb" kill-server || true
           rm -f ~/.android/avd/*.avd/*.lock
 
       - name: Run the flows once more on a freshly booted emulator

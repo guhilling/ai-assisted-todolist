@@ -32,7 +32,7 @@ flows() {
     fi
     if bash "$here/emulator-lost.sh" "$console" "$report"; then
       echo "$*" > emulator-lost.txt
-      echo "::warning title=The emulator went away::$* lost its emulator (#461)."
+      echo "::warning title=The emulator went away::$* lost its emulator; Mobile CI runs the share once more on a freshly booted one (#461)."
       return 1
     fi
     if (( run == 2 )) || ! bash "$here/driver-failed.sh" "$console" "$report"; then
