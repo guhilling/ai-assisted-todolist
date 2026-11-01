@@ -29,8 +29,11 @@ for flow in share-photo share-link; do
   # Run once more when Maestro's own driver failed rather than the flow (#401); driver-failed.sh
   # says which. Each run keeps its own console output and debug output in the artifact.
   for run in 1 2; do
-    # Each share finds the app closed, as after a restart: the extension has to open it.
-    xcrun simctl terminate "$udid" de.hilling.taskfest.dev 2>/dev/null || true
+    # Each share finds the app closed, as after a restart: the extension has to open it. Photos and
+    # Safari are closed too, so a share left half done cannot carry over into the next flow.
+    for bundle in de.hilling.taskfest.dev com.apple.mobileslideshow com.apple.mobilesafari; do
+      xcrun simctl terminate "$udid" "$bundle" 2>/dev/null || true
+    done
     flow_status=0
     # Maestro's debug output -- its screenshots and every command -- goes into the artifact too, so
     # a failed share shows what the simulator did (#401).

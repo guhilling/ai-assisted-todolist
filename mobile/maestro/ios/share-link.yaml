@@ -8,13 +8,16 @@ name: Share a link from Safari into the app through iOS's share sheet
 - openLink:
     link: https://example.com
     browser: true
+# The page itself, not Safari's toolbar, which is there before the page is: shared before it has
+# loaded, Safari would hand over no link, and TaskFest Dev would not be offered.
 - extendedWaitUntil:
-    visible: "(View Bookmarks.*|More)"
+    visible: "This domain is for use.*"
     timeout: 60000
 - waitForAnimationToEnd:
     timeout: 8000
 # A fresh simulator's Safari points at its ⋯ menu with a tip, which has no name Maestro can
-# find; a tap on the page beside it closes it, and does nothing on example.com when there is none.
+# find; a tap on the page beside it closes it. That spot on example.com is plain text, so the tap
+# does nothing when there is no tip.
 - tapOn:
     point: 90%, 71%
 - waitForAnimationToEnd
@@ -43,7 +46,8 @@ name: Share a link from Safari into the app through iOS's share sheet
     timeout: 90000
 - takeScreenshot: ios-share-link-2-handed-over
 # The simulator's iOS may ask first, as for the photo; a tap while the question is still coming in
-# can be lost (#401).
+# can be lost (#401). The question is SpringBoard's, not part of Safari's sheet, so Open is found
+# by name.
 - waitForAnimationToEnd
 - repeat:
     while:
