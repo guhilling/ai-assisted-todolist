@@ -91,6 +91,17 @@ class RdsRestorePointsTest {
     }
 
     @Test
+    void shouldDateACopyByItsOwnTimeWhenThatIsEarlier() {
+        // Not what RDS reports for a copy, but the earlier of the two is the one that never prunes too much.
+        DBSnapshot copy = DBSnapshot.builder()
+            .snapshotCreateTime(SNAPSHOT)
+            .originalSnapshotCreateTime(Instant.parse("2026-10-07T00:00:00Z"))
+            .build();
+
+        assertEquals(Optional.of(SNAPSHOT), new RdsRestorePoints(listing(copy), "taskfest-qa-db").oldest());
+    }
+
+    @Test
     void shouldNotCountACopyRdsHasNotFinished() {
         // Not restorable yet: its original's time alone must not let records be pruned.
         DBSnapshot copying = DBSnapshot.builder().originalSnapshotCreateTime(SNAPSHOT).build();

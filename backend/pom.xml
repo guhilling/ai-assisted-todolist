@@ -351,11 +351,12 @@
                         <param>de.hilling.taskfest.api.TaskResource*</param>
                         <param>de.hilling.taskfest.model.*</param>
                         <!-- The attachment classes that talk to S3 or the database; the policy
-                             and the kinds have a plain unit test and stay in scope. -->
+                             and the kinds have a plain unit test and stay in scope. So does
+                             AttachmentStore, for its link expiry, which UploadLinkExpiryTest
+                             signs offline; its S3 calls count as uncovered there. -->
                         <param>de.hilling.taskfest.api.AttachmentResource*</param>
                         <param>de.hilling.taskfest.attachment.Attachment</param>
                         <param>de.hilling.taskfest.attachment.AttachmentService*</param>
-                        <param>de.hilling.taskfest.attachment.AttachmentStore*</param>
                         <param>de.hilling.taskfest.attachment.AttachmentSweep*</param>
                         <param>de.hilling.taskfest.attachment.AttachmentState</param>
                         <param>de.hilling.taskfest.attachment.AttachmentsConfig*</param>

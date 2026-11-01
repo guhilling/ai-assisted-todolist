@@ -11,8 +11,13 @@ import io.quarkus.test.security.oidc.Claim;
 import io.quarkus.test.security.oidc.OidcSecurity;
 import io.restassured.http.ContentType;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import org.junit.jupiter.api.Test;
 
 import static io.restassured.RestAssured.given;
@@ -144,6 +149,33 @@ class DraftResourceTest {
             .when().post("/api/tasks/drafts/" + second + "/add").then().statusCode(201);
         createDraft();
         given().when().post("/api/tasks/drafts").then().statusCode(422);
+    }
+
+    @Test
+    @TestSecurity(user = "draft-race@example.com")
+    @OidcSecurity(claims = { @Claim(key = "email", value = "draft-race@example.com") })
+    void shouldKeepToTheCapWhenTwoDraftsAreStartedAtOnce() throws Exception {
+        // Two add forms opened at once: counting and inserting must not interleave (#434).
+        for (int i = 0; i < DraftResource.MAX_OPEN_DRAFTS - 1; i++) {
+            createDraft();
+        }
+        ExecutorService pool = Executors.newFixedThreadPool(2);
+        try {
+            List<Future<Integer>> answers = new ArrayList<>();
+            for (int request = 0; request < 2; request++) {
+                answers.add(pool.submit(() -> given().when().post("/api/tasks/drafts").then().extract().statusCode()));
+            }
+            List<Integer> statuses = new ArrayList<>();
+            for (Future<Integer> answer : answers) {
+                statuses.add(answer.get());
+            }
+            assertEquals(List.of(201, 422), statuses.stream().sorted().toList());
+        } finally {
+            pool.shutdown();
+        }
+
+        assertEquals(DraftResource.MAX_OPEN_DRAFTS, QuarkusTransaction.requiringNew().call(
+            () -> Task.count("owner.email = ?1 and draft = true", "draft-race@example.com")).intValue());
     }
 
     private static long createDraft() {
