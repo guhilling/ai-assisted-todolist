@@ -6,8 +6,9 @@ content straight to and from it through presigned links;
 [decisions/domain-and-backend.md](../decisions/domain-and-backend.md) says why. The bucket is
 foundation: it survives `env.sh down`, and nothing in it is versioned or backed up, so a deleted
 file is gone. For the same reason the bucket carries `prevent_destroy` (#435): a plan that would
-destroy it — a renamed environment, a removed resource — fails rather than relying on S3 refusing
-to delete a bucket that still holds files. Retiring an environment for good means taking the
+replace it — a renamed environment or project — fails rather than relying on S3 refusing to
+delete a bucket that still holds files. It guards only while the resource is declared: removing the
+declaration removes the flag with it. Retiring an environment for good means taking the
 bucket out of that environment's state (`tofu state rm module.environment.aws_s3_bucket.attachments`)
 and deleting it by hand — not removing the line, which the other environment shares.
 

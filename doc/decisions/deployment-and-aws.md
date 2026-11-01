@@ -502,11 +502,12 @@ needs no rotation either; Secrets Manager's features buy nothing here.
 *Accepted · 2026-11-01 · #435*
 
 **Decision (#435).** `aws_s3_bucket.attachments` carries `lifecycle { prevent_destroy = true }`, so
-any plan that would destroy it fails before anything is applied
+a plan that would destroy it while it is declared fails before anything is applied — removing the
+declaration takes the flag with it
 ([attachment storage](../deployment/attachments.md)).
 
 **Why.** It holds people's files, unversioned and not backed up, and until now the only thing between a
-plan that replaced it — a renamed environment or project, a removed resource — and their loss was
+plan that replaced it — a renamed environment or project — and their loss was
 S3 refusing `DeleteBucket` on a bucket that is not empty, at apply time, and not at all once it was.
 Teardown is unaffected: the bucket is foundation, and `env.sh down` never plans its destruction.
 
