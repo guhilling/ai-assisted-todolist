@@ -636,7 +636,7 @@ export function TaskFestApp({
    */
   const pickedHeld = useRef(new Set<PickedFile>())
   const inUse = useRef(new Map<PickedFile, number>())
-  /** Raised when an upload lets its files go, so they are looked at again after the render. */
+  /** Raised when a file is picked or an upload lets its files go, so they are looked at again after the render. */
   const [, setFilesReleased] = useState(0)
   /** Keeps these files on the phone, whatever form holds them, until the function handed back is called. */
   const hold = (used: PickedFile[]) => {
@@ -714,11 +714,15 @@ export function TaskFestApp({
           (failure: unknown) => ({ failure }),
         ),
       ])
-      if (signedOut() || superseded()) {
+      if (signedOut()) {
         return
       }
+      // Too old stays too old, whatever load began meanwhile -- a sign-in's, say (#432).
       if (minimum && isTooOld(appVersion, minimum)) {
         setState({ kind: 'tooOld' })
+        return
+      }
+      if (superseded()) {
         return
       }
       let session: Session | null
@@ -1164,8 +1168,10 @@ export function TaskFestApp({
       if (!file) {
         return
       }
-      // Kept on the phone from here until no form lists it and no upload uses it (#432).
+      // Kept on the phone from here until no form lists it and no upload uses it (#432), and looked
+      // at after the next render, which this asks for: a form closed meanwhile changes no state.
       pickedHeld.current.add(file)
+      setFilesReleased((count) => count + 1)
       if (task) {
         const failure = await uploadTo(task, file)
         if (failure) {

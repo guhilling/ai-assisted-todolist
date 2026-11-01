@@ -146,6 +146,20 @@ describe('the picked files go from the phone once nothing needs them (#432)', ()
     await waitFor(() => expect(deps.forgetPicked).toHaveBeenCalledWith([empty]))
   })
 
+  it('while adding a task, when the form was closed before the file was picked', async () => {
+    const picked = deferred<PickedFile | null>()
+    const deps = dependencies({ pickFile: jest.fn().mockReturnValue(picked.promise) })
+    const user = await start(deps)
+    await user.press(await screen.findByRole('button', { name: 'Add a task' }))
+    const form = screen.getByTestId('task-form')
+    await user.press(within(form).getByRole('button', { name: 'Take a photo' }))
+
+    await user.press(within(form).getByRole('button', { name: 'Cancel' }))
+    await act(async () => picked.resolve(photo))
+
+    await waitFor(() => expect(deps.forgetPicked).toHaveBeenCalledWith([photo]))
+  })
+
   it('not while its upload to the draft is still on its way, though it was let go meanwhile', async () => {
     const upload = deferred<ReturnType<typeof attached>>()
     const deps = dependencies()
