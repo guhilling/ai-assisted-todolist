@@ -4,7 +4,7 @@
  * The wire lives in `api.ts` and the due-date words in `dates.ts`, so what remains here is
  * state and the decisions that depend on more than one piece of it.
  */
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
 import {
   AttachmentRefusedError,
@@ -230,28 +230,110 @@ function Board() {
     void loadSession()
   }, [])
 
-  const replaceTask = (updated: Task) =>
-    setTasks((current) => current.map((task) => (task.id === updated.id ? updated : task)))
+  /**
+   * The files this board has removed (#431), so that an answer given before a removal does not
+   * bring one back.
+   */
+  const removedAttachments = useRef(new Set<Attachment['id']>())
+
+  /**
+   * Shows what a save says of a task, keeping the files the board has and adding those the answer
+   * lists that it has not removed (#431): a file confirmed while the save was on its way is not in
+   * an answer the backend gave before it, and one attached in another tab is only in the answer.
+   */
+  const showSaved = (saved: Task) =>
+    setTasks((current) =>
+      current.map((task) => {
+        if (task.id !== saved.id) {
+          return task
+        }
+        const shown = task.attachments ?? []
+        const added = (saved.attachments ?? []).filter(
+          (attachment) =>
+            !removedAttachments.current.has(attachment.id) && !shown.some((kept) => kept.id === attachment.id),
+        )
+        return { ...saved, attachments: [...shown, ...added] }
+      }),
+    )
+
+  /**
+   * Each task's saves still on their way (#431): the end of its queue, how many wait in it, the task
+   * as the server last said it was, and whether it is being deleted. A task no save is on its way
+   * for has none.
+   */
+  const saveQueues = useRef(
+    new Map<Task['id'], { end: Promise<void>; waiting: number; confirmed: Task; deleted: boolean }>(),
+  )
+
+  /**
+   * Sends a task's saves one after another (#431), each once the one before it has its answer, so
+   * the server applies them in the order they were made: two PUTs on their way at once may be
+   * applied the other way round, and the board would then show what the server does not hold.
+   *
+   * Only the last one queued has a say on the board. Its answer is shown; its failure rolls the task
+   * back to what the server last said and is reported. An earlier one's answer is passed over and
+   * its failure kept quiet, since the save after it sends the whole task as the board shows it --
+   * unless the session has ended, which is said at once. A task being deleted sends none of the
+   * saves still waiting and is quiet about the one on its way, which the server may refuse for
+   * the task being gone.
+   *
+   * @param shown the task as the board shows it, which is the server's when no save is on its way
+   * @returns whether this save went through
+   */
+  const queueSave = async (shown: Task, sent: Task) => {
+    const queue = saveQueues.current.get(shown.id) ?? {
+      end: Promise.resolve(),
+      waiting: 0,
+      confirmed: shown,
+      deleted: false,
+    }
+    saveQueues.current.set(shown.id, queue)
+    queue.waiting += 1
+    const turn = queue.end
+    let done = () => {}
+    queue.end = new Promise((resolve) => {
+      done = resolve
+    })
+    await turn
+    try {
+      if (queue.deleted) {
+        return false
+      }
+      const saved = await putTask(sent)
+      queue.confirmed = saved
+      if (queue.waiting === 1) {
+        showSaved(saved)
+      }
+      return true
+    } catch (updateError) {
+      if (queue.waiting === 1 && !queue.deleted) {
+        showSaved(queue.confirmed)
+        reportFailure(updateError, 'updating')
+      } else if (updateError instanceof SessionExpiredError) {
+        reportFailure(updateError, 'updating')
+      }
+      return false
+    } finally {
+      queue.waiting -= 1
+      if (queue.waiting === 0) {
+        saveQueues.current.delete(shown.id)
+      }
+      done()
+    }
+  }
 
   /**
    * Saves a tick or an untick, showing it before the server has agreed. A task is open or done
    * (#334), so those are the only states the board sets.
    *
-   * Ticking a checkbox has to feel immediate, and a round trip does not. The previous task is
-   * put back if the save fails, so a rejected change never leaves the board claiming something
-   * untrue.
+   * Ticking a checkbox has to feel immediate, and a round trip does not. The task is put back as
+   * the server last had it if the save fails, so a rejected change never leaves the board claiming
+   * something untrue; a tick made while another is on its way waits for it ({@link queueSave}).
    */
   const saveState = async (task: Task, nextState: Extract<TaskState, 'TODO' | 'DONE'>) => {
-    const previous = task
     setError(null)
-    replaceTask({ ...task, state: nextState })
-
-    try {
-      replaceTask(await putTask({ ...task, state: nextState }))
-    } catch (updateError) {
-      replaceTask(previous)
-      reportFailure(updateError, 'updating')
-    }
+    showSaved({ ...task, state: nextState })
+    await queueSave(task, { ...task, state: nextState })
   }
 
   /**
@@ -259,18 +341,12 @@ function Board() {
    *
    * Unlike a tick, an edit is a form someone has just filled in, so a moment's "Saving…" is
    * expected -- and keeping the form open until the server agrees means a refused edit leaves
-   * what was typed in place to correct, instead of rolling the row back and losing it.
+   * what was typed in place to correct, instead of rolling the row back and losing it. It waits
+   * for a tick still on its way, as a tick does.
    */
   const editTask = async (task: Task, changes: TaskEdit) => {
     setError(null)
-
-    try {
-      replaceTask(await putTask({ ...task, ...changes }))
-      return true
-    } catch (updateError) {
-      reportFailure(updateError, 'updating')
-      return false
-    }
+    return queueSave(task, { ...task, ...changes })
   }
 
   const toggleDone = (task: Task) => void saveState(task, task.state === 'DONE' ? 'TODO' : 'DONE')
@@ -284,11 +360,20 @@ function Board() {
    */
   const deleteOne = async (task: Task) => {
     setTasks((current) => current.filter((candidate) => candidate.id !== task.id))
+    const saves = saveQueues.current.get(task.id)
+    if (saves) {
+      saves.deleted = true
+    }
 
     try {
       await deleteTask(task)
       return true
     } catch (deleteError) {
+      // A save passed over meanwhile stays unsent, a shortcut taken on purpose: the row comes back
+      // as it was deleted, and the next tick or edit saves it whole.
+      if (saves) {
+        saves.deleted = false
+      }
       setTasks((current) => [...current, task])
       reportFailure(deleteError, 'deleting')
       return false
@@ -388,7 +473,10 @@ function Board() {
     remove: (task, attachment) => {
       setError(null)
       removeAttachment(task.id, attachment.id)
-        .then(() => setAttachments(task.id, (current) => current.filter((kept) => kept.id !== attachment.id)))
+        .then(() => {
+          removedAttachments.current.add(attachment.id)
+          setAttachments(task.id, (current) => current.filter((kept) => kept.id !== attachment.id))
+        })
         .catch((removeError: unknown) => reportFailure(removeError, 'deleting'))
     },
     upload: async (task, file, onProgress): Promise<UploadOutcome> => {
