@@ -58,7 +58,7 @@ past the window, and uploads that were never confirmed.
 | A user has at most five open drafts (#434) | `DraftResource.create`, which counts them under the lock on the user's row (`User.lockRow`) |
 | A **new** task's due date is today or later, in someone's zone: no earlier than today in UTC-12 (#425) | `@TodaySomewhere` on `TaskCreateRequest` only |
 | A time zone comes only with a due time (#474) | `@ZoneOnlyWithTime` on both request records, and the `task_zone_only_with_time` check constraint |
-| A time zone is one the JVM knows by its IANA name, never an offset: neither a bare one like `+02:00` nor one by name like `Etc/GMT-2` or `EST`, UTC excepted | `@KnownTimeZone` on both request records, and a 64-character column. A stored zone the running JVM does not know gives the task no `dueAt` rather than failing the board |
+| A time zone is one the JVM knows by its IANA name, never an offset: neither a bare one like `+02:00` nor one by name like `Etc/GMT-2` or `EST`, UTC and GMT excepted | `@KnownTimeZone` on both request records, and a 64-character column. A stored zone the running JVM does not know gives the task no `dueAt` rather than failing the board |
 | A due time is to the minute | `DueTimeDeserializer`, which reads it only as `HH:mm` text, `00:00` to `23:59`, and the same `pattern` in the published schema. The `TIME(0)` column keeps seconds, so it is not what holds this |
 | State and importance are always set | Not-null columns; `state` defaults to `TODO` |
 | A user's email is present and unique | `@NotBlank` and a unique not-null column on `User` |

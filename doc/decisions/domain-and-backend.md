@@ -488,7 +488,7 @@ added by `007-due-times.xml` with no migration: every existing task is all day. 
 refused rather than stored. The zone must be one of the JVM's, exactly as written, which also
 refuses a bare offset such as `+02:00`: an offset is not a zone, and is wrong for half the year
 (option E). A zone that is a fixed offset by name, such as `Etc/GMT-2` or `EST`, is refused for the
-same reason; UTC, which is meant as itself, is not. A stored zone the running JVM does not know --
+same reason; UTC and GMT, which are meant as themselves, are not. A stored zone the running JVM does not know --
 one from newer tzdata, after a rollback -- gives the task no `dueAt` instead of failing every
 task's read. The longest name the
 JDK knows is 32 characters; the column takes twice that. A zone without a time is refused by

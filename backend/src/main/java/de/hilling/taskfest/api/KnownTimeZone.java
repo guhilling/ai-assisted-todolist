@@ -19,7 +19,7 @@ import java.util.Set;
  * {@link ZoneId#of}, which also takes an offset such as {@code +02:00}: an offset is not a zone,
  * and a task given Berlin's summer offset would come out an hour wrong all winter. For the same
  * reason a zone that is a fixed offset by name is refused too -- {@code Etc/GMT-2} is +02:00 all
- * year, {@code EST} never EDT -- except UTC, which is meant as itself.</p>
+ * year, {@code EST} never EDT -- except UTC and GMT, which are meant as themselves.</p>
  */
 @Target({ ElementType.FIELD, ElementType.PARAMETER, ElementType.RECORD_COMPONENT })
 @Retention(RetentionPolicy.RUNTIME)
@@ -38,8 +38,8 @@ public @interface KnownTimeZone {
     /** Looks the name up among the JVM's zones; a missing zone is a floating time, and valid. */
     final class Validator implements ConstraintValidator<KnownTimeZone, String> {
 
-        /** The fixed offsets that are meant as themselves. */
-        private static final Set<String> UTC = Set.of("UTC", "Etc/UTC");
+        /** The fixed offsets that are meant as themselves: UTC, and GMT, the same in practice. */
+        private static final Set<String> UTC = Set.of("UTC", "Etc/UTC", "GMT", "Etc/GMT");
 
         @Override
         public boolean isValid(String value, ConstraintValidatorContext context) {

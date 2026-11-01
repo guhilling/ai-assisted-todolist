@@ -111,4 +111,11 @@ class DueTimeRulesTest {
         assertThat(violations(create(TEN, "UTC")), is(0));
         assertThat(violations(create(TEN, "Etc/UTC")), is(0));
     }
+
+    @Test
+    void shouldAcceptGmtAsUtc() {
+        // The same for all practical purposes (Gunnar on #488).
+        assertThat(violations(create(TEN, "GMT")), is(0));
+        assertThat(violations(create(TEN, "Etc/GMT")), is(0));
+    }
 }
