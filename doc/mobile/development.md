@@ -104,9 +104,9 @@ since that is all an iOS app's version may be, and the backend logs nothing else
   the emulator's Downloads, through Android's file picker, and sees it on the board
   ([files.md](files.md)). The app reaches the stack's storage as the browser does, at
   `s3.localhost:4566`, through one more `adb reverse`.
-- **On iOS**, the flow in `maestro/ios/` shares a photo from Photos into the app through the real
-  share sheet, on an iPhone simulator, with no stack behind it ([sharing.md](sharing.md));
-  `maestro/ios/run-on-simulator.sh` boots the simulator and runs it.
+- **On iOS**, the flows in `maestro/ios/` share a photo from Photos and a page from Safari into the
+  app through the real share sheet, on an iPhone simulator, with no stack behind it
+  ([sharing.md](sharing.md)); `maestro/ios/run-on-simulator.sh` boots the simulator and runs them.
 - **Live**, after every deploy to qa, the flows in `maestro/live/` run the released qa app against
   qa itself, signed in as a Cognito test account, and are recorded
   ([live.md](../testing/live.md)).
@@ -149,6 +149,19 @@ failed`), before any step, and a re-run passed. `maestro/driver-failed.sh`, whic
 uses too (#401), tells the two apart by the exception Maestro reports. Only that first call counts:
 a run after a later one would start from a board or a share the first run had already changed. Any
 other failure fails at once, and the first run's console output and report are in the artifact.
+
+The emulator itself has gone away mid-flow (#461): once in the last 320 shares, on `pm clear` at the
+start of the reminders flow, its process ended without a word, adb called it offline and then no
+longer listed it, and the action could not reach it to shut it down. The logs do not say why, and
+the boot was the same as on every passing run. A flow cannot run again on an emulator that is gone,
+so `run-on-emulator.sh` stops there when `maestro/emulator-lost.sh` recognises it — Maestro saying
+adb no longer lists the device; merely offline, which adb calls it for a moment now and then, does
+not count — and leaves `emulator-lost.txt` naming the flow. Mobile CI then records what the runner
+saw (the kernel's OOM kills, memory and disk, the emulator's crash reports), keeps the first run's
+output in `emulator-lost/`, starts the stack again from nothing, clears away what is left of the old
+emulator and runs the whole share once more on a freshly booted one: the flow alone would start from a
+board the first run may already have changed. Only then; any other failure fails the job. Every
+run also keeps `runner-vmstat.log`, the runner's memory and swap every ten seconds, in the artifact.
 
 The emulator's setup is cached (#302): the API 34 system image and an AVD with a booted snapshot,
 in a private image on GitHub's Container Registry, `ghcr.io/guhilling/taskfest-buildcache`, tagged

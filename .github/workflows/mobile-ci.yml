@@ -233,9 +233,10 @@ jobs:
           set -a && source mobile/maestro/maestro.env && set +a
           curl -fsSL "https://get.maestro.mobile.dev" | bash
           echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
-      # Sharing through the real share sheet (#380): a photo from Photos, on an iPhone simulator,
-      # into the build signed just above. No stack runs here, so each share ends at the
-      # app, opened signed out with the share kept; the Android flows take one on to the board.
+      # Sharing through the real share sheet (#380): a photo from Photos and a page from Safari, on
+      # an iPhone simulator, into the build signed just above. No stack runs here, so each share
+      # ends at the app, opened signed out with the share kept; the Android flows take one on to
+      # the board.
       # It fails the job (#401); doc/mobile/sharing.md says how it is kept reliable.
       - name: Share into the app on a simulator
         id: share
@@ -344,9 +345,19 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
+      - name: Watch the runner's memory
+        # The emulator has gone away mid-flow without a word (#461). vmstat's samples, in the
+        # artifact, say how much memory and swap the runner had left when it did.
+        run: nohup vmstat -t -S M 10 > runner-vmstat.log 2>&1 &
+
       - name: Run the flows on an emulator
+        id: flows
+        # A share whose emulator went away (#461) runs once more below, on a freshly booted one;
+        # the step after this fails the job for any other failure.
+        continue-on-error: true
         uses: reactivecircus/android-emulator-runner@v2
-        with:
+        # The same settings for the run below, through the anchor.
+        with: &emulator
           api-level: ${{ env.EMULATOR_API_LEVEL }}
           target: ${{ env.EMULATOR_TARGET }}
           arch: ${{ env.EMULATOR_ARCH }}
@@ -358,11 +369,45 @@ jobs:
           disable-animations: true
           script: bash mobile/maestro/seed-stack.sh && bash mobile/maestro/run-on-emulator.sh apk/app-release.apk ${{ matrix.share }}
 
+      - name: Fail the job when the flows failed by themselves
+        if: steps.flows.outcome == 'failure' && hashFiles('emulator-lost.txt') == ''
+        run: |
+          echo "::error title=Android flows failed::The step that ran them, above, says why; the artifact maestro-output-${{ matrix.share }} has the screenshots and Maestro's output."
+          exit 1
+
+      - name: Say what the runner saw of the emulator going away, and start afresh
+        id: afresh
+        if: steps.flows.outcome == 'failure' && hashFiles('emulator-lost.txt') != ''
+        # A kernel's OOM kill or the emulator's crash report would say why it went (#461); only best
+        # effort, so that collecting it never stands in the second run's way. The first run's output
+        # is kept in emulator-lost/, and the stack starts again from nothing, so the share's second
+        # run starts from the board its first one did.
+        run: |
+          mkdir emulator-lost
+          { sudo dmesg -T | grep -i -E 'oom|killed process|qemu|emulator' || echo 'Nothing in dmesg.'; } | tee emulator-lost/dmesg.txt || true
+          { free -m; df -h /; } | tee emulator-lost/runner.txt || true
+          cp -r /tmp/android-runner emulator-lost/ 2>/dev/null || true
+          docker compose -f deployment/docker/docker-compose.e2e.yml logs --no-color > emulator-lost/stack.log || true
+          mv emulator-lost.txt maestro-output maestro-*.xml emulator-lost/ 2>/dev/null || true
+          docker compose -f deployment/docker/docker-compose.e2e.yml down -v
+          # Whatever is left of the emulator that went, and adb's memory of it, would keep the new
+          # one off emulator-5554 or put it beside it; its locks would keep the AVD from booting.
+          pkill -9 -f qemu-system || true
+          "$ANDROID_HOME/platform-tools/adb" kill-server || true
+          rm -f ~/.android/avd/*.avd/*.lock
+
+      - name: Run the flows once more on a freshly booted emulator
+        if: steps.afresh.outcome == 'success'
+        uses: reactivecircus/android-emulator-runner@v2
+        with: *emulator
+
       - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: maestro-output-${{ matrix.share }}
           path: |
+            runner-vmstat.log
+            emulator-lost
             maestro-output
             maestro-report.xml
             maestro-offline-*.xml
