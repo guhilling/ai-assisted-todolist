@@ -90,6 +90,10 @@ jobs:
         with:
           exclude: |
             doc/api/
+      - name: The Renovate config is valid
+        # A broken one stops every dependency update with a config-error issue, found only on
+        # Renovate's next weekly run (#456).
+        run: npx -y --package renovate@latest -- renovate-config-validator --strict .github/renovate.json
       - name: Every decision says when it was taken, and the index lists them all
         # The status line under each decision (#409), and an index that had drifted to thirteen
         # decisions missing and one long renamed.

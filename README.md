@@ -184,7 +184,8 @@ not moved, are in [doc/releasing.md](doc/releasing.md).
 
 ## Dependencies
 
-Renovate opens the update pull requests, configured in `.github/renovate.json`. Patch and
+Renovate opens the update pull requests, configured in `.github/renovate.json` on top of the
+shared preset from [dev-conventions](https://github.com/guhilling/dev-conventions). Patch and
 minor updates merge themselves once every check on the pull request is green; major updates
 wait for a human. The dependency dashboard issue lists everything outstanding.
 

@@ -357,6 +357,17 @@ class TaskResourceTest {
             .statusCode(not(204));
     }
 
+    @Test
+    @TestSecurity(user = ALICE)
+    @OidcSecurity(claims = { @Claim(key = "email", value = ALICE) })
+    void shouldRefuseAnEmptyBodyAsInvalidNotFail() {
+        Long taskId = createTask("Empty-bodied " + UUID.randomUUID(), LocalDate.now().plusDays(1),
+            TaskImportance.LOW, TaskState.TODO);
+
+        given().contentType(ContentType.JSON).when().post("/api/tasks").then().statusCode(400);
+        given().contentType(ContentType.JSON).when().put("/api/tasks/" + taskId).then().statusCode(400);
+    }
+
     private static Long createTask(
         String description, LocalDate dueDate, TaskImportance importance, TaskState state) {
         return given()
