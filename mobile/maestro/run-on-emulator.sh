@@ -19,6 +19,8 @@ source "$here/emulator-ready.sh"
 # `maestro test` for the given flows, its JUnit report going to the first argument, run once more
 # when Maestro's own driver failed before the flow began (#445), as the iOS share flow is (#401):
 # driver-failed.sh says which. The first run's console output and report stay in the artifact.
+# A flow whose emulator went away is not run again here (#461), as emulator-lost.sh says: it leaves
+# emulator-lost.txt behind, and Mobile CI runs the share once more on a freshly booted emulator.
 flows() {
   local report="$1" console run
   shift
@@ -27,6 +29,11 @@ flows() {
     console="maestro-output/$(basename "$report" .xml)-$run-console.txt"
     if maestro test "$@" --format junit --output "$report" --test-output-dir maestro-output 2>&1 | tee "$console"; then
       return 0
+    fi
+    if bash "$here/emulator-lost.sh" "$console" "$report"; then
+      echo "$*" > emulator-lost.txt
+      echo "::warning title=The emulator went away::$* lost its emulator (#461)."
+      return 1
     fi
     if (( run == 2 )) || ! bash "$here/driver-failed.sh" "$console" "$report"; then
       return 1

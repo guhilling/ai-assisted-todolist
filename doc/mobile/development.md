@@ -150,6 +150,18 @@ uses too (#401), tells the two apart by the exception Maestro reports. Only that
 a run after a later one would start from a board or a share the first run had already changed. Any
 other failure fails at once, and the first run's console output and report are in the artifact.
 
+The emulator itself has gone away mid-flow (#461): once in the last 320 shares, on `pm clear` at the
+start of the reminders flow, its process ended without a word, adb called it offline and then no
+longer listed it, and the action could not reach it to shut it down. The logs do not say why, and
+the boot was the same as on every passing run. A flow cannot run again on an emulator that is gone,
+so `run-on-emulator.sh` stops there when `maestro/emulator-lost.sh` recognises it — Maestro saying
+the device is offline or not found — and leaves `emulator-lost.txt` naming the flow. Mobile CI then
+records what the runner saw (the kernel's OOM kills, memory and disk, the emulator's crash
+reports), keeps the first run's output in `emulator-lost/`, starts the stack again from nothing and
+runs the whole share once more on a freshly booted emulator: the flow alone would start from a
+board the first run may already have changed. Only then; any other failure fails the job. Every
+run also keeps `runner-vmstat.log`, the runner's memory and swap every ten seconds, in the artifact.
+
 The emulator's setup is cached (#302): the API 34 system image and an AVD with a booted snapshot,
 in a private image on GitHub's Container Registry, `ghcr.io/guhilling/taskfest-buildcache`, tagged
 `avd-<API level>-<image>-<arch>-emu<emulator version>-img<image revision>-<hash>`. The emulator's

@@ -344,9 +344,19 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
+      - name: Watch the runner's memory
+        # The emulator has gone away mid-flow without a word (#461). vmstat's samples, in the
+        # artifact, say how much memory and swap the runner had left when it did.
+        run: nohup vmstat -t -S M 10 > runner-vmstat.log 2>&1 &
+
       - name: Run the flows on an emulator
+        id: flows
+        # A share whose emulator went away (#461) runs once more below, on a freshly booted one;
+        # the step after this fails the job for any other failure.
+        continue-on-error: true
         uses: reactivecircus/android-emulator-runner@v2
-        with:
+        # The same settings for the run below, through the anchor.
+        with: &emulator
           api-level: ${{ env.EMULATOR_API_LEVEL }}
           target: ${{ env.EMULATOR_TARGET }}
           arch: ${{ env.EMULATOR_ARCH }}
@@ -358,11 +368,41 @@ jobs:
           disable-animations: true
           script: bash mobile/maestro/seed-stack.sh && bash mobile/maestro/run-on-emulator.sh apk/app-release.apk ${{ matrix.share }}
 
+      - name: Fail unless the emulator went away
+        if: steps.flows.outcome == 'failure' && hashFiles('emulator-lost.txt') == ''
+        run: exit 1
+
+      - name: Say what the runner saw of the emulator going away, and start afresh
+        id: afresh
+        if: steps.flows.outcome == 'failure' && hashFiles('emulator-lost.txt') != ''
+        # A kernel's OOM kill or the emulator's crash report would say why it went (#461). The first
+        # run's output is kept in emulator-lost/, and the stack starts again from nothing, so the
+        # share's second run starts from the board its first one did.
+        run: |
+          echo "::warning title=The emulator went away::$(cat emulator-lost.txt) lost its emulator; the ${{ matrix.share }} share runs once more on a freshly booted one (#461)."
+          mkdir emulator-lost
+          { sudo dmesg -T | grep -i -E 'oom|killed process|qemu|emulator' || echo 'Nothing in dmesg.'; } | tee emulator-lost/dmesg.txt
+          { free -m; df -h /; } | tee emulator-lost/runner.txt
+          cp -r /tmp/android-runner emulator-lost/ 2>/dev/null || true
+          docker compose -f deployment/docker/docker-compose.e2e.yml logs --no-color > emulator-lost/stack.log
+          docker compose -f deployment/docker/docker-compose.e2e.yml down -v
+          mv emulator-lost.txt maestro-output emulator-lost/
+          mv maestro-*.xml emulator-lost/ 2>/dev/null || true
+          # The emulator that went never removed its locks, which would keep the AVD from booting.
+          rm -f ~/.android/avd/*.avd/*.lock
+
+      - name: Run the flows once more on a freshly booted emulator
+        if: steps.afresh.outcome == 'success'
+        uses: reactivecircus/android-emulator-runner@v2
+        with: *emulator
+
       - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: maestro-output-${{ matrix.share }}
           path: |
+            runner-vmstat.log
+            emulator-lost
             maestro-output
             maestro-report.xml
             maestro-offline-*.xml
