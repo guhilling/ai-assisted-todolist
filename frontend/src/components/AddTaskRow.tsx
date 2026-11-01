@@ -61,7 +61,10 @@ function AddTaskRow({ today, saving, onAdd, attachments }: Readonly<AddTaskRowPr
   const nextHeld = useRef(0)
   const files = useUploads(attachments?.upload)
 
-  useEffect(() => {
+  // A layout effect, so the focus moves in the same render as the row opens or closes: an effect
+  // runs only after the browser has drawn it, and in between the focus was nowhere -- which a test
+  // checking it as soon as the row had closed saw now and then.
+  useLayoutEffect(() => {
     if (open) {
       wasOpen.current = true
       descriptionRef.current?.focus()
