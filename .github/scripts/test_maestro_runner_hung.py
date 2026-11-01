@@ -108,6 +108,12 @@ class RunnerHungTest(unittest.TestCase):
         self.assertEqual(self.run_on(self.hung(**{"maestro.log": ASSERTION_FAILED})), 1)
         self.assertEqual(self.run_on(self.hung(**{"maestro.log": None})), 1)
 
+    def test_a_request_given_up_on_long_before_the_failed_tap_is_the_flows(self):
+        # The runner got over the request it gave up on, and a later tap failed by itself:
+        # the three are there, but not about the same tap.
+        recovered = RUNNER_HUNG.replace("08:27:16.917124", "08:20:16.917124")
+        self.assertEqual(self.run_on(self.hung(**{RUNNER_LOG: recovered})), 1)
+
     def test_an_exception_only_maestros_log_names_is_the_flows(self):
         # The logs name exceptions Maestro got over, and an app's crash: a failed check after one
         # is still the flow's, as before #473, when the logs were not read.

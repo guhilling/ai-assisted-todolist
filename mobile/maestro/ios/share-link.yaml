@@ -21,8 +21,10 @@ name: Share a link from Safari into the app through iOS's share sheet
     optional: true
 # Now and then TaskFest's extension stays at its compose view (Cancel / Post), or never starts,
 # and hands nothing over in time (#473). Safari, and the extension in it, are started afresh and
-# the page shared again, once. A first share that comes through late, after all, is answered
-# instead, as in share-photo.yaml.
+# the page shared again, once. Unlike share-photo.yaml, a question that comes late is turned down,
+# not answered: it reads the same for a photo's late share as for this one, and only one this
+# share brings may pass the flow. One that reached the app's sign-in without a question, though,
+# can only be Safari's, and the page is not shared again.
 - runFlow:
     when:
       notVisible: '(Open in .TaskFest Dev.\?|Sign in with Keycloak)'
@@ -31,12 +33,18 @@ name: Share a link from Safari into the app through iOS's share sheet
       - launchApp:
           stopApp: true
       - extendedWaitUntil:
-          visible: 'Open in .TaskFest Dev.\?'
+          visible: '(Open in .TaskFest Dev.\?|Sign in with Keycloak)'
           timeout: 10000
           optional: true
       - runFlow:
           when:
-            notVisible: 'Open in .TaskFest Dev.\?'
+            visible: 'Open in .TaskFest Dev.\?'
+          commands:
+            - tapOn: "Cancel"
+            - waitForAnimationToEnd
+      - runFlow:
+          when:
+            notVisible: "Sign in with Keycloak"
           commands:
             - runFlow: tap-share-link.yaml
       - extendedWaitUntil:
