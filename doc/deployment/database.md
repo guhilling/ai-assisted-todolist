@@ -38,8 +38,9 @@ Stopping is not enough: a stopped RDS instance still bills storage *and AWS rest
 automatically after seven days*.
 
 **A down/up cycle keeps the data, not the instance.** `env.sh down` destroys the instance and
-leaves a final snapshot named `taskfest-<env>-db-final-<timestamp>`; `env.sh up` looks up the
-newest one and passes it as `db_restore_snapshot`, so the new instance starts from it. With no
+leaves a final snapshot named `taskfest-<env>-db-final-<timestamp>` — UTC, `YYYYMMDDHHmmss`, the
+time the instance was *created*, since the name is fixed then; `env.sh up` looks up the
+newest one by creation time, not by name, and passes it as `db_restore_snapshot`, so the new instance starts from it. With no
 snapshot it starts empty, and it says which on screen. To start empty on purpose, or from an
 older snapshot, pass `--from-snapshot=<name>` to `up`, or run the plan by hand with
 `-var db_restore_snapshot=null` to start empty. `up` restores only *final* snapshots by itself;

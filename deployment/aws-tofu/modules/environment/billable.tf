@@ -77,9 +77,13 @@ resource "aws_db_instance" "this" {
   # Off, and it has to be: teardown is this resource being destroyed, and deletion protection
   # would make every `env.sh down` fail. The final snapshot is the protection instead. That is
   # what Trivy reports as AWS-0177, suppressed for this reason on the resource above.
+  #
+  # The name's timestamp is UTC on a 24-hour clock (HH; it was hh until #435), and it is the time
+  # the instance was created: ignore_changes below keeps the value the creating apply computed.
+  # Nothing parses it -- env.sh finds the newest final snapshot by `-final-` and creation time.
   deletion_protection       = false
   skip_final_snapshot       = false
-  final_snapshot_identifier = "${local.db_instance}-final-${formatdate("YYYYMMDDhhmmss", timestamp())}"
+  final_snapshot_identifier = "${local.db_instance}-final-${formatdate("YYYYMMDDHHmmss", timestamp())}"
   snapshot_identifier       = var.db_restore_snapshot
 
   tags = { Name = local.db_instance }

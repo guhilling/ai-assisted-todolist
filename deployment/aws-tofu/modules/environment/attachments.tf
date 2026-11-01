@@ -29,6 +29,15 @@ resource "aws_s3_bucket" "attachments" {
   bucket = local.attachments_bucket
 
   tags = { Name = local.attachments_bucket }
+
+  # A plan that would destroy the bucket fails instead (#435). Without this, only S3's refusal to
+  # delete a non-empty bucket stood in the way, at apply time and not at all for an empty one --
+  # and a renamed environment or project replaces the bucket. `env.sh down` never plans its
+  # destruction, since it is foundation, so teardown is unaffected. Retiring an environment for
+  # good means emptying the bucket and deleting this line first, on purpose.
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 resource "aws_s3_bucket_public_access_block" "attachments" {

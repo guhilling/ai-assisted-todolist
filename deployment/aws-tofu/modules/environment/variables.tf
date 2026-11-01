@@ -196,6 +196,13 @@ variable "test_sign_in" {
   EOT
   type        = bool
   default     = false
+
+  # Not a convention but a check, because qa is written into what it creates: the mobile app's
+  # client returns to the qa build's URL scheme (test-sign-in.tf), and prod's build has another.
+  validation {
+    condition     = !var.test_sign_in || var.environment == "qa"
+    error_message = "test_sign_in is for qa only: the mobile app's test client returns to the qa build's URL scheme."
+  }
 }
 
 variable "blue_green_bake_minutes" {

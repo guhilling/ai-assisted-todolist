@@ -5,7 +5,10 @@ The files people attach to tasks (#204) are objects in a private bucket per envi
 content straight to and from it through presigned links;
 [decisions/domain-and-backend.md](../decisions/domain-and-backend.md) says why. The bucket is
 foundation: it survives `env.sh down`, and nothing in it is versioned or backed up, so a deleted
-file is gone.
+file is gone. For the same reason the bucket carries `prevent_destroy` (#435): a plan that would
+destroy it — a renamed environment, a removed resource — fails rather than relying on S3 refusing
+to delete a bucket that still holds files. Retiring an environment for good means emptying the
+bucket and removing that line first.
 
 An image may have a **preview thumbnail** next to it (#236), a JPEG of a few kilobytes the browser
 made, under the file's key plus `.thumbnail`. It is deleted with its file by everything below, and
