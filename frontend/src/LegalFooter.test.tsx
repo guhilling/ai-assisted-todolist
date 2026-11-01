@@ -11,12 +11,12 @@ describe('the footer outside the app', () => {
     expect(screen.queryByRole('button', { name: 'Deutsch' })).not.toBeInTheDocument()
   })
 
-  it("links About to the project's purpose in the published documentation, not to a file on GitHub", () => {
+  it("links About to the published documentation's landing page, not to a file on GitHub", () => {
     render(<LegalFooter />)
 
     expect(screen.getByRole('link', { name: /About/ })).toHaveAttribute(
       'href',
-      'https://taskfest-docs.cloud.hilling.de/doc/purpose.html',
+      'https://taskfest-docs.cloud.hilling.de/',
     )
   })
 })

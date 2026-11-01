@@ -1,6 +1,6 @@
 import { useI18n } from '../i18n/context'
 import { languageNames, languages } from '../i18n/language'
-import { imprintUrl, privacyUrls, purposeUrl } from '../links'
+import { aboutUrl, imprintUrl, privacyUrls } from '../links'
 import type { Messages } from '../i18n/messages'
 
 /**
@@ -27,7 +27,7 @@ function LegalFooter() {
 
   return (
     <footer className="legal-footer">
-      <a className="text-link" href={purposeUrl} target="_blank" rel="noreferrer">
+      <a className="text-link" href={aboutUrl} target="_blank" rel="noreferrer">
         {messages.footer.about}
       </a>
       <a className="text-link" href={imprintUrl} target="_blank" rel="noreferrer">

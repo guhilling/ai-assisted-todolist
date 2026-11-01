@@ -25,7 +25,7 @@ export { default as CompletedSection } from './components/CompletedSection'
 export { default as DueDateField } from './components/DueDateField'
 export { default as FileDrop } from './components/FileDrop'
 export { default as LegalFooter } from './components/LegalFooter'
-export { imprintUrl, privacyUrl, privacyUrls, purposeUrl } from './links'
+export { aboutUrl, imprintUrl, privacyUrl, privacyUrls } from './links'
 
 /** Speaks a language to the components inside it; without it they speak English (#203). */
 export { I18nProvider } from './i18n/I18nProvider'

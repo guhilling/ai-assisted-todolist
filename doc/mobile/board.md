@@ -5,7 +5,7 @@ order, words and colours — *Today* and *Tomorrow* with their weekday beside th
 everything the website does with a task; its files are in
 [files.md](files.md). **Account**,
 at its head, opens the account sheet ([account.md](account.md)); **About ↗** beside it opens the
-documentation's purpose page in the browser — the page the website's footer links as *About* —
+documentation's landing page in the browser — the page the website's footer links as *About* —
 and the sign-in has it at its top as well (#384).
 
 ## What it does
