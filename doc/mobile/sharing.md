@@ -127,5 +127,8 @@ go as soon as the app has read them, with their folders (`releaseShared` in `Mai
   and `run-on-simulator.sh` runs the flow once more when `driver-failed.sh` finds the driver, not
   the flow, failed; any other failure fails at once. Each run's console output is in the artifact.
   With that, ten re-runs of `main`'s run for #416 all passed, none needing the driver's second
-  run. Still tried by hand, on TestFlight: text shared on an iPhone, and a share taken on to the
-  board signed in.
+  run. Those numbers are the photo's. The Safari share is younger and less proven: its own
+  stumbles were the simulator's too -- a tap on Safari's first-run tip or on the menu's *Share*
+  that came while it was still opening and went nowhere -- and it now taps again while either is
+  still there. Its final version passed in all three runs on #464, which is few. Still tried by
+  hand, on TestFlight: text shared on an iPhone, and a share taken on to the board signed in.
