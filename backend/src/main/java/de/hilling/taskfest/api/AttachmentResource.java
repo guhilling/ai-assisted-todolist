@@ -80,7 +80,7 @@ public class AttachmentResource {
     private static final int MAX_ANNOUNCED_FILE_NAME_LENGTH = 1024;
 
     /** The status a refused attachment is answered with: the request was understood, and declined. */
-    private static final int UNPROCESSABLE = 422;
+    static final int UNPROCESSABLE = 422;
 
     /** The status an unconfirmable upload is answered with: it has not arrived yet. */
     private static final int CONFLICT = 409;
@@ -117,9 +117,13 @@ public class AttachmentResource {
             ThumbnailUploadResponse thumbnailUpload = announced.thumbnailUpload()
                 .map(link -> new ThumbnailUploadResponse(link.url(), link.headers()))
                 .orElse(null);
+            // Each link ends with the session that signed it (#434), which may rotate between the two.
+            Instant expiresAt = announced.thumbnailUpload().map(AttachmentStore.UploadLink::expiresAt)
+                .filter(thumbnailEnds -> thumbnailEnds.isBefore(upload.expiresAt()))
+                .orElse(upload.expiresAt());
             return Response.status(Response.Status.CREATED)
                 .entity(new UploadResponse(toResponse(announced.attachment()), upload.url(), upload.headers(),
-                    upload.expiresAt(), thumbnailUpload))
+                    expiresAt, thumbnailUpload))
                 .build();
         } catch (AttachmentService.Refused refused) {
             throw refusal(refused);
@@ -313,7 +317,7 @@ public class AttachmentResource {
      * @param attachment the attachment, pending until confirmed
      * @param url where to PUT the file
      * @param headers the headers the PUT must carry, exactly; the browser adds Content-Length itself
-     * @param expiresAt until when the link works, and the thumbnail's too
+     * @param expiresAt until when the link works, and the thumbnail's too: the earlier of the two
      * @param thumbnailUpload where to PUT the preview thumbnail, before confirming; left out when none
      *     was offered or it does not fit. Left out rather than null: a nullable reference becomes an
      *     {@code anyOf} in the schema, which the frontend's generator does not take, and absent says

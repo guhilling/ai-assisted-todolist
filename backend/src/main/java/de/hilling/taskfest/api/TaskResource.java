@@ -112,7 +112,7 @@ public class TaskResource {
             examples = @ExampleObject(name = "task", value = EXAMPLE_TASK)))
     @APIResponse(responseCode = "400", description = "A field failed validation, for example a blank "
         + "description or a due date that is past everywhere.")
-    public Response create(@Valid TaskCreateRequest request) {
+    public Response create(@NotNull @Valid TaskCreateRequest request) {
         Task task = new Task();
         task.owner = currentUser();
         apply(task, request);
@@ -142,7 +142,7 @@ public class TaskResource {
             examples = @ExampleObject(name = "task", value = EXAMPLE_TASK)))
     @APIResponse(responseCode = "400", description = "A field failed validation.")
     @APIResponse(responseCode = "404", description = "No task with this id is owned by the caller.")
-    public TaskResponse update(@PathParam("id") Long id, @Valid TaskUpdateRequest request) {
+    public TaskResponse update(@PathParam("id") Long id, @NotNull @Valid TaskUpdateRequest request) {
         Task task = findOwnedTaskOrNotFound(id);
         apply(task, request);
         return toResponse(task);

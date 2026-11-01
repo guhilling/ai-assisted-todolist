@@ -26,6 +26,7 @@ commit that first wrote each one down. CI checks every line and that this index 
 - [Deleting an account leaves a record outside the database](domain-and-backend.md#deleting-an-account-leaves-a-record-outside-the-database)
 - [A link is a kind of attachment, kept in its row](domain-and-backend.md#a-link-is-a-kind-of-attachment-kept-in-its-row)
 - [Adding a draft again updates the task it became](domain-and-backend.md#adding-a-draft-again-updates-the-task-it-became)
+- [A user has at most five open drafts](domain-and-backend.md#a-user-has-at-most-five-open-drafts)
 - [A new task's due date may be today anywhere](domain-and-backend.md#a-new-tasks-due-date-may-be-today-anywhere)
 
 ## [Authentication](authentication.md)
