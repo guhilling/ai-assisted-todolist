@@ -41,10 +41,10 @@ name: Share a link from Safari into the app through iOS's share sheet
 - tapOn: "Share"
 - waitForAnimationToEnd
 # A tap on Share while the menu was still opening was lost once, leaving the menu open: tapped
-# again while it is.
+# again while it is (New Private Tab is the menu's, not the share sheet's).
 - repeat:
     while:
-      visible: "Add to Bookmarks"
+      visible: "New Private Tab"
     times: 3
     commands:
       - tapOn: "Share"
