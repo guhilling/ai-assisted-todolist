@@ -60,4 +60,10 @@ class TaskDueAtTest {
         assertThat(due("2027-10-31", "02:30", BERLIN).dueAt(),
             equalTo(Optional.of(Instant.parse("2027-10-31T00:30:00Z"))));
     }
+
+    @Test
+    void shouldHaveNoMomentForAZoneThisJvmDoesNotKnow() {
+        // Stored by a JVM with newer tzdata, or around the API: the task still shows, without one.
+        assertThat(due("2026-11-30", "10:00", "Mars/Olympus_Mons").dueAt(), equalTo(Optional.empty()));
+    }
 }

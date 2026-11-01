@@ -13,6 +13,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Size;
+import java.time.DateTimeException;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -126,13 +127,21 @@ public class Task extends PanacheEntityBase {
      * later, and one in an overlap takes the earlier moment: what {@link ZonedDateTime#of} does,
      * and what RFC 5545 and Temporal do too.</p>
      *
-     * @return the moment, if the task is zoned
+     * <p>A zone this JVM does not know -- saved by one with newer tzdata, before a rollback, or
+     * written around the API -- gives no moment rather than an exception, which would fail the
+     * owner's whole board for one task.</p>
+     *
+     * @return the moment, if the task is zoned in a zone this JVM knows
      */
     public Optional<Instant> dueAt() {
         if (dueTime == null || timeZone == null) {
             return Optional.empty();
         }
-        return Optional.of(ZonedDateTime.of(dueDate, dueTime, ZoneId.of(timeZone)).toInstant());
+        try {
+            return Optional.of(ZonedDateTime.of(dueDate, dueTime, ZoneId.of(timeZone)).toInstant());
+        } catch (DateTimeException unknownZone) {
+            return Optional.empty();
+        }
     }
 
     /**

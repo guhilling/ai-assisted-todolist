@@ -27,6 +27,7 @@ import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import com.fasterxml.jackson.annotation.JsonFormat;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -68,7 +69,7 @@ public class TaskResource {
     private static final String TIME_FORMAT = "HH:mm";
 
     /** What the schema says {@link #TIME_FORMAT} looks like, for the frontend's validators. */
-    private static final String TIME_PATTERN = "^([01][0-9]|2[0-3]):[0-5][0-9]$";
+    private static final String TIME_PATTERN = DueTimeDeserializer.PATTERN;
 
     private static final String DUE_TIME = "The time of day it is due at, to the minute (#474); none, or null, "
         + "for a task due all day. Floating without a timeZone.";
@@ -300,7 +301,7 @@ public class TaskResource {
         @NotBlank @Size(max = Task.MAX_DESCRIPTION_LENGTH) @Schema(example = "Renew the passport")
         String description,
         @NotNull @TodaySomewhere @Schema(example = "2026-11-30") LocalDate dueDate,
-        @JsonFormat(pattern = TIME_FORMAT)
+        @JsonDeserialize(using = DueTimeDeserializer.class)
         @Schema(implementation = String.class, example = "10:00", pattern = TIME_PATTERN, description = DUE_TIME,
             nullable = true)
         LocalTime dueTime,
@@ -346,7 +347,7 @@ public class TaskResource {
         @NotBlank @Size(max = Task.MAX_DESCRIPTION_LENGTH) @Schema(example = "Renew the passport")
         String description,
         @NotNull @Schema(example = "2026-11-30") LocalDate dueDate,
-        @JsonFormat(pattern = TIME_FORMAT)
+        @JsonDeserialize(using = DueTimeDeserializer.class)
         @Schema(implementation = String.class, example = "10:00", pattern = TIME_PATTERN, description = DUE_TIME,
             nullable = true)
         LocalTime dueTime,
@@ -364,6 +365,13 @@ public class TaskResource {
      * <p>The audit timestamps and the owner are deliberately left out: the board has no use
      * for them, and the owner is always the caller anyway.</p>
      *
+     * <p>A component that is always there carries {@code @NotNull}, which is what marks it required
+     * in the generated schema. The frontend compiles that schema into a runtime validator, so a
+     * field the spec leaves optional is a field it would accept as missing -- being annotations
+     * rather than a list on the type, they cannot drift from the components they describe. The
+     * due time, its zone and the moment are absent for a task without them (#474), and the
+     * attachments are optional for a backend from before them, so those four carry none.</p>
+     *
      * @param id the generated identifier, used to address the task on update and delete
      * @param description what is to be done
      * @param dueDate when it is due
@@ -371,13 +379,6 @@ public class TaskResource {
      * @param timeZone the zone that time is meant in, or null for a floating time
      * @param dueAt the moment a zoned task is due at, worked out on every read; null otherwise
      * @param importance how much it matters
-     * <p>Every component carries {@code @NotNull}, which is what marks it required in the
-     * generated schema. The frontend compiles that schema into a runtime validator, so a field
-     * the spec leaves optional is a field it would accept as missing. None of them is ever
-     * absent here, so the annotations only write down what this record already guarantees --
-     * and being annotations rather than a list on the type, they cannot drift from the
-     * components they describe.</p>
-     *
      * @param state where it stands in the workflow
      * @param attachments its available attachments, oldest first
      */

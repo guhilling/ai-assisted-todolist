@@ -226,6 +226,34 @@ class DueTimeTest {
     @Test
     @TestSecurity(user = ALICE)
     @OidcSecurity(claims = { @Claim(key = "email", value = ALICE) })
+    void shouldRefuseATimeGivenOtherThanAsText() {
+        // Jackson reads [10, 0, 30] as a LocalTime too, seconds and all, whatever the format says.
+        Map<String, Object> body = task("As an array " + UUID.randomUUID());
+        body.put("dueTime", java.util.List.of(10, 0, 30));
+        given()
+            .contentType(ContentType.JSON)
+            .body(body)
+            .when().post("/api/tasks")
+            .then()
+            .statusCode(400);
+    }
+
+    @Test
+    @TestSecurity(user = ALICE)
+    @OidcSecurity(claims = { @Claim(key = "email", value = ALICE) })
+    void shouldRefuseTwentyFourOClock() {
+        // A lenient parser takes it as the next day's midnight, and LocalTime drops the day.
+        given()
+            .contentType(ContentType.JSON)
+            .body(at("Midnight " + UUID.randomUUID(), "24:00", BERLIN))
+            .when().post("/api/tasks")
+            .then()
+            .statusCode(400);
+    }
+
+    @Test
+    @TestSecurity(user = ALICE)
+    @OidcSecurity(claims = { @Claim(key = "email", value = ALICE) })
     void shouldHaveTheDatabaseRefuseAZoneWithoutATime() throws SQLException {
         int id = created(task("Written around the API " + UUID.randomUUID()));
 

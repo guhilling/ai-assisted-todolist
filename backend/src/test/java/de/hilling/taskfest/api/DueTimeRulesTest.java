@@ -97,4 +97,18 @@ class DueTimeRulesTest {
         // hour wrong for half the year.
         assertThat(violations(create(TEN, "+02:00")), is(1));
     }
+
+    @Test
+    void shouldRefuseAnOffsetUnderAZonesName() {
+        // The same offset by a name the JVM knows: Etc/GMT-2 is +02:00 all year, EST never EDT.
+        assertThat(violations(create(TEN, "Etc/GMT-2")), is(1));
+        assertThat(violations(create(TEN, "EST")), is(1));
+    }
+
+    @Test
+    void shouldAcceptUtc() {
+        // A fixed offset too, but one that is meant as itself, with no summer time to miss.
+        assertThat(violations(create(TEN, "UTC")), is(0));
+        assertThat(violations(create(TEN, "Etc/UTC")), is(0));
+    }
 }
