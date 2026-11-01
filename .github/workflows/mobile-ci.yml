@@ -347,10 +347,7 @@ jobs:
       - name: Watch the runner's memory
         # The emulator has gone away mid-flow without a word (#461). vmstat's samples, in the
         # artifact, say how much memory and swap the runner had left when it did.
-        run: |
-          nohup vmstat -t -S M 10 > runner-vmstat.log 2>&1 &
-          # TEMPORARY (#461): kill the first emulator 45 s into the flows, to prove the second run.
-          nohup bash -c 'until [ -d maestro-output ]; do sleep 2; done; sleep 45; pkill -9 -f qemu-system' > /dev/null 2>&1 &
+        run: nohup vmstat -t -S M 10 > runner-vmstat.log 2>&1 &
 
       - name: Run the flows on an emulator
         id: flows
