@@ -122,9 +122,10 @@ slows things down.
 
 - **The issue forms are account defaults** from the public
   [guhilling/.github](https://github.com/guhilling/.github) repository (`.github/ISSUE_TEMPLATE/`
-  there), shared with hilling-it-website. Change them there, never by adding a local
-  `.github/ISSUE_TEMPLATE/` here: any valid file in it, `config.yml` included, turns every default
-  off. The `story` and `epic` labels they set must exist in each repository.
+  there), used by every repository of the account that has none of its own. Change them there.
+  A local `.github/ISSUE_TEMPLATE/` turns every default off, `config.yml` included, so
+  `docs-ci.yml` fails on one. GitHub drops a label that does not exist without a word, so `story`
+  and `epic` must exist in each repository that takes the forms.
 - A piece of work Claude should finish without a conversation first is written with the
   **Story** issue form (`story.yml` there): what and why, **done when**,
   constraints, **decisions — yours or mine**, out of scope.

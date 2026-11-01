@@ -94,3 +94,11 @@ jobs:
         # The status line under each decision (#409), and an index that had drifted to thirteen
         # decisions missing and one long renamed.
         run: python3 .github/scripts/check-decisions.py
+      - name: No local issue forms, so the account defaults apply
+        # Any valid file in .github/ISSUE_TEMPLATE, config.yml included, turns off every form
+        # from guhilling/.github (guhilling/ai-assisted-todolist#457).
+        run: |
+          if [ -e .github/ISSUE_TEMPLATE ]; then
+            echo "::error::.github/ISSUE_TEMPLATE turns off the shared issue forms; change them in guhilling/.github instead."
+            exit 1
+          fi

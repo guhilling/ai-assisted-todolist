@@ -381,7 +381,7 @@ keeps only what is its own. The investigation is on #400.
 |---|---|---|
 | `check-doc-references` | Yes (#455) | A composite action, pinned by SHA with the tag in a comment; Renovate's github-actions manager bumps it |
 | The Renovate policy | Yes (#456) | The repository's default preset, `github>guhilling/dev-conventions#vX.Y.Z`; the `renovate-config` manager bumps it |
-| The story and epic forms | Yes (#457) | Account defaults from the public [guhilling/.github](https://github.com/guhilling/.github), unversioned; neither repository keeps a `.github/ISSUE_TEMPLATE/` of its own, because any valid file there turns every default off |
+| The story and epic forms | Yes (#457) | Account defaults from the public [guhilling/.github](https://github.com/guhilling/.github), unversioned |
 | The generic CLAUDE.md rules and hilling-it-website's guard hooks | Planned (#458) | A Claude Code plugin from the same repository, its rules injected at session start |
 | `check-decisions.py` | Later | Once hilling-it-website writes status lines under its decisions |
 | `build-site.py`, `doc/images/generate.py` | No | One consumer each; hilling-it-website has no docs site and no diagrams |
