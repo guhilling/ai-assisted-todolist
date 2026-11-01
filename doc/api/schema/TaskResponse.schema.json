@@ -31,6 +31,39 @@
       ],
       "$ref": "LocalDate.schema.json"
     },
+    "dueTime": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$",
+      "description": "The time of day it is due at, to the minute (#474); none, or null, for a task due all day. Floating without a timeZone.",
+      "examples": [
+        "10:00"
+      ]
+    },
+    "timeZone": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "The IANA zone dueTime is meant in (#474), one the backend knows; only with a dueTime. None, or null, for a floating time, which follows the reader's clock.",
+      "examples": [
+        "Europe/Berlin"
+      ],
+      "maxLength": 64
+    },
+    "dueAt": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "The moment a task with a timeZone is due at (#474), worked out on every read: a time in a daylight-saving gap moves later, one in an overlap is its earlier moment. Null for an all-day or floating task.",
+      "format": "date-time",
+      "examples": [
+        "2026-11-30T09:00:00Z"
+      ]
+    },
     "importance": {
       "type": "string",
       "examples": [

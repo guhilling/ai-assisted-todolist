@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Due times (#474): a task may have a time of day it is due at, and that time may have a zone. Both
+  columns are nullable and every existing task keeps neither, so it stays due all day; nothing is
+  migrated. The time is to the minute, so the column keeps no fractions of a second. The zone is an
+  IANA name: the longest the JDK knows is 32 characters. The check constraint holds that a zone
+  comes only with a time. The moment a zoned task is due at is worked out on every read, never
+  stored, so a tzdata update cannot leave a stale one behind.
+-->
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="007-due-times" author="guhilling">
+        <addColumn tableName="task">
+            <column name="due_time" type="TIME(0)"/>
+            <column name="time_zone" type="VARCHAR(64)"/>
+        </addColumn>
+        <sql>ALTER TABLE task ADD CONSTRAINT task_zone_only_with_time
+            CHECK (time_zone IS NULL OR due_time IS NOT NULL)</sql>
+        <rollback>
+            <sql>ALTER TABLE task DROP CONSTRAINT task_zone_only_with_time</sql>
+            <dropColumn tableName="task" columnName="time_zone"/>
+            <dropColumn tableName="task" columnName="due_time"/>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

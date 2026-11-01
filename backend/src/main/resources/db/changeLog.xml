@@ -11,5 +11,6 @@
     <include file="db/changes/004-in-progress-becomes-open.xml" relativeToChangelogFile="false"/>
     <include file="db/changes/005-draft-tasks.xml" relativeToChangelogFile="false"/>
     <include file="db/changes/006-link-attachments.xml" relativeToChangelogFile="false"/>
+    <include file="db/changes/007-due-times.xml" relativeToChangelogFile="false"/>
 
 </databaseChangeLog>

@@ -9,7 +9,10 @@
 | **User** | Someone who owns tasks, identified by the email claim in their OIDC token. |
 | **State** | Whether a task is open (`TODO`) or done (`DONE`). `WORKING`, "in progress", is no longer offered (#334): the tasks that had it became open, and it stays in the API only until #345, because apps installed before then can still send it. The API accepts it and stores it as `TODO`, so no task is in progress again. |
 | **Importance** | How much a task matters to its owner: `LOW`, `MEDIUM` or `HIGH`. |
-| **Due date** | The day a task is meant to be finished. Always set, once the task is no draft. |
+| **Due date** | The day a task is meant to be finished. Always set, once the task is no draft. It keeps that meaning when the task also has a due time. |
+| **Due time** | The time of day, to the minute, a task is due at on its due date (#474). Optional: a task without one is **all day**, as every task was before. A time already past today is allowed. |
+| **Time zone** | The IANA zone a due time is meant in, such as `Europe/Berlin` (#474). Optional, and only with a due time. A due time without one is **floating**: it follows whoever's clock reads it, like "take the pills at 08:00", wherever the owner is. A due time with one is **zoned**: one moment, like a meeting at 10:00 in Berlin, which is 04:00 in New York. |
+| **Due at** | The moment a zoned task is due at. Worked out on every read and never stored; an all-day or a floating task has none. A time that falls in a daylight-saving gap moves later, and one that falls in an overlap is its earlier moment, as `ZonedDateTime.of`, RFC 5545 and Temporal all resolve it. |
 | **Draft** | A task the app's add form attaches files to before Add, so they upload while the form is filled in (#381). A task with a draft marker, not a state: it has made no progress, and has no description or due date yet. Nowhere a task is seen -- not on the board, not to an update or delete -- until it is added; discarded with its files on Cancel, swept with them once abandoned for an hour. At most five are open per user; a sixth is refused (#434). |
 | **Board** | A user's tasks, as they see them: ordered by due date, and within a day by importance, high first. |
 | **Attachment** | A file or a link on a task. A file is a PDF or an image, its content in object storage and its name, type and size here; a link (#414) is its address and title here, and nothing in storage. |
@@ -54,6 +57,9 @@ past the window, and uploads that were never confirmed.
 | A draft is never seen as a task | Every query in `TaskResource` that is not about drafts excludes them (`draft = false`); `DraftResource` reaches drafts only |
 | A user has at most five open drafts (#434) | `DraftResource.create`, which counts them under the lock on the user's row (`User.lockRow`) |
 | A **new** task's due date is today or later, in someone's zone: no earlier than today in UTC-12 (#425) | `@TodaySomewhere` on `TaskCreateRequest` only |
+| A time zone comes only with a due time (#474) | `@ZoneOnlyWithTime` on both request records, and the `task_zone_only_with_time` check constraint |
+| A time zone is one the JVM knows by its IANA name, never an offset: neither a bare one like `+02:00` nor one by name like `Etc/GMT-2` or `EST`, UTC and GMT excepted | `@KnownTimeZone` on both request records, and a 64-character column. A stored zone the running JVM does not know gives the task no `dueAt` rather than failing the board |
+| A due time is to the minute | `DueTimeDeserializer`, which reads it only as `HH:mm` text, `00:00` to `23:59`, and the same `pattern` in the published schema. The `TIME(0)` column keeps seconds, so it is not what holds this |
 | State and importance are always set | Not-null columns; `state` defaults to `TODO` |
 | A user's email is present and unique | `@NotBlank` and a unique not-null column on `User` |
 | A user's name and picture are **not** domain state | Nothing persists them; they are read from the token per request |

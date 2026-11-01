@@ -459,3 +459,46 @@ so nothing new becomes possible.
 
 **Rejected: the client's own day sent with each request.** Exact, but it changes the API and both
 clients for a rule that only keeps typos out.
+
+## A due time is optional, and its zone is too
+
+*Accepted · 2026-11-01 · #290, #474*
+
+**Decision.** A task keeps its due date, and may also have a due time (`dueTime`, `"10:00"`) and,
+only with a time, a time zone (`timeZone`, `"Europe/Berlin"`): model C of the investigation on #290,
+Gunnar's choice. No time is an all-day task, as before; a time without a zone is floating, and
+follows the reader's clock; a time with a zone is one moment, which the response carries as
+`dueAt` for zoned tasks only. `dueAt` is worked out on every read with `ZonedDateTime.of`, so a time
+in a daylight-saving gap moves later and one in an overlap is its earlier moment, and it is never
+stored. A zone must be one the JVM knows by name, and a time already past today is allowed:
+`@TodaySomewhere` stays date-only.
+
+**Why.** It is the only model that covers both kinds of timed task the epic has: the pills at 08:00
+wherever the owner is, and the meeting at 10:00 in Berlin seen from New York. RFC 5545's three forms
+of `DATE-TIME`, Temporal's `PlainDateTime` and `ZonedDateTime`, and Todoist's floating and fixed
+times all settled on it. Storing the local time and the zone and deriving the instant is what Jon
+Skeet recommends ("Storing UTC is not a silver bullet"): zone rules change, and a stored instant
+then comes out an hour wrong, where a derived one follows the JDK's next tzdata. Two separate fields
+next to an unchanged `dueDate`, rather than one RFC 9557 string, make the change additive, a minor
+version, and leave the board's grouping by date alone.
+
+**How it is held.** The columns are `due_time TIME(0)` and `time_zone VARCHAR(64)`, both nullable,
+added by `007-due-times.xml` with no migration: every existing task is all day. The time travels as
+`HH:mm` text and is read only as that, so a time with seconds, `24:00` or one given as an array is
+refused rather than stored. The zone must be one of the JVM's, exactly as written, which also
+refuses a bare offset such as `+02:00`: an offset is not a zone, and is wrong for half the year
+(option E). A zone that is a fixed offset by name, such as `Etc/GMT-2` or `EST`, is refused for the
+same reason; UTC and GMT, which are meant as themselves, are not. A stored zone the running JVM does not know --
+one from newer tzdata, after a rollback -- gives the task no `dueAt` instead of failing every
+task's read. The longest name the
+JDK knows is 32 characters; the column takes twice that. A zone without a time is refused by
+`@ZoneOnlyWithTime` and by the `task_zone_only_with_time` check constraint.
+
+**Cost.** An update replaces the whole task, so a client that does not know the fields erases a time
+on its next edit, ticking the task off included (#268). The website and the app send exactly the old
+four fields today; neither can set a time until #475 has the app round-trip them.
+
+**Rejected.** A floating time only (A) puts the Berlin meeting at 10:00 in New York. A zone always
+captured from the device (B) fires the pills at 08:00 of the zone the owner flew out of. A stored
+instant with the zone's name (D) changes what `dueDate` means, breaks the API, and goes stale when a
+zone's rules change. A time with a UTC offset (E) is a zone only half the year.
