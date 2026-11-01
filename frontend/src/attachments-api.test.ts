@@ -231,6 +231,30 @@ describe('uploading an attachment', () => {
     }
   })
 
+  it('waits the two minutes as well when the browser says only that the file is handed over', async () => {
+    vi.useFakeTimers()
+    try {
+      vi.stubGlobal('XMLHttpRequest', StalledXhr)
+      backend([['POST', '/api/tasks/3/attachments', 201, UPLOAD]])
+
+      const failure = uploadAttachment(3, file('Rechnung.pdf', 'application/pdf'), () => {}).catch(
+        (error: unknown) => error,
+      )
+      await vi.waitFor(() => expect(StalledXhr.last).toBeDefined())
+      // No progress event says the whole file has gone; only the upload's load does.
+      StalledXhr.last?.upload.onload?.()
+      await vi.advanceTimersByTimeAsync(119_000)
+      expect(StalledXhr.last?.aborted).toBe(false)
+      await vi.advanceTimersByTimeAsync(1_000)
+
+      expect(await failure).toEqual(new RequestError('uploadAttachment'))
+      expect(StalledXhr.last?.aborted).toBe(true)
+    } finally {
+      StalledXhr.last = undefined
+      vi.useRealTimers()
+    }
+  })
+
   it('passes on a confirm that found the file not as announced', async () => {
     vi.stubGlobal('XMLHttpRequest', FakeXhr)
     backend([
