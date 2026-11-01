@@ -1,0 +1,58 @@
+# A page shared from Safari the way a person does it on an iPhone (#380): ⋯, Share, iOS's share
+# sheet, TaskFest Dev in the row of apps. The extension takes the link and opens the app. As in
+# share-photo.yaml, no stack runs on the macOS runner, so the flow ends at the app's sign-in.
+appId: com.apple.mobilesafari
+name: Share a link from Safari into the app through iOS's share sheet
+---
+- launchApp
+- openLink:
+    link: https://example.com
+    browser: true
+- extendedWaitUntil:
+    visible: "(View Bookmarks.*|More)"
+    timeout: 60000
+- waitForAnimationToEnd:
+    timeout: 8000
+# A fresh simulator's Safari points at its ⋯ menu with a tip, which has no name Maestro can
+# find; a tap on the page beside it closes it, and does nothing on example.com when there is none.
+- tapOn:
+    point: 90%, 71%
+- waitForAnimationToEnd
+- takeScreenshot: ios-share-link-0-page
+- tapOn: "More"
+- waitForAnimationToEnd
+- tapOn: "Share"
+- extendedWaitUntil:
+    visible: "TaskFest Dev"
+    timeout: 20000
+    optional: true
+- waitForAnimationToEnd:
+    timeout: 5000
+- takeScreenshot: ios-share-link-1-sheet
+# Fails here when the extension is not offered.
+- assertVisible: "TaskFest Dev"
+# Safari's share sheet is a scene of its own, and Maestro reads its elements' places relative to
+# that scene: a tap by name lands above the sheet, Safari takes it for a cancel, and no extension
+# starts (#395). TaskFest Dev's icon is tapped where it is on the screen instead -- third in the
+# row, after News and Reminders, on the runner's iPhone. Should iOS order the row differently, the
+# tap misses, the app never opens, and the flow fails below with the sheet in its screenshot.
+- tapOn:
+    point: 61%, 74%
+- extendedWaitUntil:
+    visible: '(Open in .TaskFest Dev.\?|Sign in with Keycloak)'
+    timeout: 90000
+- takeScreenshot: ios-share-link-2-handed-over
+# The simulator's iOS may ask first, as for the photo; a tap while the question is still coming in
+# can be lost (#401).
+- waitForAnimationToEnd
+- repeat:
+    while:
+      visible: 'Open in .TaskFest Dev.\?'
+    times: 3
+    commands:
+      - tapOn: "Open"
+      - waitForAnimationToEnd
+- extendedWaitUntil:
+    visible: "Sign in with Keycloak"
+    timeout: 60000
+- takeScreenshot: ios-share-link-3-app
