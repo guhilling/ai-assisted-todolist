@@ -368,9 +368,11 @@ jobs:
           disable-animations: true
           script: bash mobile/maestro/seed-stack.sh && bash mobile/maestro/run-on-emulator.sh apk/app-release.apk ${{ matrix.share }}
 
-      - name: Fail unless the emulator went away
+      - name: Fail the job when the flows failed by themselves
         if: steps.flows.outcome == 'failure' && hashFiles('emulator-lost.txt') == ''
-        run: exit 1
+        run: |
+          echo "::error title=Android flows failed::The step that ran them, above, says why; the artifact maestro-output-${{ matrix.share }} has the screenshots and Maestro's output."
+          exit 1
 
       - name: Say what the runner saw of the emulator going away, and start afresh
         id: afresh
