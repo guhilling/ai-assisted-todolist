@@ -31,10 +31,11 @@ ECS task ──pull──> ECR  <account>.dkr.ecr.eu-central-1.amazonaws.com/qua
   creation template's lifecycle rule. That holds storage down, and stops paying for rescans of
   images nobody runs any more. The template is the rule's only source: ECR applies it when the
   cache creates a repository, so on a fresh account `account/` can be applied before any image
-  has been pulled (#435). A repository that already exists keeps the policy it was created with;
-  should the rule change, give the backend's the new one once by hand, with
-  `aws ecr put-lifecycle-policy --repository-name quay/ghilling/taskfest-backend` and the rule
-  from `account/image-scanning.tf` as `--lifecycle-policy-text`.
+  has been pulled (#435). A repository that already exists keeps the policy it has; should the
+  rule change, give the backend's the new one once by hand, with
+  `aws ecr put-lifecycle-policy --repository-name quay/ghilling/taskfest-backend
+  --lifecycle-policy-text '<json>'`, where `<json>` is `local.cache_lifecycle_policy` from
+  `account/image-scanning.tf` written as JSON (the file has it as HCL in a `jsonencode`).
 
 ## What reaches the issue
 

@@ -7,8 +7,9 @@ content straight to and from it through presigned links;
 foundation: it survives `env.sh down`, and nothing in it is versioned or backed up, so a deleted
 file is gone. For the same reason the bucket carries `prevent_destroy` (#435): a plan that would
 destroy it — a renamed environment, a removed resource — fails rather than relying on S3 refusing
-to delete a bucket that still holds files. Retiring an environment for good means emptying the
-bucket and removing that line first.
+to delete a bucket that still holds files. Retiring an environment for good means taking the
+bucket out of that environment's state (`tofu state rm module.environment.aws_s3_bucket.attachments`)
+and deleting it by hand — not removing the line, which the other environment shares.
 
 An image may have a **preview thumbnail** next to it (#236), a JPEG of a few kilobytes the browser
 made, under the file's key plus `.thumbnail`. It is deleted with its file by everything below, and
