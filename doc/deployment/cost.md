@@ -47,8 +47,8 @@ what the budget alarm is for. prod, also on Graviton, costs the same, so **both 
 once** would be about $112 a month.
 
 **Image scanning**, whether the environment is up or not: Amazon Inspector at $0.09 per image's
-first scan and $0.01 per rescan, plus ECR storage for at most five cached images, about 1 GB at
-$0.10 per GB-month — **under $1 a month** ([image scanning](image-scanning.md)).
+first scan and $0.01 per rescan, plus ECR storage for at most fifteen cached images, about 3 GB
+at $0.10 per GB-month — **under $1 a month** ([image scanning](image-scanning.md)).
 
 **Avoided: a NAT gateway**, at about $33 a month per environment — still the largest line item
 this design does not have.

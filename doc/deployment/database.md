@@ -37,15 +37,17 @@ decision in [decisions/domain-and-backend.md](../decisions/domain-and-backend.md
 Stopping is not enough: a stopped RDS instance still bills storage *and AWS restarts it
 automatically after seven days*.
 
-**A down/up cycle keeps the data, not the instance.** `env.sh down` destroys the instance and
-leaves a final snapshot named `taskfest-<env>-db-final-<timestamp>`; `env.sh up` looks up the
-newest one and passes it as `db_restore_snapshot`, so the new instance starts from it. With no
-snapshot it starts empty, and it says which on screen. To start empty on purpose, or from an
-older snapshot, pass `--from-snapshot=<name>` to `up`, or run the plan by hand with
-`-var db_restore_snapshot=null` to start empty. `up` restores only *final* snapshots by itself;
-the pre-release ones above are each the state before some release, and restoring one unasked would
-drop everything since. Final snapshots are never deleted automatically; at this size each is cents
-a month, and old ones are removed in the console when wanted.
+**A down/up cycle keeps the data, not the instance.** `env.sh down` destroys the instance and leaves
+a final snapshot named `taskfest-<env>-db-final-<timestamp>` — UTC, `YYYYMMDDhhmmss` in
+`formatdate`'s letters (24-hour), the time the instance was *created*, since the name is fixed then;
+`env.sh up` looks up the newest one by creation time, not by name, and passes it as
+`db_restore_snapshot`, so the new instance starts from it. With no snapshot it starts empty, and it
+says which on screen. To start empty on purpose, or from an older snapshot, pass
+`--from-snapshot=<name>` to `up`, or run the plan by hand with `-var db_restore_snapshot=null` to
+start empty. `up` restores only *final* snapshots by itself; the pre-release ones above are each the
+state before some release, and restoring one unasked would drop everything since. Final snapshots
+are never deleted automatically; at this size each is cents a month, and old ones are removed in the
+console when wanted.
 
 **Starting empty or from an older snapshot costs attachment files.** The attachment bucket
 survives `down` and is not versioned, and the orphan clean-up deletes, after seven days, every file

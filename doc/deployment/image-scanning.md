@@ -27,8 +27,15 @@ ECS task ──pull──> ECR  <account>.dkr.ecr.eu-central-1.amazonaws.com/qua
 - **Inspector scans continuously.** The repositories under `quay/` have enhanced, continuous
   scanning: once on arrival, and again whenever a new CVE affects something in the image. It also
   records which images ECS has used and when.
-- **Only the newest five images are kept** per repository, by the creation template's lifecycle
-  rule. That holds storage down, and stops paying for rescans of images nobody runs any more.
+- **Only the newest fifteen images are kept** per repository, about five releases, by the
+  creation template's lifecycle rule. That holds storage down, and stops paying for rescans of
+  images nobody runs any more. The template is the rule's only source: ECR applies it when the
+  cache creates a repository, so on a fresh account `account/` can be applied before any image
+  has been pulled (#435). A repository that already exists keeps the policy it has; should the
+  rule change, give the backend's the new one once by hand, with
+  `aws ecr put-lifecycle-policy --repository-name quay/ghilling/taskfest-backend
+  --lifecycle-policy-text '<json>'`, where `<json>` is `local.cache_lifecycle_policy` from
+  `account/image-scanning.tf` written as JSON (the file has it as HCL in a `jsonencode`).
 
 ## What reaches the issue
 
@@ -118,12 +125,12 @@ next one decides afresh.
   whether or not Inspector has caught up. The price is that an image pulled but barely run — a
   rolled-back deploy, a debugging pull, the digest `latest` has just moved away from — also
   stays in scope for 30 days, and so may keep the issue open after a fix has shipped until it
-  ages out or the cache's lifecycle rule (newest five) expires it.
+  ages out or the cache's lifecycle rule (newest fifteen) expires it.
 
 ## Cost
 
 $0.09 for each image's first scan, $0.01 per rescan, and ECR storage at $0.10 per GB-month for
-about 0.2 GB per image, at most five images kept: **well under $1 a month**. The findings API is
+about 0.2 GB per image, at most fifteen images kept: **well under $1 a month**. The findings API is
 free. Inspector's own 15-day free trial covers the first two weeks.
 
 ## Where it is decided

@@ -515,3 +515,22 @@ environments needs none of it. Gunnar's choice (2026-10-31).
 service the project adds, and a dashboard that stops working is how the gap would be found. The
 deny list is short and covers what this project stores; a new kind of data that should be private
 gets a line in it.
+
+
+## The attachments bucket refuses to be destroyed
+
+*Accepted · 2026-11-01 · #435*
+
+**Decision (#435).** `aws_s3_bucket.attachments` carries `lifecycle { prevent_destroy = true }`, so
+a plan that would destroy it while it is declared fails before anything is applied — removing the
+declaration takes the flag with it
+([attachment storage](../deployment/attachments.md)).
+
+**Why.** It holds people's files, unversioned and not backed up, and until now the only thing between a
+plan that replaced it — a renamed environment or project — and their loss was
+S3 refusing `DeleteBucket` on a bucket that is not empty, at apply time, and not at all once it was.
+Teardown is unaffected: the bucket is foundation, and `env.sh down` never plans its destruction.
+
+**The price.** Retiring an environment for good takes a deliberate step — `tofu state rm` of the
+bucket in that environment, then deleting it by hand — and the flag holds in qa as well as prod,
+since `prevent_destroy` cannot come from a variable. qa's files are test data, but a destroy there is just as unintended.
