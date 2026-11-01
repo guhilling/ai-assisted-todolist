@@ -8,7 +8,7 @@ import type { Language } from './web'
 // The link to the documentation, at the top of the app (#384): the page the website's footer links
 // as "About", signed in and signed out.
 
-const PURPOSE = 'https://taskfest-docs.cloud.hilling.de/doc/purpose.html'
+const LANDING = 'https://taskfest-docs.cloud.hilling.de/'
 
 function dependencies(signedIn: boolean): Dependencies {
   return appDependencies({ sessions: memorySessions(signedIn ? session : null), fetchTasks: jest.fn().mockResolvedValue([water]) })
@@ -30,7 +30,7 @@ describe('the link to the documentation (#384)', () => {
 
     await userEvent.setup().press(screen.getByRole('link', { name: 'About ↗' }))
 
-    expect(Linking.openURL).toHaveBeenCalledWith(PURPOSE)
+    expect(Linking.openURL).toHaveBeenCalledWith(LANDING)
   })
 
   it('opens it before signing in, too', async () => {
@@ -38,7 +38,7 @@ describe('the link to the documentation (#384)', () => {
 
     await userEvent.setup().press(screen.getByRole('link', { name: 'About ↗' }))
 
-    expect(Linking.openURL).toHaveBeenCalledWith(PURPOSE)
+    expect(Linking.openURL).toHaveBeenCalledWith(LANDING)
   })
 
   it('says so in German', async () => {

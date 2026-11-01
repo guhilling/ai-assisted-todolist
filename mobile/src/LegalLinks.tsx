@@ -1,7 +1,7 @@
 import { Linking, Pressable, Text, View } from 'react-native'
 import { isDevelopmentBuild } from './appVersion'
 import type { Styles } from './styles'
-import { imprintUrl, privacyUrls, purposeUrl, termsUrls, type Language, type Messages } from './web'
+import { aboutUrl, imprintUrl, privacyUrls, termsUrls, type Language, type Messages } from './web'
 
 /**
  * The website's legal footer, for the app (#275): the imprint, the privacy policy and the terms,
@@ -47,7 +47,7 @@ export function LegalLinks({
  */
 export function AboutLink({ messages, styles }: { messages: Messages; styles: Styles }) {
   return (
-    <Pressable accessibilityRole="link" style={styles.quietButton} onPress={() => void Linking.openURL(purposeUrl)}>
+    <Pressable accessibilityRole="link" style={styles.quietButton} onPress={() => void Linking.openURL(aboutUrl)}>
       <Text style={styles.quietButtonText}>{messages.footer.about}</Text>
     </Pressable>
   )

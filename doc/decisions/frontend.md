@@ -6,6 +6,8 @@
 
 *Since #194 a deployment can offer several providers at once, each with its button -- qa offers Google and its test accounts: [A main provider per profile, and named tenants beside it](authentication.md#a-main-provider-per-profile-and-named-tenants-beside-it).*
 
+*Since #384 the link goes to the published documentation rather than GitHub, and since 1.3.1 always to its landing page, from which the purpose page is one click away -- Gunnar's call.*
+
 **Decision.** The signed-out page is an app name, one sign-in button and a link to
 `doc/purpose.md` on GitHub. The old hero section — the tech-stack prose and the
 "Backend / Frontend / Deployment" list — is gone. Signed in, the whole page is the board.
