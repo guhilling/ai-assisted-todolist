@@ -26,7 +26,10 @@ import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import com.fasterxml.jackson.annotation.JsonFormat;
+import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.List;
 import java.util.Map;
 import io.quarkus.oidc.IdToken;
@@ -57,6 +60,21 @@ public class TaskResource {
 
     /** How many attachments an undo may bring back: a task carries at most a few (D1 on #204). */
     private static final int MAX_REATTACHED = 10;
+
+    /**
+     * How a due time travels: hours and minutes, which is all the precision a due time has. Jackson
+     * would otherwise write {@code 10:00:00}, and take seconds it would then store.
+     */
+    private static final String TIME_FORMAT = "HH:mm";
+
+    /** What the schema says {@link #TIME_FORMAT} looks like, for the frontend's validators. */
+    private static final String TIME_PATTERN = "^([01][0-9]|2[0-3]):[0-5][0-9]$";
+
+    private static final String DUE_TIME = "The time of day it is due at, to the minute (#474); none, or null, "
+        + "for a task due all day. Floating without a timeZone.";
+
+    private static final String TIME_ZONE = "The IANA zone dueTime is meant in (#474), one the backend knows; "
+        + "only with a dueTime. None, or null, for a floating time, which follows the reader's clock.";
 
     private static final String EXAMPLE_TASK = """
         {
@@ -221,6 +239,8 @@ public class TaskResource {
     static void apply(Task task, TaskFields request) {
         task.description = request.description();
         task.dueDate = request.dueDate();
+        task.dueTime = request.dueTime();
+        task.timeZone = request.timeZone();
         task.importance = request.importance();
         // A task is open or done (#334). Apps installed before then can still send WORKING, which
         // the API accepts until #345, and it is stored as the open task it now is.
@@ -232,7 +252,8 @@ public class TaskResource {
     }
 
     private static TaskResponse toResponse(Task task, List<Attachment> attached) {
-        return new TaskResponse(task.id, task.description, task.dueDate, task.importance, task.state,
+        return new TaskResponse(task.id, task.description, task.dueDate, task.dueTime, task.timeZone,
+            task.dueAt().orElse(null), task.importance, task.state,
             attached.stream().map(AttachmentResource::toResponse).toList());
     }
 
@@ -245,6 +266,8 @@ public class TaskResource {
     public interface TaskFields {
         String description();
         LocalDate dueDate();
+        LocalTime dueTime();
+        String timeZone();
         TaskImportance importance();
         TaskState state();
     }
@@ -264,21 +287,41 @@ public class TaskResource {
      * that way, and the duplication is four lines.</p>
      *
      * @param description what is to be done, never blank
-     * @param dueDate when it is due, today or later somewhere ({@link TodaySomewhere})
+     * @param dueDate when it is due, today or later somewhere ({@link TodaySomewhere}); a time
+     *     already past today is fine
+     * @param dueTime the time of day it is due at, or null for all day
+     * @param timeZone the zone that time is meant in, or null for a floating time
      * @param importance how much it matters
      * @param state where it stands in the workflow
      * @param attachmentIds attachments of the task an undo re-creates, to attach again; usually absent
      */
+    @ZoneOnlyWithTime
     public record TaskCreateRequest(
         @NotBlank @Size(max = Task.MAX_DESCRIPTION_LENGTH) @Schema(example = "Renew the passport")
         String description,
         @NotNull @TodaySomewhere @Schema(example = "2026-11-30") LocalDate dueDate,
+        @JsonFormat(pattern = TIME_FORMAT)
+        @Schema(implementation = String.class, example = "10:00", pattern = TIME_PATTERN, description = DUE_TIME,
+            nullable = true)
+        LocalTime dueTime,
+        @Size(max = Task.MAX_TIME_ZONE_LENGTH) @KnownTimeZone
+        @Schema(example = "Europe/Berlin", description = TIME_ZONE, nullable = true)
+        String timeZone,
         @NotNull @Schema(example = "HIGH") TaskImportance importance,
         @NotNull @Schema(example = "TODO") TaskState state,
         @Size(max = MAX_REATTACHED) @Schema(description = "Attachments of a task deleted moments ago, for an undo "
             + "to bring back (#204); only the caller's, only within the undo window.", nullable = true)
         List<Long> attachmentIds
     ) implements TaskFields {
+
+        /**
+         * A task due all day, as every task was before due times (#474): for a caller with no
+         * time to give.
+         */
+        public TaskCreateRequest(String description, LocalDate dueDate, TaskImportance importance,
+                                 TaskState state, List<Long> attachmentIds) {
+            this(description, dueDate, null, null, importance, state, attachmentIds);
+        }
     }
 
     /**
@@ -292,13 +335,24 @@ public class TaskResource {
      *
      * @param description what is to be done, never blank
      * @param dueDate when it is due, past dates allowed
+     * @param dueTime the time of day it is due at, or null for all day; an update without one
+     *     makes the task all day, since it replaces the whole task
+     * @param timeZone the zone that time is meant in, or null for a floating time
      * @param importance how much it matters
      * @param state where it stands in the workflow
      */
+    @ZoneOnlyWithTime
     public record TaskUpdateRequest(
         @NotBlank @Size(max = Task.MAX_DESCRIPTION_LENGTH) @Schema(example = "Renew the passport")
         String description,
         @NotNull @Schema(example = "2026-11-30") LocalDate dueDate,
+        @JsonFormat(pattern = TIME_FORMAT)
+        @Schema(implementation = String.class, example = "10:00", pattern = TIME_PATTERN, description = DUE_TIME,
+            nullable = true)
+        LocalTime dueTime,
+        @Size(max = Task.MAX_TIME_ZONE_LENGTH) @KnownTimeZone
+        @Schema(example = "Europe/Berlin", description = TIME_ZONE, nullable = true)
+        String timeZone,
         @NotNull @Schema(example = "HIGH") TaskImportance importance,
         @NotNull @Schema(example = "TODO") TaskState state
     ) implements TaskFields {
@@ -313,6 +367,9 @@ public class TaskResource {
      * @param id the generated identifier, used to address the task on update and delete
      * @param description what is to be done
      * @param dueDate when it is due
+     * @param dueTime the time of day it is due at, or null for all day
+     * @param timeZone the zone that time is meant in, or null for a floating time
+     * @param dueAt the moment a zoned task is due at, worked out on every read; null otherwise
      * @param importance how much it matters
      * <p>Every component carries {@code @NotNull}, which is what marks it required in the
      * generated schema. The frontend compiles that schema into a runtime validator, so a field
@@ -329,6 +386,18 @@ public class TaskResource {
         @NotNull @Size(max = Task.MAX_DESCRIPTION_LENGTH) @Schema(example = "Renew the passport")
         String description,
         @NotNull @Schema(example = "2026-11-30") LocalDate dueDate,
+        @JsonFormat(pattern = TIME_FORMAT)
+        @Schema(implementation = String.class, example = "10:00", pattern = TIME_PATTERN, description = DUE_TIME,
+            nullable = true)
+        LocalTime dueTime,
+        @Size(max = Task.MAX_TIME_ZONE_LENGTH)
+        @Schema(example = "Europe/Berlin", description = TIME_ZONE, nullable = true)
+        String timeZone,
+        @Schema(implementation = String.class, format = "date-time", example = "2026-11-30T09:00:00Z",
+            nullable = true, description = "The moment a task with a timeZone is due at (#474), worked out on "
+            + "every read: a time in a daylight-saving gap moves later, one in an overlap is its earlier "
+            + "moment. Null for an all-day or floating task.")
+        Instant dueAt,
         @NotNull @Schema(example = "HIGH") TaskImportance importance,
         @NotNull @Schema(example = "TODO") TaskState state,
         @Schema(description = "Its available attachments (#204). Always sent; optional in the schema so the "

@@ -15,6 +15,10 @@ import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Size;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.util.Optional;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.annotations.UpdateTimestamp;
@@ -38,6 +42,12 @@ public class Task extends PanacheEntityBase {
 
     public static final int MAX_DESCRIPTION_LENGTH = 255;
 
+    /**
+     * The longest zone name a task takes: the longest the JDK knows,
+     * {@code America/Argentina/ComodRivadavia}, is 32, so twice that leaves room for tzdata to grow.
+     */
+    public static final int MAX_TIME_ZONE_LENGTH = 64;
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     public Long id;
@@ -50,6 +60,22 @@ public class Task extends PanacheEntityBase {
     /** When it is due; none yet while the task is a {@link #draft}. */
     @Column(name = "due_date")
     public LocalDate dueDate;
+
+    /**
+     * The time of day it is due at, to the minute (#474); none for a task due all day. Without a
+     * {@link #timeZone} it is floating: read on whoever's clock is looking, like "pills at 08:00".
+     */
+    @Column(name = "due_time")
+    public LocalTime dueTime;
+
+    /**
+     * The zone {@link #dueTime} is meant in, an IANA name such as {@code Europe/Berlin}; none for a
+     * floating time. Only ever set with a time, which the {@code task_zone_only_with_time}
+     * constraint holds to.
+     */
+    @Size(max = MAX_TIME_ZONE_LENGTH)
+    @Column(name = "time_zone")
+    public String timeZone;
 
     /**
      * Whether this is a draft (#381): what the app's add form attaches files to before Add, so they
@@ -90,6 +116,24 @@ public class Task extends PanacheEntityBase {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "owner_id", nullable = false)
     public User owner;
+
+    /**
+     * The moment a zoned task is due at; none for an all-day task or a floating time, which have no
+     * one moment.
+     *
+     * <p>Worked out on every read and never stored, so a tzdata update in the JDK is picked up at
+     * once (Skeet, "Storing UTC is not a silver bullet"). A time in a daylight-saving gap moves
+     * later, and one in an overlap takes the earlier moment: what {@link ZonedDateTime#of} does,
+     * and what RFC 5545 and Temporal do too.</p>
+     *
+     * @return the moment, if the task is zoned
+     */
+    public Optional<Instant> dueAt() {
+        if (dueTime == null || timeZone == null) {
+            return Optional.empty();
+        }
+        return Optional.of(ZonedDateTime.of(dueDate, dueTime, ZoneId.of(timeZone)).toInstant());
+    }
 
     /**
      * A task that is no draft has a description and a due date: what the database's

@@ -125,6 +125,8 @@ export type RefusalResponse = {
 export type TaskCreateRequest = {
     description: string;
     dueDate: LocalDate;
+    dueTime?: string | null;
+    timeZone?: string | null;
     importance: TaskImportance;
     state: TaskState;
     attachmentIds?: number[] | null;
@@ -146,6 +148,9 @@ export type TaskResponse = {
     id: number;
     description: string;
     dueDate: LocalDate;
+    dueTime?: string | null;
+    timeZone?: string | null;
+    dueAt?: string | null;
     importance: TaskImportance;
     state: TaskState;
     attachments?: AttachmentResponse[];
@@ -166,6 +171,8 @@ export type TaskState = 'TODO' | 'WORKING' | 'DONE';
 export type TaskUpdateRequest = {
     description: string;
     dueDate: LocalDate;
+    dueTime?: string | null;
+    timeZone?: string | null;
     importance: TaskImportance;
     state: TaskState;
 };
