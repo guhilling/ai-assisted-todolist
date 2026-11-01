@@ -108,8 +108,10 @@ slows things down.
   `npm run check:deps` in `frontend/`. Do not move either into a release-only
   path — the point is to fail when the dependency is added.
 - **Dependency updates come from Renovate**, not by hand. Patch and minor
-  updates automerge once every check is green; majors wait for Gunnar. The
-  `platformAutomerge: false` in `.github/renovate.json` is load-bearing: the
+  updates automerge once every check is green; majors wait for Gunnar. That policy is the
+  shared preset from [dev-conventions](https://github.com/guhilling/dev-conventions), which
+  `.github/renovate.json` extends and adds this repository's own rules to. The
+  `platformAutomerge: false` in the preset is load-bearing: the
   `main-branch` ruleset requires no status checks, so GitHub's own auto-merge
   would merge before anything had run. The `schedule` there is deliberate and
   restricts pull request *creation* only — Renovate acting outside it is

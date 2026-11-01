@@ -163,6 +163,11 @@ exactly the case worth catching.
 
 *Accepted · 2026-09-26 · #20*
 
+Revised in part: the policy shared with hilling-it-website (the schedule, automerge with
+`platformAutomerge: false`, majors waiting, labels, timezone) is the preset `default.json` in
+[dev-conventions](https://github.com/guhilling/dev-conventions), pinned by tag. `.github/renovate.json`
+extends it and keeps only this repository's managers and groups (#456).
+
 **What.** `.github/renovate.json`. Patch, minor, digest and pin updates carry
 `automerge: true`; major updates open a pull request and wait. Quarkus artifacts, React and
 its type definitions, and the frontend test tooling are each grouped into one pull request.
