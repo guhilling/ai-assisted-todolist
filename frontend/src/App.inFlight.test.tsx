@@ -104,6 +104,54 @@ describe("a task's saves, one after another", () => {
   })
 })
 
+/** The stubbed backend, but with every PUT left unanswered until it is aborted, as a hanging connection would. */
+function hangingPuts(options: StubApiOptions) {
+  const backend = stubApi(options)
+  const sent: Record<string, unknown>[] = []
+  const fetchMock: ApiStub = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+    if (init?.method !== 'PUT') {
+      return backend(input, init)
+    }
+    sent.push(JSON.parse(String(init.body)))
+    return new Promise<Response>((_, reject) => {
+      init.signal?.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')))
+    })
+  })
+  return { fetchMock, sent }
+}
+
+describe('a save that gets no answer', () => {
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('is given up after 30 seconds, rolled back and reported', async () => {
+    const { fetchMock } = hangingPuts({ me: ALICE, tasks: [task({ id: 60, description: 'Hanging tick' })] })
+    await renderSignedIn(fetchMock)
+    vi.useFakeTimers()
+
+    fireEvent.click(checkbox('Hanging tick'))
+    await act(() => vi.advanceTimersByTimeAsync(29_000))
+    expect(checkbox('Hanging tick')).toBeChecked()
+    await act(() => vi.advanceTimersByTimeAsync(1_000))
+
+    expect(checkbox('Hanging tick')).not.toBeChecked()
+    expect(screen.getByText('Unable to update task.')).toBeInTheDocument()
+  })
+
+  it('lets the save waiting behind it go', async () => {
+    const { fetchMock, sent } = hangingPuts({ me: ALICE, tasks: [task({ id: 61, description: 'Held back' })] })
+    await renderSignedIn(fetchMock)
+    vi.useFakeTimers()
+
+    fireEvent.click(checkbox('Held back'))
+    fireEvent.click(checkbox('Held back'))
+    await act(() => vi.advanceTimersByTimeAsync(30_000))
+
+    expect(sent.map((put) => put.state)).toEqual(['DONE', 'TODO'])
+  })
+})
+
 describe('a task deleted while its saves are on their way', () => {
   it('sends none of the saves still waiting, and says nothing of them', async () => {
     const { fetchMock, held } = holdingPuts({ me: ALICE, tasks: [task({ id: 58, description: 'Gone meanwhile' })] })

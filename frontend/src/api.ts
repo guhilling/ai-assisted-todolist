@@ -434,25 +434,41 @@ export async function postTask(input: TaskInput) {
 }
 
 /**
+ * How long a save may wait for its answer before it is given up (#431): a task's saves wait for
+ * one another, so one that hangs would hold back every save after it, unsent.
+ */
+const SAVE_MS = 30_000
+
+/**
  * Saves a whole task.
  *
  * The backend's update endpoint replaces rather than patches, so callers send the task back
  * with the one field they changed. A past due date is accepted here -- deliberately, because
- * the common edit is completing something that is already late.
+ * the common edit is completing something that is already late. It is aborted, and fails as a
+ * refused save does, once {@link SAVE_MS} pass without the whole answer.
  */
 export async function putTask(task: Task) {
-  const response = await fetch(taskUrl(task.id), {
-    method: 'PUT',
-    credentials: 'include',
-    headers: jsonHeaders,
-    body: JSON.stringify({
-      description: task.description,
-      dueDate: task.dueDate,
-      importance: task.importance,
-      state: task.state,
-    }),
-  })
-  return readJson(response, toTask, 'updateTask')
+  const deadline = new AbortController()
+  const timer = setTimeout(() => deadline.abort(), SAVE_MS)
+  try {
+    const response = await fetch(taskUrl(task.id), {
+      method: 'PUT',
+      credentials: 'include',
+      headers: jsonHeaders,
+      body: JSON.stringify({
+        description: task.description,
+        dueDate: task.dueDate,
+        importance: task.importance,
+        state: task.state,
+      }),
+      signal: deadline.signal,
+    })
+    return await readJson(response, toTask, 'updateTask')
+  } catch (error) {
+    throw deadline.signal.aborted ? new RequestError('updateTask') : error
+  } finally {
+    clearTimeout(timer)
+  }
 }
 
 /** Removes a task for good. The backend answers 204, so there is nothing to parse. */
