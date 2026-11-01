@@ -1,7 +1,7 @@
 # CLAUDE.md — mobile
 
-The Expo app under `/mobile`. Read with the root `CLAUDE.md` (ask-don't-guess, TDD, DDD) and
-`doc/mobile/`, which says how it is built, run and tested.
+The Expo app under `/mobile`. Read with the root `CLAUDE.md` and the shared rules it points to
+(ask-don't-guess, TDD, DDD) and `doc/mobile/`, which says how it is built, run and tested.
 
 ## Expo changes faster than anyone's memory of it
 

@@ -1,8 +1,8 @@
 # CLAUDE.md — backend
 
 Backend-specific guidance for the Quarkus service under `/backend`. Read
-together with the repository root `CLAUDE.md` (ask-don't-guess, TDD, DDD, and
-project context all still apply here).
+together with the repository root `CLAUDE.md` and the shared rules it points to
+(ask-don't-guess, TDD, DDD, and project context all still apply here).
 
 ## Testing strategy
 
