@@ -15,11 +15,13 @@ name: Share a link from Safari into the app through iOS's share sheet
     timeout: 60000
 - waitForAnimationToEnd:
     timeout: 8000
-# The tip points at the ⋯ menu ("View Bookmarks, Share Menu, and Open Tabs"). Its close button has
-# no name Maestro finds, so it is tapped where it is, and only when the tip is there.
-- runFlow:
-    when:
+# The tip points at the ⋯ menu ("View Bookmarks, Share Menu, and Open Tabs") and hides the toolbar
+# from Maestro. Its close button has no name Maestro finds, so it is tapped where it is, and only
+# while the tip is there: a tap while the tip was still coming in left it standing once.
+- repeat:
+    while:
       visible: "View Bookmarks.*"
+    times: 3
     commands:
       - tapOn:
           point: 90%, 71%
