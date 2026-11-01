@@ -26,6 +26,7 @@ commit that first wrote each one down. CI checks every line and that this index 
 - [Deleting an account leaves a record outside the database](domain-and-backend.md#deleting-an-account-leaves-a-record-outside-the-database)
 - [A link is a kind of attachment, kept in its row](domain-and-backend.md#a-link-is-a-kind-of-attachment-kept-in-its-row)
 - [Adding a draft again updates the task it became](domain-and-backend.md#adding-a-draft-again-updates-the-task-it-became)
+- [A user has at most five open drafts](domain-and-backend.md#a-user-has-at-most-five-open-drafts)
 - [A new task's due date may be today anywhere](domain-and-backend.md#a-new-tasks-due-date-may-be-today-anywhere)
 
 ## [Authentication](authentication.md)
@@ -58,6 +59,7 @@ commit that first wrote each one down. CI checks every line and that this index 
 - [English and German, from a typed catalogue of our own](frontend.md#english-and-german-from-a-typed-catalogue-of-our-own)
 - [Files go straight to storage, with the tab opened on the click](frontend.md#files-go-straight-to-storage-with-the-tab-opened-on-the-click)
 - [The mark is a panda with a ticked ear](frontend.md#the-mark-is-a-panda-with-a-ticked-ear)
+- [A task's saves go one after another, and a stalled save or upload is given up](frontend.md#a-tasks-saves-go-one-after-another-and-a-stalled-save-or-upload-is-given-up)
 
 ## [Testing](testing.md)
 
@@ -82,6 +84,7 @@ commit that first wrote each one down. CI checks every line and that this index 
 - [Pages deploys only from `main`](build-and-dependencies.md#pages-deploys-only-from-main)
 - [Misconfiguration scanning is static, in CI, with Trivy — not AWS Config](build-and-dependencies.md#misconfiguration-scanning-is-static-in-ci-with-trivy-not-aws-config)
 - [SonarCloud runs on `main` only, and a failed quality gate becomes an issue](build-and-dependencies.md#sonarcloud-runs-on-main-only-and-a-failed-quality-gate-becomes-an-issue)
+- [The conventions shared with other repositories come from one public repository](build-and-dependencies.md#the-conventions-shared-with-other-repositories-come-from-one-public-repository)
 
 ## [Containers and the local stack](containers-and-local-stack.md)
 
@@ -115,6 +118,7 @@ commit that first wrote each one down. CI checks every line and that this index 
 - [The frontend's deep links are a CloudFront Function, and a release needs no invalidation](deployment-and-aws.md#the-frontends-deep-links-are-a-cloudfront-function-and-a-release-needs-no-invalidation)
 - [Image vulnerabilities come from Amazon Inspector, through ECR's pull-through cache](deployment-and-aws.md#image-vulnerabilities-come-from-amazon-inspector-through-ecrs-pull-through-cache)
 - [qa's test accounts are a Cognito pool, and its client secret is in OpenTofu state](deployment-and-aws.md#qas-test-accounts-are-a-cognito-pool-and-its-client-secret-is-in-opentofu-state)
+- [The monitoring user reads no files and no secrets](deployment-and-aws.md#the-monitoring-user-reads-no-files-and-no-secrets)
 - [The attachments bucket refuses to be destroyed](deployment-and-aws.md#the-attachments-bucket-refuses-to-be-destroyed)
 
 ## [Mobile app](mobile-app.md)

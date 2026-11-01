@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Shares into the iOS app through the real share sheet (#380): boots an iPhone simulator, installs
-# the simulator build Mobile CI's ios job made and signed, and runs the flow in this folder, which
-# shares one of the photos every simulator comes with. Usage: run-on-simulator.sh <path to .app>
+# the simulator build Mobile CI's ios job made and signed, and runs the flows in this folder: one of
+# the photos every simulator comes with, shared from Photos, and a page shared from Safari.
+# Usage: run-on-simulator.sh <path to .app>
 set -euo pipefail
 
 app=$1
@@ -23,14 +24,16 @@ xcrun simctl bootstatus "$udid" -b
 xcrun simctl install "$udid" "$app"
 
 status=0
-# A link shared from Safari is not among them yet: see #380.
-for flow in share-photo; do
+for flow in share-photo share-link; do
   started=$(date -u +%s)
   # Run once more when Maestro's own driver failed rather than the flow (#401); driver-failed.sh
   # says which. Each run keeps its own console output and debug output in the artifact.
   for run in 1 2; do
-    # Each share finds the app closed, as after a restart: the extension has to open it.
-    xcrun simctl terminate "$udid" de.hilling.taskfest.dev 2>/dev/null || true
+    # Each share finds the app closed, as after a restart: the extension has to open it. Photos and
+    # Safari are closed too, so a share left half done cannot carry over into the next flow.
+    for bundle in de.hilling.taskfest.dev com.apple.mobileslideshow com.apple.mobilesafari; do
+      xcrun simctl terminate "$udid" "$bundle" 2>/dev/null || true
+    done
     flow_status=0
     # Maestro's debug output -- its screenshots and every command -- goes into the artifact too, so
     # a failed share shows what the simulator did (#401).
@@ -43,12 +46,12 @@ for flow in share-photo; do
     echo "::warning title=Maestro's driver failed::$flow is run once more (#401)."
   done
   (( flow_status == 0 )) || status=1
-  # How the simulator ended, and its log for the share: Photos, the share sheet, the extension and
-  # the app it opens.
+  # How the simulator ended, and its log for the share: Photos or Safari, the share sheet, the
+  # extension and the app it opens.
   xcrun simctl io "$udid" screenshot "$out/$flow-end.png" || true
   xcrun simctl spawn "$udid" log show --style compact --info --debug \
     --start "$(date -u -r "$started" '+%Y-%m-%d %H:%M:%S')" \
-    --predicate 'process CONTAINS[c] "taskfest" OR process CONTAINS[c] "expo-sharing" OR process == "sharingd" OR process == "MobileSlideShow" OR process == "SpringBoard" OR process == "runningboardd"' \
+    --predicate 'process CONTAINS[c] "taskfest" OR process CONTAINS[c] "expo-sharing" OR process == "sharingd" OR process == "MobileSlideShow" OR process == "MobileSafari" OR process == "SpringBoard" OR process == "runningboardd"' \
     >"$out/$flow-simulator.log" 2>&1 || true
 done
 exit $status

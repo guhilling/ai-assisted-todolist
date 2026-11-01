@@ -30,6 +30,8 @@ export type UploadParts = {
   put(uri: string, url: string, headers: Record<string, string>, onProgress?: (fraction: number) => void): Promise<void>
   /** A JPEG thumbnail of a photo, or null when none could be made small enough. */
   thumbnail(file: PickedFile): Promise<{ uri: string; size: number } | null>
+  /** Lets a thumbnail made here go from the phone once it is uploaded, or could not be (#432). */
+  discard?(uri: string): void
 }
 
 /**
@@ -39,7 +41,8 @@ export type UploadParts = {
  * uploaded beside it before the confirmation, which is when the backend looks for it. Only a JPEG:
  * a thumbnail is a JPEG, and a PNG's transparency would come out black, where the website draws it
  * on white. A thumbnail is optional throughout: one that cannot be made, or does not reach
- * storage, leaves the file as it would have been without, and its row shows the file itself.
+ * storage, leaves the file as it would have been without, and its row shows the file itself. The
+ * thumbnail is let go once the upload is over, however it ended (#432); the file is the caller's.
  *
  * @throws AttachmentRefusedError when the file is refused, here or by the backend
  */
@@ -57,18 +60,27 @@ export async function uploadFile(
   }
   const thumbnail =
     file.type === 'image/jpeg' && file.size > MAX_THUMBNAIL_BYTES ? await parts.thumbnail(file).catch(() => null) : null
-  const announced = await api.announce(caller, taskId, {
-    fileName: file.name,
-    contentType: file.type,
-    sizeBytes: file.size,
-    ...(thumbnail ? { thumbnailSizeBytes: thumbnail.size } : {}),
-  })
-  const thumbnailUpload = announced.thumbnailUpload
-  await Promise.all([
-    parts.put(file.uri, announced.url, announced.headers, onProgress),
-    thumbnail && thumbnailUpload
-      ? parts.put(thumbnail.uri, thumbnailUpload.url, thumbnailUpload.headers, undefined).catch(() => undefined)
-      : undefined,
-  ])
-  return api.confirm(caller, taskId, announced.attachment.id)
+  /** The thumbnail's own upload, which never fails: it is let go only once this is over. */
+  let thumbnailPut: Promise<void> | undefined
+  try {
+    const announced = await api.announce(caller, taskId, {
+      fileName: file.name,
+      contentType: file.type,
+      sizeBytes: file.size,
+      ...(thumbnail ? { thumbnailSizeBytes: thumbnail.size } : {}),
+    })
+    const thumbnailUpload = announced.thumbnailUpload
+    thumbnailPut =
+      thumbnail && thumbnailUpload
+        ? parts.put(thumbnail.uri, thumbnailUpload.url, thumbnailUpload.headers, undefined).catch(() => undefined)
+        : undefined
+    await Promise.all([parts.put(file.uri, announced.url, announced.headers, onProgress), thumbnailPut])
+    return await api.confirm(caller, taskId, announced.attachment.id)
+  } finally {
+    if (thumbnail) {
+      // Not from under its upload, which goes on when the photo's own failed first.
+      await thumbnailPut
+      parts.discard?.(thumbnail.uri)
+    }
+  }
 }

@@ -11,6 +11,7 @@
 # when something needs explaining rather than every day.
 
 locals {
+  # The monitoring user is denied its objects by this name (account/main.tf, #430).
   flow_log_bucket = "${local.name}-flow-logs"
 
   # How long a record is kept. Long enough to look back over a week of demos and the incident

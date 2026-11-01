@@ -142,11 +142,39 @@ data "aws_iam_policy_document" "read_only_guard" {
 
   # With or without MFA. Looking at the account never needs the state, and the state is the one
   # place where every attribute of every resource -- prod's included -- sits in one readable file.
+  # Nor people's files or the network's flow logs (#430): what was uploaded and who connected
+  # where are the users' business. The two bucket names are the environment module's
+  # (attachments.tf, flow-logs.tf), which point back here. GetObject* takes in every way of
+  # reading an object, its versions, ACL and tags included.
   statement {
-    sid       = "NeverReadTheState"
-    effect    = "Deny"
-    actions   = ["s3:GetObject", "s3:GetObjectVersion"]
-    resources = ["arn:aws:s3:::${var.state_bucket}/*"]
+    sid     = "NeverReadTheStateOrPeoplesFiles"
+    effect  = "Deny"
+    actions = ["s3:GetObject*"]
+    resources = [
+      "arn:aws:s3:::${var.state_bucket}/*",
+      "arn:aws:s3:::${var.project}-*-attachments/*",
+      "arn:aws:s3:::${var.project}-*-flow-logs/*",
+    ]
+  }
+
+  # Nor a secret (#430): qa's Cognito client secret, readable through its SSM parameter or the
+  # client itself, is for administrators and the environment's own roles
+  # (doc/decisions/deployment-and-aws.md, "The monitoring user reads no files and no secrets").
+  # SSM is pinned to this account, so AWS's public parameters stay readable.
+  statement {
+    sid    = "NeverReadASecret"
+    effect = "Deny"
+    actions = [
+      "ssm:GetParameter",
+      "ssm:GetParameters",
+      "ssm:GetParametersByPath",
+      "ssm:GetParameterHistory",
+      "cognito-idp:DescribeUserPoolClient",
+    ]
+    resources = [
+      "arn:aws:ssm:*:${data.aws_caller_identity.current.account_id}:parameter/*",
+      "arn:aws:cognito-idp:*:*:userpool/*",
+    ]
   }
 }
 

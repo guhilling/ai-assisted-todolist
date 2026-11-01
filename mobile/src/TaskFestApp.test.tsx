@@ -3,7 +3,7 @@ import { AppState } from 'react-native'
 import { SignedOutError } from './api'
 import type { Session } from './session'
 import { TaskFestApp, type Dependencies } from './TaskFestApp'
-import { HOUR, NOW, dependencies as appDependencies, memorySessions, tasks, tokenWith } from './testing'
+import { HOUR, NOW, dependencies as appDependencies, foreground, memorySessions, tasks, tokenWith } from './testing'
 import { variants } from './variants'
 
 // An opaque token: the sign-in's own tokens are made in the tests that need one.
@@ -181,6 +181,31 @@ describe('the app', () => {
     expect(await screen.findByText('Water the plants')).toBeOnTheScreen()
 
     await act(async () => onChange('active'))
+
+    expect(
+      await screen.findByText('This version of the app is too old for TaskFest. Update it to carry on.'),
+    ).toBeOnTheScreen()
+  })
+
+  it('asks for an update even when a sign-in loaded the board while it was checking (#432)', async () => {
+    const comeBack = foreground()
+    let tooOld: (minimum: string) => void = () => undefined
+    const fetchMinimumAppVersion = jest
+      .fn()
+      .mockResolvedValueOnce('0.0.0')
+      .mockReturnValueOnce(new Promise<string>((resolve) => (tooOld = resolve)))
+    const idToken = tokenWith({ exp: (NOW + HOUR) / 1000 })
+    const deps = dependencies({
+      fetchMinimumAppVersion,
+      provider: { signIn: jest.fn().mockResolvedValue({ idToken, refreshToken: 'r' }), refresh: jest.fn() },
+    })
+    await render(<TaskFestApp variant={variants.dev} language="en" dependencies={deps} />)
+    const signIn = await screen.findByRole('button', { name: 'Sign in with Keycloak' })
+
+    await comeBack()
+    await userEvent.setup().press(signIn)
+    await screen.findByText('Water the plants')
+    await act(async () => tooOld('1.3.0'))
 
     expect(
       await screen.findByText('This version of the app is too old for TaskFest. Update it to carry on.'),

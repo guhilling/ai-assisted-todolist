@@ -8,31 +8,13 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
+import { StorageXhr } from './testing/storage'
 import { stubApi, type Announced, type Answer, type ApiStub } from './testing/api'
 import { ALICE, renderSignedIn } from './testing/board'
 
 /** The backend: echoes a created task with a fresh id, and answers its uploads as `announce` says. */
 function backend(options: { announce?: (announced: Announced) => Answer | undefined } = {}) {
   return stubApi({ me: ALICE, echoPost: true, announce: options.announce })
-}
-
-/** Storage: takes every PUT. */
-class FakeXhr {
-  static sent: string[] = []
-  status = 0
-  upload = { onprogress: null as ((event: { loaded: number; total: number; lengthComputable: boolean }) => void) | null }
-  onload: (() => void) | null = null
-  onerror: (() => void) | null = null
-  private url = ''
-  open(_method: string, url: string) {
-    this.url = url
-  }
-  setRequestHeader() {}
-  send() {
-    FakeXhr.sent.push(this.url)
-    this.status = 200
-    this.onload?.()
-  }
 }
 
 const pdf = () => new File(['%PDF'], 'scan.pdf', { type: 'application/pdf' })
@@ -47,8 +29,9 @@ async function openAddRow(fetchMock: ApiStub) {
 
 beforeEach(() => {
   vi.restoreAllMocks()
-  vi.stubGlobal('XMLHttpRequest', FakeXhr)
-  FakeXhr.sent = []
+  vi.stubGlobal('XMLHttpRequest', StorageXhr)
+  StorageXhr.urls = []
+  StorageXhr.bodies = []
 })
 
 afterEach(() => {
@@ -64,11 +47,11 @@ describe('attaching while adding a task', () => {
     expect(row.getByText('scan.pdf')).toBeInTheDocument()
     expect(row.getByText('photo.png')).toBeInTheDocument()
     // Nothing goes up before the task exists.
-    expect(FakeXhr.sent).toEqual([])
+    expect(StorageXhr.urls).toEqual([])
 
     fireEvent.click(row.getByRole('button', { name: /^Add$/ }))
 
-    await waitFor(() => expect(FakeXhr.sent).toHaveLength(2))
+    await waitFor(() => expect(StorageXhr.urls).toHaveLength(2))
     const taskRow = (await screen.findByLabelText('Mark "Pay the bill" as done')).closest('li') as HTMLElement
     await waitFor(() => expect(within(taskRow).getByRole('button', { name: 'Open scan.pdf' })).toBeInTheDocument())
     // Everything went, so the add row closes, as the app's form does (#383).
@@ -107,7 +90,7 @@ describe('attaching while adding a task', () => {
 
   it('locks the row while the files go up, and clears its messages when it is closed', async () => {
     let finish: () => void = () => {}
-    class SlowXhr extends FakeXhr {
+    class SlowXhr extends StorageXhr {
       send() {
         finish = () => {
           this.status = 200
@@ -158,7 +141,7 @@ describe('attaching while adding a task', () => {
     expect(screen.getByLabelText('What needs doing')).toBeInTheDocument()
 
     created()
-    await waitFor(() => expect(FakeXhr.sent).toEqual(['https://bucket.example.com/scan.pdf']))
+    await waitFor(() => expect(StorageXhr.urls).toEqual(['https://bucket.example.com/scan.pdf']))
   })
 
   it('keeps the task when a file is refused after it, and says which and why', async () => {

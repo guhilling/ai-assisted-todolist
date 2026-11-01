@@ -11,6 +11,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import TaskRow from './components/TaskRow'
 import { todayIso } from './dates'
 import { de, en } from './i18n/messages'
+import { StorageXhr } from './testing/storage'
 import { stubApi } from './testing/api'
 import { ALICE, isoIn, renderSignedIn } from './testing/board'
 
@@ -29,22 +30,6 @@ function task(overrides: Record<string, unknown> = {}) {
   }
 }
 
-/** Storage's side of an upload: reports half the file sent, then answers 200. */
-class FakeXhr {
-  static sent: unknown[] = []
-  status = 0
-  upload = { onprogress: null as ((event: { loaded: number; total: number; lengthComputable: boolean }) => void) | null }
-  onload: (() => void) | null = null
-  onerror: (() => void) | null = null
-  open() {}
-  setRequestHeader() {}
-  send(body: unknown) {
-    FakeXhr.sent.push(body)
-    this.upload.onprogress?.({ loaded: 1, total: 2, lengthComputable: true })
-    this.status = 200
-    this.onload?.()
-  }
-}
 
 /** The row's queries, so a file's controls can be addressed unambiguously. */
 function rowFor(description: string) {
@@ -63,8 +48,9 @@ function pdfFile(name = 'Scan.pdf') {
 
 beforeEach(() => {
   vi.restoreAllMocks()
-  vi.stubGlobal('XMLHttpRequest', FakeXhr)
-  FakeXhr.sent = []
+  vi.stubGlobal('XMLHttpRequest', StorageXhr)
+  StorageXhr.urls = []
+  StorageXhr.bodies = []
 })
 
 afterEach(() => {
@@ -210,7 +196,7 @@ describe('in the editor', () => {
     fireEvent.change(editor.getByLabelText('choose a file'), { target: { files: [file] } })
 
     await waitFor(() => expect(editor.getByRole('button', { name: 'Remove Scan.pdf' })).toBeInTheDocument())
-    expect(FakeXhr.sent).toEqual([file])
+    expect(StorageXhr.bodies).toEqual([file])
     fireEvent.click(editor.getByRole('button', { name: 'Cancel' }))
     expect(rowFor('Pay the invoice').getByRole('button', { name: 'Open Scan.pdf' })).toBeInTheDocument()
   })
@@ -278,7 +264,7 @@ describe('in the editor', () => {
 
   it('shows how far an upload has got', async () => {
     let finish: () => void = () => {}
-    class SlowXhr extends FakeXhr {
+    class SlowXhr extends StorageXhr {
       send() {
         this.upload.onprogress?.({ loaded: 1, total: 4, lengthComputable: true })
         finish = () => {

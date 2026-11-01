@@ -497,6 +497,26 @@ before.
 needs no rotation either; Secrets Manager's features buy nothing here.
 
 
+## The monitoring user reads no files and no secrets
+
+*Accepted · 2026-10-31 · #430*
+
+**Decision.** The monitoring user keeps AWS's `ReadOnlyAccess`, and its group denies, even with
+MFA, every read of an object in the environments' attachment and flow-log buckets, of an SSM
+parameter in this account, and of a Cognito app client (`deployment/aws-tofu/account/main.tf`),
+beside the state bucket's objects it was denied already.
+
+**Why.** `ReadOnlyAccess` reads data, not just configuration: with it the user could copy every
+file people had attached, in both environments, read who connected where from the flow logs, and
+read qa's Cognito client secret through its SSM parameter or the client itself. Watching the
+environments needs none of it. Gunnar's choice (2026-10-31).
+
+**Rejected: a policy that lists what the user may read.** Narrower, but it has to follow every
+service the project adds, and a dashboard that stops working is how the gap would be found. The
+deny list is short and covers what this project stores; a new kind of data that should be private
+gets a line in it.
+
+
 ## The attachments bucket refuses to be destroyed
 
 *Accepted · 2026-11-01 · #435*

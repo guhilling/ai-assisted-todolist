@@ -108,10 +108,12 @@ slows things down.
   `npm run check:deps` in `frontend/`. Do not move either into a release-only
   path — the point is to fail when the dependency is added.
 - **Dependency updates come from Renovate**, not by hand. Patch and minor
-  updates automerge once every check is green; majors wait for Gunnar. The
-  `platformAutomerge: false` in `.github/renovate.json` is load-bearing: the
+  updates automerge once every check is green; majors wait for Gunnar. That policy is the
+  shared preset from [dev-conventions](https://github.com/guhilling/dev-conventions), which
+  `.github/renovate.json` extends and adds this repository's own rules to. The
+  `platformAutomerge: false` in the preset is load-bearing: the
   `main-branch` ruleset requires no status checks, so GitHub's own auto-merge
-  would merge before anything had run. The `schedule` there is deliberate and
+  would merge before anything had run. The preset's `schedule` is deliberate and
   restricts pull request *creation* only — Renovate acting outside it is
   expected, because it can be run directly from the Mend dashboard, so never
   remove it as leftover setup debris.
@@ -120,10 +122,16 @@ slows things down.
 
 ## Issues
 
+- **The issue forms are account defaults** from the public
+  [guhilling/.github](https://github.com/guhilling/.github) repository (`.github/ISSUE_TEMPLATE/`
+  there), used by every repository of the account that has none of its own. Change them there.
+  A local `.github/ISSUE_TEMPLATE/` turns every default off, `config.yml` included, so
+  `docs-ci.yml` fails on one. GitHub drops a label that does not exist without a word, so `story`
+  and `epic` must exist in each repository that takes the forms.
 - A piece of work Claude should finish without a conversation first is written with the
-  **Story** issue form (`.github/ISSUE_TEMPLATE/story.yml`): what and why, **done when**,
+  **Story** issue form (`story.yml` there): what and why, **done when**,
   constraints, **decisions — yours or mine**, out of scope.
-- A goal too large for one story is an **Epic** (`.github/ISSUE_TEMPLATE/epic.yml`). It is never
+- A goal too large for one story is an **Epic** (`epic.yml` there). It is never
   implemented directly: it starts with an investigation — options compared, with references —
   whose result is a decision for Gunnar, and is then split into stories linked as sub-issues.
 - **Prefer the outcome to the mechanism.** A named mechanism that turns out not to work costs a

@@ -193,6 +193,8 @@ and Google's push services, so the privacy policy names both.
 
 *Accepted · 2026-10-10 · #269*
 
+Revised in part: a file's transfer is bounded by its size rather than ten seconds (below, #432).
+
 **Decision.** The app keeps the last board it loaded and shows it without a connection. Changes
 need a connection.
 
@@ -201,8 +203,9 @@ a copy of the backend's, small, and only ever read whole, so a database or a per
 would add a dependency for nothing. It names its account, is removed on sign-out, and while it is
 shown — before the load, or after one failed — every change is refused rather than sent.
 
-**A connection that hangs counts as none (#311).** Every request the app makes over the network
-fails after 10 seconds, its answer read in full, and is aborted (`withinLimit` and `REQUEST_MS` in
+**A connection that hangs counts as none (#311).** Every request the app makes over the network,
+except a file's transfer to or from storage, which the next paragraph bounds by its size, fails
+after 10 seconds, its answer read in full, and is aborted (`withinLimit` and `REQUEST_MS` in
 `mobile/src/timeLimit.ts`): the backend's, and the identity provider's -- its discovery document,
 the code exchange after signing in, and renewing the tokens. Without that, a connection that hangs
 rather than drops was waited on without end: the board said it was loading instead of showing the
@@ -210,6 +213,15 @@ kept one with "No connection", and a change neither went through nor failed. Ten
 for an answer the backend gives in well under one, and short enough that nobody gives up on the app
 first. Two exceptions: the sign-in in the browser takes as long as its user does, and the version
 check at start gives up after three seconds (`VERSION_CHECK_MS`), since the start waits for it.
+
+A file's transfer to or from storage is held to the same rule, by its size rather than ten seconds
+(#432): ten seconds, and the file's bytes at 64 KiB/s, a poor mobile connection (`transferMs`), and
+the native transfer is aborted when the time is up. That is the upload's PUT, by the file's own
+size, and the downloads of a preview and of a document Android opens, by the largest file the
+backend takes (10 MB, 170 s), since their size is not known before they arrive. Without it, a
+transfer that hung left the upload shown, or a file being opened, for the rest of the run, and the
+app never started over in the foreground. Watching for a transfer that stops making progress would
+end a hung one sooner; a bound by size is the smaller change, and one rule for all three.
 
 A change that got no answer in time may have reached the backend all the same, its answer only slow.
 So it is reported as failed, as before, and the board is loaded again at once: it shows whether the
