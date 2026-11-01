@@ -11,5 +11,21 @@
   },
   "enabledPlugins": {
     "conventions@dev-conventions": true
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|clear|compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3",
+            "args": [
+              "${CLAUDE_PROJECT_DIR}/.claude/hooks/cloud-session-rules.py"
+            ]
+          }
+        ]
+      }
+    ]
   }
 }

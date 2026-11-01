@@ -8,8 +8,9 @@ issues, TDD and existing tests — come from the `conventions` plugin of
 [dev-conventions](https://github.com/guhilling/dev-conventions/blob/main/plugins/conventions/rules.md),
 which `.claude/settings.json` turns on, pinned to a tag. Its SessionStart hook puts them into
 every session's context. This file holds what is particular to this repository, and wins where
-the two differ. A cloud session on claude.ai/code does not load the plugin; `doc/purpose.md`
-says what that leaves.
+the two differ. A cloud session on claude.ai/code does not load the plugin; there this
+repository's own SessionStart hook, `.claude/hooks/cloud-session-rules.py`, prints the rules from
+the same tag, and `doc/purpose.md` says what is still missing.
 
 ## About this project
 

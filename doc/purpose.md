@@ -56,10 +56,14 @@ moves. Its SessionStart hook puts the shared rules into the context of every loc
 the plugins a repository declares in a cloud session, because adding a repository's marketplace
 waits for the workspace trust dialog, and a cloud session never shows one
 ([what carries over to a cloud session](https://code.claude.com/docs/en/cloud-environments#what-carries-over-from-your-setup)).
-Such a session reads the `CLAUDE.md` files, but not the shared rules, and has no `plan-only.py`
-hook either. The deploy roles still cannot apply infrastructure, so what is lost there is the
-rules, not the guarantee. This is what Claude Code's documentation says (#458); it has not been
-tried in a cloud session.
+The hooks in `.claude/settings.json` do run there, so this repository has one of its own:
+`.claude/hooks/cloud-session-rules.py` runs only when `CLAUDE_CODE_REMOTE` is `true`, fetches
+`rules.md` at the tag the settings file pins, and prints it into the session's context. The
+tag is read from that file, so Renovate's pin stays the only one. If the fetch fails, the
+session gets a warning instead of the rules. A cloud session still has no `plan-only.py` hook;
+the deploy roles cannot apply infrastructure, so what is lost there is the hook, not the
+guarantee. This is what Claude Code's documentation says (#458); it has not been tried in a
+cloud session.
 
 ## What is deliberately absent
 
