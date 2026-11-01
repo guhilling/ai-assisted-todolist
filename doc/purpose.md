@@ -28,8 +28,11 @@ application this small:
 
 ## Working conventions
 
-These follow from the goal, and are stated in full in the `CLAUDE.md` files at the
-repository root and in `backend/`, `frontend/` and `mobile/`:
+These follow from the goal. Those this repository shares with Gunnar's other repositories are
+stated in full in the
+[shared rules](https://github.com/guhilling/dev-conventions/blob/main/plugins/conventions/rules.md)
+of the `conventions` Claude Code plugin from dev-conventions, and the rest in the `CLAUDE.md`
+files at the repository root and in `backend/`, `frontend/` and `mobile/`:
 
 - **Ask, don't guess.** An underspecified requirement is surfaced, not silently resolved
   with a plausible default. A wrong guess that compiles is the expensive failure mode.
@@ -43,6 +46,24 @@ repository root and in `backend/`, `frontend/` and `mobile/`:
   document is one nobody will enforce at three in the afternoon.
 - **Documentation is part of the change**, not a follow-up: Javadoc and TSDoc saying what
   a type is *for*, and this folder for anything larger than a single type.
+
+`.claude/settings.json` turns the plugin on, pinned to a tag of dev-conventions that Renovate
+moves. Its SessionStart hook puts the shared rules into the context of every local session; its
+`plan-only.py` hook refuses `tofu` commands that would change infrastructure, though not
+`env.sh`, which it does not recognise.
+
+**A cloud session on claude.ai/code does not get the plugin.** Claude Code does not install
+the plugins a repository declares in a cloud session, because adding a repository's marketplace
+waits for the workspace trust dialog, and a cloud session never shows one
+([what carries over to a cloud session](https://code.claude.com/docs/en/cloud-environments#what-carries-over-from-your-setup)).
+The hooks in `.claude/settings.json` do run there, so this repository has one of its own:
+`.claude/hooks/cloud-session-rules.py` runs only when `CLAUDE_CODE_REMOTE` is `true`, fetches
+`rules.md` at the tag the settings file pins, and prints it into the session's context. The
+tag is read from that file, so Renovate's pin stays the only one. If the fetch fails, the
+session gets a warning instead of the rules. A cloud session still has no `plan-only.py` hook;
+the deploy roles cannot apply infrastructure, so what is lost there is the hook, not the
+guarantee. This is what Claude Code's documentation says (#458); it has not been tried in a
+cloud session.
 
 ## What is deliberately absent
 

@@ -318,7 +318,7 @@ def main():
     if action.kind == "create":
         gh("label", "create", LABEL, "--force", "--color", "B60205",
            "--description", "Amazon Inspector found a fixable vulnerability in a running image")
-        # Every issue carries a priority (CLAUDE.md); fixable HIGH findings in a running image are
+        # Every issue carries a priority (shared rules); fixable HIGH findings in a running image are
         # "now". Adding it to the TaskFest project needs a token with project scope, which this
         # workflow's does not have -- the project's own auto-add workflow does that.
         print(gh("issue", "create", "--label", LABEL, "--label", "priority: 1 now",

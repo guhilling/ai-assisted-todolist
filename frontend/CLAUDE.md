@@ -1,8 +1,8 @@
 # CLAUDE.md — frontend
 
 Frontend-specific guidance for the React + TypeScript app under `/frontend`.
-Read together with the repository root `CLAUDE.md` (ask-don't-guess, TDD,
-DDD, and project context all still apply here).
+Read together with the repository root `CLAUDE.md` and the shared rules it
+points to (ask-don't-guess, TDD, DDD, and project context all still apply here).
 
 ## Testing strategy
 

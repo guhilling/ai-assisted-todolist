@@ -36,6 +36,13 @@
     },
     {
       "customType": "regex",
+      "description": "The tag of dev-conventions that .claude/settings.json pins the Claude Code plugin to (#458). A marketplace source in Claude Code settings is no dependency file any built-in manager reads.",
+      "managerFilePatterns": ["/^\\.claude/settings\\.json$/"],
+      "matchStrings": ["\"repo\":\\s*\"(?<depName>guhilling/dev-conventions)\",\\s*\"ref\":\\s*\"(?<currentValue>v[^\"]+)\""],
+      "datasourceTemplate": "github-tags"
+    },
+    {
+      "customType": "regex",
       "description": "Maestro, which both mobile-ci.yml and live-tests.yml install from this one pin (#278).",
       "managerFilePatterns": ["/^mobile/maestro/maestro\\.env$/"],
       "matchStrings": ["MAESTRO_VERSION=(?<currentValue>\\S+)"],
