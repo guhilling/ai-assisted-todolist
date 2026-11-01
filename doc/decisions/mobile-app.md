@@ -203,8 +203,9 @@ a copy of the backend's, small, and only ever read whole, so a database or a per
 would add a dependency for nothing. It names its account, is removed on sign-out, and while it is
 shown — before the load, or after one failed — every change is refused rather than sent.
 
-**A connection that hangs counts as none (#311).** Every request the app makes over the network
-fails after 10 seconds, its answer read in full, and is aborted (`withinLimit` and `REQUEST_MS` in
+**A connection that hangs counts as none (#311).** Every request the app makes over the network,
+except a file's transfer to or from storage, which the next paragraph bounds by its size, fails
+after 10 seconds, its answer read in full, and is aborted (`withinLimit` and `REQUEST_MS` in
 `mobile/src/timeLimit.ts`): the backend's, and the identity provider's -- its discovery document,
 the code exchange after signing in, and renewing the tokens. Without that, a connection that hangs
 rather than drops was waited on without end: the board said it was loading instead of showing the
