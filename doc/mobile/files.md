@@ -28,6 +28,16 @@ and removed.
   through the signed link with exactly the headers it was signed for, and confirmed; the content
   never passes through the backend. The editor says how far it has got, and saving or deleting the
   task waits for it; a file that fails after the editor was closed is said on the board instead.
+  An upload that has not reached storage by the time a file of its size needs on a poor connection
+  — ten seconds, and the file at 64 KiB/s — is aborted and fails as one without a connection does
+  (#432, [decisions/mobile-app.md](../decisions/mobile-app.md)); so is a preview's download, or a
+  document's on Android, after the time the largest file needs.
+- **Picked files go from the phone once done with** (#432): the pickers' copies in the app's
+  cache, the JPEG a HEIC photo became and the HEIC itself, and every thumbnail made. In the editor
+  a file goes once its upload is over, however it ended; while adding a task, once the form no
+  longer lists it — added, let go with **×**, cancelled, refused, or closed by a sign-out — and no
+  upload is still using it. Only files in the app's cache are deleted (`discardPicked` in
+  `Main.tsx`); a share's files are the share's, below.
 - **A photo brings its thumbnail**, made on the phone by the website's rule
   (`frontend/src/thumbnail.ts`: 128 on the short side, a panorama's middle, a JPEG at 0.8, at most
   64 KB) and uploaded beside it (`mobile/src/thumbnails.ts`, expo-image-manipulator). Only a JPEG

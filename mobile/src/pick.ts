@@ -38,6 +38,8 @@ export type PickerParts = {
   sizeOf(uri: string): number
   /** A JPEG of an image, for one the backend would not take as it is. */
   toJpeg(uri: string): Promise<{ uri: string; size: number }>
+  /** Lets a picker's copy go that is not attached: a HEIC photo, once it is a JPEG (#432). */
+  discard?(uri: string): void
   now(): number
 }
 
@@ -99,8 +101,12 @@ async function asFile(photo: PickedPhoto, parts: PickerParts): Promise<PickedFil
   const name = photo.fileName ?? `photo-${stamp(parts.now())}.jpg`
   const type = photo.mimeType ?? typeOfName(name) ?? ''
   if (type === 'image/heic' || type === 'image/heif') {
-    const jpeg = await parts.toJpeg(photo.uri)
-    return { uri: jpeg.uri, name: name.replace(/\.[^.]*$/, '') + '.jpg', type: 'image/jpeg', size: jpeg.size }
+    try {
+      const jpeg = await parts.toJpeg(photo.uri)
+      return { uri: jpeg.uri, name: name.replace(/\.[^.]*$/, '') + '.jpg', type: 'image/jpeg', size: jpeg.size }
+    } finally {
+      parts.discard?.(photo.uri)
+    }
   }
   const measured = photo.width && photo.height ? { width: photo.width, height: photo.height } : {}
   return { uri: photo.uri, name, type, size: photo.fileSize ?? parts.sizeOf(photo.uri), ...measured }

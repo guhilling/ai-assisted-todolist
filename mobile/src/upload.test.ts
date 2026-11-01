@@ -107,3 +107,48 @@ describe('attaching a file from the phone (#274)', () => {
     expect(api.confirm).not.toHaveBeenCalled()
   })
 })
+
+describe("a photo's thumbnail is let go once it is uploaded (#432)", () => {
+  it('after it reached storage', async () => {
+    const discard = jest.fn()
+
+    await uploadFile(caller, 7, photo, jest.fn(), backend(), phone({ discard }))
+
+    expect(discard).toHaveBeenCalledWith('file:///cache/thumb.jpg')
+  })
+
+  it('when the photo did not reach storage, too', async () => {
+    const discard = jest.fn()
+    const put = jest.fn((uri: string) => (uri.includes('thumb') ? Promise.resolve() : Promise.reject(new Error('offline'))))
+
+    await expect(uploadFile(caller, 7, photo, jest.fn(), backend(), phone({ put, discard }))).rejects.toThrow('offline')
+
+    expect(discard).toHaveBeenCalledWith('file:///cache/thumb.jpg')
+  })
+
+  it('not while it is still on its way, though the photo failed first', async () => {
+    const discard = jest.fn()
+    let thumbnailArrives: () => void = () => undefined
+    const put = jest.fn((uri: string) =>
+      uri.includes('thumb') ? new Promise<void>((resolve) => (thumbnailArrives = resolve)) : Promise.reject(new Error('offline')),
+    )
+    const upload = uploadFile(caller, 7, photo, jest.fn(), backend(), phone({ put, discard }))
+    const settled = jest.fn()
+    void upload.catch(settled)
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(discard).not.toHaveBeenCalled()
+
+    thumbnailArrives()
+
+    await expect(upload).rejects.toThrow('offline')
+    expect(discard).toHaveBeenCalledWith('file:///cache/thumb.jpg')
+  })
+
+  it('when the backend wanted none', async () => {
+    const discard = jest.fn()
+
+    await uploadFile(caller, 7, photo, jest.fn(), backend(false), phone({ discard }))
+
+    expect(discard).toHaveBeenCalledWith('file:///cache/thumb.jpg')
+  })
+})
