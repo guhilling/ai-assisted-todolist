@@ -375,7 +375,7 @@ before — accepted, because it then becomes an issue like any other piece of wo
 
 ## The conventions shared with other repositories come from one public repository
 
-*Accepted · 2026-10-31 · #400, #455, #456*
+*Accepted · 2026-10-31 · #400, #455, #456, #457*
 
 hilling-it-website adopted this project's conventions by copying files, and the copies drifted
 within weeks: its doc-reference check had a better regex than this one, and nothing carried a fix
@@ -387,7 +387,7 @@ keeps only what is its own. The investigation is on #400.
 |---|---|---|
 | `check-doc-references` | Yes (#455) | A composite action, pinned by SHA with the tag in a comment; Renovate's github-actions manager bumps it |
 | The Renovate policy | Yes (#456) | The repository's default preset, `github>guhilling/dev-conventions#vX.Y.Z`; the `renovate-config` manager bumps it |
-| The story and epic forms | Planned (#457) | Account defaults from a public `guhilling/.github`, unversioned |
+| The story and epic forms | Yes (#457) | Account defaults from the public [guhilling/.github](https://github.com/guhilling/.github), unversioned |
 | The generic CLAUDE.md rules and hilling-it-website's guard hooks | Planned (#458) | A Claude Code plugin from the same repository, its rules injected at session start |
 | `check-decisions.py` | Later | Once hilling-it-website writes status lines under its decisions |
 | `build-site.py`, `doc/images/generate.py` | No | One consumer each; hilling-it-website has no docs site and no diagrams |

@@ -9,7 +9,8 @@
 # share. On the emulator it has failed its first call, deviceInfo, before any step ran (#445): only
 # that call counts there, since a run after a later one would start from a board, or a share, the
 # first run had already changed. The runners, ios/run-on-simulator.sh and run-on-emulator.sh, run a
-# flow once more after these, and only after these.
+# flow once more after these, and only after these. An emulator that went away altogether is
+# emulator-lost.sh's (#461): a flow cannot run again on it.
 set -uo pipefail
 
 # iOS's, then Android's.

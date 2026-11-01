@@ -95,6 +95,12 @@ In this repository, stopping to ask applies especially to:
 
 ## Issues
 
+- **The issue forms are account defaults** from the public
+  [guhilling/.github](https://github.com/guhilling/.github) repository (`.github/ISSUE_TEMPLATE/`
+  there), used by every repository of the account that has none of its own. Change them there.
+  A local `.github/ISSUE_TEMPLATE/` turns every default off, `config.yml` included, so
+  `docs-ci.yml` fails on one. GitHub drops a label that does not exist without a word, so `story`
+  and `epic` must exist in each repository that takes the forms.
 - The GitHub project that holds the priorities is the
   [TaskFest project](https://github.com/users/guhilling/projects/2), number 2
   (`gh project item-add 2 --owner guhilling --url …`). Renovate's Dependency Dashboard (#22) is

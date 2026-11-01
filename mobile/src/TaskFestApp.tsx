@@ -86,6 +86,11 @@ export type Dependencies = {
   }
   /** Picks a file to attach (#274); null when the user turned back. */
   pickFile?(source: PickSource): Promise<PickedFile | null>
+  /**
+   * Lets picked files go from the phone (#432) -- the pickers' copies in the app's cache, and the
+   * JPEGs made of HEIC photos -- once no form holds them and no upload uses them.
+   */
+  forgetPicked?(files: PickedFile[]): Promise<void>
   /** Files other than images, opened in the phone's own viewer, and the copies that takes forgotten (#274). */
   documents?: {
     open(url: string, fileName: string, contentType: string): Promise<void>
@@ -103,9 +108,10 @@ export type Dependencies = {
   legend?: { seen(): Promise<boolean>; dismiss(): Promise<void> }
   /**
    * What another app shared (#355): taken once, as a task to add, and its copies of the files
-   * forgotten once that is done with. None, and the app is offered nothing.
+   * forgotten once that is done with. None, and the app is offered nothing. Told when a share's
+   * form is closed, so the platform keeps the share until then, for an app ended before (#432).
    */
-  incoming?: { take(): Promise<SharedDraft | null>; forget(files: PickedFile[]): Promise<void> }
+  incoming?: { take(): Promise<SharedDraft | null>; forget(files: PickedFile[]): Promise<void>; settle?(draft: SharedDraft): void }
   /** The oldest app release the backend serves (#268). */
   fetchMinimumAppVersion(): Promise<string>
   /** This build's release: the tag's, or 0.0.0 from a branch. */
@@ -231,6 +237,7 @@ export function TaskFestApp({
     changes,
     attachments: files,
     pickFile,
+    forgetPicked,
     documents,
     deleteAccount,
     keptBoard,
@@ -519,14 +526,27 @@ export function TaskFestApp({
     [],
   )
 
+  /**
+   * Counted up by every start and every load: of those that overlap -- the app back in the
+   * foreground twice, say -- only the latest one asked for decides the board and the board kept,
+   * whichever answers last (#432).
+   */
+  const loads = useRef(0)
+  /** Notes a start or a load now, and hands back whether another has begun since. */
+  const sinceLoad = useCallback(() => {
+    const at = (loads.current += 1)
+    return () => loads.current !== at
+  }, [])
+
   const showBoard = useCallback(
     async (session: Session) => {
       const signedOut = sinceSignIn()
+      const superseded = sinceLoad()
       // A board already shown stays while it loads anew, and with it any form open over it.
       setState((current) => (current.kind === 'board' ? current : { kind: 'loading' }))
       try {
         const tasks = await fetchTasks({ baseUrl: variant.apiBaseUrl, idToken: session.idToken })
-        if (!signedOut()) {
+        if (!signedOut() && !superseded()) {
           const email = emailOf(session.idToken)
           const loadedAt = now()
           setState({ kind: 'board', tasks, email, loadedAt })
@@ -537,7 +557,8 @@ export function TaskFestApp({
           void offerIfAsked()
         }
       } catch (failure) {
-        if (signedOut()) {
+        // A later load decides: it has the same session, and its answer is the newer one.
+        if (signedOut() || superseded()) {
           return
         }
         if (failure instanceof SignedOutError) {
@@ -547,17 +568,28 @@ export function TaskFestApp({
         }
       }
     },
-    [fetchTasks, keep, loadFailed, now, offerIfAsked, signOut, sinceSignIn, variant.apiBaseUrl],
+    [fetchTasks, keep, loadFailed, now, offerIfAsked, signOut, sinceLoad, sinceSignIn, variant.apiBaseUrl],
   )
 
   /** Takes what another app shared, if anything, to show once the board can take it (#355). */
   const takeShare = useRef<() => void>(() => undefined)
   const sharesTaken = useRef(0)
+  /**
+   * The shares taken and not done with yet, by their files: the platform keeps each until its form
+   * is closed (#432), so an app ended while it waits, or while its form is open, finds it again.
+   */
+  const sharesKept = useRef(new Map<PickedFile[], SharedDraft>())
   useEffect(() => {
     takeShare.current = () => {
       incoming
         ?.take()
-        .then((draft) => draft && setShares((waiting) => [...waiting, { draft, number: ++sharesTaken.current }]))
+        .then((draft) => {
+          if (draft) {
+            const number = ++sharesTaken.current
+            sharesKept.current.set(draft.files, draft)
+            setShares((waiting) => [...waiting, { draft, number }])
+          }
+        })
         .catch((failure: unknown) => console.warn('What was shared could not be read', failure))
     }
     // At the start: a share may be what started the app.
@@ -577,6 +609,11 @@ export function TaskFestApp({
         return
       }
       incoming?.forget(files).catch((failure: unknown) => console.warn('The shared files could not be forgotten', failure))
+      const draft = sharesKept.current.get(files)
+      if (draft) {
+        sharesKept.current.delete(files)
+        incoming?.settle?.(draft)
+      }
     },
     [incoming],
   )
@@ -590,6 +627,50 @@ export function TaskFestApp({
       sharesShown.current.add(form.shared)
     }
   }, [form, forgetShare])
+
+  /**
+   * The files picked that are still on the phone (#432), and how many uploads use each: one goes
+   * once no form lists it and no upload uses it -- in the editor once its upload is over; while
+   * adding a task once it is added, let go, cancelled, refused, or closed by a sign-out. A share's
+   * files are the share's, and go with it.
+   */
+  const pickedHeld = useRef(new Set<PickedFile>())
+  const inUse = useRef(new Map<PickedFile, number>())
+  /** Raised when a file is picked or an upload lets its files go, so they are looked at again after the render. */
+  const [, setFilesReleased] = useState(0)
+  /** Keeps these files on the phone, whatever form holds them, until the function handed back is called. */
+  const hold = (used: PickedFile[]) => {
+    used.forEach((file) => inUse.current.set(file, (inUse.current.get(file) ?? 0) + 1))
+    return () => {
+      for (const file of used) {
+        const count = inUse.current.get(file)! - 1
+        if (count === 0) {
+          inUse.current.delete(file)
+        } else {
+          inUse.current.set(file, count)
+        }
+      }
+      setFilesReleased((count) => count + 1)
+    }
+  }
+  /** Runs work that uses these files, which stay on the phone until it is done. */
+  const using = async <T,>(used: PickedFile[], work: () => Promise<T>): Promise<T> => {
+    const release = hold(used)
+    try {
+      return await work()
+    } finally {
+      release()
+    }
+  }
+  useEffect(() => {
+    const listed = form?.pending ?? []
+    const unused = [...pickedHeld.current].filter((file) => !listed.includes(file) && !inUse.current.has(file))
+    if (unused.length === 0) {
+      return
+    }
+    unused.forEach((file) => pickedHeld.current.delete(file))
+    forgetPicked?.(unused).catch((failure: unknown) => console.warn('The picked files could not be forgotten', failure))
+  })
 
   /** How often the start has been tried: "try again" raises it, and the effect below runs anew. */
   const [attempt, setAttempt] = useState(0)
@@ -620,6 +701,7 @@ export function TaskFestApp({
     /** From the kept session to the board, or to the sign-in. */
     const start = async () => {
       const signedOut = sinceSignIn()
+      const superseded = sinceLoad()
       // Which releases the backend serves, and the kept session, are asked for at once, and the
       // kept board shown meanwhile. An app the backend no longer serves says so before anything
       // else; one that cannot find out in time carries on, since a slow or absent network is no
@@ -635,8 +717,12 @@ export function TaskFestApp({
       if (signedOut()) {
         return
       }
+      // Too old stays too old, whatever load began meanwhile -- a sign-in's, say (#432).
       if (minimum && isTooOld(appVersion, minimum)) {
         setState({ kind: 'tooOld' })
+        return
+      }
+      if (superseded()) {
         return
       }
       let session: Session | null
@@ -667,7 +753,7 @@ export function TaskFestApp({
       }
     }
     void start()
-  }, [appVersion, attempt, fetchMinimumAppVersion, forgetFiles, keptBoard, loadFailed, previews, reminders, sessionNow, showBoard, showKept, signOut, sinceSignIn])
+  }, [appVersion, attempt, fetchMinimumAppVersion, forgetFiles, keptBoard, loadFailed, previews, reminders, sessionNow, showBoard, showKept, signOut, sinceLoad, sinceSignIn])
 
   const retry = () => {
     setState({ kind: 'starting' })
@@ -908,6 +994,8 @@ export function TaskFestApp({
     if (started?.shared) {
       sharesSaving.current.add(started.shared)
     }
+    // Its files stay on the phone until they are attached, whatever closes the form meanwhile.
+    const releasePending = hold(started?.pending ?? [])
     try {
       await sending(async () => {
         if (task) {
@@ -970,6 +1058,7 @@ export function TaskFestApp({
       }
       return false
     } finally {
+      releasePending()
       if (task) {
         markBusy(task, false)
       }
@@ -1022,7 +1111,7 @@ export function TaskFestApp({
     const showUploading = uploadShown(signedOut, taskId, file)
     showUploading(0)
     try {
-      const attachment = await sending(async () => upload(await caller(), task.id, file, showUploading))
+      const attachment = await using([file], () => sending(async () => upload(await caller(), task.id, file, showUploading)))
       // Answered after a sign-out: the task is the old account's, whatever board is shown (#428).
       if (!signedOut()) {
         addFile(task.id, attachment)
@@ -1079,6 +1168,10 @@ export function TaskFestApp({
       if (!file) {
         return
       }
+      // Kept on the phone from here until no form lists it and no upload uses it (#432), and looked
+      // at after the next render, which this asks for: a form closed meanwhile changes no state.
+      pickedHeld.current.add(file)
+      setFilesReleased((count) => count + 1)
       if (task) {
         const failure = await uploadTo(task, file)
         if (failure) {
@@ -1281,10 +1374,13 @@ export function TaskFestApp({
       return
     }
     draftBusy.current = true
+    // Kept on the phone from here, while the draft is started too: it may be let go meanwhile (#432).
+    const release = hold([next])
     // After this render, not in it: the upload says how far it has got from its first step.
     queueMicrotask(() => {
       setDraftWorking(true)
       void uploadToDraft(opened, next).finally(() => {
+        release()
         draftBusy.current = false
         setDraftWorking(false)
         setDraftTurn((turn) => turn + 1)

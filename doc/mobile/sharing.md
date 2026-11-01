@@ -83,7 +83,16 @@ the raw share, is in [decisions/mobile-app.md](../decisions/mobile-app.md).
 ## When the form opens
 
 `TaskFestApp` takes a share when the app starts and whenever it comes back to the foreground, and
-opens the form once the board can take it:
+opens the form once the board can take it. Until its form is closed, the share stays where the
+platform keeps it (#432, `sharesFrom` in `mobile/src/incoming.ts`): it is read but not cleared, and
+the files the iOS extension left are not let go, so an app the system ends meanwhile — while the
+user signs in, or is off in another app for a password with the form open — finds it again when it
+next starts. It is taken once a run, however often the app comes back meanwhile, and cleared once
+its form is closed — added, cancelled, or closed by a sign-out — unless a newer share has replaced
+it there. A share replaced there before its form ever opened, in a run that then ended, leaves its
+files in the App Group: nothing names them any more. The platform keeps one share, so a share waiting behind another lives
+only as long as the run. On Android the share is the intent that started the app, held in memory:
+whether Android hands it over again to an app it ended depends on how the user comes back to it.
 
 - **Signed out**, it waits for the sign-in.
 - **Over the board kept on the phone**, which takes no change ([board.md](board.md)), it waits
@@ -96,12 +105,14 @@ opens the form once the board can take it:
 The copies go once the form is closed — added, cancelled, or closed by a sign-out — and none of
 its files is uploading any more; copies the form does not keep go at once; and copies a run left
 behind go before the next run's first share. On iOS the extension's own copies, in the App Group,
-go as soon as the app has read them, with their folders (`releaseShared` in `Main.tsx`).
+go when the share's form is closed, with their folders (`releaseShared` in `Main.tsx`).
 
 ## Tested
 
-- `incoming.test.ts`: what a share becomes, names and refusals included.
-- `TaskFestApp.sharing.test.tsx`: when the form opens, and when the copies go.
+- `incoming.test.ts`: what a share becomes, names and refusals included; and that it stays with
+  the platform until its form is closed (#432).
+- `TaskFestApp.sharing.test.tsx`: when the form opens, when the copies go, and when the share is
+  let go where the platform keeps it.
 - Mobile CI's `board` share (`mobile/maestro/share/`): text sent to the app as another app sends
   it, and an image through the Files app's real share sheet, each added to the board.
 - Mobile CI's iOS build: the extension's name, its App Group, its rule evaluated against shares
@@ -109,20 +120,26 @@ go as soon as the app has read them, with their folders (`releaseShared` in `Mai
   (`.github/scripts/check-share-extension.py`, `check-share-activation.swift`,
   `sign-with-app-group.sh`).
 - Mobile CI's iOS share (`mobile/maestro/ios/`, #380): that signed build on an iPhone simulator, a
-  photo shared from Photos through the real share sheet, where *TaskFest Dev* must be offered and
-  must open the app; the simulator's iOS asks first, and the flow lets it. No stack runs on the
+  photo shared from Photos and a page from Safari, each through the real share sheet, where
+  *TaskFest Dev* must be offered and must open the app; the simulator's iOS asks first, and the
+  flows let it. In Safari's sheet *TaskFest Dev* is tapped by its place on the screen, not by its
+  name: the sheet is a scene of its own, Maestro reads its elements' places relative to it, and a
+  tap by name landed above the sheet, which Safari took for a cancel (#395). No stack runs on the
   macOS runner, so it ends at the sign-in: whether the photo was kept is not checked there, and
   the way on to the board is the Android flows'. Its screenshots, Maestro's debug output and the
   simulator's log for the share are the `maestro-output-ios` artifact. It fails Mobile CI; for a
   while it did not (#401), because it failed often enough that a red run said nothing. The
   failures were the simulator's, before any of TaskFest's code: Photos now and then never finishes
   preparing the photo, so iOS never starts the extension, and a tap on *Open* while iOS's question
-  was still coming in went nowhere. The flow shares the photo again, once, from a restarted Photos
+  was still coming in went nowhere. The photo's flow shares it again, once, from a restarted Photos
   when nothing has happened after 90 s, and taps *Open* again while the question is still there.
   Maestro's own driver failed too, three times in nineteen runs and never in the share: on the
   freshly booted simulator it started too slowly, or went away mid-tap. It now has 300 s to start,
   and `run-on-simulator.sh` runs the flow once more when `driver-failed.sh` finds the driver, not
   the flow, failed; any other failure fails at once. Each run's console output is in the artifact.
   With that, ten re-runs of `main`'s run for #416 all passed, none needing the driver's second
-  run. Still tried by hand, on TestFlight: a link or text shared on an iPhone, and a share taken
-  on to the board signed in.
+  run. Those numbers are the photo's. The Safari share is younger and less proven: its own
+  stumbles were the simulator's too -- a tap on Safari's first-run tip or on the menu's *Share*
+  that came while it was still opening and went nowhere -- and it now taps again while either is
+  still there. Its final version passed in all three runs on #464, which is few. Still tried by
+  hand, on TestFlight: text shared on an iPhone, and a share taken on to the board signed in.

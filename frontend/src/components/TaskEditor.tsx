@@ -25,7 +25,8 @@ type TaskEditorProps = {
  * It offers the same three fields as adding a task, in the same layout, so editing needs no
  * new vocabulary. Unlike adding, the due date may stay in the past: a task that came due
  * yesterday is still yesterday's, and the backend accepts that on an update for the same
- * reason. Escape and Cancel discard; nothing reaches the server until Save.
+ * reason. Escape and Cancel discard; nothing reaches the server until Save. While a save is on
+ * its way neither does anything (#431): the editor stays until the save has an answer.
  */
 function TaskEditor({ task, saving, onSave, onCancel, attachments }: Readonly<TaskEditorProps>) {
   const { messages } = useI18n()
@@ -35,7 +36,7 @@ function TaskEditor({ task, saving, onSave, onCancel, attachments }: Readonly<Ta
   const descriptionRef = useRef<HTMLInputElement>(null)
   const form = useRef<HTMLFormElement>(null)
 
-  useEscapeWithin(form, onCancel)
+  useEscapeWithin(form, saving ? () => {} : onCancel)
 
   useEffect(() => {
     descriptionRef.current?.focus()
@@ -76,7 +77,7 @@ function TaskEditor({ task, saving, onSave, onCancel, attachments }: Readonly<Ta
           </select>
         </label>
         <div className="add-actions">
-          <button type="button" className="button-quiet" onClick={onCancel}>
+          <button type="button" className="button-quiet" onClick={onCancel} disabled={saving}>
             {messages.editor.cancel}
           </button>
           <button type="submit" className="button-primary" disabled={saving || blank}>

@@ -121,3 +121,22 @@ describe('a file as the document picker names it (#274)', () => {
     await expect(pickFile('files', parts)).resolves.toMatchObject({ type: '' })
   })
 })
+
+describe("a HEIC photo's own copy, once it is a JPEG (#432)", () => {
+  const heic = { uri: 'file:///cache/IMG_2.HEIC', fileName: 'IMG_2.HEIC', mimeType: 'image/heic', fileSize: 1_000_000 }
+
+  it('is let go: only the JPEG is attached', async () => {
+    const parts = phone({ library: jest.fn().mockResolvedValue(heic), discard: jest.fn() })
+
+    await pickFile('library', parts)
+
+    expect(parts.discard).toHaveBeenCalledWith('file:///cache/IMG_2.HEIC')
+  })
+
+  it('is let go when it could not be converted, too', async () => {
+    const parts = phone({ library: jest.fn().mockResolvedValue(heic), toJpeg: jest.fn().mockRejectedValue(new Error('damaged')), discard: jest.fn() })
+
+    await expect(pickFile('library', parts)).rejects.toThrow('damaged')
+    expect(parts.discard).toHaveBeenCalledWith('file:///cache/IMG_2.HEIC')
+  })
+})
