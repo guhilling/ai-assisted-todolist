@@ -126,6 +126,24 @@ describe("a photo's thumbnail is let go once it is uploaded (#432)", () => {
     expect(discard).toHaveBeenCalledWith('file:///cache/thumb.jpg')
   })
 
+  it('not while it is still on its way, though the photo failed first', async () => {
+    const discard = jest.fn()
+    let thumbnailArrives: () => void = () => undefined
+    const put = jest.fn((uri: string) =>
+      uri.includes('thumb') ? new Promise<void>((resolve) => (thumbnailArrives = resolve)) : Promise.reject(new Error('offline')),
+    )
+    const upload = uploadFile(caller, 7, photo, jest.fn(), backend(), phone({ put, discard }))
+    const settled = jest.fn()
+    void upload.catch(settled)
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(discard).not.toHaveBeenCalled()
+
+    thumbnailArrives()
+
+    await expect(upload).rejects.toThrow('offline')
+    expect(discard).toHaveBeenCalledWith('file:///cache/thumb.jpg')
+  })
+
   it('when the backend wanted none', async () => {
     const discard = jest.fn()
 

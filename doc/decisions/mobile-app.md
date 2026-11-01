@@ -193,6 +193,8 @@ and Google's push services, so the privacy policy names both.
 
 *Accepted · 2026-10-10 · #269*
 
+Revised in part: a file's transfer is bounded by its size rather than ten seconds (below, #432).
+
 **Decision.** The app keeps the last board it loaded and shows it without a connection. Changes
 need a connection.
 

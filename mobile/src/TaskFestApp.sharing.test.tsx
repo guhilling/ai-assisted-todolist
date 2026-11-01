@@ -282,8 +282,8 @@ describe('a share while the app runs (#355)', () => {
   })
 })
 
-describe('a share is let go where the platform keeps it once its form opens (#432)', () => {
-  it('not while it waits for the sign-in, so an app ended meanwhile finds it again', async () => {
+describe('a share is let go where the platform keeps it once its form is closed (#432)', () => {
+  it('not while it waits for the sign-in, nor while its form is open, so an app ended meanwhile finds it again', async () => {
     const incoming = { ...sharing(share), settle: jest.fn() }
     const deps = dependencies({
       sessions: memorySessions(null),
@@ -292,12 +292,34 @@ describe('a share is let go where the platform keeps it once its form opens (#43
     })
     const user = await start(deps)
     await screen.findByRole('button', { name: 'Sign in with Keycloak' })
+    await user.press(screen.getByRole('button', { name: 'Sign in with Keycloak' }))
+    const form = await screen.findByTestId('task-form')
     expect(incoming.settle).not.toHaveBeenCalled()
 
-    await user.press(screen.getByRole('button', { name: 'Sign in with Keycloak' }))
+    await user.press(within(form).getByRole('button', { name: 'Cancel' }))
 
-    await screen.findByTestId('task-form')
     await waitFor(() => expect(incoming.settle).toHaveBeenCalledWith(share))
     expect(incoming.settle).toHaveBeenCalledTimes(1)
+  })
+
+  it('once its task is added', async () => {
+    const incoming = { ...sharing(share), settle: jest.fn() }
+    const user = await start(dependencies({ incoming }))
+    const form = await screen.findByTestId('task-form')
+
+    await user.press(within(form).getByRole('button', { name: 'Add' }))
+
+    await waitFor(() => expect(incoming.settle).toHaveBeenCalledWith(share))
+  })
+
+  it('once its form is closed, for a share of text alone too', async () => {
+    const text: SharedDraft = { description: 'Call the plumber', files: [], refused: [] }
+    const incoming = { ...sharing(text), settle: jest.fn() }
+    const user = await start(dependencies({ incoming }))
+    const form = await screen.findByTestId('task-form')
+
+    await user.press(within(form).getByRole('button', { name: 'Cancel' }))
+
+    await waitFor(() => expect(incoming.settle).toHaveBeenCalledWith(text))
   })
 })

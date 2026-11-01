@@ -60,6 +60,8 @@ export async function uploadFile(
   }
   const thumbnail =
     file.type === 'image/jpeg' && file.size > MAX_THUMBNAIL_BYTES ? await parts.thumbnail(file).catch(() => null) : null
+  /** The thumbnail's own upload, which never fails: it is let go only once this is over. */
+  let thumbnailPut: Promise<void> | undefined
   try {
     const announced = await api.announce(caller, taskId, {
       fileName: file.name,
@@ -68,15 +70,16 @@ export async function uploadFile(
       ...(thumbnail ? { thumbnailSizeBytes: thumbnail.size } : {}),
     })
     const thumbnailUpload = announced.thumbnailUpload
-    await Promise.all([
-      parts.put(file.uri, announced.url, announced.headers, onProgress),
+    thumbnailPut =
       thumbnail && thumbnailUpload
         ? parts.put(thumbnail.uri, thumbnailUpload.url, thumbnailUpload.headers, undefined).catch(() => undefined)
-        : undefined,
-    ])
+        : undefined
+    await Promise.all([parts.put(file.uri, announced.url, announced.headers, onProgress), thumbnailPut])
     return await api.confirm(caller, taskId, announced.attachment.id)
   } finally {
     if (thumbnail) {
+      // Not from under its upload, which goes on when the photo's own failed first.
+      await thumbnailPut
       parts.discard?.(thumbnail.uri)
     }
   }

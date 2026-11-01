@@ -319,7 +319,7 @@ describe('the shared files themselves, once read (#356)', () => {
   })
 })
 
-describe('a share stays with the platform until its form opens (#432)', () => {
+describe('a share stays with the platform until its form is closed (#432)', () => {
   /** expo-sharing's payloads, as the platform keeps them: in the App Group on an iPhone. */
   function inbox(...items: SharedItem[]): ShareInbox & { items: SharedItem[] } {
     const kept = {
@@ -358,7 +358,7 @@ describe('a share stays with the platform until its form opens (#432)', () => {
     await expect(sharesFrom(platform, parts()).take()).resolves.toMatchObject({ description: 'Holiday' })
   })
 
-  it('is cleared, and its files let go, once its form opens', async () => {
+  it('is cleared, and its files let go, once its form is closed', async () => {
     const platform = inbox(text('Holiday'), photo)
     const phoneParts = parts()
     const shares = sharesFrom(platform, phoneParts)
@@ -399,6 +399,15 @@ describe('a share stays with the platform until its form opens (#432)', () => {
     await shares.take()
 
     expect(forgetLeft).toHaveBeenCalledTimes(1)
+  })
+
+  it('is taken once when the app comes back again while its files are still being copied', async () => {
+    const shares = sharesFrom(inbox(text('Holiday'), photo), parts())
+
+    const [first, second] = await Promise.all([shares.take(), shares.take()])
+
+    expect(first).not.toBeNull()
+    expect(second).toBeNull()
   })
 
   it('is nothing when nothing was shared', async () => {

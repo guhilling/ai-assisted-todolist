@@ -168,6 +168,25 @@ describe('the picked files go from the phone once nothing needs them (#432)', ()
     await waitFor(() => expect(deps.forgetPicked).toHaveBeenCalledWith([photo]))
   })
 
+  it('not while its draft is still being started, though it was let go meanwhile', async () => {
+    const draft = deferred<number>()
+    const deps = dependencies()
+    deps.changes.drafts = { start: jest.fn().mockReturnValue(draft.promise), add: jest.fn(), discard: jest.fn().mockResolvedValue(undefined) }
+    const user = await start(deps)
+    await user.press(await screen.findByRole('button', { name: 'Add a task' }))
+    const form = screen.getByTestId('task-form')
+    await user.press(within(form).getByRole('button', { name: 'Take a photo' }))
+    await waitFor(() => expect(deps.changes.drafts!.start).toHaveBeenCalled())
+
+    await user.press(within(form).getByRole('button', { name: 'Remove photo.jpg' }))
+    expect(deps.forgetPicked).not.toHaveBeenCalled()
+    draft.resolve(77)
+
+    await waitFor(() => expect(deps.forgetPicked).toHaveBeenCalledWith([photo]))
+    // Uploaded from the file still there, then taken off the draft again, as before #432.
+    expect(deps.attachments!.upload).toHaveBeenCalledWith(expect.anything(), 77, photo, expect.any(Function))
+  })
+
   it("leaves a share's files to the share", async () => {
     const shared: PickedFile = { uri: 'file:///cache/shared/1-scan.pdf', name: 'scan.pdf', type: 'application/pdf', size: 90_000 }
     const share: SharedDraft = { description: 'Read this', files: [shared], refused: [] }

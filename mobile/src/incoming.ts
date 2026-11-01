@@ -138,15 +138,15 @@ export type ShareInbox = {
 export type IncomingShares = {
   /** The share kept, as a draft, the first time this run sees it; null when there is none new. */
   take(): Promise<SharedDraft | null>
-  /** The draft's form has opened: the share is let go where the platform keeps it, with its files. */
+  /** The draft's form is closed: the share is let go where the platform keeps it, with its files. */
   settle(draft: SharedDraft): void
 }
 
 /**
  * The shares the platform keeps, taken as drafts (#432). A share stays where the platform keeps it
- * -- an iPhone's App Group, which outlives the app -- until its form opens, and so do the files the
- * share extension left there: an app the system ends before the board could take the share, while
- * the user signs in, finds it again the next time it starts.
+ * -- an iPhone's App Group, which outlives the app -- until its form is closed, and so do the files
+ * the share extension left there: an app the system ends before the share's task was added -- while
+ * the user signs in, or with its form open -- finds it again the next time it starts.
  *
  * So a share is taken once a run, however often the app comes back to the foreground meanwhile,
  * and only the latest is kept: the platform keeps one, which a newer share replaces, so one that
@@ -165,10 +165,12 @@ export function sharesFrom(inbox: ShareInbox, parts: IncomingParts, forgetLeft: 
       if (items.length === 0 || share === taken) {
         return null
       }
-      forgetLeft()
-      // Its files stay where the extension left them until the form opens: `settle` lets them go.
-      const draft = (await draftOf(items, reading))!
+      // Before the copying: the app may come back again meanwhile, and must not take it twice. One
+      // that cannot be read is tried again by the next run, not on every return to the foreground.
       taken = share
+      forgetLeft()
+      // Its files stay where the extension left them until the form closes: `settle` lets them go.
+      const draft = (await draftOf(items, reading))!
       const files = items.filter((item) => item.shareType !== 'text' && item.shareType !== 'url').map((item) => item.value)
       kept.set(draft, { share, files })
       return draft
@@ -180,7 +182,7 @@ export function sharesFrom(inbox: ShareInbox, parts: IncomingParts, forgetLeft: 
       }
       kept.delete(draft)
       known.files.forEach((uri) => release?.(uri))
-      // A newer share has replaced it there meanwhile: that one stays, until its own form opens.
+      // A newer share has replaced it there meanwhile: that one stays, until its own form is closed.
       if (JSON.stringify(inbox.read()) === known.share) {
         inbox.clear()
         taken = null

@@ -109,7 +109,7 @@ export type Dependencies = {
   /**
    * What another app shared (#355): taken once, as a task to add, and its copies of the files
    * forgotten once that is done with. None, and the app is offered nothing. Told when a share's
-   * form opens, so the platform keeps the share until then, for an app ended before (#432).
+   * form is closed, so the platform keeps the share until then, for an app ended before (#432).
    */
   incoming?: { take(): Promise<SharedDraft | null>; forget(files: PickedFile[]): Promise<void>; settle?(draft: SharedDraft): void }
   /** The oldest app release the backend serves (#268). */
@@ -574,16 +574,11 @@ export function TaskFestApp({
   /** Takes what another app shared, if anything, to show once the board can take it (#355). */
   const takeShare = useRef<() => void>(() => undefined)
   const sharesTaken = useRef(0)
-  /** The shares taken and not opened yet, by number: the platform keeps each until it opens (#432). */
-  const sharesWaiting = useRef(new Map<number, SharedDraft>())
-  const shareOpen = form?.share
-  useEffect(() => {
-    const draft = shareOpen === undefined ? undefined : sharesWaiting.current.get(shareOpen)
-    if (draft) {
-      sharesWaiting.current.delete(shareOpen!)
-      incoming?.settle?.(draft)
-    }
-  }, [incoming, shareOpen])
+  /**
+   * The shares taken and not done with yet, by their files: the platform keeps each until its form
+   * is closed (#432), so an app ended while it waits, or while its form is open, finds it again.
+   */
+  const sharesKept = useRef(new Map<PickedFile[], SharedDraft>())
   useEffect(() => {
     takeShare.current = () => {
       incoming
@@ -591,7 +586,7 @@ export function TaskFestApp({
         .then((draft) => {
           if (draft) {
             const number = ++sharesTaken.current
-            sharesWaiting.current.set(number, draft)
+            sharesKept.current.set(draft.files, draft)
             setShares((waiting) => [...waiting, { draft, number }])
           }
         })
@@ -614,6 +609,11 @@ export function TaskFestApp({
         return
       }
       incoming?.forget(files).catch((failure: unknown) => console.warn('The shared files could not be forgotten', failure))
+      const draft = sharesKept.current.get(files)
+      if (draft) {
+        sharesKept.current.delete(files)
+        incoming?.settle?.(draft)
+      }
     },
     [incoming],
   )
@@ -1325,7 +1325,7 @@ export function TaskFestApp({
     const showUploading = uploadShown(signedOut, 'new', file)
     showUploading(0)
     try {
-      const attachment = await using([file], () => sending(async () => upload(await caller(), id, file, showUploading)))
+      const attachment = await sending(async () => upload(await caller(), id, file, showUploading))
       if (dropped()) {
         return
       }
@@ -1368,10 +1368,13 @@ export function TaskFestApp({
       return
     }
     draftBusy.current = true
+    // Kept on the phone from here, while the draft is started too: it may be let go meanwhile (#432).
+    const release = hold([next])
     // After this render, not in it: the upload says how far it has got from its first step.
     queueMicrotask(() => {
       setDraftWorking(true)
       void uploadToDraft(opened, next).finally(() => {
+        release()
         draftBusy.current = false
         setDraftWorking(false)
         setDraftTurn((turn) => turn + 1)
