@@ -49,7 +49,8 @@ files at the repository root and in `backend/`, `frontend/` and `mobile/`:
 
 `.claude/settings.json` turns the plugin on, pinned to a tag of dev-conventions that Renovate
 moves. Its SessionStart hook puts the shared rules into the context of every local session; its
-`plan-only.py` hook refuses OpenTofu commands that would change infrastructure.
+`plan-only.py` hook refuses `tofu` commands that would change infrastructure (`env.sh` it does
+not recognise).
 
 **A cloud session on claude.ai/code does not get the plugin.** Claude Code does not install
 the plugins a repository declares in a cloud session, because adding a repository's marketplace

@@ -74,8 +74,8 @@ In this repository, stopping to ask applies especially to:
 - **Infrastructure is applied by a human, never by CI.** The deploy identities are OIDC roles
   scoped to redeploying the application; there is deliberately no credential anywhere that can
   run `tofu apply`. `doc/decisions/deployment-and-aws.md` explains why that is a guarantee
-  rather than a policy. The plugin's `plan-only.py` hook refuses OpenTofu commands that would
-  change infrastructure or its state.
+  rather than a policy. The plugin's `plan-only.py` hook refuses `tofu` commands that would
+  change infrastructure or its state; it does not recognise `env.sh`.
 - **Never hand-edit a version.** A release is a git tag (`v1.2.3`); the
   backend's `pom.xml` carries `${revision}` and the release build overrides it
   from the tag. `main` stays `1.0.0-SNAPSHOT` permanently, and the frontend's
