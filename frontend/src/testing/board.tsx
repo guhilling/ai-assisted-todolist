@@ -84,3 +84,12 @@ export function startAdding(description: string) {
   fireEvent.click(screen.getByRole('button', { name: /add a task/i }))
   fireEvent.change(screen.getByLabelText('What needs doing'), { target: { value: description } })
 }
+
+/**
+ * The calendar, once it has loaded (#484). It is loaded lazily, and that took a quarter of a second
+ * on its own but past the one second `findBy` waits by default now and then under the full suite's
+ * load, so this waits five.
+ */
+export function findCalendar() {
+  return screen.findByRole('grid', {}, { timeout: 5000 })
+}

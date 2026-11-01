@@ -13,6 +13,7 @@ import { useState } from 'react'
 import { describe, expect, it } from 'vitest'
 import DueDateField from './components/DueDateField'
 import { addDays, todayIso } from './dates'
+import { findCalendar } from './testing/board'
 
 function Field() {
   // From today, like every fixture here: a fixed date would put the calendar in a fixed month.
@@ -24,7 +25,7 @@ describe('picking a day', () => {
   it('gives focus back to the calendar button even when the calendar focuses a day late', async () => {
     render(<Field />)
     fireEvent.click(screen.getByRole('button', { name: /choose the due date from a calendar/i }))
-    const calendar = await screen.findByRole('grid')
+    const calendar = await findCalendar()
     const selected = calendar.querySelector<HTMLButtonElement>('[aria-selected="true"] button')!
     const day = within(calendar).getAllByRole('button').find((button) => button !== selected && !button.hasAttribute('disabled'))!
 
