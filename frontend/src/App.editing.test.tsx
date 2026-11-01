@@ -3,9 +3,9 @@
  * calendar on the due-date field -- which the add row shares, so two of its cases start there.
  */
 import { fireEvent, screen, waitFor, within } from '@testing-library/react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { stubApi } from './testing/api'
-import { ALICE, bodyOf, findCalendar, isoIn, openMenu, renderSignedIn, rowFor, startAdding, task } from './testing/board'
+import { ALICE, bodyOf, isoIn, openMenu, renderSignedIn, rowFor, startAdding, task } from './testing/board'
 
 /** The `<details>` element backing a row's menu, for asserting whether it is open. */
 function menuOf(description: string) {
@@ -207,6 +207,11 @@ describe('editing a task', () => {
 })
 
 describe('picking a due date from the calendar', () => {
+  // The calendar is loaded lazily, and its first load can take past the second the waits below
+  // give it under the full suite's load (#484). Loaded here, with a hook's longer time, the tests
+  // find it at once.
+  beforeAll(() => import('./components/CalendarPanel'))
+
   /** The ISO date of `day` in the month that `iso` falls in. */
   function dayOfMonth(iso: string, day: number) {
     return `${iso.slice(0, 8)}${String(day).padStart(2, '0')}`
@@ -219,7 +224,7 @@ describe('picking a due date from the calendar', () => {
 
     expect(screen.queryByRole('grid')).not.toBeInTheDocument()
     fireEvent.click(editor.getByRole('button', { name: /choose the due date from a calendar/i }))
-    const calendar = await findCalendar()
+    const calendar = await screen.findByRole('grid')
     fireEvent.click(within(calendar).getByText('15'))
 
     await waitFor(() => expect(screen.queryByRole('grid')).not.toBeInTheDocument())
@@ -233,7 +238,7 @@ describe('picking a due date from the calendar', () => {
     const editor = within(screen.getByRole('form', { name: 'Edit "Book a table"' }))
 
     fireEvent.click(editor.getByRole('button', { name: /choose the due date from a calendar/i }))
-    const calendar = await findCalendar()
+    const calendar = await screen.findByRole('grid')
     fireEvent.keyDown(calendar, { key: 'Escape' })
 
     await waitFor(() => expect(screen.queryByRole('grid')).not.toBeInTheDocument())
@@ -246,7 +251,7 @@ describe('picking a due date from the calendar', () => {
     startAdding('Something new')
 
     fireEvent.click(screen.getByRole('button', { name: /choose the due date from a calendar/i }))
-    await findCalendar()
+    await screen.findByRole('grid')
     fireEvent.click(document.body)
 
     await waitFor(() => expect(screen.queryByRole('grid')).not.toBeInTheDocument())
@@ -257,7 +262,7 @@ describe('picking a due date from the calendar', () => {
     startAdding('Something new')
 
     fireEvent.click(screen.getByRole('button', { name: /choose the due date from a calendar/i }))
-    const calendar = await findCalendar()
+    const calendar = await screen.findByRole('grid')
 
     const yesterday = within(calendar).queryByRole('button', { name: new RegExp(dayLabel(isoIn(-1))) })
     // Yesterday is only on screen when it falls in the month shown, which starts at tomorrow.
