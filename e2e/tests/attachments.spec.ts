@@ -66,9 +66,8 @@ test('attaches a PDF and an image, opens them, and removes them', async ({ page 
   const fetched = await page.request.get(link)
   expect(fetched.status()).toBe(200)
   expect(Buffer.from(await fetched.body())).toEqual(PDF)
-  for (const tab of page.context().pages().filter((other) => other !== page)) {
-    await tab.close()
-  }
+  // The new tab is left open: the test's browser context closes it at the end, and closing it
+  // here once hung in Chromium (#485).
 
   await row.getByRole('button', { name: 'Remove invoice.pdf' }).click()
   await row.getByRole('button', { name: 'Remove receipt.png' }).click()

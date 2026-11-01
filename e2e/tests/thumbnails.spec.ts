@@ -63,9 +63,8 @@ test('shows a photo on its row by a thumbnail the browser made', async ({ page }
   )
   await row.getByRole('button', { name: 'Open beach.png' }).click()
   expect((await opened).url()).not.toContain('.thumbnail')
-  for (const tab of page.context().pages().filter((other) => other !== page)) {
-    await tab.close()
-  }
+  // The new tab is left open: the test's browser context closes it at the end, and closing it
+  // here once hung in Chromium (#485).
 
   // Tidy, as attachments.spec.ts does: the file, then the task, waiting for the server's answer.
   await row.getByRole('button', { name: 'Remove beach.png' }).click()
