@@ -151,9 +151,9 @@ go when the share's form is closed, with their folders (`releaseShared` in `Main
   restarted Safari, the way the photo's does, and answers a late question the same way. And a tap
   on *Open* hung in Maestro's XCTest runner for nearly three minutes while the app it opened was
   starting; the runner gave the request up and Maestro failed with an error of no name, which its
-  report calls *Unknown error*. `driver-failed.sh` counts that as the driver's when the runner's log
-  says it gave a request up, and only then, so the flow runs once more; an unknown error alone
-  still fails at once. The tap on *Open* also lets the question be gone by the time it looks.
-  Either flow still fails at once when *TaskFest Dev* is not offered, and when the app never
-  opens, now after the second share. Still tried by hand, on TestFlight: text shared on an iPhone, and a share taken on
-  to the board signed in.
+  report calls *Unknown error*. `driver-failed.sh` counts that as the driver's only when Maestro's
+  log says a tap failed and the runner's log says it gave a request up, so the flow runs once
+  more; an unknown error alone still fails at once. The tap on *Open* also lets the question be
+  gone by the time it looks. Either flow still fails at once when *TaskFest Dev* is not offered,
+  and when the app never opens, now after the second share. Still tried by hand, on TestFlight:
+  text shared on an iPhone, and a share taken on to the board signed in.

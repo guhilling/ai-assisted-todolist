@@ -35,8 +35,8 @@ for flow in share-photo share-link; do
       xcrun simctl terminate "$udid" "$bundle" 2>/dev/null || true
     done
     flow_status=0
-    # What is newer than this is the run's own: the XCTest runner's log, which driver-failed.sh
-    # reads too (#473), lands in a folder of the run's start time.
+    # What is newer than this is the run's own: Maestro's log and the XCTest runner's, which
+    # driver-failed.sh reads too (#473), land in a folder of the run's start time.
     started_run=$(mktemp)
     # Maestro's debug output -- its screenshots and every command -- goes into the artifact too, so
     # a failed share shows what the simulator did (#401).
@@ -44,7 +44,7 @@ for flow in share-photo share-link; do
       --format junit --output "maestro-ios-$flow.xml" 2>&1 | tee "$out/$flow-$run-console.txt" || flow_status=1
     runner_logs=()
     while IFS= read -r log; do runner_logs+=("$log"); done \
-      < <(find "$out" -name 'xctest_runner_*.log' -newer "$started_run")
+      < <(find "$out" \( -name 'xctest_runner_*.log' -o -name maestro.log \) -newer "$started_run")
     rm -f "$started_run"
     if (( flow_status == 0 )) || (( run == 2 )) ||
        ! bash "$here/../driver-failed.sh" "$out/$flow-$run-console.txt" "maestro-ios-$flow.xml" \
