@@ -10,7 +10,7 @@
  */
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { useState } from 'react'
-import { describe, expect, it } from 'vitest'
+import { beforeAll, describe, expect, it } from 'vitest'
 import DueDateField from './components/DueDateField'
 import { addDays, todayIso } from './dates'
 
@@ -21,6 +21,11 @@ function Field() {
 }
 
 describe('picking a day', () => {
+  // The calendar is loaded lazily, and its first load can take past the second the waits below
+  // give it under the full suite's load (#484). Loaded here, with a hook's longer time, the tests
+  // find it at once.
+  beforeAll(() => import('./components/CalendarPanel'))
+
   it('gives focus back to the calendar button even when the calendar focuses a day late', async () => {
     render(<Field />)
     fireEvent.click(screen.getByRole('button', { name: /choose the due date from a calendar/i }))
