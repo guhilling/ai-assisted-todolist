@@ -120,10 +120,15 @@ slows things down.
 
 ## Issues
 
+- **The issue forms are account defaults** from the public
+  [guhilling/.github](https://github.com/guhilling/.github) repository (`.github/ISSUE_TEMPLATE/`
+  there), shared with hilling-it-website. Change them there, never by adding a local
+  `.github/ISSUE_TEMPLATE/` here: any valid file in it, `config.yml` included, turns every default
+  off. The `story` and `epic` labels they set must exist in each repository.
 - A piece of work Claude should finish without a conversation first is written with the
-  **Story** issue form (`.github/ISSUE_TEMPLATE/story.yml`): what and why, **done when**,
+  **Story** issue form (`story.yml` there): what and why, **done when**,
   constraints, **decisions — yours or mine**, out of scope.
-- A goal too large for one story is an **Epic** (`.github/ISSUE_TEMPLATE/epic.yml`). It is never
+- A goal too large for one story is an **Epic** (`epic.yml` there). It is never
   implemented directly: it starts with an investigation — options compared, with references —
   whose result is a decision for Gunnar, and is then split into stories linked as sub-issues.
 - **Prefer the outcome to the mechanism.** A named mechanism that turns out not to work costs a
