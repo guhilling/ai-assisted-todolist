@@ -509,7 +509,8 @@ drawn; the plain tick stays legible at 16 pixels, where bamboo turns into a gree
 waits until the one before it has its answer. Only the last one queued has a say on the board: its
 answer is shown, and its failure rolls the task back to what the server last said and is reported.
 An earlier one's answer is passed over and its failure kept quiet, unless the session has ended. A
-save's answer sets the task's fields and leaves its files as the board has them. An editor that is
+save's answer sets the task's fields, keeps the files the board has and adds those it lists that
+the board has not removed. An editor that is
 saving ignores Escape and disables Cancel until the answer has come. An upload to storage that
 takes nothing more for 30 seconds is aborted and fails as any other failed upload does, which
 unlocks the add row; once the whole file is handed over, storage has two minutes to answer.
@@ -522,7 +523,8 @@ flips at once. Rolling back to the server's last answer, rather than to the task
 the click, keeps a tick clicked on another tick that failed from leaving something untrue. An
 earlier failure is kept quiet because the save after it sends the whole task as the board shows it,
 so it says what happens. A file confirmed while an edit was on its way vanished from the row when
-the edit's answer, given before the confirmation, came last. An editor closed while saving looked
+the edit's answer, given before the confirmation, came last. A file attached in another tab is known to the board
+only from an answer, and one the board removed is still in an answer given before the removal. An editor closed while saving looked
 discarded and was saved all the same. A connection that hangs rather than drops never settled an
 upload, so the add row stayed locked until a reload. Thirty seconds without progress count a
 hanging connection as none, as the app's ten seconds do for a request

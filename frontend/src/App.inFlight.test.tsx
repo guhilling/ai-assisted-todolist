@@ -2,7 +2,7 @@
  * A save still on its way while the board changes again (#431): a task's saves go one after
  * another, only the latest one's answer is shown, a failure rolls back to what the server last
  * said, an editor that is saving stays open until the save settles, and a save's answer leaves the
- * files the board already has alone.
+ * files the board already has alone, adding those the server holds unless the board removed them.
  */
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -144,5 +144,44 @@ describe('an editor that is saving', () => {
 
     await waitFor(() => expect(screen.queryByRole('form', { name: 'Edit "Filed meanwhile"' })).not.toBeInTheDocument())
     expect(within(rowFor('Filed meanwhile')).getByText('Scan.pdf')).toBeInTheDocument()
+  })
+})
+
+describe("a save's answer and the task's files", () => {
+  const PDF = { id: 7, fileName: 'Rechnung.pdf', contentType: 'application/pdf', sizeBytes: 12, thumbnail: false }
+  // Each task is done to begin with: a completed row lists no files, and the untick shows them.
+
+  it('shows a file the server holds that the board has not seen, such as one attached in another tab', async () => {
+    const { fetchMock, held } = holdingPuts({
+      me: ALICE,
+      tasks: [{ ...task({ id: 56, description: 'Filed elsewhere', state: 'DONE' }), attachments: [] }],
+    })
+    await renderSignedIn(fetchMock)
+
+    fireEvent.click(checkbox('Filed elsewhere'))
+    await waitFor(() => expect(held).toHaveLength(1))
+    held[0].answer(200, { ...task({ id: 56, description: 'Filed elsewhere' }), attachments: [PDF] })
+
+    expect(await within(rowFor('Filed elsewhere')).findByText('Rechnung.pdf')).toBeInTheDocument()
+  })
+
+  it('does not bring back a file the board removed while the save was on its way', async () => {
+    const { fetchMock, held } = holdingPuts({
+      me: ALICE,
+      tasks: [{ ...task({ id: 57, description: 'Removed meanwhile', state: 'DONE' }), attachments: [PDF] }],
+    })
+    await renderSignedIn(fetchMock)
+
+    fireEvent.click(checkbox('Removed meanwhile'))
+    await waitFor(() => expect(held).toHaveLength(1))
+    fireEvent.click(within(rowFor('Removed meanwhile')).getByRole('button', { name: 'Remove Rechnung.pdf' }))
+    await waitFor(() => expect(screen.queryByText('Rechnung.pdf')).not.toBeInTheDocument())
+
+    // Processed before the removal, so it still lists the file.
+    held[0].answer(200, { ...task({ id: 57, description: 'Removed meanwhile' }), attachments: [PDF] })
+    await settle()
+
+    expect(checkbox('Removed meanwhile')).not.toBeChecked()
+    expect(screen.queryByText('Rechnung.pdf')).not.toBeInTheDocument()
   })
 })

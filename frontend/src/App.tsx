@@ -231,12 +231,29 @@ function Board() {
   }, [])
 
   /**
-   * Shows what a save says of a task's fields, leaving its files as the board has them (#431): a
-   * file confirmed while the save was on its way is not in an answer the backend gave before it.
+   * The files this board has removed (#431), so that an answer given before a removal does not
+   * bring one back.
+   */
+  const removedAttachments = useRef(new Set<Attachment['id']>())
+
+  /**
+   * Shows what a save says of a task, keeping the files the board has and adding those the answer
+   * lists that it has not removed (#431): a file confirmed while the save was on its way is not in
+   * an answer the backend gave before it, and one attached in another tab is only in the answer.
    */
   const showSaved = (saved: Task) =>
     setTasks((current) =>
-      current.map((task) => (task.id === saved.id ? { ...saved, attachments: task.attachments } : task)),
+      current.map((task) => {
+        if (task.id !== saved.id) {
+          return task
+        }
+        const shown = task.attachments ?? []
+        const added = (saved.attachments ?? []).filter(
+          (attachment) =>
+            !removedAttachments.current.has(attachment.id) && !shown.some((kept) => kept.id === attachment.id),
+        )
+        return { ...saved, attachments: [...shown, ...added] }
+      }),
     )
 
   /**
@@ -434,7 +451,10 @@ function Board() {
     remove: (task, attachment) => {
       setError(null)
       removeAttachment(task.id, attachment.id)
-        .then(() => setAttachments(task.id, (current) => current.filter((kept) => kept.id !== attachment.id)))
+        .then(() => {
+          removedAttachments.current.add(attachment.id)
+          setAttachments(task.id, (current) => current.filter((kept) => kept.id !== attachment.id))
+        })
         .catch((removeError: unknown) => reportFailure(removeError, 'deleting'))
     },
     upload: async (task, file, onProgress): Promise<UploadOutcome> => {
