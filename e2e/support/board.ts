@@ -1,8 +1,9 @@
 /**
- * Driving the board the way a person does, shared by the end-to-end scenarios (tests/login.spec.ts
- * and tests/attachments.spec.ts), so the add row's interaction is written down once.
+ * Driving the board the way a person does, shared by the end-to-end scenarios (tests/login.spec.ts,
+ * tests/attachments.spec.ts and tests/thumbnails.spec.ts), so the add row's interaction, and opening
+ * a file, are written down once.
  */
-import type { Page } from '@playwright/test'
+import type { Locator, Page } from '@playwright/test'
 
 /**
  * A due date this many days from today, as the date field takes it. Never a fixed date: the backend
@@ -26,4 +27,26 @@ export async function addTask(page: Page, description: string, dueDate: string, 
   await page.getByRole('textbox', { name: 'Due date' }).fill(dueDate)
   await page.getByRole('combobox', { name: 'Importance' }).selectOption(importance)
   await page.getByRole('button', { name: 'Add', exact: true }).click()
+}
+
+/**
+ * Opens a file from its task's row, which the board does in a new tab pointed at a signed link,
+ * and returns that link. The tab is closed again once its answer has come in whole: closed while
+ * a large photo was still arriving, it once hung in Chromium (#485). And closed at once, because
+ * the live run records every tab and publishes the largest video as the scenario's
+ * (doc/testing/live.md). A PDF is downloaded rather than shown by a headless browser, so its
+ * request may end without an answer; the tab is closed all the same.
+ */
+export async function openFile(page: Page, row: Locator, name: string) {
+  const opened = page.context().waitForEvent(
+    'request',
+    (request) => request.url().includes('X-Amz-Signature') && request.resourceType() === 'document',
+  )
+  await row.getByRole('button', { name: `Open ${name}` }).click()
+  const request = await opened
+  await (await request.response())?.finished()
+  for (const tab of page.context().pages().filter((other) => other !== page)) {
+    await tab.close()
+  }
+  return request.url()
 }

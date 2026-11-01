@@ -10,7 +10,7 @@
  * half way, the live run's teardown deletes the task, and the attachment sweep its files.
  */
 import { expect, test } from '@playwright/test'
-import { addTask, inDays } from '../support/board'
+import { addTask, inDays, openFile } from '../support/board'
 import { currentIdentity, signInAs } from '../support/identity'
 
 const identity = currentIdentity()
@@ -57,17 +57,10 @@ test('attaches a PDF and an image, opens them, and removes them', async ({ page 
 
   // Opening the PDF points a new tab at a signed link. A headless browser downloads a PDF rather
   // than showing it, so the link is taken from the tab's request and fetched to compare the bytes.
-  const opened = page.context().waitForEvent(
-    'request',
-    (request) => request.url().includes('X-Amz-Signature') && request.resourceType() === 'document',
-  )
-  await row.getByRole('button', { name: 'Open invoice.pdf' }).click()
-  const link = (await opened).url()
+  const link = await openFile(page, row, 'invoice.pdf')
   const fetched = await page.request.get(link)
   expect(fetched.status()).toBe(200)
   expect(Buffer.from(await fetched.body())).toEqual(PDF)
-  // The new tab is left open: the test's browser context closes it at the end, and closing it
-  // here once hung in Chromium (#485).
 
   await row.getByRole('button', { name: 'Remove invoice.pdf' }).click()
   await row.getByRole('button', { name: 'Remove receipt.png' }).click()

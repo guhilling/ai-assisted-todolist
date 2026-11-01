@@ -8,7 +8,7 @@
  * in a live run, and removes what it attached.
  */
 import { expect, test } from '@playwright/test'
-import { addTask, inDays } from '../support/board'
+import { addTask, inDays, openFile } from '../support/board'
 import { currentIdentity, signInAs } from '../support/identity'
 
 const identity = currentIdentity()
@@ -57,14 +57,7 @@ test('shows a photo on its row by a thumbnail the browser made', async ({ page }
   expect(await preview.getAttribute('src')).toContain('.thumbnail')
 
   // Opening it still opens the photo itself.
-  const opened = page.context().waitForEvent(
-    'request',
-    (request) => request.url().includes('X-Amz-Signature') && request.resourceType() === 'document',
-  )
-  await row.getByRole('button', { name: 'Open beach.png' }).click()
-  expect((await opened).url()).not.toContain('.thumbnail')
-  // The new tab is left open: the test's browser context closes it at the end, and closing it
-  // here once hung in Chromium (#485).
+  expect(await openFile(page, row, 'beach.png')).not.toContain('.thumbnail')
 
   // Tidy, as attachments.spec.ts does: the file, then the task, waiting for the server's answer.
   await row.getByRole('button', { name: 'Remove beach.png' }).click()
