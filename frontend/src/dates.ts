@@ -99,6 +99,11 @@ export function sectionWeekday(bucket: DueBucket, today: string, locale = DISPLA
   return bucket === 'tomorrow' ? weekdayBeside(addDays(today, 1), today, locale) : null
 }
 
+/** A date's short weekday, "Tue" or "Di", read at UTC midnight so no time zone shifts the day. */
+export function shortWeekday(iso: string, locale = DISPLAY_LOCALE) {
+  return atUtcMidnight(iso).toLocaleDateString(locale, { weekday: 'short', timeZone: 'UTC' })
+}
+
 /**
  * How a due date should read on a task row.
  *
@@ -122,7 +127,7 @@ export function describeDueDate(iso: string, today: string, words: DateWords = e
     return words.daysAgo(-offset)
   }
   if (offset < 7) {
-    return atUtcMidnight(iso).toLocaleDateString(locale, { weekday: 'short', timeZone: 'UTC' })
+    return shortWeekday(iso, locale)
   }
 
   const sameYear = iso.slice(0, 4) === today.slice(0, 4)

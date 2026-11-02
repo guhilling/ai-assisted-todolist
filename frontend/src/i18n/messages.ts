@@ -118,6 +118,8 @@ export const en = {
   },
   editor: {
     label: (description: string) => `Edit "${description}"`,
+    /** A row with a due time, read aloud (#475): the app's, whose row button hides its text. */
+    labelWithTime: (description: string, time: string) => `Edit "${description}", due ${time}`,
     description: 'Description',
     cancel: 'Cancel',
     save: 'Save',
@@ -345,6 +347,7 @@ export const de: Messages = {
   },
   editor: {
     label: (description: string) => `„${description}“ bearbeiten`,
+    labelWithTime: (description: string, time: string) => `„${description}“ bearbeiten, fällig ${time}`,
     description: 'Beschreibung',
     cancel: 'Abbrechen',
     save: 'Speichern',

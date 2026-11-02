@@ -65,6 +65,13 @@ describe("a task's due time on the board (#475)", () => {
     expect(within(row).getByText('Wed 01:00 (New York), Tue 19:00 here')).toBeOnTheScreen()
   })
 
+  it('reads the due time aloud with the task', async () => {
+    await render(<TaskFestApp variant={variants.dev} language="en" dependencies={dependencies()} />)
+
+    expect(await screen.findByLabelText('Edit "Join the stand-up", due 10:00 (Tokyo), 04:00 here')).toBeOnTheScreen()
+    expect(screen.getByLabelText('Edit "Water the plants"')).toBeOnTheScreen()
+  })
+
   it('shows no time on a task without one', async () => {
     await render(<TaskFestApp variant={variants.dev} language="en" dependencies={dependencies()} />)
 

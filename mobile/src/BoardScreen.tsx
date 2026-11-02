@@ -109,7 +109,13 @@ export function BoardScreen({
           ) : null}
           <Pressable
             accessibilityRole={changeable ? 'button' : undefined}
-            accessibilityLabel={changeable ? messages.editor.label(task.description) : undefined}
+            accessibilityLabel={
+              changeable
+                ? dueTime
+                  ? messages.editor.labelWithTime(task.description, dueTime)
+                  : messages.editor.label(task.description)
+                : undefined
+            }
             disabled={!changeable}
             style={styles.rowBody}
             onPress={() => onOpen(task)}

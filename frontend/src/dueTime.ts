@@ -1,5 +1,5 @@
 import type { TaskResponse } from './generated/types'
-import type { DateWords } from './dates'
+import { shortWeekday, todayIso, type DateWords } from './dates'
 
 /**
  * How a task's due time reads on a row (#475): the time alone, or, for a task tied to a time zone
@@ -22,17 +22,19 @@ export function describeDueTime(
     return task.dueTime
   }
   const zone = zoneName(task.timeZone)
-  if (!task.dueAt) {
+  const moment = task.dueAt ? new Date(task.dueAt) : null
+  // No moment, or one this device cannot read: the time there is all that can be said.
+  if (!moment || Number.isNaN(moment.getTime())) {
     return `${task.dueTime} (${zone})`
   }
-  const here = clock(new Date(task.dueAt))
+  const here = clock(moment)
   if (here.date === task.dueDate) {
     return here.time === task.dueTime ? task.dueTime : words.elsewhere(task.dueTime, zone, here.time)
   }
   return words.elsewhere(
-    `${weekday(task.dueDate, locale)} ${task.dueTime}`,
+    `${shortWeekday(task.dueDate, locale)} ${task.dueTime}`,
     zone,
-    `${weekday(here.date, locale)} ${here.time}`,
+    `${shortWeekday(here.date, locale)} ${here.time}`,
   )
 }
 
@@ -42,15 +44,7 @@ export type LocalTime = { date: string; time: string }
 /** A moment on this device's own clock. */
 function localTime(instant: Date): LocalTime {
   const pad = (value: number) => String(value).padStart(2, '0')
-  return {
-    date: `${instant.getFullYear()}-${pad(instant.getMonth() + 1)}-${pad(instant.getDate())}`,
-    time: `${pad(instant.getHours())}:${pad(instant.getMinutes())}`,
-  }
-}
-
-/** A date's short weekday, "Tue" or "Di.", read at UTC midnight so no zone shifts the day. */
-function weekday(iso: string, locale: string) {
-  return new Date(`${iso}T00:00:00Z`).toLocaleDateString(locale, { weekday: 'short', timeZone: 'UTC' })
+  return { date: todayIso(instant), time: `${pad(instant.getHours())}:${pad(instant.getMinutes())}` }
 }
 
 /**

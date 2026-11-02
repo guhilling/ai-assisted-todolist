@@ -40,6 +40,11 @@ describe('describeDueTime', () => {
     expect(describeDueTime(berlin, de.dates, 'de', clockAt(-4))).toBe('Di 01:00 (Berlin), hier Mo 19:00')
   })
 
+  it('names the zone alone when the moment cannot be read', () => {
+    const garbled = { ...task, dueTime: '10:00', timeZone: 'Europe/Berlin', dueAt: 'soon' }
+    expect(describeDueTime(garbled, en.dates, 'en')).toBe('10:00 (Berlin)')
+  })
+
   it('names the zone alone when the backend could not say when that is', () => {
     const unknown = { ...task, dueTime: '10:00', timeZone: 'Europe/Berlin', dueAt: null }
     expect(describeDueTime(unknown, en.dates, 'en', clockAt(0))).toBe('10:00 (Berlin)')
