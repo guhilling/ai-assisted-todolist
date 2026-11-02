@@ -108,6 +108,16 @@ describe('editing a due time', () => {
     await waitFor(() => expect(bodyOf(fetchMock, 'PUT')).toMatchObject({ dueTime: '10:00', timeZone: null }))
   })
 
+  it('gives a task its own zone back when the switch goes off and on again', async () => {
+    await renderSignedIn(stubApi({ me: ALICE, tasks: [zoned] }))
+
+    const editor = startEditing('Meet Berlin')
+    fireEvent.click(editor.getByRole('switch', { name: 'Tied to a time zone' }))
+    fireEvent.click(editor.getByRole('switch', { name: 'Tied to a time zone' }))
+
+    expect(editor.getByLabelText('Time zone')).toHaveValue('Europe/Berlin')
+  })
+
   it('gives an all-day task a time', async () => {
     const plain = task({ id: 8, description: 'Water the plants' })
     const fetchMock = stubApi({ me: ALICE, tasks: [plain], put: { status: 200, body: { ...plain, dueTime: '18:30' } } })

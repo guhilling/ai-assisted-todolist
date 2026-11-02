@@ -694,6 +694,22 @@ html {
   outline-offset: 2px;
 }
 
+/* High contrast replaces the colours: the knob's place and a system colour still say which it is. */
+@media (forced-colors: active) {
+  .zone-switch input {
+    border-color: CanvasText;
+  }
+
+  .zone-switch input::after {
+    background: CanvasText;
+  }
+
+  .zone-switch input:checked {
+    border-color: Highlight;
+    background: Highlight;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .zone-switch input::after {
     transition: none;
@@ -932,6 +948,11 @@ html {
 /* The dot leads the line, so what follows it is not a second item needing a separator. */
 .task-meta > .task-importance + *::before {
   content: none;
+}
+
+/* A due time (#476): its digits keep their width, so rows' times line up as they change. */
+.task-time {
+  font-variant-numeric: tabular-nums;
 }
 
 .task-due--overdue {

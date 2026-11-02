@@ -10,8 +10,8 @@ import { useI18n } from '../i18n/context'
 
 /**
  * What editing may change. The state has its own control: the row's checkbox. The due time and
- * zone come only when either changed, and then together, `null` for none: an update that leaves
- * both out keeps the task's (#497).
+ * zone come only when either changed, and then together, `null` for none; otherwise the save sends
+ * the task's own, and an all-day task's none, which the backend reads as keeping them (#497).
  */
 export type TaskEdit = Pick<Task, 'description' | 'dueDate' | 'importance'> & Partial<Pick<Task, 'dueTime' | 'timeZone'>>
 

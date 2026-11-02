@@ -55,19 +55,25 @@ export function zoneName(zone: string) {
   return zone.slice(zone.lastIndexOf('/') + 1).replaceAll('_', ' ')
 }
 
-/** The zone this browser is in, which a time tied to a zone starts from (#476). */
+/**
+ * The zone this browser is in, which a time tied to a zone starts from (#476): UTC when the browser
+ * names one the picker does not offer, such as a fixed offset like `Etc/GMT-2`, which the backend
+ * refuses.
+ */
 export function browserZone() {
-  return Intl.DateTimeFormat().resolvedOptions().timeZone
+  const zone = Intl.DateTimeFormat().resolvedOptions().timeZone
+  return timeZones().includes(zone) ? zone : 'UTC'
 }
 
 /**
  * The zones a task can be tied to, as the zone picker offers them (#476): the browser's own list,
- * without the `Etc/` zones, which are fixed offsets the backend refuses; `UTC` stays. `current` is
- * added if the list lacks it, so a task's zone is always shown as it is.
+ * without the `Etc/` zones, which are fixed offsets the backend refuses, and with `UTC`, which it
+ * takes. `current` is added if the list lacks it, so a task's zone is always shown as it is.
  */
 export function timeZones(current: string | null = null) {
-  const zones = Intl.supportedValuesOf('timeZone').filter(
-    (zone) => zone === 'UTC' || (zone.includes('/') && !zone.startsWith('Etc/')),
-  )
-  return current && !zones.includes(current) ? [...zones, current].sort() : zones
+  // Safari before 15.4 lacks the list; then the task's zone and UTC are all there is to offer.
+  const known = typeof Intl.supportedValuesOf === 'function' ? Intl.supportedValuesOf('timeZone') : ['UTC']
+  // Browsers list UTC under no name, or as an Etc/ alias; it is offered by its own.
+  const zones = [...known.filter((zone) => zone.includes('/') && !zone.startsWith('Etc/')), 'UTC']
+  return (current && !zones.includes(current) ? [...zones, current] : zones).sort()
 }

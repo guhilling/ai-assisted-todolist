@@ -1,4 +1,4 @@
-import { useId, useMemo } from 'react'
+import { useId, useMemo, useRef } from 'react'
 import { browserZone, timeZones } from '../dueTime'
 import { useI18n } from '../i18n/context'
 
@@ -24,7 +24,8 @@ function DueTimeField({ value, onChange }: Readonly<DueTimeFieldProps>) {
   const { messages } = useI18n()
   const timeId = useId()
   const zoneId = useId()
-  const zones = useMemo(() => timeZones(value.zone), [value.zone])
+  // The zone the switch last held, so turning it off and on again gives a task back its own.
+  const lastZone = useRef(value.zone)
 
   return (
     <>
@@ -46,7 +47,12 @@ function DueTimeField({ value, onChange }: Readonly<DueTimeFieldProps>) {
             type="checkbox"
             role="switch"
             checked={value.zone !== null}
-            onChange={(event) => onChange({ time: value.time, zone: event.target.checked ? browserZone() : null })}
+            onChange={(event) => {
+              if (value.zone !== null) {
+                lastZone.current = value.zone
+              }
+              onChange({ time: value.time, zone: event.target.checked ? (lastZone.current ?? browserZone()) : null })
+            }}
           />
           <span>{messages.dueTime.tied}</span>
         </label>
@@ -54,16 +60,24 @@ function DueTimeField({ value, onChange }: Readonly<DueTimeFieldProps>) {
       {value.time === '' || value.zone === null ? null : (
         <div className="add-field">
           <label htmlFor={zoneId}>{messages.dueTime.zone}</label>
-          <select id={zoneId} value={value.zone} onChange={(event) => onChange({ ...value, zone: event.target.value })}>
-            {zones.map((zone) => (
-              <option key={zone} value={zone}>
-                {zone.replaceAll('_', ' ')}
-              </option>
-            ))}
-          </select>
+          <ZoneSelect id={zoneId} zone={value.zone} onChange={(zone) => onChange({ ...value, zone })} />
         </div>
       )}
     </>
+  )
+}
+
+/** The zone picker, listing the zones only once it is shown: the list is long, and most forms set no zone. */
+function ZoneSelect({ id, zone, onChange }: Readonly<{ id: string; zone: string; onChange: (zone: string) => void }>) {
+  const zones = useMemo(() => timeZones(zone), [zone])
+  return (
+    <select id={id} value={zone} onChange={(event) => onChange(event.target.value)}>
+      {zones.map((each) => (
+        <option key={each} value={each}>
+          {each.replaceAll('_', ' ')}
+        </option>
+      ))}
+    </select>
   )
 }
 

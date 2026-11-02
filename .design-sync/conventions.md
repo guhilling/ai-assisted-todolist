@@ -45,7 +45,8 @@ piece of text needs its own size, it wants one of these four instead.
   `.section-weekday`), `.section-title`, `.section-title--overdue`, `.task-list`,
   `.task-row`, `.task-row--done`, `.task-row--editing`, `.task-body`, `.task-check`, `.task-description`,
   `.task-meta`, `.task-importance` (+ `--low` / `--medium` / `--high`),
-  `.task-due--overdue`, `.task-menu`, `.task-menu-items`, `.task-menu-danger`
+  `.task-due--overdue`, `.task-time` (a due time, #476), `.task-menu`, `.task-menu-items`,
+  `.task-menu-danger`
 - Add row: `.add-row`, `.add-row-plus`, `.add-row-key`, `.add-form`, `.add-field`,
   `.add-description`, `.add-controls`, `.add-actions`, `.quick-dates`; `TaskEditor` reuses
   them with `.task-editor`
