@@ -560,8 +560,8 @@ of the zones `Intl.supportedValuesOf('timeZone')` names, without the `Etc/` offs
 refuses, can change it. Clearing the time clears the zone; turning the switch off and on again
 gives a task back its own zone. An edit changes the time and zone only when either changed, then
 both, `null` for none; otherwise the task's own go back, and an all-day task's none, which an
-update that leaves both out keeps (#497). A browser zone the picker does not offer, a fixed offset
-like `Etc/GMT-2`, starts the switch at UTC instead, and a browser without the list offers UTC. A row shows the time as the app does (#475), after the date, under every heading.
+update that leaves both out keeps (#497). A browser zone that is a fixed offset, like `Etc/GMT-2`,
+starts the switch at UTC instead, and a browser without the list offers UTC. A row shows the time as the app does (#475), after the date, under every heading.
 
 **Why.** A native time field types and reads like the date field next to it, in the browser's own
 12- or 24-hour form, and needs no library. A switch shows at once whether a time is tied, where a

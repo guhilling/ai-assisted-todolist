@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { browserZone, describeDueTime, timeZones, zoneName } from './dueTime'
+import { browserZone, describeDueTime, offerable, timeZones, zoneName } from './dueTime'
 import { de, en } from './i18n/messages'
 
 const task = { dueDate: '2026-10-12' }
@@ -88,6 +88,16 @@ describe('the zones a task can be tied to (#476)', () => {
       timeZone: 'Etc/GMT-2',
     })
     expect(browserZone()).toBe('UTC')
+  })
+
+  it('starts from a zone the list names differently, which the backend takes', () => {
+    vi.spyOn(Intl.DateTimeFormat.prototype, 'resolvedOptions').mockReturnValue({
+      ...new Intl.DateTimeFormat().resolvedOptions(),
+      timeZone: 'Asia/Kolkata',
+    })
+    expect(browserZone()).toBe('Asia/Kolkata')
+    expect(offerable('GMT+1')).toBe('UTC')
+    expect(offerable(null)).toBe('UTC')
   })
 
   it('offers no fixed offsets but UTC, and always the zone a task has', () => {
