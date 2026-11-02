@@ -66,7 +66,7 @@ jobs:
         # trivy.tfvars sets running = true. Without it every billable resource evaluates to
         # zero instances and is never checked at all -- the database once passed this scan by
         # not existing.
-        uses: docker://aquasec/trivy:0.74.0
+        uses: docker://aquasec/trivy:0.76.1
         with:
           args: config --skip-check-update --exit-code 1 --tf-vars deployment/aws-tofu/trivy.tfvars deployment/aws-tofu
 
