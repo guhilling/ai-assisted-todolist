@@ -79,7 +79,8 @@ public class TaskResource {
         + "only with a dueTime. None, or null, for a floating time, which follows the reader's clock.";
 
     private static final String KEPT = " Left out together with the other of dueTime and timeZone, "
-        + "the task keeps both (#497), for apps that know neither.";
+        + "the task keeps both (#497), for apps that know neither. Left out alone, it counts as "
+        + "null, so a timeZone sent without a dueTime is refused.";
 
     private static final String EXAMPLE_TASK = """
         {
