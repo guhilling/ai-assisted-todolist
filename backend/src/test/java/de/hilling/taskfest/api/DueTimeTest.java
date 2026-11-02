@@ -167,16 +167,110 @@ class DueTimeTest {
             .body("timeZone", equalTo("America/New_York"))
             .body("dueAt", equalTo("2099-11-30T21:45:00Z"));
 
-        // An update replaces the whole task, so one without a time makes it all day again.
+        // An update with null for both makes it all day again.
         given()
             .contentType(ContentType.JSON)
-            .body(task(description))
+            .body(at(description, null, null))
             .when().put("/api/tasks/{id}", id)
             .then()
             .statusCode(200)
             .body("dueTime", nullValue())
             .body("timeZone", nullValue())
             .body("dueAt", nullValue());
+    }
+
+    @Test
+    @TestSecurity(user = ALICE)
+    @OidcSecurity(claims = { @Claim(key = "email", value = ALICE) })
+    void shouldKeepTheTimeOfAnUpdateThatLeavesOutTimeAndZone() {
+        // An app before 1.4.0 knows neither field, and must not erase what another client set (#497).
+        String description = "Kept " + UUID.randomUUID();
+        int id = created(at(description, "16:45", "America/New_York"));
+
+        Map<String, Object> renamed = task(description + " renamed");
+        renamed.put("dueDate", "2099-12-01");
+        given()
+            .contentType(ContentType.JSON)
+            .body(renamed)
+            .when().put("/api/tasks/{id}", id)
+            .then()
+            .statusCode(200)
+            .body("description", equalTo(description + " renamed"))
+            .body("dueTime", equalTo("16:45"))
+            .body("timeZone", equalTo("America/New_York"))
+            .body("dueAt", equalTo("2099-12-01T21:45:00Z"));
+    }
+
+    @Test
+    @TestSecurity(user = ALICE)
+    @OidcSecurity(claims = { @Claim(key = "email", value = ALICE) })
+    void shouldClearTheTimeOfAnUpdateThatSendsNullForBoth() {
+        String description = "Cleared " + UUID.randomUUID();
+        int id = created(at(description, "16:45", BERLIN));
+
+        given()
+            .contentType(ContentType.JSON)
+            .body(at(description, null, null))
+            .when().put("/api/tasks/{id}", id)
+            .then()
+            .statusCode(200)
+            .body("dueTime", nullValue())
+            .body("timeZone", nullValue())
+            .body("dueAt", nullValue());
+    }
+
+    @Test
+    @TestSecurity(user = ALICE)
+    @OidcSecurity(claims = { @Claim(key = "email", value = ALICE) })
+    void shouldMakeATimeFloatingOnAnUpdateThatLeavesOutOnlyTheZone() {
+        // The two travel as a pair (Gunnar on #497): only both left out keep what is stored.
+        String description = "Floating now " + UUID.randomUUID();
+        int id = created(at(description, "16:45", BERLIN));
+
+        Map<String, Object> body = task(description);
+        body.put("dueTime", "11:00");
+        given()
+            .contentType(ContentType.JSON)
+            .body(body)
+            .when().put("/api/tasks/{id}", id)
+            .then()
+            .statusCode(200)
+            .body("dueTime", equalTo("11:00"))
+            .body("timeZone", nullValue())
+            .body("dueAt", nullValue());
+    }
+
+    @Test
+    @TestSecurity(user = ALICE)
+    @OidcSecurity(claims = { @Claim(key = "email", value = ALICE) })
+    void shouldRefuseAnUpdateThatSendsOnlyAZone() {
+        // A left-out time is no time, so the zone has none to belong to, whatever is stored.
+        String description = "Zone alone " + UUID.randomUUID();
+        int id = created(at(description, "16:45", BERLIN));
+
+        Map<String, Object> body = task(description);
+        body.put("timeZone", "America/New_York");
+        given()
+            .contentType(ContentType.JSON)
+            .body(body)
+            .when().put("/api/tasks/{id}", id)
+            .then()
+            .statusCode(400);
+    }
+
+    @Test
+    @TestSecurity(user = ALICE)
+    @OidcSecurity(claims = { @Claim(key = "email", value = ALICE) })
+    void shouldRefuseAnUpdatedTimeGivenOtherThanAsText() {
+        int id = created(task("Array later " + UUID.randomUUID()));
+        Map<String, Object> body = task("Array later");
+        body.put("dueTime", java.util.List.of(10, 0, 30));
+        given()
+            .contentType(ContentType.JSON)
+            .body(body)
+            .when().put("/api/tasks/{id}", id)
+            .then()
+            .statusCode(400);
     }
 
     @Test

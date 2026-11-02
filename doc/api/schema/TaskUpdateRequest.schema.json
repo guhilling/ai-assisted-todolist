@@ -30,7 +30,7 @@
         "null"
       ],
       "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$",
-      "description": "The time of day it is due at, to the minute (#474); none, or null, for a task due all day. Floating without a timeZone.",
+      "description": "The time of day it is due at, to the minute (#474); none, or null, for a task due all day. Floating without a timeZone. Left out together with the other of dueTime and timeZone, the task keeps both (#497), for apps that know neither.",
       "examples": [
         "10:00"
       ]
@@ -40,7 +40,7 @@
         "string",
         "null"
       ],
-      "description": "The IANA zone dueTime is meant in (#474), one the backend knows; only with a dueTime. None, or null, for a floating time, which follows the reader's clock.",
+      "description": "The IANA zone dueTime is meant in (#474), one the backend knows; only with a dueTime. None, or null, for a floating time, which follows the reader's clock. Left out together with the other of dueTime and timeZone, the task keeps both (#497), for apps that know neither.",
       "examples": [
         "Europe/Berlin"
       ],

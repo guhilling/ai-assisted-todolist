@@ -29,6 +29,7 @@ commit that first wrote each one down. CI checks every line and that this index 
 - [A user has at most five open drafts](domain-and-backend.md#a-user-has-at-most-five-open-drafts)
 - [A new task's due date may be today anywhere](domain-and-backend.md#a-new-tasks-due-date-may-be-today-anywhere)
 - [A due time is optional, and its zone is too](domain-and-backend.md#a-due-time-is-optional-and-its-zone-is-too)
+- [An update that leaves out the due time keeps it](domain-and-backend.md#an-update-that-leaves-out-the-due-time-keeps-it)
 
 ## [Authentication](authentication.md)
 

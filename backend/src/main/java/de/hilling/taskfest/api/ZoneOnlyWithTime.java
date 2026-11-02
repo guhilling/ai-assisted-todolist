@@ -19,7 +19,9 @@ import java.lang.annotation.Target;
  */
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.RUNTIME)
-@Constraint(validatedBy = ZoneOnlyWithTime.Validator.class)
+@Constraint(validatedBy = {
+    ZoneOnlyWithTime.Validator.class, ZoneOnlyWithTime.UpdateValidator.class
+})
 public @interface ZoneOnlyWithTime {
 
     /** What a refused request is told. */
@@ -37,6 +39,20 @@ public @interface ZoneOnlyWithTime {
         @Override
         public boolean isValid(TaskResource.TaskFields value, ConstraintValidatorContext context) {
             return value == null || value.timeZone() == null || value.dueTime() != null;
+        }
+    }
+
+    /**
+     * The same for an update, where a left-out time is none, too (#497): only both left out keep
+     * the task's, and then nothing new is set.
+     */
+    final class UpdateValidator
+        implements ConstraintValidator<ZoneOnlyWithTime, TaskResource.TaskUpdateRequest> {
+
+        @Override
+        public boolean isValid(TaskResource.TaskUpdateRequest value,
+                               ConstraintValidatorContext context) {
+            return value == null || value.sentTimeZone() == null || value.sentDueTime() != null;
         }
     }
 }
