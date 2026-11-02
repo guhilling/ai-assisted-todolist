@@ -20,7 +20,7 @@
         <awssdk.version>2.55.11</awssdk.version>
         <!-- The Quarkiverse Amazon services line built against this project's Quarkus minor. -->
         <quarkus-amazon-services.version>3.22.1</quarkus-amazon-services.version>
-        <surefire-plugin.version>3.6.0</surefire-plugin.version>
+        <surefire-plugin.version>3.6.1</surefire-plugin.version>
         <checkstyle-plugin.version>3.6.0</checkstyle-plugin.version>
         <enforcer-plugin.version>3.6.3</enforcer-plugin.version>
         <jacoco-plugin.version>0.8.16</jacoco-plugin.version>
