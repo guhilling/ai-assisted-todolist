@@ -255,6 +255,17 @@ function toTask(data: unknown): Task {
   if (data.attachments) {
     task.attachments = data.attachments.map((attachment) => toAttachment(attachment, 'task'))
   }
+  // Kept so that putTask can send them back (#475): a task read without them would lose its time
+  // on its next tick, edit or undo. Copied only when sent, like the attachments.
+  if (data.dueTime !== undefined) {
+    task.dueTime = data.dueTime
+  }
+  if (data.timeZone !== undefined) {
+    task.timeZone = data.timeZone
+  }
+  if (data.dueAt !== undefined) {
+    task.dueAt = data.dueAt
+  }
   return task
 }
 
