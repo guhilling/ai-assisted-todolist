@@ -1,5 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { browserZone, describeDueTime, offerable, timeZones, zoneName } from './dueTime'
+import {
+  browserZone,
+  describeDueTime,
+  forgetZones,
+  offerable,
+  timeZones,
+  zoneName,
+} from './dueTime'
 import { de, en } from './i18n/messages'
 
 const task = { dueDate: '2026-10-12' }
@@ -111,10 +118,12 @@ describe('the zones a task can be tied to (#476)', () => {
   it('offers UTC and the task\'s zone in a browser without the list', () => {
     const list = Intl.supportedValuesOf
     Object.defineProperty(Intl, 'supportedValuesOf', { value: undefined, configurable: true, writable: true })
+    forgetZones()
     try {
       expect(timeZones('Europe/Berlin')).toEqual(['Europe/Berlin', 'UTC'])
     } finally {
       Object.defineProperty(Intl, 'supportedValuesOf', { value: list, configurable: true, writable: true })
+      forgetZones()
     }
   })
 })

@@ -118,6 +118,29 @@ describe('editing a due time', () => {
     expect(editor.getByLabelText('Time zone')).toHaveValue('Europe/Berlin')
   })
 
+  it('keeps the zone while a part of the time is typed again', async () => {
+    await renderSignedIn(stubApi({ me: ALICE, tasks: [zoned] }))
+
+    const editor = startEditing('Meet Berlin')
+    const time = editor.getByLabelText('Time') as HTMLInputElement
+    // What a browser reports while the minutes are typed again: no value, and bad input.
+    Object.defineProperty(time, 'validity', { value: { badInput: true }, configurable: true })
+    fireEvent.change(time, { target: { value: '' } })
+
+    expect(editor.getByLabelText('Time zone')).toHaveValue('Europe/Berlin')
+  })
+
+  it('gives the zone back when a cleared time is set again', async () => {
+    await renderSignedIn(stubApi({ me: ALICE, tasks: [zoned] }))
+
+    const editor = startEditing('Meet Berlin')
+    fireEvent.change(editor.getByLabelText('Time'), { target: { value: '' } })
+    fireEvent.change(editor.getByLabelText('Time'), { target: { value: '11:00' } })
+    fireEvent.click(editor.getByRole('switch', { name: 'Tied to a time zone' }))
+
+    expect(editor.getByLabelText('Time zone')).toHaveValue('Europe/Berlin')
+  })
+
   it('gives an all-day task a time', async () => {
     const plain = task({ id: 8, description: 'Water the plants' })
     const fetchMock = stubApi({ me: ALICE, tasks: [plain], put: { status: 200, body: { ...plain, dueTime: '18:30' } } })

@@ -37,6 +37,14 @@ function DueTimeField({ value, onChange }: Readonly<DueTimeFieldProps>) {
           value={value.time}
           onChange={(event) => {
             const time = event.target.value
+            // A time half typed, or a part being typed again, reads as none: it is not cleared, and
+            // the browser keeps the form from being sent until it is whole.
+            if (time === '' && event.target.validity.badInput) {
+              return
+            }
+            if (time === '' && value.zone !== null) {
+              lastZone.current = value.zone
+            }
             onChange({ time, zone: time === '' ? null : value.zone })
           }}
         />

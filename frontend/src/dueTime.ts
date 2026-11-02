@@ -68,8 +68,11 @@ export function browserZone() {
  * (`Etc/…`, `GMT+1`), which the backend refuses. Not checked against a list: lists and devices name
  * some zones differently, `Asia/Calcutta` and `Asia/Kolkata`, and the backend takes both.
  */
-export function offerable(zone: string | null) {
-  return zone === 'UTC' || (zone?.includes('/') && !zone.startsWith('Etc/')) ? zone : 'UTC'
+export function offerable(zone: string | null): string {
+  if (zone === 'UTC' || (zone !== null && zone.includes('/') && !zone.startsWith('Etc/'))) {
+    return zone
+  }
+  return 'UTC'
 }
 
 /**
@@ -78,9 +81,25 @@ export function offerable(zone: string | null) {
  * takes. `current` is added if the list lacks it, so a task's zone is always shown as it is.
  */
 export function timeZones(current: string | null = null) {
-  // Safari before 15.4 lacks the list; then the task's zone and UTC are all there is to offer.
-  const known = typeof Intl.supportedValuesOf === 'function' ? Intl.supportedValuesOf('timeZone') : ['UTC']
-  // Browsers list UTC under no name, or as an Etc/ alias; it is offered by its own.
-  const zones = [...known.filter((zone) => zone !== 'UTC' && offerable(zone) === zone), 'UTC']
-  return (current && !zones.includes(current) ? [...zones, current] : zones).sort()
+  const zones = browserZones()
+  return current && !zones.includes(current) ? [...zones, current].sort() : zones
+}
+
+/** The browser's zones as offered, worked out once: they stay the same while a page is open. */
+let offered: string[] | undefined
+
+function browserZones() {
+  if (!offered) {
+    // Safari before 15.4 lacks the list; then the task's zone and UTC are all there is to offer.
+    const listed = typeof Intl.supportedValuesOf === 'function'
+    const known = listed ? Intl.supportedValuesOf('timeZone') : []
+    // Browsers list UTC under no name, or as an Etc/ alias; it is offered by its own.
+    offered = [...known.filter((zone) => zone !== 'UTC' && offerable(zone) === zone), 'UTC'].sort()
+  }
+  return offered
+}
+
+/** Forgets the zones worked out, for a test that changes what the browser lists. */
+export function forgetZones() {
+  offered = undefined
 }
