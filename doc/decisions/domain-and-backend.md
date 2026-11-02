@@ -492,7 +492,8 @@ same reason; UTC and GMT, which are meant as themselves, are not. A stored zone 
 one from newer tzdata, after a rollback -- gives the task no `dueAt` instead of failing every
 task's read. The longest name the
 JDK knows is 32 characters; the column takes twice that. A zone without a time is refused by
-`@ZoneOnlyWithTime` and by the `task_zone_only_with_time` check constraint.
+`@ZoneOnlyWithTime` and by the `task_zone_only_with_time` check constraint, and a time with seconds,
+which `TIME(0)` would keep, by `task_due_time_whole_minutes`.
 
 **Cost.** An update replaces the whole task, so a client that does not know the fields erases a time
 on its next edit, ticking the task off included (#268). The website and the app send exactly the old

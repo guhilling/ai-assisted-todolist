@@ -265,4 +265,18 @@ class DueTimeTest {
             assertThat(refused.getMessage(), containsString("task_zone_only_with_time"));
         }
     }
+    @Test
+    @TestSecurity(user = ALICE)
+    @OidcSecurity(claims = { @Claim(key = "email", value = ALICE) })
+    void shouldHaveTheDatabaseRefuseATimeWithSeconds() throws SQLException {
+        int id = created(task("Written around the API " + UUID.randomUUID()));
+
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement statement = connection.prepareStatement(
+                 "update task set due_time = '10:00:30', time_zone = null where id = ?")) {
+            statement.setLong(1, id);
+            SQLException refused = assertThrows(SQLException.class, statement::executeUpdate);
+            assertThat(refused.getMessage(), containsString("task_due_time_whole_minutes"));
+        }
+    }
 }
