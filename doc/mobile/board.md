@@ -17,6 +17,15 @@ and the sign-in has it at its top as well (#384).
   draws the dots as the website does — hollow, solid, ringed, not by colour alone — and shows an
   overdue row's date in red.
 
+- **A task's due time** (#475) — a task the website gave a time shows it under its description:
+  "10:00" for one that follows wherever its owner is, or one tied to a time zone that is the
+  phone's at that moment. One tied to another zone says the time there, the zone's city, and the
+  time on the phone: "10:00 (Berlin), 04:00 here". It is filed under its own date, the zone's, and
+  when the phone's day differs, both days are named: "Tue 01:00 (Berlin), Mon 19:00 here". The
+  phone needs no time-zone data for this; the backend's `dueAt` is the moment, and the phone's
+  clock reads it. The app cannot set a time yet (#477), but sends a task's time and zone back with
+  every change, and an undo puts them back too, so no edit or undo in the app erases them.
+
 - **Add a task** — the button below the board opens a form: the description, the due date, and the
   importance. The due date is one of the website's shortcuts (today, tomorrow, in one or two weeks)
   or any day from the platform's own calendar — a dialog on Android, a calendar in the form on

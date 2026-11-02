@@ -4,7 +4,7 @@ import type { BoardTask } from './api'
 import { FileStrip, type FileLinkSource } from './Attachments'
 import { boardOf, isChangeable } from './board'
 import type { Styles } from './styles'
-import { bucketOf, describeDueDateWithWeekday, importanceByRank, localeOf, sectionWeekday, type Attachment, type Language, type Messages } from './web'
+import { bucketOf, describeDueDateWithWeekday, describeDueTime, importanceByRank, localeOf, sectionWeekday, type Attachment, type Language, type Messages } from './web'
 import { AboutLink } from './LegalLinks'
 
 /** How long the offer to undo a delete stands: the website's eight seconds. */
@@ -86,6 +86,9 @@ export function BoardScreen({
   const row = (task: BoardTask, sayWhen: boolean) => {
     const changeable = isChangeable(task)
     const done = task.state === 'DONE'
+    // Under the description rather than beside the date (#475): the Today and Tomorrow rows say
+    // no date, and a zoned task's time there and here would not fit beside one.
+    const dueTime = describeDueTime(task, messages.dates, locale)
     return (
       // The files stand below the row's button, not inside it: a button's contents are one element
       // to a screen reader, and each file must be reachable on its own.
@@ -106,7 +109,13 @@ export function BoardScreen({
           ) : null}
           <Pressable
             accessibilityRole={changeable ? 'button' : undefined}
-            accessibilityLabel={changeable ? messages.editor.label(task.description) : undefined}
+            accessibilityLabel={
+              changeable
+                ? dueTime
+                  ? messages.editor.labelWithTime(task.description, dueTime)
+                  : messages.editor.label(task.description)
+                : undefined
+            }
             disabled={!changeable}
             style={styles.rowBody}
             onPress={() => onOpen(task)}
@@ -119,6 +128,7 @@ export function BoardScreen({
             )}
             <View style={styles.description}>
               <Text style={[styles.description, done && styles.done]}>{task.description}</Text>
+              {dueTime ? <Text style={styles.muted}>{dueTime}</Text> : null}
               {changeable ? null : <Text style={styles.muted}>{messages.row.updateToChange}</Text>}
             </View>
             {task.unknown?.includes('state') ? (

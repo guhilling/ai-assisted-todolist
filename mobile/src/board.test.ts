@@ -29,6 +29,16 @@ describe('the board', () => {
     ])
   })
 
+  it('files a task by its due date, not by the day its due time falls on here (#475)', () => {
+    // Due on the 14th in its own zone, which is still the 10th on this phone's clock.
+    const board = boardOf([task(6, '2026-10-14', { dueTime: '01:00', timeZone: 'Asia/Tokyo',
+      dueAt: new Date(2026, 9, 10, 19).toISOString() })], TODAY)
+
+    expect(board.sections.map((section) => [section.bucket, section.tasks.map((t) => t.id)])).toEqual([
+      ['thisWeek', [6]],
+    ])
+  })
+
   it('leaves out sections with nothing in them', () => {
     expect(boardOf([task(1, TODAY)], TODAY).sections.map((section) => section.bucket)).toEqual(['today'])
   })

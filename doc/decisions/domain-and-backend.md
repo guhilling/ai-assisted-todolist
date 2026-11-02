@@ -496,8 +496,9 @@ JDK knows is 32 characters; the column takes twice that. A zone without a time i
 which `TIME(0)` would keep, by `task_due_time_whole_minutes`.
 
 **Cost.** An update replaces the whole task, so a client that does not know the fields erases a time
-on its next edit, ticking the task off included (#268). The website and the app send exactly the old
-four fields today; neither can set a time until #475 has the app round-trip them.
+on its next edit, ticking the task off included (#268). Since #475 the website and the app send the
+two fields back unchanged, and an undo puts them back; an app installed before that release still
+erases them, which is why `taskfest.minimum-app-version` is raised to it before anyone can set a time.
 
 **Rejected.** A floating time only (A) puts the Berlin meeting at 10:00 in New York. A zone always
 captured from the device (B) fires the pills at 08:00 of the zone the owner flew out of. A stored

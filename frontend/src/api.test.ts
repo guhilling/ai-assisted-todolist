@@ -168,3 +168,36 @@ describe('trusting a response', () => {
     await expect(fetchAuthProviders()).resolves.toEqual(unusable)
   })
 })
+
+describe('saving a task with a due time (#475)', () => {
+  it('keeps the due time, time zone and moment the backend sends with a task', async () => {
+    const timed = { ...VALID, dueTime: '10:00', timeZone: 'Europe/Berlin', dueAt: '2026-12-31T09:00:00Z' }
+    globalThis.fetch = vi.fn(() =>
+      Promise.resolve(new Response(JSON.stringify([timed]), { status: 200 })),
+    ) as unknown as typeof fetch
+
+    await expect(fetchTasks()).resolves.toEqual([timed])
+  })
+
+  it('sends its due time and time zone back, so no edit or undo on the website erases them', async () => {
+    const bodies: unknown[] = []
+    const fetchMock = vi.fn((_input: RequestInfo | URL, init?: RequestInit) => {
+      bodies.push(JSON.parse(String(init?.body)))
+      return Promise.resolve(new Response(JSON.stringify(VALID), { status: 200 }))
+    })
+    globalThis.fetch = fetchMock as unknown as typeof fetch
+
+    await putTask({ ...VALID, dueTime: '10:00', timeZone: 'Europe/Berlin', dueAt: '2026-12-31T09:00:00Z' })
+
+    expect(bodies).toEqual([
+      {
+        description: 'Write the report',
+        dueDate: '2026-12-31',
+        dueTime: '10:00',
+        timeZone: 'Europe/Berlin',
+        importance: 'MEDIUM',
+        state: 'TODO',
+      },
+    ])
+  })
+})
