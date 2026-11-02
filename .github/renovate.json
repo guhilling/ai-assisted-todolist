@@ -6,7 +6,7 @@
     "file adds only this repository's own managers and rules. See doc/decisions/build-and-dependencies.md."
   ],
   "extends": [
-    "github>guhilling/dev-conventions#v1.1.0"
+    "github>guhilling/dev-conventions#v1.3.0"
   ],
   "customManagers": [
     {
