@@ -225,6 +225,20 @@ describe("a task's due time in the form (#477)", () => {
     })
   })
 
+  it('turns the switch from its words too, as the website does', async () => {
+    const user = userEvent.setup()
+    await render(form({ task: zoned }))
+
+    // Hidden from screen readers, which hear the switch alone, so it is looked up as hidden.
+    const words = () => screen.getByTestId('zone-switch-label', { includeHiddenElements: true })
+    await user.press(words())
+    expect(screen.getByRole('switch', { name: 'Tied to a time zone' })).not.toBeChecked()
+
+    await user.press(words())
+    expect(screen.getByRole('switch', { name: 'Tied to a time zone' })).toBeChecked()
+    expect(screen.getByRole('button', { name: 'Asia/Tokyo' })).toBeOnTheScreen()
+  })
+
   it("draws the switch in the website's colours, not the platform's", async () => {
     await render(form({ task: zoned }))
 

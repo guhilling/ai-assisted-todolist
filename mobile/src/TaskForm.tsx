@@ -205,6 +205,16 @@ export function TaskForm({
   const toggleTimePicker = () => setPickingTime(!pickingTime)
   const toggleZoneSearch = () => setZoneSearch(zoneSearch === null ? '' : null)
 
+  /** Ties the time to a zone or lets it float, from the switch or its words. */
+  function tieToZone(on: boolean) {
+    if (timeZone !== null) {
+      setLastZone(timeZone)
+    }
+    // Off by default, a floating time (Gunnar on #290); on, it starts from the phone's zone.
+    setTimeZone(on ? (lastZone ?? phoneZone()) : null)
+    setZoneSearch(null)
+  }
+
   /** Clears the time and its zone: a zone says nothing without a time; the backend refuses it. */
   function clearTime() {
     if (timeZone !== null) {
@@ -302,17 +312,17 @@ export function TaskForm({
                 trackColor={{ true: theme.accent, false: theme.border }}
                 thumbColor={theme.bg}
                 ios_backgroundColor={theme.border}
-                onValueChange={(on) => {
-                  if (timeZone !== null) {
-                    setLastZone(timeZone)
-                  }
-                  // Off by default, a floating time (Gunnar on #290); on, it starts from the
-                  // phone's zone.
-                  setTimeZone(on ? (lastZone ?? phoneZone()) : null)
-                  setZoneSearch(null)
-                }}
+                onValueChange={tieToZone}
               />
-              <Text style={styles.chipText}>{messages.dueTime.tied}</Text>
+              {/* Its words turn it too, as the website's label does; only the switch is read. */}
+              <Pressable
+                testID="zone-switch-label"
+                accessible={false}
+                importantForAccessibility="no-hide-descendants"
+                onPress={() => tieToZone(timeZone === null)}
+              >
+                <Text style={styles.chipText}>{messages.dueTime.tied}</Text>
+              </Pressable>
             </View>
           )}
           {dueTime === null || timeZone === null ? null : (
