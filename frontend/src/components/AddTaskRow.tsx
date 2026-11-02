@@ -5,6 +5,7 @@ import { importanceLevels } from '../importance'
 import type { AttachmentActions } from './AttachmentList'
 import { FileList, Problems, UploadProgress } from './AttachmentPicker'
 import DueDateField from './DueDateField'
+import DueTimeField, { type DueTimeValue } from './DueTimeField'
 import FileDrop from './FileDrop'
 import { useUploads, withinRoom } from './useUploads'
 import { useEscapeWithin } from '../escape'
@@ -19,6 +20,8 @@ type AddTaskRowProps = {
   attachments?: AttachmentActions
 }
 
+/** A new task's due time until one is set: all day. */
+const NO_TIME: DueTimeValue = { time: '', zone: null }
 
 /**
  * The inline "add a task" affordance at the top of the board.
@@ -44,6 +47,7 @@ function AddTaskRow({ today, saving, onAdd, attachments }: Readonly<AddTaskRowPr
   const [description, setDescription] = useState('')
   const [dueDate, setDueDate] = useState(addDays(today, 1))
   const [importance, setImportance] = useState<TaskImportance>('MEDIUM')
+  const [dueTime, setDueTime] = useState<DueTimeValue>(NO_TIME)
   const descriptionRef = useRef<HTMLInputElement>(null)
   const opener = useRef<HTMLButtonElement>(null)
   // Whether the row has been open, so its closing -- not the board's first drawing -- moves the focus.
@@ -118,6 +122,7 @@ function AddTaskRow({ today, saving, onAdd, attachments }: Readonly<AddTaskRowPr
     setDescription('')
     setDueDate(addDays(today, 1))
     setImportance('MEDIUM')
+    setDueTime(NO_TIME)
     setHeld([])
   }
 
@@ -162,7 +167,15 @@ function AddTaskRow({ today, saving, onAdd, attachments }: Readonly<AddTaskRowPr
     // task exists, but the backend requires the field.
     files.clearProblems()
     adding.current = true
-    const saved = await onAdd({ description: description.trim(), dueDate, importance, state: 'TODO' })
+    // A time and a zone go only when set: left out, a new task has neither (#476).
+    const saved = await onAdd({
+      description: description.trim(),
+      dueDate,
+      ...(dueTime.time === '' ? {} : { dueTime: dueTime.time }),
+      ...(dueTime.zone === null ? {} : { timeZone: dueTime.zone }),
+      importance,
+      state: 'TODO',
+    })
     if (!saved) {
       adding.current = false
       refocus.current = true
@@ -238,6 +251,7 @@ function AddTaskRow({ today, saving, onAdd, attachments }: Readonly<AddTaskRowPr
         <div className="add-controls">
           {/* min matches the backend, which refuses a new task dated in the past. */}
           <DueDateField value={dueDate} min={today} onChange={setDueDate} />
+          <DueTimeField value={dueTime} onChange={setDueTime} />
           <label className="add-field">
             <span>{messages.importance.label}</span>
             <select value={importance} onChange={(event) => setImportance(event.target.value as TaskImportance)}>

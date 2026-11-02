@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Task } from '../api'
 import { bucketOf, describeDueDate, daysBetween, weekdayBeside } from '../dates'
+import { describeDueTime } from '../dueTime'
 import AttachmentList, { type AttachmentActions } from './AttachmentList'
 import TaskEditor, { type TaskEdit } from './TaskEditor'
 import { useI18n } from '../i18n/context'
@@ -36,6 +37,7 @@ function TaskRow({ task, today, onToggleDone, onDelete, onEdit, attachments }: R
   // there the row says which.
   const dueSaidByHeading = !done && ['today', 'tomorrow'].includes(bucketOf(task.dueDate, today))
   const weekday = weekdayBeside(task.dueDate, today, locale)
+  const time = describeDueTime(task, messages.dates, locale)
   const inputId = `task-${task.id}`
   const menuId = `task-menu-${task.id}`
   const summaryId = `task-menu-summary-${task.id}`
@@ -154,6 +156,8 @@ function TaskRow({ task, today, onToggleDone, onDelete, onEdit, attachments }: R
               {weekday ? <span>{weekday}</span> : null}
             </>
           )}
+          {/* Under any heading: no heading says the time (#476). */}
+          {time ? <span className="task-time">{time}</span> : null}
         </p>
         {attachments ? <AttachmentList task={task} actions={attachments} removable={editable} /> : null}
       </div>

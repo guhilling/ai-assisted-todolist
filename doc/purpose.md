@@ -3,8 +3,8 @@
 ## What this is
 
 A todo list, on the web and as an app for iOS and Android. A signed-in user keeps a small
-board of tasks, each with a description, a due date, an importance and a workflow state, and
-files attached to it. The website and the apps show the same board; the apps also remind on the
+board of tasks, each with a description, a due date, perhaps a time of day, an importance and a
+workflow state, and files attached to it. The website and the apps show the same board; the apps also remind on the
 day a task is due, keep the board readable offline, and turn what another app shares into a
 task. Tasks are private to their owner. That is the whole product.
 

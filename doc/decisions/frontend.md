@@ -548,3 +548,27 @@ the row comes back as it was deleted.
 **Rejected: a fixed limit for the whole upload**, such as the link's ten minutes. A file of 10 MB
 on a slow line takes long enough that any limit short enough to help would cut it off, and one long
 enough would keep the row locked for minutes.
+
+## A due time is a native time field, and its zone a switch with the browser's list
+
+*Accepted · 2026-11-02 · #476*
+
+**Decision.** The add row and the editor take an optional time in an `input type="time"`, after the
+due date. With a time, a switch "Tied to a time zone" appears, off by default, so a time floats
+unless it is tied (Gunnar on #290). Turned on, it starts from the browser's zone, and a `<select>`
+of the zones `Intl.supportedValuesOf('timeZone')` names, without the `Etc/` offsets the backend
+refuses, can change it. Clearing the time clears the zone. An edit sends the time and zone only
+when either changed, and then both, `null` for none, because an update that leaves both out keeps
+them (#497). A row shows the time as the app does (#475), after the date, under every heading.
+
+**Why.** A native time field types and reads like the date field next to it, in the browser's own
+12- or 24-hour form, and needs no library. A switch shows at once whether a time is tied, where a
+zone picker alone would always show a zone. The browser's list of zones is the same tzdata the
+backend checks against, so no list is kept here; offering the offsets would offer what is refused.
+Sending the pair only when it changed keeps an edit of an all-day task as it was before due times.
+
+**Cost.** The zone picker is a long list, by IANA name ("America/New York"), not by city or offset.
+A browser that knows a zone the backend's JDK does not yet offers it, and the save is refused.
+
+**Rejected: a free-text zone with suggestions**, which a mistyped name would only fail on Save, and
+**a picker by UTC offset**, which is a zone only half the year (#474).

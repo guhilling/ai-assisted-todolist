@@ -641,6 +641,65 @@ html {
   background: var(--surface);
 }
 
+/* ---------- due time: the switch tying it to a zone (#476) ---------- */
+
+/* Sits on the fields' baseline, a 44px target like them, with its words beside it. */
+.zone-switch {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 44px;
+  font-size: var(--font-small);
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+/* A checkbox drawn as a switch: a track, and a knob that moves across when it is on. */
+.zone-switch input {
+  appearance: none;
+  position: relative;
+  flex: none;
+  width: 36px;
+  height: 20px;
+  margin: 0;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--border);
+  cursor: pointer;
+}
+
+.zone-switch input::after {
+  content: '';
+  position: absolute;
+  top: 1px;
+  left: 1px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--surface);
+  transition: transform 120ms ease-out;
+}
+
+.zone-switch input:checked {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+.zone-switch input:checked::after {
+  transform: translateX(16px);
+}
+
+.zone-switch input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .zone-switch input::after {
+    transition: none;
+  }
+}
+
 /* ---------- due date field: a typed date plus a calendar popover ---------- */
 
 .date-field {

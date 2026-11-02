@@ -50,6 +50,8 @@ piece of text needs its own size, it wants one of these four instead.
   `.add-description`, `.add-controls`, `.add-actions`, `.quick-dates`; `TaskEditor` reuses
   them with `.task-editor`
 - Due date: `.date-field`, `.date-field-row`, `.date-field-toggle`, `.date-field-popover`
+- Due time (`DueTimeField`, in `.add-controls` after the date): `.add-field` for the time and the
+  zone, and `.zone-switch` for the switch between them, a checkbox with the `switch` role
 - Controls: `.button-primary`, `.button-quiet`, `.text-link`, `.chip`, `.chip--active`
 - Signed out: `.signed-out`, `.signed-out-title`, `.signed-out-copy`, `.signed-out-actions`,
   `.signed-out-note`; the sign-in buttons `.sign-in-google` (Google's official button image, used

@@ -4,11 +4,16 @@ import { importanceLevels } from '../importance'
 import type { AttachmentActions } from './AttachmentList'
 import AttachmentPicker from './AttachmentPicker'
 import DueDateField from './DueDateField'
+import DueTimeField, { type DueTimeValue } from './DueTimeField'
 import { useEscapeWithin } from '../escape'
 import { useI18n } from '../i18n/context'
 
-/** What editing may change. The state has its own control: the row's checkbox. */
-export type TaskEdit = Pick<Task, 'description' | 'dueDate' | 'importance'>
+/**
+ * What editing may change. The state has its own control: the row's checkbox. The due time and
+ * zone come only when either changed, and then together, `null` for none: an update that leaves
+ * both out keeps the task's (#497).
+ */
+export type TaskEdit = Pick<Task, 'description' | 'dueDate' | 'importance'> & Partial<Pick<Task, 'dueTime' | 'timeZone'>>
 
 type TaskEditorProps = {
   task: Task
@@ -22,7 +27,7 @@ type TaskEditorProps = {
 /**
  * A row turned into a form, for correcting a task that already exists.
  *
- * It offers the same three fields as adding a task, in the same layout, so editing needs no
+ * It offers the same fields as adding a task, in the same layout, so editing needs no
  * new vocabulary. Unlike adding, the due date may stay in the past: a task that came due
  * yesterday is still yesterday's, and the backend accepts that on an update for the same
  * reason. Escape and Cancel discard; nothing reaches the server until Save. While a save is on
@@ -33,6 +38,7 @@ function TaskEditor({ task, saving, onSave, onCancel, attachments }: Readonly<Ta
   const [description, setDescription] = useState(task.description)
   const [dueDate, setDueDate] = useState(task.dueDate)
   const [importance, setImportance] = useState<TaskImportance>(task.importance)
+  const [dueTime, setDueTime] = useState<DueTimeValue>({ time: task.dueTime ?? '', zone: task.timeZone ?? null })
   const descriptionRef = useRef<HTMLInputElement>(null)
   const form = useRef<HTMLFormElement>(null)
 
@@ -52,7 +58,13 @@ function TaskEditor({ task, saving, onSave, onCancel, attachments }: Readonly<Ta
       onSubmit={(event) => {
         event.preventDefault()
         if (!blank) {
-          onSave({ description: description.trim(), dueDate, importance })
+          const timeChanged = dueTime.time !== (task.dueTime ?? '') || dueTime.zone !== (task.timeZone ?? null)
+          onSave({
+            description: description.trim(),
+            dueDate,
+            importance,
+            ...(timeChanged ? { dueTime: dueTime.time === '' ? null : dueTime.time, timeZone: dueTime.zone } : {}),
+          })
         }
       }}
     >
@@ -66,6 +78,7 @@ function TaskEditor({ task, saving, onSave, onCancel, attachments }: Readonly<Ta
 
       <div className="add-controls">
         <DueDateField value={dueDate} onChange={setDueDate} />
+        <DueTimeField value={dueTime} onChange={setDueTime} />
         <label className="add-field">
           <span>{messages.importance.label}</span>
           <select value={importance} onChange={(event) => setImportance(event.target.value as TaskImportance)}>

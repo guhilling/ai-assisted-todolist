@@ -62,6 +62,7 @@ commit that first wrote each one down. CI checks every line and that this index 
 - [Files go straight to storage, with the tab opened on the click](frontend.md#files-go-straight-to-storage-with-the-tab-opened-on-the-click)
 - [The mark is a panda with a ticked ear](frontend.md#the-mark-is-a-panda-with-a-ticked-ear)
 - [A task's saves go one after another, and a stalled save or upload is given up](frontend.md#a-tasks-saves-go-one-after-another-and-a-stalled-save-or-upload-is-given-up)
+- [A due time is a native time field, and its zone a switch with the browser's list](frontend.md#a-due-time-is-a-native-time-field-and-its-zone-a-switch-with-the-browsers-list)
 
 ## [Testing](testing.md)
 
