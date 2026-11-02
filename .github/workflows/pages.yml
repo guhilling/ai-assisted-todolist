@@ -16,6 +16,13 @@ on:
       - 'README.md'
       - '.github/scripts/**'
       - '.github/workflows/pages.yml'
+      # The instruction pages: the CLAUDE.md files, and the pin of dev-conventions that decides
+      # which shared rules the site shows (#471).
+      - 'CLAUDE.md'
+      - 'backend/CLAUDE.md'
+      - 'frontend/CLAUDE.md'
+      - 'mobile/CLAUDE.md'
+      - '.claude/settings.json'
   # Deliberately *not* `release: published`. A release event runs with github.ref set to
   # refs/tags/v1.2.3, and the github-pages environment permits deployments from the single branch
   # main -- so a deploy reached that way is refused before its first step. release.yml asks this

@@ -75,6 +75,11 @@ jobs:
         # sonar-gate-issue.py decides between opening, commenting on and closing an issue; a
         # wrong decision is silence or duplicates, and nothing else would notice either.
         run: python3 -m unittest discover -s .github/scripts -p 'test_*.py' -v
+      - name: The site can show the shared rules at the pinned tag
+        # The site fetches them from dev-conventions only on main (pages.yml, #471). Run here too,
+        # a Renovate bump to a tag whose rules.md is gone or cannot be rendered fails its own pull
+        # request instead of the first Pages run after the merge.
+        run: python3 .github/scripts/build-site.py --check-shared-rules
 
   doc-references:
     name: Documentation references

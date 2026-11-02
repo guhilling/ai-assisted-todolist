@@ -4,6 +4,7 @@ Assembles the GitHub Pages site: the project documentation and the API contract.
 
     pip install -r .github/scripts/requirements.txt
     python3 .github/scripts/build-site.py _site
+    python3 .github/scripts/build-site.py --check-shared-rules   only the shared rules (#471)
 
 What it produces:
 
@@ -12,6 +13,8 @@ What it produces:
     doc/<chapter>/        a chapter: doc/<chapter>/index.md and its sub-pages, nested in the
                           sidebar, in the order the chapter's index.md links to them
     doc/images/           the generated diagrams the docs refer to
+    instructions/         the CLAUDE.md files, and the shared rules from dev-conventions at the
+                          tag .claude/settings.json pins (#471), fetched while building
     api/index.html        the versions of the contract
     api/main/             the moving snapshot: doc/api as it is on main
     api/v1.2.3/           one per release tag, read out of git history
@@ -55,6 +58,8 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
+import time
 import urllib.request
 from typing import NamedTuple
 
@@ -88,7 +93,16 @@ INSTRUCTIONS = [
     ("index", "CLAUDE.md", "Repository"),
     ("backend", "backend/CLAUDE.md", "Backend"),
     ("frontend", "frontend/CLAUDE.md", "Frontend"),
+    ("mobile", "mobile/CLAUDE.md", "Mobile app"),
 ]
+
+# The rules this repository shares with Gunnar's others (#471). They live in dev-conventions'
+# `conventions` plugin, which .claude/settings.json pins to a tag; the CLAUDE.md files hold only
+# what is particular to here. They are fetched at build time, at that tag, so a visitor's browser
+# makes no request elsewhere and a Renovate bump of the pin is all it takes to change the page.
+SETTINGS = REPO / ".claude" / "settings.json"
+SHARED_RULES = ("shared", "Shared rules")
+SHARED_RULES_FILE = "plugins/conventions/rules.md"
 
 # The order the sidebar lists the documentation in, which is doc/README.md's order rather than
 # the alphabetical one: it goes from why the project exists to how a release is cut, and ends with
@@ -537,7 +551,13 @@ def sidebar(pages: list[DocPage], section: str, current: str, depth: int) -> str
         [introduction, item("doc", "index", "Table of Contents")]
         + [item("doc", p.key, p.title, p.children) for p in pages]
     )
-    instructions = "\n      ".join(item("instructions", slug, label) for slug, _, label in INSTRUCTIONS)
+    # The shared rules come straight after the repository's own file, which points to them.
+    entries = []
+    for slug, _, label in INSTRUCTIONS:
+        entries.append(item("instructions", slug, label))
+        if slug == "index":
+            entries.append(item("instructions", *SHARED_RULES))
+    instructions = "\n      ".join(entries)
     return f"""  <aside class="sidebar">
     <h2>Documentation</h2>
     <ul>
@@ -733,6 +753,107 @@ def build_instructions(site: pathlib.Path, pages: list[DocPage]) -> None:
     print(f"rendered {len(INSTRUCTIONS)} instruction pages")
 
 
+class SharedRulesSource(NamedTuple):
+    """Where the shared rules come from: a repository on GitHub, at a tag."""
+    repo: str
+    ref: str
+
+    @property
+    def raw_url(self) -> str:
+        return f"https://raw.githubusercontent.com/{self.repo}/{self.ref}/{SHARED_RULES_FILE}"
+
+    @property
+    def blob_url(self) -> str:
+        return f"https://github.com/{self.repo}/blob/{self.ref}/{SHARED_RULES_FILE}"
+
+
+def shared_rules_source(settings: pathlib.Path) -> SharedRulesSource:
+    """
+    The repository and tag the settings file pins the plugin to, read rather than repeated, so
+    that Renovate's pin stays the only one (as in .claude/hooks/cloud-session-rules.py).
+    """
+    source = json.loads(settings.read_text())["extraKnownMarketplaces"]["dev-conventions"]["source"]
+    return SharedRulesSource(source["repo"], source["ref"])
+
+
+def fetch_shared_rules(
+    source: SharedRulesSource, opener=urllib.request.urlopen, attempts: int = 3, pause: float = 5,
+) -> str:
+    """
+    The rules as Markdown. A failed fetch is tried again, since one brief error from GitHub would
+    otherwise cost a whole run's publishing; failing every time, it stops the build: a site that
+    quietly left the rules out would show half the method this repository is built under.
+    """
+    for attempt in range(1, attempts + 1):
+        try:
+            with opener(source.raw_url, timeout=30) as response:
+                return response.read().decode()
+        except OSError as error:
+            if attempt == attempts:
+                raise SystemExit(
+                    f"the shared rules could not be fetched from {source.raw_url}: {error}")
+            time.sleep(pause)
+    raise AssertionError("unreachable")
+
+
+def build_shared_rules(
+    site: pathlib.Path, pages: list[DocPage], text: str, source: SharedRulesSource,
+) -> None:
+    """
+    Renders the shared rules as one more instructions page, saying where they come from.
+
+    A relative link in them is relative to the plugin in dev-conventions, not to this repository,
+    so it goes to that file on GitHub, at the same tag. What the site cannot show faithfully stops
+    the build, as on every other page: a block its list would lose, a link that leaves
+    dev-conventions, and an image, which a visitor's browser would have to fetch from elsewhere.
+    Empty rules stop it too, rather than publish a page with nothing on it.
+    """
+    if not text.strip():
+        raise SystemExit(f"{SHARED_RULES_FILE} in {source.repo} at {source.ref} is empty")
+    if lines := underindented_blocks(text):
+        raise SystemExit("\n".join(
+            f"{SHARED_RULES_FILE}:{line} in {source.repo} at {source.ref}: a block inside a "
+            f"list is indented less than four spaces, so the site would take it out of the list"
+            for line in lines
+        ))
+    here = posixpath.dirname(SHARED_RULES_FILE)
+
+    def outward(match: re.Match[str]) -> str:
+        attribute, target, fragment = match.group(1), match.group(2), match.group(3) or ""
+        if target.startswith(("/", "#")):
+            return match.group(0)
+        path = posixpath.normpath(posixpath.join(here, target))
+        if path == ".":
+            return f'{attribute}="https://github.com/{source.repo}/tree/{source.ref}/{fragment}"'
+        if path.startswith(".."):
+            raise SystemExit(f"{SHARED_RULES_FILE} links to {target}, outside {source.repo}")
+        return f'{attribute}="https://github.com/{source.repo}/blob/{source.ref}/{path}{fragment}"'
+
+    rendered = renderer().convert(text)
+    # By the element rather than its address, so neither a full URL nor raw HTML gets one through.
+    if re.search(r"<img\b", rendered, re.IGNORECASE):
+        raise SystemExit(
+            f"{SHARED_RULES_FILE} embeds an image, which a visitor would fetch from elsewhere")
+    slug, label = SHARED_RULES
+    origin = (
+        f'<p class="source-note">From <a href="{source.blob_url}">'
+        f"{html.escape(SHARED_RULES_FILE)}</a> in {html.escape(source.repo)}, at "
+        f"{html.escape(source.ref)}: the tag this repository pins in "
+        f"<code>.claude/settings.json</code>.</p>\n"
+    )
+    write_page(
+        site / "instructions" / f"{slug}.html",
+        title=label,
+        description=f"The rules Claude Code works under in every repository sharing them, "
+        f"from {source.repo}.",
+        section="instructions",
+        slug=slug,
+        body=origin + LINK.sub(outward, rendered),
+        pages=pages,
+    )
+    print(f"rendered the shared rules from {source.repo} at {source.ref}")
+
+
 def build_landing(site: pathlib.Path, versions: list[tuple[str, str]]) -> None:
     """The front page: a hero taken from the README, a few ways in, then the README itself."""
     readme = (REPO / "README.md").read_text()
@@ -878,7 +999,21 @@ def build_videos(site: pathlib.Path, source: pathlib.Path | None, app_source: pa
         body=f'  <main class="prose">\n<h1>The newest live run</h1>\n{body}\n  </main>'), encoding="utf-8")
 
 
+def check_shared_rules() -> int:
+    """
+    Fetches and renders the shared rules at the pinned tag, and nothing else: Script tests run it
+    on every pull request, so a Renovate bump to a tag whose rules.md is gone, or one the site
+    cannot render, fails there rather than in the first Pages run after the merge.
+    """
+    source = shared_rules_source(SETTINGS)
+    with tempfile.TemporaryDirectory() as scratch:
+        build_shared_rules(pathlib.Path(scratch), doc_pages(), fetch_shared_rules(source), source)
+    return 0
+
+
 def main(argv: list[str]) -> int:
+    if argv[1:] == ["--check-shared-rules"]:
+        return check_shared_rules()
     options = {"--videos": None, "--app-videos": None}
     rest = argv[:2]
     pairs = argv[2:]
@@ -886,7 +1021,9 @@ def main(argv: list[str]) -> int:
         options[pairs[0]] = pathlib.Path(pairs[1])
         pairs = pairs[2:]
     if len(rest) != 2 or pairs:
-        print(f"usage: {argv[0]} <output-directory> [--videos <directory>] [--app-videos <directory>]",
+        print(f"usage: {argv[0]} <output-directory> [--videos <directory>]"
+              f" [--app-videos <directory>]\n"
+              f"       {argv[0]} --check-shared-rules",
               file=sys.stderr)
         return 1
     argv = rest
@@ -919,6 +1056,8 @@ def main(argv: list[str]) -> int:
     pages = doc_pages()
     build_docs(site, pages)
     build_instructions(site, pages)
+    source = shared_rules_source(SETTINGS)
+    build_shared_rules(site, pages, fetch_shared_rules(source), source)
     build_api_index(site, published)
     build_landing(site, published)
     build_videos(site, videos, app_videos)

@@ -234,6 +234,8 @@ pre code { padding: 0; background: none; border: 0; white-space: pre; }
 .breadcrumb { margin: 0 0 0.6rem; font-size: 0.85rem; color: var(--muted); }
 .breadcrumb a { color: var(--muted); }
 .breadcrumb a:hover { color: var(--accent); }
+/* Where a page's text comes from, when that is not this repository (instructions/shared.html). */
+.source-note { margin: 0 0 0.6rem; font-size: 0.85rem; color: var(--muted); }
 .sidebar a {
   display: block;
   padding: 0.3rem 0.7rem;
