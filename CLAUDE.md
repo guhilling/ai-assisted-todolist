@@ -105,6 +105,12 @@ In this repository, stopping to ask applies especially to:
   [TaskFest project](https://github.com/users/guhilling/projects/2), number 2
   (`gh project item-add 2 --owner guhilling --url …`). Renovate's Dependency Dashboard (#22) is
   the one issue without a priority.
+- **`needs: Gunnar` marks an issue whose next step is Gunnar's**: a decision, an answer, or
+  something only he can do or provide. Claude adds it in the same step that leaves the issue
+  waiting for him, with a comment or section saying exactly what is needed, and removes it as soon
+  as he has answered and the next step is Claude's again. An issue waiting on someone else, or on
+  another issue, does not get it. Gunnar's list:
+  [open issues with the label](https://github.com/guhilling/ai-assisted-todolist/issues?q=is%3Aopen+label%3A%22needs%3A+Gunnar%22).
 
 ## Development methodology
 
