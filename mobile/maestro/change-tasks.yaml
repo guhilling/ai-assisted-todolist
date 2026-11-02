@@ -5,6 +5,9 @@ name: Change the board
 ---
 - runFlow: sign-in.yaml
 
+# The task seed-stack.sh gave a time in Tokyo, at that time there and on the emulator's UTC (#475).
+- assertVisible: "10:00 \\(Tokyo\\), 01:00 here"
+
 - tapOn: "Add a task"
 - tapOn:
     id: "task-description"

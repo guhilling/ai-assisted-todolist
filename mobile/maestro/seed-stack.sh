@@ -31,3 +31,8 @@ token=$(curl -sS --fail http://localhost:8082/realms/taskfest/protocol/openid-co
 curl -sS --fail http://localhost:3000/api/tasks -H "Authorization: Bearer $token" \
   -H 'Content-Type: application/json' \
   -d "{\"description\":\"Seeded by CI for the app\",\"dueDate\":\"$(date -u +%F)\",\"importance\":\"HIGH\",\"state\":\"TODO\"}"
+# And one with a time tied to a zone (#475), which the app shows there and here: 10:00 in Tokyo
+# is 01:00 on the emulator's UTC clock, on the same day.
+curl -sS --fail http://localhost:3000/api/tasks -H "Authorization: Bearer $token" \
+  -H 'Content-Type: application/json' \
+  -d "{\"description\":\"Seeded with a time\",\"dueDate\":\"$(date -u +%F)\",\"dueTime\":\"10:00\",\"timeZone\":\"Asia/Tokyo\",\"importance\":\"LOW\",\"state\":\"TODO\"}"
