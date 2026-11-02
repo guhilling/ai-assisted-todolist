@@ -129,8 +129,9 @@ check and sign it: on a hit the `ios` job skips installing, generating and build
 of its twenty minutes — and goes straight to the share on the simulator. The stack
 starts in the background, so it comes up while the emulator is set up and boots — Postgres,
 Keycloak and LocalStack first thing, since they need nothing built — and `maestro/seed-stack.sh`
-waits for it before putting the CI task on the board, due today, with a second one due today at
-10:00 in Tokyo, which *Change the board* finds shown there and on the emulator's UTC clock (#475).
+waits for it before putting the CI task on the board, due today, with a second one due in a month
+at 10:00 in Tokyo, which *Change the board* finds shown there and on the emulator's UTC clock
+(#475); filed last, under *Later*, it pushes no row another flow looks for off the screen.
 The flows find the first under "Today",
 so a run that would seed in the last quarter of an hour before midnight UTC waits for the new day
 first (#407).

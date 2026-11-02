@@ -32,7 +32,8 @@ curl -sS --fail http://localhost:3000/api/tasks -H "Authorization: Bearer $token
   -H 'Content-Type: application/json' \
   -d "{\"description\":\"Seeded by CI for the app\",\"dueDate\":\"$(date -u +%F)\",\"importance\":\"HIGH\",\"state\":\"TODO\"}"
 # And one with a time tied to a zone (#475), which the app shows there and here: 10:00 in Tokyo
-# is 01:00 on the emulator's UTC clock, on the same day.
+# is 01:00 on the emulator's UTC clock, on the same day. A month out, so it is filed last, under
+# Later: in Today it pushed the row the image share looks for off the screen.
 curl -sS --fail http://localhost:3000/api/tasks -H "Authorization: Bearer $token" \
   -H 'Content-Type: application/json' \
-  -d "{\"description\":\"Seeded with a time\",\"dueDate\":\"$(date -u +%F)\",\"dueTime\":\"10:00\",\"timeZone\":\"Asia/Tokyo\",\"importance\":\"LOW\",\"state\":\"TODO\"}"
+  -d "{\"description\":\"Seeded with a time\",\"dueDate\":\"$(date -u -d '+30 days' +%F)\",\"dueTime\":\"10:00\",\"timeZone\":\"Asia/Tokyo\",\"importance\":\"LOW\",\"state\":\"TODO\"}"

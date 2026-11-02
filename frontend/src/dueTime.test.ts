@@ -40,6 +40,12 @@ describe('describeDueTime', () => {
     expect(describeDueTime(berlin, de.dates, 'de', clockAt(-4))).toBe('Di 01:00 (Berlin), hier Mo 19:00')
   })
 
+  it("reads the moment by this device's own clock unless told otherwise", () => {
+    // Local 10:00 on the task's day, in whatever zone the tests run in.
+    const local = { ...task, dueTime: '10:00', timeZone: 'Asia/Tokyo', dueAt: new Date(2026, 9, 12, 10).toISOString() }
+    expect(describeDueTime(local, en.dates, 'en')).toBe('10:00')
+  })
+
   it('names the zone alone when the moment cannot be read', () => {
     const garbled = { ...task, dueTime: '10:00', timeZone: 'Europe/Berlin', dueAt: 'soon' }
     expect(describeDueTime(garbled, en.dates, 'en')).toBe('10:00 (Berlin)')
