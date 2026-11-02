@@ -4,6 +4,7 @@ Assembles the GitHub Pages site: the project documentation and the API contract.
 
     pip install -r .github/scripts/requirements.txt
     python3 .github/scripts/build-site.py _site
+    python3 .github/scripts/build-site.py --check-shared-rules   only the shared rules (#471)
 
 What it produces:
 
@@ -57,6 +58,8 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
+import time
 import urllib.request
 from typing import NamedTuple
 
@@ -90,6 +93,7 @@ INSTRUCTIONS = [
     ("index", "CLAUDE.md", "Repository"),
     ("backend", "backend/CLAUDE.md", "Backend"),
     ("frontend", "frontend/CLAUDE.md", "Frontend"),
+    ("mobile", "mobile/CLAUDE.md", "Mobile app"),
 ]
 
 # The rules this repository shares with Gunnar's others (#471). They live in dev-conventions'
@@ -548,8 +552,11 @@ def sidebar(pages: list[DocPage], section: str, current: str, depth: int) -> str
         + [item("doc", p.key, p.title, p.children) for p in pages]
     )
     # The shared rules come straight after the repository's own file, which points to them.
-    entries = [item("instructions", slug, label) for slug, _, label in INSTRUCTIONS]
-    entries.insert(1, item("instructions", *SHARED_RULES))
+    entries = []
+    for slug, _, label in INSTRUCTIONS:
+        entries.append(item("instructions", slug, label))
+        if slug == "index":
+            entries.append(item("instructions", *SHARED_RULES))
     instructions = "\n      ".join(entries)
     return f"""  <aside class="sidebar">
     <h2>Documentation</h2>
@@ -769,16 +776,24 @@ def shared_rules_source(settings: pathlib.Path) -> SharedRulesSource:
     return SharedRulesSource(source["repo"], source["ref"])
 
 
-def fetch_shared_rules(source: SharedRulesSource, opener=urllib.request.urlopen) -> str:
+def fetch_shared_rules(
+    source: SharedRulesSource, opener=urllib.request.urlopen, attempts: int = 3, pause: float = 5,
+) -> str:
     """
-    The rules as Markdown. A failed fetch stops the build: a site that quietly left them out would
-    show half the method this repository is built under.
+    The rules as Markdown. A failed fetch is tried again, since one brief error from GitHub would
+    otherwise cost a whole run's publishing; failing every time, it stops the build: a site that
+    quietly left the rules out would show half the method this repository is built under.
     """
-    try:
-        with opener(source.raw_url, timeout=30) as response:
-            return response.read().decode()
-    except OSError as error:
-        raise SystemExit(f"the shared rules could not be fetched from {source.raw_url}: {error}")
+    for attempt in range(1, attempts + 1):
+        try:
+            with opener(source.raw_url, timeout=30) as response:
+                return response.read().decode()
+        except OSError as error:
+            if attempt == attempts:
+                raise SystemExit(
+                    f"the shared rules could not be fetched from {source.raw_url}: {error}")
+            time.sleep(pause)
+    raise AssertionError("unreachable")
 
 
 def build_shared_rules(
@@ -788,15 +803,30 @@ def build_shared_rules(
     Renders the shared rules as one more instructions page, saying where they come from.
 
     A relative link in them is relative to the plugin in dev-conventions, not to this repository,
-    so it goes to that file on GitHub, at the same tag.
+    so it goes to that file on GitHub, at the same tag. What the site cannot show faithfully stops
+    the build, as on every other page: a block its list would lose, a link that leaves
+    dev-conventions, and an image, which a visitor's browser would have to fetch from GitHub.
     """
+    if lines := underindented_blocks(text):
+        raise SystemExit("\n".join(
+            f"{SHARED_RULES_FILE}:{line} in {source.repo} at {source.ref}: a block inside a "
+            f"list is indented less than four spaces, so the site would take it out of the list"
+            for line in lines
+        ))
     here = posixpath.dirname(SHARED_RULES_FILE)
 
     def outward(match: re.Match[str]) -> str:
         attribute, target, fragment = match.group(1), match.group(2), match.group(3) or ""
         if target.startswith(("/", "#")):
             return match.group(0)
+        if attribute == "src":
+            raise SystemExit(
+                f"{SHARED_RULES_FILE} embeds {target}, which a visitor would fetch from GitHub")
         path = posixpath.normpath(posixpath.join(here, target))
+        if path == ".":
+            return f'{attribute}="https://github.com/{source.repo}/tree/{source.ref}/{fragment}"'
+        if path.startswith(".."):
+            raise SystemExit(f"{SHARED_RULES_FILE} links to {target}, outside {source.repo}")
         return f'{attribute}="https://github.com/{source.repo}/blob/{source.ref}/{path}{fragment}"'
 
     slug, label = SHARED_RULES
@@ -964,7 +994,21 @@ def build_videos(site: pathlib.Path, source: pathlib.Path | None, app_source: pa
         body=f'  <main class="prose">\n<h1>The newest live run</h1>\n{body}\n  </main>'), encoding="utf-8")
 
 
+def check_shared_rules() -> int:
+    """
+    Fetches and renders the shared rules at the pinned tag, and nothing else: Script tests run it
+    on every pull request, so a Renovate bump to a tag whose rules.md is gone, or one the site
+    cannot render, fails there rather than in the first Pages run after the merge.
+    """
+    source = shared_rules_source(SETTINGS)
+    with tempfile.TemporaryDirectory() as scratch:
+        build_shared_rules(pathlib.Path(scratch), doc_pages(), fetch_shared_rules(source), source)
+    return 0
+
+
 def main(argv: list[str]) -> int:
+    if argv[1:] == ["--check-shared-rules"]:
+        return check_shared_rules()
     options = {"--videos": None, "--app-videos": None}
     rest = argv[:2]
     pairs = argv[2:]
@@ -972,7 +1016,9 @@ def main(argv: list[str]) -> int:
         options[pairs[0]] = pathlib.Path(pairs[1])
         pairs = pairs[2:]
     if len(rest) != 2 or pairs:
-        print(f"usage: {argv[0]} <output-directory> [--videos <directory>] [--app-videos <directory>]",
+        print(f"usage: {argv[0]} <output-directory> [--videos <directory>]"
+              f" [--app-videos <directory>]\n"
+              f"       {argv[0]} --check-shared-rules",
               file=sys.stderr)
         return 1
     argv = rest
