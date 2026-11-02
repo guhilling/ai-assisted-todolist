@@ -7,12 +7,15 @@ import type { TaskCreateRequest, TaskResponse } from './generated/types'
  * Creating refuses a date that is past everywhere, so a task already overdue when it was deleted is created
  * dated today and then dated back by an update, which does allow one -- otherwise undo would fail
  * for exactly the tasks people delete most, the old ones. Its files were only detached by the
- * delete, and come back with it within the undo window.
+ * delete, and come back with it within the undo window. Its due time and time zone come back too
+ * (#475).
  */
 export function restoreInput(task: TaskResponse, today: string): TaskCreateRequest {
   const input: TaskCreateRequest = {
     description: task.description,
     dueDate: task.dueDate < today ? today : task.dueDate,
+    dueTime: task.dueTime,
+    timeZone: task.timeZone,
     importance: task.importance,
     state: task.state,
   }

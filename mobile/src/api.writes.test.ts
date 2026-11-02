@@ -111,4 +111,26 @@ describe('changing tasks, as the app asks the backend (#271)', () => {
     await expect(restored).rejects.toBeInstanceOf(NotDatedBackError)
     await expect(restored).rejects.toMatchObject({ task: today, cause: expect.any(RequestFailedError) })
   })
+  it("sends a task's due time and time zone back unchanged, so no edit erases them (#475)", async () => {
+    const timed = { ...aTask, dueTime: '10:00', timeZone: 'Europe/Berlin', dueAt: '2026-10-12T08:00:00Z' }
+    const fetchImpl = respond([200, { ...timed, state: 'DONE' }])
+
+    await updateTask(caller, { ...timed, state: 'DONE' }, fetchImpl)
+    expect(JSON.parse(fetchImpl.mock.calls[0][1].body)).toEqual({
+      description: 'Water the plants',
+      dueDate: '2026-10-12',
+      dueTime: '10:00',
+      timeZone: 'Europe/Berlin',
+      importance: 'HIGH',
+      state: 'DONE',
+    })
+  })
+
+  it('puts a deleted task back with its due time and time zone (#475)', async () => {
+    const timed = { ...aTask, dueTime: '10:00', timeZone: 'Europe/Berlin', dueAt: '2026-10-12T08:00:00Z' }
+    const fetchImpl = respond([201, { ...timed, id: 8 }])
+
+    await restoreTask(caller, timed, '2026-10-10', fetchImpl)
+    expect(JSON.parse(fetchImpl.mock.calls[0][1].body)).toMatchObject({ dueTime: '10:00', timeZone: 'Europe/Berlin' })
+  })
 })

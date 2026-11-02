@@ -224,6 +224,11 @@ export const en = {
     inWeeks: (weeks: number) => (weeks === 1 ? 'In 1 week' : `In ${weeks} weeks`),
     /** "Today" or "Tomorrow" with the day it is (#337): the app's row, and its heading read aloud. */
     withWeekday: (when: string, weekday: string) => `${when} · ${weekday}`,
+    /**
+     * A due time tied to a time zone that falls at another time here (#475): "10:00 (Berlin),
+     * 04:00 here". Only the app shows it so far; the website will with #476.
+     */
+    elsewhere: (there: string, zone: string, here: string) => `${there} (${zone}), ${here} here`,
   },
   signedOut: {
     tagline: 'Your own list, private to whoever signs in.',
@@ -428,6 +433,7 @@ export const de: Messages = {
     daysAgo: (days: number) => `vor ${days} Tagen`,
     inWeeks: (weeks: number) => (weeks === 1 ? 'In 1 Woche' : `In ${weeks} Wochen`),
     withWeekday: (when: string, weekday: string) => `${when} · ${weekday}`,
+    elsewhere: (there: string, zone: string, here: string) => `${there} (${zone}), hier ${here}`,
   },
   signedOut: {
     tagline: 'Deine eigene Liste – privat für alle, die sich anmelden.',
