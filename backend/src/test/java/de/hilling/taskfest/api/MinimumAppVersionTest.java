@@ -14,8 +14,8 @@ import static org.hamcrest.Matchers.equalTo;
  * app older than that can ask its user to update rather than fail on an API it no longer matches.
  *
  * <p>Set by configuration, {@code taskfest.minimum-app-version}; raising it is the deliberate act
- * that goes with dropping what an old app needs. This profile sets it; without it, the default is
- * {@code 0.0.0}: no app is too old.</p>
+ * that goes with dropping what an old app needs. This profile sets it above the default, which
+ * {@link MinimumAppVersionDefaultTest} pins down.</p>
  */
 @QuarkusTest
 @TestProfile(MinimumAppVersionTest.Raised.class)
@@ -27,15 +27,15 @@ class MinimumAppVersionTest {
             .when().get("/api/version")
             .then()
             .statusCode(200)
-            .body("minimumAppVersion", equalTo("1.2.0"));
+            .body("minimumAppVersion", equalTo("9.0.0"));
     }
 
-    /** A deployment that has dropped what apps before 1.2.0 needed. */
+    /** A deployment that has dropped what apps before 9.0.0 needed. */
     public static class Raised implements QuarkusTestProfile {
 
         @Override
         public Map<String, String> getConfigOverrides() {
-            return Map.of("taskfest.minimum-app-version", "1.2.0");
+            return Map.of("taskfest.minimum-app-version", "9.0.0");
         }
     }
 }

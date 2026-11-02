@@ -62,7 +62,7 @@ public class VersionResource {
      *
      * @param version the release without its {@code v}, such as {@code 0.11.0}, or a SNAPSHOT
      * @param minimumAppVersion the oldest mobile app release this deployment still serves (#268): an
-     *     older app asks its user to update. {@code 0.0.0} while no app is too old
+     *     older app asks its user to update. {@code 0.0.0} would mean no app is too old
      */
     public record VersionResponse(
         @NotNull @Size(max = MAX_VERSION_LENGTH) @Schema(example = "0.11.0") String version,

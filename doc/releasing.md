@@ -66,6 +66,11 @@ a minor release, and the old one can go in a later major once no supported app u
 releases still call what is in the request log, whose `app` field is the version the app names
 in `X-TaskFest-App`.
 
+**Raising the minimum without a break.** An app can be too old for a compatible API, too: one
+before 1.4.0 saves a task without the due time it does not know (#475). Then only step 2 applies:
+`oldest-supported-release` stays, and the release is a **minor**, asked for with `bump: minor`
+when `auto` would give a patch.
+
 **New enum values** in a response are a warning, not an error: oasdiff cannot tell whether
 clients tolerate them. The app reads a value it does not know as unknown rather than refusing the
 response, so for the app they are compatible; the website, which always deploys with its backend,
