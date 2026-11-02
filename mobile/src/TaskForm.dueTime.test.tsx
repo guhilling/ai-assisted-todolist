@@ -225,6 +225,14 @@ describe("a task's due time in the form (#477)", () => {
     })
   })
 
+  it("draws the switch in the website's colours, not the platform's", async () => {
+    await render(form({ task: zoned }))
+
+    const tied = screen.getByRole('switch', { name: 'Tied to a time zone' })
+    expect(tied.props.thumbTintColor ?? tied.props.thumbColor).toBe(light.bg)
+    expect(tied.props.onTintColor ?? tied.props.trackColor?.true).toBe(light.accent)
+  })
+
   it('speaks German', async () => {
     await render(form({ task: zoned, language: 'de', messages: catalogues.de }))
 

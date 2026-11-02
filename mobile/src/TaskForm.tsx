@@ -297,7 +297,11 @@ export function TaskForm({
                 accessibilityLabel={messages.dueTime.tied}
                 accessibilityState={{ checked: timeZone !== null }}
                 value={timeZone !== null}
+                // The website's switch: the accent's track when on, the border's when off, and a
+                // knob of the page's own colour, where Android would draw its own teal one.
                 trackColor={{ true: theme.accent, false: theme.border }}
+                thumbColor={theme.bg}
+                ios_backgroundColor={theme.border}
                 onValueChange={(on) => {
                   if (timeZone !== null) {
                     setLastZone(timeZone)
