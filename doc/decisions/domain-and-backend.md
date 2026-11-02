@@ -464,6 +464,9 @@ clients for a rule that only keeps typos out.
 
 *Accepted · 2026-11-01 · #290, #474*
 
+Revised in part: an update that leaves out both fields keeps them now
+([An update that leaves out the due time keeps it](#an-update-that-leaves-out-the-due-time-keeps-it), #497).
+
 **Decision.** A task keeps its due date, and may also have a due time (`dueTime`, `"10:00"`) and,
 only with a time, a time zone (`timeZone`, `"Europe/Berlin"`): model C of the investigation on #290,
 Gunnar's choice. No time is an all-day task, as before; a time without a zone is floating, and
@@ -504,3 +507,26 @@ erases them, which is why `taskfest.minimum-app-version` is raised to it before 
 captured from the device (B) fires the pills at 08:00 of the zone the owner flew out of. A stored
 instant with the zone's name (D) changes what `dueDate` means, breaks the API, and goes stale when a
 zone's rules change. A time with a UTC offset (E) is a zone only half the year.
+
+## An update that leaves out the due time keeps it
+
+*Accepted · 2026-11-02 · #497, #496*
+
+**Decision.** `PUT /api/tasks/{id}` still replaces the whole task, with one exception: a request
+that leaves out both `dueTime` and `timeZone` keeps the task's. A field sent as `null` clears it, as
+before. The two go as a pair: with only one left out, it means `null`, so `{"dueTime": "11:00"}`
+without a zone makes the time floating, and a zone without a time is refused whatever is stored.
+`TaskUpdateRequest` carries both as `JsonNullable` (`jackson-databind-nullable`), which tells a
+left-out field from a `null` one; Gunnar's choices on #497.
+
+**Why.** Apps before 1.4.0 know neither field, so their every save would erase a time another
+client set. Raising `taskfest.minimum-app-version` to 1.4.0 (#496) only asks their users to update:
+an app already open, or one whose version check times out after three seconds, still saves, and the
+backend accepts it. Keeping the time works for every client without telling apps apart.
+
+**Rejected.** Refusing writes from apps older than the minimum, by their `X-TaskFest-App` header,
+with a 426: an old app would show an error on save instead of losing nothing. Each field on its own,
+where a left-out one always keeps its stored value: more general, but then "no zone means floating"
+holds on create only, and the zone-needs-a-time rule has to be checked against the stored values.
+A hand-written check of which fields the body has, instead of `JsonNullable`: untyped, and the
+generated schema would no longer come from the record.

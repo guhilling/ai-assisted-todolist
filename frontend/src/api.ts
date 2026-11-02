@@ -469,8 +469,8 @@ export async function putTask(task: Task) {
       body: JSON.stringify({
         description: task.description,
         dueDate: task.dueDate,
-        // Sent back although the website cannot set them yet (#475, #476): left out, they would be
-        // erased by any edit, by ticking the task off, and by an undo's dating back.
+        // Sent back although the website cannot set them yet (#475). Left out together, the
+        // backend keeps them (#497); clearing a time, once the website can (#476), sends null.
         dueTime: task.dueTime,
         timeZone: task.timeZone,
         importance: task.importance,

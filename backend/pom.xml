@@ -17,6 +17,7 @@
         <quarkus.platform.group-id>io.quarkus.platform</quarkus.platform.group-id>
         <quarkus.platform.version>3.39.5</quarkus.platform.version>
         <jackson.version>2.22.4</jackson.version>
+        <jackson-databind-nullable.version>0.2.13</jackson-databind-nullable.version>
         <awssdk.version>2.55.11</awssdk.version>
         <!-- The Quarkiverse Amazon services line built against this project's Quarkus minor. -->
         <quarkus-amazon-services.version>3.22.1</quarkus-amazon-services.version>
@@ -136,6 +137,12 @@
         <dependency>
             <groupId>io.quarkus</groupId>
             <artifactId>quarkus-rest-jackson</artifactId>
+        </dependency>
+        <dependency>
+            <!-- Tells a field left out of a request from one sent as null (#497). -->
+            <groupId>org.openapitools</groupId>
+            <artifactId>jackson-databind-nullable</artifactId>
+            <version>${jackson-databind-nullable.version}</version>
         </dependency>
         <dependency>
             <groupId>io.quarkus</groupId>

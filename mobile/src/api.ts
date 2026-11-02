@@ -178,8 +178,9 @@ export async function discardDraft(caller: Caller, draftId: number, fetchImpl: t
 /**
  * Saves a whole task: the backend replaces rather than patches, so the task goes back with the
  * fields that changed and the ones that did not. A past due date is accepted, as on the website.
- * The due time and time zone go back too, although the app cannot set them yet: left out, they
- * would be erased by any edit, even ticking the task off (#475).
+ * The due time and time zone go back too, although the app cannot set them yet (#475). Left out
+ * together, the backend keeps them (#497), so a task without them sends neither; clearing a time,
+ * once the app can (#477), has to send both as null.
  */
 export async function updateTask(caller: Caller, task: Task, fetchImpl: typeof fetch = fetch): Promise<BoardTask> {
   const { description, dueDate, dueTime, timeZone, importance, state } = task

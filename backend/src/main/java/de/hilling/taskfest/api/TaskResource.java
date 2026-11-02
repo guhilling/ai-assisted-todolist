@@ -42,6 +42,7 @@ import org.eclipse.microprofile.openapi.annotations.media.ExampleObject;
 import org.eclipse.microprofile.openapi.annotations.media.Schema;
 import org.eclipse.microprofile.openapi.annotations.responses.APIResponse;
 import org.eclipse.microprofile.openapi.annotations.tags.Tag;
+import org.openapitools.jackson.nullable.JsonNullable;
 
 /**
  * The task board's REST surface: everything a signed-in user can do to their own tasks.
@@ -76,6 +77,9 @@ public class TaskResource {
 
     private static final String TIME_ZONE = "The IANA zone dueTime is meant in (#474), one the backend knows; "
         + "only with a dueTime. None, or null, for a floating time, which follows the reader's clock.";
+
+    private static final String KEPT = " Left out together with the other of dueTime and timeZone, "
+        + "the task keeps both (#497), for apps that know neither.";
 
     private static final String EXAMPLE_TASK = """
         {
@@ -154,7 +158,8 @@ public class TaskResource {
     @PUT
     @Path("/{id}")
     @Transactional
-    @Operation(summary = "Replace a task", description = "Replaces every field of a task owned by the caller.")
+    @Operation(summary = "Replace a task", description = "Replaces every field of a task owned by "
+        + "the caller, except a due time and zone the request leaves out both of (#497).")
     @APIResponse(responseCode = "200", description = "The task as updated.",
         content = @Content(mediaType = MediaType.APPLICATION_JSON,
             schema = @Schema(implementation = TaskResponse.class),
@@ -163,7 +168,9 @@ public class TaskResource {
     @APIResponse(responseCode = "404", description = "No task with this id is owned by the caller.")
     public TaskResponse update(@PathParam("id") Long id, @NotNull @Valid TaskUpdateRequest request) {
         Task task = findOwnedTaskOrNotFound(id);
-        apply(task, request);
+        boolean keep = request.keepsDueTime();
+        apply(task, request, keep ? task.dueTime : request.sentDueTime(),
+            keep ? task.timeZone : request.sentTimeZone());
         return toResponse(task);
     }
 
@@ -243,9 +250,24 @@ public class TaskResource {
         task.dueTime = request.dueTime();
         task.timeZone = request.timeZone();
         task.importance = request.importance();
+        task.state = stateOf(request.state());
+    }
+
+    /** An update, with the time and zone already resolved against the task (#497). */
+    private static void apply(Task task, TaskUpdateRequest request, LocalTime dueTime,
+                              String timeZone) {
+        task.description = request.description();
+        task.dueDate = request.dueDate();
+        task.dueTime = dueTime;
+        task.timeZone = timeZone;
+        task.importance = request.importance();
+        task.state = stateOf(request.state());
+    }
+
+    private static TaskState stateOf(TaskState sent) {
         // A task is open or done (#334). Apps installed before then can still send WORKING, which
         // the API accepts until #345, and it is stored as the open task it now is.
-        task.state = request.state() == TaskState.WORKING ? TaskState.TODO : request.state();
+        return sent == TaskState.WORKING ? TaskState.TODO : sent;
     }
 
     private TaskResponse toResponse(Task task) {
@@ -328,17 +350,23 @@ public class TaskResource {
     /**
      * What a client may set when changing an existing task.
      *
-     * <p>Identical to {@link TaskCreateRequest} except that {@code dueDate} may be in the
-     * past, which is the whole reason the two are separate. A task that came due yesterday
-     * still has to be completable, and because this endpoint replaces the whole task, a
-     * future-only rule here made every overdue task un-editable — including the state change
-     * that marks it done.</p>
+     * <p>Like {@link TaskCreateRequest} except in two things. {@code dueDate} may be in the past,
+     * which is the whole reason the two are separate: a task that came due yesterday still has to
+     * be completable, and because this endpoint replaces the whole task, a future-only rule here
+     * made every overdue task un-editable — including the state change that marks it done.</p>
+     *
+     * <p>And a request that leaves out both {@code dueTime} and {@code timeZone} keeps the task's
+     * (#497). Apps before 1.4.0 know neither field, and the minimum app version only asks their
+     * users to update, so without this their every save would erase a time another client set.
+     * {@link JsonNullable} is what tells a left-out field from one sent as {@code null}. The two go
+     * as a pair (Gunnar on #497): with only one left out, it means {@code null}, as on create.</p>
      *
      * @param description what is to be done, never blank
      * @param dueDate when it is due, past dates allowed
-     * @param dueTime the time of day it is due at, or null for all day; an update without one
-     *     makes the task all day, since it replaces the whole task
-     * @param timeZone the zone that time is meant in, or null for a floating time
+     * @param dueTime the time of day it is due at, or null for all day; left out together with
+     *     {@code timeZone}, the task keeps both, and left out alone, it is none
+     * @param timeZone the zone that time is meant in, or null for a floating time; left out
+     *     together with {@code dueTime}, the task keeps both, and left out alone, it is none
      * @param importance how much it matters
      * @param state where it stands in the workflow
      */
@@ -347,16 +375,45 @@ public class TaskResource {
         @NotBlank @Size(max = Task.MAX_DESCRIPTION_LENGTH) @Schema(example = "Renew the passport")
         String description,
         @NotNull @Schema(example = "2026-11-30") LocalDate dueDate,
-        @JsonDeserialize(using = DueTimeDeserializer.class)
-        @Schema(implementation = String.class, example = "10:00", pattern = TIME_PATTERN, description = DUE_TIME,
-            nullable = true)
-        LocalTime dueTime,
+        @JsonDeserialize(contentUsing = DueTimeDeserializer.class)
+        @Schema(implementation = String.class, example = "10:00", pattern = TIME_PATTERN,
+            description = DUE_TIME + KEPT, nullable = true)
+        JsonNullable<LocalTime> dueTime,
         @Size(max = Task.MAX_TIME_ZONE_LENGTH) @KnownTimeZone
-        @Schema(example = "Europe/Berlin", description = TIME_ZONE, nullable = true)
-        String timeZone,
+        @Schema(implementation = String.class, example = "Europe/Berlin",
+            description = TIME_ZONE + KEPT, nullable = true)
+        JsonNullable<String> timeZone,
         @NotNull @Schema(example = "HIGH") TaskImportance importance,
         @NotNull @Schema(example = "TODO") TaskState state
-    ) implements TaskFields {
+    ) {
+
+        /** Reads a missing wrapper, which only a caller in Java can pass, as a left-out field. */
+        public TaskUpdateRequest {
+            dueTime = dueTime == null ? JsonNullable.undefined() : dueTime;
+            timeZone = timeZone == null ? JsonNullable.undefined() : timeZone;
+        }
+
+        /** An update that sends both a time and a zone, for a caller that has them as values. */
+        public TaskUpdateRequest(String description, LocalDate dueDate, LocalTime dueTime,
+                                 String timeZone, TaskImportance importance, TaskState state) {
+            this(description, dueDate, JsonNullable.of(dueTime), JsonNullable.of(timeZone),
+                importance, state);
+        }
+
+        /** Whether the request leaves out both the time and the zone, and so keeps the task's. */
+        boolean keepsDueTime() {
+            return !dueTime.isPresent() && !timeZone.isPresent();
+        }
+
+        /** The time it sets: a left-out one is none, unless both are left out. */
+        LocalTime sentDueTime() {
+            return dueTime.orElse(null);
+        }
+
+        /** The zone it sets: a left-out one is none, unless both are left out. */
+        String sentTimeZone() {
+            return timeZone.orElse(null);
+        }
     }
 
     /**
