@@ -4,11 +4,12 @@
  */
 import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
+import { browserZone } from './dueTime'
 import { stubApi } from './testing/api'
 import { ALICE, bodyOf, isoIn, openMenu, renderSignedIn, rowFor, startAdding, task } from './testing/board'
 
-/** The zone this browser is in, which the switch starts from. */
-const HERE = Intl.DateTimeFormat().resolvedOptions().timeZone
+/** The zone the switch starts from: the browser's own, or UTC where it names a fixed offset. */
+const HERE = browserZone()
 
 function startEditing(description: string) {
   fireEvent.click(openMenu(description).getByRole('button', { name: /^edit$/i }))
