@@ -133,5 +133,15 @@ class SharedRulesTest(unittest.TestCase):
         source = site.shared_rules_source(settings_pinning(self.directory, "v1.3.0"))
         self.assertEqual("# Rules\n", site.fetch_shared_rules(source, opener=flaky, pause=0))
 
+    def test_stops_the_build_on_empty_rules(self):
+        with self.assertRaises(SystemExit):
+            self.build(text="  \n")
+
+    def test_stops_the_build_on_an_image_from_anywhere(self):
+        for text in ("![a diagram](https://example.com/flow.svg)\n",
+                     '<IMG SRC="https://example.com/flow.svg">\n'):
+            with self.subTest(text=text), self.assertRaises(SystemExit):
+                self.build(text=text)
+
 if __name__ == "__main__":
     unittest.main()

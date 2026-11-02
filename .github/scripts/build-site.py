@@ -805,8 +805,11 @@ def build_shared_rules(
     A relative link in them is relative to the plugin in dev-conventions, not to this repository,
     so it goes to that file on GitHub, at the same tag. What the site cannot show faithfully stops
     the build, as on every other page: a block its list would lose, a link that leaves
-    dev-conventions, and an image, which a visitor's browser would have to fetch from GitHub.
+    dev-conventions, and an image, which a visitor's browser would have to fetch from elsewhere.
+    Empty rules stop it too, rather than publish a page with nothing on it.
     """
+    if not text.strip():
+        raise SystemExit(f"{SHARED_RULES_FILE} in {source.repo} at {source.ref} is empty")
     if lines := underindented_blocks(text):
         raise SystemExit("\n".join(
             f"{SHARED_RULES_FILE}:{line} in {source.repo} at {source.ref}: a block inside a "
@@ -819,9 +822,6 @@ def build_shared_rules(
         attribute, target, fragment = match.group(1), match.group(2), match.group(3) or ""
         if target.startswith(("/", "#")):
             return match.group(0)
-        if attribute == "src":
-            raise SystemExit(
-                f"{SHARED_RULES_FILE} embeds {target}, which a visitor would fetch from GitHub")
         path = posixpath.normpath(posixpath.join(here, target))
         if path == ".":
             return f'{attribute}="https://github.com/{source.repo}/tree/{source.ref}/{fragment}"'
@@ -829,6 +829,11 @@ def build_shared_rules(
             raise SystemExit(f"{SHARED_RULES_FILE} links to {target}, outside {source.repo}")
         return f'{attribute}="https://github.com/{source.repo}/blob/{source.ref}/{path}{fragment}"'
 
+    rendered = renderer().convert(text)
+    # By the element rather than its address, so neither a full URL nor raw HTML gets one through.
+    if re.search(r"<img\b", rendered, re.IGNORECASE):
+        raise SystemExit(
+            f"{SHARED_RULES_FILE} embeds an image, which a visitor would fetch from elsewhere")
     slug, label = SHARED_RULES
     origin = (
         f'<p class="source-note">From <a href="{source.blob_url}">'
@@ -843,7 +848,7 @@ def build_shared_rules(
         f"from {source.repo}.",
         section="instructions",
         slug=slug,
-        body=origin + LINK.sub(outward, renderer().convert(text)),
+        body=origin + LINK.sub(outward, rendered),
         pages=pages,
     )
     print(f"rendered the shared rules from {source.repo} at {source.ref}")
