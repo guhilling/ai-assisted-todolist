@@ -43,6 +43,14 @@
     },
     {
       "customType": "regex",
+      "description": "The Renovate version Docs CI validates this file with (#504). Pinned because a version just published is named before npm serves it, and latest then failed the check with a 404; no built-in manager reads an env value in a workflow.",
+      "managerFilePatterns": ["/^\\.github/workflows/docs-ci\\.yml$/"],
+      "matchStrings": ["RENOVATE_VERSION:\\s*(?<currentValue>\\S+)"],
+      "depNameTemplate": "renovate",
+      "datasourceTemplate": "npm"
+    },
+    {
+      "customType": "regex",
       "description": "Maestro, which both mobile-ci.yml and live-tests.yml install from this one pin (#278).",
       "managerFilePatterns": ["/^mobile/maestro/maestro\\.env$/"],
       "matchStrings": ["MAESTRO_VERSION=(?<currentValue>\\S+)"],
