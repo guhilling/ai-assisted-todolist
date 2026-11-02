@@ -43,9 +43,9 @@
     },
     {
       "customType": "regex",
-      "description": "The Renovate version Docs CI validates this file with (#504). Pinned because a version just published is named before npm serves it, and latest then failed the check with a 404; no built-in manager reads an env value in a workflow.",
+      "description": "The Renovate version Docs CI validates this file with (#504), pinned in its npx command, which no built-in manager reads. Pinned because a version just published is named before npm serves it, and latest then failed the check with a 404.",
       "managerFilePatterns": ["/^\\.github/workflows/docs-ci\\.yml$/"],
-      "matchStrings": ["RENOVATE_VERSION:\\s*(?<currentValue>\\S+)"],
+      "matchStrings": ["--package renovate@(?<currentValue>[^\\s\"']+)"],
       "depNameTemplate": "renovate",
       "datasourceTemplate": "npm"
     },
@@ -60,6 +60,11 @@
     }
   ],
   "packageRules": [
+    {
+      "description": "Renovate, which Docs CI validates this file with (#504), only once a release is three days old. It publishes several times a day, and a version just published can be named before npm serves it, which failed the check with a 404; the age also keeps its pull request from moving to every newer release in between.",
+      "matchPackageNames": ["renovate"],
+      "minimumReleaseAge": "3 days"
+    },
     {
       "description": "A new version of the shared preset waits for a human, even as a minor: it changes this repository's Renovate policy, which no check here exercises, so every check being green says nothing about it (#456).",
       "matchManagers": ["renovate-config"],
