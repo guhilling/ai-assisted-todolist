@@ -6,7 +6,7 @@ import { variants } from './variants'
 import type { Task } from './web'
 
 /**
- * A task's due time on the board (#475), which the app shows but cannot set yet. The moments are
+ * A task's due time on the board (#475), and one cleared in the app (#477). The moments are
  * built on the phone's own clock, so the tests hold in any time zone: what is "here" is whatever
  * the clock reads, and the zone a task names is only its label.
  */

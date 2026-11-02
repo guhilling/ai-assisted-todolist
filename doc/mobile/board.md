@@ -123,4 +123,5 @@ connection — read, not changed ([decisions/mobile-app.md](../decisions/mobile-
 Component tests cover each piece (`TaskForm.test.tsx`, `TaskFestApp.changes.test.tsx`), and the
 Maestro flow `mobile/maestro/change-tasks.yaml` adds, edits, completes, deletes and undoes a task
 in the built app, against the end-to-end stack; `keyboard.yaml` then adds one with the keyboard
-still open.
+still open, and `due-time.yaml`, last of the board's flows, one due at 09:00 in Tokyo, through
+Android's own time dialog, the switch and the zone search, with a screenshot at each step.

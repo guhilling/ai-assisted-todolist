@@ -284,6 +284,7 @@ export function TaskForm({
           {dueTime === null ? null : (
             <View style={styles.row}>
               <Switch
+                testID="zone-switch"
                 accessibilityRole="switch"
                 accessibilityLabel={messages.dueTime.tied}
                 accessibilityState={{ checked: timeZone !== null }}
@@ -311,6 +312,7 @@ export function TaskForm({
               {zoneSearch === null ? null : (
                 <>
                   <TextInput
+                    testID="zone-search"
                     style={styles.input}
                     accessibilityLabel={messages.dueTime.search}
                     placeholder={messages.dueTime.search}

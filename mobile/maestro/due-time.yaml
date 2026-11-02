@@ -1,0 +1,45 @@
+# Adds a task with a due time tied to a time zone (#477), taking a screenshot at each step: the
+# time from Android's own dialog, the switch, the zone found by searching, and the row it makes.
+# Runs last in the board share, signed in, so its row pushes no other flow's below the screen. The
+# emulator's clock is UTC, so the switch starts there.
+appId: de.hilling.taskfest.dev
+name: Add a task due at a time in another zone
+---
+- tapOn: "Add a task"
+- tapOn:
+    id: "task-description"
+- inputText: "Call the Tokyo office"
+- hideKeyboard
+- tapOn: "Add a time"
+# Android's own dialog, opened on 09:00; its OK keeps that.
+- extendedWaitUntil:
+    visible: "OK"
+    timeout: 10000
+- takeScreenshot: 50-time-dialog
+- tapOn: "OK"
+- extendedWaitUntil:
+    visible: "09:00"
+    timeout: 10000
+- takeScreenshot: 51-time-set
+- tapOn:
+    id: "zone-switch"
+- extendedWaitUntil:
+    visible: "UTC"
+    timeout: 10000
+- takeScreenshot: 52-tied-to-utc
+- tapOn: "UTC"
+- tapOn:
+    id: "zone-search"
+- inputText: "tokyo"
+- hideKeyboard
+- tapOn: "Asia/Tokyo"
+- extendedWaitUntil:
+    visible: "Asia/Tokyo"
+    timeout: 10000
+- takeScreenshot: 53-zone-chosen
+- tapOn: "Add"
+# 09:00 in Tokyo is midnight UTC, the same day.
+- extendedWaitUntil:
+    visible: "09:00 \\(Tokyo\\), 00:00 here"
+    timeout: 10000
+- takeScreenshot: 54-added

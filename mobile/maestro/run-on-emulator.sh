@@ -90,6 +90,8 @@ case "$share" in
       --es android.intent.extra.TEXT "'https://example.com/articles/42'" \
       --es android.intent.extra.SUBJECT "'An article worth reading'"
     flows maestro-share-link.xml mobile/maestro/share/link.yaml
+    # A due time tied to a zone (#477), last: its row would push the others' below the screen.
+    flows maestro-due-time.xml mobile/maestro/due-time.yaml
     exit 0
     ;;
   others) ;;
