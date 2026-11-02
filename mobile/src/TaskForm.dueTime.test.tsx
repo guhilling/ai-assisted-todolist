@@ -10,16 +10,27 @@ import { catalogues } from './web'
  * that ties it to a zone, the zone picker, and clearing it.
  */
 
-// The platform's pickers are native; this one picks half past two, or nothing when told so.
+// The platform's pickers are native. This one picks half past two as Android's dialog does, done
+// at once, or turns to three o'clock as an iOS wheel does, staying open.
 jest.mock('./DueTimePicker', () => {
-  const { createElement } = require('react')
+  const { createElement, Fragment } = require('react')
   const { Pressable, Text } = require('react-native')
+  const button = (label: string, onPress: () => void) =>
+    createElement(
+      Pressable,
+      { accessibilityRole: 'button', onPress },
+      createElement(Text, null, label),
+    )
   return {
-    DueTimePicker: (props: { value: string | null; onPick: (time: string | null) => void }) =>
+    DueTimePicker: (props: {
+      value: string | null
+      onPick: (time: string | null, done: boolean) => void
+    }) =>
       createElement(
-        Pressable,
-        { accessibilityRole: 'button', onPress: () => props.onPick('14:30') },
-        createElement(Text, null, `Pick 14:30, from ${props.value ?? 'none'}`),
+        Fragment,
+        null,
+        button(`Pick 14:30, from ${props.value ?? 'none'}`, () => props.onPick('14:30', true)),
+        button('Turn to 15:00', () => props.onPick('15:00', false)),
       ),
   }
 })
@@ -73,6 +84,38 @@ describe("a task's due time in the form (#477)", () => {
     expect(screen.getByRole('button', { name: '14:30' })).toBeOnTheScreen()
     expect(screen.getByRole('switch', { name: 'Tied to a time zone' })).not.toBeChecked()
     expect(screen.queryByText('Time zone')).not.toBeOnTheScreen()
+  })
+
+  it("keeps iOS's wheels while they turn, until the time is pressed again", async () => {
+    await render(form())
+    const user = userEvent.setup()
+
+    await user.press(screen.getByRole('button', { name: 'Add a time' }))
+    await user.press(screen.getByRole('button', { name: 'Turn to 15:00' }))
+    expect(screen.getByRole('button', { name: 'Turn to 15:00' })).toBeOnTheScreen()
+
+    await user.press(screen.getByRole('button', { name: '15:00' }))
+    expect(screen.queryByRole('button', { name: 'Turn to 15:00' })).not.toBeOnTheScreen()
+  })
+
+  it('puts the wheels away when the time is cleared', async () => {
+    await render(form())
+    const user = userEvent.setup()
+
+    await user.press(screen.getByRole('button', { name: 'Add a time' }))
+    await user.press(screen.getByRole('button', { name: 'Turn to 15:00' }))
+    await user.press(screen.getByRole('button', { name: 'No time' }))
+
+    expect(screen.queryByRole('button', { name: 'Turn to 15:00' })).not.toBeOnTheScreen()
+  })
+
+  it('finds a zone by the name people use, with spaces', async () => {
+    await render(form({ task: zoned }))
+    const user = userEvent.setup()
+
+    await user.press(screen.getByRole('button', { name: 'Asia/Tokyo' }))
+    await user.type(screen.getByLabelText('Search time zones'), 'ho chi')
+    expect(screen.getByRole('button', { name: 'Asia/Ho Chi Minh' })).toBeOnTheScreen()
   })
 
   it('adds a floating time', async () => {

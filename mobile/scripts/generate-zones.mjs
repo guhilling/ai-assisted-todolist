@@ -8,11 +8,38 @@
  */
 import { writeFileSync } from 'node:fs'
 
-// Node lists UTC under no name of its own; it is offered by it, as the website does.
-const regions = Intl.supportedValuesOf('timeZone').filter(
-  (zone) => zone.includes('/') && !zone.startsWith('Etc/'),
-)
-const zones = [...regions, 'UTC'].sort()
+/**
+ * ICU keeps some zones under the names they had before IANA renamed them, which is what people
+ * search for; the backend takes both. The renames since ICU froze its names.
+ */
+const RENAMED = {
+  'Africa/Asmera': 'Africa/Asmara',
+  'America/Buenos_Aires': 'America/Argentina/Buenos_Aires',
+  'America/Catamarca': 'America/Argentina/Catamarca',
+  'America/Coral_Harbour': 'America/Atikokan',
+  'America/Cordoba': 'America/Argentina/Cordoba',
+  'America/Godthab': 'America/Nuuk',
+  'America/Indianapolis': 'America/Indiana/Indianapolis',
+  'America/Jujuy': 'America/Argentina/Jujuy',
+  'America/Louisville': 'America/Kentucky/Louisville',
+  'America/Mendoza': 'America/Argentina/Mendoza',
+  'Asia/Calcutta': 'Asia/Kolkata',
+  'Asia/Katmandu': 'Asia/Kathmandu',
+  'Asia/Rangoon': 'Asia/Yangon',
+  'Asia/Saigon': 'Asia/Ho_Chi_Minh',
+  'Atlantic/Faeroe': 'Atlantic/Faroe',
+  'Europe/Kiev': 'Europe/Kyiv',
+  'Pacific/Enderbury': 'Pacific/Kanton',
+  'Pacific/Ponape': 'Pacific/Pohnpei',
+  'Pacific/Truk': 'Pacific/Chuuk',
+}
+
+// The same rule as `offerable` in frontend/src/dueTime.ts, which a Node script cannot import:
+// regions' zones only, no Etc/ offsets. Node lists UTC under no name of its own; it is added.
+const regions = Intl.supportedValuesOf('timeZone')
+  .filter((zone) => zone.includes('/') && !zone.startsWith('Etc/'))
+  .map((zone) => RENAMED[zone] ?? zone)
+const zones = [...new Set([...regions, 'UTC'])].sort()
 const lines = zones.map((zone) => `  '${zone}',`).join('\n')
 writeFileSync(
   new URL('../src/zones.ts', import.meta.url),

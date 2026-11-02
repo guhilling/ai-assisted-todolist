@@ -27,7 +27,8 @@ and the sign-in has it at its top as well (#384).
   them back too, so no edit or undo in the app erases them.
 
 - **Setting a due time** (#477) — the form offers **Add a time** under the due date, which opens
-  the platform's own time picker: a dialog on Android, a wheel in the form on iOS. With a time set,
+  the platform's own time picker: a dialog on Android, wheels in the form on iOS, which stay while
+  they are turned until the time is pressed again. With a time set,
   **No time** clears it, and a switch **Tied to a time zone** appears, off by default, as on the
   website: a time that follows the phone. Turned on, it starts from the phone's zone, as
   `expo-localization` reads it from the platform; a fixed offset such as `GMT+1`, which the backend

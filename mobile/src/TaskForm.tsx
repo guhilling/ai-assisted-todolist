@@ -45,11 +45,17 @@ export type TaskValues = Pick<Task, 'description' | 'dueDate' | 'importance' | '
 /** How many zones the picker lists at once: enough to scroll, few enough to draw at once. */
 const ZONES_SHOWN = 30
 
-/** The zones whose name holds `search`, spaces and underscores alike, with `current` among them. */
-function zonesMatching(search: string, current: string | null) {
+/** The zones but `chosen` whose name holds `search`, spaces and underscores alike. */
+function zonesMatching(search: string, chosen: string) {
   const wanted = search.trim().toLowerCase().replaceAll(' ', '_')
-  const zones = current && !timeZones.includes(current) ? [current, ...timeZones] : timeZones
-  return zones.filter((zone) => zone.toLowerCase().includes(wanted)).slice(0, ZONES_SHOWN)
+  return timeZones
+    .filter((zone) => zone !== chosen && zone.toLowerCase().includes(wanted))
+    .slice(0, ZONES_SHOWN)
+}
+
+/** A zone as the form shows it: its IANA name, with spaces, as the website's picker shows it. */
+function shownZone(zone: string) {
+  return zone.replaceAll('_', ' ')
 }
 
 /** A task is open or done (#334); `WORKING`, which older apps still send, is not offered. */
@@ -58,7 +64,8 @@ type OfferedState = (typeof STATES)[number]
 
 /**
  * Adding a task, or editing one (#271): the description, the due date -- the website's shortcuts,
- * or any day from the platform's calendar -- the importance, and when editing, the state.
+ * or any day from the platform's calendar -- an optional time, tied to a time zone or not (#477),
+ * the importance, and when editing, the state.
  *
  * Saving waits for the server, as the website's editor does: the form stays open with what was
  * typed until the save went through, and a refused save leaves it there to correct. Whoever shows
@@ -133,7 +140,7 @@ export function TaskForm({
   const [timeZone, setTimeZone] = useState<string | null>(task?.timeZone ?? null)
   const [pickingTime, setPickingTime] = useState(false)
   // The zone the switch last held, so turning it off and on again gives a task back its own.
-  const lastZone = useRef(task?.timeZone ?? null)
+  const [lastZone, setLastZone] = useState(task?.timeZone ?? null)
   const [zoneSearch, setZoneSearch] = useState<string | null>(null)
   const [picking, setPicking] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -194,6 +201,20 @@ export function TaskForm({
     }
   }
 
+  const toggleTimePicker = () => setPickingTime(!pickingTime)
+  const toggleZoneSearch = () => setZoneSearch(zoneSearch === null ? '' : null)
+
+  /** Clears the time and its zone: a zone says nothing without a time; the backend refuses it. */
+  function clearTime() {
+    if (timeZone !== null) {
+      setLastZone(timeZone)
+    }
+    setDueTime(null)
+    setTimeZone(null)
+    setZoneSearch(null)
+    setPickingTime(false)
+  }
+
   const chip = (label: string, selected: boolean, onPress: () => void) => (
     <Pressable
       key={label}
@@ -243,21 +264,17 @@ export function TaskForm({
 
           <Text style={styles.label}>{messages.dueTime.label}</Text>
           <View style={styles.chips}>
-            {chip(dueTime ?? messages.dueTime.add, dueTime !== null, () => setPickingTime(true))}
-            {dueTime === null
-              ? null
-              : chip(messages.dueTime.none, false, () => {
-                  // A zone says nothing without a time, and the backend refuses one alone.
-                  setDueTime(null)
-                  setTimeZone(null)
-                  setZoneSearch(null)
-                })}
+            {/* Pressed again, it puts iOS's wheels away, which stay while they are turned. */}
+            {chip(dueTime ?? messages.dueTime.add, dueTime !== null, toggleTimePicker)}
+            {dueTime === null ? null : chip(messages.dueTime.none, false, clearTime)}
           </View>
           {pickingTime ? (
             <DueTimePicker
               value={dueTime}
-              onPick={(picked) => {
-                setPickingTime(false)
+              onPick={(picked, done) => {
+                if (done) {
+                  setPickingTime(false)
+                }
                 if (picked) {
                   setDueTime(picked)
                 }
@@ -274,11 +291,11 @@ export function TaskForm({
                 trackColor={{ true: theme.accent, false: theme.border }}
                 onValueChange={(on) => {
                   if (timeZone !== null) {
-                    lastZone.current = timeZone
+                    setLastZone(timeZone)
                   }
                   // Off by default, a floating time (Gunnar on #290); on, it starts from the
                   // phone's zone.
-                  setTimeZone(on ? (lastZone.current ?? phoneZone()) : null)
+                  setTimeZone(on ? (lastZone ?? phoneZone()) : null)
                   setZoneSearch(null)
                 }}
               />
@@ -289,7 +306,7 @@ export function TaskForm({
             <>
               <Text style={styles.label}>{messages.dueTime.zone}</Text>
               <View style={styles.chips}>
-                {chip(timeZone, true, () => setZoneSearch(zoneSearch === null ? '' : null))}
+                {chip(shownZone(timeZone), true, toggleZoneSearch)}
               </View>
               {zoneSearch === null ? null : (
                 <>
@@ -303,14 +320,12 @@ export function TaskForm({
                     autoCorrect={false}
                   />
                   <View style={styles.chips}>
-                    {zonesMatching(zoneSearch, timeZone)
-                      .filter((zone) => zone !== timeZone)
-                      .map((zone) =>
-                        chip(zone, false, () => {
-                          setTimeZone(zone)
-                          setZoneSearch(null)
-                        }),
-                      )}
+                    {zonesMatching(zoneSearch, timeZone).map((zone) =>
+                      chip(shownZone(zone), false, () => {
+                        setTimeZone(zone)
+                        setZoneSearch(null)
+                      }),
+                    )}
                   </View>
                 </>
               )}

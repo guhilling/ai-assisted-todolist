@@ -1,5 +1,6 @@
 import DateTimePicker from '@react-native-community/datetimepicker'
 import { render } from '@testing-library/react-native'
+import { Platform } from 'react-native'
 import { DueTimePicker } from './DueTimePicker'
 
 jest.mock('@react-native-community/datetimepicker', () => jest.fn(() => null))
@@ -26,13 +27,25 @@ describe('the due time picker (#477)', () => {
     expect(shownWith().value.getMinutes()).toBe(0)
   })
 
-  it('hands back the chosen time, or nothing when dismissed', async () => {
+  it("hands back Android's answer, or nothing when dismissed, each as done", async () => {
+    jest.replaceProperty(Platform, 'OS', 'android')
     const onPick = jest.fn()
     await render(<DueTimePicker value={null} onPick={onPick} />)
 
     shownWith().onChange({ type: 'set' }, new Date(2000, 0, 1, 7, 5))
     shownWith().onChange({ type: 'dismissed' }, undefined)
 
-    expect(onPick.mock.calls).toEqual([['07:05'], [null]])
+    expect(onPick.mock.calls).toEqual([['07:05', true], [null, true]])
+  })
+
+  it("hands back each turn of iOS's wheels, which stay until put away", async () => {
+    jest.replaceProperty(Platform, 'OS', 'ios')
+    const onPick = jest.fn()
+    await render(<DueTimePicker value={null} onPick={onPick} />)
+
+    shownWith().onChange({ type: 'set' }, new Date(2000, 0, 1, 14, 0))
+    shownWith().onChange({ type: 'set' }, new Date(2000, 0, 1, 14, 30))
+
+    expect(onPick.mock.calls).toEqual([['14:00', false], ['14:30', false]])
   })
 })
