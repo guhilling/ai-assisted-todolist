@@ -26,7 +26,8 @@ and the sign-in has it at its top as well (#384).
   clock reads it. The app sends a task's time and zone back with every change, and an undo puts
   them back too, so no edit or undo in the app erases them.
 
-- **Setting a due time** (#477) — the form offers **Add a time** under the due date, which opens
+- **Setting a due time** (#477) — the form offers **Add a time** under the importance — not beside
+  the date, as the website does, where it pushed the importance under the keyboard — which opens
   the platform's own time picker: a dialog on Android, wheels in the form on iOS, which stay while
   they are turned until the time is pressed again. With a time set,
   **No time** clears it, and a switch **Tied to a time zone** appears, off by default, as on the
