@@ -69,10 +69,10 @@
     "testTimeout": 15000,
     "coverageThreshold": {
       "global": {
-        "statements": 95,
-        "branches": 90,
-        "functions": 93,
-        "lines": 95
+        "statements": 96,
+        "branches": 92,
+        "functions": 94,
+        "lines": 96
       }
     }
   },

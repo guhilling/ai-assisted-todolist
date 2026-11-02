@@ -140,3 +140,4 @@ commit that first wrote each one down. CI checks every line and that this index 
 - [Sharing into the app with expo-sharing, reading only the raw share](mobile-app.md#sharing-into-the-app-with-expo-sharing-reading-only-the-raw-share)
 - [expo-sharing is patched for a shared page's title](mobile-app.md#expo-sharing-is-patched-for-a-shared-pages-title)
 - [Store releases wait for Gunnar's approval](mobile-app.md#store-releases-wait-for-gunnars-approval)
+- [The app's time zones come from the platform and a list generated from Node's](mobile-app.md#the-apps-time-zones-come-from-the-platform-and-a-list-generated-from-nodes)

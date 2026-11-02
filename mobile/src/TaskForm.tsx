@@ -1,5 +1,14 @@
 import { useContext, useEffect, useRef, useState } from 'react'
-import { Keyboard, KeyboardAvoidingView, Pressable, ScrollView, Text, TextInput, View } from 'react-native'
+import {
+  Keyboard,
+  KeyboardAvoidingView,
+  Pressable,
+  ScrollView,
+  Switch,
+  Text,
+  TextInput,
+  View,
+} from 'react-native'
 import { SafeAreaInsetsContext } from 'react-native-safe-area-context'
 import type { BoardTask } from './api'
 import { AttachFiles, EditorFiles, PendingFiles, PendingLinks } from './Attachments'
@@ -7,8 +16,11 @@ import type { SharedLink } from './incoming'
 import type { PickSource } from './pick'
 import type { PickedFile } from './upload'
 import { DueDatePicker } from './DueDatePicker'
+import { DueTimePicker } from './DueTimePicker'
+import { phoneZone } from './phoneZone'
 import type { Styles } from './styles'
 import type { Theme } from './theme'
+import { timeZones } from './zones'
 import {
   addDays,
   describeDueDate,
@@ -22,8 +34,23 @@ import {
   type Attachment,
 } from './web'
 
-/** What the form sets: everything about a task but its id and its files. */
-export type TaskValues = Pick<Task, 'description' | 'dueDate' | 'importance' | 'state'>
+/**
+ * What the form sets: everything about a task but its id and its files. The due time and zone
+ * come only when set on a new task, and on an edit only when either changed, then together,
+ * `null` for none: an update that leaves both out keeps the task's (#497).
+ */
+export type TaskValues = Pick<Task, 'description' | 'dueDate' | 'importance' | 'state'> &
+  Partial<Pick<Task, 'dueTime' | 'timeZone'>>
+
+/** How many zones the picker lists at once: enough to scroll, few enough to draw at once. */
+const ZONES_SHOWN = 30
+
+/** The zones whose name holds `search`, spaces and underscores alike, with `current` among them. */
+function zonesMatching(search: string, current: string | null) {
+  const wanted = search.trim().toLowerCase().replaceAll(' ', '_')
+  const zones = current && !timeZones.includes(current) ? [current, ...timeZones] : timeZones
+  return zones.filter((zone) => zone.toLowerCase().includes(wanted)).slice(0, ZONES_SHOWN)
+}
 
 /** A task is open or done (#334); `WORKING`, which older apps still send, is not offered. */
 const STATES = ['TODO', 'DONE'] as const
@@ -101,6 +128,13 @@ export function TaskForm({
   const [importance, setImportance] = useState<TaskImportance>(task?.importance ?? 'MEDIUM')
   // A task still in progress is shown, and saved, as the open task it now is (#334).
   const [state, setState] = useState<OfferedState>(task?.state === 'DONE' ? 'DONE' : 'TODO')
+  // The due time and its zone (#477): none is null; a zone comes only with a time.
+  const [dueTime, setDueTime] = useState<string | null>(task?.dueTime ?? null)
+  const [timeZone, setTimeZone] = useState<string | null>(task?.timeZone ?? null)
+  const [pickingTime, setPickingTime] = useState(false)
+  // The zone the switch last held, so turning it off and on again gives a task back its own.
+  const lastZone = useRef(task?.timeZone ?? null)
+  const [zoneSearch, setZoneSearch] = useState<string | null>(null)
   const [picking, setPicking] = useState(false)
   const [saving, setSaving] = useState(false)
 
@@ -138,7 +172,24 @@ export function TaskForm({
 
   const save = async () => {
     setSaving(true)
-    if (!(await onSave({ description: trimmed, dueDate, importance, state }))) {
+    const timeChanged = dueTime !== (task?.dueTime ?? null) || timeZone !== (task?.timeZone ?? null)
+    const values: TaskValues = editing
+      ? {
+          description: trimmed,
+          dueDate,
+          importance,
+          state,
+          ...(timeChanged ? { dueTime, timeZone } : {}),
+        }
+      : {
+          description: trimmed,
+          dueDate,
+          ...(dueTime === null ? {} : { dueTime }),
+          ...(timeZone === null ? {} : { timeZone }),
+          importance,
+          state,
+        }
+    if (!(await onSave(values))) {
       setSaving(false)
     }
   }
@@ -189,6 +240,82 @@ export function TaskForm({
               }}
             />
           ) : null}
+
+          <Text style={styles.label}>{messages.dueTime.label}</Text>
+          <View style={styles.chips}>
+            {chip(dueTime ?? messages.dueTime.add, dueTime !== null, () => setPickingTime(true))}
+            {dueTime === null
+              ? null
+              : chip(messages.dueTime.none, false, () => {
+                  // A zone says nothing without a time, and the backend refuses one alone.
+                  setDueTime(null)
+                  setTimeZone(null)
+                  setZoneSearch(null)
+                })}
+          </View>
+          {pickingTime ? (
+            <DueTimePicker
+              value={dueTime}
+              onPick={(picked) => {
+                setPickingTime(false)
+                if (picked) {
+                  setDueTime(picked)
+                }
+              }}
+            />
+          ) : null}
+          {dueTime === null ? null : (
+            <View style={styles.row}>
+              <Switch
+                accessibilityRole="switch"
+                accessibilityLabel={messages.dueTime.tied}
+                accessibilityState={{ checked: timeZone !== null }}
+                value={timeZone !== null}
+                trackColor={{ true: theme.accent, false: theme.border }}
+                onValueChange={(on) => {
+                  if (timeZone !== null) {
+                    lastZone.current = timeZone
+                  }
+                  // Off by default, a floating time (Gunnar on #290); on, it starts from the
+                  // phone's zone.
+                  setTimeZone(on ? (lastZone.current ?? phoneZone()) : null)
+                  setZoneSearch(null)
+                }}
+              />
+              <Text style={styles.chipText}>{messages.dueTime.tied}</Text>
+            </View>
+          )}
+          {dueTime === null || timeZone === null ? null : (
+            <>
+              <Text style={styles.label}>{messages.dueTime.zone}</Text>
+              <View style={styles.chips}>
+                {chip(timeZone, true, () => setZoneSearch(zoneSearch === null ? '' : null))}
+              </View>
+              {zoneSearch === null ? null : (
+                <>
+                  <TextInput
+                    style={styles.input}
+                    accessibilityLabel={messages.dueTime.search}
+                    placeholder={messages.dueTime.search}
+                    placeholderTextColor={theme.textMuted}
+                    value={zoneSearch}
+                    onChangeText={setZoneSearch}
+                    autoCorrect={false}
+                  />
+                  <View style={styles.chips}>
+                    {zonesMatching(zoneSearch, timeZone)
+                      .filter((zone) => zone !== timeZone)
+                      .map((zone) =>
+                        chip(zone, false, () => {
+                          setTimeZone(zone)
+                          setZoneSearch(null)
+                        }),
+                      )}
+                  </View>
+                </>
+              )}
+            </>
+          )}
 
           <Text style={styles.label}>{messages.importance.label}</Text>
           <View style={styles.chips}>

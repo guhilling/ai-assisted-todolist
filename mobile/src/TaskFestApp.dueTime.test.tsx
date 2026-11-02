@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react-native'
+import { render, screen, userEvent, within } from '@testing-library/react-native'
 import type { Session } from './session'
 import { TaskFestApp, type Dependencies } from './TaskFestApp'
 import { HOUR, dependencies as appDependencies, memorySessions } from './testing'
@@ -82,5 +82,24 @@ describe("a task's due time on the board (#475)", () => {
     await render(<TaskFestApp variant={variants.dev} language="de" dependencies={dependencies()} />)
 
     expect(within(await screen.findByTestId('task-2')).getByText('10:00 (Tokyo), hier 04:00')).toBeOnTheScreen()
+  })
+})
+
+describe("a task's due time changed in the app (#477)", () => {
+  it('saves a cleared time as null, which the backend would otherwise keep (#497)', async () => {
+    const update = jest.fn(async (_caller: unknown, task: Task) => task)
+    const changes = { create: jest.fn(), update, remove: jest.fn(), restore: jest.fn() }
+    const withChanges = { ...dependencies(), changes }
+    await render(<TaskFestApp variant={variants.dev} language="en" dependencies={withChanges} />)
+    const user = userEvent.setup()
+
+    await user.press(await screen.findByRole('button', { name: /^Edit "Join the stand-up"/ }))
+    await user.press(screen.getByRole('button', { name: 'No time' }))
+    await user.press(screen.getByRole('button', { name: 'Save' }))
+
+    expect(update).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ id: 2, dueTime: null, timeZone: null }),
+    )
   })
 })
