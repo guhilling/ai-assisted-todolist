@@ -8,6 +8,7 @@ import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+import java.time.LocalTime;
 
 /**
  * A task's time zone comes only with a due time (#474): a zone says where a time is meant, so on
@@ -38,7 +39,12 @@ public @interface ZoneOnlyWithTime {
 
         @Override
         public boolean isValid(TaskResource.TaskFields value, ConstraintValidatorContext context) {
-            return value == null || value.timeZone() == null || value.dueTime() != null;
+            return value == null || zoneHasTime(value.dueTime(), value.timeZone());
+        }
+
+        /** The rule itself, for both validators: no zone, or a zone with a time. */
+        static boolean zoneHasTime(LocalTime dueTime, String timeZone) {
+            return timeZone == null || dueTime != null;
         }
     }
 
@@ -52,7 +58,8 @@ public @interface ZoneOnlyWithTime {
         @Override
         public boolean isValid(TaskResource.TaskUpdateRequest value,
                                ConstraintValidatorContext context) {
-            return value == null || value.sentTimeZone() == null || value.sentDueTime() != null;
+            return value == null
+                || Validator.zoneHasTime(value.sentDueTime(), value.sentTimeZone());
         }
     }
 }

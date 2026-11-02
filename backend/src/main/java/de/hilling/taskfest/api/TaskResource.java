@@ -168,7 +168,9 @@ public class TaskResource {
     @APIResponse(responseCode = "404", description = "No task with this id is owned by the caller.")
     public TaskResponse update(@PathParam("id") Long id, @NotNull @Valid TaskUpdateRequest request) {
         Task task = findOwnedTaskOrNotFound(id);
-        apply(task, request.onto(task));
+        boolean keep = request.keepsDueTime();
+        apply(task, request, keep ? task.dueTime : request.sentDueTime(),
+            keep ? task.timeZone : request.sentTimeZone());
         return toResponse(task);
     }
 
@@ -248,9 +250,24 @@ public class TaskResource {
         task.dueTime = request.dueTime();
         task.timeZone = request.timeZone();
         task.importance = request.importance();
+        task.state = stateOf(request.state());
+    }
+
+    /** An update, with the time and zone already resolved against the task (#497). */
+    private static void apply(Task task, TaskUpdateRequest request, LocalTime dueTime,
+                              String timeZone) {
+        task.description = request.description();
+        task.dueDate = request.dueDate();
+        task.dueTime = dueTime;
+        task.timeZone = timeZone;
+        task.importance = request.importance();
+        task.state = stateOf(request.state());
+    }
+
+    private static TaskState stateOf(TaskState sent) {
         // A task is open or done (#334). Apps installed before then can still send WORKING, which
         // the API accepts until #345, and it is stored as the open task it now is.
-        task.state = request.state() == TaskState.WORKING ? TaskState.TODO : request.state();
+        return sent == TaskState.WORKING ? TaskState.TODO : sent;
     }
 
     private TaskResponse toResponse(Task task) {
@@ -346,8 +363,10 @@ public class TaskResource {
      *
      * @param description what is to be done, never blank
      * @param dueDate when it is due, past dates allowed
-     * @param dueTime the time of day it is due at, or null for all day
-     * @param timeZone the zone that time is meant in, or null for a floating time
+     * @param dueTime the time of day it is due at, or null for all day; left out together with
+     *     {@code timeZone}, the task keeps both, and left out alone, it is none
+     * @param timeZone the zone that time is meant in, or null for a floating time; left out
+     *     together with {@code dueTime}, the task keeps both, and left out alone, it is none
      * @param importance how much it matters
      * @param state where it stands in the workflow
      */
@@ -367,6 +386,12 @@ public class TaskResource {
         @NotNull @Schema(example = "HIGH") TaskImportance importance,
         @NotNull @Schema(example = "TODO") TaskState state
     ) {
+
+        /** Reads a missing wrapper, which only a caller in Java can pass, as a left-out field. */
+        public TaskUpdateRequest {
+            dueTime = dueTime == null ? JsonNullable.undefined() : dueTime;
+            timeZone = timeZone == null ? JsonNullable.undefined() : timeZone;
+        }
 
         /** An update that sends both a time and a zone, for a caller that has them as values. */
         public TaskUpdateRequest(String description, LocalDate dueDate, LocalTime dueTime,
@@ -388,19 +413,6 @@ public class TaskResource {
         /** The zone it sets: a left-out one is none, unless both are left out. */
         String sentTimeZone() {
             return timeZone.orElse(null);
-        }
-
-        /** The fields to apply to {@code task}, its own time and zone if this keeps them. */
-        TaskFields onto(Task task) {
-            boolean keep = keepsDueTime();
-            return new Applied(description, dueDate, keep ? task.dueTime : sentDueTime(),
-                keep ? task.timeZone : sentTimeZone(), importance, state);
-        }
-
-        /** An update resolved against the task it changes, for {@link #apply}. */
-        private record Applied(String description, LocalDate dueDate, LocalTime dueTime,
-                               String timeZone, TaskImportance importance, TaskState state)
-            implements TaskFields {
         }
     }
 

@@ -261,6 +261,23 @@ class DueTimeTest {
     @Test
     @TestSecurity(user = ALICE)
     @OidcSecurity(claims = { @Claim(key = "email", value = ALICE) })
+    void shouldRefuseAnUpdatedZoneTheJvmDoesNotKnowOrTooLong() {
+        // The zone is wrapped on update, so its constraints rely on the library's value extractor.
+        String description = "Atlantis later " + UUID.randomUUID();
+        int id = created(at(description, "10:00", BERLIN));
+        for (String zone : new String[] {"Europe/Atlantis", "Europe/" + "A".repeat(60)}) {
+            given()
+                .contentType(ContentType.JSON)
+                .body(at(description, "10:00", zone))
+                .when().put("/api/tasks/{id}", id)
+                .then()
+                .statusCode(400);
+        }
+    }
+
+    @Test
+    @TestSecurity(user = ALICE)
+    @OidcSecurity(claims = { @Claim(key = "email", value = ALICE) })
     void shouldRefuseAnUpdatedTimeGivenOtherThanAsText() {
         int id = created(task("Array later " + UUID.randomUUID()));
         Map<String, Object> body = task("Array later");
