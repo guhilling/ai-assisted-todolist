@@ -12,6 +12,8 @@ What it produces:
     doc/<chapter>/        a chapter: doc/<chapter>/index.md and its sub-pages, nested in the
                           sidebar, in the order the chapter's index.md links to them
     doc/images/           the generated diagrams the docs refer to
+    instructions/         the CLAUDE.md files, and the shared rules from dev-conventions at the
+                          tag .claude/settings.json pins (#471), fetched while building
     api/index.html        the versions of the contract
     api/main/             the moving snapshot: doc/api as it is on main
     api/v1.2.3/           one per release tag, read out of git history
@@ -89,6 +91,14 @@ INSTRUCTIONS = [
     ("backend", "backend/CLAUDE.md", "Backend"),
     ("frontend", "frontend/CLAUDE.md", "Frontend"),
 ]
+
+# The rules this repository shares with Gunnar's others (#471). They live in dev-conventions'
+# `conventions` plugin, which .claude/settings.json pins to a tag; the CLAUDE.md files hold only
+# what is particular to here. They are fetched at build time, at that tag, so a visitor's browser
+# makes no request elsewhere and a Renovate bump of the pin is all it takes to change the page.
+SETTINGS = REPO / ".claude" / "settings.json"
+SHARED_RULES = ("shared", "Shared rules")
+SHARED_RULES_FILE = "plugins/conventions/rules.md"
 
 # The order the sidebar lists the documentation in, which is doc/README.md's order rather than
 # the alphabetical one: it goes from why the project exists to how a release is cut, and ends with
@@ -537,7 +547,10 @@ def sidebar(pages: list[DocPage], section: str, current: str, depth: int) -> str
         [introduction, item("doc", "index", "Table of Contents")]
         + [item("doc", p.key, p.title, p.children) for p in pages]
     )
-    instructions = "\n      ".join(item("instructions", slug, label) for slug, _, label in INSTRUCTIONS)
+    # The shared rules come straight after the repository's own file, which points to them.
+    entries = [item("instructions", slug, label) for slug, _, label in INSTRUCTIONS]
+    entries.insert(1, item("instructions", *SHARED_RULES))
+    instructions = "\n      ".join(entries)
     return f"""  <aside class="sidebar">
     <h2>Documentation</h2>
     <ul>
@@ -733,6 +746,79 @@ def build_instructions(site: pathlib.Path, pages: list[DocPage]) -> None:
     print(f"rendered {len(INSTRUCTIONS)} instruction pages")
 
 
+class SharedRulesSource(NamedTuple):
+    """Where the shared rules come from: a repository on GitHub, at a tag."""
+    repo: str
+    ref: str
+
+    @property
+    def raw_url(self) -> str:
+        return f"https://raw.githubusercontent.com/{self.repo}/{self.ref}/{SHARED_RULES_FILE}"
+
+    @property
+    def blob_url(self) -> str:
+        return f"https://github.com/{self.repo}/blob/{self.ref}/{SHARED_RULES_FILE}"
+
+
+def shared_rules_source(settings: pathlib.Path) -> SharedRulesSource:
+    """
+    The repository and tag the settings file pins the plugin to, read rather than repeated, so
+    that Renovate's pin stays the only one (as in .claude/hooks/cloud-session-rules.py).
+    """
+    source = json.loads(settings.read_text())["extraKnownMarketplaces"]["dev-conventions"]["source"]
+    return SharedRulesSource(source["repo"], source["ref"])
+
+
+def fetch_shared_rules(source: SharedRulesSource, opener=urllib.request.urlopen) -> str:
+    """
+    The rules as Markdown. A failed fetch stops the build: a site that quietly left them out would
+    show half the method this repository is built under.
+    """
+    try:
+        with opener(source.raw_url, timeout=30) as response:
+            return response.read().decode()
+    except OSError as error:
+        raise SystemExit(f"the shared rules could not be fetched from {source.raw_url}: {error}")
+
+
+def build_shared_rules(
+    site: pathlib.Path, pages: list[DocPage], text: str, source: SharedRulesSource,
+) -> None:
+    """
+    Renders the shared rules as one more instructions page, saying where they come from.
+
+    A relative link in them is relative to the plugin in dev-conventions, not to this repository,
+    so it goes to that file on GitHub, at the same tag.
+    """
+    here = posixpath.dirname(SHARED_RULES_FILE)
+
+    def outward(match: re.Match[str]) -> str:
+        attribute, target, fragment = match.group(1), match.group(2), match.group(3) or ""
+        if target.startswith(("/", "#")):
+            return match.group(0)
+        path = posixpath.normpath(posixpath.join(here, target))
+        return f'{attribute}="https://github.com/{source.repo}/blob/{source.ref}/{path}{fragment}"'
+
+    slug, label = SHARED_RULES
+    origin = (
+        f'<p class="source-note">From <a href="{source.blob_url}">'
+        f"{html.escape(SHARED_RULES_FILE)}</a> in {html.escape(source.repo)}, at "
+        f"{html.escape(source.ref)}: the tag this repository pins in "
+        f"<code>.claude/settings.json</code>.</p>\n"
+    )
+    write_page(
+        site / "instructions" / f"{slug}.html",
+        title=label,
+        description=f"The rules Claude Code works under in every repository sharing them, "
+        f"from {source.repo}.",
+        section="instructions",
+        slug=slug,
+        body=origin + LINK.sub(outward, renderer().convert(text)),
+        pages=pages,
+    )
+    print(f"rendered the shared rules from {source.repo} at {source.ref}")
+
+
 def build_landing(site: pathlib.Path, versions: list[tuple[str, str]]) -> None:
     """The front page: a hero taken from the README, a few ways in, then the README itself."""
     readme = (REPO / "README.md").read_text()
@@ -919,6 +1005,8 @@ def main(argv: list[str]) -> int:
     pages = doc_pages()
     build_docs(site, pages)
     build_instructions(site, pages)
+    source = shared_rules_source(SETTINGS)
+    build_shared_rules(site, pages, fetch_shared_rules(source), source)
     build_api_index(site, published)
     build_landing(site, published)
     build_videos(site, videos, app_videos)
