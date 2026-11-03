@@ -5,24 +5,12 @@ appId: com.apple.mobileslideshow
 ---
 - waitForAnimationToEnd:
     timeout: 8000
-# A fresh simulator's Photos greets its first user, once or twice; none of this is TaskFest's.
-- repeat:
-    times: 2
-    commands:
-      - runFlow:
-          when:
-            visible: "Continue"
-          commands:
-            - tapOn: "Continue"
-            - waitForAnimationToEnd
-- tapOn:
-    text: "Photo, .*"
-    index: 0
-- waitForAnimationToEnd
+- runFlow: answer-photos-greeting.yaml
 # A tap while the library is still settling may open nothing (#401): tapped again until the photo
-# is open, which is when Share is there.
+# is open, which is when Share is there. Only from the grid: when run-on-simulator.sh runs the flow
+# once more, iOS may reopen Photos on the photo the first run had opened (#500).
 - repeat:
-    times: 3
+    times: 4
     commands:
       - runFlow:
           when:

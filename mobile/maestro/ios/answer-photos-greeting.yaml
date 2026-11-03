@@ -1,0 +1,13 @@
+# Part of tap-share-photo.yaml and warm-up-photos.yaml: a fresh simulator's Photos greets its first
+# user, once or twice; none of this is TaskFest's. Not a flow of its own.
+appId: com.apple.mobileslideshow
+---
+- repeat:
+    times: 2
+    commands:
+      - runFlow:
+          when:
+            visible: "Continue"
+          commands:
+            - tapOn: "Continue"
+            - waitForAnimationToEnd
