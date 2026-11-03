@@ -64,9 +64,9 @@ type OfferedState = (typeof STATES)[number]
 
 /**
  * Adding a task, or editing one (#271): the description, the due date -- the website's shortcuts,
- * or any day from the platform's calendar -- the importance, an optional time, tied to a time zone
- * or not (#477), and when editing, the state. The time comes after the importance, not beside the
- * date as on the website: on a phone it would push the importance below the keyboard.
+ * or any day from the platform's calendar -- an optional time, tied to a time zone or not (#477),
+ * the importance, and when editing, the state. The time's chip sits in the date's row, so a task
+ * without a time has a form no taller than before.
  *
  * Saving waits for the server, as the website's editor does: the form stays open with what was
  * typed until the save went through, and a refused save leaves it there to correct. Whoever shows
@@ -258,6 +258,13 @@ export function TaskForm({
           <View style={styles.chips}>
             {shortcuts.map((quick) => chip(quick.label, quick.iso === dueDate, () => setDueDate(quick.iso)))}
             {chip(otherDate, otherDate !== messages.dueDate.other, () => setPicking(true))}
+            {/*
+              * The time beside the date, as on the website, and in the date's row: without a time
+              * the form is no taller than before (#477), so nothing below moves under the
+              * keyboard or off the screen. Pressed again, it puts iOS's wheels away.
+              */}
+            {chip(dueTime ?? messages.dueTime.add, dueTime !== null, toggleTimePicker)}
+            {dueTime === null ? null : chip(messages.dueTime.none, false, clearTime)}
           </View>
           {picking ? (
             <DueDatePicker
@@ -272,20 +279,6 @@ export function TaskForm({
               }}
             />
           ) : null}
-
-          <Text style={styles.label}>{messages.importance.label}</Text>
-          <View style={styles.chips}>
-            {importanceLevels.map((level) =>
-              chip(messages.importance.levels[level], level === importance, () => setImportance(level)),
-            )}
-          </View>
-
-          <Text style={styles.label}>{messages.dueTime.label}</Text>
-          <View style={styles.chips}>
-            {/* Pressed again, it puts iOS's wheels away, which stay while they are turned. */}
-            {chip(dueTime ?? messages.dueTime.add, dueTime !== null, toggleTimePicker)}
-            {dueTime === null ? null : chip(messages.dueTime.none, false, clearTime)}
-          </View>
           {pickingTime ? (
             <DueTimePicker
               value={dueTime}
@@ -355,6 +348,13 @@ export function TaskForm({
               )}
             </>
           )}
+
+          <Text style={styles.label}>{messages.importance.label}</Text>
+          <View style={styles.chips}>
+            {importanceLevels.map((level) =>
+              chip(messages.importance.levels[level], level === importance, () => setImportance(level)),
+            )}
+          </View>
 
           {editing ? (
             <>

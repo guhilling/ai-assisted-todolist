@@ -250,7 +250,6 @@ describe("a task's due time in the form (#477)", () => {
   it('speaks German', async () => {
     await render(form({ task: zoned, language: 'de', messages: catalogues.de }))
 
-    expect(screen.getByText('Uhrzeit')).toBeOnTheScreen()
     expect(screen.getByRole('switch', { name: 'An eine Zeitzone gebunden' })).toBeOnTheScreen()
     expect(screen.getByRole('button', { name: 'Keine Uhrzeit' })).toBeOnTheScreen()
   })

@@ -26,10 +26,10 @@ and the sign-in has it at its top as well (#384).
   clock reads it. The app sends a task's time and zone back with every change, and an undo puts
   them back too, so no edit or undo in the app erases them.
 
-- **Setting a due time** (#477) — the form offers **Add a time** under the importance — not beside
-  the date, as the website does, where it pushed the importance under the keyboard — which opens
-  the platform's own time picker: a dialog on Android, wheels in the form on iOS, which stay while
-  they are turned until the time is pressed again. With a time set,
+- **Setting a due time** (#477) — the form offers **Add a time** in the due date's row of chips,
+  which opens the platform's own time picker: a dialog on Android, wheels in the form on iOS, which
+  stay while they are turned until the time is pressed again. Being in that row, it leaves a task
+  without a time a form no taller than before, so nothing below moves off the screen. With a time set,
   **No time** clears it, and a switch **Tied to a time zone** appears, off by default, as on the
   website: a time that follows the phone. Turned on, it starts from the phone's zone, as
   `expo-localization` reads it from the platform; a fixed offset such as `GMT+1`, which the backend
