@@ -73,8 +73,8 @@ CloudWatch needs its own configuration file, which Fargate reads only from insid
 **The password, once per environment.** The collectors log in as `taskfest-<env>`; the password is
 an SSM SecureString that ECS injects, created by hand before the first apply that sets
 `monitoring_endpoint`, so that it never passes through this repository or OpenTofu's state. The plan
-fails without it. The same password goes into the server's Caddy configuration (the monitoring
-repository's `doc/server.md`).
+fails without it. The same password, as a hash, goes into the server's Caddy configuration (the monitoring
+repository's [server page](https://github.com/guhilling/monitoring/blob/main/doc/server.md)).
 
 ```sh
 aws ssm put-parameter --name /taskfest/qa/monitoring-password --type SecureString --value '<the password>'
