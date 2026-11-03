@@ -3,8 +3,9 @@
 The trial of [#508](https://github.com/guhilling/ai-assisted-todolist/issues/508): the backend's
 metrics and logs, from a local stack, in VictoriaMetrics and VictoriaLogs on the shared monitoring
 server, with a Perses dashboard over both. The server and its stack are in the private repository
-[guhilling/monitoring](https://github.com/guhilling/monitoring), whose `doc/server.md` says how
-the server is set up. Nothing in AWS sends there yet.
+[guhilling/monitoring](https://github.com/guhilling/monitoring), whose
+[server page](https://github.com/guhilling/monitoring/blob/main/doc/server.md) says how the server
+is set up. Nothing in AWS sends there yet.
 
 ## Running it
 
