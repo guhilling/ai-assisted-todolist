@@ -47,6 +47,18 @@ class MainTenantFollowsSignInTest {
         assertTrue(tenantEnabled(config));
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"prod", "qa"})
+    void shouldKeepTheTenantOnWithSignInEvenWithoutAClientId(String profile) throws IOException {
+        // The switch decides, not the client id: sign-in on without a client is a broken
+        // configuration, and the start should fail on it rather than quietly switch sign-in off.
+        SmallRyeConfig config = configFor(profile, Map.of(
+            "TASKFEST_AUTH_ENABLED", "true",
+            "TASKFEST_OIDC_GOOGLE_CLIENT_ID", ""));
+
+        assertTrue(tenantEnabled(config));
+    }
+
     private static SmallRyeConfig configFor(String profile, Map<String, String> environment) throws IOException {
         return new SmallRyeConfigBuilder()
             .withProfile(profile)
