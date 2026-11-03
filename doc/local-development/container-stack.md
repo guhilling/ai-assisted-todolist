@@ -24,6 +24,11 @@ must stay that way.
 Tear down with `docker compose -f deployment/docker/docker-compose.yml down`, or `down -v` to discard
 the database volume as well.
 
+The database volume is mounted at `/var/lib/postgresql`, where PostgreSQL 18's image keeps one
+directory per major version; on the older `/var/lib/postgresql/data` it refuses to start, even with
+an empty volume. A volume that still holds data from an older PostgreSQL makes it refuse too:
+discard it with `down -v`, or upgrade it with `pg_upgrade`.
+
 > **One-off: an existing volume from before the baseline changelog will not start.** The three
 > changelogs that built the schema up were squashed into `001-baseline.xml`, so Liquibase finds
 > changesets in `databasechangelog` that no longer exist and refuses to continue. Discard the
