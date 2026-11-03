@@ -394,7 +394,15 @@ resource "aws_ecs_task_definition" "backend" {
     cpu_architecture        = var.cpu_architecture
   }
 
-  container_definitions = jsonencode([{
+  # Where the monitoring sidecars find their configuration (monitoring.tf).
+  dynamic "volume" {
+    for_each = local.monitoring_enabled ? [1] : []
+    content {
+      name = local.monitoring_volume
+    }
+  }
+
+  container_definitions = jsonencode(concat([{
     name      = "backend"
     image     = local.backend_image
     essential = true
@@ -446,7 +454,7 @@ resource "aws_ecs_task_definition" "backend" {
       { name = "TASKFEST_OIDC_COGNITO_CLIENT_ID", value = aws_cognito_user_pool_client.backend[0].id },
       # The mobile app's public client, whose ID tokens the backend accepts as bearer tokens (#267).
       { name = "TASKFEST_OIDC_COGNITO_APP_CLIENT_ID", value = aws_cognito_user_pool_client.app[0].id },
-    ] : [])
+    ] : [], local.monitoring_backend_environment)
 
     secrets = concat(local.sign_in_enabled ? [
       { name = "TASKFEST_OIDC_GOOGLE_CLIENT_SECRET", valueFrom = aws_secretsmanager_secret.google_client_secret.arn },
@@ -455,7 +463,7 @@ resource "aws_ecs_task_definition" "backend" {
     ] : [])
 
     logConfiguration = local.ecs_log_configuration
-  }])
+  }], local.monitoring_containers))
 
   tags = { Name = local.service_name }
 

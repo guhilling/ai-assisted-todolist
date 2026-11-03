@@ -3,10 +3,11 @@
 Named, because "best practices are applied" plans nothing:
 
 - **Logs.** The Quarkus JSON log to CloudWatch Logs, one group per environment, 30-day retention
-  in QA and 90 in prod. What they contain and how to query them is below.
-- **Metrics.** `/q/metrics` is already exposed and already tested (`MetricsResourceTest`).
-  Scraped into CloudWatch by the ECS agent's Prometheus support, so the dashboards use what the
-  application already publishes rather than something invented for AWS.
+  in QA and 90 in prod. What they contain and how to query them is below. Where
+  `monitoring_endpoint` is set, the same lines also go to the monitoring server.
+- **Metrics.** `/q/metrics` is exposed and tested (`MetricsResourceTest`). Nothing in AWS
+  scrapes it; where `monitoring_endpoint` is set, qa for now, a `vmagent` sidecar sends it to the
+  shared monitoring server (below), so the dashboards use what the application already publishes.
 - **Alarms**, each on a condition a person can act on: ALB 5xx rate; ALB target health; ECS
   service running-count below desired; RDS free storage; RDS CPU credit balance — `t4g` instances
   are burstable and exhausting credits looks exactly like a slow application.
@@ -44,6 +45,43 @@ useful on its own:
    tracing system. OpenTelemetry (`quarkus-opentelemetry`) to X-Ray, with the browser's requests
    carrying `traceparent`, only once there is more than one service to follow a request through —
    as the bullet on traces above says.
+
+## The monitoring server (#508)
+
+Metrics and logs also go to a monitoring server of their own: **VictoriaMetrics** and
+**VictoriaLogs** on a Hetzner VM, with **Perses** dashboards over both, shared with Gunnar's other
+workloads. It is set up in the private repository
+[guhilling/monitoring](https://github.com/guhilling/monitoring), and reached at
+`monitoring.cloud.hilling.de` over HTTPS with basic auth. `monitoring_endpoint` turns it on per
+environment; qa sends, prod does not.
+
+**What runs in the backend task** (`deployment/aws-tofu/modules/environment/monitoring.tf`): three
+containers beside the backend, none of them essential, so the backend serves whatever they do.
+
+| Container | Does |
+| --- | --- |
+| `monitoring-config` | Writes the two collectors' configuration into a task volume, then exits. Fargate cannot mount a file from anywhere else, and an image of our own would need building and publishing |
+| `fluent-bit` | AWS's build of Fluent Bit. Takes the JSON log the backend sends it through Quarkus' socket handler (`QUARKUS_LOG_SOCKET_*`), beside the console log that still goes to CloudWatch, and posts it to VictoriaLogs |
+| `vmagent` | Scrapes `/q/metrics` every 30 s and remote-writes it to VictoriaMetrics, labelled `project` and `env`. Through ECR's quay.io cache, so Inspector scans it |
+
+The configuration is `deployment/monitoring/`'s, the same files the local overlay mounts
+([sending to the monitoring server](../local-development/monitoring.md)), so a local stack and qa
+send alike. The two collectors use about 20 MB between them, measured locally, so the task keeps its
+size. FireLens, the obvious way to ship the logs, was not taken: a second destination beside
+CloudWatch needs its own configuration file, which Fargate reads only from inside the image.
+
+**The password, once per environment.** The collectors log in as `taskfest-<env>`; the password is
+an SSM SecureString that ECS injects, created by hand before the first apply that sets
+`monitoring_endpoint`, so that it never passes through this repository or OpenTofu's state. The plan
+fails without it. The same password goes into the server's Caddy configuration (the monitoring
+repository's `doc/server.md`).
+
+```sh
+aws ssm put-parameter --name /taskfest/qa/monitoring-password --type SecureString --value '<the password>'
+```
+
+A SecureString on the AWS-managed `aws/ssm` key is free. To change the password, overwrite the
+parameter (`--overwrite`), change it on the server, and start new tasks.
 
 ## Alerting: the address, and the one-time setup
 

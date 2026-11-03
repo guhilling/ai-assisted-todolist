@@ -123,6 +123,7 @@ commit that first wrote each one down. CI checks every line and that this index 
 - [qa's test accounts are a Cognito pool, and its client secret is in OpenTofu state](deployment-and-aws.md#qas-test-accounts-are-a-cognito-pool-and-its-client-secret-is-in-opentofu-state)
 - [The monitoring user reads no files and no secrets](deployment-and-aws.md#the-monitoring-user-reads-no-files-and-no-secrets)
 - [The attachments bucket refuses to be destroyed](deployment-and-aws.md#the-attachments-bucket-refuses-to-be-destroyed)
+- [qa sends its metrics and logs to a shared server at Hetzner, through sidecars](deployment-and-aws.md#qa-sends-its-metrics-and-logs-to-a-shared-server-at-hetzner-through-sidecars)
 
 ## [Mobile app](mobile-app.md)
 

@@ -68,6 +68,7 @@ module "environment" {
   google_client_id     = var.google_client_id
   google_ios_client_id = var.google_ios_client_id
   test_sign_in         = var.test_sign_in
+  monitoring_endpoint  = var.monitoring_endpoint
 
   blue_green_bake_minutes      = var.blue_green_bake_minutes
   deregistration_delay_seconds = var.deregistration_delay_seconds

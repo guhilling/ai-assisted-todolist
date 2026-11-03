@@ -50,6 +50,11 @@ once** would be about $112 a month.
 first scan and $0.01 per rescan, plus ECR storage for at most fifteen cached images, about 3 GB
 at $0.10 per GB-month — **under $1 a month** ([image scanning](image-scanning.md)).
 
+**The monitoring sidecars (#508)**, qa only: nothing for the task, whose size stays the same;
+about $0.10 a month for Inspector scanning `vmagent`; and cents for the metrics and logs sent out to
+the monitoring server, at AWS's $0.09 per GB. The password's SSM SecureString is free. The server
+itself is Hetzner's, about €7 a month, and shared with other workloads (guhilling/monitoring).
+
 **Avoided: a NAT gateway**, at about $33 a month per environment — still the largest line item
 this design does not have.
 

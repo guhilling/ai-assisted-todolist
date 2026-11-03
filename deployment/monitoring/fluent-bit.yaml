@@ -1,0 +1,36 @@
+# Fluent Bit for the backend's logs (#508): takes the JSON lines Quarkus' socket handler sends and
+# posts them to VictoriaLogs on the monitoring server. One file for both places it runs -- the local
+# overlay (deployment/docker/docker-compose.monitoring.yml) and the backend task in AWS
+# (deployment/aws-tofu/modules/environment/monitoring.tf) -- which differ only in the environment
+# variables below.
+#
+#   MONITORING_HOST, MONITORING_PORT, MONITORING_TLS  where VictoriaLogs is: the SSH tunnel's end
+#                                                     locally, the server's Caddy in AWS
+#   MONITORING_USER, MONITORING_PASSWORD              basic auth, which Caddy asks for; empty locally
+#   MONITORING_ENV                                    the env label: local, qa
+service:
+  flush: 5
+  # Not info, which logs every delivery.
+  log_level: warn
+
+pipeline:
+  inputs:
+    - name: tcp
+      listen: 0.0.0.0
+      port: 5170
+      format: json
+      tag: taskfest.log
+
+  outputs:
+    # VictoriaLogs' JSON lines API. The message and time come from Quarkus' own fields, project and
+    # env are added as fields, and a stream is one environment's one logger.
+    - name: http
+      match: taskfest.log
+      host: ${MONITORING_HOST}
+      port: ${MONITORING_PORT}
+      tls: ${MONITORING_TLS}
+      http_user: ${MONITORING_USER}
+      http_passwd: ${MONITORING_PASSWORD}
+      uri: /insert/jsonline?_stream_fields=project,env,loggerName&_msg_field=message&_time_field=timestamp&extra_fields=project=taskfest,env=${MONITORING_ENV}
+      format: json_lines
+      json_date_key: false

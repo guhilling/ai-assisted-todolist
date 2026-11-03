@@ -534,3 +534,35 @@ Teardown is unaffected: the bucket is foundation, and `env.sh down` never plans 
 **The price.** Retiring an environment for good takes a deliberate step — `tofu state rm` of the
 bucket in that environment, then deleting it by hand — and the flag holds in qa as well as prod,
 since `prevent_destroy` cannot come from a variable. qa's files are test data, but a destroy there is just as unintended.
+
+
+## qa sends its metrics and logs to a shared server at Hetzner, through sidecars
+
+*Accepted · 2026-11-03 · #508*
+
+**Decision (#508).** qa's backend task gets three containers more, none essential: one that writes
+the collectors' configuration into a task volume and exits, Fluent Bit for the logs and `vmagent`
+for the metrics. They send to VictoriaLogs and VictoriaMetrics on a Hetzner VM, which Perses shows,
+over HTTPS with basic auth. The server is set up in the private repository guhilling/monitoring and
+is shared with Gunnar's other workloads. `monitoring_endpoint` turns it on per environment; prod
+does not send.
+
+**Why.** Gunnar wanted a performance dashboard, preferably Perses, and then the logs next to the
+metrics, in one place other workloads can send to as well. One small VM holds all of it at a fixed
+price (about €7 a month). The sidecars are what the local trial ran, with the same configuration
+files, so qa sends exactly as a local stack does. CloudWatch keeps the logs as before, and the
+orphan alarm with them.
+
+**Rejected:**
+- *Amazon Managed Prometheus and Perses on ECS*: free for the metrics, but nothing for logs short of
+  Loki on ECS, and Perses has no released way to sign its queries to AWS.
+- *FireLens* for the logs: a second destination beside CloudWatch needs its own configuration file,
+  which Fargate reads only from inside the image, so it would have needed an image of our own.
+- *OpenTelemetry in the backend* (`quarkus-opentelemetry`): no sidecars, but a backend change, and
+  the metrics would have been named differently than locally.
+- *Grafana Cloud's free tier*: its retention is shorter than the logs are kept here.
+
+**Cost.** The logs leave AWS for Hetzner, so the privacy policy names Hetzner as a processor, and
+the server keeps them no longer than qa's CloudWatch does. A sidecar whose image cannot be pulled
+stops the whole task from starting, essential or not, so the images come from ECR: Public, or the
+quay.io cache.

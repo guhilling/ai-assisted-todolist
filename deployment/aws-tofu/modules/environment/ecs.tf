@@ -182,6 +182,32 @@ data "aws_iam_policy_document" "task_execution" {
       resources = [aws_ssm_parameter.test_client_secret[0].arn]
     }
   }
+
+  # The monitoring sidecars (monitoring.tf): vmagent's image through the quay.io cache, and the
+  # password both collectors send. Like the Cognito secret, it uses the aws/ssm key.
+  dynamic "statement" {
+    for_each = local.monitoring_enabled ? [1] : []
+    content {
+      sid = "PullVmagentThroughTheQuayCache"
+      actions = [
+        "ecr:BatchCheckLayerAvailability",
+        "ecr:BatchGetImage",
+        "ecr:GetDownloadUrlForLayer",
+        "ecr:CreateRepository",
+        "ecr:BatchImportUpstreamImage",
+      ]
+      resources = ["arn:aws:ecr:${local.region}:${local.account}:repository/quay/victoriametrics/vmagent"]
+    }
+  }
+
+  dynamic "statement" {
+    for_each = local.monitoring_enabled ? [1] : []
+    content {
+      sid       = "ReadTheMonitoringPassword"
+      actions   = ["ssm:GetParameters"]
+      resources = [data.aws_ssm_parameter.monitoring_password[0].arn]
+    }
+  }
 }
 
 resource "aws_iam_role_policy" "task_execution" {

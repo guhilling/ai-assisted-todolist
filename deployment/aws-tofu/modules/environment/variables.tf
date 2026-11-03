@@ -222,3 +222,13 @@ variable "deregistration_delay_seconds" {
   EOT
   type        = number
 }
+
+variable "monitoring_endpoint" {
+  description = <<-EOT
+    The monitoring server the backend task sends its metrics and logs to (monitoring.tf, #508), by
+    host name, reached over HTTPS with basic auth; empty sends nothing. Its password is an SSM
+    SecureString, /<project>/<environment>/monitoring-password, created by hand first.
+  EOT
+  type        = string
+  default     = ""
+}
