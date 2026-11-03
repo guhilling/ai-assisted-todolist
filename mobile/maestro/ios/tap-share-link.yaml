@@ -39,10 +39,11 @@ appId: com.apple.mobilesafari
       - tapOn: "Share"
       - waitForAnimationToEnd
 # The sheet is headed by the page's title once the page has loaded: a page shared before that would
-# not be example.com's.
+# not be example.com's. On a freshly booted simulator the process that draws the sheet took up to
+# 41 s to start for the first time, and the sheet stayed blank until then (#500).
 - extendedWaitUntil:
     visible: "Example Domain"
-    timeout: 30000
+    timeout: 120000
 - extendedWaitUntil:
     visible: "TaskFest Dev"
     timeout: 20000

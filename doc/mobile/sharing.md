@@ -159,5 +159,11 @@ go when the share's form is closed, with their folders (`releaseShared` in `Main
   still fails at once. The tap on *Open* also lets the question be
   gone by the time it looks. Either flow still fails at once when *TaskFest Dev* is not offered,
   and when the app never opens: after the second share, or, for the photo, after a late first
-  share whose question was answered instead. Still tried by hand, on TestFlight:
+  share whose question was answered instead. The next stumbles had one cause (#500): on the
+  freshly booted simulator a process's first start may take over a minute, Safari's share sheet
+  stayed blank 41 s and the app once took 82 s to come up. The flows wait up to 120 s for the
+  sheet and 150 s for the sign-in; `run-on-simulator.sh` starts the app once and opens Photos
+  until its grid is up before the shares, and logs Photos' daemons, whose hangs are still
+  unexplained. A second run of the photo's flow taps a photo only when Photos is not already
+  showing one, as iOS may reopen it there. Still tried by hand, on TestFlight:
   text shared on an iPhone, and a share taken on to the board signed in.

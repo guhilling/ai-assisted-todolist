@@ -1,0 +1,21 @@
+# Opens Photos once before the shares and waits for its grid (#500): its first start after boot
+# hung twice, black or at "Preparing…", in the measured share. Not a share of its own; whether it
+# helps is a guess, and run-on-simulator.sh does not fail when it does not get there.
+appId: com.apple.mobileslideshow
+name: Warm Photos up
+---
+- launchApp
+# The greeting tap-share-photo.yaml also answers; once answered here, it does not come again.
+- repeat:
+    times: 2
+    commands:
+      - runFlow:
+          when:
+            visible: "Continue"
+          commands:
+            - tapOn: "Continue"
+            - waitForAnimationToEnd
+- extendedWaitUntil:
+    visible: "Photo, .*"
+    timeout: 180000
+- stopApp

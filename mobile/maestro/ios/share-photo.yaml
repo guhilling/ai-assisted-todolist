@@ -55,7 +55,8 @@ name: Share a photo into the app through iOS's share sheet
           text: "Open"
           optional: true
       - waitForAnimationToEnd
+# The app's first start on a freshly booted simulator once took 82 s (#500).
 - extendedWaitUntil:
     visible: "Sign in with Keycloak"
-    timeout: 60000
+    timeout: 150000
 - takeScreenshot: ios-share-photo-3-app

@@ -15,10 +15,16 @@ appId: com.apple.mobileslideshow
           commands:
             - tapOn: "Continue"
             - waitForAnimationToEnd
-- tapOn:
-    text: "Photo, .*"
-    index: 0
-- waitForAnimationToEnd
+# Only from the grid: when run-on-simulator.sh runs the flow once more, iOS may reopen Photos on the
+# photo the first run had opened, with no grid to tap (#500).
+- runFlow:
+    when:
+      notVisible: "Share"
+    commands:
+      - tapOn:
+          text: "Photo, .*"
+          index: 0
+      - waitForAnimationToEnd
 # A tap while the library is still settling may open nothing (#401): tapped again until the photo
 # is open, which is when Share is there.
 - repeat:

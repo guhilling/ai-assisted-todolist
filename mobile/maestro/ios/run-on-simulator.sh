@@ -22,6 +22,25 @@ print(next(d["udid"] for r in ios for d in devices[r] if d["name"].startswith("i
 # Boots it, if need be, and waits until it has.
 xcrun simctl bootstatus "$udid" -b
 xcrun simctl install "$udid" "$app"
+# A process's first start on the fresh simulator may take over a minute, the app's once did (#500):
+# the app is started and stopped once here, so that cost is paid before a flow waits for it. Photos
+# is opened once too, until its grid is up; if it does not get there, the shares still run.
+xcrun simctl launch "$udid" de.hilling.taskfest.dev ||
+  echo "::warning title=App not warmed up::the shares run anyway (#500)."
+xcrun simctl terminate "$udid" de.hilling.taskfest.dev || true
+maestro --device "$udid" test "$here/warm-up-photos.yaml" --test-output-dir "$out" \
+  --debug-output "$out/debug-warm-up-photos" 2>&1 | tee "$out/warm-up-photos-console.txt" ||
+  echo "::warning title=Photos not warmed up::the shares run anyway (#500)."
+
+# Photos is logged by its daemons and subsystems as well as its process, whose name matched no line
+# of the log (#500); sharinguiservice draws Safari's share sheet.
+log_predicate='process CONTAINS[c] "taskfest" OR process CONTAINS[c] "expo-sharing"'
+log_predicate+=' OR process == "sharingd" OR process == "sharinguiservice"'
+log_predicate+=' OR process CONTAINS[c] "slideshow" OR process CONTAINS[c] "photos"'
+log_predicate+=' OR process == "assetsd" OR process == "photolibraryd"'
+log_predicate+=' OR subsystem BEGINSWITH "com.apple.photos"'
+log_predicate+=' OR process == "MobileSafari" OR process == "SpringBoard"'
+log_predicate+=' OR process == "runningboardd"'
 
 status=0
 for flow in share-photo share-link; do
@@ -59,7 +78,7 @@ for flow in share-photo share-link; do
   xcrun simctl io "$udid" screenshot "$out/$flow-end.png" || true
   xcrun simctl spawn "$udid" log show --style compact --info --debug \
     --start "$(date -u -r "$started" '+%Y-%m-%d %H:%M:%S')" \
-    --predicate 'process CONTAINS[c] "taskfest" OR process CONTAINS[c] "expo-sharing" OR process == "sharingd" OR process == "MobileSlideShow" OR process == "MobileSafari" OR process == "SpringBoard" OR process == "runningboardd"' \
+    --predicate "$log_predicate" \
     >"$out/$flow-simulator.log" 2>&1 || true
 done
 exit $status
