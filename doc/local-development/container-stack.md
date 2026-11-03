@@ -18,8 +18,10 @@ docker compose -f deployment/docker/docker-compose.yml up --build
 - postgres: `localhost:5432` (`taskfest` / `taskfest` / `taskfest`)
 
 To point this stack at real Google credentials, copy `.env.example` to `.env`, fill it in
-and set `QUARKUS_OIDC_ENABLED=true` and `TASKFEST_AUTH_ENABLED=true`. `.env` is git-ignored and
-must stay that way.
+and set `TASKFEST_AUTH_ENABLED=true`. `.env` is git-ignored and must stay that way.
+`TASKFEST_AUTH_ENABLED` is the switch: with it off, the backend's main OIDC tenant is off as well,
+so it starts without any Google client (#511). `QUARKUS_OIDC_ENABLED` changes nothing in the
+image, which is built with OIDC on.
 
 Tear down with `docker compose -f deployment/docker/docker-compose.yml down`, or `down -v` to discard
 the database volume as well.
