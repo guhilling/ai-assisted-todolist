@@ -30,6 +30,10 @@ The website and the apps show the same board, and the apps add a reminder on the
 due, a board that stays readable offline, and a way to turn what another app shares into a task.
 It runs on AWS, and the apps reach testers through TestFlight and Play's internal testing.
 
+"Small" is relative, though: the project holds about 42,000 lines of code, a little under half of
+them tests, and about 6,900 lines of documentation (November 2026). Neither counts blank lines,
+comments, generated files or Markdown's own markup and code examples.
+
 The todo list is not really the point — this repository exists to build up experience with
 AI-assisted software development. See [doc/purpose.md](doc/purpose.md). That is also why the
 repository keeps its original name, `ai-assisted-todolist`, for historical reasons: it names the
