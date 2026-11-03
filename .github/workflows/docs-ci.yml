@@ -97,8 +97,14 @@ jobs:
             doc/api/
       - name: The Renovate config is valid
         # A broken one stops every dependency update with a config-error issue, found only on
-        # Renovate's next weekly run (#456).
-        run: npx -y --package renovate@latest -- renovate-config-validator --strict .github/renovate.json
+        # Renovate's next weekly run (#456). Pinned, not latest (#504): Renovate publishes several
+        # times a day, and a version just published is named before npm serves it, a 404. Renovate
+        # moves the pin itself (.github/renovate.json). --no-global checks it as the repository
+        # config it is; by path alone it is checked as global config, which lets options through
+        # that only a self-hosted Renovate may set.
+        run: >-
+          npx -y --package renovate@44.206.2 --
+          renovate-config-validator --strict --no-global .github/renovate.json
       - name: Every decision says when it was taken, and the index lists them all
         # The status line under each decision (#409), and an index that had drifted to thirteen
         # decisions missing and one long renamed.
