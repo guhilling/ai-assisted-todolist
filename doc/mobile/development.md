@@ -150,8 +150,10 @@ A flow that fails because Maestro's own driver did before the flow began runs on
 one run the emulator's driver failed its first call (`DeviceCallFailedException: 'deviceInfo'
 failed`), before any step, and a re-run passed. `maestro/driver-failed.sh`, which the iOS share flow
 uses too (#401), tells the two apart by the exception Maestro reports. Only that first call counts:
-a run after a later one would start from a board or a share the first run had already changed. Any
-other failure fails at once, and the first run's console output and report are in the artifact.
+a run after a later one would start from a board or a share the first run had already changed. A
+driver that never started (`AndroidDriverTimeoutException`, on #514's run) counts too, since no
+step has run then either. Any other failure fails at once, and the first run's console output and
+report are in the artifact.
 
 The emulator itself has gone away mid-flow (#461): once in the last 320 shares, on `pm clear` at the
 start of the reminders flow, its process ended without a word, adb called it offline and then no

@@ -77,6 +77,15 @@ class DriverFailedTest(unittest.TestCase):
         self.assertEqual(self.run_on("maestro.android.DeviceCallFailedException: 'deviceInfo' failed: "
                                      "INTERNAL - error in frame handler\n"), 0)
 
+    def test_the_android_driver_not_starting_in_time(self):
+        # Before any step ran, so a second run starts where the first would have (on #514's run).
+        self.assertEqual(self.run_on(
+            "Maestro Android driver did not start up in time on emulator [ emulator-5554 ] "
+            "(driver port 40067)\n"
+            "maestro.MaestroDriverStartupException$AndroidDriverTimeoutException: Maestro Android "
+            "driver did not start up in time on emulator [ emulator-5554 ] (driver port 40067)\n"
+            "\tat maestro.drivers.AndroidDriver.awaitLaunch(AndroidDriver.kt:167)\n"), 0)
+
     def test_the_android_driver_failing_mid_flow_is_the_flows(self):
         # A step may already have changed the board, or used up a share: run again, it would not
         # start where the first run did.
