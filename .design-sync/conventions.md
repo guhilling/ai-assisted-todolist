@@ -45,11 +45,14 @@ piece of text needs its own size, it wants one of these four instead.
   `.section-weekday`), `.section-title`, `.section-title--overdue`, `.task-list`,
   `.task-row`, `.task-row--done`, `.task-row--editing`, `.task-body`, `.task-check`, `.task-description`,
   `.task-meta`, `.task-importance` (+ `--low` / `--medium` / `--high`),
-  `.task-due--overdue`, `.task-menu`, `.task-menu-items`, `.task-menu-danger`
+  `.task-due--overdue`, `.task-time` (a due time, #476), `.task-menu`, `.task-menu-items`,
+  `.task-menu-danger`
 - Add row: `.add-row`, `.add-row-plus`, `.add-row-key`, `.add-form`, `.add-field`,
   `.add-description`, `.add-controls`, `.add-actions`, `.quick-dates`; `TaskEditor` reuses
   them with `.task-editor`
 - Due date: `.date-field`, `.date-field-row`, `.date-field-toggle`, `.date-field-popover`
+- Due time (`DueTimeField`, in `.add-controls` after the date): `.add-field` for the time and the
+  zone, and `.zone-switch` for the switch between them, a checkbox with the `switch` role
 - Controls: `.button-primary`, `.button-quiet`, `.text-link`, `.chip`, `.chip--active`
 - Signed out: `.signed-out`, `.signed-out-title`, `.signed-out-copy`, `.signed-out-actions`,
   `.signed-out-note`; the sign-in buttons `.sign-in-google` (Google's official button image, used

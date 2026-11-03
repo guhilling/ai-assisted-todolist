@@ -1,5 +1,12 @@
-import { describe, expect, it } from 'vitest'
-import { describeDueTime, zoneName } from './dueTime'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import {
+  browserZone,
+  describeDueTime,
+  forgetZones,
+  offerable,
+  timeZones,
+  zoneName,
+} from './dueTime'
 import { de, en } from './i18n/messages'
 
 const task = { dueDate: '2026-10-12' }
@@ -68,5 +75,55 @@ describe('zoneName', () => {
     expect(zoneName('UTC')).toBe('UTC')
     expect(zoneName('Etc/UTC')).toBe('UTC')
     expect(zoneName('Etc/GMT')).toBe('GMT')
+  })
+})
+
+describe('the zones a task can be tied to (#476)', () => {
+  afterEach(() => vi.restoreAllMocks())
+
+  it("starts from the browser's zone", () => {
+    vi.spyOn(Intl.DateTimeFormat.prototype, 'resolvedOptions').mockReturnValue({
+      ...new Intl.DateTimeFormat().resolvedOptions(),
+      timeZone: 'Asia/Tokyo',
+    })
+    expect(browserZone()).toBe('Asia/Tokyo')
+  })
+
+  it('starts from UTC where the browser names a fixed offset, which the backend refuses', () => {
+    vi.spyOn(Intl.DateTimeFormat.prototype, 'resolvedOptions').mockReturnValue({
+      ...new Intl.DateTimeFormat().resolvedOptions(),
+      timeZone: 'Etc/GMT-2',
+    })
+    expect(browserZone()).toBe('UTC')
+  })
+
+  it('starts from a zone the list names differently, which the backend takes', () => {
+    vi.spyOn(Intl.DateTimeFormat.prototype, 'resolvedOptions').mockReturnValue({
+      ...new Intl.DateTimeFormat().resolvedOptions(),
+      timeZone: 'Asia/Kolkata',
+    })
+    expect(browserZone()).toBe('Asia/Kolkata')
+    expect(offerable('GMT+1')).toBe('UTC')
+    expect(offerable(null)).toBe('UTC')
+  })
+
+  it('offers no fixed offsets but UTC, and always the zone a task has', () => {
+    const zones = timeZones('Mars/Olympus_Mons')
+    expect(zones).toContain('Europe/Berlin')
+    expect(zones).toContain('UTC')
+    expect(zones).toContain('Mars/Olympus_Mons')
+    expect(zones.some((zone) => zone.startsWith('Etc/'))).toBe(false)
+  })
+
+  it('offers UTC and the task\'s zone in a browser without the list', () => {
+    const list = Intl.supportedValuesOf
+    Object.defineProperty(Intl, 'supportedValuesOf', { value: undefined, configurable: true, writable: true })
+    forgetZones()
+    try {
+      expect(timeZones('Europe/Berlin')).toEqual(['Europe/Berlin', 'UTC'])
+    } finally {
+      Object.defineProperty(Intl, 'supportedValuesOf', { value: list, configurable: true, writable: true })
+      forgetZones()
+    }
   })
 })

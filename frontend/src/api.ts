@@ -469,8 +469,8 @@ export async function putTask(task: Task) {
       body: JSON.stringify({
         description: task.description,
         dueDate: task.dueDate,
-        // Sent back although the website cannot set them yet (#475). Left out together, the
-        // backend keeps them (#497); clearing a time, once the website can (#476), sends null.
+        // Always the task's own, so no edit drops them (#475). An all-day task has neither, and
+        // left out together the backend keeps that (#497); a cleared time comes as null (#476).
         dueTime: task.dueTime,
         timeZone: task.timeZone,
         importance: task.importance,

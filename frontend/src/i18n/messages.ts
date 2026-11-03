@@ -132,6 +132,12 @@ export const en = {
     other: 'Other date',
     loadingCalendar: 'Loading calendar…',
   },
+  /** A task's optional due time and the switch tying it to a zone (#476). */
+  dueTime: {
+    label: 'Time',
+    tied: 'Tied to a time zone',
+    zone: 'Time zone',
+  },
   importance: {
     label: 'Importance',
     levels: { LOW: 'Low', MEDIUM: 'Medium', HIGH: 'High' } as Record<TaskImportance, string>,
@@ -358,6 +364,11 @@ export const de: Messages = {
     calendar: 'Fälligkeitsdatum im Kalender wählen',
     other: 'Anderes Datum',
     loadingCalendar: 'Kalender wird geladen …',
+  },
+  dueTime: {
+    label: 'Uhrzeit',
+    tied: 'An eine Zeitzone gebunden',
+    zone: 'Zeitzone',
   },
   importance: {
     label: 'Wichtigkeit',
