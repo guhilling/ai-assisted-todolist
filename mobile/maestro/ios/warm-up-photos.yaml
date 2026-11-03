@@ -5,16 +5,7 @@ appId: com.apple.mobileslideshow
 name: Warm Photos up
 ---
 - launchApp
-# The greeting tap-share-photo.yaml also answers; once answered here, it does not come again.
-- repeat:
-    times: 2
-    commands:
-      - runFlow:
-          when:
-            visible: "Continue"
-          commands:
-            - tapOn: "Continue"
-            - waitForAnimationToEnd
+- runFlow: answer-photos-greeting.yaml
 - extendedWaitUntil:
     visible: "Photo, .*"
     timeout: 180000
