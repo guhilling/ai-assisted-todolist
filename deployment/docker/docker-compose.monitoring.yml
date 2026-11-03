@@ -1,0 +1,43 @@
+# Sends the stack's metrics and logs to the monitoring server (#508), whose stack is in the private
+# repository guhilling/monitoring: VictoriaMetrics and VictoriaLogs, behind an SSH tunnel this
+# machine opens. Laid over a stack with a `backend` service, never used alone:
+#
+#   docker compose -f deployment/docker/docker-compose.e2e.yml \
+#     -f deployment/docker/docker-compose.monitoring.yml up
+#
+# doc/local-development/monitoring.md says how to open the tunnel and what arrives where.
+services:
+  backend:
+    environment:
+      # A second log handler next to the console's: the same JSON, over TCP to Fluent Bit. The
+      # console log is unchanged.
+      QUARKUS_LOG_SOCKET_ENABLED: "true"
+      QUARKUS_LOG_SOCKET_ENDPOINT: fluent-bit:5170
+      QUARKUS_LOG_SOCKET_JSON_ENABLED: "true"
+    depends_on:
+      - fluent-bit
+
+  # The logs: takes the backend's and sends them through the tunnel. Fluent Bit, because FireLens
+  # -- what would ship the logs from ECS -- is Fluent Bit too.
+  fluent-bit:
+    image: fluent/fluent-bit:5.1.5@sha256:2740f387f6e68fab66d28e4fa6a853387b9cab6ffb4cb78958f69bba4eb0e7b4
+    command: ["-c", "/fluent-bit/etc/monitoring.yaml"]
+    environment:
+      MONITORING_HOST: ${MONITORING_HOST:-host.containers.internal}
+    volumes:
+      - ./monitoring/fluent-bit.yaml:/fluent-bit/etc/monitoring.yaml:ro
+
+  # The metrics: scrapes the backend's /q/metrics and remote-writes them through the tunnel.
+  # vmagent rather than Fluent Bit's own scraper, which cannot read the OpenMetrics format the
+  # backend answers in.
+  vmagent:
+    image: victoriametrics/vmagent:v1.155.0@sha256:8e3c03905be15bba8312d4868e8ae6f9fc2fefee0a41d544472034249ca42bb4
+    command:
+      - -promscrape.config=/etc/vmagent/scrape.yaml
+      # Where the tunnel's end is, seen from a container: the host, under the name Podman gives
+      # it. Docker Desktop calls it host.docker.internal.
+      - -remoteWrite.url=http://${MONITORING_HOST:-host.containers.internal}:8428/api/v1/write
+      - -remoteWrite.label=project=taskfest
+      - -remoteWrite.label=env=local
+    volumes:
+      - ./monitoring/vmagent-scrape.yaml:/etc/vmagent/scrape.yaml:ro

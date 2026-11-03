@@ -1,0 +1,35 @@
+# Fluent Bit for the stack's logs (docker-compose.monitoring.yml, #508).
+service:
+  flush: 5
+  # Not info: that logs every delivery, every five seconds.
+  log_level: warn
+
+pipeline:
+  inputs:
+    # The backend's JSON log lines, from its Quarkus socket handler.
+    - name: tcp
+      listen: 0.0.0.0
+      port: 5170
+      format: json
+      tag: taskfest.log
+      processors:
+        logs:
+          - name: content_modifier
+            action: insert
+            key: project
+            value: taskfest
+          - name: content_modifier
+            action: insert
+            key: env
+            value: local
+
+  outputs:
+    # VictoriaLogs' JSON lines API. The message and time come from Quarkus' own fields; a stream
+    # is one environment's one logger.
+    - name: http
+      match: taskfest.log
+      host: ${MONITORING_HOST}
+      port: 9428
+      uri: /insert/jsonline?_stream_fields=project,env,loggerName&_msg_field=message&_time_field=timestamp
+      format: json_lines
+      json_date_key: false

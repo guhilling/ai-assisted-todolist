@@ -37,4 +37,5 @@ credentials of your own.
 | [Dev mode](dev-mode.md) | Running backend and frontend from source, with live reload |
 | [Container stack](container-stack.md) | The Compose stack, with the images CI builds |
 | [End-to-end stack](end-to-end-stack.md) | The stack the Playwright suite runs against |
+| [Sending to the monitoring server](monitoring.md) | The trial of #508: a local stack's metrics and logs in Perses |
 | [Troubleshooting](troubleshooting.md) | What goes wrong locally, and what to do about it |

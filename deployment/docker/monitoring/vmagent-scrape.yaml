@@ -1,0 +1,14 @@
+# vmagent's scrape configuration (docker-compose.monitoring.yml, #508).
+global:
+  scrape_interval: 30s
+
+scrape_configs:
+  # TLS only, with the certificate the backend makes at start (#247), so it is not verified; the
+  # load balancer does not verify it either.
+  - job_name: backend
+    scheme: https
+    metrics_path: /q/metrics
+    tls_config:
+      insecure_skip_verify: true
+    static_configs:
+      - targets: ["backend:8443"]
