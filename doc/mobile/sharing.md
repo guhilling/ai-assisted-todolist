@@ -161,8 +161,8 @@ go when the share's form is closed, with their folders (`releaseShared` in `Main
   and when the app never opens: after the second share, or, for the photo, after a late first
   share whose question was answered instead. The next stumbles had one cause (#500): on the
   freshly booted simulator a process's first start may take over a minute, Safari's share sheet
-  stayed blank 41 s and the app once took 82 s to come up. The flows wait up to 120 s for the
-  sheet and 150 s for the sign-in; `run-on-simulator.sh` starts the app until its sign-in shows and
+  stayed blank 41 s and the app once took 82 s to come up. The Safari flow waits up to 120 s
+  for its share sheet, and both up to 150 s for the sign-in; `run-on-simulator.sh` starts the app until its sign-in shows and
   Photos until its grid does before the shares (`warm-up-app.yaml`, `warm-up-photos.yaml`), and
   logs Photos' daemons, whose hangs are still unexplained, from the warm-ups on. A second run of the photo's flow taps a photo only when Photos is not already
   showing one, as iOS may reopen it there. Still tried by hand, on TestFlight:
