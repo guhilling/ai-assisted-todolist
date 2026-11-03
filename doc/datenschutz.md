@@ -87,7 +87,10 @@ Jede Anfrage durchläuft das Content Delivery Network und den Load Balancer von 
 und erreicht den Server der Anwendung. Dabei werden technische Daten erfasst, etwa der Zeitpunkt,
 die aufgerufene Adresse, Ihre IP-Adresse, die Kennung Ihres Browsers und ob die Anfrage erfolgreich
 war. Das eigene Protokoll der Anwendung wird für `taskfest-qa` 30 Tage und für `taskfest` 90 Tage
-aufbewahrt, Netzwerkprotokolle 30 Tage.
+aufbewahrt, Netzwerkprotokolle 30 Tage. Für `taskfest-qa` wird das Protokoll der Anwendung
+zusätzlich an einen Monitoring-Server bei Hetzner gesendet und dort ebenfalls 30 Tage aufbewahrt;
+Kennzahlen zur Leistung der Anwendung, die keine personenbezogenen Daten enthalten, gehen ebenfalls
+dorthin.
 
 Rechtsgrundlage: Art. 6 Abs. 1 lit. f DSGVO – das berechtigte Interesse, die Anwendung sicher zu
 betreiben und Fehlerursachen zu finden.
@@ -111,14 +114,16 @@ Gravatar, das dadurch Ihre IP-Adresse und einen Hashwert Ihrer E-Mail-Adresse er
 - **Amazon Web Services** (Amazon Web Services EMEA SARL, Luxemburg) betreibt die Anwendung in
   seiner Region Frankfurt. Sein Content Delivery Network beantwortet Anfragen von Standorten
   weltweit.
+- **Hetzner** (Hetzner Online GmbH, Gunzenhausen) betreibt in Nürnberg den Monitoring-Server, der
+  das Protokoll der Anwendung von `taskfest-qa` erhält.
 - **Google** (Google Ireland Ltd.) stellt die Anmeldung bereit.
 - **Automattic** (Gravatar), wie oben beschrieben, nur wenn Google kein Bild bereitstellt.
 - **GitHub** (GitHub Inc., USA) betreibt diese Dokumentationsseite und erhält die technischen
   Daten der Besuche.
 
-Diese Unternehmen oder ihre Muttergesellschaften haben ihren Sitz in den USA. Übermittlungen
-stützen sich auf den EU-US-Datenschutzrahmen (EU–US Data Privacy Framework), nach dem sie
-zertifiziert sind, oder auf die Standardvertragsklauseln der EU.
+Mit Ausnahme von Hetzner haben diese Unternehmen oder ihre Muttergesellschaften ihren Sitz in den
+USA. Übermittlungen stützen sich auf den EU-US-Datenschutzrahmen (EU–US Data Privacy Framework),
+nach dem sie zertifiziert sind, oder auf die Standardvertragsklauseln der EU.
 
 Nichts wird verkauft, und nichts wird für Werbung oder für automatisierte Entscheidungen über Sie
 verwendet.
@@ -160,4 +165,4 @@ Prinzenstraße 5<br>
 Diese Erklärung ist Teil der Projektdokumentation und wird öffentlich im Repository geändert. Das
 Datum unten ist das der letzten inhaltlichen Änderung.
 
-Stand: 8. Oktober 2026
+Stand: 3. November 2026

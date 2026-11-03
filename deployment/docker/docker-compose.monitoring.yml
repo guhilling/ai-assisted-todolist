@@ -14,30 +14,39 @@ services:
       QUARKUS_LOG_SOCKET_ENABLED: "true"
       QUARKUS_LOG_SOCKET_ENDPOINT: fluent-bit:5170
       QUARKUS_LOG_SOCKET_JSON_ENABLED: "true"
+      # Asynchronous, dropping lines when its queue is full, as in AWS (monitoring.tf).
+      QUARKUS_LOG_SOCKET_ASYNC_ENABLED: "true"
+      QUARKUS_LOG_SOCKET_ASYNC_OVERFLOW: discard
     depends_on:
       - fluent-bit
 
-  # The logs: takes the backend's and sends them through the tunnel. Fluent Bit, because FireLens
-  # -- what would ship the logs from ECS -- is Fluent Bit too.
+  # The logs: takes the backend's and sends them through the tunnel. AWS's build of Fluent Bit, the
+  # image the backend task in AWS runs, with the same configuration (deployment/monitoring/).
   fluent-bit:
-    image: fluent/fluent-bit:5.1.5@sha256:2740f387f6e68fab66d28e4fa6a853387b9cab6ffb4cb78958f69bba4eb0e7b4
-    command: ["-c", "/fluent-bit/etc/monitoring.yaml"]
+    image: public.ecr.aws/aws-observability/aws-for-fluent-bit:3.5.6@sha256:18d825003ed02cf336fb33c9a1319e4f21381ad0140acc2e1707e04d636341fc
+    entrypoint: ["/fluent-bit/bin/fluent-bit"]
+    command: ["-c", "/monitoring/fluent-bit.yaml"]
     environment:
+      # Where the tunnel's end is, seen from a container: the host, under the name Podman gives it.
+      # Docker Desktop calls it host.docker.internal.
       MONITORING_HOST: ${MONITORING_HOST:-host.containers.internal}
+      MONITORING_PORT: "9428"
+      MONITORING_TLS: "off"
+      MONITORING_ENV: local
     volumes:
-      - ./monitoring/fluent-bit.yaml:/fluent-bit/etc/monitoring.yaml:ro
+      - ../monitoring/fluent-bit.yaml:/monitoring/fluent-bit.yaml:ro
 
   # The metrics: scrapes the backend's /q/metrics and remote-writes them through the tunnel.
   # vmagent rather than Fluent Bit's own scraper, which cannot read the OpenMetrics format the
   # backend answers in.
   vmagent:
-    image: victoriametrics/vmagent:v1.155.0@sha256:8e3c03905be15bba8312d4868e8ae6f9fc2fefee0a41d544472034249ca42bb4
+    image: quay.io/victoriametrics/vmagent:v1.155.0@sha256:8e3c03905be15bba8312d4868e8ae6f9fc2fefee0a41d544472034249ca42bb4
     command:
-      - -promscrape.config=/etc/vmagent/scrape.yaml
-      # Where the tunnel's end is, seen from a container: the host, under the name Podman gives
-      # it. Docker Desktop calls it host.docker.internal.
+      - -promscrape.config=/monitoring/vmagent-scrape.yaml
       - -remoteWrite.url=http://${MONITORING_HOST:-host.containers.internal}:8428/api/v1/write
       - -remoteWrite.label=project=taskfest
       - -remoteWrite.label=env=local
+    environment:
+      BACKEND_TARGET: backend:8443
     volumes:
-      - ./monitoring/vmagent-scrape.yaml:/etc/vmagent/scrape.yaml:ro
+      - ../monitoring/vmagent-scrape.yaml:/monitoring/vmagent-scrape.yaml:ro

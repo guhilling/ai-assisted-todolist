@@ -1,4 +1,6 @@
-# vmagent's scrape configuration (docker-compose.monitoring.yml, #508).
+# vmagent's scrape configuration (#508), for the local overlay and the backend task in AWS alike.
+# BACKEND_TARGET is where the backend listens: backend:8443 in Compose, localhost:8443 in the task,
+# whose containers share one network.
 global:
   scrape_interval: 30s
 
@@ -11,4 +13,4 @@ scrape_configs:
     tls_config:
       insecure_skip_verify: true
     static_configs:
-      - targets: ["backend:8443"]
+      - targets: ["%{BACKEND_TARGET}"]
