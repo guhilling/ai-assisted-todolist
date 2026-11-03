@@ -49,20 +49,28 @@ export const en = {
     wait: 'Just a moment: your tasks are being loaded.',
   },
   /**
-   * The mobile app's due-day reminders (#273): the notification, the offer to turn them on with
-   * the line explaining it (#336), and the name Android shows for them in its settings.
+   * The mobile app's reminders: the 08:00 summary (#273) and the one at a task's time (#478), the
+   * offer to turn them on with the line explaining it (#336), and the name Android shows for them
+   * in its settings.
    */
   reminders: {
     dueToday: (count: number) => (count === 1 ? '1 task due today' : `${count} tasks due today`),
-    offer: 'Get a reminder at 08:00 on days tasks are due?',
+    /**
+     * At a task's due time (#478): how many tasks are due at a time, the phone's, and not which,
+     * as on the lock screen the summary above says only how many.
+     */
+    dueAt: (count: number, time: string) =>
+      count === 1 ? `A task is due at ${time}` : `${count} tasks are due at ${time}`,
+    offer: 'Get reminders for tasks that are due?',
     /**
      * Under the offer, so the phone's own question that may follow Turn on is expected (#336). "If":
      * Android 12 and older never ask; and the app is not named, since the phone names the variant.
      */
-    explain: 'One notification at 08:00 on those days: how many tasks are due, not which. If your phone asks next, allow it.',
+    explain:
+      "At 08:00 on days tasks are due, and at a task's time if it has one: how many tasks are due, not which. If your phone asks next, allow it.",
     turnOn: 'Turn on',
     notNow: 'Not now',
-    channel: 'Due today',
+    channel: 'Due tasks',
   },
   /** The mobile app's, when the backend no longer serves its release (#268). */
   update: {
@@ -303,11 +311,14 @@ export const de: Messages = {
   },
   reminders: {
     dueToday: (count: number) => (count === 1 ? '1 Aufgabe heute fällig' : `${count} Aufgaben heute fällig`),
-    offer: 'Eine Erinnerung um 8:00 an Tagen, an denen Aufgaben fällig sind?',
-    explain: 'An solchen Tagen um 8:00 eine Mitteilung: wie viele Aufgaben fällig sind, nicht welche. Fragt dein Telefon gleich danach, erlaube sie.',
+    dueAt: (count: number, time: string) =>
+      count === 1 ? `Eine Aufgabe ist um ${time} fällig` : `${count} Aufgaben sind um ${time} fällig`,
+    offer: 'Erinnerungen an fällige Aufgaben?',
+    explain:
+      'Um 8:00 an Tagen, an denen Aufgaben fällig sind, und zur Uhrzeit einer Aufgabe, wenn sie eine hat: wie viele Aufgaben fällig sind, nicht welche. Fragt dein Telefon gleich danach, erlaube sie.',
     turnOn: 'Einschalten',
     notNow: 'Nicht jetzt',
-    channel: 'Heute fällig',
+    channel: 'Fällige Aufgaben',
   },
   update: {
     required: 'Diese Version der App ist zu alt für TaskFest. Aktualisiere sie, um weiterzumachen.',

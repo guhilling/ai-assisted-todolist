@@ -70,3 +70,72 @@ describe('the due-day reminders (#273)', () => {
     ])
   })
 })
+
+describe('the reminders at a task\'s due time (#478)', () => {
+  /** A task with a time: floating without a zone, tied to one with it and the moment it names. */
+  function timed(dueDate: string, dueTime: string, zone?: { timeZone: string; dueAt: string }): BoardTask {
+    return { ...task(dueDate), dueTime, ...(zone ?? {}) }
+  }
+
+  /** The time a moment shows on the phone's clock, as a reminder words it. */
+  const clock = (moment: Date) =>
+    `${String(moment.getHours()).padStart(2, '0')}:${String(moment.getMinutes()).padStart(2, '0')}`
+
+  it('reminds of a floating task at its time on the phone\'s clock, and still counts it at 08:00', () => {
+    const reminders = remindersFor([timed('2026-10-11', '10:30')], EARLY, catalogues.en)
+
+    expect(reminders).toEqual([
+      { at: at8(2026, 10, 11), title: '1 task due today' },
+      { at: new Date(2026, 9, 11, 10, 30), title: 'A task is due at 10:30' },
+    ])
+  })
+
+  it('reminds of a zoned task at its one moment, worded by the phone\'s clock', () => {
+    const dueAt = '2026-10-11T08:00:00Z'
+    const reminders = remindersFor(
+      [timed('2026-10-11', '10:00', { timeZone: 'Europe/Berlin', dueAt })],
+      EARLY,
+      catalogues.en,
+    )
+
+    expect(reminders).toContainEqual({ at: new Date(dueAt), title: `A task is due at ${clock(new Date(dueAt))}` })
+  })
+
+  it('reminds once of tasks due at the same moment, saying how many', () => {
+    const tasks = [timed('2026-10-11', '10:30'), timed('2026-10-11', '10:30'), timed('2026-10-11', '11:00')]
+
+    expect(remindersFor(tasks, EARLY, catalogues.en).map((reminder) => reminder.title)).toEqual([
+      '3 tasks due today',
+      '2 tasks are due at 10:30',
+      'A task is due at 11:00',
+    ])
+  })
+
+  it('reminds of no completed timed task, nor one whose time has passed', () => {
+    const tasks = [{ ...timed('2026-10-10', '12:00'), state: 'DONE' as const }, timed('2026-10-10', '08:30')]
+
+    expect(remindersFor(tasks, LATE, catalogues.en)).toEqual([])
+  })
+
+  it('shares the budget with the summaries, the nearest first', () => {
+    const tasks = Array.from({ length: 70 }, (_, day) =>
+      timed(`2026-11-${String((day % 30) + 1).padStart(2, '0')}`, `1${day % 10}:00`),
+    )
+
+    const reminders = remindersFor(tasks, EARLY, catalogues.en)
+
+    expect(reminders).toHaveLength(MAX_REMINDERS)
+    expect(reminders.map((reminder) => reminder.at.getTime())).toEqual(
+      [...reminders].map((reminder) => reminder.at.getTime()).sort((a, b) => a - b),
+    )
+  })
+
+  it('speaks German', () => {
+    const tasks = [timed('2026-10-11', '10:30'), timed('2026-10-11', '10:30'), timed('2026-10-11', '11:00')]
+
+    expect(remindersFor(tasks, EARLY, catalogues.de).map((reminder) => reminder.title).slice(1)).toEqual([
+      '2 Aufgaben sind um 10:30 fällig',
+      'Eine Aufgabe ist um 11:00 fällig',
+    ])
+  })
+})

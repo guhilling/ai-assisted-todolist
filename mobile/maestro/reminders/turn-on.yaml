@@ -23,10 +23,10 @@ name: Reminders, turn them on
     permissions:
       notifications: unset
 - extendedWaitUntil:
-    visible: "Get a reminder at 08:00 on days tasks are due\\?"
+    visible: "Get reminders for tasks that are due\\?"
     timeout: 10000
 # And says what comes, before the phone asks (#336).
-- assertVisible: "One notification at 08:00 on those days.*"
+- assertVisible: "At 08:00 on days tasks are due.*"
 - takeScreenshot: 15-reminders-offer
 - tapOn: "Turn on"
 # Android 13 and later ask; the emulator is API 34.
@@ -34,5 +34,5 @@ name: Reminders, turn them on
     visible: "Allow"
     timeout: 10000
 - tapOn: "Allow"
-- assertNotVisible: "Get a reminder at 08:00 on days tasks are due\\?"
+- assertNotVisible: "Get reminders for tasks that are due\\?"
 - takeScreenshot: 16-reminders-on

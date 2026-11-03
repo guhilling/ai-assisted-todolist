@@ -412,6 +412,7 @@ jobs:
             maestro-report.xml
             maestro-offline-*.xml
             maestro-reminders.xml
+            maestro-reminders-timed.xml
             maestro-attach.xml
             maestro-keyboard.xml
             maestro-share-*.xml

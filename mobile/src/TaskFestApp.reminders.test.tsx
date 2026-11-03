@@ -10,7 +10,7 @@ jest.mock('./DueDatePicker', () => ({ DueDatePicker: () => null }))
 
 /** 10 October 2026, 06:00 on the phone's clock: before any 08:00 the tests look at. Not the shared NOW, which is UTC. */
 const NOW = new Date(2026, 9, 10, 6, 0).getTime()
-const OFFER = 'Get a reminder at 08:00 on days tasks are due?'
+const OFFER = 'Get reminders for tasks that are due?'
 
 // Ada signed in on this clock, and a board to be reminded of: two tasks due tomorrow, one overdue.
 const idToken = tokenWith({ exp: NOW / 1000 + 3600, email: 'ada@example.com' })
@@ -193,7 +193,9 @@ describe('what the offer says before the phone asks (#336)', () => {
 
     expect(await screen.findByText(OFFER)).toBeOnTheScreen()
     expect(
-      screen.getByText('One notification at 08:00 on those days: how many tasks are due, not which. If your phone asks next, allow it.'),
+      screen.getByText(
+        "At 08:00 on days tasks are due, and at a task's time if it has one: how many tasks are due, not which. If your phone asks next, allow it.",
+      ),
     ).toBeOnTheScreen()
     expect(reminders.ask).not.toHaveBeenCalled()
   })
@@ -203,7 +205,7 @@ describe('what the offer says before the phone asks (#336)', () => {
     await render(<TaskFestApp variant={variants.dev} language="de" dependencies={dependencies({ reminders })} />)
 
     expect(
-      await screen.findByText('An solchen Tagen um 8:00 eine Mitteilung: wie viele Aufgaben fällig sind, nicht welche. Fragt dein Telefon gleich danach, erlaube sie.'),
+      await screen.findByText('Um 8:00 an Tagen, an denen Aufgaben fällig sind, und zur Uhrzeit einer Aufgabe, wenn sie eine hat: wie viele Aufgaben fällig sind, nicht welche. Fragt dein Telefon gleich danach, erlaube sie.'),
     ).toBeOnTheScreen()
     expect(reminders.ask).not.toHaveBeenCalled()
   })

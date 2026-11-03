@@ -1,0 +1,25 @@
+# A task with a time reminds at that time (#478): with the reminders turned on by turn-on.yaml, it
+# adds a task due tomorrow at 09:00 on the phone's clock, and run-on-emulator.sh then checks Android
+# holds the app's alarm for 09:00 beside the one for 08:00. Run straight after turn-on.yaml, signed in.
+appId: de.hilling.taskfest.dev
+name: Reminders, at a task's time
+---
+- tapOn: "Add a task"
+- tapOn:
+    id: "task-description"
+- inputText: "Take the pills"
+- hideKeyboard
+- tapOn: "Add a time"
+# Android's own dialog, opened on 09:00; its OK keeps that. No zone: the task floats.
+- extendedWaitUntil:
+    visible: "OK"
+    timeout: 10000
+- tapOn: "OK"
+- extendedWaitUntil:
+    visible: "09:00"
+    timeout: 10000
+- tapOn: "Add"
+- extendedWaitUntil:
+    visible: "Take the pills"
+    timeout: 10000
+- takeScreenshot: 17-reminders-timed
