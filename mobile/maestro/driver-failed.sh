@@ -9,7 +9,8 @@
 # before anything is shared (#401): three of nineteen runs of main failed that way, none in the
 # share. On the emulator it has failed its first call, deviceInfo, before any step ran (#445): only
 # that call counts there, since a run after a later one would start from a board, or a share, the
-# first run had already changed. On the simulator, too, a tap on Open in iOS's question once hung in
+# first run had already changed. It has also not started at all (AndroidDriverTimeoutException, on
+# #514's run), which is before any step too. On the simulator, too, a tap on Open in iOS's question once hung in
 # the XCTest runner while the app it opened was starting (#473): the runner gave the request up
 # after 100 s, and Maestro failed the tap with an error of no name of its own -- "Unknown error" in
 # its report. Only the three together count, so Maestro's log and the runner's are handed in with
@@ -23,7 +24,7 @@
 set -uo pipefail
 
 # iOS's, then Android's.
-driver="DeviceUnreachableException|IOSDriverTimeoutException|XCUITestServerError|DeviceCallFailedException: 'deviceInfo' failed"
+driver="DeviceUnreachableException|IOSDriverTimeoutException|XCUITestServerError|DeviceCallFailedException: 'deviceInfo' failed|AndroidDriverTimeoutException"
 
 # The XCTest runner giving a request up, Maestro's log on the tap that failed, and its report.
 hung="handler error: Task timed out"
