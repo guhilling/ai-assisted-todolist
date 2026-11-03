@@ -17,9 +17,17 @@ docker compose -f deployment/docker/docker-compose.yml up --build
   httpd
 - postgres: `localhost:5432` (`taskfest` / `taskfest` / `taskfest`)
 
-To point this stack at real Google credentials, copy `.env.example` to `.env`, fill it in
-and set `QUARKUS_OIDC_ENABLED=true` and `TASKFEST_AUTH_ENABLED=true`. `.env` is git-ignored and
-must stay that way.
+To point this stack at real Google credentials, copy `.env.example` to `.env` at the repository's
+root, fill in the Google client and set `TASKFEST_AUTH_ENABLED=true`. The backend reads that file
+when it exists (its `env_file`, which is optional); without it, sign-in is off. `.env` is
+git-ignored and must stay that way.
+
+- **Fill in a Google value or delete its line, but never leave it empty.** A variable set to
+  nothing is not a missing one: Quarkus keeps the empty value instead of its default, and an empty
+  client id stops the backend from starting (#511). For the same reason the Compose files give no
+  variable an empty default, which `.github/scripts/check-compose-env.py` checks in Docs CI.
+- **`QUARKUS_OIDC_ENABLED` changes nothing here.** It is fixed when the image is built, so the
+  image always has OIDC on; `TASKFEST_AUTH_ENABLED` is what turns sign-in on and off.
 
 Tear down with `docker compose -f deployment/docker/docker-compose.yml down`, or `down -v` to discard
 the database volume as well.

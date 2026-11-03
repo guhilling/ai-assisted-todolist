@@ -52,6 +52,10 @@ jobs:
         # each name a version. They drifted to 17 and 18 once already, which matters because the
         # enum-type tests run against whatever Dev Services starts.
         run: python3 .github/scripts/check-postgres-version.py
+      - name: No Compose variable defaults to empty
+        # An empty default passes the variable set but empty, which Quarkus does not replace with
+        # its own default: an empty Google client id kept the container stack from starting (#511).
+        run: python3 .github/scripts/check-compose-env.py
 
   cors-rule:
     name: One attachment CORS rule
