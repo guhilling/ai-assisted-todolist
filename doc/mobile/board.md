@@ -17,17 +17,30 @@ and the sign-in has it at its top as well (#384).
   draws the dots as the website does — hollow, solid, ringed, not by colour alone — and shows an
   overdue row's date in red.
 
-- **A task's due time** (#475) — a task the website gave a time shows it under its description:
+- **A task's due time** (#475) — a task with a time shows it under its description:
   "10:00" for one that follows wherever its owner is, or one tied to a time zone that is the
   phone's at that moment. One tied to another zone says the time there, the zone's city, and the
   time on the phone: "10:00 (Berlin), 04:00 here". It is filed under its own date, the zone's, and
   when the phone's day differs, both days are named: "Tue 01:00 (Berlin), Mon 19:00 here". The
   phone needs no time-zone data for this; the backend's `dueAt` is the moment, and the phone's
-  clock reads it. The app cannot set a time yet (#477), but sends a task's time and zone back with
-  every change, and an undo puts them back too, so no edit or undo in the app erases them.
+  clock reads it. The app sends a task's time and zone back with every change, and an undo puts
+  them back too, so no edit or undo in the app erases them.
 
-- **Add a task** — the button below the board opens a form: the description, the due date, and the
-  importance. The due date is one of the website's shortcuts (today, tomorrow, in one or two weeks)
+- **Setting a due time** (#477) — the form offers **Add a time** in the due date's row of chips,
+  which opens the platform's own time picker: a dialog on Android, wheels in the form on iOS, which
+  stay while they are turned until the time is pressed again. Being in that row, it leaves a task
+  without a time a form no taller than before, so nothing below moves off the screen. With a time set,
+  **No time** clears it, and a switch **Tied to a time zone** appears, off by default, as on the
+  website: a time that follows the phone. Turned on, it starts from the phone's zone, as
+  `expo-localization` reads it from the platform; a fixed offset such as `GMT+1`, which the backend
+  refuses, starts it at UTC. The zone shows as a chip, which opens a search over the zones in
+  `mobile/src/zones.ts`. Turning the switch off and on again gives a task back its own zone, and
+  clearing the time clears the zone. A new task sends a time and zone only when set; an edit sends them only
+  when either changed, then both, `null` for none, since an update that leaves both out keeps them
+  (#497).
+
+- **Add a task** — the button below the board opens a form: the description, the due date, an
+  optional time, and the importance. The due date is one of the website's shortcuts (today, tomorrow, in one or two weeks)
   or any day from the platform's own calendar — a dialog on Android, a calendar in the form on
   iOS. A new task starts tomorrow, of medium importance, and not started, as on the website; it
   cannot be dated in the past, which the backend refuses.
@@ -111,4 +124,5 @@ connection — read, not changed ([decisions/mobile-app.md](../decisions/mobile-
 Component tests cover each piece (`TaskForm.test.tsx`, `TaskFestApp.changes.test.tsx`), and the
 Maestro flow `mobile/maestro/change-tasks.yaml` adds, edits, completes, deletes and undoes a task
 in the built app, against the end-to-end stack; `keyboard.yaml` then adds one with the keyboard
-still open.
+still open, and `due-time.yaml`, last of the board's flows, one due at 09:00 in Tokyo, through
+Android's own time dialog, the switch and the zone search, with a screenshot at each step.

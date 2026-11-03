@@ -415,6 +415,7 @@ jobs:
             maestro-attach.xml
             maestro-keyboard.xml
             maestro-share-*.xml
+            maestro-due-time.xml
           retention-days: 14
 
       - name: Collect the stack logs

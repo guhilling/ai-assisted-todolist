@@ -30,7 +30,7 @@ export {
 } from '../../frontend/src/generated/validators'
 export { compareCompleted, compareOpen, importanceByRank, importanceLevels, importanceRank } from '../../frontend/src/importance'
 export { addDays, bucketOf, calendarParts, describeDueDate, quickDates, todayIso, describeDueDateWithWeekday, sectionWeekday, weekdayBeside, type DueBucket } from '../../frontend/src/dates'
-export { describeDueTime } from '../../frontend/src/dueTime'
+export { describeDueTime, offerable } from '../../frontend/src/dueTime'
 export { catalogues, type Messages } from '../../frontend/src/i18n/messages'
 export { chooseLanguage, localeOf, type Language } from '../../frontend/src/i18n/language'
 export { NotDatedBackError, needsDatingBack, restoreInput } from '../../frontend/src/restore'

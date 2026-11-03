@@ -137,6 +137,11 @@ export const en = {
     label: 'Time',
     tied: 'Tied to a time zone',
     zone: 'Time zone',
+    /** The app's (#477): the chip that opens the platform's time picker, and the one that clears the time. */
+    add: 'Add a time',
+    none: 'No time',
+    /** The app's zone picker: the field that narrows its list. */
+    search: 'Search time zones',
   },
   importance: {
     label: 'Importance',
@@ -369,6 +374,9 @@ export const de: Messages = {
     label: 'Uhrzeit',
     tied: 'An eine Zeitzone gebunden',
     zone: 'Zeitzone',
+    add: 'Uhrzeit wählen',
+    none: 'Keine Uhrzeit',
+    search: 'Zeitzonen durchsuchen',
   },
   importance: {
     label: 'Wichtigkeit',
