@@ -17,7 +17,9 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - postgres-data:/var/lib/postgresql/data
+      # PostgreSQL 18's image keeps its data in a directory per major version under this one, and
+      # refuses to start with a volume on the old /var/lib/postgresql/data, even an empty one.
+      - postgres-data:/var/lib/postgresql
 
   backend:
     # Built by Jib, not by a Dockerfile: `cd backend && ./mvnw package
