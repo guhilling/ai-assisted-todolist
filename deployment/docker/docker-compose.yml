@@ -27,19 +27,15 @@ services:
     # Dockerfile under backend/ to build from -- the ones Quarkus generates in
     # src/main/docker are JDK 17 based and cannot run this Java 25 code.
     image: ${BACKEND_IMAGE:-quay.io/ghilling/taskfest-backend:latest}
-    # Sign-in, from the repository's .env where there is one (.env.example): TASKFEST_AUTH_ENABLED
-    # and the Google client. Without it they are left out, and sign-in is off, the backend's
-    # default. Not an empty default in the list below: that passes a variable set but empty, and an
-    # empty client id stopped the backend from starting, sign-in off or not (#511;
-    # .github/scripts/check-compose-env.py). What the list sets wins over the file.
-    env_file:
-      - path: ../../.env
-        required: false
     environment:
       QUARKUS_DATASOURCE_JDBC_URL: jdbc:postgresql://postgres:5432/taskfest
       QUARKUS_DATASOURCE_USERNAME: taskfest
       QUARKUS_DATASOURCE_PASSWORD: taskfest
       FRONTEND_ORIGINS: http://localhost:3000
+      QUARKUS_OIDC_ENABLED: ${QUARKUS_OIDC_ENABLED:-false}
+      TASKFEST_AUTH_ENABLED: ${TASKFEST_AUTH_ENABLED:-false}
+      TASKFEST_OIDC_GOOGLE_CLIENT_ID: ${TASKFEST_OIDC_GOOGLE_CLIENT_ID:-}
+      TASKFEST_OIDC_GOOGLE_CLIENT_SECRET: ${TASKFEST_OIDC_GOOGLE_CLIENT_SECRET:-}
       TASKFEST_AUTH_POST_LOGIN_REDIRECT_URI: ${TASKFEST_AUTH_POST_LOGIN_REDIRECT_URI:-http://localhost:3000/}
       TASKFEST_OIDC_COOKIE_SECURE: ${TASKFEST_OIDC_COOKIE_SECURE:-false}
       # No attachment bucket in this stack, so nothing for the orphan clean-up (#208) to list.
