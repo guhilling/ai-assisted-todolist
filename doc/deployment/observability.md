@@ -80,7 +80,9 @@ repository's [server page](https://github.com/guhilling/monitoring/blob/main/doc
 aws ssm put-parameter --name /taskfest/qa/monitoring-password --type SecureString --value '<the password>'
 ```
 
-A SecureString on the AWS-managed `aws/ssm` key is free. To change the password, overwrite the
+Make it without commas, `openssl rand -base64 32` for example: `vmagent` reads it as a list flag
+and would split it there. A SecureString on the AWS-managed `aws/ssm` key is free. A teardown plan
+does not need the parameter, only one that starts tasks. To change the password, overwrite the
 parameter (`--overwrite`), change it on the server, and start new tasks.
 
 ## Alerting: the address, and the one-time setup

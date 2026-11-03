@@ -14,6 +14,9 @@ services:
       QUARKUS_LOG_SOCKET_ENABLED: "true"
       QUARKUS_LOG_SOCKET_ENDPOINT: fluent-bit:5170
       QUARKUS_LOG_SOCKET_JSON_ENABLED: "true"
+      # Asynchronous, dropping lines when its queue is full, as in AWS (monitoring.tf).
+      QUARKUS_LOG_SOCKET_ASYNC_ENABLED: "true"
+      QUARKUS_LOG_SOCKET_ASYNC_OVERFLOW: discard
     depends_on:
       - fluent-bit
 
@@ -37,7 +40,7 @@ services:
   # vmagent rather than Fluent Bit's own scraper, which cannot read the OpenMetrics format the
   # backend answers in.
   vmagent:
-    image: victoriametrics/vmagent:v1.155.0@sha256:8e3c03905be15bba8312d4868e8ae6f9fc2fefee0a41d544472034249ca42bb4
+    image: quay.io/victoriametrics/vmagent:v1.155.0@sha256:8e3c03905be15bba8312d4868e8ae6f9fc2fefee0a41d544472034249ca42bb4
     command:
       - -promscrape.config=/monitoring/vmagent-scrape.yaml
       - -remoteWrite.url=http://${MONITORING_HOST:-host.containers.internal}:8428/api/v1/write

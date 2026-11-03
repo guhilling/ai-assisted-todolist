@@ -88,8 +88,9 @@ und erreicht den Server der Anwendung. Dabei werden technische Daten erfasst, et
 die aufgerufene Adresse, Ihre IP-Adresse, die Kennung Ihres Browsers und ob die Anfrage erfolgreich
 war. Das eigene Protokoll der Anwendung wird für `taskfest-qa` 30 Tage und für `taskfest` 90 Tage
 aufbewahrt, Netzwerkprotokolle 30 Tage. Für `taskfest-qa` wird das Protokoll der Anwendung
-zusätzlich an einen Monitoring-Server bei Hetzner gesendet, zusammen mit Kennzahlen zur Leistung der
-Anwendung, und dort ebenfalls 30 Tage aufbewahrt.
+zusätzlich an einen Monitoring-Server bei Hetzner gesendet und dort ebenfalls 30 Tage aufbewahrt;
+Kennzahlen zur Leistung der Anwendung, die keine personenbezogenen Daten enthalten, gehen ebenfalls
+dorthin.
 
 Rechtsgrundlage: Art. 6 Abs. 1 lit. f DSGVO – das berechtigte Interesse, die Anwendung sicher zu
 betreiben und Fehlerursachen zu finden.
@@ -120,9 +121,9 @@ Gravatar, das dadurch Ihre IP-Adresse und einen Hashwert Ihrer E-Mail-Adresse er
 - **GitHub** (GitHub Inc., USA) betreibt diese Dokumentationsseite und erhält die technischen
   Daten der Besuche.
 
-Diese Unternehmen außer Hetzner oder ihre Muttergesellschaften haben ihren Sitz in den USA. Übermittlungen
-stützen sich auf den EU-US-Datenschutzrahmen (EU–US Data Privacy Framework), nach dem sie
-zertifiziert sind, oder auf die Standardvertragsklauseln der EU.
+Mit Ausnahme von Hetzner haben diese Unternehmen oder ihre Muttergesellschaften ihren Sitz in den
+USA. Übermittlungen stützen sich auf den EU-US-Datenschutzrahmen (EU–US Data Privacy Framework),
+nach dem sie zertifiziert sind, oder auf die Standardvertragsklauseln der EU.
 
 Nichts wird verkauft, und nichts wird für Werbung oder für automatisierte Entscheidungen über Sie
 verwendet.

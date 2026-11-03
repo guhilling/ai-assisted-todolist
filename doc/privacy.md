@@ -81,8 +81,8 @@ reaches the application's server. These record technical data such as the time, 
 address, your IP address, your browser's identification, and whether the request succeeded. The
 application's own log is kept for 30 days for `taskfest-qa` and 90 days for `taskfest`; network
 logs are kept for 30 days. For `taskfest-qa`, the application's log is also sent to a monitoring
-server at Hetzner, together with figures about the application's performance, and kept there for
-30 days as well.
+server at Hetzner and kept there for 30 days as well; figures about the application's performance,
+which hold no personal data, go there too.
 
 Legal basis: Art. 6(1)(f) GDPR — the legitimate interest in running the application securely and
 finding the cause of errors.
@@ -112,8 +112,9 @@ loads it from Gravatar, which thereby learns your IP address and a hash of your 
 - **GitHub** (GitHub Inc., USA) hosts this documentation site and receives the technical data of
   visits to it.
 
-Apart from Hetzner, these companies, or their parent companies, are in the USA. Transfers rely on the EU–US Data
-Privacy Framework, under which they are certified, or on the EU's standard contractual clauses.
+Apart from Hetzner, these companies, or their parent companies, are in the USA. Transfers rely on
+the EU–US Data Privacy Framework, under which they are certified, or on the EU's standard
+contractual clauses.
 
 Nothing is sold, and nothing is used for advertising or for automated decisions about you.
 

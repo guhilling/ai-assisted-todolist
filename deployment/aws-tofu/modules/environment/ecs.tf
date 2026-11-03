@@ -201,7 +201,7 @@ data "aws_iam_policy_document" "task_execution" {
   }
 
   dynamic "statement" {
-    for_each = local.monitoring_enabled ? [1] : []
+    for_each = local.monitoring_enabled && var.running ? [1] : []
     content {
       sid       = "ReadTheMonitoringPassword"
       actions   = ["ssm:GetParameters"]

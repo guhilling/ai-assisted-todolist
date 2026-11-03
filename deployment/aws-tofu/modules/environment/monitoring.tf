@@ -39,7 +39,17 @@ locals {
     { name = "QUARKUS_LOG_SOCKET_ENABLED", value = "true" },
     { name = "QUARKUS_LOG_SOCKET_ENDPOINT", value = "localhost:5170" },
     { name = "QUARKUS_LOG_SOCKET_JSON_ENABLED", value = "true" },
-  ], 0, local.monitoring_enabled ? 3 : 0)
+    # Asynchronous, dropping lines when its queue is full: a stalled fluent-bit must never block a
+    # request thread on a TCP write.
+    { name = "QUARKUS_LOG_SOCKET_ASYNC_ENABLED", value = "true" },
+    { name = "QUARKUS_LOG_SOCKET_ASYNC_OVERFLOW", value = "discard" },
+  ], 0, local.monitoring_enabled ? 5 : 0)
+
+  # The backend waits for fluent-bit to have started, so that its own start-up reaches the server
+  # too.
+  monitoring_backend_depends_on = slice([
+    { containerName = "fluent-bit", condition = "START" },
+  ], 0, local.monitoring_enabled ? 1 : 0)
 
   monitoring_mount = [{ sourceVolume = local.monitoring_volume, containerPath = "/monitoring" }]
 
@@ -62,13 +72,15 @@ locals {
       logConfiguration = local.ecs_log_configuration
     },
     {
-      name        = "fluent-bit"
-      image       = local.fluent_bit_image
-      essential   = false
-      entryPoint  = ["/fluent-bit/bin/fluent-bit"]
-      command     = ["-c", "/monitoring/fluent-bit.yaml"]
-      dependsOn   = [{ containerName = "monitoring-config", condition = "SUCCESS" }]
-      mountPoints = local.monitoring_mount
+      name       = "fluent-bit"
+      image      = local.fluent_bit_image
+      essential  = false
+      entryPoint = ["/fluent-bit/bin/fluent-bit"]
+      command    = ["-c", "/monitoring/fluent-bit.yaml"]
+      dependsOn  = [{ containerName = "monitoring-config", condition = "SUCCESS" }]
+      # Not essential, so ECS would otherwise leave it dead after a crash until the next deploy.
+      restartPolicy = { enabled = true }
+      mountPoints   = local.monitoring_mount
       environment = [
         { name = "MONITORING_HOST", value = var.monitoring_endpoint },
         { name = "MONITORING_PORT", value = "443" },
@@ -90,14 +102,16 @@ locals {
         "-remoteWrite.label=project=${var.project}",
         "-remoteWrite.label=env=${var.environment}",
         # The password comes from the environment, as remoteWrite_basicAuth_password, rather than
-        # the command line, where the task definition would show it.
+        # the command line, where the task definition would show it. vmagent splits a list flag's
+        # value on commas, so the password must have none (observability.md).
         "-envflag.enable",
         # Its buffer for when the server cannot be reached, kept small: the task's disk is shared.
         "-remoteWrite.maxDiskUsagePerURL=100MB",
       ]
-      dependsOn   = [{ containerName = "monitoring-config", condition = "SUCCESS" }]
-      mountPoints = local.monitoring_mount
-      environment = [{ name = "BACKEND_TARGET", value = "localhost:${var.backend_port}" }]
+      dependsOn     = [{ containerName = "monitoring-config", condition = "SUCCESS" }]
+      restartPolicy = { enabled = true }
+      mountPoints   = local.monitoring_mount
+      environment   = [{ name = "BACKEND_TARGET", value = "localhost:${var.backend_port}" }]
       secrets = [
         { name = "remoteWrite_basicAuth_password", valueFrom = local.monitoring_password_arn },
       ]
@@ -109,10 +123,12 @@ locals {
   monitoring_password_arn = one(data.aws_ssm_parameter.monitoring_password[*].arn)
 }
 
-# The password's parameter, looked up so that a plan fails while it is missing rather than every
-# task failing to start. Read without decryption: the state holds only the ciphertext.
+# The password's parameter, looked up so that a plan that starts tasks fails while it is missing,
+# rather than every task failing to start. Read without decryption: the state holds only the
+# ciphertext.
 data "aws_ssm_parameter" "monitoring_password" {
-  count = local.monitoring_enabled ? 1 : 0
+  # Only while up, where a task will need it: a teardown must not depend on it.
+  count = local.monitoring_enabled && var.running ? 1 : 0
 
   name            = local.monitoring_password
   with_decryption = false

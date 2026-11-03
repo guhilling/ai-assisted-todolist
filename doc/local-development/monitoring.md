@@ -42,8 +42,8 @@ that starts with nothing to configure.
   backend task in AWS uses too (`monitoring.tf`); only environment variables differ: where the
   server is, TLS, basic auth and the `env` label ([observability](../deployment/observability.md)).
 - **Why two collectors.** The backend answers `/q/metrics` in OpenMetrics, which Fluent Bit's
-  Prometheus scraper cannot read, so `vmagent` takes the metrics. Fluent Bit takes the logs because
-  FireLens, what would ship them from ECS, is Fluent Bit too.
+  Prometheus scraper cannot read, so `vmagent` takes the metrics. Fluent Bit takes the logs, AWS's
+  build of it, as the backend task in AWS does.
 - **The tunnel's end, seen from a container,** is `host.containers.internal` under Podman. Docker
   Desktop names it `host.docker.internal`: set `MONITORING_HOST=host.docker.internal` there.
 - **No percentiles from the metrics:** the backend publishes no histogram buckets, so the

@@ -462,6 +462,7 @@ resource "aws_ecs_task_definition" "backend" {
       { name = "TASKFEST_OIDC_COGNITO_CLIENT_SECRET", valueFrom = aws_ssm_parameter.test_client_secret[0].arn },
     ] : [])
 
+    dependsOn        = local.monitoring_backend_depends_on
     logConfiguration = local.ecs_log_configuration
   }], local.monitoring_containers))
 
