@@ -115,6 +115,26 @@ describe('the zones a task can be tied to (#476)', () => {
     expect(zones.some((zone) => zone.startsWith('Etc/'))).toBe(false)
   })
 
+  it('lists zones in code-unit order, as the app does, not by a locale\'s collation', () => {
+    const list = Intl.supportedValuesOf
+    const listed = ['Europe/Berlin', 'America/Porto_Velho', 'America/Port_of_Spain', 'America/Port-au-Prince']
+    Object.defineProperty(Intl, 'supportedValuesOf', { value: () => listed, configurable: true, writable: true })
+    forgetZones()
+    try {
+      expect(timeZones('America/Panama')).toEqual([
+        'America/Panama',
+        'America/Port-au-Prince',
+        'America/Port_of_Spain',
+        'America/Porto_Velho',
+        'Europe/Berlin',
+        'UTC',
+      ])
+    } finally {
+      Object.defineProperty(Intl, 'supportedValuesOf', { value: list, configurable: true, writable: true })
+      forgetZones()
+    }
+  })
+
   it('offers UTC and the task\'s zone in a browser without the list', () => {
     const list = Intl.supportedValuesOf
     Object.defineProperty(Intl, 'supportedValuesOf', { value: undefined, configurable: true, writable: true })

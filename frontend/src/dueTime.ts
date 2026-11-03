@@ -82,7 +82,17 @@ export function offerable(zone: string | null): string {
  */
 export function timeZones(current: string | null = null) {
   const zones = browserZones()
-  return current && !zones.includes(current) ? [...zones, current].sort() : zones
+  return current && !zones.includes(current) ? [...zones, current].sort(byCodeUnit) : zones
+}
+
+/**
+ * Zone ids in code-unit order, as the app's generated list has them (mobile/src/zones.ts), so the
+ * website and the app offer zones in the same order. Zone ids are ASCII, so the order is the same
+ * everywhere; a locale's collation would move a few with `-` or `_` in them.
+ */
+function byCodeUnit(a: string, b: string) {
+  if (a === b) return 0
+  return a < b ? -1 : 1
 }
 
 /** The browser's zones as offered, worked out once: they stay the same while a page is open. */
@@ -94,7 +104,8 @@ function browserZones() {
     const listed = typeof Intl.supportedValuesOf === 'function'
     const known = listed ? Intl.supportedValuesOf('timeZone') : []
     // Browsers list UTC under no name, or as an Etc/ alias; it is offered by its own.
-    offered = [...known.filter((zone) => zone !== 'UTC' && offerable(zone) === zone), 'UTC'].sort()
+    const zones = known.filter((zone) => zone !== 'UTC' && offerable(zone) === zone)
+    offered = [...zones, 'UTC'].sort(byCodeUnit)
   }
   return offered
 }
