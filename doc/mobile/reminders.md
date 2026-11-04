@@ -20,10 +20,10 @@ at a task's time when it has one (#478).
   task is due at 10:30" ("Eine Aufgabe ist um 10:30 fällig"), "2 tasks are due at 10:30". Again a
   count, not the descriptions, and tapping it opens the board. Tasks due at the same time share
   one reminder; on a day that skips an hour, a task in the skipped hour keeps its own, worded as
-  the task has its time. A timed task still counts in its day's 08:00 summary. A floating one due at
-  08:00 has only the summary, as long as both move with the zone: not when a zoned task counts in that
-  day's summary too, which then stays where it is. A zoned task due at 08:00 keeps its own reminder.
-  A zoned task's summary is on the day of its moment on the phone's calendar.
+  the task has its time. A timed task still counts in its day's 08:00 summary. A floating one due
+  at 08:00 has only the summary, as long as both move with the zone: not when a zoned task counts
+  in that day's summary too, which then stays where it is. A zoned task due at 08:00 keeps its own
+  reminder. A zoned task's summary is on the day of its moment on the phone's calendar.
   - **A floating task** ("pills at 08:00") reminds at its time on the phone's clock, worded as the
     task has it.
   - **A task tied to a time zone** reminds at its one moment, the `dueAt` the backend works out, so
