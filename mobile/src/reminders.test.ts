@@ -20,22 +20,22 @@ describe('the due-day reminders (#273)', () => {
     const tasks = [task('2026-10-11'), task('2026-10-11'), task('2026-10-14')]
 
     expect(remindersFor(tasks, EARLY, catalogues.en)).toEqual([
-      { at: at8(2026, 10, 11), title: '2 tasks due today' },
-      { at: at8(2026, 10, 14), title: '1 task due today' },
+      { at: at8(2026, 10, 11), title: '2 tasks due today', wallClock: '2026-10-11T08:00' },
+      { at: at8(2026, 10, 14), title: '1 task due today', wallClock: '2026-10-14T08:00' },
     ])
   })
 
   it('reminds today too, until 08:00 has passed', () => {
     const tasks = [task('2026-10-10')]
 
-    expect(remindersFor(tasks, EARLY, catalogues.en)).toEqual([{ at: at8(2026, 10, 10), title: '1 task due today' }])
+    expect(remindersFor(tasks, EARLY, catalogues.en)).toEqual([{ at: at8(2026, 10, 10), title: '1 task due today', wallClock: '2026-10-10T08:00' }])
     expect(remindersFor(tasks, LATE, catalogues.en)).toEqual([])
   })
 
   it('counts only open tasks: a completed one never reminds', () => {
     const tasks = [task('2026-10-11', 'DONE'), task('2026-10-12', 'DONE'), task('2026-10-12', 'WORKING')]
 
-    expect(remindersFor(tasks, EARLY, catalogues.en)).toEqual([{ at: at8(2026, 10, 12), title: '1 task due today' }])
+    expect(remindersFor(tasks, EARLY, catalogues.en)).toEqual([{ at: at8(2026, 10, 12), title: '1 task due today', wallClock: '2026-10-12T08:00' }])
   })
 
   it('never reminds of a task whose state this release does not know: it may be closed', () => {
@@ -83,8 +83,8 @@ describe('the reminders at a task\'s due time (#478)', () => {
     const reminders = remindersFor([timed('2026-10-11', '10:30')], EARLY, catalogues.en)
 
     expect(reminders).toEqual([
-      { at: at8(2026, 10, 11), title: '1 task due today' },
-      { at: new Date(2026, 9, 11, 10, 30), title: 'A task is due at 10:30' },
+      { at: at8(2026, 10, 11), title: '1 task due today', wallClock: '2026-10-11T08:00' },
+      { at: new Date(2026, 9, 11, 10, 30), title: 'A task is due at 10:30', wallClock: '2026-10-11T10:30' },
     ])
   })
 
@@ -136,14 +136,14 @@ describe('the reminders at a task\'s due time (#478)', () => {
     const reminders = remindersFor([timed('2026-10-11', '01:00', { timeZone: 'Asia/Tokyo', dueAt })], EARLY, catalogues.en)
 
     expect(reminders).toEqual([
-      { at: at8(2026, 10, 10), title: '1 task due today' },
+      { at: at8(2026, 10, 10), title: '1 task due today', wallClock: '2026-10-10T08:00' },
       { at: new Date(dueAt), title: 'A task is due at 18:00' },
     ])
   })
 
   it('reminds once at 08:00 of a task due at 08:00: the summary already says so', () => {
     expect(remindersFor([timed('2026-10-11', '08:00')], EARLY, catalogues.en)).toEqual([
-      { at: at8(2026, 10, 11), title: '1 task due today' },
+      { at: at8(2026, 10, 11), title: '1 task due today', wallClock: '2026-10-11T08:00' },
     ])
   })
 
@@ -153,6 +153,22 @@ describe('the reminders at a task\'s due time (#478)', () => {
     expect(remindersFor(tasks, EARLY, catalogues.de).map((reminder) => reminder.title).slice(1)).toEqual([
       '2 Aufgaben sind um 10:30 fällig',
       'Eine Aufgabe ist um 11:00 fällig',
+    ])
+  })
+})
+
+describe('the reminders that follow a change of time zone (#479)', () => {
+  it('give the floating ones their wall-clock time, the summary\'s included, and a zoned one none', () => {
+    const dueAt = new Date(2026, 9, 11, 10, 0).toISOString()
+    const tasks = [
+      { ...task('2026-10-11'), dueTime: '09:30' },
+      { ...task('2026-10-11'), dueTime: '10:00', timeZone: 'Asia/Tokyo', dueAt },
+    ]
+
+    expect(remindersFor(tasks, EARLY, catalogues.en)).toEqual([
+      { at: at8(2026, 10, 11), title: '2 tasks due today', wallClock: '2026-10-11T08:00' },
+      { at: new Date(2026, 9, 11, 9, 30), title: 'A task is due at 09:30', wallClock: '2026-10-11T09:30' },
+      { at: new Date(dueAt), title: 'A task is due at 10:00' },
     ])
   })
 })

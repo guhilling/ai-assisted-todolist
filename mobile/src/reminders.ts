@@ -2,8 +2,13 @@ import type { BoardTask } from './api'
 import { dateOf, isoOf, timeOf } from './pickedDates'
 import type { Messages } from './web'
 
-/** One local notification: when, and what it says. */
-export type Reminder = { at: Date; title: string }
+/**
+ * One local notification: when, and what it says. A floating one -- the 08:00 summary, a task with
+ * a time and no zone -- also says the wall-clock time it stands for, `YYYY-MM-DDTHH:mm`, by which
+ * Android's receiver moves it when the phone's time zone changes (#479); a zoned one has none, as
+ * its moment is the same everywhere.
+ */
+export type Reminder = { at: Date; title: string; wallClock?: string }
 
 /**
  * At most this many reminders are scheduled: iOS keeps 64 pending notifications per app and drops
@@ -27,15 +32,20 @@ const HOUR = 8
 export function remindersFor(tasks: BoardTask[], now: number, messages: Messages): Reminder[] {
   const open = tasks.filter((task) => task.state !== 'DONE' && !task.unknown?.includes('state'))
   const summaries = countBy(open, (task) => {
-    const at = dateOf(dayDue(task))
+    const day = dayDue(task)
+    const at = dateOf(day)
     at.setHours(HOUR)
-    return { at, time: '' }
-  }).map(({ at, count }) => ({ at, title: messages.reminders.dueToday(count) }))
+    return { at, time: '', wallClock: `${day}T${String(HOUR).padStart(2, '0')}:00` }
+  }).map(({ at, count, wallClock }) => ({ at, title: messages.reminders.dueToday(count), wallClock }))
   const summaryAt = new Set(summaries.map((summary) => summary.at.getTime()))
   const timed = countBy(open.filter((task) => task.dueTime), dueMoment)
     // A task due at 08:00 is what that day's summary says already.
     .filter(({ at }) => !summaryAt.has(at.getTime()))
-    .map(({ at, time, count }) => ({ at, title: messages.reminders.dueAt(count, time) }))
+    .map(({ at, time, count, wallClock }) => ({
+      at,
+      title: messages.reminders.dueAt(count, time),
+      ...(wallClock ? { wallClock } : {}),
+    }))
   // One budget for both, the nearest first: iOS drops what is beyond its 64.
   return [...summaries, ...timed]
     .filter((reminder) => reminder.at.getTime() > now)
@@ -58,7 +68,7 @@ function dayDue(task: BoardTask): string {
  * one moment, `dueAt`, which the backend works out, so the app needs no time-zone database of its
  * own, and worded by the phone's clock.
  */
-function dueMoment(task: BoardTask): { at: Date; time: string } | null {
+function dueMoment(task: BoardTask): Moment | null {
   const time = task.dueTime as string
   if (task.timeZone) {
     if (!task.dueAt) {
@@ -70,18 +80,18 @@ function dueMoment(task: BoardTask): { at: Date; time: string } | null {
   const at = dateOf(task.dueDate)
   const [hours, minutes] = time.split(':').map(Number)
   at.setHours(hours, minutes)
-  return { at, time }
+  return { at, time, wallClock: `${task.dueDate}T${time}` }
 }
+
+/** When a reminder is, what time it says, and, for a floating one, the wall-clock time it stands for. */
+type Moment = { at: Date; time: string; wallClock?: string }
 
 /**
  * The tasks counted by the moment they remind at, and what it says: one reminder for each, with
  * its count.
  */
-function countBy(
-  tasks: BoardTask[],
-  momentOf: (task: BoardTask) => { at: Date; time: string } | null,
-): { at: Date; time: string; count: number }[] {
-  const counted = new Map<string, { at: Date; time: string; count: number }>()
+function countBy(tasks: BoardTask[], momentOf: (task: BoardTask) => Moment | null): (Moment & { count: number })[] {
+  const counted = new Map<string, Moment & { count: number }>()
   for (const task of tasks) {
     const moment = momentOf(task)
     if (moment && !Number.isNaN(moment.at.getTime())) {

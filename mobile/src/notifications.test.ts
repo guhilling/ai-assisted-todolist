@@ -137,3 +137,17 @@ describe('the reminders, as the platform keeps them (#273)', () => {
     expect(api.scheduleNotificationAsync).toHaveBeenCalledTimes(1)
   })
 })
+
+describe('the wall-clock time a floating reminder carries (#479)', () => {
+  it('goes along as data, for the receiver that moves it when the time zone changes', async () => {
+    const api = platform(granted)
+    const at = new Date(2026, 9, 11, 8, 0)
+
+    await createReminderScheduler(api, memoryFile(), CHANNEL).replace([{ at, title: '1 task due today', wallClock: '2026-10-11T08:00' }])
+
+    expect(api.scheduleNotificationAsync).toHaveBeenCalledWith({
+      content: { title: '1 task due today', data: { wallClock: '2026-10-11T08:00' } },
+      trigger: { date: at, channelId: 'reminders' },
+    })
+  })
+})

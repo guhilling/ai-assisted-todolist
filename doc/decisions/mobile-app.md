@@ -412,3 +412,36 @@ zone newer than it is still taken when it is the phone's own. The search lists z
 
 **Rejected:** a list fetched from the backend, which would need an endpoint and a connection to pick
 a zone; a time-zone library, a dependency for a list.
+
+## Android's reminders follow a change of time zone through a receiver of the app's own
+
+*Accepted · 2026-11-04 · #479*
+
+**Decision.** A Kotlin `BroadcastReceiver` for `ACTION_TIMEZONE_CHANGED`, on Android's list of
+implicit broadcasts an app may still receive from its manifest, moves every floating reminder to its
+wall-clock time in the new zone. A floating reminder carries that time as `wallClock` in its data; a
+zoned one carries none and stays. The receiver reads expo-notifications' own store and schedules
+each again under its identifier through expo's `ExpoSchedulingDelegate`, so expo's store, its
+reboot handling and the app's next replacement go on as before. A config plugin declares it in the
+manifest and copies the class into the generated project
+(`mobile/plugins/withTimeZoneReceiver.ts`); the class itself is
+`mobile/plugins/android/TimeZoneChangedReceiver.kt`.
+
+**Why.** Every Android alarm is a fixed moment, so after a flight "pills at 08:00" fired at the old
+zone's 08:00 until the app was next opened. The receiver runs without the JavaScript runtime, which
+the app may not have: it may not be running at all. Gunnar decided it is worth its size
+(2026-11-04).
+
+**Rejected:**
+- *A headless JavaScript task* started by the receiver, to work the reminders out again from the
+  kept board: it would start React Native in the background for an hour's arithmetic, and the kept
+  board may be older than the reminders.
+- *Expo's repeating triggers* (daily, yearly), which do work out their next moment on the local
+  clock: a reminder for one day would fire again a year later if the app were not opened in between.
+- *Exact alarms*: a permission Android grants only to clocks and calendars.
+
+**Cost.** The receiver uses expo-notifications' Kotlin classes (`ExpoSchedulingDelegate`,
+`DateTrigger`, `NotificationRequest`), which are not a public API and may change with an Expo SDK.
+The emulator's check in `run-on-emulator.sh`, which changes the zone and expects the alarms at the
+new 08:00 and 09:00, is what notices: it fails the first Mobile CI run after such a change.
+
