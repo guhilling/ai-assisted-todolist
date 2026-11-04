@@ -31,16 +31,25 @@ const HOUR = 8
  */
 export function remindersFor(tasks: BoardTask[], now: number, messages: Messages): Reminder[] {
   const open = tasks.filter((task) => task.state !== 'DONE' && !task.unknown?.includes('state'))
-  const summaries = countBy(open, (task) => {
+  // A summary moves with the zone (#479) only when every task it counts floats: a zoned task's day
+  // here is its moment's, which a new zone may put on another day.
+  const days = new Map<string, { count: number; floating: boolean }>()
+  for (const task of open) {
     const day = dayDue(task)
+    const known = days.get(day) ?? { count: 0, floating: true }
+    days.set(day, { count: known.count + 1, floating: known.floating && !task.timeZone })
+  }
+  const summaries: Reminder[] = [...days].map(([day, { count, floating }]) => {
     const at = dateOf(day)
     at.setHours(HOUR)
-    return { at, time: '', wallClock: `${day}T${String(HOUR).padStart(2, '0')}:00` }
-  }).map(({ at, count, wallClock }) => ({ at, title: messages.reminders.dueToday(count), wallClock }))
-  const summaryAt = new Set(summaries.map((summary) => summary.at.getTime()))
+    const wallClock = `${day}T${String(HOUR).padStart(2, '0')}:00`
+    return { at, title: messages.reminders.dueToday(count), ...(floating ? { wallClock } : {}) }
+  })
+  const movingSummaryAt = new Set(summaries.filter((summary) => summary.wallClock).map((summary) => summary.at.getTime()))
   const timed = countBy(open.filter((task) => task.dueTime), dueMoment)
-    // A task due at 08:00 is what that day's summary says already.
-    .filter(({ at }) => !summaryAt.has(at.getTime()))
+    // A floating task due at 08:00 is what that day's summary says already, as long as both move
+    // together; a zoned one keeps its own, which stays when the summary moves.
+    .filter(({ at, wallClock }) => !(wallClock && movingSummaryAt.has(at.getTime())))
     .map(({ at, time, count, wallClock }) => ({
       at,
       title: messages.reminders.dueAt(count, time),
@@ -95,7 +104,8 @@ function countBy(tasks: BoardTask[], momentOf: (task: BoardTask) => Moment | nul
   for (const task of tasks) {
     const moment = momentOf(task)
     if (moment && !Number.isNaN(moment.at.getTime())) {
-      const key = `${moment.at.getTime()} ${moment.time}`
+      // A floating and a zoned task never share one: one moves with the zone, the other does not.
+      const key = `${moment.at.getTime()} ${moment.time} ${moment.wallClock ?? ''}`
       const known = counted.get(key)
       counted.set(key, { ...moment, count: (known?.count ?? 0) + 1 })
     }

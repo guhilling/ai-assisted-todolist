@@ -1,7 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import configPlugins, { type ConfigPlugin } from 'expo/config-plugins.js'
-import { RECEIVER, withTimeZoneReceiver as declared } from '../src/timeZoneReceiver.ts'
+import { declareTimeZoneReceiver, RECEIVER } from '../src/timeZoneReceiver.ts'
 
 /**
  * Moves the floating reminders with the phone's time zone on Android (#479): declares the receiver
@@ -10,7 +10,7 @@ import { RECEIVER, withTimeZoneReceiver as declared } from '../src/timeZoneRecei
  */
 export const withTimeZoneReceiver: ConfigPlugin = (config) => {
   config = configPlugins.withAndroidManifest(config, (config) => {
-    config.modResults = declared(config.modResults)
+    config.modResults = declareTimeZoneReceiver(config.modResults)
     return config
   })
   return configPlugins.withDangerousMod(config, [

@@ -5,7 +5,7 @@
  * Every Android alarm is a fixed moment, so without it "pills at 08:00" would fire at the old
  * zone's 08:00 after a flight, until the app is next opened. The receiver itself is Kotlin,
  * `plugins/android/TimeZoneChangedReceiver.kt`, which needs no JavaScript runtime: the app may not
- * be running. Here rather than in the plugin so that it is tested; `plugins/withTimeZoneReceiver.ts`
+ * be running. Here rather than in the plugin so that it is tested; `plugins/declareTimeZoneReceiver.ts`
  * applies it and copies the class in.
  */
 
@@ -18,7 +18,7 @@ export const RECEIVER = 'de.hilling.taskfest.reminders.TimeZoneChangedReceiver'
  * The manifest with the receiver, once. Not exported: only the system sends a change of time zone,
  * which is on Android's list of implicit broadcasts an app may still receive from its manifest.
  */
-export function withTimeZoneReceiver(
+export function declareTimeZoneReceiver(
   androidManifest: AndroidConfig.Manifest.AndroidManifest,
 ): AndroidConfig.Manifest.AndroidManifest {
   for (const application of androidManifest.manifest.application ?? []) {

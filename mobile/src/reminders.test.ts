@@ -136,7 +136,7 @@ describe('the reminders at a task\'s due time (#478)', () => {
     const reminders = remindersFor([timed('2026-10-11', '01:00', { timeZone: 'Asia/Tokyo', dueAt })], EARLY, catalogues.en)
 
     expect(reminders).toEqual([
-      { at: at8(2026, 10, 10), title: '1 task due today', wallClock: '2026-10-10T08:00' },
+      { at: at8(2026, 10, 10), title: '1 task due today' },
       { at: new Date(dueAt), title: 'A task is due at 18:00' },
     ])
   })
@@ -166,9 +166,49 @@ describe('the reminders that follow a change of time zone (#479)', () => {
     ]
 
     expect(remindersFor(tasks, EARLY, catalogues.en)).toEqual([
-      { at: at8(2026, 10, 11), title: '2 tasks due today', wallClock: '2026-10-11T08:00' },
+      // The summary counts the zoned task too, so it stays (see the review's tests below).
+      { at: at8(2026, 10, 11), title: '2 tasks due today' },
       { at: new Date(2026, 9, 11, 9, 30), title: 'A task is due at 09:30', wallClock: '2026-10-11T09:30' },
       { at: new Date(dueAt), title: 'A task is due at 10:00' },
+    ])
+  })
+})
+
+describe('which reminders may move with the time zone (#479, review)', () => {
+  /** A task tied to a zone, due at a moment that is this phone's local time given. */
+  const zoned = (dueDate: string, local: Date): BoardTask => ({
+    ...task(dueDate),
+    dueTime: '10:00',
+    timeZone: 'Asia/Tokyo',
+    dueAt: local.toISOString(),
+  })
+
+  it('keeps a summary that counts a zoned task where it is: its day is the zone\'s, not the clock\'s', () => {
+    const reminders = remindersFor(
+      [{ ...task('2026-10-11'), dueTime: '09:30' }, zoned('2026-10-11', new Date(2026, 9, 11, 10, 0))],
+      EARLY,
+      catalogues.en,
+    )
+
+    expect(reminders[0]).toEqual({ at: at8(2026, 10, 11), title: '2 tasks due today' })
+  })
+
+  it('keeps a zoned task\'s reminder at 08:00 beside the summary, which may move without it', () => {
+    const reminders = remindersFor([zoned('2026-10-11', at8(2026, 10, 11))], EARLY, catalogues.en)
+
+    expect(reminders).toEqual([
+      { at: at8(2026, 10, 11), title: '1 task due today' },
+      { at: at8(2026, 10, 11), title: 'A task is due at 08:00' },
+    ])
+  })
+
+  it('never merges a floating and a zoned task due at the same moment', () => {
+    const tasks = [{ ...task('2026-10-11'), dueTime: '10:00' }, zoned('2026-10-11', new Date(2026, 9, 11, 10, 0))]
+    const timed = remindersFor(tasks, EARLY, catalogues.en).filter((reminder) => reminder.title.includes('due at'))
+
+    expect(timed).toEqual([
+      { at: new Date(2026, 9, 11, 10, 0), title: 'A task is due at 10:00', wallClock: '2026-10-11T10:00' },
+      { at: new Date(2026, 9, 11, 10, 0), title: 'A task is due at 10:00' },
     ])
   })
 })

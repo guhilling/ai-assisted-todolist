@@ -120,9 +120,9 @@ app_alarm_times() {
     times+=" $(TZ="$1" date -d "@$((when / 1000))" '+%H:%M')"
   done
 }
-# Fails unless the app has alarms at 08:00 and 09:00 in zone $1. The app schedules after the
-# backend has answered, and the receiver after the zone has changed, so the alarms may still be on
-# their way: asked again for up to a minute.
+# Fails -- returns 1 -- unless the app has alarms at 08:00 and 09:00 in zone $1. The app schedules
+# after the backend has answered, and the receiver after the zone has changed, so the alarms may still
+# be on their way: asked again for up to a minute.
 expect_alarms_at_8_and_9() {
   for attempt in $(seq 1 12); do
     app_alarm_times "$1"
@@ -134,20 +134,26 @@ expect_alarms_at_8_and_9() {
     if [[ " $times " != *" $wanted "* ]]; then
       echo "No reminder is scheduled for ${wanted} in $1. The app's entries in dumpsys alarm:" >&2
       grep -n -A2 "de.hilling.taskfest.dev" <<< "$alarms" | head -40 >&2 || true
-      exit 1
+      return 1
     fi
   done
 }
-expect_alarms_at_8_and_9 "${zone:-UTC}"
+expect_alarms_at_8_and_9 "${zone:-UTC}" || exit 1
 
 # After a flight (#479): the phone's zone changes, and the floating reminders -- the summary and the
-# task at 09:00 -- must be at the new zone's 08:00 and 09:00 without the app being opened. Tokyo is
-# nine hours from the emulator's UTC, so an alarm left where it was would be at 17:00 and 18:00 there.
-# The emulator's own zone afterwards, for the flows that follow.
+# task at 09:00 -- must be at the new zone's 08:00 and 09:00 without the app being opened. West, to
+# Los Angeles: the task is due tomorrow, and a zone east of UTC could put its 08:00 before now late
+# in the day, which the receiver rightly leaves alone. Left where they were, the alarms would be at
+# midnight and 01:00 there, or an hour later in summer. The emulator's own settings come back
+# afterwards, whatever the check found, for the flows that follow.
+auto_zone="$(adb shell settings get global auto_time_zone | tr -d '\r')"
 retry adb shell settings put global auto_time_zone 0
-retry adb shell cmd alarm set-timezone Asia/Tokyo
-expect_alarms_at_8_and_9 Asia/Tokyo
+retry adb shell cmd alarm set-timezone America/Los_Angeles
+followed=0
+expect_alarms_at_8_and_9 America/Los_Angeles || followed=1
 retry adb shell cmd alarm set-timezone "${zone:-UTC}"
+[[ "$auto_zone" == "null" ]] || retry adb shell settings put global auto_time_zone "$auto_zone"
+(( followed == 0 )) || exit 1
 
 # Attaching (#274): an image in the emulator's Downloads, for the file picker to offer.
 retry bash "$here/put-attach-image.sh"

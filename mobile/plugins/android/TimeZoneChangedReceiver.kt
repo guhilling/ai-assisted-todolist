@@ -46,15 +46,30 @@ class TimeZoneChangedReceiver : BroadcastReceiver() {
   private fun follow(context: Context, zone: TimeZone) {
     val scheduling = ExpoSchedulingDelegate(context)
     val wallClock = SimpleDateFormat(WALL_CLOCK, Locale.ROOT).apply { timeZone = zone }
+    val now = System.currentTimeMillis()
     for (request in scheduling.getAllScheduledNotifications()) {
-      val trigger = request.trigger as? DateTrigger ?: continue
-      val at = request.content.body?.optString(WALL_CLOCK_KEY).orEmpty()
-      if (at.isEmpty()) {
-        continue
-      }
-      val moment = wallClock.parse(at)?.time ?: continue
-      if (moment != trigger.timestamp) {
+      // One at a time: a reminder that cannot move must not keep the rest where they were.
+      try {
+        val trigger = request.trigger as? DateTrigger ?: continue
+        val at = request.content.body?.optString(WALL_CLOCK_KEY).orEmpty()
+        if (at.isEmpty()) {
+          continue
+        }
+        val moment = wallClock.parse(at)?.time ?: continue
+        // Its time in the new zone is over -- a flight east may land after it: left where it was,
+        // it still comes, late, rather than not at all, which is what expo makes of a past moment.
+        if (moment == trigger.timestamp || moment <= now) {
+          continue
+        }
+        // The app may have replaced or cleared its reminders meanwhile -- a sign-out, a new load --
+        // and one it took away must not come back. Expo's own service does that on another thread,
+        // so this narrows the window rather than closing it; the app's next replacement settles it.
+        if (scheduling.getScheduledNotification(request.identifier) == null) {
+          continue
+        }
         scheduling.scheduleNotification(NotificationRequest(request.identifier, request.content, DateTrigger(trigger.channelId, moment)))
+      } catch (failure: Exception) {
+        Log.w(TAG, "Reminder ${request.identifier} could not follow the time zone", failure)
       }
     }
   }

@@ -37,7 +37,12 @@ at a task's time when it has one (#478).
   - **On Android at once (#479):** after a change of time zone, a receiver of the app's own moves
     every floating reminder -- the summaries and the timed tasks without a zone -- to its wall-clock
     time in the new zone, without the app being opened. After a flight, "pills at 08:00" is at the
-    new zone's 08:00. A zoned task's reminder stays where it is: its moment is the same everywhere.
+    new zone's 08:00. A zoned task's reminder stays where it is: its moment is the same everywhere,
+    and so does a summary that counts a zoned task, whose day is its moment's. A reminder whose new
+    time is already over -- a flight east may land after it -- stays where it was, and comes late
+    rather than not at all. The receiver works beside expo-notifications' own service, not in it:
+    should the app replace its reminders, or the phone reboot, at the very moment the zone changes,
+    the next load is what puts them right.
   - **On iOS only at the next load.** Following a change by itself would take another kind of
     trigger, a calendar one without a time zone; whether that works is still to be tried on an
     iPhone (#517, postponed), since the simulator takes the Mac's time zone.
@@ -83,5 +88,8 @@ calendars.
 adds a task due tomorrow and turns the reminders on, and `reminders/timed.yaml` adds one due
 tomorrow at 09:00 (#478). `run-on-emulator.sh` then checks that Android holds pending alarms of the
 app's for 08:00 and for 09:00 in the emulator's time zone — any day's, since a run may cross
-midnight. It then moves the emulator to Tokyo, nine hours from its UTC, and checks the alarms are at
-08:00 and 09:00 there (#479): left where they were, they would be at 17:00 and 18:00.
+midnight. It then moves the emulator to Los Angeles and checks the alarms are at 08:00 and 09:00
+there (#479): left where they were, they would be at midnight and 01:00, or an hour later in summer.
+West, because a zone east of UTC could put tomorrow's 08:00 there before the moment of the check
+late in the day, which the receiver rightly leaves alone; the emulator's own zone comes back
+afterwards.
