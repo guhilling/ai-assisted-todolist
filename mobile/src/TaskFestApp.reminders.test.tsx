@@ -59,7 +59,7 @@ describe('the due-day reminders, from the app (#273)', () => {
     const reminders = scheduler('granted')
     await start({ reminders })
 
-    expect(reminders.replace).toHaveBeenLastCalledWith([{ at: at8(11), title: '2 tasks due today' }])
+    expect(reminders.replace).toHaveBeenLastCalledWith([{ at: at8(11), title: '2 tasks due today', wallClock: '2026-10-11T08:00' }])
   })
 
   it('schedules them anew after a change, so a completed task never reminds', async () => {
@@ -69,7 +69,7 @@ describe('the due-day reminders, from the app (#273)', () => {
     await user.press(screen.getByRole('checkbox', { name: 'Mark "Water the plants" as done' }))
     await screen.findByText('Completed (1)')
 
-    expect(reminders.replace).toHaveBeenLastCalledWith([{ at: at8(11), title: '1 task due today' }])
+    expect(reminders.replace).toHaveBeenLastCalledWith([{ at: at8(11), title: '1 task due today', wallClock: '2026-10-11T08:00' }])
   })
 
   it('clears them on signing out', async () => {
@@ -93,7 +93,7 @@ describe('the due-day reminders, from the app (#273)', () => {
 
     expect(reminders.ask).toHaveBeenCalled()
     expect(screen.queryByText(OFFER)).toBeNull()
-    expect(reminders.replace).toHaveBeenLastCalledWith([{ at: at8(11), title: '2 tasks due today' }])
+    expect(reminders.replace).toHaveBeenLastCalledWith([{ at: at8(11), title: '2 tasks due today', wallClock: '2026-10-11T08:00' }])
   })
 
   it('carries on without them when the platform is refused', async () => {
