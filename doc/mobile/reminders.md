@@ -20,8 +20,10 @@ at a task's time when it has one (#478).
   task is due at 10:30" ("Eine Aufgabe ist um 10:30 fällig"), "2 tasks are due at 10:30". Again a
   count, not the descriptions, and tapping it opens the board. Tasks due at the same time share
   one reminder; on a day that skips an hour, a task in the skipped hour keeps its own, worded as
-  the task has its time. A timed task still counts in its day's 08:00 summary, and one due at 08:00 has
-  only the summary. A zoned task's summary is on the day of its moment on the phone's calendar.
+  the task has its time. A timed task still counts in its day's 08:00 summary. A floating one due at
+  08:00 has only the summary, as long as both move with the zone: not when a zoned task counts in that
+  day's summary too, which then stays where it is. A zoned task due at 08:00 keeps its own reminder.
+  A zoned task's summary is on the day of its moment on the phone's calendar.
   - **A floating task** ("pills at 08:00") reminds at its time on the phone's clock, worded as the
     task has it.
   - **A task tied to a time zone** reminds at its one moment, the `dueAt` the backend works out, so
@@ -40,9 +42,13 @@ at a task's time when it has one (#478).
     new zone's 08:00. A zoned task's reminder stays where it is: its moment is the same everywhere,
     and so does a summary that counts a zoned task, whose day is its moment's. A reminder whose new
     time is already over -- a flight east may land after it -- stays where it was, and comes late
-    rather than not at all. The receiver works beside expo-notifications' own service, not in it:
-    should the app replace its reminders, or the phone reboot, at the very moment the zone changes,
-    the next load is what puts them right.
+    rather than not at all. One the app had already dropped as over -- this morning's 08:00 before a
+    flight west -- is not there to move, and comes back only with the next load; nor does a
+    floating 01:30 on the night the clocks go back pick the same of the two 01:30s as the app,
+    which the next load puts right too. The receiver works beside expo-notifications' own service,
+    not in it: should the app replace its reminders, or the phone reboot, at the very moment the
+    zone changes, the next load is what puts them right. Changes that come quickly one after another
+    are followed in their order, so the last zone is the one the reminders end up in.
   - **On iOS only at the next load.** Following a change by itself would take another kind of
     trigger, a calendar one without a time zone; whether that works is still to be tried on an
     iPhone (#517, postponed), since the simulator takes the Mac's time zone.

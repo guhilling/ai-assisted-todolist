@@ -10,7 +10,7 @@ import expo.modules.notifications.service.delegates.ExpoSchedulingDelegate
 import java.text.SimpleDateFormat
 import java.util.Locale
 import java.util.TimeZone
-import kotlin.concurrent.thread
+import java.util.concurrent.Executors
 
 /**
  * Moves the floating reminders to the new time zone's wall-clock time when the phone's zone
@@ -32,7 +32,8 @@ class TimeZoneChangedReceiver : BroadcastReceiver() {
     // The zone the broadcast names: a process already running may not have taken it up yet.
     val zone = intent.getStringExtra(Intent.EXTRA_TIMEZONE)?.let(TimeZone::getTimeZone) ?: TimeZone.getDefault()
     val pending = goAsync()
-    thread {
+    // One change after another, in the order they came: the newest zone's must not be overtaken.
+    worker.execute {
       try {
         follow(context, zone)
       } catch (failure: Exception) {
@@ -76,6 +77,7 @@ class TimeZoneChangedReceiver : BroadcastReceiver() {
 
   private companion object {
     const val TAG = "TaskFestReminders"
+    val worker = Executors.newSingleThreadExecutor()
     /** The key in a reminder's data, and its format, as `mobile/src/notifications.ts` writes them. */
     const val WALL_CLOCK_KEY = "wallClock"
     const val WALL_CLOCK = "yyyy-MM-dd'T'HH:mm"
