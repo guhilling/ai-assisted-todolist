@@ -89,7 +89,8 @@ describe('the reminders at a task\'s due time (#478)', () => {
   })
 
   it('reminds of a zoned task at its one moment, worded by the phone\'s clock', () => {
-    const dueAt = '2026-10-11T08:00:00Z'
+    // 10:00 on this phone, wherever it runs: at 08:00 the summary would stand for it.
+    const dueAt = new Date(2026, 9, 11, 10, 0).toISOString()
     const reminders = remindersFor(
       [timed('2026-10-11', '10:00', { timeZone: 'Europe/Berlin', dueAt })],
       EARLY,

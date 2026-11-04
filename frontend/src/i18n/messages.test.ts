@@ -128,6 +128,15 @@ describe('the app’s reminder counts (#273)', () => {
 })
 
 
+describe('the app’s reminder at a task’s time (#478)', () => {
+  it('says how many and when, in either language', () => {
+    expect(en.reminders.dueAt(1, '10:30')).toBe('A task is due at 10:30')
+    expect(en.reminders.dueAt(2, '10:30')).toBe('2 tasks are due at 10:30')
+    expect(de.reminders.dueAt(1, '10:30')).toBe('Eine Aufgabe ist um 10:30 fällig')
+    expect(de.reminders.dueAt(2, '10:30')).toBe('2 Aufgaben sind um 10:30 fällig')
+  })
+})
+
 describe('the colour legend read aloud (#335)', () => {
   it('lists the levels in each language, for the app whose dots a screen reader cannot see', () => {
     expect(en.legend.spoken('Importance', ['High', 'Medium', 'Low'])).toBe('Importance: High, Medium, Low.')
