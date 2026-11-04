@@ -106,24 +106,34 @@ flows maestro-report.xml mobile/maestro/account.yaml
 # Reminders (#273): turn them on, then make sure Android holds a pending alarm of the app's
 # (`Alarm{... origWhen <ms> ... <package>}`) set for 08:00 in the emulator's own time zone -- not
 # merely the package's name somewhere in the statistics. Any day's 08:00: which day "tomorrow" is
-# was the emulator's to decide when the task was added, and a run may cross midnight.
+# was the emulator's to decide when the task was added, and a run may cross midnight. Then a task
+# due at 09:00 (#478), whose reminder must be there too, at 09:00.
 flows maestro-reminders.xml mobile/maestro/reminders/turn-on.yaml
+flows maestro-reminders-timed.xml mobile/maestro/reminders/timed.yaml
 zone="$(adb shell getprop persist.sys.timezone | tr -d '\r')"
-alarms="$(adb shell dumpsys alarm)"
-scheduled=false
-for when in $(grep -oE 'Alarm\{[^}]*origWhen [0-9]+[^}]*de\.hilling\.taskfest\.dev\}' <<< "$alarms" |
-  grep -oE 'origWhen [0-9]+' | awk '{ print $2 }'); do
-  at="$(TZ="${zone:-UTC}" date -d "@$((when / 1000))" '+%F %H:%M')"
-  echo "The app has an alarm at ${at} (${zone:-UTC})."
-  if [[ "$at" == *" 08:00" ]]; then
-    scheduled=true
+# The app schedules after the backend has answered, and replaces everything each time, so the alarms
+# may still be on their way when the flow ends: asked again for up to a minute.
+app_alarm_times() {
+  alarms="$(adb shell dumpsys alarm)"
+  times=""
+  for when in $(grep -oE 'Alarm\{[^}]*origWhen [0-9]+[^}]*de\.hilling\.taskfest\.dev\}' <<< "$alarms" |
+    grep -oE 'origWhen [0-9]+' | awk '{ print $2 }'); do
+    times+=" $(TZ="${zone:-UTC}" date -d "@$((when / 1000))" '+%H:%M')"
+  done
+}
+for attempt in $(seq 1 12); do
+  app_alarm_times
+  [[ " $times " == *" 08:00 "* && " $times " == *" 09:00 "* ]] && break
+  sleep 5
+done
+echo "The app's alarms (${zone:-UTC}):${times:- none}"
+for wanted in 08:00 09:00; do
+  if [[ " $times " != *" $wanted "* ]]; then
+    echo "No reminder is scheduled for ${wanted} in ${zone:-UTC}. The app's entries in dumpsys alarm:" >&2
+    grep -n -A2 "de.hilling.taskfest.dev" <<< "$alarms" | head -40 >&2 || true
+    exit 1
   fi
 done
-if [[ "$scheduled" != true ]]; then
-  echo "No reminder is scheduled for 08:00 in ${zone:-UTC}. The app's entries in dumpsys alarm:" >&2
-  grep -n -A2 "de.hilling.taskfest.dev" <<< "$alarms" | head -40 >&2 || true
-  exit 1
-fi
 
 # Attaching (#274): an image in the emulator's Downloads, for the file picker to offer.
 retry bash "$here/put-attach-image.sh"
