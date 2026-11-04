@@ -445,3 +445,27 @@ the app may not have: it may not be running at all. Gunnar decided it is worth i
 The emulator's check in `run-on-emulator.sh`, which changes the zone and expects the alarms at the
 new 08:00 and 09:00, is what notices: it fails the first Mobile CI run after such a change.
 
+## iOS's floating reminders are calendar triggers without a time zone
+
+*Accepted · 2026-11-04 · #517*
+
+**Decision.** On iOS a floating reminder -- the 08:00 summary, a task with a time and no zone -- is
+scheduled as expo-notifications' calendar trigger, iOS's `UNCalendarNotificationTrigger`, with its
+day and time and no time zone, and `repeats` off. Without a zone its date components are matched on
+the phone's current clock, so it follows a change of time zone by itself. A zoned reminder stays a
+fixed moment, and so does a floating one whose time the phone's clock skips, which a calendar
+trigger might never match. `calendarOf` in `mobile/src/notifications.ts` decides; the adapter in
+`mobile/src/Main.tsx` builds the trigger.
+
+**Why.** After a flight, "pills at 08:00" fired at the old zone's 08:00 until the app was next
+opened. iOS has no broadcast for a change of time zone that wakes an app, as Android's receiver does
+(#479), but needs none if the trigger itself floats. Whether it does is what an iPhone has to show:
+the simulator takes the Mac's time zone. Gunnar tests it on his iPhone from a release (2026-11-04).
+
+**Rejected:**
+- *Fixed moments, re-derived at the next load*, as before: the gap #517 was opened for.
+- *A calendar trigger with the phone's zone*: it would be a fixed moment again.
+
+**Cost.** None beyond the trigger's kind. Should the iPhone show that it does not follow, the
+reminder still comes at its old moment, as before, and the next load moves it.
+

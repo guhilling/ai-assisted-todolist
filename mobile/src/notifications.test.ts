@@ -1,5 +1,5 @@
 import type { TextFile } from './keptBoard'
-import { createReminderScheduler, type NotificationsApi } from './notifications'
+import { calendarOf, createReminderScheduler, type NotificationsApi } from './notifications'
 
 function memoryFile(): TextFile {
   let content: string | undefined
@@ -149,5 +149,26 @@ describe('the wall-clock time a floating reminder carries (#479)', () => {
       content: { title: '1 task due today', data: { wallClock: '2026-10-11T08:00' } },
       trigger: { date: at, channelId: 'reminders' },
     })
+  })
+})
+
+describe('the calendar trigger a floating reminder gets on iOS (#517)', () => {
+  it('is its wall-clock time, without a time zone, so it follows the phone to another zone', () => {
+    expect(calendarOf(new Date(2026, 9, 11, 8, 0), '2026-10-11T08:00')).toEqual({
+      year: 2026,
+      month: 10,
+      day: 11,
+      hour: 8,
+      minute: 0,
+    })
+  })
+
+  it('is none for a zoned reminder, whose moment is the same everywhere', () => {
+    expect(calendarOf(new Date(2026, 9, 11, 8, 0), undefined)).toBeUndefined()
+  })
+
+  it('is none when the phone’s clock skips that time, so the reminder still comes', () => {
+    // 02:30 on a day that skips an hour is moved to 03:30; a calendar trigger might never match it.
+    expect(calendarOf(new Date(2026, 2, 29, 3, 30), '2026-03-29T02:30')).toBeUndefined()
   })
 })
