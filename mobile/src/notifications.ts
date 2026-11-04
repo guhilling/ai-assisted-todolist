@@ -1,4 +1,5 @@
 import type { TextFile } from './keptBoard'
+import { isoOf, timeOf } from './pickedDates'
 import type { Reminder } from './reminders'
 
 /**
@@ -36,6 +37,27 @@ export type ReminderScheduler = {
   answered(): Promise<boolean>
   /** "Not now". */
   decline(): Promise<void>
+}
+
+/** A day and a time on the phone's calendar, without a time zone. */
+export type WallClock = { year: number; month: number; day: number; hour: number; minute: number }
+
+/**
+ * A floating reminder's wall-clock time, for iOS's calendar trigger (#517). Without a time zone it
+ * follows the phone: "pills at 08:00" comes at the new zone's 08:00 after a flight, without the app
+ * being opened. None for a zoned reminder, whose moment is the same everywhere, nor for a time the
+ * phone's clock skips -- 02:30 on the day the clocks go forward, which `at` has moved on -- since a
+ * calendar trigger for a time that never comes might never fire.
+ *
+ * @param at the moment the reminder was worked out for, on the phone's clock
+ * @param wallClock its wall-clock time, `YYYY-MM-DDTHH:mm`, when it floats
+ */
+export function calendarOf(at: Date, wallClock: string | undefined): WallClock | undefined {
+  if (!wallClock || `${isoOf(at)}T${timeOf(at)}` !== wallClock) {
+    return undefined
+  }
+  const [year, month, day, hour, minute] = wallClock.split(/[-T:]/).map(Number)
+  return { year, month, day, hour, minute }
 }
 
 /** Android's channel for them: what its settings list them as, and switch them off by. */

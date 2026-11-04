@@ -49,9 +49,12 @@ at a task's time when it has one (#478).
     not in it: should the app replace its reminders, or the phone reboot, at the very moment the
     zone changes, the next load is what puts them right. Changes that come quickly one after another
     are followed in their order, so the last zone is the one the reminders end up in.
-  - **On iOS only at the next load.** Following a change by itself would take another kind of
-    trigger, a calendar one without a time zone; whether that works is still to be tried on an
-    iPhone (#517, postponed), since the simulator takes the Mac's time zone.
+  - **On iOS by the trigger itself (#517):** a floating reminder is a calendar trigger with its
+    day and time and no time zone, which iOS matches on the phone's current clock. A zoned one
+    stays a fixed moment, and so does a floating one at a time the clocks skip, which a calendar
+    trigger might never match. That it follows is still to be seen on an iPhone, since the
+    simulator takes the Mac's time zone; until then, a reminder that does not follow still comes
+    at its old moment, and the next load moves it.
 
 ## Asking for permission
 
@@ -87,6 +90,7 @@ calendars.
 | The rule: which days, which time, how many | `mobile/src/reminders.ts` |
 | The platform: permission, channel, scheduling | `mobile/src/notifications.ts` (expo-notifications) |
 | When they are scheduled, cleared and offered | `mobile/src/TaskFestApp.tsx` |
+| Moving them with the time zone, on iOS | `calendarOf` in `mobile/src/notifications.ts`, used by `mobile/src/Main.tsx` |
 | Moving them with the time zone, on Android | `mobile/plugins/android/TimeZoneChangedReceiver.kt`, declared by `mobile/src/timeZoneReceiver.ts`, added by `mobile/plugins/withTimeZoneReceiver.ts` |
 
 `reminders.test.ts` covers the rule, `notifications.test.ts` the platform's use, and

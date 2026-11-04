@@ -37,7 +37,7 @@ import { uploadFile, type UploadParts } from './upload'
 import { googleProviderFor } from './google'
 import { createKeptBoardStore } from './keptBoard'
 import { createPreviewStore, type PreviewFolder } from './previews'
-import { createReminderScheduler, type NotificationsApi } from './notifications'
+import { calendarOf, createReminderScheduler, type NotificationsApi } from './notifications'
 import { providerFor } from './provider'
 import { createSessionStore } from './staySignedIn'
 import { TaskFestApp, type Dependencies } from './TaskFestApp'
@@ -81,11 +81,17 @@ const notifications: NotificationsApi = {
   getPermissionsAsync: () => Notifications.getPermissionsAsync(),
   requestPermissionsAsync: () => Notifications.requestPermissionsAsync(),
   cancelAllScheduledNotificationsAsync: () => Notifications.cancelAllScheduledNotificationsAsync(),
-  scheduleNotificationAsync: ({ content, trigger }) =>
-    Notifications.scheduleNotificationAsync({
+  scheduleNotificationAsync: ({ content, trigger }) => {
+    // On iOS a floating reminder is a calendar trigger, which follows the phone's time zone (#517);
+    // Android's moment is moved by the app's receiver instead (#479).
+    const calendar = Platform.OS === 'ios' ? calendarOf(trigger.date, content.data?.wallClock) : undefined
+    return Notifications.scheduleNotificationAsync({
       content,
-      trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: trigger.date, channelId: trigger.channelId },
-    }),
+      trigger: calendar
+        ? { type: Notifications.SchedulableTriggerInputTypes.CALENDAR, ...calendar, repeats: false }
+        : { type: Notifications.SchedulableTriggerInputTypes.DATE, date: trigger.date, channelId: trigger.channelId },
+    })
+  },
   createChannel: async (id, name) => {
     await Notifications.setNotificationChannelAsync(id, { name, importance: Notifications.AndroidImportance.DEFAULT })
   },
