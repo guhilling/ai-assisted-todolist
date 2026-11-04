@@ -19,8 +19,10 @@ at a task's time when it has one (#478).
 - **At a task's time (#478)**, when it has one, saying how many tasks are due then and when: "A
   task is due at 10:30" ("Eine Aufgabe ist um 10:30 fällig"), "2 tasks are due at 10:30". Again a
   count, not the descriptions, and tapping it opens the board. Tasks due at the same moment share
-  one reminder. A timed task still counts in its day's 08:00 summary.
-  - **A floating task** ("pills at 08:00") reminds at its time on the phone's clock.
+  one reminder. A timed task still counts in its day's 08:00 summary, and one due at 08:00 has
+  only the summary. A zoned task's summary is on the day of its moment on the phone's calendar.
+  - **A floating task** ("pills at 08:00") reminds at its time on the phone's clock, worded as the
+    task has it.
   - **A task tied to a time zone** reminds at its one moment, the `dueAt` the backend works out, so
     the app needs no time-zone database. Its reminder words that moment by the phone's clock: a
     10:00 Berlin task reminds in New York with "A task is due at 04:00".
@@ -29,10 +31,11 @@ at a task's time when it has one (#478).
   ones.
 - **Signing out, deleting the account and a session that ended clear them**
   ([account.md](account.md)).
-- **08:00, and a floating task's time, on the phone's clock when they were scheduled.** A change of
-  time zone is followed at the next load. Following it at once is #479's on Android. On iOS, whether
-  a calendar trigger without a time zone would follow it by itself is still to be tried on an
-  iPhone (#517, postponed): the simulator takes the Mac's time zone.
+- **08:00, and a floating task's time, on the phone's clock when they were scheduled.** They are
+  scheduled as fixed moments, which cannot follow a change of time zone, so it is followed at the
+  next load. Following it at once is #479's on Android. On iOS it would take another kind of
+  trigger, a calendar one without a time zone; whether that follows a change by itself is still to
+  be tried on an iPhone (#517, postponed), since the simulator takes the Mac's time zone.
 
 ## Asking for permission
 

@@ -1,6 +1,6 @@
 import type { BoardTask } from './api'
-import { timeOf } from './pickedDates'
-import { calendarParts, type Messages } from './web'
+import { dateOf, isoOf, timeOf } from './pickedDates'
+import type { Messages } from './web'
 
 /** One local notification: when, and what it says. */
 export type Reminder = { at: Date; title: string }
@@ -26,14 +26,16 @@ const HOUR = 8
  */
 export function remindersFor(tasks: BoardTask[], now: number, messages: Messages): Reminder[] {
   const open = tasks.filter((task) => task.state !== 'DONE' && !task.unknown?.includes('state'))
-  const summaries = countBy(open, (task) => eightOn(task.dueDate)).map(([at, count]) => ({
-    at,
-    title: messages.reminders.dueToday(count),
-  }))
-  const timed = countBy(
-    open.filter((task) => task.dueTime),
-    (task) => dueMoment(task),
-  ).map(([at, count]) => ({ at, title: messages.reminders.dueAt(count, timeOf(at)) }))
+  const summaries = countBy(open, (task) => {
+    const at = dateOf(dayDue(task))
+    at.setHours(HOUR)
+    return { at, time: '' }
+  }).map(({ at, count }) => ({ at, title: messages.reminders.dueToday(count) }))
+  const summaryAt = new Set(summaries.map((summary) => summary.at.getTime()))
+  const timed = countBy(open.filter((task) => task.dueTime), dueMoment)
+    // A task due at 08:00 is what that day's summary says already.
+    .filter(({ at }) => !summaryAt.has(at.getTime()))
+    .map(({ at, time, count }) => ({ at, title: messages.reminders.dueAt(count, time) }))
   // One budget for both, the nearest first: iOS drops what is beyond its 64.
   return [...summaries, ...timed]
     .filter((reminder) => reminder.at.getTime() > now)
@@ -42,33 +44,51 @@ export function remindersFor(tasks: BoardTask[], now: number, messages: Messages
 }
 
 /**
- * When a timed task is due (#478). A floating one -- "pills at 08:00" -- at its time on the phone's
- * clock, wherever the phone is when the reminders are scheduled; a zoned one at its one moment,
- * `dueAt`, which the backend works out, so the app needs no time-zone database of its own.
+ * The day a task is due on the phone's calendar, which its 08:00 summary is for: a zoned task's is
+ * the day of its moment here, which may not be the day it was set for where it was set.
  */
-function dueMoment(task: BoardTask): Date | null {
-  if (task.timeZone) {
-    return task.dueAt ? new Date(task.dueAt) : null
-  }
-  const { year, month, day } = calendarParts(task.dueDate)
-  const [hours, minutes] = (task.dueTime ?? '').split(':').map(Number)
-  return new Date(year, month - 1, day, hours, minutes)
+function dayDue(task: BoardTask): string {
+  return task.timeZone && task.dueAt ? isoOf(new Date(task.dueAt)) : task.dueDate
 }
 
-/** The tasks counted by the moment they remind at: one reminder for each moment, with its count. */
-function countBy(tasks: BoardTask[], momentOf: (task: BoardTask) => Date | null): [Date, number][] {
-  const counted = new Map<number, number>()
+/**
+ * When a timed task is due (#478), and the time its reminder says. A floating one -- "pills at
+ * 08:00" -- at its time on the phone's clock, wherever the phone is when the reminders are
+ * scheduled, and worded as the task has it, even on a day that skips that hour; a zoned one at its
+ * one moment, `dueAt`, which the backend works out, so the app needs no time-zone database of its
+ * own, and worded by the phone's clock.
+ */
+function dueMoment(task: BoardTask): { at: Date; time: string } | null {
+  const time = task.dueTime as string
+  if (task.timeZone) {
+    if (!task.dueAt) {
+      return null
+    }
+    const at = new Date(task.dueAt)
+    return { at, time: timeOf(at) }
+  }
+  const at = dateOf(task.dueDate)
+  const [hours, minutes] = time.split(':').map(Number)
+  at.setHours(hours, minutes)
+  return { at, time }
+}
+
+/**
+ * The tasks counted by the moment they remind at, and what it says: one reminder for each, with
+ * its count.
+ */
+function countBy(
+  tasks: BoardTask[],
+  momentOf: (task: BoardTask) => { at: Date; time: string } | null,
+): { at: Date; time: string; count: number }[] {
+  const counted = new Map<string, { at: Date; time: string; count: number }>()
   for (const task of tasks) {
     const moment = momentOf(task)
-    if (moment && !Number.isNaN(moment.getTime())) {
-      counted.set(moment.getTime(), (counted.get(moment.getTime()) ?? 0) + 1)
+    if (moment && !Number.isNaN(moment.at.getTime())) {
+      const key = `${moment.at.getTime()} ${moment.time}`
+      const known = counted.get(key)
+      counted.set(key, { ...moment, count: (known?.count ?? 0) + 1 })
     }
   }
-  return [...counted.entries()].map(([at, count]) => [new Date(at), count])
-}
-
-/** 08:00 on a calendar day, in the phone's time zone. */
-function eightOn(iso: string) {
-  const { year, month, day } = calendarParts(iso)
-  return new Date(year, month - 1, day, HOUR, 0)
+  return [...counted.values()]
 }

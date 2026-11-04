@@ -111,14 +111,22 @@ flows maestro-report.xml mobile/maestro/account.yaml
 flows maestro-reminders.xml mobile/maestro/reminders/turn-on.yaml
 flows maestro-reminders-timed.xml mobile/maestro/reminders/timed.yaml
 zone="$(adb shell getprop persist.sys.timezone | tr -d '\r')"
-alarms="$(adb shell dumpsys alarm)"
-times=""
-for when in $(grep -oE 'Alarm\{[^}]*origWhen [0-9]+[^}]*de\.hilling\.taskfest\.dev\}' <<< "$alarms" |
-  grep -oE 'origWhen [0-9]+' | awk '{ print $2 }'); do
-  at="$(TZ="${zone:-UTC}" date -d "@$((when / 1000))" '+%F %H:%M')"
-  echo "The app has an alarm at ${at} (${zone:-UTC})."
-  times+=" ${at##* }"
+# The app schedules after the backend has answered, and replaces everything each time, so the alarms
+# may still be on their way when the flow ends: asked again for up to a minute.
+app_alarm_times() {
+  alarms="$(adb shell dumpsys alarm)"
+  times=""
+  for when in $(grep -oE 'Alarm\{[^}]*origWhen [0-9]+[^}]*de\.hilling\.taskfest\.dev\}' <<< "$alarms" |
+    grep -oE 'origWhen [0-9]+' | awk '{ print $2 }'); do
+    times+=" $(TZ="${zone:-UTC}" date -d "@$((when / 1000))" '+%H:%M')"
+  done
+}
+for attempt in $(seq 1 12); do
+  app_alarm_times
+  [[ " $times " == *" 08:00 "* && " $times " == *" 09:00 "* ]] && break
+  sleep 5
 done
+echo "The app's alarms (${zone:-UTC}):${times:- none}"
 for wanted in 08:00 09:00; do
   if [[ " $times " != *" $wanted "* ]]; then
     echo "No reminder is scheduled for ${wanted} in ${zone:-UTC}. The app's entries in dumpsys alarm:" >&2
