@@ -11,7 +11,10 @@ export type NotificationsApi = {
   requestPermissionsAsync(): Promise<{ granted: boolean }>
   cancelAllScheduledNotificationsAsync(): Promise<void>
   /** One notification at a moment, on an Android channel. */
-  scheduleNotificationAsync(request: { content: { title: string }; trigger: { date: Date; channelId: string } }): Promise<string>
+  scheduleNotificationAsync(request: {
+    content: { title: string; data?: { wallClock: string } }
+    trigger: { date: Date; channelId: string }
+  }): Promise<string>
   /** Android's channel, which it needs before it can ask or show one; nothing on iOS. */
   createChannel(id: string, name: string): Promise<void>
 }
@@ -72,7 +75,11 @@ export function createReminderScheduler(api: NotificationsApi, answeredFlag: Tex
     await Promise.all(
       reminders.map((reminder) =>
         api.scheduleNotificationAsync({
-          content: { title: reminder.title },
+          // A floating reminder's wall-clock time goes along, for Android's receiver to move it by
+          // when the time zone changes (#479; mobile/plugins/android/TimeZoneChangedReceiver.kt).
+          content: reminder.wallClock
+            ? { title: reminder.title, data: { wallClock: reminder.wallClock } }
+            : { title: reminder.title },
           trigger: { date: reminder.at, channelId: CHANNEL },
         }),
       ),

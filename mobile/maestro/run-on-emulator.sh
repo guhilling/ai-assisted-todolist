@@ -111,29 +111,49 @@ flows maestro-report.xml mobile/maestro/account.yaml
 flows maestro-reminders.xml mobile/maestro/reminders/turn-on.yaml
 flows maestro-reminders-timed.xml mobile/maestro/reminders/timed.yaml
 zone="$(adb shell getprop persist.sys.timezone | tr -d '\r')"
-# The app schedules after the backend has answered, and replaces everything each time, so the alarms
-# may still be on their way when the flow ends: asked again for up to a minute.
+# The times of the app's pending alarms, in zone $1, into $times; the dump itself into $alarms.
 app_alarm_times() {
   alarms="$(adb shell dumpsys alarm)"
   times=""
   for when in $(grep -oE 'Alarm\{[^}]*origWhen [0-9]+[^}]*de\.hilling\.taskfest\.dev\}' <<< "$alarms" |
     grep -oE 'origWhen [0-9]+' | awk '{ print $2 }'); do
-    times+=" $(TZ="${zone:-UTC}" date -d "@$((when / 1000))" '+%H:%M')"
+    times+=" $(TZ="$1" date -d "@$((when / 1000))" '+%H:%M')"
   done
 }
-for attempt in $(seq 1 12); do
-  app_alarm_times
-  [[ " $times " == *" 08:00 "* && " $times " == *" 09:00 "* ]] && break
-  sleep 5
-done
-echo "The app's alarms (${zone:-UTC}):${times:- none}"
-for wanted in 08:00 09:00; do
-  if [[ " $times " != *" $wanted "* ]]; then
-    echo "No reminder is scheduled for ${wanted} in ${zone:-UTC}. The app's entries in dumpsys alarm:" >&2
-    grep -n -A2 "de.hilling.taskfest.dev" <<< "$alarms" | head -40 >&2 || true
-    exit 1
-  fi
-done
+# Fails -- returns 1 -- unless the app has alarms at 08:00 and 09:00 in zone $1. The app schedules
+# after the backend has answered, and the receiver after the zone has changed, so the alarms may still
+# be on their way: asked again for up to a minute.
+expect_alarms_at_8_and_9() {
+  for attempt in $(seq 1 12); do
+    app_alarm_times "$1"
+    [[ " $times " == *" 08:00 "* && " $times " == *" 09:00 "* ]] && break
+    sleep 5
+  done
+  echo "The app's alarms ($1):${times:- none}"
+  for wanted in 08:00 09:00; do
+    if [[ " $times " != *" $wanted "* ]]; then
+      echo "No reminder is scheduled for ${wanted} in $1. The app's entries in dumpsys alarm:" >&2
+      grep -n -A2 "de.hilling.taskfest.dev" <<< "$alarms" | head -40 >&2 || true
+      return 1
+    fi
+  done
+}
+expect_alarms_at_8_and_9 "${zone:-UTC}" || exit 1
+
+# After a flight (#479): the phone's zone changes, and the floating reminders -- the summary and the
+# task at 09:00 -- must be at the new zone's 08:00 and 09:00 without the app being opened. West, to
+# Los Angeles: the task is due tomorrow, and a zone east of UTC could put its 08:00 before now late
+# in the day, which the receiver rightly leaves alone. Left where they were, the alarms would be at
+# midnight and 01:00 there, or an hour later in summer. The emulator's own settings come back
+# afterwards, whatever the check found, for the flows that follow.
+auto_zone="$(adb shell settings get global auto_time_zone | tr -d '\r')"
+retry adb shell settings put global auto_time_zone 0
+retry adb shell cmd alarm set-timezone America/Los_Angeles
+followed=0
+expect_alarms_at_8_and_9 America/Los_Angeles || followed=1
+retry adb shell cmd alarm set-timezone "${zone:-UTC}"
+[[ "$auto_zone" == "null" ]] || retry adb shell settings put global auto_time_zone "$auto_zone"
+(( followed == 0 )) || exit 1
 
 # Attaching (#274): an image in the emulator's Downloads, for the file picker to offer.
 retry bash "$here/put-attach-image.sh"

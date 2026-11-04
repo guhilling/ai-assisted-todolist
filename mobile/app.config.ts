@@ -1,6 +1,7 @@
 import type { ConfigContext, ExpoConfig } from 'expo/config'
 import { withShareExtensionName } from './plugins/withShareExtensionName.ts'
 import { withShareLabel } from './plugins/withShareLabel.ts'
+import { withTimeZoneReceiver } from './plugins/withTimeZoneReceiver.ts'
 import { releaseOf } from './src/release.ts'
 import { SHARE_ACTIVATION_RULE } from './src/shareExtension.ts'
 import { googleUrlScheme, variantOf } from './src/variants.ts'
@@ -97,5 +98,6 @@ export default ({ config }: ConfigContext): ExpoConfig => {
   }
   // What the share sheets offer the app as (#355, #356), applied here rather than listed in
   // plugins: the changes must follow expo-sharing's, as plugins/withShareExtensionName.ts says.
-  return withShareLabel(withShareExtensionName(app, variant.shareName), variant.shareName)
+  // The reminders follow a change of time zone on Android (#479): a receiver of the app's own.
+  return withTimeZoneReceiver(withShareLabel(withShareExtensionName(app, variant.shareName), variant.shareName))
 }

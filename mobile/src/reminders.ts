@@ -2,8 +2,13 @@ import type { BoardTask } from './api'
 import { dateOf, isoOf, timeOf } from './pickedDates'
 import type { Messages } from './web'
 
-/** One local notification: when, and what it says. */
-export type Reminder = { at: Date; title: string }
+/**
+ * One local notification: when, and what it says. A floating one -- the 08:00 summary, a task with
+ * a time and no zone -- also says the wall-clock time it stands for, `YYYY-MM-DDTHH:mm`, by which
+ * Android's receiver moves it when the phone's time zone changes (#479); a zoned one has none, as
+ * its moment is the same everywhere.
+ */
+export type Reminder = { at: Date; title: string; wallClock?: string }
 
 /**
  * At most this many reminders are scheduled: iOS keeps 64 pending notifications per app and drops
@@ -26,16 +31,30 @@ const HOUR = 8
  */
 export function remindersFor(tasks: BoardTask[], now: number, messages: Messages): Reminder[] {
   const open = tasks.filter((task) => task.state !== 'DONE' && !task.unknown?.includes('state'))
-  const summaries = countBy(open, (task) => {
-    const at = dateOf(dayDue(task))
+  // A summary moves with the zone (#479) only when every task it counts floats: a zoned task's day
+  // here is its moment's, which a new zone may put on another day.
+  const days = new Map<string, { count: number; floating: boolean }>()
+  for (const task of open) {
+    const day = dayDue(task)
+    const known = days.get(day) ?? { count: 0, floating: true }
+    days.set(day, { count: known.count + 1, floating: known.floating && !task.timeZone })
+  }
+  const summaries: Reminder[] = [...days].map(([day, { count, floating }]) => {
+    const at = dateOf(day)
     at.setHours(HOUR)
-    return { at, time: '' }
-  }).map(({ at, count }) => ({ at, title: messages.reminders.dueToday(count) }))
-  const summaryAt = new Set(summaries.map((summary) => summary.at.getTime()))
+    const wallClock = `${day}T${String(HOUR).padStart(2, '0')}:00`
+    return { at, title: messages.reminders.dueToday(count), ...(floating ? { wallClock } : {}) }
+  })
+  const movingSummaryAt = new Set(summaries.filter((summary) => summary.wallClock).map((summary) => summary.at.getTime()))
   const timed = countBy(open.filter((task) => task.dueTime), dueMoment)
-    // A task due at 08:00 is what that day's summary says already.
-    .filter(({ at }) => !summaryAt.has(at.getTime()))
-    .map(({ at, time, count }) => ({ at, title: messages.reminders.dueAt(count, time) }))
+    // A floating task due at 08:00 is what that day's summary says already, as long as both move
+    // together; a zoned one keeps its own, which stays when the summary moves.
+    .filter(({ at, wallClock }) => !(wallClock && movingSummaryAt.has(at.getTime())))
+    .map(({ at, time, count, wallClock }) => ({
+      at,
+      title: messages.reminders.dueAt(count, time),
+      ...(wallClock ? { wallClock } : {}),
+    }))
   // One budget for both, the nearest first: iOS drops what is beyond its 64.
   return [...summaries, ...timed]
     .filter((reminder) => reminder.at.getTime() > now)
@@ -58,7 +77,7 @@ function dayDue(task: BoardTask): string {
  * one moment, `dueAt`, which the backend works out, so the app needs no time-zone database of its
  * own, and worded by the phone's clock.
  */
-function dueMoment(task: BoardTask): { at: Date; time: string } | null {
+function dueMoment(task: BoardTask): Moment | null {
   const time = task.dueTime as string
   if (task.timeZone) {
     if (!task.dueAt) {
@@ -70,22 +89,23 @@ function dueMoment(task: BoardTask): { at: Date; time: string } | null {
   const at = dateOf(task.dueDate)
   const [hours, minutes] = time.split(':').map(Number)
   at.setHours(hours, minutes)
-  return { at, time }
+  return { at, time, wallClock: `${task.dueDate}T${time}` }
 }
+
+/** When a reminder is, what time it says, and, for a floating one, the wall-clock time it stands for. */
+type Moment = { at: Date; time: string; wallClock?: string }
 
 /**
  * The tasks counted by the moment they remind at, and what it says: one reminder for each, with
  * its count.
  */
-function countBy(
-  tasks: BoardTask[],
-  momentOf: (task: BoardTask) => { at: Date; time: string } | null,
-): { at: Date; time: string; count: number }[] {
-  const counted = new Map<string, { at: Date; time: string; count: number }>()
+function countBy(tasks: BoardTask[], momentOf: (task: BoardTask) => Moment | null): (Moment & { count: number })[] {
+  const counted = new Map<string, Moment & { count: number }>()
   for (const task of tasks) {
     const moment = momentOf(task)
     if (moment && !Number.isNaN(moment.at.getTime())) {
-      const key = `${moment.at.getTime()} ${moment.time}`
+      // A floating and a zoned task never share one: one moves with the zone, the other does not.
+      const key = `${moment.at.getTime()} ${moment.time} ${moment.wallClock ?? ''}`
       const known = counted.get(key)
       counted.set(key, { ...moment, count: (known?.count ?? 0) + 1 })
     }
