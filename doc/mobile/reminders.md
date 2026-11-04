@@ -18,8 +18,9 @@ at a task's time when it has one (#478).
   time, and one that would schedule exactly what is scheduled already does nothing.
 - **At a task's time (#478)**, when it has one, saying how many tasks are due then and when: "A
   task is due at 10:30" ("Eine Aufgabe ist um 10:30 fällig"), "2 tasks are due at 10:30". Again a
-  count, not the descriptions, and tapping it opens the board. Tasks due at the same moment share
-  one reminder. A timed task still counts in its day's 08:00 summary, and one due at 08:00 has
+  count, not the descriptions, and tapping it opens the board. Tasks due at the same time share
+  one reminder; on a day that skips an hour, a task in the skipped hour keeps its own, worded as
+  the task has its time. A timed task still counts in its day's 08:00 summary, and one due at 08:00 has
   only the summary. A zoned task's summary is on the day of its moment on the phone's calendar.
   - **A floating task** ("pills at 08:00") reminds at its time on the phone's clock, worded as the
     task has it.
