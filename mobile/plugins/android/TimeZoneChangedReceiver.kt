@@ -46,7 +46,7 @@ class TimeZoneChangedReceiver : BroadcastReceiver() {
   private fun follow(context: Context, zone: TimeZone) {
     val scheduling = ExpoSchedulingDelegate(context)
     val wallClock = SimpleDateFormat(WALL_CLOCK, Locale.ROOT).apply { timeZone = zone }
-    for (request in scheduling.allScheduledNotifications) {
+    for (request in scheduling.getAllScheduledNotifications()) {
       val trigger = request.trigger as? DateTrigger ?: continue
       val at = request.content.body?.optString(WALL_CLOCK_KEY).orEmpty()
       if (at.isEmpty()) {
