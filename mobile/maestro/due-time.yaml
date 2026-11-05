@@ -40,6 +40,6 @@ name: Add a task due at a time in another zone
 - tapOn: "Add"
 # 09:00 in Tokyo is midnight UTC, the same day.
 - extendedWaitUntil:
-    visible: "09:00 \\(Tokyo\\), 00:00 here"
+    visible: "Tokyo: 09:00, 00:00 here"
     timeout: 10000
 - takeScreenshot: 54-added

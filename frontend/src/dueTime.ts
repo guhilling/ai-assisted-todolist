@@ -3,7 +3,8 @@ import { shortWeekday, todayIso, type DateWords } from './dates'
 
 /**
  * How a task's due time reads on a row (#475): the time alone, or, for a task tied to a time zone
- * that is due at another time here, the time there, the zone, and the time here.
+ * that is due at another time here, the time there and the time here. The zone itself is not in it:
+ * the row names it first, before the date (#523, `dueZone`).
  *
  * Apart from `dates.ts` because a due date stays a date without a clock there. No time-zone
  * database is needed: the time and day there are the task's own, and the time and day here come
@@ -21,21 +22,28 @@ export function describeDueTime(
   if (!task.timeZone) {
     return task.dueTime
   }
-  const zone = zoneName(task.timeZone)
   const moment = task.dueAt ? new Date(task.dueAt) : null
   // No moment, or one this device cannot read: the time there is all that can be said.
   if (!moment || Number.isNaN(moment.getTime())) {
-    return `${task.dueTime} (${zone})`
+    return task.dueTime
   }
   const here = clock(moment)
   if (here.date === task.dueDate) {
-    return here.time === task.dueTime ? task.dueTime : words.elsewhere(task.dueTime, zone, here.time)
+    return here.time === task.dueTime ? task.dueTime : words.elsewhere(task.dueTime, here.time)
   }
   return words.elsewhere(
     `${shortWeekday(task.dueDate, locale)} ${task.dueTime}`,
-    zone,
     `${shortWeekday(here.date, locale)} ${here.time}`,
   )
+}
+
+/**
+ * The time zone a task's row names before its date (#523), worded: "Berlin:" for a task tied to
+ * one, and none for a task that follows wherever its owner is -- most tasks, which so stay as they
+ * were.
+ */
+export function dueZone(task: Pick<TaskResponse, 'dueTime' | 'timeZone'>, words: DateWords): string | null {
+  return task.dueTime && task.timeZone ? words.inZone(zoneName(task.timeZone)) : null
 }
 
 /** A day and a time on a clock, as the API writes them: `yyyy-mm-dd` and `HH:mm`. */

@@ -2,6 +2,7 @@ import { render, screen, userEvent, within } from '@testing-library/react-native
 import type { Session } from './session'
 import { TaskFestApp, type Dependencies } from './TaskFestApp'
 import { HOUR, dependencies as appDependencies, memorySessions } from './testing'
+import { light } from './theme'
 import { variants } from './variants'
 import type { Task } from './web'
 
@@ -54,7 +55,7 @@ describe("a task's due time on the board (#475)", () => {
   it("shows a zoned task's time there and here", async () => {
     await render(<TaskFestApp variant={variants.dev} language="en" dependencies={dependencies()} />)
 
-    expect(within(await screen.findByTestId('task-2')).getByText('10:00 (Tokyo), 04:00 here')).toBeOnTheScreen()
+    expect(within(await screen.findByTestId('task-2')).getByText('Tokyo: 10:00, 04:00 here')).toBeOnTheScreen()
   })
 
   it("files a zoned task under its own date, and names both days when here's differs", async () => {
@@ -62,13 +63,13 @@ describe("a task's due time on the board (#475)", () => {
 
     const row = await screen.findByTestId('task-3')
     expect(within(row).getByText('Wed')).toBeOnTheScreen()
-    expect(within(row).getByText('Wed 01:00 (New York), Tue 19:00 here')).toBeOnTheScreen()
+    expect(within(row).getByText('New York: Wed 01:00, Tue 19:00 here')).toBeOnTheScreen()
   })
 
   it('reads the due time aloud with the task', async () => {
     await render(<TaskFestApp variant={variants.dev} language="en" dependencies={dependencies()} />)
 
-    expect(await screen.findByLabelText('Edit "Join the stand-up", due 10:00 (Tokyo), 04:00 here')).toBeOnTheScreen()
+    expect(await screen.findByLabelText('Edit "Join the stand-up", due Tokyo: 10:00, 04:00 here')).toBeOnTheScreen()
     expect(screen.getByLabelText('Edit "Water the plants"')).toBeOnTheScreen()
   })
 
@@ -81,7 +82,22 @@ describe("a task's due time on the board (#475)", () => {
   it('in the language the app speaks', async () => {
     await render(<TaskFestApp variant={variants.dev} language="de" dependencies={dependencies()} />)
 
-    expect(within(await screen.findByTestId('task-2')).getByText('10:00 (Tokyo), hier 04:00')).toBeOnTheScreen()
+    expect(within(await screen.findByTestId('task-2')).getByText('Tokyo: 10:00, hier 04:00')).toBeOnTheScreen()
+  })
+})
+
+describe("a zoned task's row names its zone (#523)", () => {
+  it('first, in the brand green', async () => {
+    await render(<TaskFestApp variant={variants.dev} language="en" dependencies={dependencies()} />)
+
+    const zone = within(await screen.findByTestId('task-2')).getByText('Tokyo:')
+    expect(zone).toHaveStyle({ color: light.brandStrong })
+  })
+
+  it('not for a task that follows wherever its owner is', async () => {
+    await render(<TaskFestApp variant={variants.dev} language="en" dependencies={dependencies()} />)
+
+    expect(within(await screen.findByTestId('task-1')).queryByText(/:$/)).toBeNull()
   })
 })
 

@@ -105,6 +105,8 @@ export function stylesFor(theme: Theme) {
     // the screen, so the sign-in below stays centred on it.
     signedOutHead: { position: 'absolute', top: 8, right: 0, zIndex: 1 },
     brand: { fontSize: 20, fontWeight: '700', color: theme.brandStrong },
+    /** A zoned task's zone on its row (#523), in the green of the name above the board. */
+    zone: { color: theme.brandStrong },
     account: { gap: 8 },
     dangerButton: { borderWidth: 1, borderColor: theme.danger, borderRadius: 6, paddingVertical: 12, paddingHorizontal: 16 },
     offerButtons: { flexDirection: 'row', justifyContent: 'flex-end' },

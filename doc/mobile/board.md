@@ -18,13 +18,16 @@ and the sign-in has it at its top as well (#384).
   overdue row's date in red.
 
 - **A task's due time** (#475) — a task with a time shows it under its description:
-  "10:00" for one that follows wherever its owner is, or one tied to a time zone that is the
-  phone's at that moment. One tied to another zone says the time there, the zone's city, and the
-  time on the phone: "10:00 (Berlin), 04:00 here". It is filed under its own date, the zone's, and
-  when the phone's day differs, both days are named: "Tue 01:00 (Berlin), Mon 19:00 here". The
-  phone needs no time-zone data for this; the backend's `dueAt` is the moment, and the phone's
-  clock reads it. The app sends a task's time and zone back with every change, and an undo puts
-  them back too, so no edit or undo in the app erases them.
+  "10:00" for one that follows wherever its owner is. **A task tied to a time zone names its zone
+  first** (#523), its city followed by a colon, in the green of the name above the board:
+  "Berlin: 10:00", even when the phone is in that zone. Most tasks have none, so the few that have
+  one stand out. When the phone is in another zone, the time on the phone follows: "Berlin: 10:00,
+  04:00 here". It is filed under its own date, the zone's, and when the phone's day differs, both
+  days are named: "Berlin: Tue 01:00, Mon 19:00 here". The website does the same, with the zone
+  before the row's date, or before its time under Today and Tomorrow, whose headings say the
+  date. The phone needs no time-zone data for this; the backend's `dueAt` is the moment, and the
+  phone's clock reads it. The app sends a task's time and zone back with every change, and an undo
+  puts them back too, so no edit or undo in the app erases them.
 
 - **Setting a due time** (#477) — the form offers **Add a time** in the due date's row of chips,
   which opens the platform's own time picker: a dialog on Android, wheels in the form on iOS, which

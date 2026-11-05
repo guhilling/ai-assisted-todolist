@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   browserZone,
   describeDueTime,
+  dueZone,
   forgetZones,
   offerable,
   timeZones,
@@ -33,18 +34,18 @@ describe('describeDueTime', () => {
     expect(describeDueTime(berlin, en.dates, 'en', clockAt(2))).toBe('10:00')
   })
 
-  it("names the task's zone and the time here when they differ", () => {
+  it('says the time there and the time here when they differ', () => {
     const berlin = { ...task, dueTime: '10:00', timeZone: 'Europe/Berlin', dueAt: '2026-10-12T08:00:00Z' }
-    expect(describeDueTime(berlin, en.dates, 'en', clockAt(-4))).toBe('10:00 (Berlin), 04:00 here')
-    expect(describeDueTime(berlin, de.dates, 'de', clockAt(-4))).toBe('10:00 (Berlin), hier 04:00')
+    expect(describeDueTime(berlin, en.dates, 'en', clockAt(-4))).toBe('10:00, 04:00 here')
+    expect(describeDueTime(berlin, de.dates, 'de', clockAt(-4))).toBe('10:00, hier 04:00')
   })
 
   it('names both days when here it is due on another day', () => {
     const berlin = {
       dueDate: '2026-10-13', dueTime: '01:00', timeZone: 'Europe/Berlin', dueAt: '2026-10-12T23:00:00Z',
     }
-    expect(describeDueTime(berlin, en.dates, 'en', clockAt(-4))).toBe('Tue 01:00 (Berlin), Mon 19:00 here')
-    expect(describeDueTime(berlin, de.dates, 'de', clockAt(-4))).toBe('Di 01:00 (Berlin), hier Mo 19:00')
+    expect(describeDueTime(berlin, en.dates, 'en', clockAt(-4))).toBe('Tue 01:00, Mon 19:00 here')
+    expect(describeDueTime(berlin, de.dates, 'de', clockAt(-4))).toBe('Di 01:00, hier Mo 19:00')
   })
 
   it("reads the moment by this device's own clock unless told otherwise", () => {
@@ -53,14 +54,26 @@ describe('describeDueTime', () => {
     expect(describeDueTime(local, en.dates, 'en')).toBe('10:00')
   })
 
-  it('names the zone alone when the moment cannot be read', () => {
+  it('says the time there alone when the moment cannot be read', () => {
     const garbled = { ...task, dueTime: '10:00', timeZone: 'Europe/Berlin', dueAt: 'soon' }
-    expect(describeDueTime(garbled, en.dates, 'en')).toBe('10:00 (Berlin)')
+    expect(describeDueTime(garbled, en.dates, 'en')).toBe('10:00')
   })
 
-  it('names the zone alone when the backend could not say when that is', () => {
+  it('says the time there alone when the backend could not say when that is', () => {
     const unknown = { ...task, dueTime: '10:00', timeZone: 'Europe/Berlin', dueAt: null }
-    expect(describeDueTime(unknown, en.dates, 'en', clockAt(0))).toBe('10:00 (Berlin)')
+    expect(describeDueTime(unknown, en.dates, 'en', clockAt(0))).toBe('10:00')
+  })
+})
+
+describe('dueZone (#523)', () => {
+  it("is a zoned task's city, which its row names before its date", () => {
+    expect(dueZone({ ...task, dueTime: '10:00', timeZone: 'America/New_York' }, en.dates)).toBe('New York:')
+    expect(dueZone({ ...task, dueTime: '10:00', timeZone: 'America/New_York' }, de.dates)).toBe('New York:')
+  })
+
+  it('is none for a task that follows wherever its owner is, or has no time', () => {
+    expect(dueZone({ ...task, dueTime: '10:00' }, en.dates)).toBeNull()
+    expect(dueZone({ ...task, dueTime: null, timeZone: 'Europe/Berlin' }, en.dates)).toBeNull()
   })
 })
 
