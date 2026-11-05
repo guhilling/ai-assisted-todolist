@@ -173,7 +173,7 @@ describe('a due time on a row', () => {
     await renderSignedIn(stubApi({ me: ALICE, tasks: [zoned] }))
 
     expect(within(rowFor('Meet Berlin')).getByText('10:00, 04:00 here')).toBeInTheDocument()
-    expect(within(rowFor('Meet Berlin')).getByText('Berlin:').nextElementSibling).toHaveClass('task-due')
+    expect(within(rowFor('Meet Berlin')).getByText('Berlin:').parentElement).toHaveClass('task-due')
   })
 })
 
@@ -182,16 +182,16 @@ describe("a zoned task's row names its zone (#523)", () => {
     const zoned = { ...task({ description: 'Call Tokyo', dueDate: isoIn(0) }), dueTime: '10:00', timeZone: 'Asia/Tokyo' }
     await renderSignedIn(stubApi({ me: ALICE, tasks: [zoned] }))
 
-    expect(within(rowFor('Call Tokyo')).getByText('Tokyo:').nextElementSibling).toHaveClass('task-time')
+    expect(within(rowFor('Call Tokyo')).getByText('Tokyo:').parentElement).toHaveClass('task-time')
   })
 
-  it('in the brand green, as its own item, the first after the importance', async () => {
+  it('marked for the brand green, in the first item after the importance', async () => {
     const zoned = { ...task({ description: 'Call Tokyo', dueDate: isoIn(5) }), dueTime: '10:00', timeZone: 'Asia/Tokyo' }
     await renderSignedIn(stubApi({ me: ALICE, tasks: [zoned] }))
 
     const zone = within(rowFor('Call Tokyo')).getByText('Tokyo:')
     expect(zone).toHaveClass('task-zone')
-    expect(zone.previousElementSibling).toHaveClass('task-importance')
+    expect(zone.parentElement?.previousElementSibling).toHaveClass('task-importance')
   })
 
   it('not for a floating task', async () => {

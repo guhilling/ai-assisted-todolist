@@ -67,12 +67,13 @@ describe('describeDueTime', () => {
 
 describe('dueZone (#523)', () => {
   it("is a zoned task's city, which its row names before its date", () => {
-    expect(dueZone({ ...task, dueTime: '10:00', timeZone: 'America/New_York' })).toBe('New York')
+    expect(dueZone({ ...task, dueTime: '10:00', timeZone: 'America/New_York' }, en.dates)).toBe('New York:')
+    expect(dueZone({ ...task, dueTime: '10:00', timeZone: 'America/New_York' }, de.dates)).toBe('New York:')
   })
 
   it('is none for a task that follows wherever its owner is, or has no time', () => {
-    expect(dueZone({ ...task, dueTime: '10:00' })).toBeNull()
-    expect(dueZone({ ...task, dueTime: null, timeZone: 'Europe/Berlin' })).toBeNull()
+    expect(dueZone({ ...task, dueTime: '10:00' }, en.dates)).toBeNull()
+    expect(dueZone({ ...task, dueTime: null, timeZone: 'Europe/Berlin' }, en.dates)).toBeNull()
   })
 })
 

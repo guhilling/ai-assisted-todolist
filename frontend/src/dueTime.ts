@@ -38,11 +38,12 @@ export function describeDueTime(
 }
 
 /**
- * The time zone a task's row names before its date (#523): the city of a task tied to one, and
- * none for a task that follows wherever its owner is -- most tasks, which so stay as they were.
+ * The time zone a task's row names before its date (#523), worded: "Berlin:" for a task tied to
+ * one, and none for a task that follows wherever its owner is -- most tasks, which so stay as they
+ * were.
  */
-export function dueZone(task: Pick<TaskResponse, 'dueTime' | 'timeZone'>): string | null {
-  return task.dueTime && task.timeZone ? zoneName(task.timeZone) : null
+export function dueZone(task: Pick<TaskResponse, 'dueTime' | 'timeZone'>, words: DateWords): string | null {
+  return task.dueTime && task.timeZone ? words.inZone(zoneName(task.timeZone)) : null
 }
 
 /** A day and a time on a clock, as the API writes them: `yyyy-mm-dd` and `HH:mm`. */

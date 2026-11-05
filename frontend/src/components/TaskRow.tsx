@@ -38,7 +38,14 @@ function TaskRow({ task, today, onToggleDone, onDelete, onEdit, attachments }: R
   const dueSaidByHeading = !done && ['today', 'tomorrow'].includes(bucketOf(task.dueDate, today))
   const weekday = weekdayBeside(task.dueDate, today, locale)
   const time = describeDueTime(task, messages.dates, locale)
-  const zone = dueZone(task)
+  const zone = dueZone(task, messages.dates)
+  // A zoned task's zone (#523) leads what the row says of when -- its date, or its time where the
+  // heading says the date -- inside that item, so a narrow row never breaks the two apart.
+  const zoneLabel = zone ? (
+    <>
+      <span className="task-zone">{zone}</span>{'\u00a0'}
+    </>
+  ) : null
   const inputId = `task-${task.id}`
   const menuId = `task-menu-${task.id}`
   const summaryId = `task-menu-summary-${task.id}`
@@ -148,11 +155,10 @@ function TaskRow({ task, today, onToggleDone, onDelete, onEdit, attachments }: R
           <span className={`task-importance task-importance--${task.importance.toLowerCase()}`}>
             <span className="visually-hidden">{messages.importance.levels[task.importance]}</span>
           </span>
-          {/* A zoned task's zone (#523) leads what the row says of when: its date, or its time. */}
-          {zone ? <span className="task-zone">{`${zone}:`}</span> : null}
           {dueSaidByHeading ? null : (
             <>
               <span className={overdue ? 'task-due task-due--overdue' : 'task-due'}>
+                {zoneLabel}
                 {describeDueDate(task.dueDate, today, messages.dates, locale)}
               </span>
               {/* "Today" and "Tomorrow" do not say which day that is (#337): an item of its own. */}
@@ -160,7 +166,12 @@ function TaskRow({ task, today, onToggleDone, onDelete, onEdit, attachments }: R
             </>
           )}
           {/* Under any heading: no heading says the time (#476). */}
-          {time ? <span className="task-time">{time}</span> : null}
+          {time ? (
+            <span className="task-time">
+              {dueSaidByHeading ? zoneLabel : null}
+              {time}
+            </span>
+          ) : null}
         </p>
         {attachments ? <AttachmentList task={task} actions={attachments} removable={editable} /> : null}
       </div>

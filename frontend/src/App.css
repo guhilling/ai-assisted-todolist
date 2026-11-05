@@ -950,14 +950,11 @@ html {
   content: none;
 }
 
-/* A zoned task's zone (#523), in the green that may carry text, and joined to the date or time
-   it names by its colon rather than set off from it by a separator. */
+/* A zoned task's zone (#523), in the green that may carry text, at the start of the date or time
+   it names: neither red nor bold when that date is overdue. */
 .task-zone {
   color: var(--brand-strong);
-}
-
-.task-meta > .task-zone + *::before {
-  content: none;
+  font-weight: 400;
 }
 
 /* A due time (#476): its digits keep their width, so rows' times line up as they change. */

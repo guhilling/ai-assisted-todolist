@@ -90,8 +90,8 @@ export function BoardScreen({
     // no date, and a zoned task's time there and here would not fit beside one.
     const time = describeDueTime(task, messages.dates, locale)
     // A zoned task's zone leads its time (#523): the time is the row's first word of when.
-    const zone = dueZone(task)
-    const dueTime = time && zone ? `${zone}: ${time}` : time
+    const zone = dueZone(task, messages.dates)
+    const dueTime = time && zone ? `${zone} ${time}` : time
     return (
       // The files stand below the row's button, not inside it: a button's contents are one element
       // to a screen reader, and each file must be reachable on its own.
@@ -133,7 +133,7 @@ export function BoardScreen({
               <Text style={[styles.description, done && styles.done]}>{task.description}</Text>
               {time ? (
                 <Text style={styles.muted}>
-                  {zone ? <Text style={styles.zone}>{`${zone}: `}</Text> : null}
+                  {zone ? <Text style={styles.zone}>{`${zone} `}</Text> : null}
                   {time}
                 </Text>
               ) : null}

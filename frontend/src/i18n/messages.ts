@@ -250,6 +250,8 @@ export const en = {
      * The zone is named before it, by the row (#523).
      */
     elsewhere: (there: string, here: string) => `${there}, ${here} here`,
+    /** A zoned task's zone, before its date or time on the row (#523): "Berlin:". */
+    inZone: (zone: string) => `${zone}:`,
   },
   signedOut: {
     tagline: 'Your own list, private to whoever signs in.',
@@ -467,6 +469,7 @@ export const de: Messages = {
     inWeeks: (weeks: number) => (weeks === 1 ? 'In 1 Woche' : `In ${weeks} Wochen`),
     withWeekday: (when: string, weekday: string) => `${when} · ${weekday}`,
     elsewhere: (there: string, here: string) => `${there}, hier ${here}`,
+    inZone: (zone: string) => `${zone}:`,
   },
   signedOut: {
     tagline: 'Deine eigene Liste – privat für alle, die sich anmelden.',
