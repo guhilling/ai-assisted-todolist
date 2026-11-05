@@ -172,6 +172,39 @@ describe('a due time on a row', () => {
     const zoned = { ...task({ description: 'Meet Berlin', dueDate }), dueTime: '10:00', timeZone: 'Europe/Berlin', dueAt }
     await renderSignedIn(stubApi({ me: ALICE, tasks: [zoned] }))
 
-    expect(within(rowFor('Meet Berlin')).getByText('10:00 (Berlin), 04:00 here')).toBeInTheDocument()
+    expect(within(rowFor('Meet Berlin')).getByText('10:00, 04:00 here')).toBeInTheDocument()
+    expect(within(rowFor('Meet Berlin')).getByText('Berlin:').nextElementSibling).toHaveClass('task-due')
+  })
+})
+
+describe("a zoned task's row names its zone (#523)", () => {
+  it('before the time, under Today, whose heading says the date', async () => {
+    const zoned = { ...task({ description: 'Call Tokyo', dueDate: isoIn(0) }), dueTime: '10:00', timeZone: 'Asia/Tokyo' }
+    await renderSignedIn(stubApi({ me: ALICE, tasks: [zoned] }))
+
+    expect(within(rowFor('Call Tokyo')).getByText('Tokyo:').nextElementSibling).toHaveClass('task-time')
+  })
+
+  it('in the brand green, as its own item, the first after the importance', async () => {
+    const zoned = { ...task({ description: 'Call Tokyo', dueDate: isoIn(5) }), dueTime: '10:00', timeZone: 'Asia/Tokyo' }
+    await renderSignedIn(stubApi({ me: ALICE, tasks: [zoned] }))
+
+    const zone = within(rowFor('Call Tokyo')).getByText('Tokyo:')
+    expect(zone).toHaveClass('task-zone')
+    expect(zone.previousElementSibling).toHaveClass('task-importance')
+  })
+
+  it('not for a floating task', async () => {
+    const floating = { ...task({ description: 'Take the pills', dueDate: isoIn(0) }), dueTime: '08:00' }
+    await renderSignedIn(stubApi({ me: ALICE, tasks: [floating] }))
+
+    expect(rowFor('Take the pills').querySelector('.task-zone')).toBeNull()
+  })
+
+  it('for a completed task too', async () => {
+    const done = { ...task({ description: 'Called Tokyo', dueDate: isoIn(-1), state: 'DONE' as const }), dueTime: '10:00', timeZone: 'Asia/Tokyo' }
+    await renderSignedIn(stubApi({ me: ALICE, tasks: [done] }))
+
+    expect(within(rowFor('Called Tokyo')).getByText('Tokyo:')).toBeInTheDocument()
   })
 })

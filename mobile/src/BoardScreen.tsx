@@ -4,7 +4,7 @@ import type { BoardTask } from './api'
 import { FileStrip, type FileLinkSource } from './Attachments'
 import { boardOf, isChangeable } from './board'
 import type { Styles } from './styles'
-import { bucketOf, describeDueDateWithWeekday, describeDueTime, importanceByRank, localeOf, sectionWeekday, type Attachment, type Language, type Messages } from './web'
+import { bucketOf, describeDueDateWithWeekday, describeDueTime, dueZone, importanceByRank, localeOf, sectionWeekday, type Attachment, type Language, type Messages } from './web'
 import { AboutLink } from './LegalLinks'
 
 /** How long the offer to undo a delete stands: the website's eight seconds. */
@@ -88,7 +88,10 @@ export function BoardScreen({
     const done = task.state === 'DONE'
     // Under the description rather than beside the date (#475): the Today and Tomorrow rows say
     // no date, and a zoned task's time there and here would not fit beside one.
-    const dueTime = describeDueTime(task, messages.dates, locale)
+    const time = describeDueTime(task, messages.dates, locale)
+    // A zoned task's zone leads its time (#523): the time is the row's first word of when.
+    const zone = dueZone(task)
+    const dueTime = time && zone ? `${zone}: ${time}` : time
     return (
       // The files stand below the row's button, not inside it: a button's contents are one element
       // to a screen reader, and each file must be reachable on its own.
@@ -128,7 +131,12 @@ export function BoardScreen({
             )}
             <View style={styles.description}>
               <Text style={[styles.description, done && styles.done]}>{task.description}</Text>
-              {dueTime ? <Text style={styles.muted}>{dueTime}</Text> : null}
+              {time ? (
+                <Text style={styles.muted}>
+                  {zone ? <Text style={styles.zone}>{`${zone}: `}</Text> : null}
+                  {time}
+                </Text>
+              ) : null}
               {changeable ? null : <Text style={styles.muted}>{messages.row.updateToChange}</Text>}
             </View>
             {task.unknown?.includes('state') ? (

@@ -950,6 +950,16 @@ html {
   content: none;
 }
 
+/* A zoned task's zone (#523), in the green that may carry text, and joined to the date or time
+   it names by its colon rather than set off from it by a separator. */
+.task-zone {
+  color: var(--brand-strong);
+}
+
+.task-meta > .task-zone + *::before {
+  content: none;
+}
+
 /* A due time (#476): its digits keep their width, so rows' times line up as they change. */
 .task-time {
   font-variant-numeric: tabular-nums;

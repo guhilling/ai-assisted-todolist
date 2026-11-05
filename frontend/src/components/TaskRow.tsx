@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Task } from '../api'
 import { bucketOf, describeDueDate, daysBetween, weekdayBeside } from '../dates'
-import { describeDueTime } from '../dueTime'
+import { describeDueTime, dueZone } from '../dueTime'
 import AttachmentList, { type AttachmentActions } from './AttachmentList'
 import TaskEditor, { type TaskEdit } from './TaskEditor'
 import { useI18n } from '../i18n/context'
@@ -38,6 +38,7 @@ function TaskRow({ task, today, onToggleDone, onDelete, onEdit, attachments }: R
   const dueSaidByHeading = !done && ['today', 'tomorrow'].includes(bucketOf(task.dueDate, today))
   const weekday = weekdayBeside(task.dueDate, today, locale)
   const time = describeDueTime(task, messages.dates, locale)
+  const zone = dueZone(task)
   const inputId = `task-${task.id}`
   const menuId = `task-menu-${task.id}`
   const summaryId = `task-menu-summary-${task.id}`
@@ -147,6 +148,8 @@ function TaskRow({ task, today, onToggleDone, onDelete, onEdit, attachments }: R
           <span className={`task-importance task-importance--${task.importance.toLowerCase()}`}>
             <span className="visually-hidden">{messages.importance.levels[task.importance]}</span>
           </span>
+          {/* A zoned task's zone (#523) leads what the row says of when: its date, or its time. */}
+          {zone ? <span className="task-zone">{`${zone}:`}</span> : null}
           {dueSaidByHeading ? null : (
             <>
               <span className={overdue ? 'task-due task-due--overdue' : 'task-due'}>
