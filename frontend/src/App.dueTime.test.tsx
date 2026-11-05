@@ -182,7 +182,9 @@ describe("a zoned task's row names its zone (#523)", () => {
     const zoned = { ...task({ description: 'Call Tokyo', dueDate: isoIn(0) }), dueTime: '10:00', timeZone: 'Asia/Tokyo' }
     await renderSignedIn(stubApi({ me: ALICE, tasks: [zoned] }))
 
-    expect(within(rowFor('Call Tokyo')).getByText('Tokyo:').parentElement).toHaveClass('task-time')
+    const time = within(rowFor('Call Tokyo')).getByText('Tokyo:').parentElement
+    expect(time).toHaveClass('task-time')
+    expect(time).toHaveTextContent(/^Tokyo:\s10:00$/)
   })
 
   it('marked for the brand green, in the first item after the importance', async () => {
