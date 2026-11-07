@@ -112,6 +112,11 @@ export type Dependencies = {
    * form is closed, so the platform keeps the share until then, for an app ended before (#432).
    */
   incoming?: { take(): Promise<SharedDraft | null>; forget(files: PickedFile[]): Promise<void>; settle?(draft: SharedDraft): void }
+  /**
+   * Drops the time zone the JavaScript engine cached, so `Date` and the phone's zone are read anew
+   * (#526); none, and a change of zone is seen only after a restart.
+   */
+  resetTimeZone?(): void
   /** The oldest app release the backend serves (#268). */
   fetchMinimumAppVersion(): Promise<string>
   /** This build's release: the tag's, or 0.0.0 from a branch. */
@@ -245,6 +250,7 @@ export function TaskFestApp({
     reminders,
     legend,
     incoming,
+    resetTimeZone,
   } = dependencies
   const messages = catalogues[language]
   const darkMode = useColorScheme() === 'dark'
@@ -672,6 +678,12 @@ export function TaskFestApp({
     forgetPicked?.(unused).catch((failure: unknown) => console.warn('The picked files could not be forgotten', failure))
   })
 
+  /** Drops the time zone the engine cached (#526), kept apart so the listener below stays put. */
+  const dropTimeZone = useRef(resetTimeZone)
+  useEffect(() => {
+    dropTimeZone.current = resetTimeZone
+  }, [resetTimeZone])
+
   /** How often the start has been tried: "try again" raises it, and the effect below runs anew. */
   const [attempt, setAttempt] = useState(0)
 
@@ -683,8 +695,16 @@ export function TaskFestApp({
   // yet and could forget the one the sign-in is about to save.
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (next) => {
-      // A share brings the app to the foreground; it waits for the board below, wherever the app is.
       if (next === 'active') {
+        // The phone may be in another time zone now (#526): dropped first, even while a form is
+        // open, so the board, drawn again once it is closed, and the reminders scheduled next take
+        // the new one. Without it the app only stays in the old zone, so a failure stops nothing.
+        try {
+          dropTimeZone.current?.()
+        } catch (failure) {
+          console.warn('The time zone could not be read anew', failure)
+        }
+        // A share brings the app to the foreground; it waits for the board below, wherever the app is.
         takeShare.current()
       }
       // Not while a file is open in another app, or being opened: coming back from it is no reason.

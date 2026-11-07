@@ -1,0 +1,5 @@
+{
+  "platforms": ["apple", "android"],
+  "apple": { "modules": ["TimeZoneCacheModule"] },
+  "android": { "modules": ["de.hilling.taskfest.timezonecache.TimeZoneCacheModule"] }
+}

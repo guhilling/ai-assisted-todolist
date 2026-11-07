@@ -18,7 +18,9 @@ Only the `dev` build may talk plain HTTP, and only to localhost.
 
 `ios/` and `android/` are made by `npx expo prebuild` from `app.config.ts` and are never
 committed ([decisions/mobile-app.md](../decisions/mobile-app.md)). Anything native about the app
-is said in `app.config.ts` or a config plugin, never by editing a generated project.
+is said in `app.config.ts` or a config plugin, never by editing a generated project. Native code
+of the app's own is a local Expo module under `mobile/modules/`, which autolinking finds, such as
+`time-zone-cache` (#526), or a class a config plugin copies in, under `mobile/plugins/`.
 
 ## Running it
 

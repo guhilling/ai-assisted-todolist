@@ -56,6 +56,24 @@ at a task's time when it has one (#478).
     simulator takes the Mac's time zone; until then, a reminder that does not follow still comes
     at its old moment, and the next load moves it.
 
+## The phone's time zone in the JavaScript engine
+
+Hermes, the app's JavaScript engine, reads the phone's time zone once and keeps it for every `Date`
+until the app restarts; React Native does not tell it about a change. So after a change of zone the
+board's "here" times, and the reminders the app scheduled at its next load, were still worked out
+for the old zone, until the app was ended and started again (#526). Foundation, which
+expo-localization reads the phone's zone from on iOS, caches it the same way.
+
+A local Expo module of the app's own, `mobile/modules/time-zone-cache/`, drops both caches: Hermes'
+through its `resetTimezoneCache()`, on iOS Foundation's as well. The app calls it each time it comes
+back to the foreground, before the start over it does then anyway, so the board and the reminders
+scheduled next take the new zone. It runs even while a form holds the start over back, so the board
+is drawn in the new zone once the form is closed. Should it fail, the app carries on in the old
+zone, as before.
+
+Not covered: a change of zone while the app stays in the foreground the whole time. The next return
+to the foreground puts it right.
+
 ## Asking for permission
 
 Not at the start. The first time the board shows an open task due today or later, a note above it
@@ -92,9 +110,11 @@ calendars.
 | When they are scheduled, cleared and offered | `mobile/src/TaskFestApp.tsx` |
 | Moving them with the time zone, on iOS | `calendarOf` in `mobile/src/notifications.ts`, used by `mobile/src/Main.tsx` |
 | Moving them with the time zone, on Android | `mobile/plugins/android/TimeZoneChangedReceiver.kt`, declared by `mobile/src/timeZoneReceiver.ts`, added by `mobile/plugins/withTimeZoneReceiver.ts` |
+| Following the phone's zone in JavaScript (#526) | `mobile/modules/time-zone-cache/`, called from `mobile/src/TaskFestApp.tsx` |
 
 `reminders.test.ts` covers the rule, `notifications.test.ts` the platform's use, and
-`TaskFestApp.reminders.test.tsx` the app's. On the emulator, `mobile/maestro/reminders/turn-on.yaml`
+`TaskFestApp.reminders.test.tsx` the app's; `TaskFestApp.timeZone.test.tsx` that the zone is
+dropped on return to the foreground. On the emulator, `mobile/maestro/reminders/turn-on.yaml`
 adds a task due tomorrow and turns the reminders on, and `reminders/timed.yaml` adds one due
 tomorrow at 09:00 (#478). `run-on-emulator.sh` then checks that Android holds pending alarms of the
 app's for 08:00 and for 09:00 in the emulator's time zone — any day's, since a run may cross
