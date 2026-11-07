@@ -35,7 +35,7 @@ class CloudSessionRulesTest(unittest.TestCase):
 
     def test_the_rules_come_from_the_pinned_tag(self):
         self.assertRegex(hook.rules_url(hook.SETTINGS),
-                         r"^https://raw\.githubusercontent\.com/guhilling/dev-conventions/"
+                         r"^https://raw\.githubusercontent\.com/guhilling/conventions/"
                          r"v\d+\.\d+\.\d+/plugins/conventions/rules\.md$")
 
     def test_a_cloud_session_gets_the_rules(self):

@@ -165,7 +165,7 @@ exactly the case worth catching.
 
 Revised in part: the policy shared with hilling-it-website (`config:recommended`, the schedule,
 automerge with `platformAutomerge: false`, majors waiting, labels, timezone, `prConcurrentLimit`)
-is the preset `default.json` in [dev-conventions](https://github.com/guhilling/dev-conventions),
+is the preset `default.json` in [conventions](https://github.com/guhilling/conventions),
 pinned by tag. `.github/renovate.json` extends it and keeps only this repository's managers and
 rules, one of which makes a new version of the preset wait for a human (#456).
 
@@ -380,13 +380,13 @@ before — accepted, because it then becomes an issue like any other piece of wo
 hilling-it-website adopted this project's conventions by copying files, and the copies drifted
 within weeks: its doc-reference check had a better regex than this one, and nothing carried a fix
 from one to the other. What is generic now comes from
-[guhilling/dev-conventions](https://github.com/guhilling/dev-conventions), and each repository
+[guhilling/conventions](https://github.com/guhilling/conventions), and each repository
 keeps only what is its own. The investigation is on #400.
 
 | Part | Shared? | How |
 |---|---|---|
 | `check-doc-references` | Yes (#455) | A composite action, pinned by SHA with the tag in a comment; Renovate's github-actions manager bumps it |
-| The Renovate policy | Yes (#456) | The repository's default preset, `github>guhilling/dev-conventions#vX.Y.Z`; the `renovate-config` manager bumps it |
+| The Renovate policy | Yes (#456) | The repository's default preset, `github>guhilling/conventions#vX.Y.Z`; the `renovate-config` manager bumps it |
 | The story and epic forms | Yes (#457) | Account defaults from the public [guhilling/.github](https://github.com/guhilling/.github), unversioned |
 | The generic CLAUDE.md rules and hilling-it-website's guard hooks | Planned (#458) | A Claude Code plugin from the same repository, its rules injected at session start |
 | `check-decisions.py` | Later | Once hilling-it-website writes status lines under its decisions |
@@ -401,7 +401,7 @@ tag**, with no GitHub Release, unlike this repository's annotated release tags: 
 published from it but the tag. **No GitHub Pro** for hilling-it-website, so it keeps its local
 push guard instead of a ruleset.
 
-**Cost.** Every shared change becomes a tag in dev-conventions plus a Renovate pull request in
+**Cost.** Every shared change becomes a tag in conventions plus a Renovate pull request in
 each repository, merged by itself when it is a patch or minor. For two repositories that is worth
 it where copies drift, the checks, and the forms come free. *Rejected: copying with a note to keep
 the copies in step*, which is what failed. *Rejected: a repository per piece*, more tags and

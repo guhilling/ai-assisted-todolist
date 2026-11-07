@@ -76,7 +76,7 @@ jobs:
         # wrong decision is silence or duplicates, and nothing else would notice either.
         run: python3 -m unittest discover -s .github/scripts -p 'test_*.py' -v
       - name: The site can show the shared rules at the pinned tag
-        # The site fetches them from dev-conventions only on main (pages.yml, #471). Run here too,
+        # The site fetches them from conventions only on main (pages.yml, #471). Run here too,
         # a Renovate bump to a tag whose rules.md is gone or cannot be rendered fails its own pull
         # request instead of the first Pages run after the merge.
         run: python3 .github/scripts/build-site.py --check-shared-rules
@@ -91,7 +91,7 @@ jobs:
         # comment or a CLAUDE.md naming a page that moved. Splitting the long documents into
         # chapters moved 47 such references at once. Shared with hilling-it-website (#455);
         # doc/api/ holds generated files, not documentation.
-        uses: guhilling/dev-conventions/check-doc-references@2be551d8c58e93d612cfa85f3f6878f062d0796d # v1.3.0
+        uses: guhilling/conventions/check-doc-references@2be551d8c58e93d612cfa85f3f6878f062d0796d # v1.3.0
         with:
           exclude: |
             doc/api/
