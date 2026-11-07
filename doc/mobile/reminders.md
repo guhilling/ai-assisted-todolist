@@ -66,9 +66,10 @@ expo-localization reads the phone's zone from on iOS, caches it the same way.
 
 A local Expo module of the app's own, `mobile/modules/time-zone-cache/`, drops both caches: Hermes'
 through its `resetTimezoneCache()`, on iOS Foundation's as well. The app calls it each time it comes
-back to the foreground, before the start over it does then anyway, so the board, a form's dates and
-the reminders scheduled next all take the new zone. It runs whatever else holds the start over back,
-such as an open form, since a form shows dates too.
+back to the foreground, before the start over it does then anyway, so the board and the reminders
+scheduled next take the new zone. It runs even while a form holds the start over back, so the board
+is drawn in the new zone once the form is closed. Should it fail, the app carries on in the old
+zone, as before.
 
 Not covered: a change of zone while the app stays in the foreground the whole time. The next return
 to the foreground puts it right.
@@ -108,8 +109,8 @@ calendars.
 | The platform: permission, channel, scheduling | `mobile/src/notifications.ts` (expo-notifications) |
 | When they are scheduled, cleared and offered | `mobile/src/TaskFestApp.tsx` |
 | Moving them with the time zone, on iOS | `calendarOf` in `mobile/src/notifications.ts`, used by `mobile/src/Main.tsx` |
-| Following the phone's zone in JavaScript (#526) | `mobile/modules/time-zone-cache/`, called from `mobile/src/TaskFestApp.tsx` |
 | Moving them with the time zone, on Android | `mobile/plugins/android/TimeZoneChangedReceiver.kt`, declared by `mobile/src/timeZoneReceiver.ts`, added by `mobile/plugins/withTimeZoneReceiver.ts` |
+| Following the phone's zone in JavaScript (#526) | `mobile/modules/time-zone-cache/`, called from `mobile/src/TaskFestApp.tsx` |
 
 `reminders.test.ts` covers the rule, `notifications.test.ts` the platform's use, and
 `TaskFestApp.reminders.test.tsx` the app's; `TaskFestApp.timeZone.test.tsx` that the zone is

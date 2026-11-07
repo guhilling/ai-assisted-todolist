@@ -6,10 +6,35 @@ plugins {
 group = 'de.hilling.taskfest.timezonecache'
 version = '1.0.0'
 
+// The architectures the app is built for: CI builds one to save time, a release all four.
+def reactNativeArchitectures() {
+  def value = project.getProperties().get("reactNativeArchitectures")
+  return value ? value.split(",") : ["armeabi-v7a", "x86", "x86_64", "arm64-v8a"]
+}
+
 android {
+  if (rootProject.hasProperty("ndkVersion")) {
+    ndkVersion rootProject.ext.ndkVersion
+  }
+
   namespace 'de.hilling.taskfest.timezonecache'
-  buildFeatures { prefab true }
+  defaultConfig {
+    versionCode 1
+    versionName '1.0.0'
+    externalNativeBuild {
+      cmake {
+        // React Native's own C++ runtime, shared, and pages of 16 KB, as expo-modules-core builds.
+        arguments '-DANDROID_STL=c++_shared', '-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON'
+        abiFilters(*reactNativeArchitectures())
+      }
+    }
+  }
   externalNativeBuild { cmake { path 'CMakeLists.txt' } }
+  buildFeatures { prefab true }
+  // React Native's libraries are the app's to carry; this one only links against them.
+  packagingOptions {
+    excludes += ['**/libc++_shared.so', '**/libjsi.so', '**/libreactnative.so', '**/libfbjni.so']
+  }
 }
 
 dependencies {

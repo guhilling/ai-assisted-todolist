@@ -678,6 +678,12 @@ export function TaskFestApp({
     forgetPicked?.(unused).catch((failure: unknown) => console.warn('The picked files could not be forgotten', failure))
   })
 
+  /** Drops the time zone the engine cached (#526), kept apart so the listener below stays put. */
+  const dropTimeZone = useRef(resetTimeZone)
+  useEffect(() => {
+    dropTimeZone.current = resetTimeZone
+  }, [resetTimeZone])
+
   /** How often the start has been tried: "try again" raises it, and the effect below runs anew. */
   const [attempt, setAttempt] = useState(0)
 
@@ -690,9 +696,14 @@ export function TaskFestApp({
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (next) => {
       if (next === 'active') {
-        // The phone may be in another time zone now (#526): dropped first, whatever else waits, so
-        // the board, a form's dates and the reminders scheduled next all take the new one.
-        resetTimeZone?.()
+        // The phone may be in another time zone now (#526): dropped first, even while a form is
+        // open, so the board, drawn again once it is closed, and the reminders scheduled next take
+        // the new one. Without it the app only stays in the old zone, so a failure stops nothing.
+        try {
+          dropTimeZone.current?.()
+        } catch (failure) {
+          console.warn('The time zone could not be read anew', failure)
+        }
         // A share brings the app to the foreground; it waits for the board below, wherever the app is.
         takeShare.current()
       }
@@ -704,7 +715,7 @@ export function TaskFestApp({
       }
     })
     return () => subscription.remove()
-  }, [resetTimeZone])
+  }, [])
 
   useEffect(() => {
     /** From the kept session to the board, or to the sign-in. */

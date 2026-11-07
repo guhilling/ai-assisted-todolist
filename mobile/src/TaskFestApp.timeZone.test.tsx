@@ -37,4 +37,21 @@ describe("the phone's time zone after the app was away (#526)", () => {
 
     expect(resetTimeZone).toHaveBeenCalledTimes(1)
   })
+
+  it('loads the board again even when the time zone cannot be dropped', async () => {
+    const back = foreground()
+    jest.spyOn(console, 'warn').mockImplementation(() => undefined)
+    const resetTimeZone = jest.fn(() => {
+      throw new Error('The runtime is gone')
+    })
+    const fetchTasks = jest.fn().mockResolvedValue([water])
+    await render(
+      <TaskFestApp variant={variants.dev} language="en" dependencies={dependencies({ fetchTasks, resetTimeZone })} />,
+    )
+    await screen.findByText('Water the plants')
+
+    await back()
+
+    expect(fetchTasks).toHaveBeenCalledTimes(2)
+  })
 })
