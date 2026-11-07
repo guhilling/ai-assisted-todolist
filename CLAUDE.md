@@ -50,9 +50,10 @@ In this repository, stopping to ask applies especially to:
   endpoints and task states that no longer existed.
 - **A link to a private resource is followed by the plain text ` (private)`**: a private
   repository, the GitHub project, a console such as App Store Connect, Play Console or the AWS
-  console. The project is open source, and outsiders cannot open those. `doc/README.md` says why;
+  console. The project is open source, and outsiders cannot open those. `doc/README.md` says why.
   Docs CI checks the links to GitHub repositories by asking GitHub, and flags a marker on a
-  public one.
+  public one; the consoles and the project are a list in `.github/scripts/check-private-links.py`,
+  to be extended when a new one is first linked.
 - **A decision is recorded in `doc/decisions/`** with a status line under its heading (date,
   issues, `Accepted`); one that is revised is marked `Superseded · by …`, keeps a short summary
   and gets a new section, rather than being edited in place. `doc/decisions/index.md` says how, and

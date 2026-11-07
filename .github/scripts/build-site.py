@@ -784,14 +784,29 @@ def fetch_shared_rules(
     otherwise cost a whole run's publishing; failing every time, it stops the build: a site that
     quietly left the rules out would show half the method this repository is built under.
     """
+    def read() -> str:
+        with opener(source.raw_url, timeout=30) as response:
+            return response.read().decode()
+
+    try:
+        return retrying(read, attempts, pause)
+    except OSError as error:
+        raise SystemExit(
+            f"the shared rules could not be fetched from {source.raw_url}: {error}") from error
+
+
+def retrying(fetch, attempts: int = 3, pause: float = 5):
+    """
+    What `fetch()` returns, called up to `attempts` times with `pause` seconds between while it
+    raises an OSError, which a failed request is. The last attempt's error is raised. Shared with
+    check-private-links.py, which asks GitHub about each repository the documentation links to.
+    """
     for attempt in range(1, attempts + 1):
         try:
-            with opener(source.raw_url, timeout=30) as response:
-                return response.read().decode()
-        except OSError as error:
+            return fetch()
+        except OSError:
             if attempt == attempts:
-                raise SystemExit(
-                    f"the shared rules could not be fetched from {source.raw_url}: {error}")
+                raise
             time.sleep(pause)
     raise AssertionError("unreachable")
 

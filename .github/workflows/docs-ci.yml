@@ -5,7 +5,7 @@ name: Consistency
 # evidence is something unrelated going wrong much later. One tests the scripts under
 # .github/scripts that make decisions rather than comparisons.
 #
-# None needs more than Python's standard library.
+# None needs more than Python's standard library and the site generator's pinned packages.
 #
 # No path filter, unlike the other workflows: a reference to doc/ can sit in any file -- a Javadoc,
 # a TypeScript comment, OpenTofu -- so any change can break one, and every job here takes seconds.
@@ -109,7 +109,10 @@ jobs:
         # The status line under each decision (#409), and an index that had drifted to thirteen
         # decisions missing and one long renamed.
         run: python3 .github/scripts/check-decisions.py
-      - name: Every link to a private repository says so
+      # check-private-links.py renders the pages with the site's renderer, as Script tests does.
+      - name: Install the site generator's dependencies
+        run: pip install -r .github/scripts/requirements.txt
+      - name: Every link to a private resource says so
         # TaskFest is open source, so a link only Gunnar can open is followed by " (private)"
         # (#531, doc/README.md). The script asks GitHub whether each linked repository is public.
         # This token sees no other private repository, so those are a 404, which is the point.

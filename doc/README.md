@@ -77,12 +77,18 @@ Play Console, the AWS console or Hetzner's. Each such link is followed by the pl
 Plain text rather than an icon or a badge, so it reads the same rendered, in the raw file and to
 a screen reader. A link to a public resource has no marker.
 
-For links to GitHub repositories this is enforced: `.github/scripts/check-private-links.py`, run
-by Docs CI, asks GitHub about each repository linked from `doc/` and from every `README.md` and
-`CLAUDE.md`, and fails on a link to one that isn't public without the marker, or to a public one
-with it. No list of private repositories is kept anywhere; whatever GitHub will not show the
-workflow's token counts as private. A console, a project or any other private page is marked by
-the same convention, but nothing checks it.
+Docs CI enforces it with `.github/scripts/check-private-links.py`, over `doc/` and every
+`README.md` and `CLAUDE.md`. It renders each page as the site does, so a link is what a reader
+sees as one, and code is left alone:
+
+- **A link to a GitHub repository** is checked by asking GitHub about the repository. The check
+  fails on a link to one that isn't public without the marker, and on a link to a public one with
+  it. No list of private repositories is kept anywhere; whatever GitHub will not show the
+  workflow's token counts as private. When GitHub cannot be asked, the check fails saying so.
+- **A link into a console or other private resource** is checked against a short list in the
+  script: App Store Connect, Play Console, the AWS console, Hetzner's consoles and accounts, and
+  the TaskFest project. A private resource that isn't on the list is marked all the same; add it
+  to the list when it is first linked.
 
 ## Keeping it current
 
