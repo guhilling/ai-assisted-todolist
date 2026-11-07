@@ -48,6 +48,11 @@ In this repository, stopping to ask applies especially to:
   are gone through with Gunnar one by one, like any other review's, and need not hold up the merge.
 - `/doc` is the source of truth because the README had already drifted into documenting
   endpoints and task states that no longer existed.
+- **A link to a private resource is followed by the plain text ` (private)`**: a private
+  repository, the GitHub project, a console such as App Store Connect, Play Console or the AWS
+  console. The project is open source, and outsiders cannot open those. `doc/README.md` says why;
+  Docs CI checks the links to GitHub repositories by asking GitHub, and flags a marker on a
+  public one.
 - **A decision is recorded in `doc/decisions/`** with a status line under its heading (date,
   issues, `Accepted`); one that is revised is marked `Superseded · by …`, keeps a short summary
   and gets a new section, rather than being edited in place. `doc/decisions/index.md` says how, and
@@ -102,7 +107,7 @@ In this repository, stopping to ask applies especially to:
   `docs-ci.yml` fails on one. GitHub drops a label that does not exist without a word, so `story`
   and `epic` must exist in each repository that takes the forms.
 - The GitHub project that holds the priorities is the
-  [TaskFest project](https://github.com/users/guhilling/projects/2), number 2
+  [TaskFest project](https://github.com/users/guhilling/projects/2) (private), number 2
   (`gh project item-add 2 --owner guhilling --url …`). Renovate's Dependency Dashboard (#22) is
   the one issue without a priority.
 - **`needs: Gunnar` marks an issue whose next step is Gunnar's**: a decision, an answer, or

@@ -62,6 +62,28 @@ generating both from one source is what keeps them from drifting apart.
 Re-run the generator whenever a diagram stops being true — it is idempotent, so a run that
 changes nothing leaves nothing to commit.
 
+## Links to private resources
+
+TaskFest is open source, but a few links in these pages lead somewhere only Gunnar can open: a
+private repository such as [guhilling/monitoring](https://github.com/guhilling/monitoring)
+(private), the GitHub project that holds the priorities, or a console such as App Store Connect,
+Play Console, the AWS console or Hetzner's. Each such link is followed by the plain text
+` (private)`, so a reader sees before following it that it will not open for them:
+
+```markdown
+[guhilling/monitoring](https://github.com/guhilling/monitoring) (private)
+```
+
+Plain text rather than an icon or a badge, so it reads the same rendered, in the raw file and to
+a screen reader. A link to a public resource has no marker.
+
+For links to GitHub repositories this is enforced: `.github/scripts/check-private-links.py`, run
+by Docs CI, asks GitHub about each repository linked from `doc/` and from every `README.md` and
+`CLAUDE.md`, and fails on a link to one that isn't public without the marker, or to a public one
+with it. No list of private repositories is kept anywhere; whatever GitHub will not show the
+workflow's token counts as private. A console, a project or any other private page is marked by
+the same convention, but nothing checks it.
+
 ## Keeping it current
 
 Documentation is updated in the same change as the behaviour it describes, not as a

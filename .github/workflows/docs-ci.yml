@@ -109,6 +109,13 @@ jobs:
         # The status line under each decision (#409), and an index that had drifted to thirteen
         # decisions missing and one long renamed.
         run: python3 .github/scripts/check-decisions.py
+      - name: Every link to a private repository says so
+        # TaskFest is open source, so a link only Gunnar can open is followed by " (private)"
+        # (#531, doc/README.md). The script asks GitHub whether each linked repository is public.
+        # This token sees no other private repository, so those are a 404, which is the point.
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 .github/scripts/check-private-links.py
       - name: No local issue forms, so the account defaults apply
         # Any valid file in .github/ISSUE_TEMPLATE, config.yml included, turns off every form
         # from guhilling/.github (guhilling/ai-assisted-todolist#457).
