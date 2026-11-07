@@ -39,6 +39,7 @@ import { createKeptBoardStore } from './keptBoard'
 import { createPreviewStore, type PreviewFolder } from './previews'
 import { calendarOf, createReminderScheduler, type NotificationsApi } from './notifications'
 import { providerFor } from './provider'
+import { resetTimeZoneCache } from '../modules/time-zone-cache'
 import { createSessionStore } from './staySignedIn'
 import { TaskFestApp, type Dependencies } from './TaskFestApp'
 import { transferMs, withinLimit } from './timeLimit'
@@ -408,6 +409,8 @@ const dependencies: Dependencies = {
     catalogues[language].reminders.channel,
   ),
   fetchMinimumAppVersion: () => fetchMinimumAppVersion(variant.apiBaseUrl, appVersion),
+  // Hermes keeps the zone it started in until told otherwise (#526).
+  resetTimeZone: resetTimeZoneCache,
   appVersion,
   now: Date.now,
 }

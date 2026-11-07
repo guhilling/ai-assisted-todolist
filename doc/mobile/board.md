@@ -26,8 +26,11 @@ and the sign-in has it at its top as well (#384).
   days are named: "Berlin: Tue 01:00, Mon 19:00 here". The website does the same, with the zone
   before the row's date, or before its time under Today and Tomorrow, whose headings say the
   date. The phone needs no time-zone data for this; the backend's `dueAt` is the moment, and the
-  phone's clock reads it. The app sends a task's time and zone back with every change, and an undo
-  puts them back too, so no edit or undo in the app erases them.
+  phone's clock reads it. After a change of the phone's zone the board follows as soon as the app
+  comes back to the foreground (#526), without a restart: see
+  [reminders.md](reminders.md#the-phones-time-zone-in-the-javascript-engine). The app sends a
+  task's time and zone back with every change, and an undo puts them back too, so no edit or undo
+  in the app erases them.
 
 - **Setting a due time** (#477) — the form offers **Add a time** in the due date's row of chips,
   which opens the platform's own time picker: a dialog on Android, wheels in the form on iOS, which

@@ -469,3 +469,35 @@ the simulator takes the Mac's time zone. Gunnar tests it on his iPhone from a re
 **Cost.** None beyond the trigger's kind. Should the iPhone show that it does not follow, the
 reminder still comes at its old moment, as before, and the next load moves it.
 
+## A local Expo module drops Hermes' cached time zone
+
+*Accepted · 2026-11-07 · #526*
+
+**Decision.** A local Expo module, `mobile/modules/time-zone-cache/`, has one synchronous function,
+`reset()`, which calls Hermes' `resetTimezoneCache()` on the app's runtime -- through
+`jsi::castInterface<IHermes>`, a no-op on another engine -- and on iOS first
+`NSTimeZone.resetSystemTimeZone()`. Synchronous, so it runs on the JavaScript thread, the only one
+Hermes may be called on. The app calls it each time it comes back to the foreground
+(`mobile/src/TaskFestApp.tsx`), before it starts over. Swift reaches the runtime through
+expo-modules' `appContext.runtime`, Kotlin through React Native's `javaScriptContextHolder`, each
+handing it to a few lines of C++.
+
+**Why.** Hermes keeps the zone it read first for every `Date` until the app restarts, and React
+Native does not reset it ([react-native#55467](https://github.com/facebook/react-native/pull/55467)
+would, on Android only, and is open). After a change of zone the board's "here" times and the
+reminders scheduled at the next load stayed in the old zone until a restart, as Gunnar saw on his
+iPhone (2026-11-06). Hermes has no way to do it from JavaScript. Gunnar chose this over the
+alternative below (2026-11-07).
+
+**Rejected:**
+- *Working out local times from the phone's zone with `Intl`*, read anew each time, instead of from
+  `Date`'s local time: plain TypeScript, but every place that uses local time would change, and
+  expo-localization's own zone is cached by Foundation on iOS too.
+- *Listening for the platform's change of zone* (`NSSystemTimeZoneDidChangeNotification`,
+  `ACTION_TIMEZONE_CHANGED`) in the module: the reset must run on the JavaScript thread, and the
+  app starts over on return to the foreground anyway, which is where the zone matters.
+
+**Cost.** The first local module and the first C++ in the app: a CocoaPods spec, a CMake build and
+a JNI function to keep building with each React Native. `resetTimezoneCache` is part of Hermes'
+`IHermes` interface, not of React Native's public API, and may move. A change of zone while the app
+stays in the foreground is followed only at its next return there.

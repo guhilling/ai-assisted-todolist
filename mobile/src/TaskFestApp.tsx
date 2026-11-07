@@ -112,6 +112,11 @@ export type Dependencies = {
    * form is closed, so the platform keeps the share until then, for an app ended before (#432).
    */
   incoming?: { take(): Promise<SharedDraft | null>; forget(files: PickedFile[]): Promise<void>; settle?(draft: SharedDraft): void }
+  /**
+   * Drops the time zone the JavaScript engine cached, so `Date` and the phone's zone are read anew
+   * (#526); none, and a change of zone is seen only after a restart.
+   */
+  resetTimeZone?(): void
   /** The oldest app release the backend serves (#268). */
   fetchMinimumAppVersion(): Promise<string>
   /** This build's release: the tag's, or 0.0.0 from a branch. */
@@ -245,6 +250,7 @@ export function TaskFestApp({
     reminders,
     legend,
     incoming,
+    resetTimeZone,
   } = dependencies
   const messages = catalogues[language]
   const darkMode = useColorScheme() === 'dark'
@@ -683,8 +689,11 @@ export function TaskFestApp({
   // yet and could forget the one the sign-in is about to save.
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (next) => {
-      // A share brings the app to the foreground; it waits for the board below, wherever the app is.
       if (next === 'active') {
+        // The phone may be in another time zone now (#526): dropped first, whatever else waits, so
+        // the board, a form's dates and the reminders scheduled next all take the new one.
+        resetTimeZone?.()
+        // A share brings the app to the foreground; it waits for the board below, wherever the app is.
         takeShare.current()
       }
       // Not while a file is open in another app, or being opened: coming back from it is no reason.
@@ -695,7 +704,7 @@ export function TaskFestApp({
       }
     })
     return () => subscription.remove()
-  }, [])
+  }, [resetTimeZone])
 
   useEffect(() => {
     /** From the kept session to the board, or to the sign-in. */

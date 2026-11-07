@@ -9,7 +9,7 @@ public class TimeZoneCacheModule: Module {
 
     Function("reset") {
       NSTimeZone.resetSystemTimeZone()
-      appContext?.runtime.withUnsafePointee { ResetHermesTimeZoneCache($0) }
+      try appContext?.runtime.withUnsafePointee { ResetHermesTimeZoneCache($0) }
     }
   }
 }
