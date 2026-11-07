@@ -92,12 +92,14 @@ the conventions repository, where a colour is added only after asking Gunnar:
 - **Greys:** plain ones, without a tint: `#111111`, `#656565` and `#f2f2f2` on the light page,
   and `#f2f2f2`, `#a9a9a9` and `#2d2d2d` on the dark one.
 - **Blue:** `#0067a6`, or `#a6d8f5` on the dark page.
-- **Red:** `#b42318`, or `#f04438` on the dark page.
+- **Red:** `#b42318`, or `#f04438` on the dark page. Errors there show on the raised grey, where
+  `#f04438` has only 3.7:1, so dark errors use `#f3685e`: the same red, just lighter, 4.6:1.
 - **Form fields** are edged in the muted grey, as there, because the border grey is too faint to
-  show where a field is.
+  show where a field is. So are the file-drop zone and the zone switch's knob when it is off.
 
-Green stays TaskFest's own. The band along the top is the logo green `#7eae2a`. Green that must
-be read is used for the wordmark in the app, the done tick and a task's zone:
+Green stays TaskFest's own. The band along the top is hilling.it's logo green `#7eae2a`; TaskFest's
+logo and icons keep their `#7fae1c`, a shade apart that the eye does not tell from it. Green that
+must be read is used for the wordmark in the app, the done tick and a task's zone:
 - **On the dark page:** the logo green `#7eae2a`.
 - **On the light page:** a green just darker than it, with the same hue and saturation:
   `#58791d`, 5.0:1 on white.

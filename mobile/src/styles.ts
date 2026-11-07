@@ -1,19 +1,7 @@
 import { StyleSheet } from 'react-native'
+import { font } from './fonts'
 import type { Theme } from './theme'
 import { googleSignInButton } from './web'
-
-/**
- * hilling.it's faces (#527), as on the website: Quicksand for the wordmark, Space Grotesk for
- * headings, Inter Tight for text. Static fonts embedded by expo-font (`assets/fonts/`), named by
- * their PostScript names, one per weight: such a face is chosen by its name, never by `fontWeight`,
- * which Android would otherwise fake.
- */
-export const font = {
-  brand: 'Quicksand-Bold',
-  heading: 'SpaceGrotesk-Bold',
-  text: 'InterTight-Regular',
-  strong: 'InterTight-SemiBold',
-} as const
 
 /** The app's styles in one theme's colours: one set for every screen, made once per theme. */
 export function stylesFor(theme: Theme) {
@@ -96,7 +84,7 @@ export function stylesFor(theme: Theme) {
     input: {
       // A field's edge is the muted colour, as on the website: the border grey is too faint for one.
       borderWidth: 1,
-      borderColor: theme.textMuted,
+      borderColor: theme.fieldEdge,
       borderRadius: 6,
       padding: 12,
       fontFamily: font.text,
@@ -104,10 +92,10 @@ export function stylesFor(theme: Theme) {
       backgroundColor: theme.surfaceRaised,
     },
     chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-    chip: { borderWidth: 1, borderColor: theme.textMuted, borderRadius: 16, paddingVertical: 6, paddingHorizontal: 12 },
+    chip: { borderWidth: 1, borderColor: theme.fieldEdge, borderRadius: 16, paddingVertical: 6, paddingHorizontal: 12 },
     chipActive: { backgroundColor: theme.accent, borderColor: theme.accent },
     chipText: { fontFamily: font.text, color: theme.text },
-    chipTextActive: { color: theme.accentContrast },
+    chipTextActive: { fontFamily: font.text, color: theme.accentContrast },
     formButtons: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8 },
     formFields: { flex: 1 },
     // The form's buttons, below its fields and above the keyboard (#382).

@@ -18,6 +18,8 @@ export type Theme = {
   importanceLow: string
   importanceMedium: string
   importanceHigh: string
+  /** A form field's edge, and a chip's. */
+  fieldEdge: string
 }
 
 export const light: Theme = {
@@ -33,6 +35,7 @@ export const light: Theme = {
   importanceLow: '#656565',
   importanceMedium: '#0067a6',
   importanceHigh: '#b42318',
+  fieldEdge: '#656565',
 }
 
 export const dark: Theme = {
@@ -44,8 +47,9 @@ export const dark: Theme = {
   accent: '#a6d8f5',
   accentContrast: '#111111',
   brandStrong: '#7eae2a',
-  danger: '#f04438',
+  danger: '#f3685e',
   importanceLow: '#a9a9a9',
   importanceMedium: '#a6d8f5',
   importanceHigh: '#f04438',
+  fieldEdge: '#a9a9a9',
 }

@@ -14,9 +14,10 @@
   --text: #111111;
   --text-muted: #656565;
   /* The palette shared with hilling.it, in the conventions repository's palette/ (#527): plain
-     greys, the logo's blue and the red. The blue is the accent, because the logo green fails
-     contrast on white (2.6:1) and so cannot carry a control or text. The green is TaskFest's own: the logo green as decoration (--brand), and
-     wherever it must be read the same hue just darker (--brand-strong, 5.0:1 on white). */
+     greys, the logo's blue and the red. The blue is the accent, because hilling.it's logo green
+     fails contrast on white (2.6:1) and so cannot carry a control or text. That green is a
+     decoration (--brand), and wherever it must be read it is the same hue just darker
+     (--brand-strong, 5.0:1 on white). */
   --accent: #0067a6;
   --accent-contrast: #ffffff;
   --brand: #7eae2a;
@@ -27,7 +28,7 @@
   --importance-high: #b42318;
   /* A form field's edge: as on hilling.it, the muted text colour, since the border grey is too
      faint to show where a field is (5.8:1 on white, 8.0:1 on the dark page). */
-  --field-edge: var(--text-muted);
+  --field-edge: #656565;
   --radius: 6px;
 
   /* Spacing: a strict 4px grid, named by how many steps it is. Every padding, margin
@@ -75,10 +76,13 @@
     --accent-contrast: #111111;
     --brand: #7eae2a;
     --brand-strong: #7eae2a;
-    --danger: #f04438;
+    /* The pale red: the light red has only 3.7:1 on --surface-raised, where an upload problem
+       and the row menu's "Delete" show; this has 4.6:1. */
+    --danger: #f3685e;
     --importance-low: #a9a9a9;
     --importance-medium: #a6d8f5;
     --importance-high: #f04438;
+    --field-edge: #a9a9a9;
   }
 }
 
@@ -682,7 +686,8 @@ html {
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  background: var(--surface);
+  /* Off, the knob is the field edge's grey: the page colour would vanish on the pale track. */
+  background: var(--field-edge);
   transition: transform 120ms ease-out;
 }
 
@@ -692,6 +697,7 @@ html {
 }
 
 .zone-switch input:checked::after {
+  background: var(--surface);
   transform: translateX(16px);
 }
 
@@ -1116,7 +1122,7 @@ a.attachment-open {
 
 .attachment-drop {
   padding: var(--space-4);
-  border: 1px dashed var(--border);
+  border: 1px dashed var(--field-edge);
   border-radius: var(--radius);
   background: var(--surface);
   text-align: center;

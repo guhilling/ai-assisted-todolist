@@ -2,6 +2,7 @@ import type { ConfigContext, ExpoConfig } from 'expo/config'
 import { withShareExtensionName } from './plugins/withShareExtensionName.ts'
 import { withShareLabel } from './plugins/withShareLabel.ts'
 import { withTimeZoneReceiver } from './plugins/withTimeZoneReceiver.ts'
+import { fontFiles } from './src/fonts.ts'
 import { releaseOf } from './src/release.ts'
 import { SHARE_ACTIVATION_RULE } from './src/shareExtension.ts'
 import { googleUrlScheme, variantOf } from './src/variants.ts'
@@ -56,9 +57,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       [
         'expo-font',
         {
-          fonts: ['Quicksand-Bold', 'SpaceGrotesk-Bold', 'InterTight-Regular', 'InterTight-SemiBold'].map(
-            (name) => `./assets/fonts/${name}.ttf`,
-          ),
+          fonts: fontFiles,
         },
       ],
       // The due-day reminders (#273): Android shows the mark's single-colour form in the status bar.
