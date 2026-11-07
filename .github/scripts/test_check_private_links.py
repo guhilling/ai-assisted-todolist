@@ -39,8 +39,8 @@ class Asker:
 
 
 def problems(text, ask=None):
-    """The problems check-private-links.py finds in one page, `doc/page.md`."""
-    return check.problems({"doc/page.md": text}, ask or Asker())
+    """The problems check-private-links.py finds in one page, `guide/page.md`."""
+    return check.problems({"guide/page.md": text}, ask or Asker())
 
 
 class MarkerTest(unittest.TestCase):
@@ -48,8 +48,8 @@ class MarkerTest(unittest.TestCase):
     def test_a_link_to_a_private_repository_without_the_marker(self):
         text = "Intro.\n\nSee [guhilling/monitoring](https://github.com/guhilling/monitoring).\n"
         self.assertEqual(problems(text), [
-            ("doc/page.md", 3, "the link to guhilling/monitoring needs ' (private)' after it:"
-                               " the repository is not public (GitHub answered 404)")])
+            ("guide/page.md", 3, "the link to guhilling/monitoring needs ' (private)' after it:"
+                                 " the repository is not public (GitHub answered 404)")])
 
     def test_a_link_to_a_private_repository_with_the_marker(self):
         text = "See [guhilling/monitoring](https://github.com/guhilling/monitoring) (private).\n"
@@ -67,8 +67,8 @@ class MarkerTest(unittest.TestCase):
     def test_a_repository_github_says_is_private(self):
         ask = Asker(guhilling__monitoring=PRIVATE)
         self.assertEqual(problems("[a](https://github.com/guhilling/monitoring)\n", ask), [
-            ("doc/page.md", 1, "the link to guhilling/monitoring needs ' (private)' after it:"
-                               " the repository is not public (GitHub says it is private)")])
+            ("guide/page.md", 1, "the link to guhilling/monitoring needs ' (private)' after it:"
+                                 " the repository is not public (GitHub says it is private)")])
 
     def test_a_link_to_a_public_repository(self):
         ask = Asker(guhilling__conventions=PUBLIC)
@@ -78,8 +78,8 @@ class MarkerTest(unittest.TestCase):
         ask = Asker(guhilling__conventions=PUBLIC)
         text = "[c](https://github.com/guhilling/conventions) (private)\n"
         self.assertEqual(problems(text, ask), [
-            ("doc/page.md", 1, "the link to guhilling/conventions has ' (private)' after it,"
-                               " but the repository is public")])
+            ("guide/page.md", 1, "the link to guhilling/conventions has ' (private)' after it,"
+                                 " but the repository is public")])
 
     def test_this_repository_is_public_without_asking(self):
         ask = Asker()
@@ -102,9 +102,9 @@ class MarkerTest(unittest.TestCase):
     def test_every_page_is_checked_and_the_repositories_asked_about_once_in_all(self):
         ask = Asker()
         pages = {"README.md": "[a](https://github.com/guhilling/monitoring)\n",
-                 "doc/page.md": "[b](https://github.com/guhilling/monitoring)\n"}
+                 "guide/page.md": "[b](https://github.com/guhilling/monitoring)\n"}
         self.assertEqual([problem[0] for problem in check.problems(pages, ask)],
-                         ["README.md", "doc/page.md"])
+                         ["README.md", "guide/page.md"])
         self.assertEqual(ask.asked, ["guhilling/monitoring"])
 
 
