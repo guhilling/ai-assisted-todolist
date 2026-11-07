@@ -2,11 +2,11 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "description": [
     "The shared policy -- the schedule and why it stays, automerge with platformAutomerge off, majors",
-    "waiting -- comes from the preset in guhilling/dev-conventions (ai-assisted-todolist#456). This",
+    "waiting -- comes from the preset in guhilling/conventions (ai-assisted-todolist#456). This",
     "file adds only this repository's own managers and rules. See doc/decisions/build-and-dependencies.md."
   ],
   "extends": [
-    "github>guhilling/dev-conventions#v1.3.0"
+    "github>guhilling/conventions#v2.0.0"
   ],
   "customManagers": [
     {
@@ -36,9 +36,9 @@
     },
     {
       "customType": "regex",
-      "description": "The tag of dev-conventions that .claude/settings.json pins the Claude Code plugin to (#458). A marketplace source in Claude Code settings is no dependency file any built-in manager reads.",
+      "description": "The tag of conventions that .claude/settings.json pins the Claude Code plugin to (#458). A marketplace source in Claude Code settings is no dependency file any built-in manager reads.",
       "managerFilePatterns": ["/^\\.claude/settings\\.json$/"],
-      "matchStrings": ["\"repo\":\\s*\"(?<depName>guhilling/dev-conventions)\",\\s*\"ref\":\\s*\"(?<currentValue>v[^\"]+)\""],
+      "matchStrings": ["\"repo\":\\s*\"(?<depName>guhilling/conventions)\",\\s*\"ref\":\\s*\"(?<currentValue>v[^\"]+)\""],
       "datasourceTemplate": "github-tags"
     },
     {

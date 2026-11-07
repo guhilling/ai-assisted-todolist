@@ -1,16 +1,16 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
   "extraKnownMarketplaces": {
-    "dev-conventions": {
+    "conventions": {
       "source": {
         "source": "github",
-        "repo": "guhilling/dev-conventions",
-        "ref": "v1.3.0"
+        "repo": "guhilling/conventions",
+        "ref": "v2.0.0"
       }
     }
   },
   "enabledPlugins": {
-    "conventions@dev-conventions": true
+    "conventions@conventions": true
   },
   "hooks": {
     "SessionStart": [

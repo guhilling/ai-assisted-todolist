@@ -5,7 +5,7 @@ Guidance for Claude Code when working in this repository.
 The rules this repository shares with Gunnar's other repositories — asking instead of guessing,
 the pull request workflow and its reviews, branches, `/doc` and its chapters, secrets, Renovate,
 issues, TDD and existing tests — come from the `conventions` plugin of
-[dev-conventions](https://github.com/guhilling/dev-conventions/blob/main/plugins/conventions/rules.md),
+[conventions](https://github.com/guhilling/conventions/blob/main/plugins/conventions/rules.md),
 which `.claude/settings.json` turns on, pinned to a tag. Its SessionStart hook puts them into
 every session's context. This file holds what is particular to this repository, and wins where
 the two differ. A cloud session on claude.ai/code does not load the plugin; there this
@@ -87,7 +87,7 @@ In this repository, stopping to ask applies especially to:
   `npm run check:deps` in `frontend/`. Do not move either into a release-only
   path — the point is to fail when the dependency is added.
 - Renovate's configuration is `.github/renovate.json`, which extends the shared preset from
-  [dev-conventions](https://github.com/guhilling/dev-conventions) and adds this repository's own
+  [conventions](https://github.com/guhilling/conventions) and adds this repository's own
   rules to it. `main` requires no status checks because the `main-branch` ruleset names none.
   Renovate also moves the plugin's tag in `.claude/settings.json`.
 - The project is licensed **Apache-2.0** (`LICENSE`, verbatim). There are

@@ -13,7 +13,7 @@ What it produces:
     doc/<chapter>/        a chapter: doc/<chapter>/index.md and its sub-pages, nested in the
                           sidebar, in the order the chapter's index.md links to them
     doc/images/           the generated diagrams the docs refer to
-    instructions/         the CLAUDE.md files, and the shared rules from dev-conventions at the
+    instructions/         the CLAUDE.md files, and the shared rules from conventions at the
                           tag .claude/settings.json pins (#471), fetched while building
     api/index.html        the versions of the contract
     api/main/             the moving snapshot: doc/api as it is on main
@@ -96,7 +96,7 @@ INSTRUCTIONS = [
     ("mobile", "mobile/CLAUDE.md", "Mobile app"),
 ]
 
-# The rules this repository shares with Gunnar's others (#471). They live in dev-conventions'
+# The rules this repository shares with Gunnar's others (#471). They live in conventions'
 # `conventions` plugin, which .claude/settings.json pins to a tag; the CLAUDE.md files hold only
 # what is particular to here. They are fetched at build time, at that tag, so a visitor's browser
 # makes no request elsewhere and a Renovate bump of the pin is all it takes to change the page.
@@ -772,7 +772,7 @@ def shared_rules_source(settings: pathlib.Path) -> SharedRulesSource:
     The repository and tag the settings file pins the plugin to, read rather than repeated, so
     that Renovate's pin stays the only one (as in .claude/hooks/cloud-session-rules.py).
     """
-    source = json.loads(settings.read_text())["extraKnownMarketplaces"]["dev-conventions"]["source"]
+    source = json.loads(settings.read_text())["extraKnownMarketplaces"]["conventions"]["source"]
     return SharedRulesSource(source["repo"], source["ref"])
 
 
@@ -802,10 +802,10 @@ def build_shared_rules(
     """
     Renders the shared rules as one more instructions page, saying where they come from.
 
-    A relative link in them is relative to the plugin in dev-conventions, not to this repository,
+    A relative link in them is relative to the plugin in conventions, not to this repository,
     so it goes to that file on GitHub, at the same tag. What the site cannot show faithfully stops
     the build, as on every other page: a block its list would lose, a link that leaves
-    dev-conventions, and an image, which a visitor's browser would have to fetch from elsewhere.
+    conventions, and an image, which a visitor's browser would have to fetch from elsewhere.
     Empty rules stop it too, rather than publish a page with nothing on it.
     """
     if not text.strip():

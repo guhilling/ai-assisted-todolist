@@ -1,5 +1,5 @@
 """
-Pins down how the site shows the shared rules (#471): rules.md from dev-conventions, fetched at the
+Pins down how the site shows the shared rules (#471): rules.md from conventions, fetched at the
 tag .claude/settings.json pins, rendered next to the CLAUDE.md files and saying where it comes
 from -- so a Renovate bump of the pin is all it takes to change what the site shows.
 
@@ -18,15 +18,15 @@ _spec = importlib.util.spec_from_file_location(
 site = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(site)
 
-DEV_CONVENTIONS = "guhilling/dev-conventions/blob/v9.8.7/plugins/conventions"
+DEV_CONVENTIONS = "guhilling/conventions/blob/v9.8.7/plugins/conventions"
 RULES = "# Shared working conventions\n\nAsk, don't guess. See [the plugin](README.md).\n"
 
 
 def settings_pinning(directory: pathlib.Path, ref: str) -> pathlib.Path:
     """A settings file like .claude/settings.json, with the marketplace pinned to `ref`."""
     path = directory / "settings.json"
-    path.write_text(json.dumps({"extraKnownMarketplaces": {"dev-conventions": {
-        "source": {"source": "github", "repo": "guhilling/dev-conventions", "ref": ref}}}}))
+    path.write_text(json.dumps({"extraKnownMarketplaces": {"conventions": {
+        "source": {"source": "github", "repo": "guhilling/conventions", "ref": ref}}}}))
     return path
 
 
@@ -44,7 +44,7 @@ class SharedRulesTest(unittest.TestCase):
     def test_fetches_the_rules_at_the_tag_the_settings_pin(self):
         source = site.shared_rules_source(settings_pinning(self.directory, "v9.8.7"))
         self.assertEqual(
-            "https://raw.githubusercontent.com/guhilling/dev-conventions/v9.8.7/"
+            "https://raw.githubusercontent.com/guhilling/conventions/v9.8.7/"
             "plugins/conventions/rules.md",
             source.raw_url,
         )
@@ -86,14 +86,14 @@ class SharedRulesTest(unittest.TestCase):
 
     def test_reads_the_pin_this_repository_has(self):
         source = site.shared_rules_source(site.SETTINGS)
-        self.assertEqual("guhilling/dev-conventions", source.repo)
+        self.assertEqual("guhilling/conventions", source.repo)
         self.assertRegex(source.ref, r"^v\d+\.\d+\.\d+$")
 
 
     def test_points_a_link_to_the_repository_itself_at_its_root(self):
         self.assertIn(
-            'href="https://github.com/guhilling/dev-conventions/tree/v9.8.7/"',
-            self.build("v9.8.7", "See [dev-conventions](../../).\n"),
+            'href="https://github.com/guhilling/conventions/tree/v9.8.7/"',
+            self.build("v9.8.7", "See [conventions](../../).\n"),
         )
 
     def test_stops_the_build_on_a_link_out_of_dev_conventions(self):

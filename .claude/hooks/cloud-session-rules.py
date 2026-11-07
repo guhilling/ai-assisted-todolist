@@ -3,7 +3,7 @@
 Puts the shared rules into a cloud session's context (#458), where the plugin that brings them
 locally is never loaded.
 
-The `conventions` plugin of dev-conventions prints its rules.md at every session start, but a
+The `conventions` plugin of the conventions repository prints its rules.md at every session start, but a
 cloud session on claude.ai/code installs no plugin a repository declares. The hooks in
 .claude/settings.json do run there, so this one, a SessionStart hook, fetches rules.md at the tag
 that file pins and prints it; a SessionStart hook's output becomes part of the context. It does
@@ -27,7 +27,7 @@ RULES = "https://raw.githubusercontent.com/{repo}/{ref}/plugins/conventions/rule
 
 def rules_url(settings):
     """The address of rules.md at the repository and tag the settings file pins."""
-    source = json.loads(settings.read_text())["extraKnownMarketplaces"]["dev-conventions"]["source"]
+    source = json.loads(settings.read_text())["extraKnownMarketplaces"]["conventions"]["source"]
     return RULES.format(repo=source["repo"], ref=source["ref"])
 
 

@@ -30,9 +30,9 @@ application this small:
 
 These follow from the goal. Those this repository shares with Gunnar's other repositories are
 stated in full in the
-[shared rules](https://github.com/guhilling/dev-conventions/blob/main/plugins/conventions/rules.md)
-of the `conventions` Claude Code plugin from dev-conventions, and the rest in the `CLAUDE.md`
-files at the repository root and in `backend/`, `frontend/` and `mobile/`:
+[shared rules](https://github.com/guhilling/conventions/blob/main/plugins/conventions/rules.md)
+of the `conventions` Claude Code plugin from the conventions repository, and the rest in the
+`CLAUDE.md` files at the repository root and in `backend/`, `frontend/` and `mobile/`:
 
 - **Ask, don't guess.** An underspecified requirement is surfaced, not silently resolved
   with a plausible default. A wrong guess that compiles is the expensive failure mode.
@@ -47,7 +47,7 @@ files at the repository root and in `backend/`, `frontend/` and `mobile/`:
 - **Documentation is part of the change**, not a follow-up: Javadoc and TSDoc saying what
   a type is *for*, and this folder for anything larger than a single type.
 
-`.claude/settings.json` turns the plugin on, pinned to a tag of dev-conventions that Renovate
+`.claude/settings.json` turns the plugin on, pinned to a tag of conventions that Renovate
 moves. Its SessionStart hook puts the shared rules into the context of every local session; its
 `plan-only.py` hook refuses `tofu` commands that would change infrastructure, and asks first
 before `env.sh up`, `down` or `account`. The documentation site shows the same `rules.md`, at

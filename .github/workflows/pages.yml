@@ -16,7 +16,7 @@ on:
       - 'README.md'
       - '.github/scripts/**'
       - '.github/workflows/pages.yml'
-      # The instruction pages: the CLAUDE.md files, and the pin of dev-conventions that decides
+      # The instruction pages: the CLAUDE.md files, and the pin of conventions that decides
       # which shared rules the site shows (#471).
       - 'CLAUDE.md'
       - 'backend/CLAUDE.md'
