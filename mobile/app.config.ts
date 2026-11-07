@@ -2,6 +2,7 @@ import type { ConfigContext, ExpoConfig } from 'expo/config'
 import { withShareExtensionName } from './plugins/withShareExtensionName.ts'
 import { withShareLabel } from './plugins/withShareLabel.ts'
 import { withTimeZoneReceiver } from './plugins/withTimeZoneReceiver.ts'
+import { fontFiles } from './src/fonts.ts'
 import { releaseOf } from './src/release.ts'
 import { SHARE_ACTIVATION_RULE } from './src/shareExtension.ts'
 import { googleUrlScheme, variantOf } from './src/variants.ts'
@@ -52,6 +53,13 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       'expo-secure-store',
       'expo-localization',
       'expo-web-browser',
+      // hilling.it's faces (#527), embedded at build time; assets/fonts/make-fonts.sh cuts them.
+      [
+        'expo-font',
+        {
+          fonts: fontFiles,
+        },
+      ],
       // The due-day reminders (#273): Android shows the mark's single-colour form in the status bar.
       ['expo-notifications', { icon: './assets/notification-icon.png', color: '#7fae1c' }],
       [

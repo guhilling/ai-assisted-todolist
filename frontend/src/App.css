@@ -9,21 +9,26 @@
 :root {
   --bg: #ffffff;
   --surface: #ffffff;
-  --surface-raised: #f6f8fa;
-  --border: #e2e6ea;
-  --text: #1a1f24;
-  --text-muted: #5b6672;
-  /* hilling.it's palette: its heading blue is the accent, because the brand green fails
-     contrast on white (2.6:1) and so cannot carry a control or text. The green appears as
-     decoration (--brand), and as --brand-strong (5.1:1) wherever it must be read. */
-  --accent: #0367a5;
+  --surface-raised: #f2f2f2;
+  --border: #f2f2f2;
+  --text: #111111;
+  --text-muted: #656565;
+  /* The palette shared with hilling.it, in the conventions repository's palette/ (#527): plain
+     greys, the logo's blue and the red. The blue is the accent, because hilling.it's logo green
+     fails contrast on white (2.6:1) and so cannot carry a control or text. That green is a
+     decoration (--brand), and wherever it must be read it is the same hue just darker
+     (--brand-strong, 5.0:1 on white). */
+  --accent: #0067a6;
   --accent-contrast: #ffffff;
-  --brand: #7fae1c;
-  --brand-strong: #4d7a0a;
-  --danger: #c5221f;
-  --importance-low: #9aa5b1;
-  --importance-medium: #0367a5;
-  --importance-high: #c5221f;
+  --brand: #7eae2a;
+  --brand-strong: #58791d;
+  --danger: #b42318;
+  --importance-low: #656565;
+  --importance-medium: #0067a6;
+  --importance-high: #b42318;
+  /* A form field's edge: as on hilling.it, the muted text colour, since the border grey is too
+     faint to show where a field is (5.8:1 on white, 8.0:1 on the dark page). */
+  --field-edge: #656565;
   --radius: 6px;
 
   /* Spacing: a strict 4px grid, named by how many steps it is. Every padding, margin
@@ -43,14 +48,16 @@
   --font-body: 1rem;
   --font-small: 0.875rem;
 
-  /* Quicksand, as on hilling.it, for the title and the headings only; running text keeps the
-     system face, which reads better at body size. Self-hosted, so no request goes to Google. */
-  --font-heading: 'Quicksand Variable', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  /* hilling.it's faces (#527): Quicksand, its logo's, for the TaskFest wordmark; Space Grotesk
+     for headings; Inter Tight for running text. Self-hosted, so no request goes to Google. */
+  --font-brand: 'Quicksand Variable', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-heading: 'Space Grotesk Variable', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-text: 'Inter Tight Variable', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 
 
   color: var(--text);
   background: var(--bg);
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: var(--font-text);
   /* This is what 1rem means, not an entry in the type scale above. */
   font-size: 16px;
   line-height: 1.4;
@@ -59,20 +66,23 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #14181c;
-    --surface: #14181c;
-    --surface-raised: #1e242a;
-    --border: #2c343c;
-    --text: #e6eaee;
-    --text-muted: #9aa5b1;
-    --accent: #5ba3d9;
-    --accent-contrast: #14181c;
-    --brand: #9fd04a;
-    --brand-strong: #9fd04a;
-    --danger: #f28b82;
-    --importance-low: #6b7681;
-    --importance-medium: #5ba3d9;
-    --importance-high: #f28b82;
+    --bg: #111111;
+    --surface: #111111;
+    --surface-raised: #2d2d2d;
+    --border: #2d2d2d;
+    --text: #f2f2f2;
+    --text-muted: #a9a9a9;
+    --accent: #a6d8f5;
+    --accent-contrast: #111111;
+    --brand: #7eae2a;
+    --brand-strong: #7eae2a;
+    /* The pale red: the light red has only 3.7:1 on --surface-raised, where an upload problem
+       and the row menu's "Delete" show; this has 4.6:1. */
+    --danger: #f3685e;
+    --importance-low: #a9a9a9;
+    --importance-medium: #a6d8f5;
+    --importance-high: #f04438;
+    --field-edge: #a9a9a9;
   }
 }
 
@@ -141,7 +151,7 @@ html {
 .app-title {
   margin: 0;
   color: var(--accent);
-  font-family: var(--font-heading);
+  font-family: var(--font-brand);
   font-size: var(--font-title);
   font-weight: 700;
   letter-spacing: -0.01em;
@@ -241,6 +251,7 @@ html {
 
 .account-confirm-title {
   margin: 0 0 var(--space-2);
+  font-family: var(--font-heading);
   font-size: var(--font-body);
 }
 
@@ -261,7 +272,7 @@ html {
 .account-confirm-field input {
   min-height: 44px;
   padding: 0 var(--space-2);
-  border: 1px solid var(--border);
+  border: 1px solid var(--field-edge);
   border-radius: var(--radius);
   background: var(--surface);
   color: var(--text);
@@ -402,7 +413,7 @@ html {
 .signed-out-title {
   margin: 0;
   color: var(--accent);
-  font-family: var(--font-heading);
+  font-family: var(--font-brand);
   font-size: var(--font-display);
   font-weight: 700;
   letter-spacing: -0.02em;
@@ -603,7 +614,7 @@ html {
 .chip {
   min-height: 36px;
   padding: 0 var(--space-4);
-  border: 1px solid var(--border);
+  border: 1px solid var(--field-edge);
   border-radius: 999px;
   background: var(--surface);
   color: var(--text-muted);
@@ -636,7 +647,7 @@ html {
 .add-field select {
   min-height: 44px;
   padding: 0 var(--space-2);
-  border: 1px solid var(--border);
+  border: 1px solid var(--field-edge);
   border-radius: var(--radius);
   background: var(--surface);
 }
@@ -662,7 +673,7 @@ html {
   width: 36px;
   height: 20px;
   margin: 0;
-  border: 1px solid var(--border);
+  border: 1px solid var(--field-edge);
   border-radius: 999px;
   background: var(--border);
   cursor: pointer;
@@ -676,7 +687,8 @@ html {
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  background: var(--surface);
+  /* Off, the knob is the field edge's grey: the page colour would vanish on the pale track. */
+  background: var(--field-edge);
   transition: transform 120ms ease-out;
 }
 
@@ -686,6 +698,7 @@ html {
 }
 
 .zone-switch input:checked::after {
+  background: var(--surface);
   transform: translateX(16px);
 }
 
@@ -743,7 +756,7 @@ html {
   justify-content: center;
   width: 44px;
   min-height: 44px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--field-edge);
   border-left: none;
   border-radius: 0 var(--radius) var(--radius) 0;
   background: var(--surface);
@@ -1110,7 +1123,7 @@ a.attachment-open {
 
 .attachment-drop {
   padding: var(--space-4);
-  border: 1px dashed var(--border);
+  border: 1px dashed var(--field-edge);
   border-radius: var(--radius);
   background: var(--surface);
   text-align: center;

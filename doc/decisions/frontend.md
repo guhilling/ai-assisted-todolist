@@ -55,6 +55,10 @@ something untrue.
 
 *Accepted · 2026-10-05 · #139, #164*
 
+Revised in part: the colours and the faces now follow hilling.it's new site, in
+[Colours and faces from hilling.it's new site](#colours-and-faces-from-hillingits-new-site) (#527).
+The calendar and the layout stand.
+
 **Decision** (#139). The palette and the heading face come from hilling.it. Its heading blue
 `#0367a5` is the accent, its green `#7fae1c` is a band along the top and, darkened to `#4d7a0a`,
 the done tick. Quicksand sets the title and the section headings, and running text stays in the
@@ -76,6 +80,50 @@ one 28 kB file for every weight, from the same origin.
 **Why the calendar is lazy.** react-day-picker is about 20 kB gzipped against a 75 kB board, and
 the board's speed was an explicit requirement. Loaded on first use, it costs the first page load
 nothing. The native date field stays alongside, so typing a date keeps working.
+
+
+## Colours and faces from hilling.it's new site
+
+*Accepted · 2026-11-07 · #527*
+
+**Decision.** The website and the apps take their colours from hilling.it's new site, from the
+[palette the two share](https://github.com/guhilling/conventions/blob/main/palette/README.md) in
+the conventions repository, where a colour is added only after asking Gunnar:
+- **Greys:** plain ones, without a tint: `#111111`, `#656565` and `#f2f2f2` on the light page,
+  and `#f2f2f2`, `#a9a9a9` and `#2d2d2d` on the dark one.
+- **Blue:** `#0067a6`, or `#a6d8f5` on the dark page.
+- **Red:** `#b42318`, or `#f04438` on the dark page. Errors there show on the raised grey, where
+  `#f04438` has only 3.7:1, so dark errors use `#f3685e`: the same red, just lighter, 4.6:1.
+- **Form fields** are edged in the muted grey, as there, because the border grey is too faint to
+  show where a field is. So are the file-drop zone and the zone switch's knob when it is off.
+
+Green stays TaskFest's own. The band along the top is hilling.it's logo green `#7eae2a`; TaskFest's
+logo and icons keep their `#7fae1c`, a shade apart that the eye does not tell from it. Green that
+must be read is used for the wordmark in the app, the done tick and a task's zone:
+- **On the dark page:** the logo green `#7eae2a`.
+- **On the light page:** a green just darker than it, with the same hue and saturation:
+  `#58791d`, 5.0:1 on white.
+
+The faces are hilling.it's too: Quicksand, its logo's, for the TaskFest wordmark; Space Grotesk for
+headings; Inter Tight for running text. On the website they are self-hosted variable fonts, as
+Quicksand already was. The app embeds static ones through expo-font, fetched by
+`mobile/assets/fonts/make-fonts.sh`. Quicksand Bold is its authors' own static font, unchanged,
+because its licence reserves the name "Quicksand" and a modified font may not carry it. Space
+Grotesk and Inter Tight reserve no name; they are cut from Google Fonts' variable files, one file
+per weight and Latin only. Every file keeps its copyright and licence, the SIL Open Font License,
+in its own metadata, which is how that licence lets a font travel inside an app.
+
+**Why the green just darker.** Gunnar wanted the green as close to the logo's as contrast allows.
+The logo green is 2.6:1 on white. `#58791d` is the lightest shade of it that reaches 4.5:1 on the
+surface grey as well as on white. The previous `#4d7a0a` was a different, yellower green.
+
+**Why static fonts in the app.** React Native picks a variable font's weights unreliably, and on
+Android it fakes a bold. Each face is a file of its own, named by its PostScript name, which both
+platforms use; the app chooses it by that name, never by `fontWeight`.
+
+**Why Inter Tight for text now.** Quicksand stays out of running text for the reasons above.
+Inter Tight is a text face, and Gunnar asked for the fonts to be unified as long as they stay
+readable on a phone. Whether they do is judged on screenshots of the app.
 
 
 ## Editing starts from the menu, and waits for the server

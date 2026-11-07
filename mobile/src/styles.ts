@@ -1,4 +1,5 @@
 import { StyleSheet } from 'react-native'
+import { font } from './fonts'
 import type { Theme } from './theme'
 import { googleSignInButton } from './web'
 
@@ -7,11 +8,11 @@ export function stylesFor(theme: Theme) {
   return StyleSheet.create({
     screen: { flex: 1, backgroundColor: theme.bg, paddingHorizontal: 16 },
     signedOut: { flex: 1, justifyContent: 'center', gap: 16 },
-    title: { fontSize: 32, fontWeight: '700', color: theme.brandStrong },
-    muted: { color: theme.textMuted },
-    notice: { color: theme.danger },
+    title: { fontSize: 32, fontFamily: font.brand, color: theme.brandStrong },
+    muted: { fontFamily: font.text, color: theme.textMuted },
+    notice: { fontFamily: font.text, color: theme.danger },
     button: { backgroundColor: theme.accent, borderRadius: 6, paddingVertical: 12, paddingHorizontal: 16 },
-    buttonText: { color: theme.accentContrast, fontWeight: '600', textAlign: 'center' },
+    buttonText: { color: theme.accentContrast, fontFamily: font.strong, textAlign: 'center' },
     // Google's button is its image, rounded as Google draws it, at its own size (#325).
     googleButton: { alignSelf: 'center', borderRadius: 20, overflow: 'hidden' },
     googleImage: { width: googleSignInButton.width, height: googleSignInButton.height },
@@ -26,17 +27,17 @@ export function stylesFor(theme: Theme) {
     editorFile: { flexDirection: 'row', alignItems: 'center', gap: 8 },
     pressed: { opacity: 0.7 },
     quietButton: { borderRadius: 6, paddingVertical: 12, paddingHorizontal: 16 },
-    quietButtonText: { color: theme.accent, fontWeight: '600', textAlign: 'center' },
-    dangerText: { color: theme.danger, fontWeight: '600', textAlign: 'center' },
+    quietButtonText: { color: theme.accent, fontFamily: font.strong, textAlign: 'center' },
+    dangerText: { color: theme.danger, fontFamily: font.strong, textAlign: 'center' },
     disabled: { opacity: 0.5 },
     board: { flex: 1 },
     boardContent: { paddingVertical: 16, gap: 24 },
     section: { gap: 8 },
     sectionHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-    heading: { fontSize: 18, fontWeight: '700', color: theme.text },
+    heading: { fontSize: 18, fontFamily: font.heading, color: theme.text },
     /** A section's heading and the weekday beside it (#337). */
     headingLine: { flexDirection: 'row', alignItems: 'baseline', gap: 8 },
-    headingWeekday: { fontSize: 15, color: theme.textMuted },
+    headingWeekday: { fontSize: 15, fontFamily: font.text, color: theme.textMuted },
     overdue: { color: theme.danger },
     // A task's row, and its files below it (#274), between one line and the next.
     rowWithFiles: {
@@ -65,7 +66,7 @@ export function stylesFor(theme: Theme) {
     importanceMEDIUM: { backgroundColor: theme.importanceMedium },
     importanceHIGH: { backgroundColor: theme.importanceHigh, boxShadow: `0 0 0 2px ${theme.importanceHigh}4D` },
     unknownDot: { borderWidth: 1, borderColor: theme.textMuted },
-    description: { flex: 1, color: theme.text },
+    description: { flex: 1, fontFamily: font.text, color: theme.text },
     done: { color: theme.textMuted, textDecorationLine: 'line-through' },
     footer: { paddingVertical: 8, gap: 8 },
     undo: {
@@ -78,21 +79,23 @@ export function stylesFor(theme: Theme) {
     },
     formScreen: { flex: 1, backgroundColor: theme.bg },
     form: { padding: 16, gap: 16 },
-    formTitle: { fontSize: 20, fontWeight: '700', color: theme.text },
-    label: { color: theme.textMuted, fontWeight: '600' },
+    formTitle: { fontSize: 20, fontFamily: font.heading, color: theme.text },
+    label: { color: theme.textMuted, fontFamily: font.strong },
     input: {
+      // A field's edge is the muted colour, as on the website: the border grey is too faint for one.
       borderWidth: 1,
-      borderColor: theme.border,
+      borderColor: theme.fieldEdge,
       borderRadius: 6,
       padding: 12,
+      fontFamily: font.text,
       color: theme.text,
       backgroundColor: theme.surfaceRaised,
     },
     chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-    chip: { borderWidth: 1, borderColor: theme.border, borderRadius: 16, paddingVertical: 6, paddingHorizontal: 12 },
+    chip: { borderWidth: 1, borderColor: theme.fieldEdge, borderRadius: 16, paddingVertical: 6, paddingHorizontal: 12 },
     chipActive: { backgroundColor: theme.accent, borderColor: theme.accent },
-    chipText: { color: theme.text },
-    chipTextActive: { color: theme.accentContrast },
+    chipText: { fontFamily: font.text, color: theme.text },
+    chipTextActive: { fontFamily: font.text, color: theme.accentContrast },
     formButtons: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8 },
     formFields: { flex: 1 },
     // The form's buttons, below its fields and above the keyboard (#382).
@@ -104,7 +107,7 @@ export function stylesFor(theme: Theme) {
     // The sign-in's link to the documentation, at its top right as on the board (#384); laid over
     // the screen, so the sign-in below stays centred on it.
     signedOutHead: { position: 'absolute', top: 8, right: 0, zIndex: 1 },
-    brand: { fontSize: 20, fontWeight: '700', color: theme.brandStrong },
+    brand: { fontSize: 20, fontFamily: font.brand, color: theme.brandStrong },
     /** A zoned task's zone on its row (#523), in the green of the name above the board. */
     zone: { color: theme.brandStrong },
     account: { gap: 8 },
@@ -113,7 +116,7 @@ export function stylesFor(theme: Theme) {
     /** What the colours mean (#335): the offline note's box, with room on both sides. */
     legend: { backgroundColor: theme.surfaceRaised, borderRadius: 6, paddingHorizontal: 16, gap: 4, paddingTop: 12 },
     /** An overdue date on a row: the website's `.task-due--overdue` (#335). */
-    overdueDate: { color: theme.danger, fontWeight: '600' },
+    overdueDate: { color: theme.danger, fontFamily: font.strong },
     /** An importance dot inline in the legend's text, sat on its line. */
     legendDot: { marginBottom: 1 },
     offline: { backgroundColor: theme.surfaceRaised, borderRadius: 6, paddingLeft: 16, gap: 4, paddingTop: 12 },
@@ -123,7 +126,7 @@ export function stylesFor(theme: Theme) {
     // Stacked: side by side, the two answers do not fit a phone's width.
     confirmButtons: { gap: 8 },
     legal: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center', columnGap: 16, rowGap: 4 },
-    legalLink: { color: theme.accent, paddingVertical: 8 },
+    legalLink: { fontFamily: font.text, color: theme.accent, paddingVertical: 8 },
   })
 }
 
