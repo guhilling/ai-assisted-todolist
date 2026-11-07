@@ -1,0 +1,17 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'de.hilling.taskfest.timezonecache'
+version = '1.0.0'
+
+android {
+  namespace 'de.hilling.taskfest.timezonecache'
+  buildFeatures { prefab true }
+  externalNativeBuild { cmake { path 'CMakeLists.txt' } }
+}
+
+dependencies {
+  implementation 'com.facebook.react:react-android'
+}
