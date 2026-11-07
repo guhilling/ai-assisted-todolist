@@ -62,6 +62,34 @@ generating both from one source is what keeps them from drifting apart.
 Re-run the generator whenever a diagram stops being true — it is idempotent, so a run that
 changes nothing leaves nothing to commit.
 
+## Links to private resources
+
+TaskFest is open source, but a few links in these pages lead somewhere only Gunnar can open: a
+private repository such as [guhilling/monitoring](https://github.com/guhilling/monitoring)
+(private), the GitHub project that holds the priorities, or a console such as App Store Connect,
+Play Console, the AWS console or Hetzner's. Each such link is followed by the plain text
+` (private)`, so a reader sees before following it that it will not open for them:
+
+```markdown
+[guhilling/monitoring](https://github.com/guhilling/monitoring) (private)
+```
+
+Plain text rather than an icon or a badge, so it reads the same rendered, in the raw file and to
+a screen reader. A link to a public resource has no marker.
+
+Docs CI enforces it with `.github/scripts/check-private-links.py`, over `doc/` and every
+`README.md` and `CLAUDE.md`. It renders each page as the site does, so a link is what a reader
+sees as one, and code is left alone:
+
+- **A link to a GitHub repository** is checked by asking GitHub about the repository. The check
+  fails on a link to one that isn't public without the marker, and on a link to a public one with
+  it. No list of private repositories is kept anywhere; whatever GitHub will not show the
+  workflow's token counts as private. When GitHub cannot be asked, the check fails saying so.
+- **A link into a console or other private resource** is checked against a short list in the
+  script: App Store Connect, Play Console, the AWS console, Hetzner's consoles and accounts, and
+  the TaskFest project. A private resource that isn't on the list is marked all the same; add it
+  to the list when it is first linked.
+
 ## Keeping it current
 
 Documentation is updated in the same change as the behaviour it describes, not as a
