@@ -1,6 +1,8 @@
-/* The self-hosted Quicksand variable font: one file per script, of which a browser fetches only
-   the subsets the page actually uses -- Latin, here. */
+/* The self-hosted variable fonts (#527): one file per script, of which a browser fetches only the
+   subsets the page actually uses -- Latin, here. */
 @import '@fontsource-variable/quicksand';
+@import '@fontsource-variable/space-grotesk';
+@import '@fontsource-variable/inter-tight';
 
 html {
   color-scheme: light dark;

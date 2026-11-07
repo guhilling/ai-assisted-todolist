@@ -47,6 +47,7 @@ commit that first wrote each one down. CI checks every line and that this index 
 - [The board is the front page; the project description is a link](frontend.md#the-board-is-the-front-page-the-project-description-is-a-link)
 - [A checkbox for done, a quiet marker for in progress](frontend.md#a-checkbox-for-done-a-quiet-marker-for-in-progress)
 - [The look follows hilling.it, and the calendar loads on demand](frontend.md#the-look-follows-hillingit-and-the-calendar-loads-on-demand)
+- [Colours and faces from hilling.it's new site](frontend.md#colours-and-faces-from-hillingits-new-site)
 - [Editing starts from the menu, and waits for the server](frontend.md#editing-starts-from-the-menu-and-waits-for-the-server)
 - [Due dates are relative words, set from defaults](frontend.md#due-dates-are-relative-words-set-from-defaults)
 - [Undo instead of a confirmation, and what it costs](frontend.md#undo-instead-of-a-confirmation-and-what-it-costs)

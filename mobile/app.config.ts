@@ -52,6 +52,15 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       'expo-secure-store',
       'expo-localization',
       'expo-web-browser',
+      // hilling.it's faces (#527), embedded at build time; assets/fonts/make-fonts.sh cuts them.
+      [
+        'expo-font',
+        {
+          fonts: ['Quicksand-Bold', 'SpaceGrotesk-Bold', 'InterTight-Regular', 'InterTight-SemiBold'].map(
+            (name) => `./assets/fonts/${name}.ttf`,
+          ),
+        },
+      ],
       // The due-day reminders (#273): Android shows the mark's single-colour form in the status bar.
       ['expo-notifications', { icon: './assets/notification-icon.png', color: '#7fae1c' }],
       [
