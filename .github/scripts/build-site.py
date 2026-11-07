@@ -785,6 +785,7 @@ def fetch_shared_rules(
     quietly left the rules out would show half the method this repository is built under.
     """
     def read() -> str:
+        """One fetch of the rules, which raises an OSError when it fails."""
         with opener(source.raw_url, timeout=30) as response:
             return response.read().decode()
 

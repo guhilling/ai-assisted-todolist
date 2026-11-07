@@ -57,7 +57,8 @@ PRIVATE = [re.compile(rf"https?://{pattern}(?:[/?#]|$)", re.I) for pattern in [
     r"(?:[\w-]+\.)*console\.aws\.amazon\.com",
     r"console\.hetzner\.(?:cloud|com)",
     r"accounts\.hetzner\.com",
-    r"github\.com/users/guhilling/projects/2",  # TaskFest's project, which GitHub says is private
+    # TaskFest's project, which GitHub says is private.
+    r"(?:www\.)?github\.com/users/guhilling/projects/2",
 ]]
 
 # GitHub's top-level paths that are no owner, such as a user's projects or one's own issues.
@@ -74,6 +75,8 @@ MARKER = re.compile(r"\s+\(private\)")
 BARE_URL = re.compile(r"https?://[^\s<>\"]+")
 # End tags the marker may come after, as in `**[a](url)** (private)`.
 INLINE = {"strong", "em", "b", "i", "span", "del", "s"}
+# The hard line break, after which the marker may start the next line.
+BREAK = "br"
 
 Link = collections.namedtuple("Link", "line url marked")
 Result = collections.namedtuple("Result", "problems links")
@@ -87,6 +90,7 @@ class _Links(html.parser.HTMLParser):
     """Every link in a rendered page, as [url, marked], in order."""
 
     def __init__(self):
+        """A parser that has seen nothing yet."""
         super().__init__(convert_charrefs=True)
         self.found = []
         self.code = 0
@@ -94,7 +98,9 @@ class _Links(html.parser.HTMLParser):
         self.waiting = None
 
     def handle_starttag(self, tag, attrs):
-        self.waiting = None
+        """Opens a link or code; any other markup but a line break ends the wait for a marker."""
+        if tag != BREAK:
+            self.waiting = None
         if tag in ("code", "pre"):
             self.code += 1
         elif tag == "a" and not self.code:
@@ -102,16 +108,18 @@ class _Links(html.parser.HTMLParser):
             self.href = href[0] if href else ""
 
     def handle_endtag(self, tag):
+        """Closes code or a link, whose marker is then waited for."""
         if tag in ("code", "pre"):
             self.code = max(0, self.code - 1)
         if tag == "a" and self.href is not None:
             self.waiting = [self.href, False]
             self.found.append(self.waiting)
             self.href = None
-        elif tag not in INLINE:
+        elif tag not in INLINE and tag != BREAK:
             self.waiting = None
 
     def handle_data(self, data):
+        """Settles the marker of the link before, and finds the bare URLs in text outside code."""
         if self.waiting is not None:
             self.waiting[1] = bool(MARKER.match(data))
             self.waiting = None
@@ -227,6 +235,7 @@ def ask_github(name, token, urlopen=urllib.request.urlopen, attempts=3, pause=5)
         request.add_header("Authorization", f"Bearer {token}")
 
     def read():
+        """One request: GitHub's status and body, a 404 included, or an OSError to retry."""
         try:
             with urlopen(request, timeout=30) as response:
                 return response.status, response.read()
@@ -261,6 +270,7 @@ def pages():
 
 
 def main():
+    """Checks every page, prints each problem as an error annotation, and fails on any."""
     found = pages()
     token = os.environ.get("GITHUB_TOKEN") or None
     result = check(found, lambda name: ask_github(name, token))
