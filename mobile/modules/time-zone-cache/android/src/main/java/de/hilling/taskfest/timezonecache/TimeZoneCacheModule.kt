@@ -1,6 +1,7 @@
 package de.hilling.taskfest.timezonecache
 
 import android.util.Log
+import com.facebook.react.bridge.ReactContext
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 
@@ -15,7 +16,8 @@ class TimeZoneCacheModule : Module() {
     Name("TimeZoneCache")
 
     Function("reset") {
-      val runtime = appContext.reactContext?.javaScriptContextHolder?.get() ?: 0L
+      val react = appContext.reactContext as? ReactContext
+      val runtime = react?.javaScriptContextHolder?.get() ?: 0L
       if (runtime != 0L && loaded) {
         resetHermes(runtime)
       }
