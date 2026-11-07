@@ -87,7 +87,7 @@ nothing. The native date field stays alongside, so typing a date keeps working.
 *Accepted · 2026-11-07 · #527*
 
 **Decision.** The website and the apps take their colours from hilling.it's new site
-([its `doc/colours.md`](https://github.com/guhilling/hilling-it-website/blob/main/doc/colours.md)):
+([its colours page](https://github.com/guhilling/hilling-it-website/blob/main/doc/colours.md)):
 - **Greys:** plain ones, without a tint: `#111111`, `#656565` and `#f2f2f2` on the light page,
   and `#f2f2f2`, `#a9a9a9` and `#2d2d2d` on the dark one.
 - **Blue:** `#0067a6`, or `#a6d8f5` on the dark page.

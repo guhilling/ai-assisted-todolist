@@ -13,7 +13,7 @@
   --border: #f2f2f2;
   --text: #111111;
   --text-muted: #656565;
-  /* hilling.it's palette (#527, its doc/colours.md): plain greys, its blue and its red. The blue
+  /* hilling.it's palette (#527, its colours page): plain greys, its blue and its red. The blue
      is the accent, because the logo green fails contrast on white (2.6:1) and so cannot carry a
      control or text. The green is TaskFest's own: the logo green as decoration (--brand), and
      wherever it must be read the same hue just darker (--brand-strong, 5.0:1 on white). */
