@@ -106,8 +106,12 @@ must be read is used for the wordmark in the app, the done tick and a task's zon
 
 The faces are hilling.it's too: Quicksand, its logo's, for the TaskFest wordmark; Space Grotesk for
 headings; Inter Tight for running text. On the website they are self-hosted variable fonts, as
-Quicksand already was. The app embeds static ones through expo-font. They are cut from Google
-Fonts' variable files by `mobile/assets/fonts/make-fonts.sh`, one file per weight and Latin only.
+Quicksand already was. The app embeds static ones through expo-font, fetched by
+`mobile/assets/fonts/make-fonts.sh`. Quicksand Bold is its authors' own static font, unchanged,
+because its licence reserves the name "Quicksand" and a modified font may not carry it. Space
+Grotesk and Inter Tight reserve no name; they are cut from Google Fonts' variable files, one file
+per weight and Latin only. Every file keeps its copyright and licence, the SIL Open Font License,
+in its own metadata, which is how that licence lets a font travel inside an app.
 
 **Why the green just darker.** Gunnar wanted the green as close to the logo's as contrast allows.
 The logo green is 2.6:1 on white. `#58791d` is the lightest shade of it that reaches 4.5:1 on the
