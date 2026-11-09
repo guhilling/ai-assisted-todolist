@@ -492,6 +492,13 @@ resource "aws_ecs_service" "backend" {
   desired_count   = 0
   launch_type     = "FARGATE"
 
+  # A Fargate task's cost carries the task's own tags, not the service's, and a task starts with
+  # none unless the service hands its own on (#538). Without them the backend, the largest item on
+  # the bill, is missing from every cost view grouped by project or env. The managed tags add the
+  # cluster and service names.
+  propagate_tags          = "SERVICE"
+  enable_ecs_managed_tags = true
+
   # Long enough for the JVM to start and the first readiness check to pass; until then a
   # failing health check does not count against the task.
   health_check_grace_period_seconds = 60
