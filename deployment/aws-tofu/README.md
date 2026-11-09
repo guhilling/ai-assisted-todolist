@@ -420,8 +420,9 @@ and do the same in `prod`, so the two stay in step.
   bill, so the `env` tag is the only thing the cost budgets can filter on. An untagged resource
   is invisible to them. The backend's Fargate tasks get theirs from the service, which hands its
   tags on (#538). Not tagged by OpenTofu: the `cloud.hilling.de` zone, the state bucket and the
-  ECR cache repository, which were created outside it and are tagged by hand, and the public
-  IPv4 charge, which is billed on network interfaces AWS creates for the load balancer and tasks.
+  ECR cache repository, which were created outside it and are tagged by hand. Nor is the public
+  IPv4 charge under VPC, untagged in November 2026 although the load balancer was tagged; AWS
+  documents tags for it only on Elastic IPs (#538).
 - **Resource names are prefixed** `<project>-<environment>`, from `local.name` in the module, so
   two environments in one account never collide.
 - **No secret goes in a `.tfvars` file.** Database credentials come from Secrets Manager, and the
