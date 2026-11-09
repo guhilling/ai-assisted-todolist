@@ -534,3 +534,27 @@ Teardown is unaffected: the bucket is foundation, and `env.sh down` never plans 
 **The price.** Retiring an environment for good takes a deliberate step — `tofu state rm` of the
 bucket in that environment, then deleting it by hand — and the flag holds in qa as well as prod,
 since `prevent_destroy` cannot come from a variable. qa's files are test data, but a destroy there is just as unintended.
+
+## The backend moves to Lambda, Go and DynamoDB, after a spike
+
+*Accepted · 2026-11-09 · #535*
+
+An environment bills about $1.86 a day while up, almost all of it by the hour, and taking it down
+when idle is a chore that gets forgotten. Per-request billing makes an always-up environment cost
+about a dollar a month, so the backend is to be ported to **Go on Lambda (arm64)**, its data to
+**one DynamoDB table**, behind **API Gateway's HTTP API** and the existing CloudFront
+distribution. [serverless.md](../deployment/serverless.md) has the design, the prices and the
+drawbacks, the largest being that it **ties the backend to AWS**.
+
+It is decided behind a gate: a spike of `GET /api/tasks` in qa must start cold in under 500 ms
+before anything is ported. Until the port is done, every other decision in this chapter holds,
+and the container architecture stays documented as the alternative; the tag `pre-serverless` is
+the way back.
+
+*Rejected: S3 as the only store*, one document per user. Simplest to run, but concurrency and
+clean-up would be built by hand, and the whole board would become the unit of consistency.
+*Rejected: Quarkus on Lambda with SnapStart* for now: the language Gunnar knows, but 0.6 to 1 s
+cold; it is the fallback if the spike fails. *Rejected: Rust*, faster to start than Go by an
+amount nobody would notice, and much slower to write. *Rejected: Aurora Serverless v2* as a
+cheaper database for the current architecture: at least $0.07 an hour while active against
+$0.019 for the RDS instance, cheaper only when idle most of the time it is up.
