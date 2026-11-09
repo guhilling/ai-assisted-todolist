@@ -36,3 +36,6 @@ cpu_architecture = "ARM64"
 # The backend's size (#535): qa tries a quarter vCPU and 0.5 GB, half the cost of prod's size.
 backend_cpu    = 256
 backend_memory = 512
+
+# qa measures the serverless spike's cold start (#535); serverless/spike/measure.sh.
+serverless_spike = true

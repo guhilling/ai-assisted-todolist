@@ -260,3 +260,12 @@ variable "backend_memory" {
     error_message = "backend_memory is 512, 1024, 2048, 3072 or 4096."
   }
 }
+
+variable "serverless_spike" {
+  description = <<-EOT
+    Whether this environment has the serverless spike (#535): a Go Lambda function and a DynamoDB
+    table that measure a cold start (serverless-spike.tf). qa only.
+  EOT
+  type        = bool
+  default     = false
+}

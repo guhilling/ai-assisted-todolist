@@ -38,3 +38,6 @@ cpu_architecture = "ARM64"
 # The backend's size (#535): unchanged until qa has shown the smaller one works.
 backend_cpu    = 512
 backend_memory = 1024
+
+# The serverless spike runs in qa only (#535).
+serverless_spike = false

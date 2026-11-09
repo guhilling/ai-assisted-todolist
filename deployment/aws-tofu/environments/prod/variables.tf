@@ -95,6 +95,11 @@ variable "backend_memory" {
   type        = number
 }
 
+variable "serverless_spike" {
+  description = "Whether this environment has the serverless spike's function and table (#535)."
+  type        = bool
+}
+
 variable "cpu_architecture" {
   description = "What the Fargate tasks run on: X86_64, or ARM64 for Graviton (#250)."
   type        = string

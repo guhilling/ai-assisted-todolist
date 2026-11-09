@@ -1,0 +1,50 @@
+name: Serverless CI
+
+# The Go code of the serverless spike (#535): vet, the tests, and the arm64 Lambda build, so a
+# change that would not build for Lambda fails here rather than on Gunnar's machine before an
+# apply. Nothing is deployed: serverless/spike/measure.sh uploads the code by hand.
+
+on:
+  pull_request:
+    paths:
+      - 'serverless/**'
+      - '.github/workflows/serverless-ci.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'serverless/**'
+      - '.github/workflows/serverless-ci.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  go:
+    runs-on: ubuntu-26.04
+    defaults:
+      run:
+        working-directory: serverless
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: serverless/go.mod
+          # Off rather than saved from every branch: caches are saved on main only (#308), and
+          # this module's few dependencies download in seconds.
+          cache: false
+
+      - name: Check formatting
+        run: test -z "$(gofmt -l .)" || { gofmt -l .; exit 1; }
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Test
+        run: go test -race ./...
+
+      - name: Build for Lambda
+        run: ./build.sh
+
+      - name: Check the scripts
+        run: shellcheck build.sh spike/measure.sh
