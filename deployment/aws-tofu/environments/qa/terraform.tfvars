@@ -32,3 +32,7 @@ deregistration_delay_seconds = 5
 
 # Graviton (#250): about 20% less for the same task size. qa went first; prod runs on it too.
 cpu_architecture = "ARM64"
+
+# The backend's size (#535): qa tries a quarter vCPU and 0.5 GB, half the cost of prod's size.
+backend_cpu    = 256
+backend_memory = 512

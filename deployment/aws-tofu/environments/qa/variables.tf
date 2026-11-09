@@ -85,6 +85,16 @@ variable "deregistration_delay_seconds" {
   type        = number
 }
 
+variable "backend_cpu" {
+  description = "The backend task's CPU units: 256 is a quarter vCPU, 512 half of one (#535)."
+  type        = number
+}
+
+variable "backend_memory" {
+  description = "The backend task's memory in MiB (#535)."
+  type        = number
+}
+
 variable "cpu_architecture" {
   description = "What the Fargate tasks run on: X86_64, or ARM64 for Graviton (#250)."
   type        = string
