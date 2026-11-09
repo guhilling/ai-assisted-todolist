@@ -112,4 +112,18 @@ the current backend, to measure the cold start in Frankfurt rather than trust be
 - **It succeeds** if a cold invocation, initialisation included, takes **under 500 ms** at
   256 MB, and a warm one under 50 ms. **It fails** if not, and Quarkus with SnapStart is then
   the fallback, in the language Gunnar knows.
-- It costs nothing measurable: a few hundred invocations and an empty table.
+- It costs nothing measurable: about a hundred invocations and a table of twenty items.
+
+Running it, as an administrator, from the repository root on `main`:
+
+```sh
+serverless/build.sh                           # the arm64 zip the function is created from
+(cd deployment/aws-tofu && ./env.sh down qa)  # with qa down, this applies only the spike
+AWS_PROFILE=<admin profile> serverless/spike/measure.sh
+```
+
+`build.sh` uses Go where it is installed and the official Go image through podman or docker
+where it is not. `measure.sh` uploads the code, writes twenty tasks for the test account
+`taskfest-test-one@example.com`, and prints Lambda's own initialisation, cold and warm times at
+128, 256 and 512 MB. The code is in [`serverless/`](../../serverless/), with its conventions in
+`serverless/CLAUDE.md`.
