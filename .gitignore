@@ -47,3 +47,6 @@ deployment/aws-tofu/**/.terraform/
 *.keystore
 *.p8
 *.p12
+
+# The spike's Lambda build (#535), made by serverless/build.sh.
+serverless/dist/

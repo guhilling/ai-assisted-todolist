@@ -32,3 +32,6 @@ deregistration_delay_seconds = 5
 
 # Graviton (#250): about 20% less for the same task size. qa went first; prod runs on it too.
 cpu_architecture = "ARM64"
+
+# qa measures the serverless spike's cold start (#535); serverless/spike/measure.sh.
+serverless_spike = true

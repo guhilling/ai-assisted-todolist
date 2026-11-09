@@ -9,3 +9,6 @@ running = true
 # Likewise for qa's test accounts (test-sign-in.tf): off by default, so without this the scan
 # would check none of them.
 test_sign_in = true
+
+# Likewise for the serverless spike (serverless-spike.tf).
+serverless_spike = true

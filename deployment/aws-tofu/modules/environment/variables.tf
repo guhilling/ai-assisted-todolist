@@ -222,3 +222,12 @@ variable "deregistration_delay_seconds" {
   EOT
   type        = number
 }
+
+variable "serverless_spike" {
+  description = <<-EOT
+    Whether this environment has the serverless spike (#535): a Go Lambda function and a DynamoDB
+    table that measure a cold start (serverless-spike.tf). qa only.
+  EOT
+  type        = bool
+  default     = false
+}

@@ -70,6 +70,7 @@ module "environment" {
   test_sign_in         = var.test_sign_in
 
   blue_green_bake_minutes      = var.blue_green_bake_minutes
+  serverless_spike             = var.serverless_spike
   deregistration_delay_seconds = var.deregistration_delay_seconds
   cpu_architecture             = var.cpu_architecture
 }
