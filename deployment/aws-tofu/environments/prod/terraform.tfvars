@@ -34,3 +34,7 @@ deregistration_delay_seconds = 30
 # Graviton (#250): about 20% less for the same task size. qa ran on it first; Gunnar moved prod
 # after qa had shown it works. Needs a release from v0.15.0 on, which plan and deploy both enforce.
 cpu_architecture = "ARM64"
+
+# The backend's size (#535): unchanged until qa has shown the smaller one works.
+backend_cpu    = 512
+backend_memory = 1024

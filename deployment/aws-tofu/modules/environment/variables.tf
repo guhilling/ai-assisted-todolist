@@ -222,3 +222,41 @@ variable "deregistration_delay_seconds" {
   EOT
   type        = number
 }
+
+variable "up_reminder_hours" {
+  description = <<-EOT
+    After how many full hours up the environment reminds Gunnar that it is still running (#535).
+    A property of the project rather than of an environment, hence the default.
+  EOT
+  type        = number
+  default     = 4
+
+  # An alarm evaluates at most a day's worth of hourly periods.
+  validation {
+    condition     = var.up_reminder_hours >= 1 && var.up_reminder_hours <= 24
+    error_message = "up_reminder_hours is between 1 and 24."
+  }
+}
+
+variable "backend_cpu" {
+  description = <<-EOT
+    The backend task's CPU units: 256 is a quarter vCPU, 512 half of one. qa tries the smaller
+    size first (#535); at 0.5 vCPU / 1 GB the backend used about 244 MB and started in 16 s.
+  EOT
+  type        = number
+
+  validation {
+    condition     = contains([256, 512, 1024], var.backend_cpu)
+    error_message = "backend_cpu is 256, 512 or 1024."
+  }
+}
+
+variable "backend_memory" {
+  description = "The backend task's memory in MiB. Fargate allows 512 to 2048 with 256 CPU units, and 1024 to 4096 with 512."
+  type        = number
+
+  validation {
+    condition     = contains([512, 1024, 2048, 3072, 4096], var.backend_memory)
+    error_message = "backend_memory is 512, 1024, 2048, 3072 or 4096."
+  }
+}

@@ -77,3 +77,37 @@ resource "aws_cloudwatch_metric_alarm" "orphan_alert" {
 
   tags = { Name = "${local.name}-orphan-alert" }
 }
+
+# The up-time reminder (#535): an environment costs about $1.86 a day while it is up, and the
+# cheapest hour is the one not run -- qa once stayed up for four days unnoticed. So the alarm
+# mails, and User Notifications pushes to Gunnar's phone, once the backend service has run for
+# `up_reminder_hours` full hours, and again when it is gone. A reminder rather than a shutdown,
+# because infrastructure is applied by a person, never by automation.
+#
+# The service publishes CPUUtilization every minute while it runs and nothing while it is down,
+# so the hourly sample count is non-zero exactly when the environment was up that hour. No data
+# is "not up", which also returns the alarm to OK after `env.sh down`. Foundation rather than
+# billable.tf: an alarm is free within the account's first ten, and it must outlive the service
+# to see it go.
+resource "aws_cloudwatch_metric_alarm" "up_reminder" {
+  alarm_name          = "${local.name}-up-reminder"
+  alarm_description   = "The ${var.environment} environment has been up for ${var.up_reminder_hours} hours, at about $1.86 a day. Take it down with './env.sh down ${var.environment}' if nobody is using it (#535)."
+  namespace           = "AWS/ECS"
+  metric_name         = "CPUUtilization"
+  statistic           = "SampleCount"
+  period              = 3600
+  evaluation_periods  = var.up_reminder_hours
+  datapoints_to_alarm = var.up_reminder_hours
+  threshold           = 1
+  comparison_operator = "GreaterThanOrEqualToThreshold"
+  treat_missing_data  = "notBreaching"
+  alarm_actions       = [aws_sns_topic.alerts.arn]
+  ok_actions          = [aws_sns_topic.alerts.arn]
+
+  dimensions = {
+    ClusterName = local.cluster_name
+    ServiceName = local.service_name
+  }
+
+  tags = { Name = "${local.name}-up-reminder" }
+}

@@ -65,6 +65,12 @@ created again needs its link clicked again. To change the address, overwrite the
 with a metric filter and goes to ALARM when an hour holds one, mailing on entering ALARM and on
 returning to OK. [attachments.md](attachments.md) says when the backend writes that line.
 
+**The up-time reminder** (`taskfest-<env>-up-reminder`, #535) goes to ALARM once the backend
+service has run for four full hours (`up_reminder_hours`), counted by the samples of its
+CPUUtilization metric, which exists only while the service runs. It mails, and User Notifications
+pushes it to the phone, on entering ALARM, and again on returning to OK after `env.sh down`. It is
+a reminder, not a shutdown: taking the environment down stays a person's decision.
+
 
 ## The backend's logs: what is in them, and how to ask them
 
