@@ -418,7 +418,10 @@ and do the same in `prod`, so the two stay in step.
 - **Every resource is tagged** `project`, `env` and `managed-by`, via `default_tags` on the
   provider. This is load-bearing rather than tidy: with one AWS account there is no per-account
   bill, so the `env` tag is the only thing the cost budgets can filter on. An untagged resource
-  is invisible to them.
+  is invisible to them. The backend's Fargate tasks get theirs from the service, which hands its
+  tags on (#538). Not tagged by OpenTofu: the `cloud.hilling.de` zone, the state bucket and the
+  ECR cache repository, which were created outside it and are tagged by hand, and the public
+  IPv4 charge, which is billed on network interfaces AWS creates for the load balancer and tasks.
 - **Resource names are prefixed** `<project>-<environment>`, from `local.name` in the module, so
   two environments in one account never collide.
 - **No secret goes in a `.tfvars` file.** Database credentials come from Secrets Manager, and the
