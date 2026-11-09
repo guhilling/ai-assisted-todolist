@@ -12,7 +12,8 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 mkdir -p "$HERE/dist"
 rm -f "$HERE/dist/bootstrap" "$HERE/dist/tasks.zip"
 
-build='CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -tags lambda.norpc -trimpath -ldflags="-s -w" -o dist/bootstrap ./cmd/tasks'
+build='CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -tags lambda.norpc -trimpath'
+build+=' -ldflags="-s -w" -o dist/bootstrap ./cmd/tasks'
 
 if command -v go >/dev/null; then
     (cd "$HERE" && eval "$build")

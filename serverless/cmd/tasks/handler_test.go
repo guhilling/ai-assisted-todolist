@@ -42,6 +42,25 @@ func TestWithoutAnEmailClaimTheCallerIsNotSignedIn(t *testing.T) {
 	}
 }
 
+func TestAnUnverifiedEmailIsNotSignedIn(t *testing.T) {
+	h := handler{tasks: &fakeTasks{}}
+
+	for _, verified := range []string{"", "false", "False"} {
+		claims := map[string]string{"email": "taskfest-test-one@example.com"}
+		if verified != "" {
+			claims["email_verified"] = verified
+		}
+		res, err := h.handle(context.Background(), request(claims))
+		if err != nil || res.StatusCode != 401 {
+			t.Errorf("email_verified %q: got %d, %v; want 401", verified, res.StatusCode, err)
+		}
+	}
+}
+
+func signedIn() map[string]string {
+	return map[string]string{"email": "taskfest-test-one@example.com", "email_verified": "true"}
+}
+
 func TestTheBoardIsTheCallersTasksInBoardOrderAsTheAPISendsThem(t *testing.T) {
 	zone, at := "Europe/Berlin", "10:00"
 	fake := &fakeTasks{tasks: []board.Task{
@@ -51,7 +70,7 @@ func TestTheBoardIsTheCallersTasksInBoardOrderAsTheAPISendsThem(t *testing.T) {
 	}}
 	h := handler{tasks: fake}
 
-	res, err := h.handle(context.Background(), request(map[string]string{"email": "taskfest-test-one@example.com"}))
+	res, err := h.handle(context.Background(), request(signedIn()))
 
 	if err != nil || res.StatusCode != 200 {
 		t.Fatalf("got %d, %v", res.StatusCode, err)
@@ -84,7 +103,7 @@ func TestTheBoardIsTheCallersTasksInBoardOrderAsTheAPISendsThem(t *testing.T) {
 func TestAStoreFailureIsAServerErrorWithoutDetail(t *testing.T) {
 	h := handler{tasks: &fakeTasks{err: errors.New("table gone")}}
 
-	res, err := h.handle(context.Background(), request(map[string]string{"email": "taskfest-test-one@example.com"}))
+	res, err := h.handle(context.Background(), request(signedIn()))
 
 	if err != nil || res.StatusCode != 500 || res.Body != "" {
 		t.Errorf("got %d %q, %v; want an empty 500", res.StatusCode, res.Body, err)

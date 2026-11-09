@@ -29,7 +29,9 @@ type tasksSource interface {
 }
 
 // handler answers API Gateway's HTTP API events. The caller is whoever API Gateway's JWT
-// authorizer let through; the spike is invoked with the claims it would pass on.
+// authorizer let through; the spike is invoked with the claims it would pass on. The authorizer
+// checks the signature, issuer, audience and expiry, but not that the email is verified, which
+// the backend requires of every provider (doc/decisions/authentication.md), so the handler does.
 type handler struct {
 	tasks tasksSource
 }
@@ -49,7 +51,7 @@ type taskResponse struct {
 
 func (h handler) handle(ctx context.Context, req events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTTPResponse, error) {
 	email := ""
-	if a := req.RequestContext.Authorizer; a != nil && a.JWT != nil {
+	if a := req.RequestContext.Authorizer; a != nil && a.JWT != nil && a.JWT.Claims["email_verified"] == "true" {
 		email = a.JWT.Claims["email"]
 	}
 	if email == "" {

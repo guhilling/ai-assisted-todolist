@@ -9,13 +9,13 @@ func task(id int64, due string, importance Importance) Task {
 	return Task{ID: id, Description: "t", DueDate: due, Importance: importance, State: StateTodo}
 }
 
-func TestSortOrdersByDueDateThenImportanceThenCreation(t *testing.T) {
+func TestSortOrdersByDueDateThenImportanceThenID(t *testing.T) {
 	tasks := []Task{
 		task(1, "2026-11-12", ImportanceLow),
 		task(2, "2026-11-11", ImportanceLow),
-		task(3, "2026-11-11", ImportanceHigh),
-		task(4, "2026-11-11", ImportanceMedium),
 		task(5, "2026-11-11", ImportanceHigh),
+		task(4, "2026-11-11", ImportanceMedium),
+		task(3, "2026-11-11", ImportanceHigh),
 	}
 
 	Sort(tasks)
@@ -25,6 +25,16 @@ func TestSortOrdersByDueDateThenImportanceThenCreation(t *testing.T) {
 		if tasks[i].ID != id {
 			t.Fatalf("position %d: got task %d, want %d (order %v)", i, tasks[i].ID, id, ids(tasks))
 		}
+	}
+}
+
+func TestAnUnknownImportanceSortsLastNotFirst(t *testing.T) {
+	tasks := []Task{task(1, "2026-11-11", "high"), task(2, "2026-11-11", ImportanceLow)}
+
+	Sort(tasks)
+
+	if tasks[0].ID != 2 {
+		t.Errorf("got order %v, want the known importance first", ids(tasks))
 	}
 }
 

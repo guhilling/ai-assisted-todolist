@@ -108,6 +108,10 @@ data "aws_iam_policy_document" "lifecycle" {
       "cloudwatch:Describe*",
       "cloudwatch:Get*",
       "cloudwatch:List*",
+      # Describe and List, for the serverless spike's table (#535). Not Get*, which would read
+      # the table's items, and a refresh reads only the table's settings.
+      "dynamodb:Describe*",
+      "dynamodb:List*",
       "ec2:Describe*",
       "ec2:Get*",
       "ecs:Describe*",
@@ -119,6 +123,8 @@ data "aws_iam_policy_document" "lifecycle" {
       "iam:List*",
       "kms:Describe*",
       "kms:List*",
+      "lambda:Get*",
+      "lambda:List*",
       "logs:Describe*",
       "logs:Get*",
       "logs:List*",

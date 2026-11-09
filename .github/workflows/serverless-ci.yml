@@ -30,7 +30,9 @@ jobs:
       - uses: actions/setup-go@v6
         with:
           go-version-file: serverless/go.mod
-          cache-dependency-path: serverless/go.sum
+          # Off rather than saved from every branch: caches are saved on main only (#308), and
+          # this module's few dependencies download in seconds.
+          cache: false
 
       - name: Check formatting
         run: test -z "$(gofmt -l .)" || { gofmt -l .; exit 1; }

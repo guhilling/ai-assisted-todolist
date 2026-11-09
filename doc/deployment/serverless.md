@@ -48,8 +48,8 @@ Nothing to take down, and `prod` can simply stay up.
 - **One Lambda function per concern or one for the API** is decided during the port; the spike
   has one handler.
 - **DynamoDB, one table.** The partition key is the user, `USER#<sha256 of the email>`; the sort
-  key says what the item is: `META` for the user, `TASK#<id>`, `ATT#<id>`. A board is one
-  `Query`. Task stays the aggregate the [domain model](../domain-model.md) says it is.
+  key says what the item is: `META` for the user, `TASK#<id>`, `DRAFT#<id>`, `ATT#<id>`. A
+  board is one `Query` on `TASK#`, and a draft, which is no task yet, never matches it. Task stays the aggregate the [domain model](../domain-model.md) says it is.
 - **The per-user limits** (five drafts, five attachments, two per task) become counters on the
   user's `META` item, changed in the same conditional transaction as the item they count. That
   replaces the row lock (`User.lockRow`).
@@ -117,10 +117,14 @@ the current backend, to measure the cold start in Frankfurt rather than trust be
 Running it, as an administrator, from the repository root on `main`:
 
 ```sh
-serverless/build.sh                           # the arm64 zip the function is created from
-(cd deployment/aws-tofu && ./env.sh down qa)  # with qa down, this applies only the spike
+serverless/build.sh          # the arm64 zip the function is created from
+(cd deployment/aws-tofu && TASKFEST_QA_AWS_PROFILE=<admin profile> ./env.sh down qa)
 AWS_PROFILE=<admin profile> serverless/spike/measure.sh
 ```
+
+The apply needs the administrator: qa's lifecycle role, `env.sh`'s default, cannot create IAM
+roles, functions or tables. **`down` takes qa down if it is up**; with qa down it applies only
+the spike, and the plan it shows says so before anything happens.
 
 `build.sh` uses Go where it is installed and the official Go image through podman or docker
 where it is not. `measure.sh` uploads the code, writes twenty tasks for the test account

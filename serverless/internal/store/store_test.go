@@ -31,7 +31,6 @@ func item(id, due string) map[string]types.AttributeValue {
 		"dueDate":     &types.AttributeValueMemberS{Value: due},
 		"importance":  &types.AttributeValueMemberS{Value: "HIGH"},
 		"state":       &types.AttributeValueMemberS{Value: "TODO"},
-		"createdAt":   &types.AttributeValueMemberS{Value: "2026-11-09T20:00:00Z"},
 	}
 }
 

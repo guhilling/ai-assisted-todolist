@@ -23,9 +23,17 @@ ZIP="$HERE/../dist/tasks.zip"
 
 [[ -f "$ZIP" ]] || { echo "No $ZIP: run serverless/build.sh first." >&2; exit 1; }
 work="$(mktemp -d)"
-trap 'rm -rf "$work"' EXIT
 
 aws() { command aws --region "$REGION" "$@"; }
+
+# Back to the documented 256 MB and variables however the run ends, so a failed run does not
+# leave the next one starting from a different configuration.
+restore() {
+    aws lambda update-function-configuration --function-name "$FUNCTION" --memory-size 256 \
+        --environment "Variables={TABLE_NAME=$TABLE}" >/dev/null || true
+    rm -rf "$work"
+}
+trap restore EXIT
 
 echo "Uploading the function's code."
 aws lambda update-function-code --function-name "$FUNCTION" --zip-file "fileb://$ZIP" >/dev/null
@@ -43,7 +51,6 @@ for i in range(1, 21):
         "PK": {"S": owner}, "SK": {"S": f"TASK#{i:08d}"}, "id": {"N": str(i)},
         "description": {"S": f"Spike task {i}"}, "dueDate": {"S": f"2026-12-{(i % 28) + 1:02d}"},
         "importance": {"S": importances[i % 3]}, "state": {"S": "TODO"},
-        "createdAt": {"S": f"2026-11-09T20:{i:02d}:00Z"},
     }
     if i % 4 == 0:
         item["dueTime"] = {"S": "10:00"}
@@ -51,45 +58,70 @@ for i in range(1, 21):
     items.append({"PutRequest": {"Item": item}})
 print(json.dumps({table: items}))
 EOF
-aws dynamodb batch-write-item --request-items "file://$work/seed.json" >/dev/null
+# What DynamoDB left unwritten, as a new batch; empty when everything was taken.
+left() {
+    python3 -c 'import json, sys
+u = json.load(sys.stdin)["UnprocessedItems"]
+print(json.dumps(u) if u else "")'
+}
+
+# A batch can be accepted in part without an error; what is left over is written again.
+batch="$(cat "$work/seed.json")"
+for _ in 1 2 3 4 5 6; do
+    [[ -n "$batch" ]] || break
+    printf '%s' "$batch" >"$work/seed.json"
+    batch="$(aws dynamodb batch-write-item --request-items "file://$work/seed.json" \
+        --output json | left)"
+done
+[[ -z "$batch" ]] || { echo "DynamoDB did not take all twenty tasks." >&2; exit 1; }
 
 cat >"$work/event.json" <<EOF
 {"version": "2.0", "routeKey": "GET /api/tasks", "rawPath": "/api/tasks",
  "requestContext": {"http": {"method": "GET", "path": "/api/tasks"},
-                    "authorizer": {"jwt": {"claims": {"email": "$EMAIL"}, "scopes": null}}}}
+                    "authorizer": {"jwt": {"scopes": null, "claims": {
+                        "email": "$EMAIL", "email_verified": "true"}}}}}
 EOF
 
-# Invokes once; prints "<init ms or -> <duration ms> <max memory MB>", and fails on anything but 200.
+# Invokes once; prints "<init ms or -> <duration ms> <max memory MB>", and fails on anything but
+# 200. Called as `x="$(invoke)"`, so that its failure stops the script.
 invoke() {
-    local result report
-    result="$(aws lambda invoke --function-name "$FUNCTION" --cli-binary-format raw-in-base64-out \
-        --payload "file://$work/event.json" --log-type Tail --query LogResult --output text "$work/out.json")"
-    python3 -c 'import json,sys; s=json.load(open(sys.argv[1])).get("statusCode"); sys.exit(s != 200)' \
-        "$work/out.json" || { echo "The function did not answer 200:" >&2; cat "$work/out.json" >&2; exit 1; }
-    report="$(printf '%s' "$result" | base64 --decode | grep '^REPORT')"
-    python3 - "$report" <<'EOF'
-import re, sys
-r = sys.argv[1]
-init = re.search(r"Init Duration: ([\d.]+) ms", r)
-print(init.group(1) if init else "-", re.search(r"\tDuration: ([\d.]+) ms", r).group(1),
-      re.search(r"Max Memory Used: (\d+) MB", r).group(1))
+    local log
+    log="$(aws lambda invoke --function-name "$FUNCTION" --cli-binary-format raw-in-base64-out \
+        --payload "file://$work/event.json" --log-type Tail --query LogResult --output text \
+        "$work/out.json" | base64 --decode)"
+    python3 - "$work/out.json" "$log" <<'EOF'
+import json, re, sys
+answer, log = json.load(open(sys.argv[1])), sys.argv[2]
+if answer.get("statusCode") != 200:
+    sys.exit(f"The function did not answer 200: {answer}")
+report = next(line for line in log.splitlines() if line.startswith("REPORT"))
+init = re.search(r"Init Duration: ([\d.]+) ms", report)
+print(init.group(1) if init else "-", re.search(r"\tDuration: ([\d.]+) ms", report).group(1),
+      re.search(r"Max Memory Used: (\d+) MB", report).group(1))
 EOF
 }
 
-printf '%-6s %-6s %-10s %-12s %-24s %s\n' MB round "init ms" "cold ms" "warm ms" "max MB"
+row='%-6s %-6s %-10s %-12s %-24s %s\n'
+# shellcheck disable=SC2059 # the format is the variable on purpose: one for header and rows
+printf "$row" MB round "init ms" "cold ms" "warm ms" "max MB"
 for mb in $MEMORY; do
     for round in $(seq "$ROUNDS"); do
         # A changed configuration retires every execution environment: the next call starts cold.
         aws lambda update-function-configuration --function-name "$FUNCTION" --memory-size "$mb" \
             --environment "Variables={TABLE_NAME=$TABLE,ROUND=$mb-$round-$RANDOM}" >/dev/null
         aws lambda wait function-updated-v2 --function-name "$FUNCTION"
-        read -r init cold used < <(invoke)
+        first="$(invoke)"
+        read -r init cold used <<<"$first"
         warm=()
-        for _ in 1 2 3; do read -r _ duration _ < <(invoke); warm+=("$duration"); done
-        printf '%-6s %-6s %-10s %-12s %-24s %s\n' "$mb" "$round" "$init" "$cold" "${warm[*]}" "$used"
+        for _ in 1 2 3; do
+            again="$(invoke)"
+            read -r _ duration _ <<<"$again"
+            warm+=("$duration")
+        done
+        # shellcheck disable=SC2059
+        printf "$row" "$mb" "$round" "$init" "$cold" "${warm[*]}" "$used"
     done
 done
 
-aws lambda update-function-configuration --function-name "$FUNCTION" --memory-size 256 \
-    --environment "Variables={TABLE_NAME=$TABLE}" >/dev/null
-echo "Back at 256 MB. Success means init + cold under 500 ms, warm under 50 ms (serverless.md)."
+echo "Done; the function goes back to 256 MB."
+echo "Success: init + cold under 500 ms, warm under 50 ms (doc/deployment/serverless.md)."
