@@ -182,3 +182,21 @@ calls, all reading the board of twenty tasks. Times in milliseconds, from Lambda
 
 That is ten times faster than the JVM on Lambda without SnapStart, and faster than Quarkus with
 it, so the port goes ahead in Go, at 512 MB.
+
+### With the connection opened during initialisation
+
+Run again on 2026-11-10 with the foundation (#548): `cmd/api`, which queries DynamoDB once while
+it initialises (`Store.Prime`).
+
+| Memory | Initialisation | First call | Cold, together | Warm | Memory used |
+| --- | --- | --- | --- | --- | --- |
+| 256 MB | 115–148 | 4–45 | **120–190** | 3–5, one at 16 | 34 MB |
+| 512 MB | 120–142 | 4–5 | **125–146** | 3–8 | 39 MB |
+
+- **The guess was right.** Initialisation grew by about 70 ms and stayed the same at both sizes,
+  and the first call dropped from hundreds of milliseconds to a warm call's few. Lambda's
+  initialisation is evidently not held to the CPU share of the memory size, so work moved there
+  gets done faster.
+- **A cold request now takes under 200 ms even at 256 MB**, well inside the 500 ms gate. The
+  function stays at 512 MB: the routes still to come do work no priming covers, such as fetching
+  a sign-in provider's keys, and at TaskFest's traffic the difference costs nothing.
