@@ -26,10 +26,10 @@ work="$(mktemp -d)"
 
 aws() { command aws --region "$REGION" "$@"; }
 
-# Back to the documented 256 MB and variables however the run ends, so a failed run does not
+# Back to the chosen 512 MB and variables however the run ends, so a failed run does not
 # leave the next one starting from a different configuration.
 restore() {
-    aws lambda update-function-configuration --function-name "$FUNCTION" --memory-size 256 \
+    aws lambda update-function-configuration --function-name "$FUNCTION" --memory-size 512 \
         --environment "Variables={TABLE_NAME=$TABLE}" >/dev/null || true
     rm -rf "$work"
 }
@@ -123,5 +123,5 @@ for mb in $MEMORY; do
     done
 done
 
-echo "Done; the function goes back to 256 MB."
-echo "Success: init + cold under 500 ms, warm under 50 ms (doc/deployment/serverless.md)."
+echo "Done; the function goes back to 512 MB."
+echo "Target: init + cold under 500 ms, warm under 50 ms (doc/deployment/serverless.md)."

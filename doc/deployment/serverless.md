@@ -111,7 +111,8 @@ the current backend, to measure the cold start in Frankfurt rather than trust be
   Gateway would send, including the claims its JWT authorizer would pass on.
 - **It succeeds** if a cold invocation, initialisation included, takes **under 500 ms** at
   256 MB, and a warm one under 50 ms. **It fails** if not, and Quarkus with SnapStart is then
-  the fallback, in the language Gunnar knows.
+  the fallback, in the language Gunnar knows. It passed at 512 MB instead
+  ([below](#what-the-spike-measured)).
 - It costs nothing measurable: about a hundred invocations and a table of twenty items.
 
 Running it, as an administrator, from the repository root on `main`:
@@ -131,3 +132,26 @@ where it is not. `measure.sh` uploads the code, writes twenty tasks for the test
 `taskfest-test-one@example.com`, and prints Lambda's own initialisation, cold and warm times at
 128, 256 and 512 MB. The code is in [`serverless/`](../../serverless/), with its conventions in
 `serverless/CLAUDE.md`.
+
+## What the spike measured
+
+Run on 2026-11-10 in qa: five forced cold starts per memory size, each followed by three warm
+calls, all reading the board of twenty tasks. Times in milliseconds, from Lambda's REPORT lines.
+
+| Memory | Initialisation | First call | Cold, together | Warm | Memory used |
+| --- | --- | --- | --- | --- | --- |
+| 128 MB | 58–70 | 1015–1159 | about 1100 | 3–5, two at 50 | 34 MB |
+| 256 MB | 57–70 | 432–545 | 490–615 | 3–5 | 35 MB |
+| **512 MB** | 58–72 | 180–265 | **240–340** | 3–5 | 38 MB |
+
+- **The function runs at 512 MB.** It passes there; at 256 MB it missed the 500 ms in four rounds
+  of five. Lambda bills by memory and time, so 512 MB costs twice as much per millisecond, which
+  at a demo's traffic is still inside the free tier.
+- **Initialisation is flat, the first call is not.** The first call halves each time the memory
+  doubles, and Lambda gives CPU in proportion to memory, so it waits on CPU: most likely the DNS
+  lookup and TLS handshake of the first DynamoDB request. Not measured separately; opening that
+  connection during initialisation is the first thing to try in the port.
+- **Warm calls take 3 to 5 ms**, and the function never used more than 40 MB.
+
+That is ten times faster than the JVM on Lambda without SnapStart, and faster than Quarkus with
+it, so the port goes ahead in Go, at 512 MB.

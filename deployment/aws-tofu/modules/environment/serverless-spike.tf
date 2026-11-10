@@ -108,7 +108,7 @@ resource "aws_lambda_function" "spike" {
   runtime       = "provided.al2023"
   handler       = "bootstrap"
   architectures = ["arm64"]
-  memory_size   = 256
+  memory_size   = 512
   timeout       = 10
   filename      = "${path.module}/../../../../serverless/dist/tasks.zip"
 
