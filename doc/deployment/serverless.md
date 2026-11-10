@@ -74,8 +74,7 @@ Nothing to take down, and `prod` can simply stay up.
   Quarkus backend until #556 moves it.
 - **`internal/api`** holds the routes and wire types, generated from `doc/api/openapi.json`, and
   the handlers. A route not ported yet answers 501. One test checks that every route of the
-  contract is served; the responses checked against the contract are the board's so far, and
-  each ported route brings its own check.
+  contract is served, and each ported route checks its responses against the contract.
 - **`internal/board`** is the domain, with no AWS package in it; **`internal/store`** is DynamoDB.
 - **`internal/auth`** is sign-in, below, and **`internal/gravatar`** the picture fallback.
 
@@ -92,6 +91,39 @@ TABLE_NAME=<table> DYNAMODB_ENDPOINT=http://localhost:8000 AWS_REGION=eu-central
   TASKFEST_OIDC_KEYCLOAK_CLIENT_SECRET=taskfest-secret \
   TASKFEST_OIDC_KEYCLOAK_AUDIENCES=taskfest-app go run ./cmd/api
 ```
+
+## Tasks
+
+The board and creating, replacing and deleting a task (#550) keep every rule of the Quarkus
+backend's `TaskResource`, and its tests are ported case for case: `internal/board` holds the
+rules, `internal/api` the requests, `internal/store` the items.
+
+- **Ids are counted per user**, by `lastTaskId` on the user's `META` item: an atomic `ADD`, then a
+  `PutItem` that may not overwrite, stepping over an id a task written around the count holds. Two
+  writes rather than one transaction, since a transaction cannot hand the counted id to its own
+  `Put`; a create failing in between leaves a gap in the ids, and nothing minds one. A deleted
+  task's id is not given again. Quarkus's ids are unique across all users; nothing relied on that.
+- **Replace and delete are conditional** on the item existing in the caller's partition, so
+  another user's task, or none, is a 404 and nothing is written. A replace that leaves out both
+  the due time and the zone keeps them (#497) by not touching them in the `UpdateItem`.
+- **Validation is Java's, not Go's**, where they differ. A description is blank as `String.isBlank`
+  says (Hibernate Validator 9.1's `@NotBlank`) and measured in UTF-16 code units, as `@Size`
+  measures it. A time in a daylight-saving gap moves later and one in an overlap takes the earlier
+  moment, as `ZonedDateTime.of` does; Go's `time.Date` leaves that open.
+- **Time zones are the names in Go's tzdata, exactly as written** (`zones.gen.go`), but for EST,
+  MST, HST and ROC, which the JDK does not have and refuses. Compared name for name with JDK 25.0.5
+  (tzdata 2026e), the one difference left is the other way round: the JDK still takes six
+  `SystemV/` zones tzdata dropped long ago, which no browser or app sends.
+- **What follows from later stories:** `attachmentIds` on a create, an undo bringing attachments
+  back, is accepted and does nothing until attachments are ported (#552); writing needs the
+  function's role to allow `PutItem`, `UpdateItem` and `DeleteItem`, which the spike's does not
+  (#554).
+- **Keys are read as Jackson reads them:** exactly as written, so `"Description"` is no
+  description, and of a key given twice the last one counts.
+- **Jackson's leniencies about values are not copied.** It takes a number for a string
+  (`"description": 5` was the task "5"), an enum's position for the enum (`"importance": 2` was
+  `HIGH`), and a date as an array or a day count. The Go backend refuses each with a 400; no
+  client sends one.
 
 ## Sign-in
 

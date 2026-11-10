@@ -16,7 +16,7 @@ import (
 	"github.com/guhilling/ai-assisted-todolist/serverless/internal/identity"
 )
 
-// ItemAPI is the DynamoDB calls sessions make.
+// ItemAPI is the DynamoDB calls that read and write single items: sessions' and the task writes'.
 type ItemAPI interface {
 	PutItem(ctx context.Context, in *dynamodb.PutItemInput, opts ...func(*dynamodb.Options)) (*dynamodb.PutItemOutput, error)
 	GetItem(ctx context.Context, in *dynamodb.GetItemInput, opts ...func(*dynamodb.Options)) (*dynamodb.GetItemOutput, error)
@@ -63,6 +63,7 @@ type pendingItem struct {
 	ExpiresAt int64  `dynamodbav:"expiresAt"`
 }
 
+// sessionKey is the key of the session item for this session key.
 func sessionKey(key string) map[string]types.AttributeValue {
 	return map[string]types.AttributeValue{
 		"PK": &types.AttributeValueMemberS{Value: "SESSION#" + key},
@@ -70,6 +71,7 @@ func sessionKey(key string) map[string]types.AttributeValue {
 	}
 }
 
+// pendingKey is the key of the item holding a sign-in under way.
 func pendingKey(key string) map[string]types.AttributeValue {
 	return map[string]types.AttributeValue{
 		"PK": &types.AttributeValueMemberS{Value: "SIGNIN#" + key},

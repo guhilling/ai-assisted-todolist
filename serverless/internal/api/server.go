@@ -37,9 +37,13 @@ type SignIn interface {
 // (unported.go); each story of the port (#547) replaces some of them.
 type Server struct {
 	unported
-	Tasks  TasksSource
+	Tasks TasksSource
+	// Writes is where creates, replaces and deletes of tasks go.
+	Writes TaskWrites
 	Caller Caller
 	SignIn SignIn
+	// Now is the clock a new task's due date is judged by; time.Now when nil.
+	Now func() time.Time
 }
 
 // Routes returns the routes of the contract, served by s, and the sign-in callbacks, which the
@@ -53,9 +57,14 @@ func Routes(s *Server) http.Handler {
 		s.SignIn.Callback(w, r, r.PathValue("provider"))
 	})
 	mux.Handle("/", HandlerWithOptions(s, StdHTTPServerOptions{
-		ErrorHandlerFunc: func(w http.ResponseWriter, _ *http.Request, _ error) {
+		ErrorHandlerFunc: func(w http.ResponseWriter, r *http.Request, _ error) {
 			// A path id that is no number: no such resource, which is what JAX-RS answers too,
-			// and the only answer the contract declares for it.
+			// and the only answer the contract declares for it. To a caller nobody signed in,
+			// 401 first, as @Authenticated answers before the path is read.
+			if _, ok := s.Caller(r); !ok {
+				w.WriteHeader(http.StatusUnauthorized)
+				return
+			}
 			w.WriteHeader(http.StatusNotFound)
 		},
 	}))
@@ -142,6 +151,7 @@ func (s *Server) GetApiTasks(w http.ResponseWriter, r *http.Request) {
 	writeJSON(r.Context(), w, http.StatusOK, out)
 }
 
+// taskResponse is a task as the contract sends it, with its due moment worked out.
 func taskResponse(t board.Task) (TaskResponse, error) {
 	due, err := time.Parse(time.DateOnly, t.DueDate)
 	if err != nil {
@@ -161,6 +171,7 @@ func taskResponse(t board.Task) (TaskResponse, error) {
 	}, nil
 }
 
+// writeJSON answers with v as JSON, or 500 when it does not marshal.
 func writeJSON(ctx context.Context, w http.ResponseWriter, status int, v any) {
 	body, err := json.Marshal(v)
 	if err != nil {

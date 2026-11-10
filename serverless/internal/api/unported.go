@@ -6,13 +6,11 @@ import "net/http"
 // contract from the start. Each method goes when its story (#547) implements the route on Server.
 type unported struct{}
 
+// notImplemented answers 501.
 func notImplemented(w http.ResponseWriter) { w.WriteHeader(http.StatusNotImplemented) }
 
 // DeleteApiAccount answers 501 until ported.
 func (unported) DeleteApiAccount(w http.ResponseWriter, _ *http.Request) { notImplemented(w) }
-
-// PostApiTasks answers 501 until ported.
-func (unported) PostApiTasks(w http.ResponseWriter, _ *http.Request) { notImplemented(w) }
 
 // PostApiTasksDrafts answers 501 until ported.
 func (unported) PostApiTasksDrafts(w http.ResponseWriter, _ *http.Request) { notImplemented(w) }
@@ -26,12 +24,6 @@ func (unported) DeleteApiTasksDraftsId(w http.ResponseWriter, _ *http.Request, _
 func (unported) PostApiTasksDraftsIdAdd(w http.ResponseWriter, _ *http.Request, _ int64) {
 	notImplemented(w)
 }
-
-// DeleteApiTasksId answers 501 until ported.
-func (unported) DeleteApiTasksId(w http.ResponseWriter, _ *http.Request, _ int64) { notImplemented(w) }
-
-// PutApiTasksId answers 501 until ported.
-func (unported) PutApiTasksId(w http.ResponseWriter, _ *http.Request, _ int64) { notImplemented(w) }
 
 // PostApiTasksTaskIdAttachments answers 501 until ported.
 func (unported) PostApiTasksTaskIdAttachments(w http.ResponseWriter, _ *http.Request, _ int64) {
