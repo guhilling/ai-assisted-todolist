@@ -4,6 +4,12 @@
 
 *Accepted · 2026-09-25 · #14*
 
+Revised in part for the Go backend (#549, Gunnar's decisions): the session is an item in DynamoDB,
+not an encrypted cookie, so the cookie holds only a random id and sign-out ends the session on the
+server; and it is never renewed with the provider, ending after eight hours without a request and
+in any case seven days after sign-in
+([serverless.md](../deployment/serverless.md#sign-in)).
+
 **Decision.** The backend is the OIDC client; tokens live in the encrypted `q_session`
 cookie and never reach the browser.
 

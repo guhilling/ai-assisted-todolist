@@ -97,7 +97,7 @@ var parameter = regexp.MustCompile(`\{[^}]+\}`)
 
 func TestEveryRouteOfTheContractIsServed(t *testing.T) {
 	c := loadContract(t)
-	routes := Routes(&Server{Caller: nobody, Tasks: &fakeTasks{}})
+	routes := Routes(&Server{Caller: nobody, Tasks: &fakeTasks{}, SignIn: &fakeSignIn{}})
 
 	for path, ops := range c.doc["paths"].(map[string]any) {
 		for method := range ops.(map[string]any) {

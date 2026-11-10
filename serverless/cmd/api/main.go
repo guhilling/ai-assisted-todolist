@@ -3,7 +3,8 @@
 // plain HTTP server, for local development and the end-to-end tests, so both run the same code.
 //
 // Settings, from the environment: TABLE_NAME, the DynamoDB table; DYNAMODB_ENDPOINT, set only for
-// DynamoDB Local; PORT, for the HTTP server, 8080 by default.
+// DynamoDB Local; PORT, for the HTTP server, 8080 by default; sign-in's, which auth.LoadConfig
+// lists; TASKFEST_GRAVATAR_ENABLED, "false" to never ask Gravatar.
 package main
 
 import (
@@ -21,6 +22,8 @@ import (
 	_ "time/tzdata"
 
 	"github.com/guhilling/ai-assisted-todolist/serverless/internal/api"
+	"github.com/guhilling/ai-assisted-todolist/serverless/internal/auth"
+	"github.com/guhilling/ai-assisted-todolist/serverless/internal/gravatar"
 	"github.com/guhilling/ai-assisted-todolist/serverless/internal/lambdahttp"
 	"github.com/guhilling/ai-assisted-todolist/serverless/internal/store"
 )
@@ -37,8 +40,19 @@ func main() {
 			o.BaseEndpoint = &endpoint
 		}
 	})
-	tasks := store.New(client, os.Getenv("TABLE_NAME"))
-	server := &api.Server{Tasks: tasks, Caller: lambdahttp.ClaimsCaller}
+	table := os.Getenv("TABLE_NAME")
+	tasks := store.New(client, table)
+	authConfig, err := auth.LoadConfig(os.Getenv)
+	if err != nil {
+		slog.Error("the sign-in configuration is wrong", "error", err)
+		os.Exit(1)
+	}
+	avatars := gravatar.New(os.Getenv("TASKFEST_GRAVATAR_ENABLED") != "false", gravatar.DefaultBase)
+	signIn := auth.New(authConfig, store.NewSessions(client, table), avatars)
+	server := &api.Server{Tasks: tasks, SignIn: signIn, Caller: func(r *http.Request) (string, bool) {
+		id, ok := signIn.Identify(r)
+		return id.Email, ok
+	}}
 	routes := api.Routes(server)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)

@@ -17,9 +17,9 @@ import (
 
 type eventKey struct{}
 
-// Event returns the API Gateway event a request came from, for what only the event carries: the
-// claims API Gateway's JWT authorizer passed on. ok is false when the request did not come
-// through Lambda.
+// Event returns the API Gateway event a request came from, for what only the event carries, such
+// as its request id. Nothing reads authorizer claims from it: the backend checks tokens itself.
+// ok is false when the request did not come through Lambda.
 func Event(ctx context.Context) (event events.APIGatewayV2HTTPRequest, ok bool) {
 	event, ok = ctx.Value(eventKey{}).(events.APIGatewayV2HTTPRequest)
 	return event, ok
@@ -82,22 +82,4 @@ func response(header http.Header, status int, body []byte) events.APIGatewayV2HT
 		res.Headers[name] = strings.Join(values, ",")
 	}
 	return res
-}
-
-// ClaimsCaller identifies the caller from the claims API Gateway's JWT authorizer passed on: the
-// email, when the provider says it is verified, which the backend requires of every provider
-// (doc/decisions/authentication.md). The authorizer has already checked signature, issuer,
-// audience and expiry. Outside Lambda nobody is signed in. Sign-in (#549) replaces it.
-func ClaimsCaller(r *http.Request) (email string, ok bool) {
-	event, ok := Event(r.Context())
-	if !ok {
-		return "", false
-	}
-	a := event.RequestContext.Authorizer
-	// Read as the Quarkus backend reads it (VerifiedEmail, Boolean.parseBoolean): "true" in any case.
-	if a == nil || a.JWT == nil || !strings.EqualFold(a.JWT.Claims["email_verified"], "true") {
-		return "", false
-	}
-	email = a.JWT.Claims["email"]
-	return email, email != ""
 }
