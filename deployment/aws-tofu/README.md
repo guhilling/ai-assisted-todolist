@@ -421,8 +421,9 @@ and do the same in `prod`, so the two stay in step.
   is invisible to them. The backend's Fargate tasks get theirs from the service, which hands its
   tags on (#538). Not tagged by OpenTofu: the `cloud.hilling.de` zone, the state bucket and the
   ECR cache repository, which were created outside it and are tagged by hand. The public IPv4
-  charge under VPC is the tasks' addresses, since the load balancer is internal; AWS documents
-  tags for it only on Elastic IPs, and whether the tasks' tags reach it is still open (#538).
+  charge under VPC is the tasks' addresses, since the load balancer is internal. AWS documents
+  tags for it only on Elastic IPs, but the tasks' tags do reach it: Cost Explorer showed qa's
+  charge for 2026-11-10 entirely under `project = taskfest` (#538).
 - **Resource names are prefixed** `<project>-<environment>`, from `local.name` in the module, so
   two environments in one account never collide.
 - **No secret goes in a `.tfvars` file.** Database credentials come from Secrets Manager, and the
