@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strconv"
+	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
@@ -43,11 +45,47 @@ func notThere(err error) bool {
 	return errors.As(err, &failed)
 }
 
+// collisionsBeforeGivingUp bounds how many ids a create steps over that are taken by tasks
+// written around the count (spike/measure.sh seeds some); normally there are none.
+const collisionsBeforeGivingUp = 32
+
 // Create stores a new task for the user, with the next id their META item gives. The two are
 // separate writes rather than one transaction: the count goes up first and atomically, so an id
 // is never given twice, and a create that fails after it only leaves a gap, which nothing minds.
-// A deleted task's id is not given again either.
+// A deleted task's id is not given again either. An id already taken by a task written around
+// the count is stepped over.
 func (w *Writes) Create(ctx context.Context, email string, t board.Task) (board.Task, error) {
+	for range collisionsBeforeGivingUp {
+		id, err := w.nextID(ctx, email)
+		if err != nil {
+			return board.Task{}, err
+		}
+		t.ID = id
+		item, err := attributevalue.MarshalMap(taskItemOf(t))
+		if err != nil {
+			return board.Task{}, fmt.Errorf("write the task: %w", err)
+		}
+		for k, v := range taskKey(email, t.ID) {
+			item[k] = v
+		}
+		_, err = w.client.PutItem(ctx, &dynamodb.PutItemInput{
+			TableName: aws.String(w.table), Item: item,
+			ConditionExpression: aws.String("attribute_not_exists(PK)"),
+		})
+		if notThere(err) {
+			slog.WarnContext(ctx, "a task id was taken without being counted", "task", t.ID)
+			continue
+		}
+		if err != nil {
+			return board.Task{}, fmt.Errorf("write the task: %w", err)
+		}
+		return t, nil
+	}
+	return board.Task{}, errors.New("write the task: every id tried was taken")
+}
+
+// nextID counts the user's next task id on their META item.
+func (w *Writes) nextID(ctx context.Context, email string) (int64, error) {
 	out, err := w.client.UpdateItem(ctx, &dynamodb.UpdateItemInput{
 		TableName: aws.String(w.table),
 		Key: map[string]types.AttributeValue{
@@ -60,31 +98,17 @@ func (w *Writes) Create(ctx context.Context, email string, t board.Task) (board.
 		ReturnValues:              types.ReturnValueUpdatedNew,
 	})
 	if err != nil {
-		return board.Task{}, fmt.Errorf("count the task: %w", err)
+		return 0, fmt.Errorf("count the task: %w", err)
 	}
 	n, ok := out.Attributes[lastTaskID].(*types.AttributeValueMemberN)
 	if !ok {
-		return board.Task{}, errors.New("count the task: no count came back")
+		return 0, errors.New("count the task: no count came back")
 	}
-	if t.ID, err = strconv.ParseInt(n.Value, 10, 64); err != nil {
-		return board.Task{}, fmt.Errorf("count the task: %w", err)
-	}
-
-	item, err := attributevalue.MarshalMap(taskItemOf(t))
+	id, err := strconv.ParseInt(n.Value, 10, 64)
 	if err != nil {
-		return board.Task{}, fmt.Errorf("write the task: %w", err)
+		return 0, fmt.Errorf("count the task: %w", err)
 	}
-	for k, v := range taskKey(email, t.ID) {
-		item[k] = v
-	}
-	_, err = w.client.PutItem(ctx, &dynamodb.PutItemInput{
-		TableName: aws.String(w.table), Item: item,
-		ConditionExpression: aws.String("attribute_not_exists(PK)"),
-	})
-	if err != nil {
-		return board.Task{}, fmt.Errorf("write the task: %w", err)
-	}
-	return t, nil
+	return id, nil
 }
 
 // Replace sets every field of the user's task t.ID to t's, but for the due time and zone when
@@ -102,27 +126,22 @@ func (w *Writes) Replace(ctx context.Context, email string, t board.Task, keepTi
 		":s":  &types.AttributeValueMemberS{Value: string(t.State)},
 	}
 	var remove []string
-	if !keepTime {
-		for _, f := range []struct {
-			name string
-			v    *string
-		}{{"dueTime", t.DueTime}, {"timeZone", t.TimeZone}} {
-			name, v := f.name, f.v
-			names["#"+name] = name
-			if v == nil {
-				remove = append(remove, "#"+name)
-				continue
-			}
-			set += ", #" + name + " = :" + name
-			values[":"+name] = &types.AttributeValueMemberS{Value: *v}
+	field := func(name string, v *string) {
+		names["#"+name] = name
+		if v == nil {
+			remove = append(remove, "#"+name)
+			return
 		}
+		set += ", #" + name + " = :" + name
+		values[":"+name] = &types.AttributeValueMemberS{Value: *v}
+	}
+	if !keepTime {
+		field("dueTime", t.DueTime)
+		field("timeZone", t.TimeZone)
 	}
 	expr := set
 	if len(remove) > 0 {
-		expr += " REMOVE " + remove[0]
-		for _, name := range remove[1:] {
-			expr += ", " + name
-		}
+		expr += " REMOVE " + strings.Join(remove, ", ")
 	}
 	out, err := w.client.UpdateItem(ctx, &dynamodb.UpdateItemInput{
 		TableName:                 aws.String(w.table),

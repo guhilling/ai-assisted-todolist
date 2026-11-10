@@ -447,3 +447,48 @@ func TestTheWritesMatchTheContract(t *testing.T) {
 		t.Errorf("a 204 with a content type: %q", rec.Header().Get("Content-Type"))
 	}
 }
+
+func TestTheLastOfARepeatedKeyCounts(t *testing.T) {
+	// Jackson takes the last occurrence, so a zone sent and then nulled is no zone.
+	s := serverOn(newMemBoard(), as(alice))
+
+	a := created(t, s, `{"description":"Twice","dueDate":"2099-11-30","importance":"LOW","state":"TODO",`+
+		`"dueTime":"10:00","timeZone":"Europe/Berlin","timeZone":null}`)
+
+	if str(a.DueTime) != "10:00" || a.TimeZone != nil || a.DueAt != nil {
+		t.Errorf("answered %+v", a)
+	}
+}
+
+func TestKeysAreMatchedExactlyAsJacksonMatchesThem(t *testing.T) {
+	// "Description" is a key nobody knows, so the description is missing, and Quarkus says 400.
+	s := serverOn(newMemBoard(), as(alice))
+
+	rec := send(s, "POST", "/api/tasks", `{"Description":"x","dueDate":"2099-11-30","importance":"HIGH","state":"TODO"}`)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("got %d", rec.Code)
+	}
+}
+
+func TestAKeyInAnotherCaseDoesNotCountAsSent(t *testing.T) {
+	// "DUETIME" is unknown, so time and zone are both left out and kept (#497).
+	s := serverOn(newMemBoard(), as(alice))
+	created(t, s, taskJSON("Kept", "2099-11-30", "MEDIUM", "TODO", "dueTime", "16:45", "timeZone", "Europe/Berlin"))
+
+	a := answered(t, send(s, "PUT", "/api/tasks/1",
+		`{"description":"Kept","dueDate":"2099-11-30","importance":"MEDIUM","state":"TODO","DUETIME":null}`), http.StatusOK)
+
+	if str(a.DueTime) != "16:45" || str(a.TimeZone) != "Europe/Berlin" {
+		t.Errorf("answered %+v", a)
+	}
+}
+
+func TestASignedOutRequestWithAnIDThatIsNoNumberIsUnauthorised(t *testing.T) {
+	// @Authenticated answers before the path is read: 401, which sends the client to sign in.
+	for _, method := range []string{"PUT", "DELETE"} {
+		if rec := send(serverOn(newMemBoard(), nobody), method, "/api/tasks/abc", ""); rec.Code != http.StatusUnauthorized {
+			t.Errorf("%s: got %d", method, rec.Code)
+		}
+	}
+}

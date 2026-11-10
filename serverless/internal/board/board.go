@@ -30,8 +30,8 @@ const (
 	StateWorking State = "WORKING"
 )
 
-// Task is one task as the board lists it: the fields of the API's TaskResponse that the spike
-// stores.
+// Task is one task, the aggregate the domain model describes: what is stored of it, and what
+// the API's TaskResponse is made from.
 type Task struct {
 	ID          int64
 	Description string

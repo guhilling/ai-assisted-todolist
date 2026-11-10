@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"log/slog"
 	"net/http"
 	"time"
@@ -32,6 +33,7 @@ type optional struct {
 func (o *optional) UnmarshalJSON(b []byte) error {
 	o.sent = true
 	if string(b) == "null" {
+		o.value = nil
 		return nil
 	}
 	// Only as text: an array such as [10, 0, 30] is refused, as DueTimeDeserializer refuses it.
@@ -44,15 +46,37 @@ func (o *optional) UnmarshalJSON(b []byte) error {
 }
 
 // taskRequest is a create or an update as sent. Fields left out read as empty, which the rules
-// refuse; fields the request does not know are ignored, as Quarkus ignores them.
+// refuse; keys the request does not know are ignored, as Quarkus ignores them.
 type taskRequest struct {
-	Description   *string  `json:"description"`
-	DueDate       *string  `json:"dueDate"`
-	DueTime       optional `json:"dueTime"`
-	TimeZone      optional `json:"timeZone"`
-	Importance    string   `json:"importance"`
-	State         string   `json:"state"`
-	AttachmentIDs []int64  `json:"attachmentIds"`
+	Description   *string
+	DueDate       *string
+	DueTime       optional
+	TimeZone      optional
+	Importance    string
+	State         string
+	AttachmentIDs []int64
+}
+
+// decode reads a request body as Jackson reads it, where encoding/json would not: a key counts
+// only as written ("Description" is none), and of a key given twice the last counts.
+func decode(body io.Reader) (taskRequest, error) {
+	var req taskRequest
+	var fields map[string]json.RawMessage
+	if err := json.NewDecoder(body).Decode(&fields); err != nil {
+		return req, err
+	}
+	for key, into := range map[string]any{
+		"description": &req.Description, "dueDate": &req.DueDate,
+		"dueTime": &req.DueTime, "timeZone": &req.TimeZone,
+		"importance": &req.Importance, "state": &req.State, "attachmentIds": &req.AttachmentIDs,
+	} {
+		if raw, ok := fields[key]; ok {
+			if err := json.Unmarshal(raw, into); err != nil {
+				return req, err
+			}
+		}
+	}
+	return req, nil
 }
 
 // task is the request as a task, with id, a left-out time and zone being none.
@@ -72,8 +96,8 @@ func (r taskRequest) task(id int64) board.Task {
 
 // read decodes a request body into a task and checks it, answering 400 when it is not one.
 func read(w http.ResponseWriter, r *http.Request) (taskRequest, bool) {
-	var req taskRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	req, err := decode(r.Body)
+	if err != nil {
 		slog.InfoContext(r.Context(), "a task request does not read", "error", err)
 		w.WriteHeader(http.StatusBadRequest)
 		return req, false

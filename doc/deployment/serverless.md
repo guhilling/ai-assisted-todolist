@@ -98,11 +98,11 @@ The board and creating, replacing and deleting a task (#550) keep every rule of 
 backend's `TaskResource`, and its tests are ported case for case: `internal/board` holds the
 rules, `internal/api` the requests, `internal/store` the items.
 
-- **Ids are counted per user**, by `lastTaskId` on the user's `META` item: an atomic `ADD`, then
-  a `PutItem` that may not overwrite. Two writes rather than one transaction, since a transaction
-  cannot hand the counted id to its own `Put`; a create failing in between leaves a gap in the
-  ids, and nothing minds one. A deleted task's id is not given again. Quarkus's ids are unique
-  across all users; nothing relied on that.
+- **Ids are counted per user**, by `lastTaskId` on the user's `META` item: an atomic `ADD`, then a
+  `PutItem` that may not overwrite, stepping over an id a task written around the count holds. Two
+  writes rather than one transaction, since a transaction cannot hand the counted id to its own
+  `Put`; a create failing in between leaves a gap in the ids, and nothing minds one. A deleted
+  task's id is not given again. Quarkus's ids are unique across all users; nothing relied on that.
 - **Replace and delete are conditional** on the item existing in the caller's partition, so
   another user's task, or none, is a 404 and nothing is written. A replace that leaves out both
   the due time and the zone keeps them (#497) by not touching them in the `UpdateItem`.
@@ -118,8 +118,12 @@ rules, `internal/api` the requests, `internal/store` the items.
   back, is accepted and does nothing until attachments are ported (#552); writing needs the
   function's role to allow `PutItem`, `UpdateItem` and `DeleteItem`, which the spike's does not
   (#554).
-- **One leniency of Jackson's is not copied:** it takes a number for a string field, so
-  `"description": 5` was the task "5"; the Go backend refuses it with a 400. No client sends one.
+- **Keys are read as Jackson reads them:** exactly as written, so `"Description"` is no
+  description, and of a key given twice the last one counts.
+- **Jackson's leniencies about values are not copied.** It takes a number for a string
+  (`"description": 5` was the task "5"), an enum's position for the enum (`"importance": 2` was
+  `HIGH`), and a date as an array or a day count. The Go backend refuses each with a 400; no
+  client sends one.
 
 ## Sign-in
 

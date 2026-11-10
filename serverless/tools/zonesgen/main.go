@@ -5,7 +5,8 @@
 // A list, rather than asking time.LoadLocation whether a name loads, because LoadLocation reads
 // the system's zone files first: on macOS's disk, which ignores case, it loads "europe/berlin",
 // which the Quarkus backend refuses. Generated from the toolchain's own zoneinfo.zip, the list
-// changes only with the Go version, which go.mod pins.
+// changes only with a Go release that brings new tzdata: Serverless CI's drift check then fails
+// until go generate is run with the go.mod version.
 //
 //	go run ./tools/zonesgen <output.go>
 package main
@@ -16,8 +17,8 @@ import (
 	"fmt"
 	"go/format"
 	"os"
+	"os/exec"
 	"path/filepath"
-	"runtime"
 	"slices"
 	"strings"
 )
@@ -33,8 +34,25 @@ func main() {
 	}
 }
 
+// gorootOf is the toolchain's root: $GOROOT, which go generate sets to the go command that
+// invoked it, or else what that command says.
+func gorootOf() (string, error) {
+	if root := os.Getenv("GOROOT"); root != "" {
+		return root, nil
+	}
+	out, err := exec.Command("go", "env", "GOROOT").Output()
+	if err != nil {
+		return "", fmt.Errorf("finding GOROOT: %w", err)
+	}
+	return strings.TrimSpace(string(out)), nil
+}
+
 func run(output string) error {
-	z, err := zip.OpenReader(filepath.Join(runtime.GOROOT(), "lib", "time", "zoneinfo.zip"))
+	goroot, err := gorootOf()
+	if err != nil {
+		return err
+	}
+	z, err := zip.OpenReader(filepath.Join(goroot, "lib", "time", "zoneinfo.zip"))
 	if err != nil {
 		return err
 	}

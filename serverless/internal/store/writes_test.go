@@ -194,3 +194,19 @@ func TestADeletedTasksIDIsNotGivenAgain(t *testing.T) {
 		t.Errorf("id %d given twice", next.ID)
 	}
 }
+
+func TestACreateStepsOverTasksStoredWithoutTheCount(t *testing.T) {
+	// Tasks written around the count, as spike/measure.sh seeds them, must not fail a create.
+	client, table := localTable(t)
+	w := NewWrites(client, table)
+	for _, sk := range []string{"TASK#00000001", "TASK#00000002"} {
+		put(t, client, table, map[string]any{"PK": OwnerKey(one), "SK": sk, "description": "Seeded",
+			"dueDate": "2099-11-30", "importance": "LOW", "state": "TODO"})
+	}
+
+	got, err := w.Create(context.Background(), one, newTask("New"))
+
+	if err != nil || got.ID != 3 {
+		t.Errorf("got %+v, %v; want id 3", got, err)
+	}
+}

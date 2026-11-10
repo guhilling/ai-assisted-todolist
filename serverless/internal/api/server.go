@@ -37,7 +37,8 @@ type SignIn interface {
 // (unported.go); each story of the port (#547) replaces some of them.
 type Server struct {
 	unported
-	Tasks  TasksSource
+	Tasks TasksSource
+	// Writes is where creates, replaces and deletes of tasks go.
 	Writes TaskWrites
 	Caller Caller
 	SignIn SignIn
@@ -56,9 +57,14 @@ func Routes(s *Server) http.Handler {
 		s.SignIn.Callback(w, r, r.PathValue("provider"))
 	})
 	mux.Handle("/", HandlerWithOptions(s, StdHTTPServerOptions{
-		ErrorHandlerFunc: func(w http.ResponseWriter, _ *http.Request, _ error) {
+		ErrorHandlerFunc: func(w http.ResponseWriter, r *http.Request, _ error) {
 			// A path id that is no number: no such resource, which is what JAX-RS answers too,
-			// and the only answer the contract declares for it.
+			// and the only answer the contract declares for it. To a caller nobody signed in,
+			// 401 first, as @Authenticated answers before the path is read.
+			if _, ok := s.Caller(r); !ok {
+				w.WriteHeader(http.StatusUnauthorized)
+				return
+			}
 			w.WriteHeader(http.StatusNotFound)
 		},
 	}))

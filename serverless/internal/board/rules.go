@@ -40,7 +40,7 @@ func Check(t Task) error {
 	case t.TimeZone != nil && t.DueTime == nil:
 		// A zone says where a time is meant, so on an all-day task it would say nothing.
 		return errors.New("a time zone needs a due time")
-	case rank(t.Importance) == rank(""):
+	case t.Importance != ImportanceLow && t.Importance != ImportanceMedium && t.Importance != ImportanceHigh:
 		return errors.New("the importance is none")
 	case t.State != StateTodo && t.State != StateDone:
 		return errors.New("the state is none")

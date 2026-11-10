@@ -74,6 +74,13 @@ for _ in 1 2 3 4 5 6; do
         --output json | left)"
 done
 [[ -z "$batch" ]] || { echo "DynamoDB did not take all twenty tasks." >&2; exit 1; }
+# The user's id count (#550) up to at least twenty, so their next new task does not have to step
+# over the seeded ids; a count already past it is left alone, and the refusal that says so ignored.
+aws dynamodb update-item --table-name "$TABLE" \
+    --key "{\"PK\": {\"S\": \"$owner\"}, \"SK\": {\"S\": \"META\"}}" \
+    --update-expression "SET lastTaskId = :n" \
+    --condition-expression "attribute_not_exists(lastTaskId) OR lastTaskId < :n" \
+    --expression-attribute-values '{":n": {"N": "20"}}' 2>/dev/null || true
 
 cat >"$work/event.json" <<EOF
 {"version": "2.0", "routeKey": "GET /api/tasks", "rawPath": "/api/tasks",
