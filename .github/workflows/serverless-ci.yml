@@ -1,19 +1,23 @@
 name: Serverless CI
 
-# The Go code of the serverless spike (#535): vet, the tests, and the arm64 Lambda build, so a
-# change that would not build for Lambda fails here rather than on Gunnar's machine before an
-# apply. Nothing is deployed: serverless/spike/measure.sh uploads the code by hand.
+# The Go backend (#547): the generated contract code, vet, the tests (DynamoDB Local's among them,
+# in a container), and the arm64 Lambda build, so a change that would not build for Lambda fails
+# here rather than on Gunnar's machine before an apply. It also runs when the contract changes,
+# since the Go code is generated from it. Nothing is deployed yet: serverless/spike/measure.sh
+# uploads the code by hand.
 
 on:
   pull_request:
     paths:
       - 'serverless/**'
+      - 'doc/api/openapi.json'
       - '.github/workflows/serverless-ci.yml'
   push:
     branches:
       - main
     paths:
       - 'serverless/**'
+      - 'doc/api/openapi.json'
       - '.github/workflows/serverless-ci.yml'
 
 permissions:
@@ -31,8 +35,16 @@ jobs:
         with:
           go-version-file: serverless/go.mod
           # Off rather than saved from every branch: caches are saved on main only (#308), and
-          # this module's few dependencies download in seconds.
+          # this module's dependencies download in seconds.
           cache: false
+
+      - name: Generated code is current
+        run: |
+          go generate ./...
+          git diff --exit-code -- . || {
+            echo "::error::internal/api/api.gen.go is stale: run go generate ./... in serverless/"
+            exit 1
+          }
 
       - name: Check formatting
         run: test -z "$(gofmt -l .)" || { gofmt -l .; exit 1; }

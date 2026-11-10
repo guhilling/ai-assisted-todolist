@@ -10,7 +10,7 @@
 | `sonarcloud.yml` | both test suites with coverage, then the Sonar scan |
 | `docs-ci.yml` | the scripts' own tests under `.github/scripts/`, and the consistency checks: doc references (the shared action from [conventions](https://github.com/guhilling/conventions), #455), decision records, the Renovate config, no local issue forms (#457), links to private resources marked (#531), one PostgreSQL version, one CORS rule |
 | `tofu-ci.yml` | `tofu fmt` and `validate` of the AWS roots, and that the two environments match |
-| `serverless-ci.yml` | the Go code of the [serverless spike](../deployment/serverless.md) (#535): gofmt, `go vet`, `go test -race`, the arm64 Lambda build, shellcheck of its scripts; no cache |
+| `serverless-ci.yml` | the [Go backend](../deployment/serverless.md) (#547), also when `doc/api/openapi.json` changes: the generated contract code is current, gofmt, `go vet`, `go test -race` (DynamoDB Local in a container among them), the arm64 Lambda build, shellcheck of its scripts; no cache |
 
 `e2e.yml` uploads the Playwright HTML report as an artifact when it fails, and dumps the
 Compose logs — start there rather than trying to reproduce locally.

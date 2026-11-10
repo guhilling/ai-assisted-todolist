@@ -32,8 +32,17 @@ jobs:
             build-mode: manual
           - language: javascript-typescript
             build-mode: none
+          - language: go
+            build-mode: autobuild
     steps:
       - uses: actions/checkout@v7
+
+      # The runner's Go is older than the one serverless/go.mod asks for.
+      - uses: actions/setup-go@v6
+        if: matrix.language == 'go'
+        with:
+          go-version-file: serverless/go.mod
+          cache: false
 
       - uses: actions/setup-java@v6
         if: matrix.language == 'java-kotlin'

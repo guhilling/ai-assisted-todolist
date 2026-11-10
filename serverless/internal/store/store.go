@@ -84,3 +84,19 @@ func (s *Store) Tasks(ctx context.Context, email string) ([]board.Task, error) {
 		in.ExclusiveStartKey = out.LastEvaluatedKey
 	}
 }
+
+// Prime makes one cheap request, for a partition no user has, so that the connection to DynamoDB
+// (DNS, TLS, credentials) is opened while the function initialises. The spike's first call spent
+// most of its time there, slowed by the CPU Lambda gives a small function
+// (doc/deployment/serverless.md); initialisation is not slowed that way.
+func (s *Store) Prime(ctx context.Context) error {
+	_, err := s.client.Query(ctx, &dynamodb.QueryInput{
+		TableName:              aws.String(s.table),
+		KeyConditionExpression: aws.String("PK = :pk"),
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":pk": &types.AttributeValueMemberS{Value: "PRIME"},
+		},
+		Limit: aws.Int32(1),
+	})
+	return err
+}

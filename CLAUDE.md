@@ -61,9 +61,10 @@ In this repository, stopping to ask applies especially to:
 - **The API contract is generated and drift-gated, never written twice.** The backend's
   OpenAPI document and the per-type JSON Schemas under `doc/api/` come from
   `doc/api/generate.py`; the frontend's wire types and response validators under
-  `frontend/src/generated/` come from `npm run generate:api`. Backend CI and Frontend CI each
-  regenerate their half and fail on any difference, so neither can go stale and neither is
-  hand-edited. A wire change starts at the backend record.
+  `frontend/src/generated/` come from `npm run generate:api`; the Go backend's routes and wire
+  types (`serverless/internal/api/api.gen.go`) come from `go generate ./...` in `serverless/`.
+  Backend CI, Frontend CI and Serverless CI each regenerate their part and fail on any difference,
+  so none can go stale and none is hand-edited. A wire change starts at the backend record.
 - Code-level documentation is Javadoc and TSDoc in the code itself, saying what
   a type is *for*. The conventions are in `backend/CLAUDE.md`,
   `frontend/CLAUDE.md` and `mobile/CLAUDE.md`; on the backend they are enforced by Checkstyle.
