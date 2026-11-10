@@ -66,11 +66,13 @@ Nothing to take down, and `prod` can simply stay up.
 `serverless/CLAUDE.md`.
 
 - **`cmd/api`** is the backend: one binary that serves API Gateway's events on Lambda and plain
-  HTTP anywhere else, so local development and the end-to-end tests run the code Lambda runs.
-  `internal/lambdahttp` turns one into the other.
+  HTTP anywhere else, so that local development and the end-to-end tests can run the code Lambda
+  runs. `internal/lambdahttp` turns one into the other. The end-to-end suite still builds the
+  Quarkus backend until #556 moves it.
 - **`internal/api`** holds the routes and wire types, generated from `doc/api/openapi.json`, and
-  the handlers. A route not ported yet answers 501, and a test checks that every route of the
-  contract is served and that the responses match it.
+  the handlers. A route not ported yet answers 501. One test checks that every route of the
+  contract is served; the responses checked against the contract are the board's so far, and
+  each ported route brings its own check.
 - **`internal/board`** is the domain, with no AWS package in it; **`internal/store`** is DynamoDB.
 
 Locally, with DynamoDB Local on port 8000 and a table created in it:

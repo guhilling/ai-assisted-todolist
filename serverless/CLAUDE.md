@@ -1,8 +1,10 @@
 # serverless/
 
 The Go backend (#547), being ported from Quarkus: `cmd/api` serves every route of the contract,
-the unported ones answering 501, on Lambda or as a plain HTTP server. `cmd/tasks` is the spike's
-handler, kept until the spike's infrastructure goes (#554).
+the unported ones answering 501, on Lambda or as a plain HTTP server. `build.sh` packages
+`cmd/api`, so that is what the spike's function runs and `spike/measure.sh` measures.
+`cmd/tasks` is the spike's original handler, no longer built or measured, and kept until the
+spike's infrastructure goes (#554).
 [doc/deployment/serverless.md](../doc/deployment/serverless.md) has the design and how to run it.
 
 Gunnar does not write or read Go by choice, so the code has to be reviewable by what it does:
