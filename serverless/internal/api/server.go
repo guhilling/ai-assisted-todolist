@@ -151,6 +151,7 @@ func (s *Server) GetApiTasks(w http.ResponseWriter, r *http.Request) {
 	writeJSON(r.Context(), w, http.StatusOK, out)
 }
 
+// taskResponse is a task as the contract sends it, with its due moment worked out.
 func taskResponse(t board.Task) (TaskResponse, error) {
 	due, err := time.Parse(time.DateOnly, t.DueDate)
 	if err != nil {
@@ -170,6 +171,7 @@ func taskResponse(t board.Task) (TaskResponse, error) {
 	}, nil
 }
 
+// writeJSON answers with v as JSON, or 500 when it does not marshal.
 func writeJSON(ctx context.Context, w http.ResponseWriter, status int, v any) {
 	body, err := json.Marshal(v)
 	if err != nil {

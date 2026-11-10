@@ -30,6 +30,7 @@ type optional struct {
 	value *string
 }
 
+// UnmarshalJSON marks the field as sent, and takes its value: null, or text.
 func (o *optional) UnmarshalJSON(b []byte) error {
 	o.sent = true
 	if string(b) == "null" {
@@ -110,6 +111,7 @@ func read(w http.ResponseWriter, r *http.Request) (taskRequest, bool) {
 	return req, true
 }
 
+// now is the server's clock: Now when a test sets it, else the system's.
 func (s *Server) now() time.Time {
 	if s.Now != nil {
 		return s.Now()
@@ -192,6 +194,7 @@ func (s *Server) DeleteApiTasksId(w http.ResponseWriter, r *http.Request, id int
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// answerTask answers with a written task, or 500 when it does not read back as one.
 func (s *Server) answerTask(w http.ResponseWriter, r *http.Request, status int, t board.Task) {
 	response, err := taskResponse(t)
 	if err != nil {

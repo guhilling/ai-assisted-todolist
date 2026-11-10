@@ -23,6 +23,7 @@ import (
 	"strings"
 )
 
+// main writes the zone list to the file named by its one argument.
 func main() {
 	if len(os.Args) != 2 {
 		fmt.Fprintln(os.Stderr, "usage: zonesgen <output.go>")
@@ -47,6 +48,7 @@ func gorootOf() (string, error) {
 	return strings.TrimSpace(string(out)), nil
 }
 
+// run reads the toolchain's zoneinfo.zip and writes the Go file listing its zone names.
 func run(output string) error {
 	goroot, err := gorootOf()
 	if err != nil {

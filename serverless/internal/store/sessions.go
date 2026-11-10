@@ -63,6 +63,7 @@ type pendingItem struct {
 	ExpiresAt int64  `dynamodbav:"expiresAt"`
 }
 
+// sessionKey is the key of the session item for this session key.
 func sessionKey(key string) map[string]types.AttributeValue {
 	return map[string]types.AttributeValue{
 		"PK": &types.AttributeValueMemberS{Value: "SESSION#" + key},
@@ -70,6 +71,7 @@ func sessionKey(key string) map[string]types.AttributeValue {
 	}
 }
 
+// pendingKey is the key of the item holding a sign-in under way.
 func pendingKey(key string) map[string]types.AttributeValue {
 	return map[string]types.AttributeValue{
 		"PK": &types.AttributeValueMemberS{Value: "SIGNIN#" + key},

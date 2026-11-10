@@ -75,6 +75,7 @@ func Sort(tasks []Task) {
 // cache time.LoadLocation, and a board is mostly in one or two zones.
 var zones sync.Map
 
+// loadZone is the named zone, loaded once, or nil when the runtime does not know it.
 func loadZone(name string) *time.Location {
 	if z, ok := zones.Load(name); ok {
 		return z.(*time.Location)

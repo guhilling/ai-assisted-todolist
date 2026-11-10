@@ -97,6 +97,7 @@ func KnownZone(name string) bool {
 	return !start.IsZero() || !end.IsZero()
 }
 
+// isDate says whether s is a date as the contract writes it, 2026-11-10.
 func isDate(s string) bool {
 	_, err := time.Parse(time.DateOnly, s)
 	return err == nil

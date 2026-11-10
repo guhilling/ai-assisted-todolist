@@ -6,6 +6,7 @@ import "net/http"
 // contract from the start. Each method goes when its story (#547) implements the route on Server.
 type unported struct{}
 
+// notImplemented answers 501.
 func notImplemented(w http.ResponseWriter) { w.WriteHeader(http.StatusNotImplemented) }
 
 // DeleteApiAccount answers 501 until ported.

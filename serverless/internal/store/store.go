@@ -51,6 +51,7 @@ type taskItem struct {
 	State       string  `dynamodbav:"state"`
 }
 
+// task is the stored task as the domain's.
 func (it taskItem) task() board.Task {
 	return board.Task{
 		ID: it.ID, Description: it.Description, DueDate: it.DueDate,
@@ -59,6 +60,7 @@ func (it taskItem) task() board.Task {
 	}
 }
 
+// taskItemOf is the domain's task as stored.
 func taskItemOf(t board.Task) taskItem {
 	return taskItem{
 		ID: t.ID, Description: t.Description, DueDate: t.DueDate,

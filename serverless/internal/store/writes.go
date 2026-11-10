@@ -33,6 +33,7 @@ func NewWrites(client ItemAPI, table string) *Writes {
 // will take theirs from it too (#551), since a draft keeps its id when it is added.
 const lastTaskID = "lastTaskId"
 
+// taskKey is the key of the user's task with this id.
 func taskKey(email string, id int64) map[string]types.AttributeValue {
 	return map[string]types.AttributeValue{
 		"PK": &types.AttributeValueMemberS{Value: OwnerKey(email)},
@@ -40,6 +41,7 @@ func taskKey(email string, id int64) map[string]types.AttributeValue {
 	}
 }
 
+// notThere says whether a write failed its condition: the item is not, or no longer, there.
 func notThere(err error) bool {
 	var failed *types.ConditionalCheckFailedException
 	return errors.As(err, &failed)
