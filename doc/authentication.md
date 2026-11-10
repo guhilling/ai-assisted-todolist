@@ -1,5 +1,10 @@
 # Authentication
 
+This chapter describes the Quarkus backend, which runs today. The Go backend that replaces it
+(#547) signs in the same way, with two differences Gunnar decided on #549: the website's session
+is stored in DynamoDB rather than carried in an encrypted cookie, and it is never renewed with
+the provider. [serverless.md](deployment/serverless.md#sign-in) has the details.
+
 ## The shape: backend-for-frontend
 
 The backend is the OIDC **client**. It performs the authorization code exchange itself and

@@ -83,21 +83,3 @@ func response(header http.Header, status int, body []byte) events.APIGatewayV2HT
 	}
 	return res
 }
-
-// ClaimsCaller identifies the caller from the claims API Gateway's JWT authorizer passed on: the
-// email, when the provider says it is verified, which the backend requires of every provider
-// (doc/decisions/authentication.md). The authorizer has already checked signature, issuer,
-// audience and expiry. Outside Lambda nobody is signed in. Sign-in (#549) replaces it.
-func ClaimsCaller(r *http.Request) (email string, ok bool) {
-	event, ok := Event(r.Context())
-	if !ok {
-		return "", false
-	}
-	a := event.RequestContext.Authorizer
-	// Read as the Quarkus backend reads it (VerifiedEmail, Boolean.parseBoolean): "true" in any case.
-	if a == nil || a.JWT == nil || !strings.EqualFold(a.JWT.Claims["email_verified"], "true") {
-		return "", false
-	}
-	email = a.JWT.Claims["email"]
-	return email, email != ""
-}

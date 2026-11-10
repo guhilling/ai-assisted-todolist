@@ -50,7 +50,10 @@ Nothing to take down, and `prod` can simply stay up.
   has one handler.
 - **DynamoDB, one table.** The partition key is the user, `USER#<sha256 of the email>`; the sort
   key says what the item is: `META` for the user, `TASK#<id>`, `DRAFT#<id>`, `ATT#<id>`. A
-  board is one `Query` on `TASK#`, and a draft, which is no task yet, never matches it. Task stays the aggregate the [domain model](../domain-model.md) says it is.
+  board is one `Query` on `TASK#`, and a draft, which is no task yet, never matches it. Task
+  stays the aggregate the [domain model](../domain-model.md) says it is. The website's sessions
+  and its sign-ins under way have partitions of their own, `SESSION#<key>` and `SIGNIN#<key>`
+  ([Sign-in](#sign-in)).
 - **The per-user limits** (five drafts, five attachments, two per task) become counters on the
   user's `META` item, changed in the same conditional transaction as the item they count. That
   replaces the row lock (`User.lockRow`).
@@ -74,17 +77,52 @@ Nothing to take down, and `prod` can simply stay up.
   contract is served; the responses checked against the contract are the board's so far, and
   each ported route brings its own check.
 - **`internal/board`** is the domain, with no AWS package in it; **`internal/store`** is DynamoDB.
+- **`internal/auth`** is sign-in, below, and **`internal/gravatar`** the picture fallback.
 
-Locally, with DynamoDB Local on port 8000 and a table created in it:
+Locally, with DynamoDB Local on port 8000 and a table created in it, and the end-to-end stack's
+Keycloak on port 8082:
 
 ```sh
 cd serverless
 TABLE_NAME=<table> DYNAMODB_ENDPOINT=http://localhost:8000 AWS_REGION=eu-central-1 \
-  AWS_ACCESS_KEY_ID=local AWS_SECRET_ACCESS_KEY=local go run ./cmd/api
+  AWS_ACCESS_KEY_ID=local AWS_SECRET_ACCESS_KEY=local \
+  TASKFEST_AUTH_ENABLED=true TASKFEST_AUTH_PROVIDERS=keycloak TASKFEST_COOKIE_SECURE=false \
+  TASKFEST_OIDC_KEYCLOAK_ISSUER=http://localhost:8082/realms/taskfest \
+  TASKFEST_OIDC_KEYCLOAK_CLIENT_ID=taskfest-backend \
+  TASKFEST_OIDC_KEYCLOAK_CLIENT_SECRET=taskfest-secret \
+  TASKFEST_OIDC_KEYCLOAK_AUDIENCES=taskfest-app go run ./cmd/api
 ```
 
-Until sign-in is ported (#549) nobody is signed in there, so the board answers 401; on Lambda the
-caller is read from the claims API Gateway's JWT authorizer passes on, as in the spike.
+## Sign-in
+
+The Go backend signs in as the Quarkus backend does ([authentication.md](../authentication.md)),
+with the same paths, callbacks included, so the redirect URIs registered at Google and Cognito
+stay valid. The website signs in through the backend and gets a cookie; the apps send a bearer
+ID token. Every provider must vouch for the email, a bearer token must have been issued to one
+of the provider's named clients and be an ID token, and the provider list and the Gravatar
+fallback are unchanged. The function checks bearer tokens itself, not API Gateway's JWT
+authorizer: the cookie needs the function anyway, and one place decides for both.
+
+Two things differ, by Gunnar's decision on #549:
+
+- **The session is stored, not carried.** The cookie, `taskfest_session`, holds a random value;
+  the session is the item `SESSION#<its SHA-256>`, so the table holds nothing that lets anyone
+  in. Sign-out deletes it, so a copied cookie stops working too, which Quarkus's encrypted
+  `q_session` did not. No chunked cookies, no encryption key. A sign-in under way is a
+  `SIGNIN#` item, with its PKCE verifier and nonce, taken and deleted in one request by the
+  callback, so a callback works once.
+- **It is not renewed with the provider.** After a verified sign-in the session keeps the email,
+  name and picture, and nothing of the provider's tokens. It ends after **eight hours without a
+  request**, as before, and in any case **seven days after signing in**. There are no refresh
+  tokens and no offline access, and nothing happens at the hour mark, where Quarkus's renewal
+  once broke every sign-in; the price is that a withdrawn account stays signed in for up to
+  seven days rather than an hour.
+
+Both kinds of item carry `expiresAt`, the table's TTL attribute, and the backend checks the times
+itself as well, since TTL deletes late. A busy session records its latest request at most every
+five minutes. A request with no or an ended session gets a 401: Quarkus answered the website's
+scripts a 499 instead, and the frontend treats both alike. Signing in or out also expires any
+`q_session` and `q_auth` cookie left from the Quarkus backend.
 
 ## Why Go
 
