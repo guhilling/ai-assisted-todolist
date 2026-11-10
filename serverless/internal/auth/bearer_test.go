@@ -7,6 +7,8 @@ import (
 	"net/http/httptest"
 	"testing"
 	"time"
+
+	"github.com/guhilling/ai-assisted-todolist/serverless/internal/identity"
 )
 
 func serviceFor(f *fakeProvider, extra ...Provider) (*Service, *memStore) {
@@ -123,15 +125,40 @@ func TestTheTokensIssuerChoosesTheProvider(t *testing.T) {
 	}
 }
 
-func TestWithoutAPictureTheAvatarIsLookedUp(t *testing.T) {
+func TestABearerRequestNeverWaitsForGravatar(t *testing.T) {
+	f := newFakeProvider(t)
+	s, _ := serviceFor(f)
+	avatars := &noAvatars{}
+	s.avatars = avatars
+
+	s.Identify(withBearer(f.sign(nil)))
+
+	if avatars.asked != 0 {
+		t.Errorf("asked Gravatar %d times on a bearer request", avatars.asked)
+	}
+}
+
+func TestWithPictureFillsInOnlyAMissingPicture(t *testing.T) {
 	f := newFakeProvider(t)
 	s, _ := serviceFor(f)
 	s.avatars = fixedAvatars("https://gravatar.example.com/x")
 
-	id, _ := s.Identify(withBearer(f.sign(nil)))
+	if got := s.WithPicture(t.Context(), identity.Identity{Email: "a@example.com"}); got.Picture != "https://gravatar.example.com/x" {
+		t.Errorf("missing: %q", got.Picture)
+	}
+	if got := s.WithPicture(t.Context(), identity.Identity{Picture: "own"}); got.Picture != "own" {
+		t.Errorf("own: %q", got.Picture)
+	}
+}
 
-	if id.Picture != "https://gravatar.example.com/x" {
-		t.Errorf("picture %q", id.Picture)
+func TestProvidersSharingAnIssuerEachAcceptTheirOwnClientsTokens(t *testing.T) {
+	f := newFakeProvider(t)
+	s, _ := serviceFor(f, Provider{ID: "app", Issuer: f.issuer(), ClientID: "app-client"})
+
+	id, ok := s.Identify(withBearer(f.sign(map[string]any{"aud": "app-client"})))
+
+	if !ok || id.Provider != "app" {
+		t.Errorf("got %+v, %v", id, ok)
 	}
 }
 

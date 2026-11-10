@@ -17,9 +17,9 @@ import (
 
 type eventKey struct{}
 
-// Event returns the API Gateway event a request came from, for what only the event carries: the
-// claims API Gateway's JWT authorizer passed on. ok is false when the request did not come
-// through Lambda.
+// Event returns the API Gateway event a request came from, for what only the event carries, such
+// as its request id. Nothing reads authorizer claims from it: the backend checks tokens itself.
+// ok is false when the request did not come through Lambda.
 func Event(ctx context.Context) (event events.APIGatewayV2HTTPRequest, ok bool) {
 	event, ok = ctx.Value(eventKey{}).(events.APIGatewayV2HTTPRequest)
 	return event, ok

@@ -40,10 +40,20 @@ func TestTheConfigurationComesFromTheEnvironment(t *testing.T) {
 	}
 }
 
-func TestAProviderWithoutAnIssuerOrAPathSafeIdStopsTheStart(t *testing.T) {
+func TestTheSwitchesReadTrueAndFalseInAnyCase(t *testing.T) {
+	c, err := LoadConfig(env(map[string]string{"TASKFEST_AUTH_ENABLED": "TRUE", "TASKFEST_COOKIE_SECURE": "False"}))
+
+	if err != nil || !c.Enabled || c.SecureCookies {
+		t.Errorf("got %+v, %v", c, err)
+	}
+}
+
+func TestAProviderWithoutAnIssuerOrWithAnIdThatIsUnsafeTakenOrCollidingStopsTheStart(t *testing.T) {
 	for _, values := range []map[string]string{
 		{"TASKFEST_AUTH_PROVIDERS": "google"},
 		{"TASKFEST_AUTH_PROVIDERS": "a/b", "TASKFEST_OIDC_A/B_ISSUER": "https://x.example.com"},
+		{"TASKFEST_AUTH_PROVIDERS": "google,google", "TASKFEST_OIDC_GOOGLE_ISSUER": "https://x.example.com"},
+		{"TASKFEST_AUTH_PROVIDERS": "my-idp,my_idp", "TASKFEST_OIDC_MY_IDP_ISSUER": "https://x.example.com"},
 	} {
 		if _, err := LoadConfig(env(values)); err == nil {
 			t.Errorf("%v: no error", values)

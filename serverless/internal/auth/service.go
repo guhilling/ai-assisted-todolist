@@ -114,16 +114,28 @@ func (s *Service) bearer(ctx context.Context, header string) (identity.Identity,
 	if !ok {
 		return identity.Identity{}, refused("not a JWT")
 	}
+	err := refused("no provider issues %q", issuer)
+	// Two providers may share an issuer, as two clients of one Cognito pool would; the token is
+	// whichever's it was issued to.
 	for _, p := range s.cfg.Providers {
-		if p.Issuer == issuer && p.ClientID != "" {
-			id, _, err := verifyIDToken(ctx, s.discovery, p, raw, p.audiences())
-			if err == nil && id.Picture == "" {
-				id.Picture = s.avatars.Lookup(ctx, id.Email)
-			}
-			return id, err
+		if p.Issuer != issuer || p.ClientID == "" {
+			continue
+		}
+		var id identity.Identity
+		if id, _, err = verifyIDToken(ctx, s.discovery, p, raw, p.audiences()); err == nil {
+			return id, nil
 		}
 	}
-	return identity.Identity{}, refused("no provider issues %q", issuer)
+	return identity.Identity{}, err
+}
+
+// WithPicture fills in a picture from Gravatar where the provider sent none. Only /api/auth/me
+// shows one, so only it asks, rather than every request an app sends.
+func (s *Service) WithPicture(ctx context.Context, id identity.Identity) identity.Identity {
+	if id.Picture == "" {
+		id.Picture = s.avatars.Lookup(ctx, id.Email)
+	}
+	return id
 }
 
 func (s *Service) session(ctx context.Context, token string) (identity.Identity, bool) {
@@ -221,8 +233,10 @@ func (s *Service) Callback(w http.ResponseWriter, r *http.Request, id string) {
 			level = slog.LevelInfo
 		}
 		slog.Log(r.Context(), level, "sign-in refused", "provider", p.ID, "reason", err.Error())
+		// Back to the app, signed out, which offers sign-in again: a second tab's sign-in, a
+		// callback used twice or a cancelled sign-in would otherwise end on a blank page.
 		http.SetCookie(w, s.cookie(SignInCookie, "", -1))
-		w.WriteHeader(http.StatusUnauthorized)
+		s.backToTheApp(w, r)
 		return
 	}
 	token := random()

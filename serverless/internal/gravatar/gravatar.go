@@ -20,7 +20,8 @@ const DefaultBase = "https://gravatar.com/avatar/"
 // query asks for a 404 instead of an invented picture, at the size the frontend shows.
 const query = "?d=404&s=200"
 
-// Gravatar looks pictures up, remembering each answer for the life of the execution environment:
+// Gravatar looks pictures up, remembering each answer, yes or no, for the life of the execution
+// environment:
 // /api/auth/me is asked on every page load, and an outbound request each time would be a cost on
 // the sign-in path. A failure is no answer, not an error: nobody is kept from their tasks because
 // an avatar service is slow.
@@ -56,23 +57,28 @@ func (g *Gravatar) Lookup(ctx context.Context, email string) string {
 		return url.(string)
 	}
 	url := URL(g.base, email)
-	if !g.exists(ctx, url) {
+	exists, answered := g.exists(ctx, url)
+	if !exists {
 		url = ""
 	}
-	g.cache.Store(email, url)
+	if answered {
+		// Only an answer is remembered; a failure is asked again next time.
+		g.cache.Store(email, url)
+	}
 	return url
 }
 
-func (g *Gravatar) exists(ctx context.Context, url string) bool {
+// exists asks whether there is a picture at url; answered is false when Gravatar gave no answer.
+func (g *Gravatar) exists(ctx context.Context, url string) (exists, answered bool) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodHead, url, nil)
 	if err != nil {
-		return false
+		return false, false
 	}
 	res, err := g.client.Do(req)
 	if err != nil {
 		slog.WarnContext(ctx, "asking Gravatar failed", "error", err)
-		return false
+		return false, false
 	}
 	_ = res.Body.Close()
-	return res.StatusCode == http.StatusOK
+	return res.StatusCode == http.StatusOK, res.StatusCode < http.StatusInternalServerError
 }

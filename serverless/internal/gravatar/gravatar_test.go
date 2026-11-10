@@ -64,6 +64,21 @@ func TestNoPictureIsNoAnswerAndRememberedToo(t *testing.T) {
 	}
 }
 
+func TestAFailureIsNoPictureButNotRemembered(t *testing.T) {
+	var asked atomic.Int32
+	srv := gravatarAnswering(http.StatusServiceUnavailable, &asked)
+	defer srv.Close()
+	g := New(true, srv.URL+"/avatar/")
+
+	if got := g.Lookup(context.Background(), "person@example.com"); got != "" {
+		t.Errorf("got %q", got)
+	}
+	g.Lookup(context.Background(), "person@example.com")
+	if asked.Load() != 2 {
+		t.Errorf("asked %d times; a failure must be asked again", asked.Load())
+	}
+}
+
 func TestAnUnreachableGravatarIsNoPicture(t *testing.T) {
 	srv := httptest.NewServer(http.NotFoundHandler())
 	srv.Close()

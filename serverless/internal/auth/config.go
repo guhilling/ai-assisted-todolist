@@ -101,19 +101,24 @@ type Config struct {
 // listed, as with the Quarkus backend.
 func LoadConfig(getenv func(string) string) (Config, error) {
 	c := Config{
-		Enabled:           getenv("TASKFEST_AUTH_ENABLED") == "true",
+		Enabled:           strings.EqualFold(getenv("TASKFEST_AUTH_ENABLED"), "true"),
 		PostLoginRedirect: getenv("TASKFEST_AUTH_POST_LOGIN_REDIRECT_URI"),
 		PublicOrigin:      strings.TrimSuffix(getenv("TASKFEST_PUBLIC_ORIGIN"), "/"),
-		SecureCookies:     getenv("TASKFEST_COOKIE_SECURE") != "false",
+		SecureCookies:     !strings.EqualFold(getenv("TASKFEST_COOKIE_SECURE"), "false"),
 	}
 	if c.PostLoginRedirect == "" {
 		c.PostLoginRedirect = "/"
 	}
+	keys := map[string]string{}
 	for i, id := range list(getenv("TASKFEST_AUTH_PROVIDERS")) {
 		if len(id) > maxProviderIDLength || strings.ContainsAny(id, "/?#") {
 			return Config{}, fmt.Errorf("provider id %q is not usable in a path", id)
 		}
 		key := "TASKFEST_OIDC_" + strings.ToUpper(strings.ReplaceAll(id, "-", "_")) + "_"
+		if other, taken := keys[key]; taken {
+			return Config{}, fmt.Errorf("providers %q and %q would both be configured by %s*", other, id, key)
+		}
+		keys[key] = id
 		p := Provider{
 			ID: id, Label: getenv(key + "LABEL"), Issuer: getenv(key + "ISSUER"),
 			ClientID: getenv(key + "CLIENT_ID"), ClientSecret: getenv(key + "CLIENT_SECRET"),

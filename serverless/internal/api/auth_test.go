@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -17,6 +18,7 @@ type fakeSignIn struct {
 	cfg      auth.Config
 	provider string
 	called   string
+	picture  string
 }
 
 func (f *fakeSignIn) Identify(*http.Request) (identity.Identity, bool) {
@@ -43,6 +45,13 @@ func (f *fakeSignIn) Logout(w http.ResponseWriter, _ *http.Request) {
 
 func (f *fakeSignIn) Config() auth.Config { return f.cfg }
 
+func (f *fakeSignIn) WithPicture(_ context.Context, id identity.Identity) identity.Identity {
+	if id.Picture == "" {
+		id.Picture = f.picture
+	}
+	return id
+}
+
 func serve(s *Server, method, path string) *httptest.ResponseRecorder {
 	rec := httptest.NewRecorder()
 	Routes(s).ServeHTTP(rec, httptest.NewRequest(method, path, nil))
@@ -68,6 +77,18 @@ func TestMeIsTheSignedInIdentityWithNullsForWhatTheProviderDidNotSay(t *testing.
 	}
 	if picture, present := body["pictureUrl"]; !present || picture != nil {
 		t.Errorf("pictureUrl: present %v, %v; want null", present, picture)
+	}
+}
+
+func TestMeShowsTheFallbackPictureWhereTheProviderSentNone(t *testing.T) {
+	s := &Server{SignIn: &fakeSignIn{who: &identity.Identity{Email: "person@example.com"},
+		picture: "https://gravatar.example.com/p"}}
+
+	var body map[string]any
+	_ = json.Unmarshal(serve(s, "GET", "/api/auth/me").Body.Bytes(), &body)
+
+	if body["pictureUrl"] != "https://gravatar.example.com/p" {
+		t.Errorf("got %v", body)
 	}
 }
 
@@ -118,19 +139,5 @@ func TestEachSignInPathGoesToItsProvider(t *testing.T) {
 		if f.called != want[0] || f.provider != want[1] {
 			t.Errorf("%s: %s %q; want %s %q", path, f.called, f.provider, want[0], want[1])
 		}
-	}
-}
-
-func TestAnOverlongProviderIdIsNotFound(t *testing.T) {
-	f := &fakeSignIn{}
-	long := make([]byte, 65)
-	for i := range long {
-		long[i] = 'a'
-	}
-
-	rec := serve(&Server{SignIn: f}, "GET", "/api/auth/login/"+string(long))
-
-	if rec.Code != http.StatusNotFound || f.called != "" {
-		t.Errorf("got %d, %q", rec.Code, f.called)
 	}
 }

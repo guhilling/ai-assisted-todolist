@@ -121,8 +121,10 @@ Two things differ, by Gunnar's decision on #549:
 Both kinds of item carry `expiresAt`, the table's TTL attribute, and the backend checks the times
 itself as well, since TTL deletes late. A busy session records its latest request at most every
 five minutes. A request with no or an ended session gets a 401: Quarkus answered the website's
-scripts a 499 instead, and the frontend treats both alike. Signing in or out also expires any
-`q_session` and `q_auth` cookie left from the Quarkus backend.
+scripts a 499 instead, and the frontend treats both alike. A sign-in that fails at the callback
+(a second tab's, a callback used twice, one cancelled at the provider) goes back to the app,
+signed out, rather than to Quarkus's blank 401. Signing in or out also expires any `q_session`
+and `q_auth` cookie left from the Quarkus backend.
 
 ## Why Go
 

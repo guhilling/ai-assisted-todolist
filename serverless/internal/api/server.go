@@ -26,6 +26,7 @@ type Caller func(r *http.Request) (email string, ok bool)
 // SignIn is sign-in as the routes need it: internal/auth's Service, or a test's.
 type SignIn interface {
 	Identify(r *http.Request) (identity.Identity, bool)
+	WithPicture(ctx context.Context, id identity.Identity) identity.Identity
 	Login(w http.ResponseWriter, r *http.Request, provider string)
 	Callback(w http.ResponseWriter, r *http.Request, provider string)
 	Logout(w http.ResponseWriter, r *http.Request)
@@ -40,9 +41,6 @@ type Server struct {
 	Caller Caller
 	SignIn SignIn
 }
-
-// maxProviderIDLength bounds the provider in /api/auth/login/{provider}, as the contract does.
-const maxProviderIDLength = 64
 
 // Routes returns the routes of the contract, served by s, and the sign-in callbacks, which the
 // contract leaves out because only a provider calls them.
@@ -86,6 +84,7 @@ func (s *Server) GetApiAuthMe(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
 		return
 	}
+	id = s.SignIn.WithPicture(r.Context(), id)
 	writeJSON(r.Context(), w, http.StatusOK, CurrentUserResponse{
 		Email: openapi_types.Email(id.Email), Name: orNull(id.Name), PictureUrl: orNull(id.Picture),
 	})
@@ -98,10 +97,6 @@ func (s *Server) GetApiAuthLogin(w http.ResponseWriter, r *http.Request) {
 
 // GetApiAuthLoginProvider starts sign-in with one of the further providers.
 func (s *Server) GetApiAuthLoginProvider(w http.ResponseWriter, r *http.Request, provider string) {
-	if len(provider) > maxProviderIDLength {
-		http.NotFound(w, r)
-		return
-	}
 	s.SignIn.Login(w, r, provider)
 }
 

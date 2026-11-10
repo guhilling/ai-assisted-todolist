@@ -75,6 +75,21 @@ func signIn(t *testing.T, s *Service, f *fakeProvider, b *browser, claims map[st
 	return callback(s, b, "", url.Values{"code": {"the-code"}, "state": {asked.Get("state")}})
 }
 
+// refusedBackToTheApp checks a callback that was refused: back to the app, signed out, with
+// nothing of the sign-in left in the browser.
+func refusedBackToTheApp(t *testing.T, res *http.Response, b *browser) {
+	t.Helper()
+	if res.StatusCode != http.StatusSeeOther || res.Header.Get("Location") != "/" {
+		t.Errorf("got %d to %q; want 303 to /", res.StatusCode, res.Header.Get("Location"))
+	}
+	if _, ok := b.cookies[SessionCookie]; ok {
+		t.Error("a session cookie was set")
+	}
+	if _, ok := b.cookies[SignInCookie]; ok {
+		t.Error("the sign-in cookie was left")
+	}
+}
+
 func TestSignInStartsTheCodeFlowWithPKCEAndANonce(t *testing.T) {
 	f := newFakeProvider(t)
 	s, _ := serviceFor(f)
@@ -137,11 +152,10 @@ func TestACallbackFromAnotherBrowserIsRefused(t *testing.T) {
 	asked := startSignIn(t, s, newBrowser(), "")
 	f.issue("the-code", asked.Get("code_challenge"), map[string]any{"nonce": asked.Get("nonce")})
 
-	res := callback(s, newBrowser(), "", url.Values{"code": {"the-code"}, "state": {asked.Get("state")}})
+	other := newBrowser()
+	res := callback(s, other, "", url.Values{"code": {"the-code"}, "state": {asked.Get("state")}})
 
-	if res.StatusCode != http.StatusUnauthorized {
-		t.Errorf("got %d; want 401", res.StatusCode)
-	}
+	refusedBackToTheApp(t, res, other)
 }
 
 func TestACallbackWorksOnce(t *testing.T) {
@@ -155,11 +169,10 @@ func TestACallbackWorksOnce(t *testing.T) {
 	b.cookies[SignInCookie] = state
 	f.issue("the-code", asked.Get("code_challenge"), map[string]any{"nonce": asked.Get("nonce")})
 
+	delete(b.cookies, SessionCookie)
 	res := callback(s, b, "", url.Values{"code": {"the-code"}, "state": {asked.Get("state")}})
 
-	if res.StatusCode != http.StatusUnauthorized {
-		t.Errorf("a replayed callback got %d; want 401", res.StatusCode)
-	}
+	refusedBackToTheApp(t, res, b)
 }
 
 func TestASignInIsRefusedForAnotherNonceAnUnverifiedEmailOrAProviderError(t *testing.T) {
@@ -173,18 +186,11 @@ func TestASignInIsRefusedForAnotherNonceAnUnverifiedEmailOrAProviderError(t *tes
 		"an access token":  {"typ": "Bearer"},
 	} {
 		b := newBrowser()
-		if res := signIn(t, s, f, b, claims); res.StatusCode != http.StatusUnauthorized {
-			t.Errorf("%s: got %d; want 401", name, res.StatusCode)
-		}
-		if _, ok := b.cookies[SessionCookie]; ok {
-			t.Errorf("%s: a session cookie was set", name)
-		}
+		t.Run(name, func(t *testing.T) { refusedBackToTheApp(t, signIn(t, s, f, b, claims), b) })
 	}
 	b := newBrowser()
 	asked := startSignIn(t, s, b, "")
-	if res := callback(s, b, "", url.Values{"error": {"access_denied"}, "state": {asked.Get("state")}}); res.StatusCode != http.StatusUnauthorized {
-		t.Errorf("a provider's error got %d", res.StatusCode)
-	}
+	refusedBackToTheApp(t, callback(s, b, "", url.Values{"error": {"access_denied"}, "state": {asked.Get("state")}}), b)
 }
 
 func TestSigningInWhileSignedInGoesBackToTheApp(t *testing.T) {
@@ -317,7 +323,5 @@ func TestAFurtherProviderSignsInAtItsOwnCallback(t *testing.T) {
 	if !strings.HasSuffix(asked.Get("redirect_uri"), "/api/auth/callback/cognito") {
 		t.Errorf("redirect_uri %q", asked.Get("redirect_uri"))
 	}
-	if res := callback(s, b, "", url.Values{"code": {"c"}, "state": {asked.Get("state")}}); res.StatusCode != http.StatusUnauthorized {
-		t.Errorf("the main provider's callback finished another's sign-in: %d", res.StatusCode)
-	}
+	refusedBackToTheApp(t, callback(s, b, "", url.Values{"code": {"c"}, "state": {asked.Get("state")}}), b)
 }

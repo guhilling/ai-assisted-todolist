@@ -6,9 +6,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"slices"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
 
@@ -23,27 +25,50 @@ func refused(format string, args ...any) error {
 	return fmt.Errorf("%w: %s", ErrRefused, fmt.Sprintf(format, args...))
 }
 
-// discovery finds each provider's keys and endpoints once per execution environment, on first
-// use, and tries again after a failure rather than remembering it.
+// discoveryTimeout bounds every request to a provider for its metadata and keys, so a provider
+// that hangs costs a request seconds, not the function's whole timeout.
+const discoveryTimeout = 5 * time.Second
+
+// discovery finds each provider's endpoints once per execution environment, on first use, and
+// tries again after a failure rather than remembering it. Each issuer has a lock of its own, so a
+// provider that is slow to answer holds up only the requests that need it. The provider it
+// returns caches its signing keys, fetching them again only for a key it does not know.
 type discovery struct {
-	mu        sync.Mutex
-	providers map[string]*oidc.Provider
+	mu      sync.Mutex
+	issuers map[string]*discovered
+}
+
+type discovered struct {
+	mu       sync.Mutex
+	provider *oidc.Provider
 }
 
 func (d *discovery) provider(ctx context.Context, issuer string) (*oidc.Provider, error) {
 	d.mu.Lock()
-	defer d.mu.Unlock()
-	if p, ok := d.providers[issuer]; ok {
-		return p, nil
+	if d.issuers == nil {
+		d.issuers = map[string]*discovered{}
 	}
+	entry, ok := d.issuers[issuer]
+	if !ok {
+		entry = &discovered{}
+		d.issuers[issuer] = entry
+	}
+	d.mu.Unlock()
+
+	entry.mu.Lock()
+	defer entry.mu.Unlock()
+	if entry.provider != nil {
+		return entry.provider, nil
+	}
+	// The client goes with the provider and is what fetches its keys later, so it is bounded too.
+	client := &http.Client{Timeout: discoveryTimeout}
+	ctx, cancel := context.WithTimeout(oidc.ClientContext(ctx, client), discoveryTimeout)
+	defer cancel()
 	p, err := oidc.NewProvider(ctx, issuer)
 	if err != nil {
 		return nil, fmt.Errorf("discover %s: %w", issuer, err)
 	}
-	if d.providers == nil {
-		d.providers = map[string]*oidc.Provider{}
-	}
-	d.providers[issuer] = p
+	entry.provider = p
 	return p, nil
 }
 
@@ -83,7 +108,8 @@ func verifyIDToken(ctx context.Context, d *discovery, p Provider, raw string, au
 	if err != nil {
 		return identity.Identity{}, claims{}, err
 	}
-	token, err := op.VerifierContext(ctx, &oidc.Config{SkipClientIDCheck: true}).Verify(ctx, raw)
+	// Verifier, not VerifierContext: VerifierContext fetches the keys anew for every token.
+	token, err := op.Verifier(&oidc.Config{SkipClientIDCheck: true}).Verify(ctx, raw)
 	if err != nil {
 		return identity.Identity{}, claims{}, refused("%v", err)
 	}
