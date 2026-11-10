@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"os"
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -9,6 +10,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
+	"github.com/testcontainers/testcontainers-go"
 	tcdynamodb "github.com/testcontainers/testcontainers-go/modules/dynamodb"
 )
 
@@ -19,6 +21,11 @@ const dynamoDBLocal = "amazon/dynamodb-local:3.3.2"
 // and creates an empty table shaped like the real one (PK and SK, both strings).
 func localTable(t *testing.T) (*dynamodb.Client, string) {
 	t.Helper()
+	if os.Getenv("CI") == "" {
+		// A developer machine without podman or docker skips these; CI, which has Docker,
+		// never does, so they cannot pass there by not running.
+		testcontainers.SkipIfProviderIsNotHealthy(t)
+	}
 	ctx := context.Background()
 	ctr, err := tcdynamodb.Run(ctx, dynamoDBLocal)
 	if err != nil {

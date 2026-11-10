@@ -7,7 +7,7 @@
 | `e2e.yml` | builds both images, brings the stack up, runs Playwright |
 | `mobile-ci.yml` | the app's checks and tests, a release APK and an iOS simulator build, the Maestro flows on an emulator and the share on a simulator ([mobile development](../mobile/development.md)) |
 | `live-tests.yml` | after each deploy to qa (and by hand): the [live checks](live.md) against the environment itself |
-| `sonarcloud.yml` | both test suites with coverage, then the Sonar scan |
+| `sonarcloud.yml` | the backend's, the frontend's and the Go backend's tests with coverage (the Go ones start DynamoDB Local in Docker), then the Sonar scan |
 | `docs-ci.yml` | the scripts' own tests under `.github/scripts/`, and the consistency checks: doc references (the shared action from [conventions](https://github.com/guhilling/conventions), #455), decision records, the Renovate config, no local issue forms (#457), links to private resources marked (#531), one PostgreSQL version, one CORS rule |
 | `tofu-ci.yml` | `tofu fmt` and `validate` of the AWS roots, and that the two environments match |
 | `serverless-ci.yml` | the [Go backend](../deployment/serverless.md) (#547), also when `doc/api/openapi.json` changes: the generated contract code is current, gofmt, `go vet`, `go test -race` (DynamoDB Local in a container among them), the arm64 Lambda build, shellcheck of its scripts; no cache |

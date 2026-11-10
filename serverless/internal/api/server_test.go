@@ -90,6 +90,21 @@ func TestNullFieldsAreSentAsNullAsQuarkusSendsThem(t *testing.T) {
 	}
 }
 
+func TestATaskWhoseDueDateDoesNotReadIsLeftOffTheBoardNotTheBoard(t *testing.T) {
+	tasks := sampleTasks()
+	tasks[0].DueDate = "2026-11-31"
+
+	rec := get(&Server{Caller: signedIn, Tasks: &fakeTasks{tasks: tasks}}, "/api/tasks")
+
+	var body []map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil || rec.Code != http.StatusOK {
+		t.Fatalf("got %d, %v", rec.Code, err)
+	}
+	if len(body) != 1 || body[0]["id"] != 1.0 {
+		t.Errorf("got %v; want the one readable task", body)
+	}
+}
+
 func TestAStoreFailureIsAServerErrorWithoutDetail(t *testing.T) {
 	rec := get(&Server{Caller: signedIn, Tasks: &fakeTasks{err: errors.New("table gone")}}, "/api/tasks")
 

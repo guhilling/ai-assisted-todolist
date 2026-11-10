@@ -18,7 +18,7 @@ import (
 // The contract the Quarkus backend publishes, which the Go backend must answer to.
 const contractPath = "../../../doc/api/openapi.json"
 
-// contract is openapi.json, read once per test binary.
+// contract is openapi.json, read by each test that needs it.
 type contract struct {
 	doc      map[string]any
 	compiler *jsonschema.Compiler
@@ -35,6 +35,9 @@ func loadContract(t *testing.T) *contract {
 		t.Fatal(err)
 	}
 	c := jsonschema.NewCompiler()
+	// Formats are only annotations in 2020-12 unless asserted; the frontend's validators assert
+	// them, so a date the Go backend got wrong must fail here too.
+	c.AssertFormat()
 	if err := c.AddResource("openapi.json", doc); err != nil {
 		t.Fatal(err)
 	}
@@ -58,8 +61,8 @@ func (c *contract) checkResponse(t *testing.T, method, path string, status int, 
 // mismatch says how a response departs from the contract: the status must be declared for the
 // operation, and a JSON body must match its schema. It is nil for a response that matches.
 func (c *contract) mismatch(method, path string, status int, body []byte) error {
-	paths := c.doc["paths"].(map[string]any)
-	op, ok := paths[path].(map[string]any)[strings.ToLower(method)].(map[string]any)
+	ops, _ := c.doc["paths"].(map[string]any)[path].(map[string]any)
+	op, ok := ops[strings.ToLower(method)].(map[string]any)
 	if !ok {
 		return fmt.Errorf("%s %s is not in the contract", method, path)
 	}
@@ -122,6 +125,22 @@ func TestTheBoardMatchesTheContract(t *testing.T) {
 		t.Fatalf("got %d", rec.Code)
 	}
 	c.checkResponse(t, "GET", "/api/tasks", rec.Code, rec.Body.Bytes())
+}
+
+func TestTheContractCheckCatchesAWrongFormat(t *testing.T) {
+	c := loadContract(t)
+	wrong, _ := json.Marshal([]map[string]any{{"id": 1, "description": "x", "dueDate": "30.11.2026",
+		"importance": "HIGH", "state": "TODO"}})
+
+	if c.mismatch("GET", "/api/tasks", 200, wrong) == nil {
+		t.Error("a due date that is no date passed the contract check")
+	}
+}
+
+func TestAPathTheContractLacksIsReportedNotAPanic(t *testing.T) {
+	if err := loadContract(t).mismatch("GET", "/api/nowhere", 200, nil); err == nil {
+		t.Error("no error for a path the contract lacks")
+	}
 }
 
 func TestTheContractCheckCatchesAWrongBody(t *testing.T) {

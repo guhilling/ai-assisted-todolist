@@ -121,10 +121,12 @@ func withClaims(claims map[string]string) *http.Request {
 }
 
 func TestTheCallerIsTheVerifiedEmail(t *testing.T) {
-	email, ok := ClaimsCaller(withClaims(map[string]string{"email": "a@example.com", "email_verified": "true"}))
+	for _, verified := range []string{"true", "True", "TRUE"} {
+		email, ok := ClaimsCaller(withClaims(map[string]string{"email": "a@example.com", "email_verified": verified}))
 
-	if !ok || email != "a@example.com" {
-		t.Errorf("got %q, %v", email, ok)
+		if !ok || email != "a@example.com" {
+			t.Errorf("email_verified %q: got %q, %v", verified, email, ok)
+		}
 	}
 }
 
@@ -133,7 +135,7 @@ func TestAnUnverifiedOrMissingEmailIsNobody(t *testing.T) {
 		nil,
 		{"email": "a@example.com"},
 		{"email": "a@example.com", "email_verified": "false"},
-		{"email": "a@example.com", "email_verified": "False"},
+		{"email": "a@example.com", "email_verified": "yes"},
 		{"email_verified": "true"},
 	} {
 		if email, ok := ClaimsCaller(withClaims(claims)); ok {

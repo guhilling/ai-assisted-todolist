@@ -60,9 +60,10 @@ func (s *Server) GetApiTasks(w http.ResponseWriter, r *http.Request) {
 	for _, t := range tasks {
 		response, err := taskResponse(t)
 		if err != nil {
+			// Only the backend writes tasks, so this is a bug or a hand-edited item: logged, and
+			// left off the board rather than taking the caller's other tasks with it.
 			slog.ErrorContext(r.Context(), "a stored task does not read", "task", t.ID, "error", err)
-			w.WriteHeader(http.StatusInternalServerError)
-			return
+			continue
 		}
 		out = append(out, response)
 	}

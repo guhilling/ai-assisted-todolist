@@ -54,15 +54,26 @@ func run(specPath, outPath string) error {
 		return err
 	}
 
-	out, err := os.Create(outPath)
+	// Written beside the target and renamed over it, so a failed run leaves the old file whole.
+	out, err := os.CreateTemp(filepath.Dir(outPath), ".contractgen-*.go")
 	if err != nil {
 		return err
 	}
-	defer out.Close()
+	defer os.Remove(out.Name())
 	cmd := exec.Command("go", "tool", "oapi-codegen",
 		"-generate", "types,std-http-server", "-package", "api", marked)
 	cmd.Stdout, cmd.Stderr = out, os.Stderr
-	return cmd.Run()
+	if err := cmd.Run(); err != nil {
+		out.Close()
+		return fmt.Errorf("oapi-codegen: %w", err)
+	}
+	if err := out.Close(); err != nil {
+		return err
+	}
+	if err := os.Chmod(out.Name(), 0o644); err != nil {
+		return err
+	}
+	return os.Rename(out.Name(), outPath)
 }
 
 // writeNulls marks every schema property whose type admits null with x-omitempty: false, which

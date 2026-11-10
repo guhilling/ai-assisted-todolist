@@ -14,9 +14,8 @@ name: ai-assisted-todolist
 queries:
   - uses: security-extended
 
-# IMPORTANT: paths and paths-ignore apply to the *interpreted* languages only — here that is
-# javascript-typescript alone. They have no effect on java-kotlin, whose scope is whatever
-# the build in codeql.yml actually compiles. That build passes -Dmaven.test.skip=true, so
+# IMPORTANT: paths and paths-ignore apply to javascript-typescript and to go, not to
+# java-kotlin, whose scope is whatever the build in codeql.yml actually compiles. That build passes -Dmaven.test.skip=true, so
 # backend/src/test is never compiled and is out of scope by construction rather than by a
 # rule in this file. Adding backend paths below would look like it worked and would not.
 paths-ignore:
@@ -32,3 +31,7 @@ paths-ignore:
   # Ahead-of-time compiled Ajv validators and the generated wire types. Machine output, whose
   # correctness belongs to the schemas it came from -- and those are reviewed in doc/api.
   - frontend/src/generated
+  # The Go backend's tests and its routes and types generated from openapi.json, for the same
+  # reasons.
+  - serverless/**/*_test.go
+  - serverless/internal/api/api.gen.go

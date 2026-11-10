@@ -108,6 +108,13 @@
       "description": "The base-image chain at any time, not in the Monday batch: a fixed vulnerability in the backend image (#315) arrives as a new ubi-micro or Temurin, becomes a jre-runtime build, and only then reaches the backend's pin. Each step waiting for a Monday is what kept a fix that existed on Friday out of the backend. Everything else stays weekly.",
       "matchPackageNames": ["registry.access.redhat.com/ubi10/ubi-micro", "docker.io/library/eclipse-temurin", "quay.io/ghilling/jre-runtime"],
       "schedule": ["at any time"]
+    },
+    {
+      "description": "oapi-codegen, the Go backend's contract generator (#548). It is a `tool` in serverless/go.mod, which Go always lists as an indirect requirement, and Renovate leaves indirect Go dependencies alone unless told otherwise.",
+      "matchManagers": ["gomod"],
+      "matchDepTypes": ["indirect"],
+      "matchPackageNames": ["github.com/oapi-codegen/oapi-codegen/v2"],
+      "enabled": true
     }
   ]
 }

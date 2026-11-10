@@ -1,6 +1,6 @@
 // Package lambdahttp runs an ordinary net/http handler as a Lambda function behind API Gateway's
 // HTTP API, so the same handler also serves plain HTTP locally and in the end-to-end tests. It is
-// one of the two places Lambda's event types may appear (cmd/ is the other).
+// one of the two places Lambda's event types may appear (cmd/ is the other; serverless/CLAUDE.md).
 package lambdahttp
 
 import (
@@ -94,7 +94,8 @@ func ClaimsCaller(r *http.Request) (email string, ok bool) {
 		return "", false
 	}
 	a := event.RequestContext.Authorizer
-	if a == nil || a.JWT == nil || a.JWT.Claims["email_verified"] != "true" {
+	// Read as the Quarkus backend reads it (VerifiedEmail, Boolean.parseBoolean): "true" in any case.
+	if a == nil || a.JWT == nil || !strings.EqualFold(a.JWT.Claims["email_verified"], "true") {
 		return "", false
 	}
 	email = a.JWT.Claims["email"]
