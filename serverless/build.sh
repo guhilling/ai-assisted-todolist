@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Builds the spike's Lambda function (#535) into dist/tasks.zip: one static arm64 binary named
-# `bootstrap`, which is what Lambda's provided.al2023 runtime starts.
+# Builds the Go backend, cmd/api (#548), into dist/tasks.zip: one static arm64 binary named
+# `bootstrap`, which is what Lambda's provided.al2023 runtime starts. The spike's function runs it;
+# the name of the zip is the spike's, which serverless-spike.tf points to.
 #
 #   serverless/build.sh
 #
@@ -13,7 +14,7 @@ mkdir -p "$HERE/dist"
 rm -f "$HERE/dist/bootstrap" "$HERE/dist/tasks.zip"
 
 build='CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -tags lambda.norpc -trimpath'
-build+=' -ldflags="-s -w" -o dist/bootstrap ./cmd/tasks'
+build+=' -ldflags="-s -w" -o dist/bootstrap ./cmd/api'
 
 if command -v go >/dev/null; then
     (cd "$HERE" && eval "$build")

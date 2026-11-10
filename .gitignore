@@ -50,3 +50,5 @@ deployment/aws-tofu/**/.terraform/
 
 # The spike's Lambda build (#535), made by serverless/build.sh.
 serverless/dist/
+# The Go tests' coverage, written for SonarCloud.
+serverless/coverage.out

@@ -70,6 +70,15 @@ jobs:
         working-directory: frontend
         run: npm run test:coverage
 
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: serverless/go.mod
+          cache: false
+
+      - name: Run the Go tests with coverage
+        working-directory: serverless
+        run: go test -coverprofile=coverage.out ./...
+
       - name: SonarCloud Scan
         id: scan
         uses: SonarSource/sonarqube-scan-action@v8

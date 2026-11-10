@@ -1,10 +1,11 @@
 # Serverless: Lambda, Go and DynamoDB
 
-**Status: decided, not built.** Gunnar chose this direction on 2026-11-09 (#535), behind a spike
-that measures it first. Everything else in these deployment chapters still describes what runs
-today: the container architecture, Quarkus on Fargate behind a load balancer with PostgreSQL on
-RDS. That description stays when the port is done, as the alternative to this one, and the git
-tag `pre-serverless` marks the last `main` before the move, for a rollback in the worst case.
+**Status: being ported (#547).** Gunnar chose this direction on 2026-11-09 (#535), and the spike
+that had to measure it first passed. Everything else in these deployment chapters still describes
+what runs today: the container architecture, Quarkus on Fargate behind a load balancer with
+PostgreSQL on RDS. That description stays when the port is done, as the alternative to this one, and
+the git tag `pre-serverless` marks the last `main` before the move, for a rollback in the worst
+case; the `rollback-tags` ruleset keeps anyone, administrators included, from deleting or moving it.
 
 ## Why
 
@@ -58,6 +59,32 @@ Nothing to take down, and `prod` can simply stay up.
   EventBridge Scheduler.
 - **The API contract stays.** `doc/api/openapi.json` is what the Go code is generated from and
   tested against, so the website and the apps do not notice the switch.
+
+## The code
+
+[`serverless/`](../../serverless/) is one Go module; its conventions are in
+`serverless/CLAUDE.md`.
+
+- **`cmd/api`** is the backend: one binary that serves API Gateway's events on Lambda and plain
+  HTTP anywhere else, so that local development and the end-to-end tests can run the code Lambda
+  runs. `internal/lambdahttp` turns one into the other. The end-to-end suite still builds the
+  Quarkus backend until #556 moves it.
+- **`internal/api`** holds the routes and wire types, generated from `doc/api/openapi.json`, and
+  the handlers. A route not ported yet answers 501. One test checks that every route of the
+  contract is served; the responses checked against the contract are the board's so far, and
+  each ported route brings its own check.
+- **`internal/board`** is the domain, with no AWS package in it; **`internal/store`** is DynamoDB.
+
+Locally, with DynamoDB Local on port 8000 and a table created in it:
+
+```sh
+cd serverless
+TABLE_NAME=<table> DYNAMODB_ENDPOINT=http://localhost:8000 AWS_REGION=eu-central-1 \
+  AWS_ACCESS_KEY_ID=local AWS_SECRET_ACCESS_KEY=local go run ./cmd/api
+```
+
+Until sign-in is ported (#549) nobody is signed in there, so the board answers 401; on Lambda the
+caller is read from the claims API Gateway's JWT authorizer passes on, as in the spike.
 
 ## Why Go
 
