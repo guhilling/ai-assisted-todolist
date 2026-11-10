@@ -291,10 +291,8 @@ func (s *Service) finish(r *http.Request, p Provider) (identity.Identity, error)
 	if subtle.ConstantTimeCompare([]byte(c.Nonce), []byte(pending.Nonce)) != 1 {
 		return identity.Identity{}, refused("the ID token's nonce is not this sign-in's")
 	}
-	if ident.Picture == "" {
-		// Looked up once, at sign-in, and kept with the session, rather than on every request.
-		ident.Picture = s.avatars.Lookup(ctx, ident.Email)
-	}
+	// No Gravatar here: /api/auth/me asks, through WithPicture, so the return from the provider
+	// never waits for it.
 	return ident, nil
 }
 

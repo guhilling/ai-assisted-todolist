@@ -79,6 +79,21 @@ func TestAFailureIsNoPictureButNotRemembered(t *testing.T) {
 	}
 }
 
+func TestBeingToldToSlowDownIsNoAnswer(t *testing.T) {
+	var asked atomic.Int32
+	srv := gravatarAnswering(http.StatusTooManyRequests, &asked)
+	defer srv.Close()
+	g := New(true, srv.URL+"/avatar/")
+
+	if got := g.Lookup(context.Background(), "person@example.com"); got != "" {
+		t.Errorf("got %q", got)
+	}
+	g.Lookup(context.Background(), "person@example.com")
+	if asked.Load() != 2 {
+		t.Errorf("asked %d times; only a 200 or a 404 is an answer", asked.Load())
+	}
+}
+
 func TestAnUnreachableGravatarIsNoPicture(t *testing.T) {
 	srv := httptest.NewServer(http.NotFoundHandler())
 	srv.Close()

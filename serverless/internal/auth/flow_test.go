@@ -146,6 +146,19 @@ func TestACompletedSignInIsASessionAndBackToTheApp(t *testing.T) {
 	}
 }
 
+func TestSignInNeverWaitsForGravatar(t *testing.T) {
+	f := newFakeProvider(t)
+	s, _ := serviceFor(f)
+	avatars := &noAvatars{}
+	s.avatars = avatars
+
+	signIn(t, s, f, newBrowser(), nil)
+
+	if avatars.asked != 0 {
+		t.Errorf("asked Gravatar %d times at sign-in; only /api/auth/me asks", avatars.asked)
+	}
+}
+
 func TestACallbackFromAnotherBrowserIsRefused(t *testing.T) {
 	f := newFakeProvider(t)
 	s, _ := serviceFor(f)

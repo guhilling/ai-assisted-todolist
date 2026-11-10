@@ -1,9 +1,17 @@
 # Authentication
 
 This chapter describes the Quarkus backend, which runs today. The Go backend that replaces it
-(#547) signs in the same way, with two differences Gunnar decided on #549: the website's session
-is stored in DynamoDB rather than carried in an encrypted cookie, and it is never renewed with
-the provider. [serverless.md](deployment/serverless.md#sign-in) has the details.
+(#547) signs in the same way, except for what follows from two decisions Gunnar made on #549:
+
+- The website's session is stored in DynamoDB rather than carried in an encrypted cookie, so
+  signing out ends it on the server too.
+- It is never renewed with the provider: it ends after eight hours without a request, or seven
+  days after signing in.
+
+The frontend notices three more differences: an ended session gets a 401, never a 499; a sign-in
+that fails at the callback goes back to the app rather than to a blank 401; and signing in or out
+clears any `q_session` and `q_auth` cookie left from Quarkus.
+[serverless.md](deployment/serverless.md#sign-in) has the details.
 
 ## The shape: backend-for-frontend
 
@@ -48,10 +56,10 @@ that on — so a session ends after eight hours **without a request**, not an ho
 in. Keycloak, locally, issues refresh tokens without being asked.
 
 When a session has ended, the frontend notices on whichever request comes first — a 401, or the
-499 Quarkus answers a script that asked not to be redirected — and shows "Your session has
-expired" above the sign-in options instead of an error message (`SessionExpiredError` in
-`api.ts`). Signing in again is a full page navigation, so anything typed but not saved is lost;
-the notice at least says why.
+499 Quarkus answers a script that asked not to be redirected (the Go backend answers 401) — and
+shows "Your session has expired" above the sign-in options instead of an error message
+(`SessionExpiredError` in `api.ts`). Signing in again is a full page navigation, so anything
+typed but not saved is lost; the notice at least says why.
 
 Google issues a refresh token only when access is granted with offline access included. An
 account that had signed in before this was asked for may keep getting sessions that end after an

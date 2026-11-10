@@ -68,7 +68,8 @@ func (g *Gravatar) Lookup(ctx context.Context, email string) string {
 	return url
 }
 
-// exists asks whether there is a picture at url; answered is false when Gravatar gave no answer.
+// exists asks whether there is a picture at url. Only a 200 or a 404 is an answer: anything else,
+// a 429 telling us to slow down included, says nothing about the picture and is asked again.
 func (g *Gravatar) exists(ctx context.Context, url string) (exists, answered bool) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodHead, url, nil)
 	if err != nil {
@@ -80,5 +81,12 @@ func (g *Gravatar) exists(ctx context.Context, url string) (exists, answered boo
 		return false, false
 	}
 	_ = res.Body.Close()
-	return res.StatusCode == http.StatusOK, res.StatusCode < http.StatusInternalServerError
+	switch res.StatusCode {
+	case http.StatusOK:
+		return true, true
+	case http.StatusNotFound:
+		return false, true
+	default:
+		return false, false
+	}
 }

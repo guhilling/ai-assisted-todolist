@@ -146,5 +146,8 @@ func issuerOf(raw string) (string, bool) {
 	var c struct {
 		Issuer string `json:"iss"`
 	}
-	return c.Issuer, json.Unmarshal(payload, &c) == nil && c.Issuer != ""
+	if json.Unmarshal(payload, &c) != nil || c.Issuer == "" {
+		return "", false
+	}
+	return c.Issuer, true
 }
