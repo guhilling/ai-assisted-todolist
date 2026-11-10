@@ -539,6 +539,9 @@ since `prevent_destroy` cannot come from a variable. qa's files are test data, b
 
 *Accepted · 2026-11-09 · #535*
 
+Revised in part: the spike passed at 512 MB, not the 256 MB the gate named; 256 MB missed it by
+about 50 ms ([serverless.md](../deployment/serverless.md#what-the-spike-measured), #535).
+
 An environment bills about $1.86 a day while up, almost all of it by the hour, and taking it down
 when idle is a chore that gets forgotten. Per-request billing makes an always-up environment cost
 about a dollar a month, so the backend is to be ported to **Go on Lambda (arm64)**, its data to
