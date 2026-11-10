@@ -1,4 +1,4 @@
-// Package board is the domain of the spike (#535): a user's tasks as the board shows them, in the
+// Package board is the domain: a user's tasks as the board shows them, in the
 // order doc/domain-model.md defines, with no AWS package in sight so that it would survive a move
 // away from Lambda.
 package board
@@ -22,10 +22,12 @@ const (
 // State is whether a task is open or done.
 type State string
 
-// The states, as the API spells them.
+// The states, as the API spells them. StateWorking is only ever received, and stored as
+// StateTodo (Open).
 const (
-	StateTodo State = "TODO"
-	StateDone State = "DONE"
+	StateTodo    State = "TODO"
+	StateDone    State = "DONE"
+	StateWorking State = "WORKING"
 )
 
 // Task is one task as the board lists it: the fields of the API's TaskResponse that the spike
@@ -85,11 +87,13 @@ func loadZone(name string) *time.Location {
 	return z
 }
 
-// DueAt is the moment a zoned task is due at, worked out on every read; nil for an all-day or a
-// floating task, and for a zone this runtime does not know, which must not fail the board.
+// DueAt is the moment a zoned task is due at, worked out on every read, so that a tzdata update
+// is picked up at once; nil for an all-day or a floating task, and for a zone this runtime does
+// not know, which must not fail the board.
 //
-// The spike takes Go's resolution of a daylight-saving gap or overlap as it is; whether it
-// matches the backend's (later in a gap, earlier in an overlap) is checked by the port.
+// A time in a daylight-saving gap moves later, and one in an overlap takes the earlier of its two
+// moments: what the Quarkus backend's ZonedDateTime.of does, and RFC 5545 and Temporal too. Go's
+// own time.Date leaves that choice open, so it is made here.
 func DueAt(t Task) (*time.Time, error) {
 	if t.DueTime == nil || t.TimeZone == nil {
 		return nil, nil
@@ -98,10 +102,31 @@ func DueAt(t Task) (*time.Time, error) {
 	if zone == nil {
 		return nil, nil
 	}
-	local, err := time.ParseInLocation("2006-01-02 15:04", t.DueDate+" "+*t.DueTime, zone)
+	wall, err := time.Parse("2006-01-02 15:04", t.DueDate+" "+*t.DueTime)
 	if err != nil {
 		return nil, err
 	}
-	at := local.UTC()
+	at := resolve(wall, zone)
 	return &at, nil
+}
+
+// resolve is the moment the wall-clock time wall (read as if UTC) is in zone, as ZonedDateTime.of
+// resolves it. Every offset is between -12 and +14 hours, so the moment is within a day of wall,
+// and the offsets either side of that span are the only ones it can have.
+func resolve(wall time.Time, zone *time.Location) time.Time {
+	offset := func(at time.Time) time.Duration {
+		_, seconds := at.In(zone).Zone()
+		return time.Duration(seconds) * time.Second
+	}
+	before, after := offset(wall.Add(-15*time.Hour)), offset(wall.Add(13*time.Hour))
+	// Read with the offset from before a change first: in an overlap, where both fit, that is the
+	// earlier moment.
+	for _, o := range []time.Duration{before, after} {
+		if at := wall.Add(-o); offset(at) == o {
+			return at
+		}
+	}
+	// Neither fits: the time is in a gap, and read with the offset from before it, which moves it
+	// later by the gap's length.
+	return wall.Add(-before)
 }

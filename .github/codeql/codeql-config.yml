@@ -35,3 +35,4 @@ paths-ignore:
   # reasons.
   - serverless/**/*_test.go
   - serverless/internal/api/api.gen.go
+  - serverless/internal/board/zones.gen.go

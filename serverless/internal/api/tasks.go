@@ -1,0 +1,179 @@
+package api
+
+import (
+	"context"
+	"encoding/json"
+	"log/slog"
+	"net/http"
+	"time"
+
+	"github.com/guhilling/ai-assisted-todolist/serverless/internal/board"
+)
+
+// TaskWrites is where the handlers change a user's tasks: the DynamoDB store, or a test's. A
+// task that is not the user's is not found, never changed.
+type TaskWrites interface {
+	Create(ctx context.Context, email string, t board.Task) (board.Task, error)
+	Replace(ctx context.Context, email string, t board.Task, keepTime bool) (board.Task, bool, error)
+	Delete(ctx context.Context, email string, id int64) (bool, error)
+}
+
+// maxReattached is how many attachments an undo may bring back: a task carries at most a few
+// (D1 on #204).
+const maxReattached = 10
+
+// optional is a request field that may be left out, sent as null, or sent: what tells a left-out
+// due time from a null one (#497), as JsonNullable does in the Quarkus backend.
+type optional struct {
+	sent  bool
+	value *string
+}
+
+func (o *optional) UnmarshalJSON(b []byte) error {
+	o.sent = true
+	if string(b) == "null" {
+		return nil
+	}
+	// Only as text: an array such as [10, 0, 30] is refused, as DueTimeDeserializer refuses it.
+	var s string
+	if err := json.Unmarshal(b, &s); err != nil {
+		return err
+	}
+	o.value = &s
+	return nil
+}
+
+// taskRequest is a create or an update as sent. Fields left out read as empty, which the rules
+// refuse; fields the request does not know are ignored, as Quarkus ignores them.
+type taskRequest struct {
+	Description   *string  `json:"description"`
+	DueDate       *string  `json:"dueDate"`
+	DueTime       optional `json:"dueTime"`
+	TimeZone      optional `json:"timeZone"`
+	Importance    string   `json:"importance"`
+	State         string   `json:"state"`
+	AttachmentIDs []int64  `json:"attachmentIds"`
+}
+
+// task is the request as a task, with id, a left-out time and zone being none.
+func (r taskRequest) task(id int64) board.Task {
+	deref := func(s *string) string {
+		if s == nil {
+			return ""
+		}
+		return *s
+	}
+	return board.Task{
+		ID: id, Description: deref(r.Description), DueDate: deref(r.DueDate),
+		DueTime: r.DueTime.value, TimeZone: r.TimeZone.value,
+		Importance: board.Importance(r.Importance), State: board.Open(board.State(r.State)),
+	}
+}
+
+// read decodes a request body into a task and checks it, answering 400 when it is not one.
+func read(w http.ResponseWriter, r *http.Request) (taskRequest, bool) {
+	var req taskRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		slog.InfoContext(r.Context(), "a task request does not read", "error", err)
+		w.WriteHeader(http.StatusBadRequest)
+		return req, false
+	}
+	if err := board.Check(req.task(0)); err != nil {
+		slog.InfoContext(r.Context(), "a task request is refused", "reason", err.Error())
+		w.WriteHeader(http.StatusBadRequest)
+		return req, false
+	}
+	return req, true
+}
+
+func (s *Server) now() time.Time {
+	if s.Now != nil {
+		return s.Now()
+	}
+	return time.Now()
+}
+
+// PostApiTasks creates a task for the caller, due today or later somewhere (#425): filing
+// something new in the past is almost always a mistyped year.
+func (s *Server) PostApiTasks(w http.ResponseWriter, r *http.Request) {
+	email, ok := s.Caller(r)
+	if !ok {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+	req, ok := read(w, r)
+	if !ok {
+		return
+	}
+	if !board.TodaySomewhere(*req.DueDate, s.now()) || len(req.AttachmentIDs) > maxReattached {
+		slog.InfoContext(r.Context(), "a new task is refused", "reason", "past, or too many attachments")
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	// attachmentIds, an undo bringing a deleted task's attachments back (#204), is accepted and
+	// does nothing until attachments are ported (#552), as for ids that are not the caller's.
+	t, err := s.Writes.Create(r.Context(), email, req.task(0))
+	if err != nil {
+		slog.ErrorContext(r.Context(), "creating a task failed", "error", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	s.answerTask(w, r, http.StatusCreated, t)
+}
+
+// PutApiTasksId replaces the caller's task, every field of it but a due time and zone the
+// request leaves out both of (#497). Its due date may be past: a task that came due yesterday
+// must still be completable.
+func (s *Server) PutApiTasksId(w http.ResponseWriter, r *http.Request, id int64) {
+	email, ok := s.Caller(r)
+	if !ok {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+	req, ok := read(w, r)
+	if !ok {
+		return
+	}
+	keep := !req.DueTime.sent && !req.TimeZone.sent
+	t, found, err := s.Writes.Replace(r.Context(), email, req.task(id), keep)
+	if err != nil {
+		slog.ErrorContext(r.Context(), "replacing a task failed", "error", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	if !found {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+	s.answerTask(w, r, http.StatusOK, t)
+}
+
+// DeleteApiTasksId deletes the caller's task; someone else's is not found, and stays.
+func (s *Server) DeleteApiTasksId(w http.ResponseWriter, r *http.Request, id int64) {
+	email, ok := s.Caller(r)
+	if !ok {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+	found, err := s.Writes.Delete(r.Context(), email, id)
+	if err != nil {
+		slog.ErrorContext(r.Context(), "deleting a task failed", "error", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	if !found {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (s *Server) answerTask(w http.ResponseWriter, r *http.Request, status int, t board.Task) {
+	response, err := taskResponse(t)
+	if err != nil {
+		slog.ErrorContext(r.Context(), "a written task does not read", "task", t.ID, "error", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	writeJSON(r.Context(), w, status, response)
+}

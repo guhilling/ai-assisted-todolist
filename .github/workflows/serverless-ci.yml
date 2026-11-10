@@ -42,7 +42,7 @@ jobs:
         run: |
           go generate ./...
           git diff --exit-code -- . || {
-            echo "::error::internal/api/api.gen.go is stale: run go generate ./... in serverless/"
+            echo "::error::generated code is stale (api.gen.go, zones.gen.go): run go generate ./... in serverless/"
             exit 1
           }
 

@@ -49,10 +49,11 @@ func main() {
 	}
 	avatars := gravatar.New(os.Getenv("TASKFEST_GRAVATAR_ENABLED") != "false", gravatar.DefaultBase)
 	signIn := auth.New(authConfig, store.NewSessions(client, table), avatars)
-	server := &api.Server{Tasks: tasks, SignIn: signIn, Caller: func(r *http.Request) (string, bool) {
-		id, ok := signIn.Identify(r)
-		return id.Email, ok
-	}}
+	server := &api.Server{Tasks: tasks, Writes: store.NewWrites(client, table), SignIn: signIn,
+		Caller: func(r *http.Request) (string, bool) {
+			id, ok := signIn.Identify(r)
+			return id.Email, ok
+		}}
 	routes := api.Routes(server)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)

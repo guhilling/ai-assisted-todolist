@@ -1,5 +1,6 @@
 // Package store reads the board from DynamoDB: one table, the user as the partition, the kind of
-// item in the sort key (doc/deployment/serverless.md). The spike reads tasks only.
+// item in the sort key (doc/deployment/serverless.md). Store reads the board, Writes changes it,
+// Sessions keeps the website's sessions.
 package store
 
 import (
@@ -50,6 +51,22 @@ type taskItem struct {
 	State       string  `dynamodbav:"state"`
 }
 
+func (it taskItem) task() board.Task {
+	return board.Task{
+		ID: it.ID, Description: it.Description, DueDate: it.DueDate,
+		DueTime: it.DueTime, TimeZone: it.TimeZone,
+		Importance: board.Importance(it.Importance), State: board.State(it.State),
+	}
+}
+
+func taskItemOf(t board.Task) taskItem {
+	return taskItem{
+		ID: t.ID, Description: t.Description, DueDate: t.DueDate,
+		DueTime: t.DueTime, TimeZone: t.TimeZone,
+		Importance: string(t.Importance), State: string(t.State),
+	}
+}
+
 // Tasks returns every task of the user with this email, unordered: one Query on their partition,
 // page after page. Only TASK# items: a draft is a DRAFT# item, no task yet, and never listed.
 func (s *Store) Tasks(ctx context.Context, email string) ([]board.Task, error) {
@@ -72,11 +89,7 @@ func (s *Store) Tasks(ctx context.Context, email string) ([]board.Task, error) {
 			return nil, fmt.Errorf("read tasks: %w", err)
 		}
 		for _, it := range items {
-			tasks = append(tasks, board.Task{
-				ID: it.ID, Description: it.Description, DueDate: it.DueDate,
-				DueTime: it.DueTime, TimeZone: it.TimeZone,
-				Importance: board.Importance(it.Importance), State: board.State(it.State),
-			})
+			tasks = append(tasks, it.task())
 		}
 		if len(out.LastEvaluatedKey) == 0 {
 			return tasks, nil

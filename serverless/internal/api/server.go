@@ -38,8 +38,11 @@ type SignIn interface {
 type Server struct {
 	unported
 	Tasks  TasksSource
+	Writes TaskWrites
 	Caller Caller
 	SignIn SignIn
+	// Now is the clock a new task's due date is judged by; time.Now when nil.
+	Now func() time.Time
 }
 
 // Routes returns the routes of the contract, served by s, and the sign-in callbacks, which the
