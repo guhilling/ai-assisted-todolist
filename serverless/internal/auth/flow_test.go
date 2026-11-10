@@ -304,6 +304,22 @@ func TestSignOutEndsTheSessionOnTheServerToo(t *testing.T) {
 	}
 }
 
+func TestTheQuarkusCookiesAreClearedLikeOurOwn(t *testing.T) {
+	f := newFakeProvider(t)
+	s, _ := serviceFor(f)
+	s.cfg.SecureCookies = true
+	b := newBrowser()
+	b.cookies["q_session"] = &http.Cookie{Name: "q_session", Value: "old"}
+
+	res := b.do(s.Logout, b.request("GET", "/api/auth/logout"))
+
+	for _, c := range res.Cookies() {
+		if c.Name == "q_session" && (!c.Secure || !c.HttpOnly || c.MaxAge >= 0) {
+			t.Errorf("q_session cleared with %+v", c)
+		}
+	}
+}
+
 func TestOnlyAUsableProvidersPathsAnswer(t *testing.T) {
 	f := newFakeProvider(t)
 	s, _ := serviceFor(f, Provider{ID: "cognito", Issuer: f.issuer(), ClientID: "web-client", ClientSecret: "web-secret"},

@@ -313,7 +313,7 @@ func (s *Service) Logout(w http.ResponseWriter, r *http.Request) {
 func (s *Service) backToTheApp(w http.ResponseWriter, r *http.Request) {
 	for _, c := range r.Cookies() {
 		if strings.HasPrefix(c.Name, "q_session") || strings.HasPrefix(c.Name, "q_auth") {
-			http.SetCookie(w, &http.Cookie{Name: c.Name, Path: "/", MaxAge: -1})
+			http.SetCookie(w, s.cookie(c.Name, "", -1))
 		}
 	}
 	http.Redirect(w, r, s.cfg.PostLoginRedirect, http.StatusSeeOther)
