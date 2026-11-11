@@ -42,9 +42,9 @@ func main() {
 		}
 	})
 	table := os.Getenv("TABLE_NAME")
-	accounts := store.NewAccounts(client, table)
-	points := store.NewRestorePoints(client, table)
 	records := files.New(files.NewClient(cfg, os.Getenv("S3_ENDPOINT")), os.Getenv("TASKFEST_ATTACHMENTS_BUCKET"))
+	accounts := store.NewAccounts(client, table).WithFiles(records)
+	points := store.NewRestorePoints(client, table)
 	run := func(ctx context.Context) (replay.Report, error) {
 		return replay.Run(ctx, time.Now(), records, accounts, points)
 	}

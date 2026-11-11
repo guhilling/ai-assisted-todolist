@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -172,5 +173,49 @@ func TestSigningInAgainWhileADeletionIsLeftHalfWayKeepsTheNewSession(t *testing.
 	}
 	if metaOf(t, client, table, one) != nil {
 		t.Error("META outlived the deletion")
+	}
+}
+
+func TestAnAccountBegunInTheSecondOfItsDeletionIsDeletedAgain(t *testing.T) {
+	// Times are whole seconds: the same second cannot tell which came first, and the deletion
+	// the user asked for wins.
+	client, table := localTable(t)
+	deleted := time.Unix(1_800_000_000, 0)
+	put(t, client, table, map[string]any{"PK": OwnerKey(one), "SK": "META", "lastTaskId": 1,
+		"createdAt": deleted.Unix()})
+	put(t, client, table, map[string]any{"PK": OwnerKey(one), "SK": "TASK#00000001", "id": 1})
+
+	again, err := NewAccounts(client, table).Reapply(context.Background(), identity.EmailHash(one), deleted)
+
+	if err != nil || !again || len(partition(t, client, table, one)) != 0 {
+		t.Errorf("reapplied %v, %v; left %v", again, err, partition(t, client, table, one))
+	}
+}
+
+// deletedFiles records the files a deletion asks to have deleted.
+type deletedFiles struct{ keys []string }
+
+func (d *deletedFiles) Delete(_ context.Context, key string) error {
+	d.keys = append(d.keys, key)
+	return nil
+}
+
+func TestTheReplayDeletesTheFilesOfTheAttachmentsItDeletes(t *testing.T) {
+	// A restored table has no stream until the API is switched to it, so nothing else would.
+	client, table := localTable(t)
+	deleted := time.Unix(1_800_000_000, 0)
+	put(t, client, table, map[string]any{"PK": OwnerKey(one), "SK": "META", "lastTaskId": 1,
+		"createdAt": deleted.Add(-time.Hour).Unix()})
+	put(t, client, table, map[string]any{"PK": OwnerKey(one), "SK": "ATT#00000001", "id": 1, "objectKey": "file-key"})
+	put(t, client, table, map[string]any{"PK": OwnerKey(one), "SK": "ATT#00000002", "id": 2, "url": "https://example.com"})
+	files := &deletedFiles{}
+
+	if _, err := NewAccounts(client, table).WithFiles(files).Reapply(context.Background(),
+		identity.EmailHash(one), deleted); err != nil {
+		t.Fatal(err)
+	}
+
+	if got := strings.Join(files.keys, ","); got != "file-key,file-key.thumbnail" {
+		t.Errorf("deleted files %q", got)
 	}
 }

@@ -13,6 +13,8 @@ import (
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
+
+	"github.com/guhilling/ai-assisted-todolist/serverless/internal/board"
 )
 
 // AccountsAPI is the DynamoDB calls deleting an account makes: the item calls, and the batches
@@ -31,11 +33,27 @@ type Accounts struct {
 	client AccountsAPI
 	table  string
 	now    func() time.Time
+	// files deletes the files of the attachments a deletion deletes, where the table's stream
+	// does not: nil for the API, whose table has one.
+	files FileDeleter
+}
+
+// FileDeleter deletes a file from the attachment bucket (internal/files).
+type FileDeleter interface {
+	Delete(ctx context.Context, key string) error
 }
 
 // NewAccounts returns the accounts in the named table.
 func NewAccounts(client AccountsAPI, table string) *Accounts {
 	return &Accounts{client: client, table: table, now: time.Now}
+}
+
+// WithFiles has the deletions delete their attachments' files themselves, file and thumbnail,
+// after their items: the replay's, since a restored table has no stream until the API is
+// switched to it (CodeRabbit on #573, Gunnar's decision). The orphan clean-up stays the backstop.
+func (a *Accounts) WithFiles(files FileDeleter) *Accounts {
+	a.files = files
+	return a
 }
 
 // deletedAt is the META attribute that marks an account as being deleted, in Unix seconds.
@@ -104,16 +122,17 @@ func (a *Accounts) Settle(ctx context.Context, email string) (bool, error) {
 // does after a restore, and says whether there was anything to delete. Only an account created
 // before the deletion is deleted, decided by the write that marks it, so an account begun anew
 // since is never taken for the restored one; one without its creation time counts as older.
-// Without META, what is left of a deletion that stopped after META went is deleted, under a
-// META written marked for it: no task, draft or attachment is ever written without META. A session signed in since the deletion
-// stays, with its link.
+// An account begun in the second of its deletion counts as before it: the deletion the user asked
+// for wins (CodeRabbit on #573, Gunnar's decision). Without META, what is left of a deletion that
+// stopped after META went is deleted, under a META written marked for it: no task, draft or
+// attachment is ever written without META. A session signed in since the deletion stays.
 func (a *Accounts) Reapply(ctx context.Context, hash string, at time.Time) (bool, error) {
 	owner := ownerOf(hash)
 	_, err := a.client.UpdateItem(ctx, &dynamodb.UpdateItemInput{
 		TableName: aws.String(a.table), Key: metaOfOwner(owner),
 		UpdateExpression: aws.String("SET #deleted = if_not_exists(#deleted, :at)"),
 		ConditionExpression: aws.String(
-			"attribute_exists(PK) AND (attribute_not_exists(#created) OR #created < :at)"),
+			"attribute_exists(PK) AND (attribute_not_exists(#created) OR #created <= :at)"),
 		ExpressionAttributeNames:  map[string]string{"#deleted": deletedAt, "#created": accountCreatedAt},
 		ExpressionAttributeValues: map[string]types.AttributeValue{":at": number(at.Unix())},
 	})
@@ -124,17 +143,27 @@ func (a *Accounts) Reapply(ctx context.Context, hash string, at time.Time) (bool
 	if !notThere(err) {
 		return false, fmt.Errorf("mark the account deleted again: %w", err)
 	}
-	left, err := a.leftovers(ctx, owner, at.Unix())
+	marked, err := a.markLeftovers(ctx, owner, at.Unix())
+	if err != nil || !marked {
+		return false, err
+	}
+	slog.WarnContext(ctx, "deleting what a deletion left")
+	return true, a.finish(ctx, owner, at.Unix())
+}
+
+// markLeftovers writes a marked META over what a deletion at Unix seconds left without one, and
+// says whether it did. Marked before anything goes, as an account being deleted: a sign-up at
+// this moment either wrote META first, and this write fails and the account stays, or finds it
+// marked, and its next request settles it like any deletion left half-way.
+func (a *Accounts) markLeftovers(ctx context.Context, owner string, at int64) (bool, error) {
+	left, err := a.leftovers(ctx, owner, at)
 	if err != nil || !left {
 		return false, err
 	}
-	// Marked before anything goes, as an account being deleted: a sign-up at this moment either
-	// wrote META first, and this write fails and the account stays, or finds it marked, and its
-	// next request settles it like any deletion left half-way.
 	_, err = a.client.PutItem(ctx, &dynamodb.PutItemInput{
 		TableName: aws.String(a.table),
 		Item: map[string]types.AttributeValue{"PK": &types.AttributeValueMemberS{Value: owner},
-			"SK": &types.AttributeValueMemberS{Value: "META"}, deletedAt: number(at.Unix())},
+			"SK": &types.AttributeValueMemberS{Value: "META"}, deletedAt: number(at)},
 		ConditionExpression: aws.String("attribute_not_exists(PK)"),
 	})
 	if notThere(err) {
@@ -143,8 +172,7 @@ func (a *Accounts) Reapply(ctx context.Context, hash string, at time.Time) (bool
 	if err != nil {
 		return false, fmt.Errorf("mark what a deletion left: %w", err)
 	}
-	slog.WarnContext(ctx, "deleting what a deletion left")
-	return true, a.finish(ctx, owner, at.Unix())
+	return true, nil
 }
 
 // leftovers says whether the partition owner holds anything but META and sessions signed in
@@ -226,35 +254,39 @@ func (a *Accounts) Finish(ctx context.Context, email string) error {
 // finish deletes every item of the marked account under owner, but sessions signed in after
 // the deletion, at Unix seconds, which a user who signed in again keeps, and deletes META last.
 // The partition is read again until a read finds nothing, for items a request racing the
-// deletion wrote. The stream deletes the attachments' files as their items go (cmd/streams).
+// deletion wrote. The stream deletes the attachments' files as their items go (cmd/streams), or,
+// WithFiles, the deletion itself.
 func (a *Accounts) finish(ctx context.Context, owner string, at int64) error {
 	var took tally
-	for sweep := 0; ; sweep++ {
-		n, err := a.sweep(ctx, owner, at, &took)
+	for round := 0; ; round++ {
+		for sweep := 0; ; sweep++ {
+			n, err := a.sweep(ctx, owner, at, &took)
+			if err != nil {
+				return err
+			}
+			if n == 0 {
+				break
+			}
+			if sweep == sweeps {
+				return errors.New("delete the account: requests kept writing to it")
+			}
+		}
+		if err := a.deleteMeta(ctx, owner); err != nil {
+			return err
+		}
+		// A write that passed its check before the mark can land between the last read and
+		// META's delete, and with META gone nothing would settle it: what it left is marked
+		// again and taken, unless an account begun anew has its own META by then (CodeRabbit
+		// on #573). Should this fail, the replay takes what is left, from the deletion's record.
+		marked, err := a.markLeftovers(ctx, owner, at)
 		if err != nil {
 			return err
 		}
-		if n == 0 {
+		if !marked {
 			break
 		}
-		if sweep == sweeps {
+		if round == sweeps {
 			return errors.New("delete the account: requests kept writing to it")
-		}
-	}
-	if err := a.deleteMeta(ctx, owner); err != nil {
-		return err
-	}
-	// A write that passed its check before the mark can land between the last read and META's
-	// delete, and with META gone nothing would settle it: one more read takes it, unless an
-	// account begun anew has its own META by then. Should this fail, the replay takes what is
-	// left, from the deletion's record.
-	m, err := a.meta(ctx, owner)
-	if err != nil {
-		return err
-	}
-	if !m.exists {
-		if _, err := a.sweep(ctx, owner, at, &took); err != nil {
-			return err
 		}
 	}
 	slog.InfoContext(ctx, "deleted an account", "event", "account-deleted",
@@ -269,7 +301,7 @@ func (a *Accounts) sweep(ctx context.Context, owner string, at int64, took *tall
 	in := &dynamodb.QueryInput{
 		TableName: aws.String(a.table), ConsistentRead: aws.Bool(true),
 		KeyConditionExpression:    aws.String("PK = :pk"),
-		ProjectionExpression:      aws.String("PK, SK, #created"),
+		ProjectionExpression:      aws.String("PK, SK, #created, objectKey"),
 		ExpressionAttributeNames:  map[string]string{"#created": linkCreated},
 		ExpressionAttributeValues: map[string]types.AttributeValue{":pk": &types.AttributeValueMemberS{Value: owner}},
 	}
@@ -280,6 +312,7 @@ func (a *Accounts) sweep(ctx context.Context, owner string, at int64, took *tall
 			return 0, fmt.Errorf("read the account: %w", err)
 		}
 		var keys []map[string]types.AttributeValue
+		var objects []string
 		for _, item := range out.Items {
 			sk, _ := item["SK"].(*types.AttributeValueMemberS)
 			if sk == nil || sk.Value == "META" {
@@ -296,14 +329,34 @@ func (a *Accounts) sweep(ctx context.Context, owner string, at int64, took *tall
 			if isLink {
 				keys = append(keys, sessionKey(session))
 			}
+			if object, ok := item["objectKey"].(*types.AttributeValueMemberS); ok && object.Value != "" {
+				objects = append(objects, object.Value)
+			}
 		}
 		if err := a.deleteAll(ctx, keys); err != nil {
 			return 0, err
 		}
+		a.deleteFiles(ctx, objects)
 		if len(out.LastEvaluatedKey) == 0 {
 			return deleted, nil
 		}
 		in.ExclusiveStartKey = out.LastEvaluatedKey
+	}
+}
+
+// deleteFiles deletes the files and thumbnails of the attachments a sweep deleted, WithFiles,
+// best effort: what fails is left to the orphan clean-up.
+func (a *Accounts) deleteFiles(ctx context.Context, objects []string) {
+	if a.files == nil {
+		return
+	}
+	for _, object := range objects {
+		for _, key := range []string{object, board.ThumbnailKey(object)} {
+			if err := a.files.Delete(ctx, key); err != nil {
+				slog.WarnContext(ctx, "deleting a deleted account's file failed; the orphan clean-up takes it",
+					"error", err)
+			}
+		}
 	}
 }
 
