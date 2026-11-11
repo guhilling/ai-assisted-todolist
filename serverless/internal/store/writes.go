@@ -61,7 +61,7 @@ func notThere(err error) bool {
 }
 
 // collisionsBeforeGivingUp bounds how many ids a create steps over that are taken by tasks
-// written around the count (spike/measure.sh seeds some); normally there are none.
+// written around the count, as a script seeding tasks by hand might; normally there are none.
 const collisionsBeforeGivingUp = 32
 
 // Create stores a new task for the user, with the next id their META item gives. The two are

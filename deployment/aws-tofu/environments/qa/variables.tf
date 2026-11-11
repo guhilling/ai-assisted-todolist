@@ -95,6 +95,11 @@ variable "backend_memory" {
   type        = number
 }
 
+variable "table_name" {
+  description = "The Go backend's table, when switched to a restored one; empty for its own."
+  type        = string
+}
+
 variable "table_point_in_time_recovery" {
   description = "Whether the Go backend's table keeps point-in-time recovery (#553)."
   type        = bool

@@ -52,8 +52,24 @@ func main() {
 	writes := store.NewWrites(client, table)
 	bucketName := os.Getenv("TASKFEST_ATTACHMENTS_BUCKET")
 	bucket := files.New(files.NewClient(cfg, os.Getenv("S3_ENDPOINT")), bucketName)
-	// A client secret comes from Secrets Manager where the setting names one (#554).
-	settings, err := secrets.Resolve(context.Background(), os.Environ(), secretsmanager.NewFromConfig(cfg))
+	// Opening the DynamoDB connection waits on the network, and so does reading the secrets: both
+	// at once, so a cold start waits for the slower one only.
+	primed := make(chan struct{})
+	go func() {
+		defer close(primed)
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		if err := tasks.Prime(ctx); err != nil {
+			// Only slower: the first request opens the connection instead.
+			slog.Warn("priming the DynamoDB connection failed", "error", err)
+		}
+	}()
+	// A client secret comes from Secrets Manager where the setting names one (#554), well inside
+	// Lambda's ten seconds for a start, so a Secrets Manager that does not answer fails it with a
+	// line that says so.
+	secretsCtx, cancelSecrets := context.WithTimeout(context.Background(), 3*time.Second)
+	settings, err := secrets.Resolve(secretsCtx, os.Environ(), secretsmanager.NewFromConfig(cfg))
+	cancelSecrets()
 	if err != nil {
 		slog.Error("reading the secrets failed", "error", err)
 		os.Exit(1)
@@ -78,12 +94,7 @@ func main() {
 	}
 	routes := api.Routes(server)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	if err := tasks.Prime(ctx); err != nil {
-		// Only slower: the first request opens the connection instead.
-		slog.Warn("priming the DynamoDB connection failed", "error", err)
-	}
-	cancel()
+	<-primed
 
 	if os.Getenv("AWS_LAMBDA_RUNTIME_API") != "" {
 		secret := os.Getenv("TASKFEST_ORIGIN_SECRET")

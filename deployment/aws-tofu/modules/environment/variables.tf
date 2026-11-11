@@ -261,6 +261,15 @@ variable "backend_memory" {
   }
 }
 
+variable "table_name" {
+  description = <<-EOT
+    The Go backend's table, when it is not the one this module names itself: set to a restored
+    table's name when the functions are switched to it (doc/deployment/serverless.md).
+  EOT
+  type        = string
+  default     = ""
+}
+
 variable "table_point_in_time_recovery" {
   description = "Whether the Go backend's table keeps point-in-time recovery (#553): prod only."
   type        = bool

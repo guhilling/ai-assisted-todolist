@@ -40,5 +40,8 @@ backend_memory = 512
 # The containers serve /api/* until the cut-over (#557) switches it to the Go backend.
 api_backend = "containers"
 
+# The Go backend's own table; a restored one's name only after a switch to it (serverless.md).
+table_name = ""
+
 # qa restores from an on-demand backup when it must; prod keeps point-in-time recovery (#553).
 table_point_in_time_recovery = false

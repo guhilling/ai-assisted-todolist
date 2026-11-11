@@ -48,7 +48,8 @@ Nothing to take down, and `prod` can simply stay up.
 
 - **Four functions** (#554): `api` serves every route behind the HTTP API; `streams` follows the
   table's stream and deletes the files of attachments that go; `orphans` and `replay` run on a
-  schedule. [The infrastructure](#the-infrastructure) says what each is given.
+  schedule. [The infrastructure](#the-infrastructure) says what `api` is given; the other three
+  come with the second part of #554.
 - **DynamoDB, one table.** The partition key is the user, `USER#<sha256 of the email>`; the sort
   key says what the item is: `META` for the user, `TASK#<id>`, `DRAFT#<id>`, `ATT#<id>`, and
   `SESSION#<key>` for each of the website's sessions, so that deleting the account ends them. A
@@ -350,8 +351,18 @@ administrator's profile.
    ```
    It logs one JSON line, `deletion-replay`, with how many accounts it deleted again; it exits
    non-zero when one could not be, and is then run again.
-3. **Switch the functions to the new table.** A restore does not carry the table's TTL, stream or
-   point-in-time recovery settings over, so the apply that switches also sets them (#554).
+3. **Switch the functions to the new table**, as the administrator, in the environment's root.
+   OpenTofu forgets the old table, which stays, protected from deletion, until it is deleted by
+   hand; `table_name` in `terraform.tfvars` names the restored one; OpenTofu takes it over; and
+   the apply sets what a restore does not carry over, TTL, the stream and point-in-time recovery,
+   and points the functions, their roles and the stream's mapping at it:
+   ```bash
+   tofu state rm module.environment.aws_dynamodb_table.data
+   # table_name = "<table>-restored-<date>" in terraform.tfvars
+   tofu import module.environment.aws_dynamodb_table.data <table>-restored-<date>
+   ```
+   and then `env.sh down` or `up`, whichever the environment is in, with the administrator's
+   profile.
 
 The procedure is tried once in qa, from an on-demand backup, once #554 has built the table.
 
@@ -481,14 +492,16 @@ idle environment costs nothing for it.
   `Host`, which API Gateway would refuse: the function takes its own address from
   `TASKFEST_PUBLIC_ORIGIN`. `api_backend` in `terraform.tfvars` says which origin `/api/*` uses:
   `containers` until the cut-over (#557), then `serverless`.
-- **Sign-in** is configured as for the containers: Google where a client id is set, the test
-  accounts where they exist. Google's client secret stays out of OpenTofu: the function's setting
-  `TASKFEST_OIDC_GOOGLE_CLIENT_SECRET_ARN` names the secret, and the function reads it once at a
-  cold start (`internal/secrets`). The test accounts' secret is in state already (D4 on #141).
+- **Sign-in** is configured as for the containers: on only where Google's client id is set, and the
+  test accounts beside Google where they exist. Google's client secret stays out of OpenTofu: the
+  function's setting `TASKFEST_OIDC_GOOGLE_CLIENT_SECRET_ARN` names the secret, and the function
+  reads it once at a cold start (`internal/secrets`). The test accounts' secret is in state already
+  (D4 on #141).
 
-The functions are created from `serverless/dist/<command>.zip`, which `serverless/build.sh` makes,
-with Go where it is installed and the official Go image through podman or docker where it is not.
-OpenTofu uploads the code only when it creates a function; a release deploys its own (#555).
+The function is created from `serverless/dist/api.zip`, which `serverless/build.sh` makes with Go
+where it is installed and the official Go image through podman or docker where it is not, with the
+other three commands' zips beside it for the second part of #554. OpenTofu uploads the code only
+when it creates a function; a release deploys its own (#555).
 
 Applying it needs the administrator, since the lifecycle role, `env.sh`'s default, cannot create
 IAM roles, functions or tables. From the repository root on `main`:

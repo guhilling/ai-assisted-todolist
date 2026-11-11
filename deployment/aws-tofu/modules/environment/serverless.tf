@@ -10,14 +10,17 @@
 # release deploys its own code (#555).
 
 locals {
-  table         = "${local.name}-data"
+  # A restored table has a name of its own, which the switch to it sets (serverless.md).
+  table         = var.table_name != "" ? var.table_name : "${local.name}-data"
   api_function  = "${local.name}-api"
   api_gateway   = "${local.name}-api"
   dist          = "${path.module}/../../../../serverless/dist"
   origin_header = "X-Origin-Verify" # lambdahttp.OriginHeader
 
-  # The providers the function offers, the main one first, as auth.LoadConfig reads them.
-  api_providers = concat(local.sign_in_enabled ? ["google"] : [], var.test_sign_in ? ["cognito"] : [])
+  # The providers the function offers, the main one first, as auth.LoadConfig reads them. As for
+  # the containers, sign-in is on only where Google is: the test accounts are a provider beside
+  # it, whose client allows only its own callback, never the main one.
+  api_providers = local.sign_in_enabled ? concat(["google"], var.test_sign_in ? ["cognito"] : []) : []
 }
 
 # AWS-0024, point-in-time recovery, is a variable: on in prod, off in qa, which restores from an
@@ -171,7 +174,7 @@ resource "aws_lambda_function" "api" {
       TASKFEST_ATTACHMENTS_BUCKET = aws_s3_bucket.attachments.bucket
       TASKFEST_ORIGIN_SECRET      = random_password.origin.result
       TASKFEST_PUBLIC_ORIGIN      = "https://${var.hostname}"
-      TASKFEST_AUTH_ENABLED       = tostring(length(local.api_providers) > 0)
+      TASKFEST_AUTH_ENABLED       = tostring(local.sign_in_enabled)
       TASKFEST_AUTH_PROVIDERS     = join(",", local.api_providers)
       }, local.sign_in_enabled ? {
       TASKFEST_OIDC_GOOGLE_LABEL             = "Google"
@@ -180,8 +183,9 @@ resource "aws_lambda_function" "api" {
       TASKFEST_OIDC_GOOGLE_CLIENT_SECRET_ARN = aws_secretsmanager_secret.google_client_secret.arn
       # The iOS app's own client, whose ID tokens are accepted beside the web client's (#280).
       TASKFEST_OIDC_GOOGLE_AUDIENCES = var.google_ios_client_id
-      } : {}, var.test_sign_in ? {
-      # The test accounts (test-sign-in.tf). The client's secret is in state already (D4 on #141).
+      } : {}, local.sign_in_enabled && var.test_sign_in ? {
+      # The test accounts (test-sign-in.tf). The client's secret is in state already (D4 on #141),
+      # so a setting here shows it to no one who could not read it there; like the origin secret.
       TASKFEST_OIDC_COGNITO_LABEL         = "TaskFest test account"
       TASKFEST_OIDC_COGNITO_ISSUER        = "https://${aws_cognito_user_pool.test_accounts[0].endpoint}"
       TASKFEST_OIDC_COGNITO_CLIENT_ID     = aws_cognito_user_pool_client.backend[0].id

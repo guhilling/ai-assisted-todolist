@@ -74,6 +74,7 @@ module "environment" {
   backend_memory               = var.backend_memory
   api_backend                  = var.api_backend
   table_point_in_time_recovery = var.table_point_in_time_recovery
+  table_name                   = var.table_name
   deregistration_delay_seconds = var.deregistration_delay_seconds
   cpu_architecture             = var.cpu_architecture
 }
