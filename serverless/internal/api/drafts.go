@@ -41,8 +41,8 @@ func (s *Server) PostApiTasksDraftsIdAdd(w http.ResponseWriter, r *http.Request,
 	if !ok {
 		return
 	}
-	// attachmentIds is accepted and does nothing until attachments are ported (#552), as for a
-	// create.
+	// attachmentIds is accepted and does nothing: a draft's attachments come with it, and an
+	// undo only ever re-creates a task.
 	t, found, err := s.Writes.AddDraft(r.Context(), email, req.task(id), s.now())
 	if err != nil {
 		slog.ErrorContext(r.Context(), "adding a draft failed", "error", err)
@@ -53,7 +53,7 @@ func (s *Server) PostApiTasksDraftsIdAdd(w http.ResponseWriter, r *http.Request,
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
-	s.answerTask(w, r, http.StatusCreated, t)
+	s.answerTask(w, r, email, http.StatusCreated, t)
 }
 
 // DeleteApiTasksDraftsId discards the caller's draft; a task with this id is not found, and

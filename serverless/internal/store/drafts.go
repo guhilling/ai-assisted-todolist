@@ -109,18 +109,28 @@ func (w *Writes) StartDraft(ctx context.Context, email string, now time.Time) (i
 	return 0, false, errors.New("start a draft: lost every race for the count")
 }
 
-// AddDraft makes the user's draft t.ID the task t, with the draft's id. Adding it again, as a
-// retry whose answer was lost does (#427), sets t's values on the task it became, its due time
-// and zone too, which a create always sends. found is false when the user has neither a draft
-// nor a task with this id, and nothing is written.
+// AddDraft makes the user's draft t.ID the task t, with the draft's id and its attachments, which
+// then last as a task's do. Adding it again, as a retry whose answer was lost does (#427), sets t's
+// values on the task it became, its due time and zone too, which a create always sends. found is
+// false when the user has neither a draft nor a task with this id, and nothing is written.
 func (w *Writes) AddDraft(ctx context.Context, email string, t board.Task, now time.Time) (board.Task, bool, error) {
 	put, err := w.newTask(email, t)
 	if err != nil {
 		return board.Task{}, false, err
 	}
 	for range draftAttempts {
-		reasons, err := w.transact(ctx, w.takeDraft(email, t.ID, now), types.TransactWriteItem{Put: put},
-			w.forget(email, t.ID))
+		state, err := w.readAttachments(ctx, email, nil)
+		if err != nil {
+			return board.Task{}, false, err
+		}
+		items := []types.TransactWriteItem{w.takeDraft(email, t.ID, now), {Put: put},
+			w.forget(email, t.ID, state.version)}
+		for _, it := range state.items {
+			if it.live(now) && it.on(t.ID) {
+				items = append(items, w.reexpire(email, it, 0, now, nil, map[string]types.AttributeValue{}, nil))
+			}
+		}
+		reasons, err := w.transact(ctx, items...)
 		switch {
 		case err != nil:
 			return board.Task{}, false, err
@@ -141,11 +151,23 @@ func (w *Writes) AddDraft(ctx context.Context, email string, t board.Task, now t
 	return board.Task{}, false, errors.New("add a draft: lost every race for the count")
 }
 
-// DiscardDraft deletes the user's open draft with this id; found is false when they have none,
-// for a task with this id too, which stays.
+// DiscardDraft deletes the user's open draft with this id and its attachments' items; found is
+// false when they have none, for a task with this id too, which stays. The attachments' files go
+// as those of every deleted attachment item do: through the table's stream.
 func (w *Writes) DiscardDraft(ctx context.Context, email string, id int64, now time.Time) (bool, error) {
 	for range draftAttempts {
-		reasons, err := w.transact(ctx, w.takeDraft(email, id, now), w.forget(email, id))
+		state, err := w.readAttachments(ctx, email, nil)
+		if err != nil {
+			return false, err
+		}
+		items := []types.TransactWriteItem{w.takeDraft(email, id, now), w.forget(email, id, state.version)}
+		for _, it := range state.items {
+			if it.on(id) {
+				items = append(items, types.TransactWriteItem{Delete: &types.Delete{
+					TableName: aws.String(w.table), Key: attachmentKey(email, it.ID)}})
+			}
+		}
+		reasons, err := w.transact(ctx, items...)
 		switch {
 		case err != nil:
 			return false, err
@@ -246,14 +268,12 @@ func (w *Writes) takeDraft(email string, id int64, now time.Time) types.Transact
 }
 
 // forget takes a draft off the user's open drafts and counts their version up, so that a start
-// that read them before cannot write back what it read.
-func (w *Writes) forget(email string, id int64) types.TransactWriteItem {
-	return types.TransactWriteItem{Update: &types.Update{
-		TableName: aws.String(w.table), Key: metaKey(email),
-		UpdateExpression:          aws.String("REMOVE #draft ADD #version :one"),
-		ExpressionAttributeNames:  map[string]string{"#draft": openDraft(id), "#version": draftsVersion},
-		ExpressionAttributeValues: map[string]types.AttributeValue{":one": number(1)},
-	}}
+// that read them before cannot write back what it read; and counts the attachments' version up, on
+// the condition that it is still version, since the draft's attachments change with it.
+func (w *Writes) forget(email string, id int64, version *int64) types.TransactWriteItem {
+	return types.TransactWriteItem{Update: w.bumpUpdate(email, version, []string{"#draft"}, []string{"#version :one"},
+		map[string]string{"#draft": openDraft(id), "#version": draftsVersion},
+		map[string]types.AttributeValue{":one": number(1)})}
 }
 
 // number is n as a DynamoDB number.
@@ -261,7 +281,7 @@ func number(n int64) types.AttributeValue {
 	return &types.AttributeValueMemberN{Value: strconv.FormatInt(n, 10)}
 }
 
-// transact writes the items in one transaction. One cancelled by a condition or by another write
+// transact writes the items in one transaction: a draft's, an attachment's, a delete's. One cancelled by a condition or by another write
 // to the same items answers why, item by item, to be tried again or answered; any other reason,
 // throttling or an invalid request, is an error.
 func (w *Writes) transact(ctx context.Context, items ...types.TransactWriteItem) ([]types.CancellationReason, error) {
@@ -269,7 +289,7 @@ func (w *Writes) transact(ctx context.Context, items ...types.TransactWriteItem)
 	var cancelled *types.TransactionCanceledException
 	if !errors.As(err, &cancelled) {
 		if err != nil {
-			return nil, fmt.Errorf("write the draft: %w", err)
+			return nil, fmt.Errorf("write a transaction: %w", err)
 		}
 		return nil, nil
 	}
@@ -277,7 +297,7 @@ func (w *Writes) transact(ctx context.Context, items ...types.TransactWriteItem)
 		switch aws.ToString(reason.Code) {
 		case "None", "ConditionalCheckFailed", "TransactionConflict":
 		default:
-			return nil, fmt.Errorf("write the draft: %w", err)
+			return nil, fmt.Errorf("write a transaction: %w", err)
 		}
 	}
 	return cancelled.CancellationReasons, nil

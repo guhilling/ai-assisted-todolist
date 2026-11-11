@@ -17,6 +17,8 @@ import (
 // TasksSource is where the handlers get a user's tasks from: the DynamoDB store, or a test's.
 type TasksSource interface {
 	Tasks(ctx context.Context, email string) ([]board.Task, error)
+	// Attachments is the available attachments on each of the user's tasks, by task id.
+	Attachments(ctx context.Context, email string, now time.Time) (map[int64][]board.Attachment, error)
 }
 
 // Caller says who sent a request: the verified email that identifies them, or ok false when
@@ -40,8 +42,12 @@ type Server struct {
 	Tasks TasksSource
 	// Writes is where creates, replaces and deletes of tasks go.
 	Writes TaskWrites
-	Caller Caller
-	SignIn SignIn
+	// Attachments is where a task's files and links are kept (#552), Files where a file's
+	// content is.
+	Attachments AttachmentWrites
+	Files       FileStore
+	Caller      Caller
+	SignIn      SignIn
 	// Now is the clock a new task's due date is judged by; time.Now when nil.
 	Now func() time.Time
 }
@@ -130,6 +136,10 @@ func (s *Server) GetApiTasks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	tasks, err := s.Tasks.Tasks(r.Context(), email)
+	var attached map[int64][]board.Attachment
+	if err == nil {
+		attached, err = s.Tasks.Attachments(r.Context(), email, s.now())
+	}
 	if err != nil {
 		slog.ErrorContext(r.Context(), "reading the board failed", "error", err)
 		w.WriteHeader(http.StatusInternalServerError)
@@ -139,7 +149,7 @@ func (s *Server) GetApiTasks(w http.ResponseWriter, r *http.Request) {
 
 	out := make([]TaskResponse, 0, len(tasks))
 	for _, t := range tasks {
-		response, err := taskResponse(t)
+		response, err := taskResponse(t, attached[t.ID])
 		if err != nil {
 			// Only the backend writes tasks, so this is a bug or a hand-edited item: logged, and
 			// left off the board rather than taking the caller's other tasks with it.
@@ -151,8 +161,9 @@ func (s *Server) GetApiTasks(w http.ResponseWriter, r *http.Request) {
 	writeJSON(r.Context(), w, http.StatusOK, out)
 }
 
-// taskResponse is a task as the contract sends it, with its due moment worked out.
-func taskResponse(t board.Task) (TaskResponse, error) {
+// taskResponse is a task as the contract sends it, with its due moment worked out and its
+// available attachments, oldest first.
+func taskResponse(t board.Task, attached []board.Attachment) (TaskResponse, error) {
 	due, err := time.Parse(time.DateOnly, t.DueDate)
 	if err != nil {
 		return TaskResponse{}, err
@@ -162,7 +173,10 @@ func taskResponse(t board.Task) (TaskResponse, error) {
 		// As the spike: a zone the binary no longer knows leaves the moment out, not the task.
 		slog.Error("a stored due time does not parse", "task", t.ID, "error", err)
 	}
-	attachments := []AttachmentResponse{}
+	attachments := make([]AttachmentResponse, 0, len(attached))
+	for _, a := range attached {
+		attachments = append(attachments, attachmentResponse(a))
+	}
 	return TaskResponse{
 		Id: t.ID, Description: t.Description, DueDate: openapi_types.Date{Time: due},
 		DueTime: t.DueTime, TimeZone: t.TimeZone, DueAt: at,

@@ -60,9 +60,9 @@
     },
     {
       "customType": "regex",
-      "description": "The DynamoDB Local image the Go backend's repository tests start through Testcontainers (#548). It is a constant in a Go test file, which the gomod manager does not read.",
+      "description": "The DynamoDB Local and LocalStack images the Go backend's tests start through Testcontainers (#548, #552). Each is a constant in a Go test file, which the gomod manager does not read.",
       "managerFilePatterns": ["/^serverless/.+_test\\.go$/"],
-      "matchStrings": ["\"(?<depName>amazon/dynamodb-local):(?<currentValue>[0-9.]+)\""],
+      "matchStrings": ["\"(?<depName>amazon/dynamodb-local|localstack/localstack):(?<currentValue>[0-9.]+)\""],
       "datasourceTemplate": "docker"
     }
   ],

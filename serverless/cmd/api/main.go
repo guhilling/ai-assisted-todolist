@@ -3,7 +3,8 @@
 // plain HTTP server, for local development and the end-to-end tests, so both run the same code.
 //
 // Settings, from the environment: TABLE_NAME, the DynamoDB table; DYNAMODB_ENDPOINT, set only for
-// DynamoDB Local; PORT, for the HTTP server, 8080 by default; sign-in's, which auth.LoadConfig
+// DynamoDB Local; TASKFEST_ATTACHMENTS_BUCKET, the attachment bucket, as for the Quarkus backend;
+// S3_ENDPOINT, set only for LocalStack; PORT, for the HTTP server, 8080 by default; sign-in's, which auth.LoadConfig
 // lists; TASKFEST_GRAVATAR_ENABLED, "false" to never ask Gravatar.
 package main
 
@@ -23,6 +24,7 @@ import (
 
 	"github.com/guhilling/ai-assisted-todolist/serverless/internal/api"
 	"github.com/guhilling/ai-assisted-todolist/serverless/internal/auth"
+	"github.com/guhilling/ai-assisted-todolist/serverless/internal/files"
 	"github.com/guhilling/ai-assisted-todolist/serverless/internal/gravatar"
 	"github.com/guhilling/ai-assisted-todolist/serverless/internal/lambdahttp"
 	"github.com/guhilling/ai-assisted-todolist/serverless/internal/store"
@@ -42,6 +44,8 @@ func main() {
 	})
 	table := os.Getenv("TABLE_NAME")
 	tasks := store.New(client, table)
+	writes := store.NewWrites(client, table)
+	bucket := files.New(files.NewClient(cfg, os.Getenv("S3_ENDPOINT")), os.Getenv("TASKFEST_ATTACHMENTS_BUCKET"))
 	authConfig, err := auth.LoadConfig(os.Getenv)
 	if err != nil {
 		slog.Error("the sign-in configuration is wrong", "error", err)
@@ -49,7 +53,7 @@ func main() {
 	}
 	avatars := gravatar.New(os.Getenv("TASKFEST_GRAVATAR_ENABLED") != "false", gravatar.DefaultBase)
 	signIn := auth.New(authConfig, store.NewSessions(client, table), avatars)
-	server := &api.Server{Tasks: tasks, Writes: store.NewWrites(client, table), SignIn: signIn,
+	server := &api.Server{Tasks: tasks, Writes: writes, Attachments: writes, Files: bucket, SignIn: signIn,
 		Caller: func(r *http.Request) (string, bool) {
 			id, ok := signIn.Identify(r)
 			return id.Email, ok

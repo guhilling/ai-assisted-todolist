@@ -19,6 +19,7 @@ import (
 // ItemAPI is the DynamoDB calls that read and write items: sessions', the task writes', and the
 // transactions that keep a user's drafts and their count together.
 type ItemAPI interface {
+	QueryAPI
 	PutItem(ctx context.Context, in *dynamodb.PutItemInput, opts ...func(*dynamodb.Options)) (*dynamodb.PutItemOutput, error)
 	GetItem(ctx context.Context, in *dynamodb.GetItemInput, opts ...func(*dynamodb.Options)) (*dynamodb.GetItemOutput, error)
 	UpdateItem(ctx context.Context, in *dynamodb.UpdateItemInput, opts ...func(*dynamodb.Options)) (*dynamodb.UpdateItemOutput, error)

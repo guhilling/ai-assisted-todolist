@@ -76,7 +76,8 @@ Nothing to take down, and `prod` can simply stay up.
 - **`internal/api`** holds the routes and wire types, generated from `doc/api/openapi.json`, and
   the handlers. A route not ported yet answers 501. One test checks that every route of the
   contract is served, and each ported route checks its responses against the contract.
-- **`internal/board`** is the domain, with no AWS package in it; **`internal/store`** is DynamoDB.
+- **`internal/board`** is the domain, with no AWS package in it; **`internal/store`** is DynamoDB,
+  and **`internal/files`** the attachment bucket in S3.
 - **`internal/auth`** is sign-in, below, and **`internal/gravatar`** the picture fallback.
 
 Locally, with DynamoDB Local on port 8000 and a table created in it, and the end-to-end stack's
@@ -115,10 +116,11 @@ rules, `internal/api` the requests, `internal/store` the items.
   MST, HST and ROC, which the JDK does not have and refuses. Compared name for name with JDK 25.0.5
   (tzdata 2026e), the one difference left is the other way round: the JDK still takes six
   `SystemV/` zones tzdata dropped long ago, which no browser or app sends.
-- **What follows from later stories:** `attachmentIds` on a create, an undo bringing attachments
-  back, is accepted and does nothing until attachments are ported (#552); writing needs the
-  function's role to allow `PutItem`, `UpdateItem` and `DeleteItem`, which the spike's does not
-  (#554).
+- **What follows from later stories:** the function's role needs `dynamodb:GetItem`, `PutItem`,
+  `UpdateItem`, `DeleteItem`, `Query` and `ConditionCheckItem`, which IAM checks for each item of
+  a transaction, and on the attachment bucket `s3:PutObject`, `GetObject`, `DeleteObject` and
+  `ListBucket`, without which a `HEAD` of a missing file is a 403 rather than a 404. The spike's
+  role has none of them but `Query` (#554).
 - **Keys are read as Jackson reads them:** exactly as written, so `"Description"` is no
   description, and of a key given twice the last one counts.
 - **Jackson's leniencies about values are not copied.** It takes a number for a string
@@ -129,7 +131,7 @@ rules, `internal/api` the requests, `internal/store` the items.
 ## Drafts
 
 Starting, adding and discarding a draft (#551) keep the Quarkus backend's `DraftResource`, and
-its tests are ported case for case; its files come with the attachments (#552).
+its tests are ported case for case; its files are [attachments](#attachments) like a task's.
 
 - **A draft is a `DRAFT#<id>` item** with its id from the same count as tasks, so it keeps the id
   when it is added. Adding it is one transaction that deletes the draft and writes the task.
@@ -150,6 +152,53 @@ its tests are ported case for case; its files come with the attachments (#552).
   transaction, so a start that read the set before them cannot write it back.
 - **A plain counter would not do**, since TTL deleting a draft would never count it down. Neither
   would counting the `DRAFT#` items with a `Query`: two starts at once would both count four.
+
+## Attachments
+
+A task's files and links (#552) keep the Quarkus backend's `AttachmentResource`, and its tests,
+`AttachmentThumbnailTest`, `LinkAttachmentTest` and `DraftTaskTest` are ported case for case:
+`internal/board` holds the rules, `internal/api` the requests against an in-memory store and
+bucket, `internal/store` the items against DynamoDB Local, `internal/files` the signed links
+against LocalStack with signature checking on. Files still travel straight between the browser
+and S3, through presigned links signed for exactly the announced size and type, and the bucket is
+unchanged.
+
+- **An attachment is an `ATT#<id>` item** with its id from `lastAttachmentId` on `META`, the
+  id of the task or draft it is on, and its object's key: random, and with no slash, so the
+  orphan clean-up lists it. A thumbnail is the same key with `.thumbnail`.
+- **The sweeps are DynamoDB TTL** on the item's `expiresAt`, set for as long as it is not kept for
+  good, whichever ends first: an upload not confirmed an hour after it was announced, a deleted
+  task's attachment ten minutes after the delete, the undo window, and a draft's when the draft
+  expires. A confirmed attachment on a task has none. Past it, an attachment is gone to every read
+  and write and no longer counts, as for drafts. Deleting a task detaches its attachments in the
+  same transaction, and the undo's `attachmentIds` puts them back on the new task; adding a draft
+  makes its attachments a task's, and discarding it deletes their items in its transaction.
+- **The limits are counted from the items.** A write reads `attachmentsVersion` on `META`, then
+  the task or draft, then the user's `ATT#` items, strongly consistent, and writes with the
+  condition that the version is still the one it read, counting it up. Every write to attachments
+  does so, deleting a task and adding or discarding a draft included, so two files announced at
+  once cannot both take the last place, and none is attached to a task deleted meanwhile; tests
+  announce six at once with room for two, and race an attach against a draft's add. The draft is
+  read before the task: a draft becomes a task, never the other way round.
+- **The files of a deleted item go through the table's stream.** Removing an attachment, and a
+  mismatch on confirm, delete the item and then the file and thumbnail; Quarkus deleted the file
+  first, so that a failure in between left a row pointing at nothing rather than a file nobody
+  could find. With the stream, a handler deletes the files of every `ATT#` item that goes, by
+  expiry or by a discarded draft too, so nothing is lost track of either way. That handler, and
+  the orphan clean-up on EventBridge Scheduler, come next in #552; the function's role, the
+  stream and the schedule with #554. Until then, a discarded draft's files stay in the bucket,
+  where the clean-up later finds them.
+- **A link to open a file is handed out again while half its hour is left**, as before, per Lambda
+  instance rather than per backend task; with several instances, a browser sees a few URLs for a
+  file at worst. Each link ends with the credentials that signed it, when they end first, and says
+  so in its expiry, where the credentials tell their end. **On Lambda they do not:** the
+  function's credentials come in environment variables, without an expiry. A link signed shortly
+  before they lapse can stop working before the expiry it reports, and since the browser keeps
+  it, a preview stays broken for up to half an hour, until the next link. Gunnar accepted that
+  (#569) rather than signing anew on every request, which undoes #236, or signing with a role
+  assumed for the purpose, which knows its end at the price of a role and an STS call per start.
+- **Locally**, `TASKFEST_ATTACHMENTS_BUCKET` names the bucket and `S3_ENDPOINT` points at
+  LocalStack, as for the end-to-end stack.
 
 ## Sign-in
 

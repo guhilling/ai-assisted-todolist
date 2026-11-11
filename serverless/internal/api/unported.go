@@ -12,35 +12,5 @@ func notImplemented(w http.ResponseWriter) { w.WriteHeader(http.StatusNotImpleme
 // DeleteApiAccount answers 501 until ported.
 func (unported) DeleteApiAccount(w http.ResponseWriter, _ *http.Request) { notImplemented(w) }
 
-// PostApiTasksTaskIdAttachments answers 501 until ported.
-func (unported) PostApiTasksTaskIdAttachments(w http.ResponseWriter, _ *http.Request, _ int64) {
-	notImplemented(w)
-}
-
-// PostApiTasksTaskIdAttachmentsLinks answers 501 until ported.
-func (unported) PostApiTasksTaskIdAttachmentsLinks(w http.ResponseWriter, _ *http.Request, _ int64) {
-	notImplemented(w)
-}
-
-// DeleteApiTasksTaskIdAttachmentsId answers 501 until ported.
-func (unported) DeleteApiTasksTaskIdAttachmentsId(w http.ResponseWriter, _ *http.Request, _ int64, _ int64) {
-	notImplemented(w)
-}
-
-// PostApiTasksTaskIdAttachmentsIdConfirm answers 501 until ported.
-func (unported) PostApiTasksTaskIdAttachmentsIdConfirm(w http.ResponseWriter, _ *http.Request, _ int64, _ int64) {
-	notImplemented(w)
-}
-
-// GetApiTasksTaskIdAttachmentsIdLink answers 501 until ported.
-func (unported) GetApiTasksTaskIdAttachmentsIdLink(w http.ResponseWriter, _ *http.Request, _ int64, _ int64) {
-	notImplemented(w)
-}
-
-// GetApiTasksTaskIdAttachmentsIdThumbnailLink answers 501 until ported.
-func (unported) GetApiTasksTaskIdAttachmentsIdThumbnailLink(w http.ResponseWriter, _ *http.Request, _ int64, _ int64) {
-	notImplemented(w)
-}
-
 // GetApiVersion answers 501 until ported.
 func (unported) GetApiVersion(w http.ResponseWriter, _ *http.Request) { notImplemented(w) }
