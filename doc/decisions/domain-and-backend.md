@@ -372,6 +372,15 @@ can compute its hash and see that an account with it was deleted. That is said i
 policy. A keyed hash (HMAC) would avoid it at the price of a secret to keep and rotate; for a demo
 project the plain hash Gunnar chose is the proportionate answer.
 
+**Not a message queue (#553, Gunnar's question, considered and rejected).** Handing the deletion
+to SQS or SNS was considered, since the Go backend's deletion is no longer one transaction. It would
+change none of what makes it intricate: DynamoDB's transactions hold at most 100 items, so a queued
+job deletes in the same batches; a restore needs a lasting record, and a queue's messages are gone
+once consumed and at the latest after 14 days, and are no part of a backup; and the files already
+follow the table's own stream. It would add delivery at least once and out of order to every
+consumer, with dead-letter queues and their alarms. Its one gain, retrying an unfinished deletion
+on its own, would not remove the check on every request until the retry has run.
+
 ## A link is a kind of attachment, kept in its row
 
 *Accepted · 2026-10-30 · #414*
