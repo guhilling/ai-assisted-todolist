@@ -7,11 +7,11 @@ import (
 )
 
 // AccountDeletion deletes an account in the table (internal/store's Accounts): marked first, then
-// deleted batch by batch, and a deletion left half-way finished by Settle.
+// deleted batch by batch. Settle finishes a deletion left half-way and says whether there was one.
 type AccountDeletion interface {
 	Mark(ctx context.Context, email string) error
 	Finish(ctx context.Context, email string) error
-	Settle(ctx context.Context, email string) error
+	Settle(ctx context.Context, email string) (bool, error)
 }
 
 // DeletionRecords keeps the record a deletion leaves outside the table (internal/files), which a
@@ -64,16 +64,26 @@ func (s *Server) DeleteApiAccount(w http.ResponseWriter, r *http.Request) {
 }
 
 // Settled is the caller, once any deletion of their account that was left half-way is finished,
-// so that no request sees what is left of it. One read of the account per request; a failure to
-// read is logged and the request served, as the request's own reads would fail too.
+// so that no request sees what is left of it. One read of the account per request. A deletion
+// finished here also ended the request's own session, so the caller is identified again: a
+// website session is gone, an app's bearer token goes on with a new, empty account, as after any
+// deletion. One that cannot be finished is not served; a read that fails is logged and the
+// request served, as its own reads fail too.
 func Settled(caller Caller, accounts AccountDeletion) Caller {
 	return func(r *http.Request) (string, bool) {
 		email, ok := caller(r)
 		if !ok {
 			return email, ok
 		}
-		if err := accounts.Settle(r.Context(), email); err != nil {
+		settled, err := accounts.Settle(r.Context(), email)
+		switch {
+		case settled && err != nil:
 			slog.ErrorContext(r.Context(), "finishing an account deletion failed", "error", err)
+			return "", false
+		case err != nil:
+			slog.ErrorContext(r.Context(), "reading whether an account is being deleted failed", "error", err)
+		case settled:
+			return caller(r)
 		}
 		return email, ok
 	}

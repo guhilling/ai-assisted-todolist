@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"math/rand/v2"
 	"strings"
 	"time"
 
@@ -68,85 +69,117 @@ func (a *Accounts) Mark(ctx context.Context, email string) error {
 }
 
 // Settle finishes the deletion of the user's account if one was left half-way, so that a request
-// never sees what is left of it. One strongly consistent read of META when there is none.
-func (a *Accounts) Settle(ctx context.Context, email string) error {
-	out, err := a.client.GetItem(ctx, &dynamodb.GetItemInput{
-		TableName: aws.String(a.table), Key: metaKey(email), ConsistentRead: aws.Bool(true),
-		ProjectionExpression: aws.String("#deleted"), ExpressionAttributeNames: map[string]string{"#deleted": deletedAt},
-	})
-	if err != nil {
-		return fmt.Errorf("read the account: %w", err)
-	}
-	if _, marked := out.Item[deletedAt]; !marked {
-		return nil
+// never sees what is left of it, and says whether there was one. One strongly consistent read of
+// META when there is none.
+func (a *Accounts) Settle(ctx context.Context, email string) (bool, error) {
+	marked, err := a.marked(ctx, email)
+	if err != nil || !marked {
+		return false, err
 	}
 	slog.WarnContext(ctx, "finishing an account deletion that stopped half-way")
-	return a.Finish(ctx, email)
+	return true, a.Finish(ctx, email)
 }
 
+// marked says whether the user's META item exists, and with it whether it is marked deleted.
+func (a *Accounts) marked(ctx context.Context, email string) (bool, error) {
+	exists, marked, err := a.meta(ctx, email)
+	return exists && marked, err
+}
+
+// meta reads whether the user's META item exists and whether it is marked deleted.
+func (a *Accounts) meta(ctx context.Context, email string) (exists, marked bool, err error) {
+	out, err := a.client.GetItem(ctx, &dynamodb.GetItemInput{
+		TableName: aws.String(a.table), Key: metaKey(email), ConsistentRead: aws.Bool(true),
+		ProjectionExpression: aws.String("PK, #deleted"), ExpressionAttributeNames: map[string]string{"#deleted": deletedAt},
+	})
+	if err != nil {
+		return false, false, fmt.Errorf("read the account: %w", err)
+	}
+	_, marked = out.Item[deletedAt]
+	return len(out.Item) > 0, marked, nil
+}
+
+// tally counts what a deletion took, for its log line.
+type tally struct{ tasks, attachments int }
+
 // Finish deletes every item of a marked account, ends its sessions and deletes META last. The
-// partition is read again until nothing is left, for items a request racing the deletion wrote.
-// The stream deletes the attachments' files as their items go (cmd/streams).
+// partition is read again until a read finds nothing, for items a request racing the deletion
+// wrote. The stream deletes the attachments' files as their items go (cmd/streams).
 func (a *Accounts) Finish(ctx context.Context, email string) error {
-	tasks, attachments := 0, 0
-	for range sweeps {
-		keys, err := a.held(ctx, email)
+	var took tally
+	for sweep := 0; ; sweep++ {
+		n, err := a.sweep(ctx, email, &took)
 		if err != nil {
 			return err
 		}
-		if len(keys) == 0 {
-			if err := a.deleteMeta(ctx, email); err != nil {
-				return err
-			}
-			slog.InfoContext(ctx, "deleted an account", "event", "account-deleted",
-				"tasks", tasks, "attachments", attachments)
-			return nil
+		if n == 0 {
+			break
 		}
-		for _, key := range keys {
-			sk := key["SK"].(*types.AttributeValueMemberS).Value
-			tasks += boolInt(strings.HasPrefix(sk, "TASK#"))
-			attachments += boolInt(strings.HasPrefix(sk, attachmentPrefix))
+		if sweep == sweeps {
+			return errors.New("delete the account: requests kept writing to it")
 		}
-		if err := a.deleteAll(ctx, keys); err != nil {
+	}
+	if err := a.deleteMeta(ctx, email); err != nil {
+		return err
+	}
+	// A write that passed its check before the mark can land between the last read and META's
+	// delete, and with META gone nothing would settle it: one more read takes it, unless an
+	// account begun anew has its own META by then.
+	exists, _, err := a.meta(ctx, email)
+	if err != nil {
+		return err
+	}
+	if !exists {
+		if _, err := a.sweep(ctx, email, &took); err != nil {
 			return err
 		}
 	}
-	return errors.New("delete the account: requests kept writing to it")
+	slog.InfoContext(ctx, "deleted an account", "event", "account-deleted",
+		"tasks", took.tasks, "attachments", took.attachments)
+	return nil
 }
 
-// held is the keys of everything the account holds but META, and of the sessions it links to.
-func (a *Accounts) held(ctx context.Context, email string) ([]map[string]types.AttributeValue, error) {
+// sweep deletes everything the account holds but META, and the sessions it links to, a page of
+// the partition at a time, and returns how many items of the partition it deleted.
+func (a *Accounts) sweep(ctx context.Context, email string, took *tally) (int, error) {
 	in := &dynamodb.QueryInput{
 		TableName: aws.String(a.table), ConsistentRead: aws.Bool(true),
 		KeyConditionExpression:    aws.String("PK = :pk"),
 		ProjectionExpression:      aws.String("PK, SK"),
 		ExpressionAttributeValues: map[string]types.AttributeValue{":pk": &types.AttributeValueMemberS{Value: OwnerKey(email)}},
 	}
-	var keys []map[string]types.AttributeValue
+	deleted := 0
 	for {
 		out, err := a.client.Query(ctx, in)
 		if err != nil {
-			return nil, fmt.Errorf("read the account: %w", err)
+			return 0, fmt.Errorf("read the account: %w", err)
 		}
+		var keys []map[string]types.AttributeValue
 		for _, item := range out.Items {
 			sk, _ := item["SK"].(*types.AttributeValueMemberS)
 			if sk == nil || sk.Value == "META" {
 				continue
 			}
 			keys = append(keys, item)
+			deleted++
+			took.tasks += boolInt(strings.HasPrefix(sk.Value, "TASK#"))
+			took.attachments += boolInt(strings.HasPrefix(sk.Value, attachmentPrefix))
 			if session, ok := strings.CutPrefix(sk.Value, sessionLinkPrefix); ok {
 				keys = append(keys, sessionKey(session))
 			}
 		}
+		if err := a.deleteAll(ctx, keys); err != nil {
+			return 0, err
+		}
 		if len(out.LastEvaluatedKey) == 0 {
-			return keys, nil
+			return deleted, nil
 		}
 		in.ExclusiveStartKey = out.LastEvaluatedKey
 	}
 }
 
 // deleteAll deletes the items with these keys, a batch at a time, retrying what DynamoDB leaves
-// unprocessed.
+// unprocessed with a growing pause, as AWS advises for a throttled table.
 func (a *Accounts) deleteAll(ctx context.Context, keys []map[string]types.AttributeValue) error {
 	for start := 0; start < len(keys); start += batchSize {
 		var requests []types.WriteRequest
@@ -158,10 +191,8 @@ func (a *Accounts) deleteAll(ctx context.Context, keys []map[string]types.Attrib
 			if attempt == batchAttempts {
 				return errors.New("delete the account: DynamoDB kept items unprocessed")
 			}
-			if attempt > 0 {
-				if err := pause(ctx); err != nil {
-					return err
-				}
+			if err := backOff(ctx, attempt); err != nil {
+				return err
 			}
 			out, err := a.client.BatchWriteItem(ctx, &dynamodb.BatchWriteItemInput{RequestItems: pending})
 			if err != nil {
@@ -171,6 +202,22 @@ func (a *Accounts) deleteAll(ctx context.Context, keys []map[string]types.Attrib
 		}
 	}
 	return nil
+}
+
+// backOff waits before the attempt: not before the first, then 50 ms doubling up to two seconds,
+// with jitter, about five seconds over every attempt.
+func backOff(ctx context.Context, attempt int) error {
+	if attempt == 0 {
+		return nil
+	}
+	wait := min(50*time.Millisecond<<(attempt-1), 2*time.Second)
+	wait = wait/2 + time.Duration(rand.Int64N(int64(wait/2)))
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-time.After(wait):
+		return nil
+	}
 }
 
 // deleteMeta deletes the META item, last, while it is still marked: one that is not was written

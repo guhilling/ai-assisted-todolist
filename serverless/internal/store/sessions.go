@@ -158,11 +158,25 @@ func (s *Sessions) TouchSession(ctx context.Context, key string, lastSeen, expir
 	return nil
 }
 
-// DeleteSession ends a session.
+// DeleteSession ends a session, and deletes its link from the user's account.
 func (s *Sessions) DeleteSession(ctx context.Context, key string) error {
-	_, err := s.client.DeleteItem(ctx, &dynamodb.DeleteItemInput{TableName: aws.String(s.table), Key: sessionKey(key)})
+	out, err := s.client.DeleteItem(ctx, &dynamodb.DeleteItemInput{
+		TableName: aws.String(s.table), Key: sessionKey(key), ReturnValues: types.ReturnValueAllOld,
+	})
 	if err != nil {
 		return fmt.Errorf("delete session: %w", err)
+	}
+	email, ok := out.Attributes["email"].(*types.AttributeValueMemberS)
+	if !ok {
+		return nil
+	}
+	_, err = s.client.DeleteItem(ctx, &dynamodb.DeleteItemInput{TableName: aws.String(s.table),
+		Key: map[string]types.AttributeValue{
+			"PK": &types.AttributeValueMemberS{Value: OwnerKey(email.Value)},
+			"SK": &types.AttributeValueMemberS{Value: sessionLinkPrefix + key},
+		}})
+	if err != nil {
+		return fmt.Errorf("unlink session: %w", err)
 	}
 	return nil
 }

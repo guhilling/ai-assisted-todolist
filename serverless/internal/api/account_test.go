@@ -45,11 +45,11 @@ func (f *fakeDeletion) Finish(_ context.Context, email string) error {
 	return f.step("finish", email)
 }
 
-func (f *fakeDeletion) Settle(_ context.Context, email string) error {
+func (f *fakeDeletion) Settle(_ context.Context, email string) (bool, error) {
 	if f.marked[email] {
-		return f.step("settle", email)
+		return true, f.step("settle", email)
 	}
-	return nil
+	return false, nil
 }
 
 func deletingServer(d *fakeDeletion, records bool) (*Server, *fakeSignIn) {
@@ -172,5 +172,28 @@ func TestNobodySignedInIsNotSettled(t *testing.T) {
 
 	if _, ok := caller(httptest.NewRequest("GET", "/api/tasks", nil)); ok || len(d.steps) != 0 {
 		t.Errorf("signed in %v after %v", ok, d.steps)
+	}
+}
+
+func TestARequestWhoseDeletionWasJustFinishedIsAskedWhoItIsAgain(t *testing.T) {
+	d := &fakeDeletion{marked: map[string]bool{"person@example.com": true}}
+	asked := 0
+	// The session the request came with went with the account.
+	caller := Settled(func(*http.Request) (string, bool) {
+		asked++
+		return "person@example.com", asked == 1
+	}, d)
+
+	if _, ok := caller(httptest.NewRequest("GET", "/api/tasks", nil)); ok {
+		t.Error("a request was served on the session its account's deletion ended")
+	}
+}
+
+func TestARequestWhoseDeletionCannotBeFinishedIsNotServed(t *testing.T) {
+	d := &fakeDeletion{marked: map[string]bool{"person@example.com": true}, fail: "settle"}
+	caller := Settled(as("person@example.com"), d)
+
+	if _, ok := caller(httptest.NewRequest("GET", "/api/tasks", nil)); ok {
+		t.Error("a request was served on what is left of a deleted account")
 	}
 }

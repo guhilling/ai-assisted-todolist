@@ -110,7 +110,7 @@ func TestADeletionLeftHalfWayIsFinishedBeforeTheAccountIsUsedAgain(t *testing.T)
 		t.Fatal(err)
 	}
 
-	if err := accounts.Settle(ctx, me); err != nil {
+	if _, err := accounts.Settle(ctx, me); err != nil {
 		t.Fatal(err)
 	}
 
@@ -127,14 +127,48 @@ func TestAnAccountInUseIsLeftAloneBySettling(t *testing.T) {
 	put(t, client, table, map[string]any{"PK": OwnerKey(me), "SK": "META", "lastTaskId": 1})
 	put(t, client, table, map[string]any{"PK": OwnerKey(me), "SK": "TASK#00000001", "id": 1})
 
-	if err := accounts.Settle(ctx, me); err != nil {
+	if _, err := accounts.Settle(ctx, me); err != nil {
 		t.Fatal(err)
 	}
-	if err := accounts.Settle(ctx, "nobody@example.com"); err != nil {
+	if _, err := accounts.Settle(ctx, "nobody@example.com"); err != nil {
 		t.Fatal(err)
 	}
 
 	if left := partition(t, client, table, me); len(left) != 2 {
 		t.Errorf("left: %v", left)
+	}
+}
+
+func TestSigningOutAlsoDeletesTheSessionsLinkFromTheAccount(t *testing.T) {
+	client, table := localTable(t)
+	sessions := NewSessions(client, table)
+	me := "taskfest-test-one@example.com"
+	signIn(t, sessions, "phone", me)
+
+	if err := sessions.DeleteSession(context.Background(), "phone"); err != nil {
+		t.Fatal(err)
+	}
+
+	if left := partition(t, client, table, me); len(left) != 0 {
+		t.Errorf("left: %v", left)
+	}
+}
+
+func TestSettlingSaysWhetherItFinishedADeletion(t *testing.T) {
+	client, table := localTable(t)
+	ctx := context.Background()
+	accounts := NewAccounts(client, table)
+	me := "taskfest-test-one@example.com"
+	if err := accounts.Mark(ctx, me); err != nil {
+		t.Fatal(err)
+	}
+
+	finished, err := accounts.Settle(ctx, me)
+	if err != nil || !finished {
+		t.Errorf("first settle: %v, %v", finished, err)
+	}
+	finished, err = accounts.Settle(ctx, me)
+	if err != nil || finished {
+		t.Errorf("second settle: %v, %v", finished, err)
 	}
 }
