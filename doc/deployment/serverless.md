@@ -134,13 +134,15 @@ its tests are ported case for case; its files come with the attachments (#552).
 - **A draft is a `DRAFT#<id>` item** with its id from the same count as tasks, so it keeps the id
   when it is added. Adding it is one transaction that deletes the draft and writes the task.
   Adding it again, a retry whose answer was lost (#427), finds no draft and sets the values on the
-  task instead; a task that was never a draft takes them too, as in Quarkus. Discarding a task's
+  task instead; a task that was never a draft takes them too, as in Quarkus. A start steps over an
+  id a task written around the count holds, as a create does. Discarding a task's
   id is a 404, and the task stays.
 - **The draft sweep is DynamoDB TTL** on `expiresAt`, an hour after the start, as long as an
   announced upload lasts. TTL deletes within about two days, so a draft past its `expiresAt` is
   gone to every read and write: adding or discarding it is a 404, and it no longer counts.
-- **The limit of five is the open drafts on the `META` item**: each id with its expiry, and a
-  `draftsVersion` that every change counts up. A start reads them, leaves out the expired ones, and
+- **The limit of five is the open drafts on the `META` item**: an `openDraft#<id>` attribute per
+  open draft, holding its expiry, and a `draftsVersion` that every change counts up. Attributes
+  rather than one map, since removing a key from a map the item lacks is an invalid request. A start reads them, leaves out the expired ones, and
   writes the new set together with the draft, on the condition that the version is still the one
   it read. Two drafts started at once cannot both take the last place: one of the two transactions
   fails its condition, counts again and is refused; a test starts six at once with room for one.

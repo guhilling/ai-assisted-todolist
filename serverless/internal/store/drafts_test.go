@@ -213,3 +213,45 @@ func withID(t board.Task, id int64) board.Task {
 	t.ID = id
 	return t
 }
+
+func TestADraftStepsOverATaskWrittenAroundTheCount(t *testing.T) {
+	// As a create does: a draft taking a task's id would become a second item with it when added.
+	client, table := localTable(t)
+	w, s := NewWrites(client, table), New(client, table)
+	put(t, client, table, map[string]any{"PK": OwnerKey(one), "SK": "TASK#00000001", "id": 1,
+		"description": "Seeded", "dueDate": "2099-11-30", "importance": "LOW", "state": "TODO"})
+
+	id := startDraft(t, w, one, started)
+
+	if id != 2 {
+		t.Errorf("draft %d; want 2", id)
+	}
+	if _, found, err := w.AddDraft(context.Background(), one, withID(newTask("Added"), id), started); !found || err != nil {
+		t.Fatalf("add: %v, %v", found, err)
+	}
+	if mine := boardOf(t, s, one); mine[1].Description != "Seeded" || mine[2].Description != "Added" {
+		t.Errorf("board %+v", mine)
+	}
+}
+
+func TestATaskOfAUserWhoNeverStartedADraftIsAddedToAndNotDiscarded(t *testing.T) {
+	// The user's META item has a task count and nothing of drafts; another user has no META item.
+	client, table := localTable(t)
+	w := NewWrites(client, table)
+	ctx := context.Background()
+	task, _ := w.Create(ctx, one, newTask("A task"))
+
+	again, found, err := w.AddDraft(ctx, one, withID(newTask("Added again"), task.ID), started)
+	if err != nil || !found || again.Description != "Added again" {
+		t.Errorf("add: %+v, %v, %v", again, found, err)
+	}
+	if found, err := w.DiscardDraft(ctx, one, task.ID, started); found || err != nil {
+		t.Errorf("discard: %v, %v", found, err)
+	}
+	if found, err := w.DiscardDraft(ctx, two, 1, started); found || err != nil {
+		t.Errorf("discard with no META item: %v, %v", found, err)
+	}
+	if _, found, err := w.AddDraft(ctx, two, withID(newTask("Nothing"), 1), started); found || err != nil {
+		t.Errorf("add with no META item: %v, %v", found, err)
+	}
+}

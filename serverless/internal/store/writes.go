@@ -71,16 +71,12 @@ func (w *Writes) Create(ctx context.Context, email string, t board.Task) (board.
 			return board.Task{}, err
 		}
 		t.ID = id
-		item, err := attributevalue.MarshalMap(taskItemOf(t))
+		put, err := w.newTask(email, t)
 		if err != nil {
-			return board.Task{}, fmt.Errorf("write the task: %w", err)
-		}
-		for k, v := range taskKey(email, t.ID) {
-			item[k] = v
+			return board.Task{}, err
 		}
 		_, err = w.client.PutItem(ctx, &dynamodb.PutItemInput{
-			TableName: aws.String(w.table), Item: item,
-			ConditionExpression: aws.String("attribute_not_exists(PK)"),
+			TableName: put.TableName, Item: put.Item, ConditionExpression: put.ConditionExpression,
 		})
 		if notThere(err) {
 			slog.WarnContext(ctx, "a task id was taken without being counted", "task", t.ID)
@@ -92,6 +88,22 @@ func (w *Writes) Create(ctx context.Context, email string, t board.Task) (board.
 		return t, nil
 	}
 	return board.Task{}, errors.New("write the task: every id tried was taken")
+}
+
+// newTask is the write of the user's task t as a new item, on the condition that its id is free:
+// what a create and an added draft write alike.
+func (w *Writes) newTask(email string, t board.Task) (*types.Put, error) {
+	item, err := attributevalue.MarshalMap(taskItemOf(t))
+	if err != nil {
+		return nil, fmt.Errorf("write the task: %w", err)
+	}
+	for k, v := range taskKey(email, t.ID) {
+		item[k] = v
+	}
+	return &types.Put{
+		TableName: aws.String(w.table), Item: item,
+		ConditionExpression: aws.String("attribute_not_exists(PK)"),
+	}, nil
 }
 
 // nextID counts the user's next task id on their META item.

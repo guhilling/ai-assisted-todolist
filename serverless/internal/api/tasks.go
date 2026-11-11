@@ -114,7 +114,6 @@ func read(w http.ResponseWriter, r *http.Request) (taskRequest, bool) {
 	return req, true
 }
 
-// now is the server's clock: Now when a test sets it, else the system's.
 // readNew reads a new task, a create or a draft being added, and checks what only a new task is
 // held to, answering 400 when it is none: a due date today or later somewhere, and at most
 // maxReattached attachments brought back.
@@ -131,6 +130,7 @@ func (s *Server) readNew(w http.ResponseWriter, r *http.Request) (taskRequest, b
 	return req, true
 }
 
+// now is the server's clock: Now when a test sets it, else the system's.
 func (s *Server) now() time.Time {
 	if s.Now != nil {
 		return s.Now()
