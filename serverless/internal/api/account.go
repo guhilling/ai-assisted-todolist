@@ -63,28 +63,52 @@ func (s *Server) DeleteApiAccount(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// Settled is the caller, once any deletion of their account that was left half-way is finished,
-// so that no request sees what is left of it. One read of the account per request. A deletion
-// finished here also ended the request's own session, so the caller is identified again: a
-// website session is gone, an app's bearer token goes on with a new, empty account, as after any
-// deletion. One that cannot be finished is not served; a read that fails is logged and the
-// request served, as its own reads fail too.
+// Settled is the caller, once any deletion of their account that was left half-way is finished
+// (settle), so that no request sees what is left of it.
 func Settled(caller Caller, accounts AccountDeletion) Caller {
 	return func(r *http.Request) (string, bool) {
 		email, ok := caller(r)
 		if !ok {
 			return email, ok
 		}
-		settled, err := accounts.Settle(r.Context(), email)
-		switch {
-		case settled && err != nil:
-			slog.ErrorContext(r.Context(), "finishing an account deletion failed", "error", err)
+		switch settle(r, accounts, email) {
+		case refuse:
 			return "", false
-		case err != nil:
-			slog.ErrorContext(r.Context(), "reading whether an account is being deleted failed", "error", err)
-		case settled:
+		case identifyAgain:
 			return caller(r)
 		}
 		return email, ok
 	}
+}
+
+// settlement is what a request does once its account is settled.
+type settlement int
+
+const (
+	// serveAsIs serves the request as it came.
+	serveAsIs settlement = iota
+	// identifyAgain: a deletion was finished, and with it the request's own session; a website
+	// session is gone, an app's bearer token goes on with a new, empty account, as after any
+	// deletion.
+	identifyAgain
+	// refuse the request: its deletion could not be finished, or whether there is one not read.
+	refuse
+)
+
+// settle finishes a deletion of the caller's account that was left half-way. One read of the
+// account per request. A request is refused rather than risk showing what is left of a deleted
+// account (CodeRabbit on #572, Gunnar's decision).
+func settle(r *http.Request, accounts AccountDeletion, email string) settlement {
+	settled, err := accounts.Settle(r.Context(), email)
+	switch {
+	case settled && err != nil:
+		slog.ErrorContext(r.Context(), "finishing an account deletion failed", "error", err)
+		return refuse
+	case err != nil:
+		slog.ErrorContext(r.Context(), "reading whether an account is being deleted failed", "error", err)
+		return refuse
+	case settled:
+		return identifyAgain
+	}
+	return serveAsIs
 }

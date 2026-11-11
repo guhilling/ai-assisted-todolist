@@ -7,6 +7,8 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/guhilling/ai-assisted-todolist/serverless/internal/identity"
 )
 
 func (f *fakeSignIn) EndSession(w http.ResponseWriter, _ *http.Request) {
@@ -19,6 +21,8 @@ type fakeDeletion struct {
 	steps  []string
 	fail   string
 	marked map[string]bool
+	// unreadable fails reading whether an account is being deleted.
+	unreadable bool
 }
 
 func (f *fakeDeletion) step(name, email string) error {
@@ -46,6 +50,9 @@ func (f *fakeDeletion) Finish(_ context.Context, email string) error {
 }
 
 func (f *fakeDeletion) Settle(_ context.Context, email string) (bool, error) {
+	if f.unreadable {
+		return false, errors.New("read failed")
+	}
 	if f.marked[email] {
 		return true, f.step("settle", email)
 	}
@@ -195,5 +202,26 @@ func TestARequestWhoseDeletionCannotBeFinishedIsNotServed(t *testing.T) {
 
 	if _, ok := caller(httptest.NewRequest("GET", "/api/tasks", nil)); ok {
 		t.Error("a request was served on what is left of a deleted account")
+	}
+}
+
+func TestARequestWhoseAccountCannotBeReadIsNotServed(t *testing.T) {
+	d := &fakeDeletion{unreadable: true}
+	caller := Settled(as("person@example.com"), d)
+
+	if _, ok := caller(httptest.NewRequest("GET", "/api/tasks", nil)); ok {
+		t.Error("a request was served without knowing whether its account is being deleted")
+	}
+}
+
+func TestWhoIsSignedInFinishesADeletionLeftHalfWayToo(t *testing.T) {
+	d := &fakeDeletion{marked: map[string]bool{"person@example.com": true}, fail: "settle"}
+	who := identity.Identity{Email: "person@example.com"}
+	s := &Server{SignIn: &fakeSignIn{who: &who}, Accounts: d}
+
+	rec := serve(s, "GET", "/api/auth/me")
+
+	if rec.Code != http.StatusUnauthorized || strings.Join(d.steps, ", ") != "settle person@example.com" {
+		t.Errorf("got %d after %v; want 401 after settling", rec.Code, d.steps)
 	}
 }

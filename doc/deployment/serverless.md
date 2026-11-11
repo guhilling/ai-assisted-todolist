@@ -260,15 +260,24 @@ bucket an account is deleted without one. Two things differ, by Gunnar's decisio
   `META` last. A deletion that cannot be marked takes its record back and answers a 500, as
   before. One that stops after the mark counts as done: the user is told so, and the account's
   next request finishes it before anything else (`api.Settled`, one strongly consistent read of
-  `META` per request), or the replay does. The partition is read again until nothing is left,
-  for what a request racing the deletion wrote. The stream deletes the attachments' files as
-  their items go.
+  `META` per request, `/api/auth/me` included), or the replay does. A request is refused, with a
+  401, when that read fails or the deletion cannot be finished: it must never see what is left of
+  a deleted account. The partition is read again until nothing is left, for what a request racing
+  the deletion wrote, and once more after `META` is gone. Should that last read fail, nothing in
+  the table is marked any more; the record in the bucket is, and the replay deletes what is left
+  under a recorded account that has no `META`. The stream deletes the attachments' files as their
+  items go.
 - **It ends the account's sessions on every device.** Each sign-in also writes a
   `SESSION#<key>` item into the user's partition, which deleting the account deletes along with
   the session it names; the item expires with the session's seven days. Quarkus's sessions were
   encrypted cookies, so a session left open elsewhere began a new, empty account; now it is
   signed out. The apps send a bearer ID token with every request, which no deletion can end:
   their next request uses a new, empty account, as before.
+
+One gap is accepted, as in the Quarkus backend (Gunnar's decision on #572): two deletions of the
+same account at the same moment share one record, and if one of them cannot be marked, taking its
+record back also takes the other's. It needs both at once, a DynamoDB failure on exactly one, and
+a later restore; closing it would take a conditional delete in S3 or a lock on the account.
 
 The replay, which deletes an account again that a restore brought back, comes with the next
 part of #553.

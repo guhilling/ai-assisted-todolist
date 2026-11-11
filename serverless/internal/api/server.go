@@ -101,6 +101,15 @@ func (s *Server) GetApiAuthProviders(w http.ResponseWriter, r *http.Request) {
 // GetApiAuthMe answers who is signed in: the email, and the name and picture if there are any.
 func (s *Server) GetApiAuthMe(w http.ResponseWriter, r *http.Request) {
 	id, ok := s.SignIn.Identify(r)
+	if ok && s.Accounts != nil {
+		// As every other route's caller (Settled), so a session a deletion ended shows signed out.
+		switch settle(r, s.Accounts, id.Email) {
+		case refuse:
+			ok = false
+		case identifyAgain:
+			id, ok = s.SignIn.Identify(r)
+		}
+	}
 	if !ok {
 		w.WriteHeader(http.StatusUnauthorized)
 		return
