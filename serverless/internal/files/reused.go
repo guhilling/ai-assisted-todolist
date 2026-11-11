@@ -33,19 +33,24 @@ func newReused(lifetime time.Duration) *reused {
 // is left, otherwise a newly signed one.
 func (r *reused) get(key string, now time.Time, sign func() (Link, error)) (Link, error) {
 	r.mu.Lock()
-	defer r.mu.Unlock()
 	if len(r.links) > r.tidyAbove {
 		r.forgetExpiredLocked(now)
 		r.tidyAbove = max(tidyAbove, len(r.links)*2)
 	}
-	if current, ok := r.links[key]; ok && !now.After(reusableUntil(current, r.lifetime)) {
+	current, ok := r.links[key]
+	r.mu.Unlock()
+	if ok && !now.After(reusableUntil(current, r.lifetime)) {
 		return current, nil
 	}
+	// Signed outside the lock, which may wait for credentials: two requests at once may both
+	// sign, and the browser then sees two URLs, which costs a fetch.
 	link, err := sign()
 	if err != nil {
 		return Link{}, err
 	}
+	r.mu.Lock()
 	r.links[key] = link
+	r.mu.Unlock()
 	return link, nil
 }
 

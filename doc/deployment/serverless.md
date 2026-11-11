@@ -116,8 +116,11 @@ rules, `internal/api` the requests, `internal/store` the items.
   MST, HST and ROC, which the JDK does not have and refuses. Compared name for name with JDK 25.0.5
   (tzdata 2026e), the one difference left is the other way round: the JDK still takes six
   `SystemV/` zones tzdata dropped long ago, which no browser or app sends.
-- **What follows from later stories:** writing needs the function's role to allow `PutItem`,
-  `UpdateItem`, `DeleteItem`, `Query` and `TransactWriteItems`, which the spike's does not (#554).
+- **What follows from later stories:** the function's role needs `dynamodb:GetItem`, `PutItem`,
+  `UpdateItem`, `DeleteItem`, `Query` and `ConditionCheckItem`, which IAM checks for each item of
+  a transaction, and on the attachment bucket `s3:PutObject`, `GetObject`, `DeleteObject` and
+  `ListBucket`, without which a `HEAD` of a missing file is a 403 rather than a 404. The spike's
+  role has none of them but `Query` (#554).
 - **Keys are read as Jackson reads them:** exactly as written, so `"Description"` is no
   description, and of a key given twice the last one counts.
 - **Jackson's leniencies about values are not copied.** It takes a number for a string

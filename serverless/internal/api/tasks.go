@@ -65,22 +65,12 @@ type taskRequest struct {
 // only as written ("Description" is none), and of a key given twice the last counts.
 func decode(body io.Reader) (taskRequest, error) {
 	var req taskRequest
-	var fields map[string]json.RawMessage
-	if err := json.NewDecoder(body).Decode(&fields); err != nil {
-		return req, err
-	}
-	for key, into := range map[string]any{
+	err := readFields(body, map[string]any{
 		"description": &req.Description, "dueDate": &req.DueDate,
 		"dueTime": &req.DueTime, "timeZone": &req.TimeZone,
 		"importance": &req.Importance, "state": &req.State, "attachmentIds": &req.AttachmentIDs,
-	} {
-		if raw, ok := fields[key]; ok {
-			if err := json.Unmarshal(raw, into); err != nil {
-				return req, err
-			}
-		}
-	}
-	return req, nil
+	})
+	return req, err
 }
 
 // task is the request as a task, with id, a left-out time and zone being none.
@@ -159,12 +149,20 @@ func (s *Server) PostApiTasks(w http.ResponseWriter, r *http.Request) {
 	// An undo re-creating a deleted task brings its attachments back with it (D3 on #204), as
 	// many as it may: best effort, so a failure leaves the task without them rather than
 	// answering an error for a task that was created, which a retry would create again.
+	// A new task has none to read otherwise; read after an undo, a failure answers without them.
+	var attached []board.Attachment
 	if len(req.AttachmentIDs) > 0 {
-		if err := s.Attachments.Reattach(r.Context(), email, t.ID, req.AttachmentIDs, s.now()); err != nil {
+		err := s.Attachments.Reattach(r.Context(), email, t.ID, req.AttachmentIDs, s.now())
+		var all map[int64][]board.Attachment
+		if err == nil {
+			all, err = s.Tasks.Attachments(r.Context(), email, s.now())
+		}
+		if err != nil {
 			slog.ErrorContext(r.Context(), "bringing attachments back failed", "task", t.ID, "error", err)
 		}
+		attached = all[t.ID]
 	}
-	s.answerTask(w, r, email, http.StatusCreated, t)
+	s.answerWith(w, r, http.StatusCreated, t, attached)
 }
 
 // PutApiTasksId replaces the caller's task, every field of it but a due time and zone the
@@ -223,7 +221,13 @@ func (s *Server) answerTask(w http.ResponseWriter, r *http.Request, email string
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	response, err := taskResponse(t, attached[t.ID])
+	s.answerWith(w, r, status, t, attached[t.ID])
+}
+
+// answerWith answers with a written task and these attachments, or 500 when it does not read back
+// as one.
+func (s *Server) answerWith(w http.ResponseWriter, r *http.Request, status int, t board.Task, attached []board.Attachment) {
+	response, err := taskResponse(t, attached)
 	if err != nil {
 		slog.ErrorContext(r.Context(), "a written task does not read", "task", t.ID, "error", err)
 		w.WriteHeader(http.StatusInternalServerError)

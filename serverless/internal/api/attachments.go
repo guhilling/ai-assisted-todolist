@@ -320,9 +320,9 @@ func (s *Server) DeleteApiTasksTaskIdAttachmentsId(w http.ResponseWriter, r *htt
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// remove deletes an attachment: its item first, then its file and thumbnail. A failure in between
-// leaves files whose item is gone, which the table's stream deletes in any case, as it does those
-// of every attachment item deleted, by expiry included.
+// remove deletes an attachment: its item first, then its file and thumbnail. A file that fails to
+// go is logged, not answered: the attachment is gone, a retry would find nothing, and the table's
+// stream deletes the files of every attachment item deleted, by expiry included.
 func (s *Server) remove(ctx context.Context, email string, a board.Attachment) error {
 	if err := s.Attachments.RemoveAttachment(ctx, email, a.ID); err != nil {
 		return err
@@ -330,5 +330,8 @@ func (s *Server) remove(ctx context.Context, email string, a board.Attachment) e
 	if a.ObjectKey == "" {
 		return nil
 	}
-	return errors.Join(s.Files.Delete(ctx, a.ObjectKey), s.Files.Delete(ctx, board.ThumbnailKey(a.ObjectKey)))
+	if err := errors.Join(s.Files.Delete(ctx, a.ObjectKey), s.Files.Delete(ctx, board.ThumbnailKey(a.ObjectKey))); err != nil {
+		slog.WarnContext(ctx, "an attachment's files are left to the stream", "attachment", a.ID, "error", err)
+	}
+	return nil
 }

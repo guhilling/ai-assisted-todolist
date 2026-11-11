@@ -38,6 +38,8 @@ type memAttached struct {
 	last     map[string]int64
 	detached map[string][]int64
 	failing  error
+	// unreadable fails reading the board's attachments.
+	unreadable error
 }
 
 func newMemAttached() *memAttached {
@@ -51,6 +53,9 @@ func (m *memAttached) isTarget(email string, taskID int64) bool {
 }
 
 func (m *memAttached) Attachments(_ context.Context, email string, _ time.Time) (map[int64][]board.Attachment, error) {
+	if m.unreadable != nil {
+		return nil, m.unreadable
+	}
 	out := map[int64][]board.Attachment{}
 	for _, a := range m.items[email] {
 		if a.Available && a.TaskID != 0 {
@@ -146,6 +151,8 @@ func (m *memAttached) Reattach(_ context.Context, email string, taskID int64, id
 type memFiles struct {
 	objects map[string]files.Object
 	deleted []string
+	// failing fails every delete.
+	failing error
 }
 
 func (f *memFiles) UploadLink(_ context.Context, key, contentType string, size int64) (files.Link, error) {
@@ -164,6 +171,9 @@ func (f *memFiles) Head(_ context.Context, key string) (files.Object, bool, erro
 }
 
 func (f *memFiles) Delete(_ context.Context, key string) error {
+	if f.failing != nil {
+		return f.failing
+	}
 	f.deleted = append(f.deleted, key)
 	delete(f.objects, key)
 	return nil
@@ -501,6 +511,37 @@ func TestAnUndoThatCannotBringItsAttachmentsBackStillCreatesTheTask(t *testing.T
 	if got := decodeAs[struct{ Attachments []attachmentAnswer }](t, rec.Body.Bytes()); rec.Code != http.StatusCreated ||
 		got.Attachments == nil || len(got.Attachments) != 0 {
 		t.Errorf("%d %s", rec.Code, rec.Body)
+	}
+}
+
+func TestACreatedTaskIsAnsweredWhenItsAttachmentsCannotBeRead(t *testing.T) {
+	// It was written: a 500 would make the client create it again. A new task has none anyway,
+	// and after an undo the next board load shows what came back.
+	s, b, _ := attachedServer(as(alice))
+	b.unreadable = errors.New("DynamoDB is slow")
+
+	for _, extra := range []string{"", `,"attachmentIds":[1]`} {
+		rec := send(s, "POST", "/api/tasks",
+			`{"description":"New","dueDate":"2026-11-11","importance":"MEDIUM","state":"TODO"`+extra+`}`)
+		if got := decodeAs[struct{ Attachments []attachmentAnswer }](t, rec.Body.Bytes()); rec.Code != http.StatusCreated ||
+			got.Attachments == nil || len(got.Attachments) != 0 {
+			t.Errorf("%q: %d %s", extra, rec.Code, rec.Body)
+		}
+	}
+}
+
+func TestAnAttachmentWhoseFilesFailToGoIsRemovedAllTheSame(t *testing.T) {
+	// The item is gone, so a retry would be a 404; the table's stream deletes the files.
+	s, b, f := attachedServer(as(alice))
+	taskID := taskFor(t, s, "Storage is down")
+	id := announced(t, s, taskID, announceJSON("a.pdf", "application/pdf", 10)).Attachment.ID
+	f.failing = errors.New("S3 is down")
+
+	if rec := send(s, "DELETE", attachmentPath(taskID, id, ""), ""); rec.Code != http.StatusNoContent {
+		t.Errorf("remove: %d", rec.Code)
+	}
+	if len(b.items[alice]) != 0 {
+		t.Error("the attachment stayed")
 	}
 }
 

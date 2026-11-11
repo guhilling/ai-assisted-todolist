@@ -100,9 +100,10 @@ func attachmentKey(email string, id int64) map[string]types.AttributeValue {
 }
 
 // Attachments returns the available attachments on each of the user's tasks, oldest first, by
-// task id: what the board lists. Pending ones, detached ones and a draft's are left out.
+// task id: what the board lists. Pending ones, detached ones and a draft's are left out. Read
+// strongly consistent, so that an answer straight after a write, an undo's, shows it.
 func (s *Store) Attachments(ctx context.Context, email string, now time.Time) (map[int64][]board.Attachment, error) {
-	items, err := attachmentsOf(ctx, s.client, s.table, email, false)
+	items, err := attachmentsOf(ctx, s.client, s.table, email, true)
 	if err != nil {
 		return nil, err
 	}
@@ -152,42 +153,53 @@ type attachState struct {
 	items   []attachmentItem
 }
 
-// readAttachments reads the version on the user's META item, then their attachments.
+// readAttachments reads the version on the user's META item, then, after between, their
+// attachments.
 func (w *Writes) readAttachments(ctx context.Context, email string, between func() error) (attachState, error) {
-	out, err := w.client.GetItem(ctx, &dynamodb.GetItemInput{
-		TableName: aws.String(w.table), Key: metaKey(email), ConsistentRead: aws.Bool(true),
-		ProjectionExpression:     aws.String("#v"),
-		ExpressionAttributeNames: map[string]string{"#v": attachmentsVersion},
-	})
+	version, err := w.attachmentsVersionOf(ctx, email)
 	if err != nil {
-		return attachState{}, fmt.Errorf("read the attachments' version: %w", err)
-	}
-	var state attachState
-	if v, ok := out.Item[attachmentsVersion]; ok {
-		var n int64
-		if err := attributevalue.Unmarshal(v, &n); err != nil {
-			return attachState{}, fmt.Errorf("read the attachments' version: %w", err)
-		}
-		state.version = &n
+		return attachState{}, err
 	}
 	if between != nil {
 		if err := between(); err != nil {
 			return attachState{}, err
 		}
 	}
-	state.items, err = attachmentsOf(ctx, w.client, w.table, email, true)
-	return state, err
+	items, err := attachmentsOf(ctx, w.client, w.table, email, true)
+	return attachState{version: version, items: items}, err
+}
+
+// attachmentsVersionOf reads the attachments version on the user's META item, strongly
+// consistent; nil before the first write to their attachments.
+func (w *Writes) attachmentsVersionOf(ctx context.Context, email string) (*int64, error) {
+	out, err := w.client.GetItem(ctx, &dynamodb.GetItemInput{
+		TableName: aws.String(w.table), Key: metaKey(email), ConsistentRead: aws.Bool(true),
+		ProjectionExpression:     aws.String("#v"),
+		ExpressionAttributeNames: map[string]string{"#v": attachmentsVersion},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("read the attachments' version: %w", err)
+	}
+	v, ok := out.Item[attachmentsVersion]
+	if !ok {
+		return nil, nil
+	}
+	var n int64
+	if err := attributevalue.Unmarshal(v, &n); err != nil {
+		return nil, fmt.Errorf("read the attachments' version: %w", err)
+	}
+	return &n, nil
 }
 
 // bump counts the user's attachments version up, on the condition that it is still version.
 func (w *Writes) bump(email string, version *int64) types.TransactWriteItem {
-	return types.TransactWriteItem{Update: w.bumpUpdate(email, version, "", nil, nil)}
+	return types.TransactWriteItem{Update: w.bumpUpdate(email, version, nil, nil, nil, nil)}
 }
 
 // bumpUpdate is an update of the user's META item that counts the attachments version up, on the
-// condition that it is still version, with more to do on the item: an expression to put before the
-// ADD, and its names and values.
-func (w *Writes) bumpUpdate(email string, version *int64, expr string, names map[string]string,
+// condition that it is still version, with more to remove and add on the item, each clause's
+// parts as an update expression writes them, and their names and values.
+func (w *Writes) bumpUpdate(email string, version *int64, remove, add []string, names map[string]string,
 	values map[string]types.AttributeValue) *types.Update {
 	if names == nil {
 		names = map[string]string{}
@@ -202,14 +214,12 @@ func (w *Writes) bumpUpdate(email string, version *int64, expr string, names map
 		condition = "#av = :av"
 		values[":av"] = number(*version)
 	}
-	// ADD #version goes with the drafts' own ADD; one ADD clause holds both.
-	if strings.Contains(expr, "ADD ") {
-		expr += ", #av :aone"
-	} else {
-		expr += " ADD #av :aone"
+	expr := "ADD " + strings.Join(append(add, "#av :aone"), ", ")
+	if len(remove) > 0 {
+		expr = "REMOVE " + strings.Join(remove, ", ") + " " + expr
 	}
 	return &types.Update{
-		TableName: aws.String(w.table), Key: metaKey(email), UpdateExpression: aws.String(strings.TrimSpace(expr)),
+		TableName: aws.String(w.table), Key: metaKey(email), UpdateExpression: aws.String(expr),
 		ConditionExpression: aws.String(condition), ExpressionAttributeNames: names, ExpressionAttributeValues: values,
 	}
 }
@@ -441,11 +451,11 @@ func (w *Writes) reexpire(email string, it attachmentItem, draftExpires int64, n
 // if it has any, are the caller's to delete.
 func (w *Writes) RemoveAttachment(ctx context.Context, email string, id int64) error {
 	for range draftAttempts {
-		state, err := w.readAttachments(ctx, email, nil)
+		version, err := w.attachmentsVersionOf(ctx, email)
 		if err != nil {
 			return err
 		}
-		reasons, err := w.transact(ctx, w.bump(email, state.version), types.TransactWriteItem{Delete: &types.Delete{
+		reasons, err := w.transact(ctx, w.bump(email, version), types.TransactWriteItem{Delete: &types.Delete{
 			TableName: aws.String(w.table), Key: attachmentKey(email, id),
 		}})
 		if err != nil || reasons == nil {

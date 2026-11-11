@@ -23,7 +23,9 @@ import (
 type Writes struct {
 	client ItemAPI
 	table  string
-	// clock is when a delete detaches a task's attachments; time.Now but in tests.
+	// clock is when a delete detaches a task's attachments; time.Now but in tests. A field
+	// rather than a parameter, so that Delete keeps the signature the earlier tests call; the
+	// API's clock is time.Now as well.
 	clock func() time.Time
 }
 

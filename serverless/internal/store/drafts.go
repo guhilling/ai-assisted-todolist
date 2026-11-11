@@ -271,7 +271,7 @@ func (w *Writes) takeDraft(email string, id int64, now time.Time) types.Transact
 // that read them before cannot write back what it read; and counts the attachments' version up, on
 // the condition that it is still version, since the draft's attachments change with it.
 func (w *Writes) forget(email string, id int64, version *int64) types.TransactWriteItem {
-	return types.TransactWriteItem{Update: w.bumpUpdate(email, version, "REMOVE #draft ADD #version :one",
+	return types.TransactWriteItem{Update: w.bumpUpdate(email, version, []string{"#draft"}, []string{"#version :one"},
 		map[string]string{"#draft": openDraft(id), "#version": draftsVersion},
 		map[string]types.AttributeValue{":one": number(1)})}
 }
