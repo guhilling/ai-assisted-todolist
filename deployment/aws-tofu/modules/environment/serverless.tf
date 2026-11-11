@@ -20,8 +20,10 @@ locals {
   api_providers = concat(local.sign_in_enabled ? ["google"] : [], var.test_sign_in ? ["cognito"] : [])
 }
 
-# AWS-0025, a customer-managed key: about $1 a month, more than the table; DynamoDB encrypts it with
-# its own key regardless.
+# AWS-0024, point-in-time recovery, is a variable: on in prod, off in qa, which restores from an
+# on-demand backup when it must (#553). AWS-0025, a customer-managed key: about $1 a month, more
+# than the table; DynamoDB encrypts it with its own key regardless.
+#trivy:ignore:AWS-0024
 #trivy:ignore:AWS-0025
 resource "aws_dynamodb_table" "data" {
   name         = local.table
@@ -53,7 +55,7 @@ resource "aws_dynamodb_table" "data" {
   # A restore is how a mistake is undone, and the deletion replay keeps it lawful (#553). Billed by
   # the GB-month of data, fractions of a cent at this size.
   point_in_time_recovery {
-    enabled = true
+    enabled = var.table_point_in_time_recovery
   }
 
   # A destroy of the foundation must not take people's data with it by accident.

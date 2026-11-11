@@ -261,6 +261,12 @@ variable "backend_memory" {
   }
 }
 
+variable "table_point_in_time_recovery" {
+  description = "Whether the Go backend's table keeps point-in-time recovery (#553): prod only."
+  type        = bool
+  default     = false
+}
+
 variable "api_backend" {
   description = <<-EOT
     Which backend CloudFront sends /api/* to (#554): "containers", the Quarkus backend behind the

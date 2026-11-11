@@ -95,6 +95,11 @@ variable "backend_memory" {
   type        = number
 }
 
+variable "table_point_in_time_recovery" {
+  description = "Whether the Go backend's table keeps point-in-time recovery (#553)."
+  type        = bool
+}
+
 variable "api_backend" {
   description = "Which backend CloudFront sends /api/* to: \"containers\" or \"serverless\" (#554)."
   type        = string
