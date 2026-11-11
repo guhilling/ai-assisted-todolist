@@ -5,7 +5,8 @@
 // Settings, from the environment: TABLE_NAME, the DynamoDB table; DYNAMODB_ENDPOINT, set only for
 // DynamoDB Local; TASKFEST_ATTACHMENTS_BUCKET, the attachment bucket, as for the Quarkus backend;
 // S3_ENDPOINT, set only for LocalStack; PORT, for the HTTP server, 8080 by default; sign-in's, which auth.LoadConfig
-// lists; TASKFEST_GRAVATAR_ENABLED, "false" to never ask Gravatar.
+// lists; TASKFEST_GRAVATAR_ENABLED, "false" to never ask Gravatar; on Lambda,
+// TASKFEST_ORIGIN_SECRET, the value CloudFront sends in lambdahttp.OriginHeader.
 package main
 
 import (
@@ -75,7 +76,13 @@ func main() {
 	cancel()
 
 	if os.Getenv("AWS_LAMBDA_RUNTIME_API") != "" {
-		lambda.Start(lambdahttp.Handler(routes))
+		secret := os.Getenv("TASKFEST_ORIGIN_SECRET")
+		if secret == "" {
+			// FromOrigin would refuse every request; better a start that fails and says why.
+			slog.Error("TASKFEST_ORIGIN_SECRET is not set")
+			os.Exit(1)
+		}
+		lambda.Start(lambdahttp.Handler(lambdahttp.FromOrigin(secret, routes)))
 		return
 	}
 	port := os.Getenv("PORT")
