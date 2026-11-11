@@ -8,14 +8,16 @@ function task(id: number, description: string, dueDate: string, extra: Partial<T
   return { id, description, dueDate, importance: 'MEDIUM', state: 'TODO', ...extra }
 }
 
+/** Later this week: a task due today or tomorrow sits under a heading of its own, which says the
+ * date, so its row would leave the date out. */
 export function Upcoming() {
   return (
     <TaskSection
       title="This week"
       today={TODAY}
       tasks={[
-        task(1, 'Renew the passport', '2026-03-17', { importance: 'HIGH' }),
-        task(2, 'Draft the migration plan', '2026-03-18'),
+        task(1, 'Renew the passport', '2026-03-18', { importance: 'HIGH' }),
+        task(2, 'Draft the migration plan', '2026-03-19'),
         task(3, 'Water the plants', '2026-03-20', { importance: 'LOW' }),
       ]}
       {...handlers}

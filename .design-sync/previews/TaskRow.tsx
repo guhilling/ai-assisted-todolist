@@ -69,3 +69,19 @@ export function Importance() {
     </List>
   )
 }
+
+/**
+ * A due time follows the date (#476). Only a floating time, one without a zone: a zoned one is
+ * shown on the viewer's own clock, so its words would change with the machine that renders it.
+ */
+export function WithTime() {
+  return (
+    <List>
+      <TaskRow
+        task={task({ id: 8, description: 'Call the bank', dueTime: '14:30' })}
+        today={TODAY}
+        {...handlers}
+      />
+    </List>
+  )
+}

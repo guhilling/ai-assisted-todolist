@@ -64,6 +64,17 @@ into it. If a future sync fails with `Executable doesn't exist`, re-check that t
   it sits in the card at the month's width.
 - **`AttachmentList`'s image is a data URI**, for the same reason as `UserAvatar`'s: the list
   asks for a link and shows an empty box until one loads.
+- **A row due today or tomorrow prints no date** (#337, #476): the board's Today and Tomorrow
+  headings say it. A preview that puts such a task under another heading, as `TaskSection`'s
+  "This week" once did, shows a row with a dot and nothing else. Keep preview dates in their
+  section's range.
+- **`TaskRow` shows a due time only floating.** A zoned time is converted to the viewer's own
+  clock, so its words would depend on the machine that renders the card.
+- **`AccountMenu` and `AccountDeletion` are opened by clicks on mount**, like `DueDateField`. The
+  menu's stage is a header row (the popover's containing block in the app) inside a taller box
+  with a `transform`, which also holds the narrow-screen fixed popover. `AccountDeletion` is shown
+  inline, with `onAsking` given, as the menu uses it; nothing else renders it.
+- **`I18nProvider` stays on the floor card.** It is the wrapper, with nothing of its own to show.
 - **Not shown, because only an interaction reaches them:** an upload's progress bar, a refused
   file's sentence (both in `AttachmentPicker`), and `FileDrop` while a file is dragged over it.
 
