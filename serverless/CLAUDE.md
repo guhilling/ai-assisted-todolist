@@ -10,13 +10,14 @@ Gunnar does not write or read Go by choice, so the code has to be reviewable by 
 - **Every package and exported identifier has a doc comment saying what it is for**, the Go
   counterpart of the backend's Javadoc rule.
 - **The domain imports no AWS package.** `internal/board` is plain Go; Lambda's event types stay
-  in `cmd/` and `internal/lambdahttp`, DynamoDB's in `internal/store`. That is the line that
-  keeps the AWS lock-in (one of the decision's drawbacks) to the edges.
+  in `cmd/` and `internal/lambdahttp`, DynamoDB's in `internal/store`, S3's in `internal/files`.
+  That is the line that keeps the AWS lock-in (one of the decision's drawbacks) to the edges.
 - **Tests sit next to the code** (`*_test.go`), with fakes for the one AWS call each part makes,
   and TDD holds as everywhere else in the repository.
 - **gofmt, `go vet` and `go test -race`** are what Serverless CI runs; run them before a commit.
-  The store's tests start DynamoDB Local through Testcontainers: without podman or docker they
-  are skipped on a developer machine, never in CI. With podman, run them with
+  The store's tests start DynamoDB Local through Testcontainers, the files' tests LocalStack:
+  without podman or docker they are skipped on a developer machine, never in CI. With podman,
+  run them with
   `TESTCONTAINERS_RYUK_DISABLED=true`: Ryuk, Testcontainers' clean-up container, asks for
   Docker's `bridge` network, which podman does not have, and each test stops its own container.
 - **The wire format is the API's**, `doc/api/openapi.json`. `internal/api/api.gen.go` is

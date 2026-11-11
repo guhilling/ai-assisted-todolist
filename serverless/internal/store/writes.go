@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
@@ -22,11 +23,13 @@ import (
 type Writes struct {
 	client ItemAPI
 	table  string
+	// clock is when a delete detaches a task's attachments; time.Now but in tests.
+	clock func() time.Time
 }
 
 // NewWrites returns the writes on the named table.
 func NewWrites(client ItemAPI, table string) *Writes {
-	return &Writes{client: client, table: table}
+	return &Writes{client: client, table: table, clock: time.Now}
 }
 
 // lastTaskID is the attribute of the user's META item that counts the ids given so far. Drafts
@@ -108,24 +111,29 @@ func (w *Writes) newTask(email string, t board.Task) (*types.Put, error) {
 
 // nextID counts the user's next task id on their META item.
 func (w *Writes) nextID(ctx context.Context, email string) (int64, error) {
+	return w.next(ctx, email, lastTaskID)
+}
+
+// next counts the user's next id on the META item's attribute last.
+func (w *Writes) next(ctx context.Context, email, last string) (int64, error) {
 	out, err := w.client.UpdateItem(ctx, &dynamodb.UpdateItemInput{
 		TableName:                 aws.String(w.table),
 		Key:                       metaKey(email),
 		UpdateExpression:          aws.String("ADD #last :one"),
-		ExpressionAttributeNames:  map[string]string{"#last": lastTaskID},
+		ExpressionAttributeNames:  map[string]string{"#last": last},
 		ExpressionAttributeValues: map[string]types.AttributeValue{":one": &types.AttributeValueMemberN{Value: "1"}},
 		ReturnValues:              types.ReturnValueUpdatedNew,
 	})
 	if err != nil {
-		return 0, fmt.Errorf("count the task: %w", err)
+		return 0, fmt.Errorf("count %s: %w", last, err)
 	}
-	n, ok := out.Attributes[lastTaskID].(*types.AttributeValueMemberN)
+	n, ok := out.Attributes[last].(*types.AttributeValueMemberN)
 	if !ok {
-		return 0, errors.New("count the task: no count came back")
+		return 0, fmt.Errorf("count %s: no count came back", last)
 	}
 	id, err := strconv.ParseInt(n.Value, 10, 64)
 	if err != nil {
-		return 0, fmt.Errorf("count the task: %w", err)
+		return 0, fmt.Errorf("count %s: %w", last, err)
 	}
 	return id, nil
 }
@@ -184,18 +192,33 @@ func (w *Writes) Replace(ctx context.Context, email string, t board.Task, keepTi
 	return stored.task(), true, nil
 }
 
-// Delete deletes the user's task with this id; found is false when they have none.
+// Delete deletes the user's task with this id; found is false when they have none. Its
+// attachments are detached in the same transaction rather than deleted, and kept for the undo
+// window (D3 on #204): the board's undo re-creates the task and names them.
 func (w *Writes) Delete(ctx context.Context, email string, id int64) (bool, error) {
-	_, err := w.client.DeleteItem(ctx, &dynamodb.DeleteItemInput{
-		TableName:           aws.String(w.table),
-		Key:                 taskKey(email, id),
-		ConditionExpression: aws.String("attribute_exists(PK)"),
-	})
-	if notThere(err) {
-		return false, nil
+	for range draftAttempts {
+		now := w.clock()
+		state, err := w.readAttachments(ctx, email, nil)
+		if err != nil {
+			return false, err
+		}
+		items := append([]types.TransactWriteItem{
+			{Delete: &types.Delete{TableName: aws.String(w.table), Key: taskKey(email, id),
+				ConditionExpression: aws.String("attribute_exists(PK)")}},
+			w.bump(email, state.version),
+		}, w.detach(email, state, id, now)...)
+		reasons, err := w.transact(ctx, items...)
+		switch {
+		case err != nil:
+			return false, fmt.Errorf("delete the task: %w", err)
+		case reasons == nil:
+			return true, nil
+		case failed(reasons, 0):
+			return false, nil
+		}
+		if err := pause(ctx); err != nil {
+			return false, err
+		}
 	}
-	if err != nil {
-		return false, fmt.Errorf("delete the task: %w", err)
-	}
-	return true, nil
+	return false, errors.New("delete the task: lost every race for the count")
 }

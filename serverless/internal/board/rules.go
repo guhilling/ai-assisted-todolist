@@ -103,6 +103,12 @@ func isDate(s string) bool {
 	return err == nil
 }
 
+// Blank says whether a request's text is blank as @NotBlank says: Java's String.isBlank.
+func Blank(s string) bool { return isBlank(s) }
+
+// Length is a request's text's length as @Size measures it, in UTF-16 code units.
+func Length(s string) int { return javaLength(s) }
+
 // isBlank is Java's String.isBlank, which @NotBlank uses: nothing but Character.isWhitespace.
 func isBlank(s string) bool {
 	return strings.IndexFunc(s, func(r rune) bool { return !javaWhitespace(r) }) < 0

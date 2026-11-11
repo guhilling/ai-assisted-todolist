@@ -150,15 +150,21 @@ func (s *Server) PostApiTasks(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	// attachmentIds, an undo bringing a deleted task's attachments back (#204), is accepted and
-	// does nothing until attachments are ported (#552), as for ids that are not the caller's.
 	t, err := s.Writes.Create(r.Context(), email, req.task(0))
 	if err != nil {
 		slog.ErrorContext(r.Context(), "creating a task failed", "error", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	s.answerTask(w, r, http.StatusCreated, t)
+	// An undo re-creating a deleted task brings its attachments back with it (D3 on #204), as
+	// many as it may: best effort, so a failure leaves the task without them rather than
+	// answering an error for a task that was created, which a retry would create again.
+	if len(req.AttachmentIDs) > 0 {
+		if err := s.Attachments.Reattach(r.Context(), email, t.ID, req.AttachmentIDs, s.now()); err != nil {
+			slog.ErrorContext(r.Context(), "bringing attachments back failed", "task", t.ID, "error", err)
+		}
+	}
+	s.answerTask(w, r, email, http.StatusCreated, t)
 }
 
 // PutApiTasksId replaces the caller's task, every field of it but a due time and zone the
@@ -185,7 +191,7 @@ func (s *Server) PutApiTasksId(w http.ResponseWriter, r *http.Request, id int64)
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
-	s.answerTask(w, r, http.StatusOK, t)
+	s.answerTask(w, r, email, http.StatusOK, t)
 }
 
 // DeleteApiTasksId deletes the caller's task; someone else's is not found, and stays.
@@ -208,9 +214,16 @@ func (s *Server) DeleteApiTasksId(w http.ResponseWriter, r *http.Request, id int
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// answerTask answers with a written task, or 500 when it does not read back as one.
-func (s *Server) answerTask(w http.ResponseWriter, r *http.Request, status int, t board.Task) {
-	response, err := taskResponse(t)
+// answerTask answers with a written task and its available attachments, or 500 when it does not
+// read back as one.
+func (s *Server) answerTask(w http.ResponseWriter, r *http.Request, email string, status int, t board.Task) {
+	attached, err := s.Tasks.Attachments(r.Context(), email, s.now())
+	if err != nil {
+		slog.ErrorContext(r.Context(), "reading a task's attachments failed", "task", t.ID, "error", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	response, err := taskResponse(t, attached[t.ID])
 	if err != nil {
 		slog.ErrorContext(r.Context(), "a written task does not read", "task", t.ID, "error", err)
 		w.WriteHeader(http.StatusInternalServerError)
