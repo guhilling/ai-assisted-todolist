@@ -93,8 +93,13 @@ func (it attachmentItem) expiry(draftExpires int64) *int64 {
 
 // attachmentKey is the key of the user's attachment with this id.
 func attachmentKey(email string, id int64) map[string]types.AttributeValue {
+	return ownersAttachmentKey(OwnerKey(email), id)
+}
+
+// ownersAttachmentKey is the key of the attachment with this id in the partition owner.
+func ownersAttachmentKey(owner string, id int64) map[string]types.AttributeValue {
 	return map[string]types.AttributeValue{
-		"PK": &types.AttributeValueMemberS{Value: OwnerKey(email)},
+		"PK": &types.AttributeValueMemberS{Value: owner},
 		"SK": &types.AttributeValueMemberS{Value: fmt.Sprintf("ATT#%08d", id)},
 	}
 }

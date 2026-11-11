@@ -26,9 +26,10 @@ func record(seq, name, sk, objectKey string) events.DynamoDBEventRecord {
 	r := events.DynamoDBEventRecord{EventName: name, Change: events.DynamoDBStreamRecord{
 		SequenceNumber: seq,
 		Keys:           map[string]events.DynamoDBAttributeValue{"SK": events.NewStringAttribute(sk)},
+		OldImage:       map[string]events.DynamoDBAttributeValue{"SK": events.NewStringAttribute(sk)},
 	}}
 	if objectKey != "" {
-		r.Change.OldImage = map[string]events.DynamoDBAttributeValue{"objectKey": events.NewStringAttribute(objectKey)}
+		r.Change.OldImage["objectKey"] = events.NewStringAttribute(objectKey)
 	}
 	return r
 }
@@ -64,7 +65,7 @@ func TestEverythingElseIsLeftAlone(t *testing.T) {
 	}
 }
 
-func TestOnlyTheRecordsThatFailedAreTriedAgain(t *testing.T) {
+func TestOnlyTheRecordsThatFailedAreAnsweredAsFailures(t *testing.T) {
 	b := &memBucket{failing: map[string]bool{"bad.thumbnail": true}}
 
 	got := handle(context.Background(), b, events.DynamoDBEvent{Records: []events.DynamoDBEventRecord{
@@ -78,5 +79,18 @@ func TestOnlyTheRecordsThatFailedAreTriedAgain(t *testing.T) {
 	}
 	if !slices.Contains(b.deleted, "also-good") {
 		t.Error("a failure stopped the rest")
+	}
+}
+
+func TestARecordWithoutItsOldImageIsNoFailure(t *testing.T) {
+	// A misconfigured stream: logged as an error, since retrying would never bring the key.
+	b := &memBucket{}
+	r := record("1", "REMOVE", "ATT#00000007", "")
+	r.Change.OldImage = nil
+
+	got := handle(context.Background(), b, events.DynamoDBEvent{Records: []events.DynamoDBEventRecord{r}})
+
+	if len(got.BatchItemFailures) != 0 || len(b.deleted) != 0 {
+		t.Errorf("%+v, deleted %v", got, b.deleted)
 	}
 }

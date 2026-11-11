@@ -185,7 +185,8 @@ unchanged.
 - **The files of a deleted item go through the table's stream.** `cmd/streams` takes the
   stream's records, with old images, and deletes the file and thumbnail of every `ATT#` item that
   goes: removed, discarded with its draft, or deleted by TTL. A record whose files fail to go is
-  answered as a failure, which Lambda tries again; the rest of the batch is not held up.
+  answered as a failure; Lambda sends it and the shard's later records again, holding the shard
+  until it succeeds, so #554 caps the retries and lets the orphan clean-up take what is given up.
   Removing an attachment, and a mismatch on confirm, also delete the files at once, after the
   item; Quarkus deleted the file first, so that a failure in between left a row pointing at
   nothing rather than a file nobody could find. With the stream, neither order loses track of one.

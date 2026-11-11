@@ -2,7 +2,8 @@
 // item refers to (#208, #552), run by EventBridge Scheduler; internal/orphans decides and logs.
 //
 // Settings, from the environment: TABLE_NAME, the DynamoDB table; TASKFEST_ATTACHMENTS_BUCKET,
-// the attachment bucket. Its log lines are JSON, so the alarm's metric filter can match the
+// the attachment bucket; DYNAMODB_ENDPOINT and S3_ENDPOINT, set only for DynamoDB Local and
+// LocalStack, and only together, or a local bucket is compared with a real table. Its log lines are JSON, so the alarm's metric filter can match the
 // orphanSweepAlert field.
 package main
 
@@ -28,7 +29,12 @@ func main() {
 		slog.Error("loading the AWS configuration failed", "error", err)
 		os.Exit(1)
 	}
-	items := store.NewInventory(dynamodb.NewFromConfig(cfg), os.Getenv("TABLE_NAME"))
+	client := dynamodb.NewFromConfig(cfg, func(o *dynamodb.Options) {
+		if endpoint := os.Getenv("DYNAMODB_ENDPOINT"); endpoint != "" {
+			o.BaseEndpoint = &endpoint
+		}
+	})
+	items := store.NewInventory(client, os.Getenv("TABLE_NAME"))
 	bucket := files.New(files.NewClient(cfg, os.Getenv("S3_ENDPOINT")), os.Getenv("TASKFEST_ATTACHMENTS_BUCKET"))
 	lambda.Start(func(ctx context.Context) (orphans.Report, error) {
 		return orphans.Sweep(ctx, items, bucket, time.Now())

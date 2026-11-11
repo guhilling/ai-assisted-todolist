@@ -3,8 +3,6 @@ package store
 import (
 	"context"
 	"fmt"
-	"strconv"
-	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -45,9 +43,10 @@ func (inv *Inventory) FileRows(ctx context.Context) ([]FileRow, error) {
 	in := &dynamodb.ScanInput{
 		TableName:                 aws.String(inv.table),
 		FilterExpression:          aws.String("begins_with(SK, :att)"),
-		ProjectionExpression:      aws.String("PK, SK, objectKey, available"),
+		ProjectionExpression:      aws.String("PK, id, objectKey, available"),
 		ExpressionAttributeValues: map[string]types.AttributeValue{":att": &types.AttributeValueMemberS{Value: attachmentPrefix}},
-		ConsistentRead:            aws.Bool(true),
+		// Eventually consistent: an item a read misses was written within a second, and its
+		// object is far too young to be deleted or alerted on.
 	}
 	var rows []FileRow
 	for {
@@ -56,7 +55,8 @@ func (inv *Inventory) FileRows(ctx context.Context) ([]FileRow, error) {
 			return nil, fmt.Errorf("scan attachments: %w", err)
 		}
 		var page []struct {
-			PK, SK    string
+			PK        string
+			ID        int64  `dynamodbav:"id"`
 			ObjectKey string `dynamodbav:"objectKey"`
 			Available bool   `dynamodbav:"available"`
 		}
@@ -64,11 +64,7 @@ func (inv *Inventory) FileRows(ctx context.Context) ([]FileRow, error) {
 			return nil, fmt.Errorf("read attachments: %w", err)
 		}
 		for _, it := range page {
-			id, err := strconv.ParseInt(strings.TrimPrefix(it.SK, attachmentPrefix), 10, 64)
-			if err != nil {
-				return nil, fmt.Errorf("read attachment %s: %w", it.SK, err)
-			}
-			rows = append(rows, FileRow{Owner: it.PK, ID: id, ObjectKey: it.ObjectKey, Available: it.Available})
+			rows = append(rows, FileRow{Owner: it.PK, ID: it.ID, ObjectKey: it.ObjectKey, Available: it.Available})
 		}
 		if len(out.LastEvaluatedKey) == 0 {
 			return rows, nil
@@ -81,10 +77,7 @@ func (inv *Inventory) FileRows(ctx context.Context) ([]FileRow, error) {
 func (inv *Inventory) StillAvailable(ctx context.Context, r FileRow, now time.Time) (bool, error) {
 	out, err := inv.client.GetItem(ctx, &dynamodb.GetItemInput{
 		TableName: aws.String(inv.table), ConsistentRead: aws.Bool(true),
-		Key: map[string]types.AttributeValue{
-			"PK": &types.AttributeValueMemberS{Value: r.Owner},
-			"SK": &types.AttributeValueMemberS{Value: fmt.Sprintf("ATT#%08d", r.ID)},
-		},
+		Key: ownersAttachmentKey(r.Owner, r.ID),
 	})
 	if err != nil {
 		return false, fmt.Errorf("find attachment %s/%d: %w", r.Owner, r.ID, err)

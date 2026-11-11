@@ -39,6 +39,7 @@ type Hold string
 
 // The holds.
 const (
+	// HoldNone is a run that nothing held.
 	HoldNone Hold = "NONE"
 	// HoldNoAttachments is a table holding no file attachments, links having no object, so it
 	// cannot tell an orphan from a file: an environment brought up empty.
@@ -50,13 +51,15 @@ const (
 type Plan struct {
 	// Deletions is the orphans older than the margin, none when the run is held.
 	Deletions []string
-	Hold      Hold
+	// Hold is why nothing was deleted, or HoldNone.
+	Hold Hold
 	// Orphans is how many objects no item refers to, of any age, and Alertable how many of them
 	// are older than AlertAfter, which is what the alert counts.
 	Orphans, Alertable int
 	// Missing is the available attachments whose object was not listed.
 	Missing []store.FileRow
-	Listed  int
+	// Listed is how many attachment objects the bucket held, those under a prefix left out.
+	Listed int
 }
 
 // PlanRun decides a run at now. An object no item refers to, as its file or as its thumbnail, is
@@ -114,18 +117,24 @@ type Items interface {
 
 // Report is what one run found and did.
 type Report struct {
+	// Listed is how many attachment objects the bucket held, and Orphans how many of them no
+	// item refers to, of any age.
 	Listed, Orphans int
-	Alerted         bool
+	// Alerted is whether the run raised the alert: more settled orphans than AlertAbove.
+	Alerted bool
 	// Deleted is the keys of the objects deleted; keys are random and name no file.
 	Deleted []string
-	Hold    Hold
+	// Hold is why the run deleted nothing it otherwise would have, or HoldNone.
+	Hold Hold
 	// WithoutObject is the available attachments whose object is missing, as owner/id.
 	WithoutObject []string
 }
 
 // Sweep runs the clean-up as of now. The items are read before the bucket is listed, so a file
 // uploaded in between is unknown to the items and too young to go, never mistaken for an orphan.
-func Sweep(ctx context.Context, items Items, bucket Bucket, now time.Time) (Report, error) {
+// What it found and did is logged however it ends, so the alert is raised by a run that then
+// fails, or is cut short, too.
+func Sweep(ctx context.Context, items Items, bucket Bucket, now time.Time) (r Report, err error) {
 	rows, err := items.FileRows(ctx)
 	if err != nil {
 		return Report{}, err
@@ -135,7 +144,11 @@ func Sweep(ctx context.Context, items Items, bucket Bucket, now time.Time) (Repo
 		return Report{}, err
 	}
 	p := PlanRun(objects, rows, now)
-	r := Report{Listed: p.Listed, Orphans: p.Orphans, Alerted: p.Alertable > AlertAbove, Hold: p.Hold}
+	r = Report{Listed: p.Listed, Orphans: p.Orphans, Alerted: p.Alertable > AlertAbove, Hold: p.Hold}
+	if r.Alerted {
+		alertOn(ctx, p)
+	}
+	defer func() { report(ctx, r) }()
 	// Each on its own, so one failure does not stop the rest; a failed one is left for the next run.
 	for _, key := range p.Deletions {
 		if err := bucket.Delete(ctx, key); err != nil {
@@ -148,18 +161,20 @@ func Sweep(ctx context.Context, items Items, bucket Bucket, now time.Time) (Repo
 	// Checked again: one removed while the run was listing would otherwise be reported as lost.
 	for _, row := range p.Missing {
 		available, err := items.StillAvailable(ctx, row, now)
-		if err != nil {
-			return r, err
+		if err != nil || !available {
+			if err != nil {
+				return r, err
+			}
+			continue
 		}
 		_, there, err := bucket.Head(ctx, row.ObjectKey)
 		if err != nil {
 			return r, err
 		}
-		if available && !there {
+		if !there {
 			r.WithoutObject = append(r.WithoutObject, fmt.Sprintf("%s/%d", row.Owner, row.ID))
 		}
 	}
-	report(ctx, r, p)
 	return r, nil
 }
 
@@ -171,15 +186,17 @@ const (
 	alert      = "orphanSweepAlert"
 )
 
+// alertOn raises the alert line the environment's alarm watches.
+func alertOn(ctx context.Context, p Plan) {
+	slog.WarnContext(ctx, fmt.Sprintf("%d object(s) older than an hour have no attachment referring to them; "+
+		"more than %d. A table restored from an older backup, or started empty, looks like this, "+
+		"and orphans are deleted after %v.", p.Alertable, AlertAbove, Margin), alert, true)
+}
+
 // report logs what a run found and did, the counts as fields of their own.
-func report(ctx context.Context, r Report, p Plan) {
+func report(ctx context.Context, r Report) {
 	slog.InfoContext(ctx, fmt.Sprintf("Orphan clean-up: %d object(s) listed, %d orphan(s), %d deleted",
 		r.Listed, r.Orphans, len(r.Deleted)), runListed, r.Listed, runOrphans, r.Orphans, runDeleted, len(r.Deleted))
-	if r.Alerted {
-		slog.WarnContext(ctx, fmt.Sprintf("%d object(s) older than an hour have no attachment referring to them; "+
-			"more than %d. A table restored from an older backup, or started empty, looks like this, "+
-			"and orphans are deleted after %v.", p.Alertable, AlertAbove, Margin), alert, true)
-	}
 	if len(r.Deleted) > 0 {
 		slog.InfoContext(ctx, "deleted objects no attachment refers to", "keys", r.Deleted)
 	}

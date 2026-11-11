@@ -1,8 +1,10 @@
 // Command streams handles the table's stream (#552): it deletes the file and thumbnail of every
 // attachment item that goes, whether removed, discarded with its draft or deleted by TTL once
 // expired. This is what the Quarkus backend's attachment sweep did with the object after the row.
-// A record whose files fail to go is answered as a failure, which Lambda tries again on its own;
-// deleting what is already gone is no error.
+// A record whose files fail to go is answered as a failure. Lambda then sends that record and the
+// shard's later ones again, holding the shard until it succeeds or its retries run out, so the
+// event source mapping caps them (#554); what is given up on, the orphan clean-up deletes after
+// seven days. Deleting what is already gone is no error.
 //
 // Settings, from the environment: TASKFEST_ATTACHMENTS_BUCKET, the attachment bucket. The stream
 // must carry old images, which hold the object key.
@@ -48,6 +50,12 @@ func handle(ctx context.Context, bucket deleter, event events.DynamoDBEvent) eve
 	for _, r := range event.Records {
 		if r.EventName != string(events.DynamoDBOperationTypeRemove) ||
 			!strings.HasPrefix(r.Change.Keys["SK"].String(), "ATT#") {
+			continue
+		}
+		if len(r.Change.OldImage) == 0 {
+			// A stream without old images: no key to delete, and retrying would not bring one.
+			slog.ErrorContext(ctx, "an attachment went without its old image; the stream must carry old images",
+				"item", r.Change.Keys["SK"].String())
 			continue
 		}
 		key, ok := r.Change.OldImage["objectKey"]

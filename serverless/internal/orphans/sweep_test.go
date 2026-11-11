@@ -15,13 +15,12 @@ import (
 // internal/store test the listing and the scan against LocalStack and DynamoDB Local.
 
 type memBucket struct {
-	objects  map[string]time.Time
-	failing  map[string]bool
-	listings int
+	objects map[string]time.Time
+	failing map[string]bool
+	heads   int
 }
 
 func (b *memBucket) List(context.Context) ([]files.Stored, error) {
-	b.listings++
 	var out []files.Stored
 	for key, at := range b.objects {
 		out = append(out, files.Stored{Key: key, LastModified: at})
@@ -30,6 +29,7 @@ func (b *memBucket) List(context.Context) ([]files.Stored, error) {
 }
 
 func (b *memBucket) Head(_ context.Context, key string) (files.Object, bool, error) {
+	b.heads++
 	_, ok := b.objects[key]
 	return files.Object{}, ok, nil
 }
@@ -131,8 +131,9 @@ func TestAnAttachmentRemovedWhileTheRunListedIsNotReported(t *testing.T) {
 	items := withAFile()
 	items.gone[1] = true
 
-	if r := sweep(t, items, newBucket(), now); len(r.WithoutObject) != 0 {
-		t.Errorf("%+v", r)
+	b := newBucket()
+	if r := sweep(t, items, b, now); len(r.WithoutObject) != 0 || b.heads != 0 {
+		t.Errorf("%+v, %d HEAD(s)", r, b.heads)
 	}
 }
 

@@ -192,6 +192,7 @@ func (f *Files) Delete(ctx context.Context, key string) error {
 
 // Stored is one object in the bucket, as a listing returns it.
 type Stored struct {
+	// Key is the object's key, LastModified when it was written.
 	Key          string
 	LastModified time.Time
 }
