@@ -316,7 +316,8 @@ then deleted in batches, so a failure after the mark counts as done and is finis
 than reported; the deletion ends the account's sessions on every device, which the stored
 sessions allow ([serverless.md](../deployment/serverless.md#deleting-an-account)); and Lambda has
 no start-up, so the replay runs daily and, after a restore, once against the restored table before
-the API is switched to it ([serverless.md](../deployment/serverless.md#the-replay)).
+the API is switched to it ([serverless.md](../deployment/serverless.md#the-replay)). A message
+queue for the deletion was considered and rejected (below).
 
 **Decision.** A user deletes their own account (#213, Gunnar's decision; no admin role).
 `DELETE /api/account` acts on the caller only. It writes a deletion record, then deletes each
@@ -372,14 +373,20 @@ can compute its hash and see that an account with it was deleted. That is said i
 policy. A keyed hash (HMAC) would avoid it at the price of a secret to keep and rotate; for a demo
 project the plain hash Gunnar chose is the proportionate answer.
 
-**Not a message queue (#553, Gunnar's question, considered and rejected).** Handing the deletion
-to SQS or SNS was considered, since the Go backend's deletion is no longer one transaction. It would
-change none of what makes it intricate: DynamoDB's transactions hold at most 100 items, so a queued
-job deletes in the same batches; a restore needs a lasting record, and a queue's messages are gone
-once consumed and at the latest after 14 days, and are no part of a backup; and the files already
-follow the table's own stream. It would add delivery at least once and out of order to every
-consumer, with dead-letter queues and their alarms. Its one gain, retrying an unfinished deletion
-on its own, would not remove the check on every request until the retry has run.
+**Rejected: a message queue for the Go backend's deletion (#553, Gunnar's question).** Handing
+the deletion to SQS or SNS would change little of what makes it intricate. No single write can
+delete an account, since a DynamoDB transaction holds at most 100 items, so a queued job would
+delete in the same batches of 25. A restore needs a lasting record, which a queue is not: SQS keeps
+a message 14 days at most and none once consumed, an SNS FIFO archive is no part of the table's
+backups either, and both would live beside the S3 records rather than replace them. The files
+already follow the table's own stream, except after a restore, where the replay deletes them
+itself. Standard queues deliver at least once and out of order, FIFO ones trade that for message
+groups and throughput limits, and either brings a dead-letter queue and its alarm. The gain would
+be real in one place: the batches would run outside the request, which today finishes them within
+the function's timeout. That holds for any account of realistic size; one too large for it would
+make every later request take up the work again and time out, each removing more, until one
+finishes. The check of the account on every request stays either way, since only it can tell a
+request that a deletion is under way.
 
 ## A link is a kind of attachment, kept in its row
 
