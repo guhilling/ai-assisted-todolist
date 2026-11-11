@@ -22,14 +22,17 @@ const (
 	bob   = "taskfest-test-two@example.com"
 )
 
-// memBoard is every user's tasks in memory, with ids counted per user as the store counts them.
+// memBoard is every user's tasks and open drafts in memory, with ids counted per user as the store
+// counts them.
 type memBoard struct {
-	tasks map[string]map[int64]board.Task
-	last  map[string]int64
+	tasks  map[string]map[int64]board.Task
+	drafts map[string]map[int64]bool
+	last   map[string]int64
 }
 
 func newMemBoard() *memBoard {
-	return &memBoard{tasks: map[string]map[int64]board.Task{}, last: map[string]int64{}}
+	return &memBoard{tasks: map[string]map[int64]board.Task{}, drafts: map[string]map[int64]bool{},
+		last: map[string]int64{}}
 }
 
 func (m *memBoard) Tasks(_ context.Context, email string) ([]board.Task, error) {

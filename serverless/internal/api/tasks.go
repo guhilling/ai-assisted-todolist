@@ -11,12 +11,15 @@ import (
 	"github.com/guhilling/ai-assisted-todolist/serverless/internal/board"
 )
 
-// TaskWrites is where the handlers change a user's tasks: the DynamoDB store, or a test's. A
-// task that is not the user's is not found, never changed.
+// TaskWrites is where the handlers change a user's tasks and drafts: the DynamoDB store, or a
+// test's. A task or draft that is not the user's is not found, never changed.
 type TaskWrites interface {
 	Create(ctx context.Context, email string, t board.Task) (board.Task, error)
 	Replace(ctx context.Context, email string, t board.Task, keepTime bool) (board.Task, bool, error)
 	Delete(ctx context.Context, email string, id int64) (bool, error)
+	StartDraft(ctx context.Context, email string, now time.Time) (int64, bool, error)
+	AddDraft(ctx context.Context, email string, t board.Task, now time.Time) (board.Task, bool, error)
+	DiscardDraft(ctx context.Context, email string, id int64, now time.Time) (bool, error)
 }
 
 // maxReattached is how many attachments an undo may bring back: a task carries at most a few
@@ -112,6 +115,22 @@ func read(w http.ResponseWriter, r *http.Request) (taskRequest, bool) {
 }
 
 // now is the server's clock: Now when a test sets it, else the system's.
+// readNew reads a new task, a create or a draft being added, and checks what only a new task is
+// held to, answering 400 when it is none: a due date today or later somewhere, and at most
+// maxReattached attachments brought back.
+func (s *Server) readNew(w http.ResponseWriter, r *http.Request) (taskRequest, bool) {
+	req, ok := read(w, r)
+	if !ok {
+		return req, false
+	}
+	if !board.TodaySomewhere(*req.DueDate, s.now()) || len(req.AttachmentIDs) > maxReattached {
+		slog.InfoContext(r.Context(), "a new task is refused", "reason", "past, or too many attachments")
+		w.WriteHeader(http.StatusBadRequest)
+		return req, false
+	}
+	return req, true
+}
+
 func (s *Server) now() time.Time {
 	if s.Now != nil {
 		return s.Now()
@@ -127,13 +146,8 @@ func (s *Server) PostApiTasks(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
 		return
 	}
-	req, ok := read(w, r)
+	req, ok := s.readNew(w, r)
 	if !ok {
-		return
-	}
-	if !board.TodaySomewhere(*req.DueDate, s.now()) || len(req.AttachmentIDs) > maxReattached {
-		slog.InfoContext(r.Context(), "a new task is refused", "reason", "past, or too many attachments")
-		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 	// attachmentIds, an undo bringing a deleted task's attachments back (#204), is accepted and

@@ -54,9 +54,10 @@ Nothing to take down, and `prod` can simply stay up.
   stays the aggregate the [domain model](../domain-model.md) says it is. The website's sessions
   and its sign-ins under way have partitions of their own, `SESSION#<key>` and `SIGNIN#<key>`
   ([Sign-in](#sign-in)).
-- **The per-user limits** (five drafts, five attachments, two per task) become counters on the
-  user's `META` item, changed in the same conditional transaction as the item they count. That
-  replaces the row lock (`User.lockRow`).
+- **The per-user limits** (five drafts, five attachments, two per task) are kept on the user's
+  `META` item, changed in the same conditional transaction as the item they count. That replaces
+  the row lock (`User.lockRow`). For drafts it is the open ones with their expiry, so that one
+  TTL deletes stops counting without anything counting it down ([Drafts](#drafts)).
 - **The sweeps** become DynamoDB TTL on drafts and detached attachments, with a stream handler
   that deletes their files from S3. The orphan sweep and the deletion replay run from
   EventBridge Scheduler.
@@ -124,6 +125,29 @@ rules, `internal/api` the requests, `internal/store` the items.
   (`"description": 5` was the task "5"), an enum's position for the enum (`"importance": 2` was
   `HIGH`), and a date as an array or a day count. The Go backend refuses each with a 400; no
   client sends one.
+
+## Drafts
+
+Starting, adding and discarding a draft (#551) keep the Quarkus backend's `DraftResource`, and
+its tests are ported case for case; its files come with the attachments (#552).
+
+- **A draft is a `DRAFT#<id>` item** with its id from the same count as tasks, so it keeps the id
+  when it is added. Adding it is one transaction that deletes the draft and writes the task.
+  Adding it again, a retry whose answer was lost (#427), finds no draft and sets the values on the
+  task instead; a task that was never a draft takes them too, as in Quarkus. Discarding a task's
+  id is a 404, and the task stays.
+- **The draft sweep is DynamoDB TTL** on `expiresAt`, an hour after the start, as long as an
+  announced upload lasts. TTL deletes within about two days, so a draft past its `expiresAt` is
+  gone to every read and write: adding or discarding it is a 404, and it no longer counts.
+- **The limit of five is the open drafts on the `META` item**: each id with its expiry, and a
+  `draftsVersion` that every change counts up. A start reads them, leaves out the expired ones, and
+  writes the new set together with the draft, on the condition that the version is still the one
+  it read. Two drafts started at once cannot both take the last place: one of the two transactions
+  fails its condition, counts again and is refused; a test starts six at once with room for one.
+  Adding and discarding take the draft off the set and count the version up in their own
+  transaction, so a start that read the set before them cannot write it back.
+- **A plain counter would not do**, since TTL deleting a draft would never count it down. Neither
+  would counting the `DRAFT#` items with a `Query`: two starts at once would both count four.
 
 ## Sign-in
 

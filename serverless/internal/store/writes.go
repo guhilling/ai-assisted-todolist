@@ -41,6 +41,14 @@ func taskKey(email string, id int64) map[string]types.AttributeValue {
 	}
 }
 
+// metaKey is the key of the user's META item, which holds their counts.
+func metaKey(email string) map[string]types.AttributeValue {
+	return map[string]types.AttributeValue{
+		"PK": &types.AttributeValueMemberS{Value: OwnerKey(email)},
+		"SK": &types.AttributeValueMemberS{Value: "META"},
+	}
+}
+
 // notThere says whether a write failed its condition: the item is not, or no longer, there.
 func notThere(err error) bool {
 	var failed *types.ConditionalCheckFailedException
@@ -89,11 +97,8 @@ func (w *Writes) Create(ctx context.Context, email string, t board.Task) (board.
 // nextID counts the user's next task id on their META item.
 func (w *Writes) nextID(ctx context.Context, email string) (int64, error) {
 	out, err := w.client.UpdateItem(ctx, &dynamodb.UpdateItemInput{
-		TableName: aws.String(w.table),
-		Key: map[string]types.AttributeValue{
-			"PK": &types.AttributeValueMemberS{Value: OwnerKey(email)},
-			"SK": &types.AttributeValueMemberS{Value: "META"},
-		},
+		TableName:                 aws.String(w.table),
+		Key:                       metaKey(email),
 		UpdateExpression:          aws.String("ADD #last :one"),
 		ExpressionAttributeNames:  map[string]string{"#last": lastTaskID},
 		ExpressionAttributeValues: map[string]types.AttributeValue{":one": &types.AttributeValueMemberN{Value: "1"}},

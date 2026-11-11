@@ -12,19 +12,6 @@ func notImplemented(w http.ResponseWriter) { w.WriteHeader(http.StatusNotImpleme
 // DeleteApiAccount answers 501 until ported.
 func (unported) DeleteApiAccount(w http.ResponseWriter, _ *http.Request) { notImplemented(w) }
 
-// PostApiTasksDrafts answers 501 until ported.
-func (unported) PostApiTasksDrafts(w http.ResponseWriter, _ *http.Request) { notImplemented(w) }
-
-// DeleteApiTasksDraftsId answers 501 until ported.
-func (unported) DeleteApiTasksDraftsId(w http.ResponseWriter, _ *http.Request, _ int64) {
-	notImplemented(w)
-}
-
-// PostApiTasksDraftsIdAdd answers 501 until ported.
-func (unported) PostApiTasksDraftsIdAdd(w http.ResponseWriter, _ *http.Request, _ int64) {
-	notImplemented(w)
-}
-
 // PostApiTasksTaskIdAttachments answers 501 until ported.
 func (unported) PostApiTasksTaskIdAttachments(w http.ResponseWriter, _ *http.Request, _ int64) {
 	notImplemented(w)
