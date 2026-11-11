@@ -383,9 +383,10 @@ already follow the table's own stream, except after a restore, where the replay 
 itself. Standard queues deliver at least once and out of order, FIFO ones trade that for message
 groups and throughput limits, and either brings a dead-letter queue and its alarm. The gain would
 be real in one place: the batches would run outside the request, which today finishes them within
-the function's timeout. That holds for any account of realistic size; one too large for it would
-make every later request take up the work again and time out, each removing more, until one
-finishes. The check of the account on every request stays either way, since only it can tell a
+the function's timeout. That holds for any account of realistic size. One too large for it is
+taken up again, each time removing more, by the requests still signed in -- an app's, or a new
+sign-in's, since the website's sessions go early in the sweep -- and the daily replay finishes it
+in any case. The check of the account on every request stays either way, since only it can tell a
 request that a deletion is under way.
 
 ## A link is a kind of attachment, kept in its row
