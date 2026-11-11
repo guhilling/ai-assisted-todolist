@@ -465,9 +465,9 @@ idle environment costs nothing for it.
 
 - **The table**, `<project>-<env>-data`, on demand. TTL on `expiresAt` deletes ended sessions,
   sign-ins under way and session links; the stream carries what a deleted item held, for the
-  `streams` function; point-in-time recovery is on, for [restoring](#restoring-the-table), at
-  fractions of a cent a GB-month; and deletion protection keeps a destroy of the foundation from
-  taking people's data with it.
+  `streams` function; point-in-time recovery is on in prod, for [restoring](#restoring-the-table),
+  at fractions of a cent a GB-month, and off in qa (`table_point_in_time_recovery`, #553); and
+  deletion protection keeps a destroy of the foundation from taking people's data with it.
 - **The `api` function**, arm64, 512 MB ([measured](#what-the-spike-measured)), with a timeout
   of 28 seconds, under the HTTP API's own 30. Its role reaches its own table, the attachment
   bucket, the Google client secret and its log group, nothing else.
