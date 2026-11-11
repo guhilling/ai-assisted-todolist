@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -188,4 +189,44 @@ func (f *Files) Delete(ctx context.Context, key string) error {
 		return fmt.Errorf("delete %s: %w", key, err)
 	}
 	return nil
+}
+
+// Stored is one object in the bucket, as a listing returns it.
+type Stored struct {
+	// Key is the object's key, LastModified when it was written.
+	Key          string
+	LastModified time.Time
+}
+
+// List returns every attachment object in the bucket, page by page; at a demo's size, a request
+// or two. Attachment keys have no slash, so anything under a prefix, such as the deletion records
+// of #213, is something else and left out: the orphan clean-up must never take it for an orphan.
+func (f *Files) List(ctx context.Context) ([]Stored, error) {
+	var objects []Stored
+	pages := s3.NewListObjectsV2Paginator(f.client, &s3.ListObjectsV2Input{Bucket: aws.String(f.bucket)})
+	for pages.HasMorePages() {
+		page, err := pages.NextPage(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("list the bucket: %w", err)
+		}
+		objects = append(objects, stored(ctx, page.Contents)...)
+	}
+	return objects, nil
+}
+
+// stored is a listing's attachment objects. One without its time is left out with a warning: S3
+// always sends it, and read as the zero time it would look old enough to delete (#571).
+func stored(ctx context.Context, contents []s3types.Object) []Stored {
+	var objects []Stored
+	for _, o := range contents {
+		key := aws.ToString(o.Key)
+		switch {
+		case strings.Contains(key, "/"):
+		case o.LastModified == nil:
+			slog.WarnContext(ctx, "a listed object has no time; left out of the clean-up", "key", key)
+		default:
+			objects = append(objects, Stored{Key: key, LastModified: *o.LastModified})
+		}
+	}
+	return objects
 }

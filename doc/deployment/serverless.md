@@ -73,6 +73,8 @@ Nothing to take down, and `prod` can simply stay up.
   HTTP anywhere else, so that local development and the end-to-end tests can run the code Lambda
   runs. `internal/lambdahttp` turns one into the other. The end-to-end suite still builds the
   Quarkus backend until #556 moves it.
+- **`cmd/streams`** deletes the files of attachment items that go, from the table's stream, and
+  **`cmd/orphans`** is the hourly clean-up of files no item refers to ([Attachments](#attachments)).
 - **`internal/api`** holds the routes and wire types, generated from `doc/api/openapi.json`, and
   the handlers. A route not ported yet answers 501. One test checks that every route of the
   contract is served, and each ported route checks its responses against the contract.
@@ -180,14 +182,22 @@ unchanged.
   once cannot both take the last place, and none is attached to a task deleted meanwhile; tests
   announce six at once with room for two, and race an attach against a draft's add. The draft is
   read before the task: a draft becomes a task, never the other way round.
-- **The files of a deleted item go through the table's stream.** Removing an attachment, and a
-  mismatch on confirm, delete the item and then the file and thumbnail; Quarkus deleted the file
-  first, so that a failure in between left a row pointing at nothing rather than a file nobody
-  could find. With the stream, a handler deletes the files of every `ATT#` item that goes, by
-  expiry or by a discarded draft too, so nothing is lost track of either way. That handler, and
-  the orphan clean-up on EventBridge Scheduler, come next in #552; the function's role, the
-  stream and the schedule with #554. Until then, a discarded draft's files stay in the bucket,
-  where the clean-up later finds them.
+- **The files of a deleted item go through the table's stream.** `cmd/streams` takes the
+  stream's records, with old images, and deletes the file and thumbnail of every `ATT#` item that
+  goes: removed, discarded with its draft, or deleted by TTL. A record whose files fail to go is
+  answered as a failure; Lambda sends it and the shard's later records again, holding the shard
+  until it succeeds, so #554 caps the retries and lets the orphan clean-up take what is given up.
+  Removing an attachment, and a mismatch on confirm, also delete the files at once, after the
+  item; Quarkus deleted the file first, so that a failure in between left a row pointing at
+  nothing rather than a file nobody could find. With the stream, neither order loses track of one.
+- **The orphan clean-up is `cmd/orphans`**, which EventBridge Scheduler runs hourly. It reads every
+  user's `ATT#` items with a `Scan`, the one read across partitions, lists the bucket, and keeps
+  every rule of Quarkus's `OrphanPlan`, whose tests are ported: an object no item refers to goes
+  after seven days; a table without a single file deletes nothing; more than two orphans older
+  than an hour raise the alert, a JSON log line with `orphanSweepAlert`; an available attachment
+  whose file is missing is logged, never deleted. Expired items still count as referring to their
+  files, which are the stream's to delete. The functions, the stream, the schedule and the alarm
+  come with #554.
 - **A link to open a file is handed out again while half its hour is left**, as before, per Lambda
   instance rather than per backend task; with several instances, a browser sees a few URLs for a
   file at worst. Each link ends with the credentials that signed it, when they end first, and says

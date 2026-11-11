@@ -1,9 +1,13 @@
 package files
 
 import (
+	"context"
 	"fmt"
 	"testing"
 	"time"
+
+	"github.com/aws/aws-sdk-go-v2/aws"
+	s3types "github.com/aws/aws-sdk-go-v2/service/s3/types"
 )
 
 // ReusedLinksTest, case for case: a link handed out again while it is fresh (#236), so the
@@ -136,5 +140,15 @@ func TestNothingIsClearedOutWhileThereAreFew(t *testing.T) {
 
 	if len(r.links) != 1001 {
 		t.Errorf("%d kept", len(r.links))
+	}
+}
+
+func TestAListedObjectWithoutItsTimeIsLeftOut(t *testing.T) {
+	at := noon
+	got := stored(context.Background(), []s3types.Object{{Key: aws.String("timeless")},
+		{Key: aws.String("dated"), LastModified: &at}, {Key: aws.String("deleted-accounts/x"), LastModified: &at}})
+
+	if len(got) != 1 || got[0].Key != "dated" || !got[0].LastModified.Equal(noon) {
+		t.Errorf("%+v", got)
 	}
 }
