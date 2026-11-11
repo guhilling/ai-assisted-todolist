@@ -148,12 +148,13 @@ its tests are ported case for case; its files are [attachments](#attachments) li
   gone to every read and write: adding or discarding it is a 404, and it no longer counts.
 - **The limit of five is the open drafts on the `META` item**: an `openDraft#<id>` attribute per
   open draft, holding its expiry, and a `draftsVersion` that every change counts up. Attributes
-  rather than one map, since removing a key from a map the item lacks is an invalid request. A start reads them, leaves out the expired ones, and
-  writes the new set together with the draft, on the condition that the version is still the one
-  it read. Two drafts started at once cannot both take the last place: one of the two transactions
-  fails its condition, counts again and is refused; a test starts six at once with room for one.
-  Adding and discarding take the draft off the set and count the version up in their own
-  transaction, so a start that read the set before them cannot write it back.
+  rather than one map, since removing a key from a map the item lacks is an invalid request. A start
+  reads them, leaves out the expired ones, and writes the new set together with the draft, on the
+  condition that the version is still the one it read. Two drafts started at once cannot both take
+  the last place: one of the two transactions fails its condition, counts again and is refused; a
+  test starts six at once with room for one. Adding and discarding take the draft off the set and
+  count the version up in their own transaction, so a start that read the set before them cannot
+  write it back.
 - **A plain counter would not do**, since TTL deleting a draft would never count it down. Neither
   would counting the `DRAFT#` items with a `Query`: two starts at once would both count four.
 
@@ -254,17 +255,18 @@ and the Quarkus backend's tests: the record `deleted-accounts/<SHA-256 of the em
 to the attachment bucket first, where a restore of the table cannot take it back, and without a
 bucket an account is deleted without one. Two things differ, by Gunnar's decisions on #553:
 
-- **The account is marked, then deleted in batches.** A transaction holds at most 100 items, and
-  a user's tasks have no limit, so no single write deletes an account. The first write sets
-  `deletedAt` on `META`; then every item of the partition goes, 25 to a `BatchWriteItem`, and
-  `META` last. A deletion that cannot be marked takes its record back and answers a 500, as
-  before. One that stops after the mark counts as done: the user is told so, and the account's
-  next request finishes it before anything else (`api.Settled`, one strongly consistent read of
-  `META` per request, `/api/auth/me` included), or the replay does. A request is refused, with a
-  401, when that read fails or the deletion cannot be finished: it must never see what is left of
-  a deleted account. The partition is read again until nothing is left, for what a request racing
-  the deletion wrote, and once more after `META` is gone. Should that last read fail, nothing in
-  the table is marked any more; the record in the bucket is, and the replay deletes what is left
+- **The account is marked, then deleted in batches.** A transaction holds at most 100 items, and a
+  user's tasks have no limit, so no single write deletes an account. The first write sets
+  `deletedAt` on `META`; then every item of the partition goes, 25 to a `BatchWriteItem`, and `META`
+  last. A deletion that cannot be marked takes its record back and answers a 500, as before. One
+  that stops after the mark counts as done: the user is told so, and the account's next request
+  finishes it before anything else (`api.Settled`, one strongly consistent read of `META` per
+  request, `/api/auth/me` included), or the replay does. A request is refused, with a 401, when that
+  read fails or the deletion cannot be finished: it must never see what is left of a deleted
+  account. The partition is read again until nothing is left, for what a request racing the deletion
+  wrote, and once more after `META` is gone, under a marked `META` written on the condition that
+  there is none, so an account begun anew in that moment stays. Should that last read fail, nothing
+  in the table is marked any more; the record in the bucket is, and the replay deletes what is left
   under a recorded account that has no `META`. The stream deletes the attachments' files as their
   items go.
 - **It ends the account's sessions on every device.** Each sign-in also writes a
@@ -279,8 +281,78 @@ same account at the same moment share one record, and if one of them cannot be m
 record back also takes the other's. It needs both at once, a DynamoDB failure on exactly one, and
 a later restore; closing it would take a conditional delete in S3 or a lock on the account.
 
-The replay, which deletes an account again that a restore brought back, comes with the next
-part of #553.
+### The replay
+
+`cmd/replay` deletes again any account a restore brought back, and prunes the records no restore
+can need any more; `internal/replay` keeps every rule of Quarkus's `DeletionReplay`, whose tests
+are ported. EventBridge Scheduler runs it daily (#554). Lambda has no start-up to run it in, so
+the restore procedure below runs it once against the restored table **before the API is
+switched to it**, and nobody can sign in to a restored account first (Gunnar's decision on #553).
+
+- **An account is deleted again only if it began before its deletion.** `META` carries
+  `createdAt`, written with the first id the account counts and kept from then on; the write that
+  marks the account deleted again is conditional on it, so an account begun anew since is never
+  taken for the restored one. Times are whole seconds, and an account begun in the second of its
+  deletion counts as before it: the deletion the user asked for wins (Gunnar's decision on #573).
+  An account without `createdAt` counts as older; there is none, as
+  the table starts empty and no user moves over from the Quarkus backend (#557). The Quarkus
+  backend's records stay in the bucket and are replayed too; an account begun since stays.
+- **What a deletion left without `META` is deleted too**, for the deletion that stopped after
+  `META` went: no task, draft or attachment is ever written without `META`. A marked `META` is
+  written first, on the condition that there is none, so a sign-up at that moment either keeps
+  its account or finds it marked and has it settled like any deletion left half-way. A session
+  signed in after the deletion stays; each link carries when its session began. Finishing a
+  deletion left half-way spares such a session as well, so signing in again in between does not
+  sign out.
+- **The replay deletes the attachments' files itself**, file and thumbnail, after their items: a
+  restored table has no stream until the API is switched to it, and the orphan clean-up holds
+  while the table has no file at all (Gunnar's decision on #573). What fails is left to the
+  clean-up.
+- **Each record is handled on its own**, and a run in which an account could not be deleted again
+  fails, to be retried by the next. A record younger than five minutes is left to the request that
+  wrote it, which may yet take it back and tell the user the deletion failed.
+- **A record is pruned once it is older than the oldest point the table could be restored to**, by
+  two days, unless its account is still there, and not if it was written again since it was read;
+  that check and the delete are two requests, and a second deletion of the same address between them
+  loses its record, a gap accepted like the one above (#573). The two days cover a deletion finished
+  a day after its record, by the next daily run. That point is the start of any table's
+  point-in-time recovery window in the region, or the oldest backup there, whichever is older: every
+  table and backup counts, not only the table's, since a restore goes into a new table and the one
+  it came from stays restorable until it is deleted, and a record kept too long costs nothing. When
+  neither exists, or DynamoDB will not say, nothing is pruned. Point-in-time recovery is on for prod
+  and off for qa (#553).
+- **Its role** (#554) needs `dynamodb:Query`, `GetItem`, `UpdateItem`, `DeleteItem` and
+  `BatchWriteItem` on the table, `DescribeContinuousBackups` on every table, `ListTables` and
+  `ListBackups`, and on the bucket `s3:ListBucket` and `GetObject` under `deleted-accounts/`, and
+  `DeleteObject` there and on the attachments.
+
+### Restoring the table
+
+A DynamoDB restore always creates a new table; the old one stays until it is deleted. What was
+written between the restore point and the switch is lost, as with the database's snapshot
+restores ([database.md](database.md)), and files uploaded since are left to the orphan clean-up.
+A restore is billed by the size restored, cents for TaskFest. Every step runs with the
+administrator's profile.
+
+1. **Restore into a new table**, from point-in-time recovery (prod) or a backup:
+   ```bash
+   aws dynamodb restore-table-to-point-in-time --source-table-name <table> \
+     --target-table-name <table>-restored-<date> --restore-date-time <time>
+   aws dynamodb restore-table-from-backup --backup-arn <arn> \
+     --target-table-name <table>-restored-<date>
+   aws dynamodb wait table-exists --table-name <table>-restored-<date>
+   ```
+2. **Run the replay against it**, before anything else can reach it:
+   ```bash
+   cd serverless && AWS_PROFILE=<admin profile> AWS_REGION=eu-central-1 \
+     TABLE_NAME=<table>-restored-<date> TASKFEST_ATTACHMENTS_BUCKET=<bucket> go run ./cmd/replay
+   ```
+   It logs one JSON line, `deletion-replay`, with how many accounts it deleted again; it exits
+   non-zero when one could not be, and is then run again.
+3. **Switch the functions to the new table.** A restore does not carry the table's TTL, stream or
+   point-in-time recovery settings over, so the apply that switches also sets them (#554).
+
+The procedure is tried once in qa, from an on-demand backup, once #554 has built the table.
 
 ## Why Go
 

@@ -4,9 +4,11 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	s3types "github.com/aws/aws-sdk-go-v2/service/s3/types"
 
 	"github.com/guhilling/ai-assisted-todolist/serverless/internal/identity"
 )
@@ -35,4 +37,42 @@ func (f *Files) RecordDeletion(ctx context.Context, email string) error {
 // never carries out a deletion the user was told failed.
 func (f *Files) ForgetDeletion(ctx context.Context, email string) error {
 	return f.Delete(ctx, recordPrefix+identity.EmailHash(email))
+}
+
+// Deletion is a deletion on record: the email's hash, and when the account was deleted, which is
+// the time S3 wrote the record.
+type Deletion struct {
+	Hash string
+	At   time.Time
+}
+
+// Deletions is every deletion on record, in one listing; the times are the objects' own.
+func (f *Files) Deletions(ctx context.Context) ([]Deletion, error) {
+	var records []Deletion
+	err := f.listUnder(ctx, recordPrefix, func(contents []s3types.Object) {
+		for _, o := range contents {
+			hash := strings.TrimPrefix(aws.ToString(o.Key), recordPrefix)
+			if hash == "" || strings.Contains(hash, "/") || o.LastModified == nil {
+				continue
+			}
+			records = append(records, Deletion{Hash: hash, At: *o.LastModified})
+		}
+	})
+	if err != nil {
+		return nil, fmt.Errorf("list the deletion records: %w", err)
+	}
+	return records, nil
+}
+
+// ForgetIfUnchanged removes a record no restore can need any more, unless it was written again
+// since it was read: then it records a newer deletion, and stays. The check and the delete are
+// two requests, as in the Quarkus backend; a record rewritten between them, a second deletion of
+// the same address in that moment, is lost.
+func (f *Files) ForgetIfUnchanged(ctx context.Context, d Deletion) error {
+	key := recordPrefix + d.Hash
+	o, found, err := f.Head(ctx, key)
+	if err != nil || !found || !o.LastModified.Equal(d.At) {
+		return err
+	}
+	return f.Delete(ctx, key)
 }

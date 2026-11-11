@@ -87,6 +87,7 @@ func pendingKey(key string) map[string]types.AttributeValue {
 type sessionLink struct {
 	PK        string `dynamodbav:"PK"`
 	SK        string `dynamodbav:"SK"`
+	Created   int64  `dynamodbav:"created"`
 	ExpiresAt int64  `dynamodbav:"expiresAt"`
 }
 
@@ -94,7 +95,7 @@ type sessionLink struct {
 // session ends nothing, a session without a link would outlive the account's deletion.
 func (s *Sessions) PutSession(ctx context.Context, key string, session auth.Session, expires time.Time) error {
 	link, err := attributevalue.MarshalMap(sessionLink{PK: OwnerKey(session.Email), SK: sessionLinkPrefix + key,
-		ExpiresAt: session.Created.Add(auth.AbsoluteLifetime).Unix()})
+		Created: session.Created.Unix(), ExpiresAt: session.Created.Add(auth.AbsoluteLifetime).Unix()})
 	if err != nil {
 		return err
 	}
