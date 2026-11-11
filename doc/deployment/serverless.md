@@ -290,23 +290,31 @@ switched to it**, and nobody can sign in to a restored account first (Gunnar's d
 - **An account is deleted again only if it began before its deletion.** `META` carries
   `createdAt`, written with the first id the account counts and kept from then on; the write that
   marks the account deleted again is conditional on it, so an account begun anew since is never
-  taken for the restored one. An account without `createdAt` counts as older.
+  taken for the restored one. An account without `createdAt` counts as older; there is none, as
+  the table starts empty and no user moves over from the Quarkus backend (#557). The Quarkus
+  backend's records stay in the bucket and are replayed too; an account begun since stays.
 - **What a deletion left without `META` is deleted too**, for the deletion that stopped after
-  `META` went: no task, draft or attachment is ever written without `META`. A session signed in
-  after the deletion stays; each link carries when its session began. Finishing a deletion left
-  half-way spares such a session as well, so signing in again in between does not sign out.
+  `META` went: no task, draft or attachment is ever written without `META`. A marked `META` is
+  written first, on the condition that there is none, so a sign-up at that moment either keeps
+  its account or finds it marked and has it settled like any deletion left half-way. A session
+  signed in after the deletion stays; each link carries when its session began. Finishing a
+  deletion left half-way spares such a session as well, so signing in again in between does not
+  sign out.
 - **Each record is handled on its own**, and a run in which an account could not be deleted again
-  fails, to be retried by the next.
+  fails, to be retried by the next. A record younger than five minutes is left to the request that
+  wrote it, which may yet take it back and tell the user the deletion failed.
 - **A record is pruned once it is older than the oldest point the table could be restored to**,
-  unless its account is still there, and not if it was written again since it was read. That
-  point is the start of the table's point-in-time recovery window or the oldest backup in the
-  region, whichever is older: every backup counts, not only the table's, since a restore goes
-  into a new table and the old one's backups stay restorable, and a record kept too long costs
-  nothing. When neither exists, or DynamoDB will not say, nothing is pruned. Point-in-time
-  recovery is on for prod and off for qa (#553).
+  by two days, unless its account is still there, and not if it was written again since it was
+  read. The two days cover a deletion finished a day after its record, by the next daily run.
+  That point is the start of any table's point-in-time recovery window in the region, or the
+  oldest backup there, whichever is older: every table and backup counts, not only the table's,
+  since a restore goes into a new table and the one it came from stays restorable until it is
+  deleted, and a record kept too long costs nothing. When neither exists, or DynamoDB will not
+  say, nothing is pruned. Point-in-time recovery is on for prod and off for qa (#553).
 - **Its role** (#554) needs `dynamodb:Query`, `GetItem`, `UpdateItem`, `DeleteItem` and
-  `BatchWriteItem` on the table, `DescribeContinuousBackups` on it and `ListBackups`, and on the
-  bucket `s3:ListBucket`, `GetObject` and `DeleteObject` under `deleted-accounts/`.
+  `BatchWriteItem` on the table, `DescribeContinuousBackups` on every table, `ListTables` and
+  `ListBackups`, and on the bucket `s3:ListBucket`, `GetObject` and `DeleteObject` under
+  `deleted-accounts/`.
 
 ### Restoring the table
 

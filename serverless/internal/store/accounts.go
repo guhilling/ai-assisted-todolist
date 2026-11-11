@@ -104,8 +104,8 @@ func (a *Accounts) Settle(ctx context.Context, email string) (bool, error) {
 // does after a restore, and says whether there was anything to delete. Only an account created
 // before the deletion is deleted, decided by the write that marks it, so an account begun anew
 // since is never taken for the restored one; one without its creation time counts as older.
-// Without META, what is left of a deletion that stopped after META went is deleted: no task,
-// draft or attachment is ever written without META. A session signed in since the deletion
+// Without META, what is left of a deletion that stopped after META went is deleted, under a
+// META written marked for it: no task, draft or attachment is ever written without META. A session signed in since the deletion
 // stays, with its link.
 func (a *Accounts) Reapply(ctx context.Context, hash string, at time.Time) (bool, error) {
 	owner := ownerOf(hash)
@@ -124,16 +124,62 @@ func (a *Accounts) Reapply(ctx context.Context, hash string, at time.Time) (bool
 	if !notThere(err) {
 		return false, fmt.Errorf("mark the account deleted again: %w", err)
 	}
+	left, err := a.leftovers(ctx, owner, at.Unix())
+	if err != nil || !left {
+		return false, err
+	}
+	// Marked before anything goes, as an account being deleted: a sign-up at this moment either
+	// wrote META first, and this write fails and the account stays, or finds it marked, and its
+	// next request settles it like any deletion left half-way.
+	_, err = a.client.PutItem(ctx, &dynamodb.PutItemInput{
+		TableName: aws.String(a.table),
+		Item: map[string]types.AttributeValue{"PK": &types.AttributeValueMemberS{Value: owner},
+			"SK": &types.AttributeValueMemberS{Value: "META"}, deletedAt: number(at.Unix())},
+		ConditionExpression: aws.String("attribute_not_exists(PK)"),
+	})
+	if notThere(err) {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("mark what a deletion left: %w", err)
+	}
+	slog.WarnContext(ctx, "deleting what a deletion left")
+	return true, a.finish(ctx, owner, at.Unix())
+}
+
+// leftovers says whether the partition owner holds anything but META and sessions signed in
+// after at: what a deletion that stopped after META went left behind, when there is no META.
+func (a *Accounts) leftovers(ctx context.Context, owner string, at int64) (bool, error) {
 	m, err := a.meta(ctx, owner)
 	if err != nil || m.exists {
 		return false, err
 	}
-	var took tally
-	n, err := a.sweep(ctx, owner, at.Unix(), &took)
-	if n > 0 && err == nil {
-		slog.WarnContext(ctx, "deleted what a deletion left", "items", n)
+	in := &dynamodb.QueryInput{
+		TableName: aws.String(a.table), ConsistentRead: aws.Bool(true),
+		KeyConditionExpression:    aws.String("PK = :pk"),
+		ProjectionExpression:      aws.String("SK, #created"),
+		ExpressionAttributeNames:  map[string]string{"#created": linkCreated},
+		ExpressionAttributeValues: map[string]types.AttributeValue{":pk": &types.AttributeValueMemberS{Value: owner}},
 	}
-	return n > 0, err
+	for {
+		out, err := a.client.Query(ctx, in)
+		if err != nil {
+			return false, fmt.Errorf("read the account: %w", err)
+		}
+		for _, item := range out.Items {
+			sk, _ := item["SK"].(*types.AttributeValueMemberS)
+			if sk == nil || sk.Value == "META" {
+				continue
+			}
+			if !strings.HasPrefix(sk.Value, sessionLinkPrefix) || !signedInAfter(item, at) {
+				return true, nil
+			}
+		}
+		if len(out.LastEvaluatedKey) == 0 {
+			return false, nil
+		}
+		in.ExclusiveStartKey = out.LastEvaluatedKey
+	}
 }
 
 // metaState is what the account's META item says of its deletion.

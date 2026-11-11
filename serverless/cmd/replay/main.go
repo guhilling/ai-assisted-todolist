@@ -14,6 +14,7 @@ import (
 	"errors"
 	"log/slog"
 	"os"
+	"time"
 
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -45,7 +46,7 @@ func main() {
 	points := store.NewRestorePoints(client, table)
 	records := files.New(files.NewClient(cfg, os.Getenv("S3_ENDPOINT")), os.Getenv("TASKFEST_ATTACHMENTS_BUCKET"))
 	run := func(ctx context.Context) (replay.Report, error) {
-		return replay.Run(ctx, records, accounts, points)
+		return replay.Run(ctx, time.Now(), records, accounts, points)
 	}
 	if os.Getenv("AWS_LAMBDA_RUNTIME_API") != "" {
 		lambda.Start(run)

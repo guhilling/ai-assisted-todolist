@@ -313,8 +313,10 @@ who could only have got it from the owner's browser.
 
 Revised in part for the Go backend (#553, Gunnar's decisions): the account is marked deleted and
 then deleted in batches, so a failure after the mark counts as done and is finished later rather
-than reported; and the deletion ends the account's sessions on every device, which the stored
-sessions allow ([serverless.md](../deployment/serverless.md#deleting-an-account)).
+than reported; the deletion ends the account's sessions on every device, which the stored
+sessions allow ([serverless.md](../deployment/serverless.md#deleting-an-account)); and Lambda has
+no start-up, so the replay runs daily and, after a restore, once against the restored table before
+the API is switched to it ([serverless.md](../deployment/serverless.md#the-replay)).
 
 **Decision.** A user deletes their own account (#213, Gunnar's decision; no admin role).
 `DELETE /api/account` acts on the caller only. It writes a deletion record, then deletes each

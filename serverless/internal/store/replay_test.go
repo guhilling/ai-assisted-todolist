@@ -146,6 +146,9 @@ func TestNothingLeftOfADeletionIsNothingToReapply(t *testing.T) {
 	if err != nil || again {
 		t.Errorf("reapplied %v, %v", again, err)
 	}
+	if metaOf(t, client, table, one) != nil {
+		t.Error("a record with nothing left of its account wrote to it")
+	}
 }
 
 func TestSigningInAgainWhileADeletionIsLeftHalfWayKeepsTheNewSession(t *testing.T) {

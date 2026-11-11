@@ -67,6 +67,8 @@ type Link struct {
 type Object struct {
 	ContentType string
 	Size        int64
+	// LastModified is when it was written.
+	LastModified time.Time
 }
 
 // UploadLink is a link the browser uploads a file with. Its size and type are signed into it, so
@@ -179,7 +181,8 @@ func (f *Files) Head(ctx context.Context, key string) (Object, bool, error) {
 	if err != nil {
 		return Object{}, false, fmt.Errorf("look for %s: %w", key, err)
 	}
-	return Object{ContentType: aws.ToString(out.ContentType), Size: aws.ToInt64(out.ContentLength)}, true, nil
+	return Object{ContentType: aws.ToString(out.ContentType), Size: aws.ToInt64(out.ContentLength),
+		LastModified: aws.ToTime(out.LastModified)}, true, nil
 }
 
 // Delete deletes the object; deleting one that is not there is no error.
@@ -203,15 +206,27 @@ type Stored struct {
 // of #213, is something else and left out: the orphan clean-up must never take it for an orphan.
 func (f *Files) List(ctx context.Context) ([]Stored, error) {
 	var objects []Stored
-	pages := s3.NewListObjectsV2Paginator(f.client, &s3.ListObjectsV2Input{Bucket: aws.String(f.bucket)})
+	err := f.listUnder(ctx, "", func(contents []s3types.Object) {
+		objects = append(objects, stored(ctx, contents)...)
+	})
+	return objects, err
+}
+
+// listUnder hands every page of the objects under prefix to take.
+func (f *Files) listUnder(ctx context.Context, prefix string, take func([]s3types.Object)) error {
+	in := &s3.ListObjectsV2Input{Bucket: aws.String(f.bucket)}
+	if prefix != "" {
+		in.Prefix = aws.String(prefix)
+	}
+	pages := s3.NewListObjectsV2Paginator(f.client, in)
 	for pages.HasMorePages() {
 		page, err := pages.NextPage(ctx)
 		if err != nil {
-			return nil, fmt.Errorf("list the bucket: %w", err)
+			return fmt.Errorf("list the bucket under %q: %w", prefix, err)
 		}
-		objects = append(objects, stored(ctx, page.Contents)...)
+		take(page.Contents)
 	}
-	return objects, nil
+	return nil
 }
 
 // stored is a listing's attachment objects. One without its time is left out with a warning: S3

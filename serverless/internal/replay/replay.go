@@ -21,6 +21,17 @@ import (
 	"github.com/guhilling/ai-assisted-todolist/serverless/internal/files"
 )
 
+const (
+	// InFlight is how young a record is left to the request that wrote it: that request may yet
+	// fail to mark the account and take the record back, telling the user the deletion failed,
+	// so the replay must not carry it out meanwhile. The next run takes it.
+	InFlight = 5 * time.Minute
+	// PruneMargin is how much older than the oldest restore point a record must be to go. The
+	// record is written first, and a deletion that stopped half-way is finished by the next
+	// request or the daily run, so a restore point after the record can still hold the account.
+	PruneMargin = 48 * time.Hour
+)
+
 // Records is the deletion records in the bucket (internal/files).
 type Records interface {
 	Deletions(ctx context.Context) ([]files.Deletion, error)
@@ -48,7 +59,7 @@ type Report struct {
 // Run re-applies every recorded deletion, then prunes. It fails when an account could not be
 // deleted again, so that the run shows as failed; the next run tries again. Pruning that cannot
 // be done only waits for the next run: a record kept longer costs nothing.
-func Run(ctx context.Context, records Records, accounts Accounts, points RestorePoints) (Report, error) {
+func Run(ctx context.Context, now time.Time, records Records, accounts Accounts, points RestorePoints) (Report, error) {
 	all, err := records.Deletions(ctx)
 	if err != nil {
 		return Report{}, err
@@ -57,6 +68,9 @@ func Run(ctx context.Context, records Records, accounts Accounts, points Restore
 	stillThere := map[string]bool{}
 	var failures []error
 	for _, d := range all {
+		if d.At.After(now.Add(-InFlight)) {
+			continue
+		}
 		again, err := accounts.Reapply(ctx, d.Hash, d.At)
 		switch {
 		case err != nil:
@@ -97,7 +111,7 @@ func prune(ctx context.Context, records Records, all []files.Deletion, points Re
 }
 
 // Prunable is the records no restore can make necessary again: those older than the oldest point
-// the table could be restored to, except any whose account is still there, a re-deletion that
+// the table could be restored to by more than PruneMargin, except any whose account is still there, a re-deletion that
 // failed, which the next run must still be able to retry. None when that point is not known.
 func Prunable(all []files.Deletion, oldest time.Time, known bool, stillThere map[string]bool) []files.Deletion {
 	if !known {
@@ -105,7 +119,7 @@ func Prunable(all []files.Deletion, oldest time.Time, known bool, stillThere map
 	}
 	var prunable []files.Deletion
 	for _, d := range all {
-		if d.At.Before(oldest) && !stillThere[d.Hash] {
+		if d.At.Before(oldest.Add(-PruneMargin)) && !stillThere[d.Hash] {
 			prunable = append(prunable, d)
 		}
 	}

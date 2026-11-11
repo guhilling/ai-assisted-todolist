@@ -10,7 +10,11 @@ import (
 	"github.com/guhilling/ai-assisted-todolist/serverless/internal/files"
 )
 
-var oldest = time.Date(2026, 11, 1, 0, 0, 0, 0, time.UTC)
+var (
+	oldest = time.Date(2026, 11, 1, 0, 0, 0, 0, time.UTC)
+	// now is the run's clock, well after every record but the in-flight one.
+	now = oldest.Add(30 * 24 * time.Hour)
+)
 
 func deletion(hash string, at time.Time) files.Deletion { return files.Deletion{Hash: hash, At: at} }
 
@@ -23,9 +27,10 @@ func hashes(ds []files.Deletion) []string {
 	return out
 }
 
-func TestOnlyRecordsOlderThanTheOldestRestorePointArePruned(t *testing.T) {
-	records := []files.Deletion{deletion("before", oldest.Add(-time.Hour)), deletion("at", oldest),
-		deletion("after", oldest.Add(time.Hour))}
+func TestOnlyRecordsOlderThanTheOldestRestorePointByTheMarginArePruned(t *testing.T) {
+	// The margin covers a deletion finished up to a day after its record was written.
+	records := []files.Deletion{deletion("before", oldest.Add(-PruneMargin-time.Hour)),
+		deletion("within", oldest.Add(-PruneMargin+time.Hour)), deletion("after", oldest.Add(time.Hour))}
 
 	got := Prunable(records, oldest, true, nil)
 
@@ -36,7 +41,7 @@ func TestOnlyRecordsOlderThanTheOldestRestorePointArePruned(t *testing.T) {
 
 func TestTheRecordOfAnAccountStillThereIsKept(t *testing.T) {
 	// Its re-deletion failed; pruning the record would make the failure permanent.
-	records := []files.Deletion{deletion("failed", oldest.Add(-time.Hour))}
+	records := []files.Deletion{deletion("failed", oldest.Add(-PruneMargin-time.Hour))}
 
 	if got := Prunable(records, oldest, true, map[string]bool{"failed": true}); len(got) != 0 {
 		t.Errorf("pruned %v", hashes(got))
@@ -91,7 +96,7 @@ func TestEveryRecordIsReappliedAtItsTimeAndAFailureStopsNoOther(t *testing.T) {
 	accounts := &fakeAccounts{back: map[string]bool{"back": true}, failing: map[string]bool{"failing": true},
 		asked: map[string]time.Time{}}
 
-	report, err := Run(context.Background(), records, accounts, fakePoints{oldest: oldest, known: true})
+	report, err := Run(context.Background(), now, records, accounts, fakePoints{oldest: oldest, known: true})
 
 	if err == nil {
 		t.Error("a failed re-deletion did not fail the run")
@@ -107,11 +112,12 @@ func TestEveryRecordIsReappliedAtItsTimeAndAFailureStopsNoOther(t *testing.T) {
 }
 
 func TestARunPrunesWhatNoRestoreCanNeedButAFailedAccountsRecord(t *testing.T) {
-	records := &fakeRecords{records: []files.Deletion{deletion("long-gone", oldest.Add(-time.Hour)),
-		deletion("failing", oldest.Add(-time.Hour)), deletion("recent", oldest.Add(time.Hour))}}
+	gone := oldest.Add(-PruneMargin - time.Hour)
+	records := &fakeRecords{records: []files.Deletion{deletion("long-gone", gone),
+		deletion("failing", gone), deletion("recent", oldest.Add(time.Hour))}}
 	accounts := &fakeAccounts{failing: map[string]bool{"failing": true}, asked: map[string]time.Time{}}
 
-	report, _ := Run(context.Background(), records, accounts, fakePoints{oldest: oldest, known: true})
+	report, _ := Run(context.Background(), now, records, accounts, fakePoints{oldest: oldest, known: true})
 
 	if !slices.Equal(records.pruned, []string{"long-gone"}) || report.Pruned != 1 {
 		t.Errorf("pruned %v, report %+v", records.pruned, report)
@@ -119,12 +125,25 @@ func TestARunPrunesWhatNoRestoreCanNeedButAFailedAccountsRecord(t *testing.T) {
 }
 
 func TestEveryRecordIsKeptWhenTheRestorePointsCannotBeRead(t *testing.T) {
-	records := &fakeRecords{records: []files.Deletion{deletion("old", oldest.Add(-time.Hour))}}
+	records := &fakeRecords{records: []files.Deletion{deletion("old", oldest.Add(-PruneMargin-time.Hour))}}
 	accounts := &fakeAccounts{asked: map[string]time.Time{}}
 
-	_, err := Run(context.Background(), records, accounts, fakePoints{err: errors.New("access denied")})
+	_, err := Run(context.Background(), now, records, accounts, fakePoints{err: errors.New("access denied")})
 
 	if err != nil || len(records.pruned) != 0 {
 		t.Errorf("pruned %v, %v", records.pruned, err)
+	}
+}
+
+func TestARecordStillBeingWrittenIsLeftToItsRequest(t *testing.T) {
+	// Its request may yet fail to mark the account and take the record back; the user is then
+	// told the deletion failed, and the replay must not have carried it out.
+	records := &fakeRecords{records: []files.Deletion{deletion("in-flight", now.Add(-time.Minute))}}
+	accounts := &fakeAccounts{back: map[string]bool{"in-flight": true}, asked: map[string]time.Time{}}
+
+	report, err := Run(context.Background(), now, records, accounts, fakePoints{})
+
+	if err != nil || len(accounts.asked) != 0 || report.Reapplied != 0 {
+		t.Errorf("asked %v, report %+v, %v", accounts.asked, report, err)
 	}
 }
