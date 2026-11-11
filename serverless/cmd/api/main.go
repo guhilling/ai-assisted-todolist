@@ -45,7 +45,8 @@ func main() {
 	table := os.Getenv("TABLE_NAME")
 	tasks := store.New(client, table)
 	writes := store.NewWrites(client, table)
-	bucket := files.New(files.NewClient(cfg, os.Getenv("S3_ENDPOINT")), os.Getenv("TASKFEST_ATTACHMENTS_BUCKET"))
+	bucketName := os.Getenv("TASKFEST_ATTACHMENTS_BUCKET")
+	bucket := files.New(files.NewClient(cfg, os.Getenv("S3_ENDPOINT")), bucketName)
 	authConfig, err := auth.LoadConfig(os.Getenv)
 	if err != nil {
 		slog.Error("the sign-in configuration is wrong", "error", err)
@@ -53,11 +54,17 @@ func main() {
 	}
 	avatars := gravatar.New(os.Getenv("TASKFEST_GRAVATAR_ENABLED") != "false", gravatar.DefaultBase)
 	signIn := auth.New(authConfig, store.NewSessions(client, table), avatars)
+	accounts := store.NewAccounts(client, table)
 	server := &api.Server{Tasks: tasks, Writes: writes, Attachments: writes, Files: bucket, SignIn: signIn,
-		Caller: func(r *http.Request) (string, bool) {
+		Accounts: accounts,
+		Caller: api.Settled(func(r *http.Request) (string, bool) {
 			id, ok := signIn.Identify(r)
 			return id.Email, ok
-		}}
+		}, accounts)}
+	if bucketName != "" {
+		// Without a bucket, as in a local stack with none, an account is deleted without a record.
+		server.Records = bucket
+	}
 	routes := api.Routes(server)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)

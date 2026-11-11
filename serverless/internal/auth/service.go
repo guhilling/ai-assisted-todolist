@@ -299,24 +299,36 @@ func (s *Service) finish(r *http.Request, p Provider) (identity.Identity, error)
 // Logout ends the browser's session, on the server and in the browser, and sends it back to the
 // app. Like the Quarkus backend's, it is no RP-initiated logout: the provider's own session stays.
 func (s *Service) Logout(w http.ResponseWriter, r *http.Request) {
+	s.EndSession(w, r)
+	http.Redirect(w, r, s.cfg.PostLoginRedirect, http.StatusSeeOther)
+}
+
+// EndSession ends this browser's session, on the server and in its cookies, and writes nothing
+// else: signing out, and deleting the account (#553), which answers on its own.
+func (s *Service) EndSession(w http.ResponseWriter, r *http.Request) {
 	if cookie, err := r.Cookie(SessionCookie); err == nil && cookie.Value != "" {
 		if err := s.store.DeleteSession(r.Context(), hash(cookie.Value)); err != nil {
 			slog.ErrorContext(r.Context(), "deleting a session failed", "error", err)
 		}
 	}
 	http.SetCookie(w, s.cookie(SessionCookie, "", -1))
-	s.backToTheApp(w, r)
+	s.clearQuarkusCookies(w, r)
 }
 
-// backToTheApp redirects to the app, clearing what a sign-in under way and the Quarkus backend's
-// sessions (q_session, its chunks, q_auth) left behind, so nothing from before the move lingers.
+// backToTheApp redirects to the app, clearing what the Quarkus backend's sessions left behind.
 func (s *Service) backToTheApp(w http.ResponseWriter, r *http.Request) {
+	s.clearQuarkusCookies(w, r)
+	http.Redirect(w, r, s.cfg.PostLoginRedirect, http.StatusSeeOther)
+}
+
+// clearQuarkusCookies clears what the Quarkus backend's sessions (q_session, its chunks, q_auth)
+// left behind, so nothing from before the move lingers.
+func (s *Service) clearQuarkusCookies(w http.ResponseWriter, r *http.Request) {
 	for _, c := range r.Cookies() {
 		if strings.HasPrefix(c.Name, "q_session") || strings.HasPrefix(c.Name, "q_auth") {
 			http.SetCookie(w, s.cookie(c.Name, "", -1))
 		}
 	}
-	http.Redirect(w, r, s.cfg.PostLoginRedirect, http.StatusSeeOther)
 }
 
 func (s *Service) oauth(r *http.Request, p Provider) (*oauth2.Config, error) {
