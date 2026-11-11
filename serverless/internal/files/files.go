@@ -189,3 +189,29 @@ func (f *Files) Delete(ctx context.Context, key string) error {
 	}
 	return nil
 }
+
+// Stored is one object in the bucket, as a listing returns it.
+type Stored struct {
+	Key          string
+	LastModified time.Time
+}
+
+// List returns every attachment object in the bucket, page by page; at a demo's size, a request
+// or two. Attachment keys have no slash, so anything under a prefix, such as the deletion records
+// of #213, is something else and left out: the orphan clean-up must never take it for an orphan.
+func (f *Files) List(ctx context.Context) ([]Stored, error) {
+	var objects []Stored
+	pages := s3.NewListObjectsV2Paginator(f.client, &s3.ListObjectsV2Input{Bucket: aws.String(f.bucket)})
+	for pages.HasMorePages() {
+		page, err := pages.NextPage(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("list the bucket: %w", err)
+		}
+		for _, o := range page.Contents {
+			if key := aws.ToString(o.Key); !strings.Contains(key, "/") {
+				objects = append(objects, Stored{Key: key, LastModified: aws.ToTime(o.LastModified)})
+			}
+		}
+	}
+	return objects, nil
+}

@@ -251,3 +251,30 @@ func TestAFileNameIsEncodedAsJavasURLEncoderDoes(t *testing.T) {
 		t.Error("a plus stayed a plus")
 	}
 }
+
+func TestTheListingHoldsTheAttachmentObjectsAndNothingUnderAPrefix(t *testing.T) {
+	f := New(localBucket(t), bucket)
+	ctx := context.Background()
+	for _, key := range []string{"one", "one.thumbnail", "deleted-accounts/abc"} {
+		link, _ := f.UploadLink(ctx, key, "image/png", 3)
+		if status := upload(t, link, []byte("png")); status != http.StatusOK {
+			t.Fatalf("upload %s: %d", key, status)
+		}
+	}
+
+	objects, err := f.List(ctx)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+	var keys []string
+	for _, o := range objects {
+		keys = append(keys, o.Key)
+		if time.Since(o.LastModified) > time.Hour {
+			t.Errorf("%s modified %v", o.Key, o.LastModified)
+		}
+	}
+	if strings.Join(keys, ",") != "one,one.thumbnail" {
+		t.Errorf("listed %v", keys)
+	}
+}
