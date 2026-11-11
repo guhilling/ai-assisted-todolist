@@ -5,8 +5,6 @@ package store
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -15,6 +13,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 
 	"github.com/guhilling/ai-assisted-todolist/serverless/internal/board"
+	"github.com/guhilling/ai-assisted-todolist/serverless/internal/identity"
 )
 
 // QueryAPI is the one DynamoDB call the store makes, so that tests can answer it.
@@ -36,8 +35,7 @@ func New(client QueryAPI, table string) *Store {
 // OwnerKey is the partition key of a user's items: a hash of the email that identifies them, so
 // that the table's keys, which show up in logs and metrics, carry no address.
 func OwnerKey(email string) string {
-	sum := sha256.Sum256([]byte(email))
-	return "USER#" + hex.EncodeToString(sum[:])
+	return "USER#" + identity.EmailHash(email)
 }
 
 // taskItem is a task as stored.

@@ -82,8 +82,25 @@ func pendingKey(key string) map[string]types.AttributeValue {
 	}
 }
 
-// PutSession stores a new session.
+// sessionLink is the item in the user's partition that names one of their sessions, so that
+// deleting the account ends it (#553). It expires when the session can last no longer.
+type sessionLink struct {
+	PK        string `dynamodbav:"PK"`
+	SK        string `dynamodbav:"SK"`
+	ExpiresAt int64  `dynamodbav:"expiresAt"`
+}
+
+// PutSession stores a new session, and first its link from the user's account: a link without a
+// session ends nothing, a session without a link would outlive the account's deletion.
 func (s *Sessions) PutSession(ctx context.Context, key string, session auth.Session, expires time.Time) error {
+	link, err := attributevalue.MarshalMap(sessionLink{PK: OwnerKey(session.Email), SK: sessionLinkPrefix + key,
+		ExpiresAt: session.Created.Add(auth.AbsoluteLifetime).Unix()})
+	if err != nil {
+		return err
+	}
+	if _, err := s.client.PutItem(ctx, &dynamodb.PutItemInput{TableName: aws.String(s.table), Item: link}); err != nil {
+		return fmt.Errorf("link the session: %w", err)
+	}
 	item, err := attributevalue.MarshalMap(sessionItem{
 		PK: "SESSION#" + key, SK: "SESSION",
 		Email: session.Email, Name: session.Name, Picture: session.Picture,
@@ -141,11 +158,25 @@ func (s *Sessions) TouchSession(ctx context.Context, key string, lastSeen, expir
 	return nil
 }
 
-// DeleteSession ends a session.
+// DeleteSession ends a session, and deletes its link from the user's account.
 func (s *Sessions) DeleteSession(ctx context.Context, key string) error {
-	_, err := s.client.DeleteItem(ctx, &dynamodb.DeleteItemInput{TableName: aws.String(s.table), Key: sessionKey(key)})
+	out, err := s.client.DeleteItem(ctx, &dynamodb.DeleteItemInput{
+		TableName: aws.String(s.table), Key: sessionKey(key), ReturnValues: types.ReturnValueAllOld,
+	})
 	if err != nil {
 		return fmt.Errorf("delete session: %w", err)
+	}
+	email, ok := out.Attributes["email"].(*types.AttributeValueMemberS)
+	if !ok {
+		return nil
+	}
+	_, err = s.client.DeleteItem(ctx, &dynamodb.DeleteItemInput{TableName: aws.String(s.table),
+		Key: map[string]types.AttributeValue{
+			"PK": &types.AttributeValueMemberS{Value: OwnerKey(email.Value)},
+			"SK": &types.AttributeValueMemberS{Value: sessionLinkPrefix + key},
+		}})
+	if err != nil {
+		return fmt.Errorf("unlink session: %w", err)
 	}
 	return nil
 }

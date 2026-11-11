@@ -9,8 +9,5 @@ type unported struct{}
 // notImplemented answers 501.
 func notImplemented(w http.ResponseWriter) { w.WriteHeader(http.StatusNotImplemented) }
 
-// DeleteApiAccount answers 501 until ported.
-func (unported) DeleteApiAccount(w http.ResponseWriter, _ *http.Request) { notImplemented(w) }
-
 // GetApiVersion answers 501 until ported.
 func (unported) GetApiVersion(w http.ResponseWriter, _ *http.Request) { notImplemented(w) }

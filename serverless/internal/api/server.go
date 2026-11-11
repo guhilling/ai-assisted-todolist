@@ -32,6 +32,8 @@ type SignIn interface {
 	Login(w http.ResponseWriter, r *http.Request, provider string)
 	Callback(w http.ResponseWriter, r *http.Request, provider string)
 	Logout(w http.ResponseWriter, r *http.Request)
+	// EndSession ends this browser's session and writes nothing else.
+	EndSession(w http.ResponseWriter, r *http.Request)
 	Config() auth.Config
 }
 
@@ -46,8 +48,12 @@ type Server struct {
 	// content is.
 	Attachments AttachmentWrites
 	Files       FileStore
-	Caller      Caller
-	SignIn      SignIn
+	// Accounts is where an account is deleted (#553), Records where its deletion is recorded;
+	// nil where there is no bucket, and then an account is deleted without a record.
+	Accounts AccountDeletion
+	Records  DeletionRecords
+	Caller   Caller
+	SignIn   SignIn
 	// Now is the clock a new task's due date is judged by; time.Now when nil.
 	Now func() time.Time
 }
@@ -95,6 +101,15 @@ func (s *Server) GetApiAuthProviders(w http.ResponseWriter, r *http.Request) {
 // GetApiAuthMe answers who is signed in: the email, and the name and picture if there are any.
 func (s *Server) GetApiAuthMe(w http.ResponseWriter, r *http.Request) {
 	id, ok := s.SignIn.Identify(r)
+	if ok && s.Accounts != nil {
+		// As every other route's caller (Settled), so a session a deletion ended shows signed out.
+		switch settle(r, s.Accounts, id.Email) {
+		case refuse:
+			ok = false
+		case identifyAgain:
+			id, ok = s.SignIn.Identify(r)
+		}
+	}
 	if !ok {
 		w.WriteHeader(http.StatusUnauthorized)
 		return

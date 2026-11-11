@@ -49,7 +49,8 @@ Nothing to take down, and `prod` can simply stay up.
 - **One Lambda function per concern or one for the API** is decided during the port; the spike
   has one handler.
 - **DynamoDB, one table.** The partition key is the user, `USER#<sha256 of the email>`; the sort
-  key says what the item is: `META` for the user, `TASK#<id>`, `DRAFT#<id>`, `ATT#<id>`. A
+  key says what the item is: `META` for the user, `TASK#<id>`, `DRAFT#<id>`, `ATT#<id>`, and
+  `SESSION#<key>` for each of the website's sessions, so that deleting the account ends them. A
   board is one `Query` on `TASK#`, and a draft, which is no task yet, never matches it. Task
   stays the aggregate the [domain model](../domain-model.md) says it is. The website's sessions
   and its sign-ins under way have partitions of their own, `SESSION#<key>` and `SIGNIN#<key>`
@@ -119,10 +120,11 @@ rules, `internal/api` the requests, `internal/store` the items.
   (tzdata 2026e), the one difference left is the other way round: the JDK still takes six
   `SystemV/` zones tzdata dropped long ago, which no browser or app sends.
 - **What follows from later stories:** the function's role needs `dynamodb:GetItem`, `PutItem`,
-  `UpdateItem`, `DeleteItem`, `Query` and `ConditionCheckItem`, which IAM checks for each item of
-  a transaction, and on the attachment bucket `s3:PutObject`, `GetObject`, `DeleteObject` and
-  `ListBucket`, without which a `HEAD` of a missing file is a 403 rather than a 404. The spike's
-  role has none of them but `Query` (#554).
+  `UpdateItem`, `DeleteItem`, `Query`, `BatchWriteItem`, which deleting an account uses, and
+  `ConditionCheckItem`, which IAM checks for each item of a transaction, and on the attachment
+  bucket `s3:PutObject`, `GetObject`, `DeleteObject` and `ListBucket`, without which a `HEAD` of
+  a missing file is a 403 rather than a 404. The spike's role has none of them but `Query`
+  (#554).
 - **Keys are read as Jackson reads them:** exactly as written, so `"Description"` is no
   description, and of a key given twice the last one counts.
 - **Jackson's leniencies about values are not copied.** It takes a number for a string
@@ -243,6 +245,42 @@ alike. A sign-in that fails at the callback (a second tab's, a callback used twi
 cancelled at the provider) goes back to the app, signed out, rather than to Quarkus's blank 401.
 Signing in or out also expires any `q_session` and `q_auth` cookie left from the Quarkus
 backend.
+
+## Deleting an account
+
+`DELETE /api/account` (#553) keeps the
+[decision](../decisions/domain-and-backend.md#deleting-an-account-leaves-a-record-outside-the-database)
+and the Quarkus backend's tests: the record `deleted-accounts/<SHA-256 of the email>` is written
+to the attachment bucket first, where a restore of the table cannot take it back, and without a
+bucket an account is deleted without one. Two things differ, by Gunnar's decisions on #553:
+
+- **The account is marked, then deleted in batches.** A transaction holds at most 100 items, and
+  a user's tasks have no limit, so no single write deletes an account. The first write sets
+  `deletedAt` on `META`; then every item of the partition goes, 25 to a `BatchWriteItem`, and
+  `META` last. A deletion that cannot be marked takes its record back and answers a 500, as
+  before. One that stops after the mark counts as done: the user is told so, and the account's
+  next request finishes it before anything else (`api.Settled`, one strongly consistent read of
+  `META` per request, `/api/auth/me` included), or the replay does. A request is refused, with a
+  401, when that read fails or the deletion cannot be finished: it must never see what is left of
+  a deleted account. The partition is read again until nothing is left, for what a request racing
+  the deletion wrote, and once more after `META` is gone. Should that last read fail, nothing in
+  the table is marked any more; the record in the bucket is, and the replay deletes what is left
+  under a recorded account that has no `META`. The stream deletes the attachments' files as their
+  items go.
+- **It ends the account's sessions on every device.** Each sign-in also writes a
+  `SESSION#<key>` item into the user's partition, which deleting the account deletes along with
+  the session it names; the item expires with the session's seven days. Quarkus's sessions were
+  encrypted cookies, so a session left open elsewhere began a new, empty account; now it is
+  signed out. The apps send a bearer ID token with every request, which no deletion can end:
+  their next request uses a new, empty account, as before.
+
+One gap is accepted, as in the Quarkus backend (Gunnar's decision on #572): two deletions of the
+same account at the same moment share one record, and if one of them cannot be marked, taking its
+record back also takes the other's. It needs both at once, a DynamoDB failure on exactly one, and
+a later restore; closing it would take a conditional delete in S3 or a lock on the account.
+
+The replay, which deletes an account again that a restore brought back, comes with the next
+part of #553.
 
 ## Why Go
 
