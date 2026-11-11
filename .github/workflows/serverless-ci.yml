@@ -3,8 +3,7 @@ name: Serverless CI
 # The Go backend (#547): the generated contract code, vet, the tests (DynamoDB Local's among them,
 # in a container), and the arm64 Lambda build, so a change that would not build for Lambda fails
 # here rather than on Gunnar's machine before an apply. It also runs when the contract changes,
-# since the Go code is generated from it. Nothing is deployed yet: serverless/spike/measure.sh
-# uploads the code by hand.
+# since the Go code is generated from it. Nothing is deployed from here yet (#555).
 
 on:
   pull_request:
@@ -59,4 +58,4 @@ jobs:
         run: ./build.sh
 
       - name: Check the scripts
-        run: shellcheck build.sh spike/measure.sh
+        run: shellcheck build.sh

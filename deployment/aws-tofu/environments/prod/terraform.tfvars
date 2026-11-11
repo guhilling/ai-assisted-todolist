@@ -39,5 +39,5 @@ cpu_architecture = "ARM64"
 backend_cpu    = 512
 backend_memory = 1024
 
-# The serverless spike runs in qa only (#535).
-serverless_spike = false
+# The containers serve /api/* until the cut-over (#557) switches it to the Go backend.
+api_backend = "containers"

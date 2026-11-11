@@ -10,5 +10,5 @@ running = true
 # would check none of them.
 test_sign_in = true
 
-# Likewise for the serverless spike (serverless-spike.tf).
-serverless_spike = true
+# Likewise for the Go backend's CloudFront behaviour (edge.tf).
+api_backend = "serverless"

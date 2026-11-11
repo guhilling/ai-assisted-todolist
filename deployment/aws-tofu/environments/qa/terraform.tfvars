@@ -37,5 +37,5 @@ cpu_architecture = "ARM64"
 backend_cpu    = 256
 backend_memory = 512
 
-# qa measures the serverless spike's cold start (#535); serverless/spike/measure.sh.
-serverless_spike = true
+# The containers serve /api/* until the cut-over (#557) switches it to the Go backend.
+api_backend = "containers"

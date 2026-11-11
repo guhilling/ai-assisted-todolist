@@ -101,6 +101,8 @@ data "aws_iam_policy_document" "lifecycle" {
       "acm:Describe*",
       "acm:Get*",
       "acm:List*",
+      # The Go backend's HTTP API (serverless.tf): API Gateway reads are all GET.
+      "apigateway:GET",
       "application-autoscaling:Describe*",
       "cloudfront:Describe*",
       "cloudfront:Get*",
@@ -108,8 +110,8 @@ data "aws_iam_policy_document" "lifecycle" {
       "cloudwatch:Describe*",
       "cloudwatch:Get*",
       "cloudwatch:List*",
-      # Describe and List, for the serverless spike's table (#535). Not Get*, which would read
-      # the table's items, and a refresh reads only the table's settings.
+      # Describe and List, for the Go backend's table (serverless.tf). Not Get*, which would
+      # read the table's items, and a refresh reads only the table's settings.
       "dynamodb:Describe*",
       "dynamodb:List*",
       "ec2:Describe*",

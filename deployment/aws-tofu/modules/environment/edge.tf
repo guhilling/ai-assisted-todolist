@@ -10,6 +10,10 @@
 # the load balancer up instead would cost ~$20 a month. See doc/decisions/deployment-and-aws.md.
 #
 # While the environment is down the distribution still answers, from the site bucket only.
+#
+# The Go backend's HTTP API (serverless.tf) is a second /api/* origin, which is always there.
+# `api_backend` says which of the two the /api/* behaviour uses: the containers' only while the
+# environment is up, the Go backend's whether it is up or not (#554, #557).
 
 data "aws_route53_zone" "this" {
   name = var.dns_zone
@@ -190,9 +194,26 @@ data "aws_cloudfront_origin_request_policy" "all_viewer" {
   name = "Managed-AllViewer"
 }
 
+# The HTTP API answers only on its own name, so the viewer's Host header must not reach it. The
+# Go backend takes its own address from TASKFEST_PUBLIC_ORIGIN instead.
+data "aws_cloudfront_origin_request_policy" "all_viewer_except_host" {
+  name = "Managed-AllViewerExceptHostHeader"
+}
+
 locals {
-  site_origin_id = "site"
-  api_origin_id  = "api"
+  site_origin_id       = "site"
+  api_origin_id        = "api"
+  serverless_origin_id = "serverless-api"
+
+  # The /api/* behaviour, once for whichever backend serves it: none for the containers while the
+  # environment is down, since their origin is gone then.
+  api_behaviour = var.api_backend == "serverless" ? [{
+    origin_id = local.serverless_origin_id
+    policy_id = data.aws_cloudfront_origin_request_policy.all_viewer_except_host.id
+    }] : [for _ in aws_cloudfront_vpc_origin.api : {
+    origin_id = local.api_origin_id
+    policy_id = data.aws_cloudfront_origin_request_policy.all_viewer.id
+  }]
 }
 
 # Deep links: any path whose last segment has no dot gets the app's index.html. Only on the
@@ -244,6 +265,26 @@ resource "aws_cloudfront_distribution" "this" {
     }
   }
 
+  # The Go backend. Its header is how the function tells CloudFront's requests from the rest.
+  origin {
+    origin_id   = local.serverless_origin_id
+    domain_name = replace(aws_apigatewayv2_api.this.api_endpoint, "https://", "")
+
+    custom_origin_config {
+      http_port              = 80
+      https_port             = 443
+      origin_protocol_policy = "https-only"
+      origin_ssl_protocols   = ["TLSv1.2"]
+      # API Gateway's own limit is 30 seconds; the function's timeout is under it.
+      origin_read_timeout = 30
+    }
+
+    custom_header {
+      name  = local.origin_header
+      value = random_password.origin.result
+    }
+  }
+
   default_cache_behavior {
     target_origin_id       = local.site_origin_id
     viewer_protocol_policy = "redirect-to-https"
@@ -259,16 +300,16 @@ resource "aws_cloudfront_distribution" "this" {
   }
 
   dynamic "ordered_cache_behavior" {
-    for_each = aws_cloudfront_vpc_origin.api
+    for_each = local.api_behaviour
 
     content {
       path_pattern             = "/api/*"
-      target_origin_id         = local.api_origin_id
+      target_origin_id         = ordered_cache_behavior.value.origin_id
       viewer_protocol_policy   = "https-only"
       allowed_methods          = ["GET", "HEAD", "OPTIONS", "PUT", "POST", "PATCH", "DELETE"]
       cached_methods           = ["GET", "HEAD"]
       cache_policy_id          = data.aws_cloudfront_cache_policy.caching_disabled.id
-      origin_request_policy_id = data.aws_cloudfront_origin_request_policy.all_viewer.id
+      origin_request_policy_id = ordered_cache_behavior.value.policy_id
       compress                 = true
     }
   }
