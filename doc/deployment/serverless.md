@@ -191,7 +191,12 @@ unchanged.
 - **A link to open a file is handed out again while half its hour is left**, as before, per Lambda
   instance rather than per backend task; with several instances, a browser sees a few URLs for a
   file at worst. Each link ends with the credentials that signed it, when they end first, and says
-  so in its expiry.
+  so in its expiry, where the credentials tell their end. **On Lambda they do not:** the
+  function's credentials come in environment variables, without an expiry. A link signed shortly
+  before they lapse can stop working before the expiry it reports, and since the browser keeps
+  it, a preview stays broken for up to half an hour, until the next link. Gunnar accepted that
+  (#569) rather than signing anew on every request, which undoes #236, or signing with a role
+  assumed for the purpose, which knows its end at the price of a role and an STS call per start.
 - **Locally**, `TASKFEST_ATTACHMENTS_BUCKET` names the bucket and `S3_ENDPOINT` points at
   LocalStack, as for the end-to-end stack.
 

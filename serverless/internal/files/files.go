@@ -144,6 +144,7 @@ func link(signed string, headers map[string]string, creds aws.Credentials) (Link
 }
 
 // worksUntil is until when a link works: its own expiry, or the credentials' when they end first.
+// Lambda's environment credentials tell no end, so there it is the link's own (#569).
 func worksUntil(signedUntil time.Time, creds aws.Credentials) time.Time {
 	if creds.CanExpire && creds.Expires.Before(signedUntil) {
 		return creds.Expires
