@@ -2,11 +2,14 @@ package files
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	s3types "github.com/aws/aws-sdk-go-v2/service/s3/types"
 
 	"github.com/guhilling/ai-assisted-todolist/serverless/internal/identity"
 )
@@ -35,4 +38,50 @@ func (f *Files) RecordDeletion(ctx context.Context, email string) error {
 // never carries out a deletion the user was told failed.
 func (f *Files) ForgetDeletion(ctx context.Context, email string) error {
 	return f.Delete(ctx, recordPrefix+identity.EmailHash(email))
+}
+
+// Deletion is a deletion on record: the email's hash, and when the account was deleted, which is
+// the time S3 wrote the record.
+type Deletion struct {
+	Hash string
+	At   time.Time
+}
+
+// Deletions is every deletion on record, in one listing; the times are the objects' own.
+func (f *Files) Deletions(ctx context.Context) ([]Deletion, error) {
+	var records []Deletion
+	pages := s3.NewListObjectsV2Paginator(f.client, &s3.ListObjectsV2Input{
+		Bucket: aws.String(f.bucket), Prefix: aws.String(recordPrefix)})
+	for pages.HasMorePages() {
+		page, err := pages.NextPage(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("list the deletion records: %w", err)
+		}
+		for _, o := range page.Contents {
+			hash := strings.TrimPrefix(aws.ToString(o.Key), recordPrefix)
+			if hash == "" || strings.Contains(hash, "/") || o.LastModified == nil {
+				continue
+			}
+			records = append(records, Deletion{Hash: hash, At: *o.LastModified})
+		}
+	}
+	return records, nil
+}
+
+// ForgetIfUnchanged removes a record no restore can need any more, unless it was written again
+// since it was read: then it records a newer deletion, and stays.
+func (f *Files) ForgetIfUnchanged(ctx context.Context, d Deletion) error {
+	key := recordPrefix + d.Hash
+	out, err := f.client.HeadObject(ctx, &s3.HeadObjectInput{Bucket: aws.String(f.bucket), Key: aws.String(key)})
+	var missing *s3types.NotFound
+	if errors.As(err, &missing) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("look for the record: %w", err)
+	}
+	if out.LastModified == nil || !out.LastModified.Equal(d.At) {
+		return nil
+	}
+	return f.Delete(ctx, key)
 }

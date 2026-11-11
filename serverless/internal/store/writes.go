@@ -23,9 +23,9 @@ import (
 type Writes struct {
 	client ItemAPI
 	table  string
-	// clock is when a delete detaches a task's attachments; time.Now but in tests. A field
-	// rather than a parameter, so that Delete keeps the signature the earlier tests call; the
-	// API's clock is time.Now as well.
+	// clock is when a delete detaches a task's attachments, and when an account begins; time.Now
+	// but in tests. A field rather than a parameter, so that Delete keeps the signature the
+	// earlier tests call; the API's clock is time.Now as well.
 	clock func() time.Time
 }
 
@@ -119,12 +119,14 @@ func (w *Writes) nextID(ctx context.Context, email string) (int64, error) {
 // next counts the user's next id on the META item's attribute last.
 func (w *Writes) next(ctx context.Context, email, last string) (int64, error) {
 	out, err := w.client.UpdateItem(ctx, &dynamodb.UpdateItemInput{
-		TableName:                 aws.String(w.table),
-		Key:                       metaKey(email),
-		UpdateExpression:          aws.String("ADD #last :one"),
-		ExpressionAttributeNames:  map[string]string{"#last": last},
-		ExpressionAttributeValues: map[string]types.AttributeValue{":one": &types.AttributeValueMemberN{Value: "1"}},
-		ReturnValues:              types.ReturnValueUpdatedNew,
+		TableName: aws.String(w.table),
+		Key:       metaKey(email),
+		// The first id counted is where the account begins: createdAt, kept from then on (#553).
+		UpdateExpression:         aws.String("ADD #last :one SET #created = if_not_exists(#created, :now)"),
+		ExpressionAttributeNames: map[string]string{"#last": last, "#created": accountCreatedAt},
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":one": &types.AttributeValueMemberN{Value: "1"}, ":now": number(w.clock().Unix())},
+		ReturnValues: types.ReturnValueUpdatedNew,
 	})
 	if err != nil {
 		return 0, fmt.Errorf("count %s: %w", last, err)

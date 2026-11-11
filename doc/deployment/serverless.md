@@ -279,8 +279,62 @@ same account at the same moment share one record, and if one of them cannot be m
 record back also takes the other's. It needs both at once, a DynamoDB failure on exactly one, and
 a later restore; closing it would take a conditional delete in S3 or a lock on the account.
 
-The replay, which deletes an account again that a restore brought back, comes with the next
-part of #553.
+### The replay
+
+`cmd/replay` deletes again any account a restore brought back, and prunes the records no restore
+can need any more; `internal/replay` keeps every rule of Quarkus's `DeletionReplay`, whose tests
+are ported. EventBridge Scheduler runs it daily (#554). Lambda has no start-up to run it in, so
+the restore procedure below runs it once against the restored table **before the API is
+switched to it**, and nobody can sign in to a restored account first (Gunnar's decision on #553).
+
+- **An account is deleted again only if it began before its deletion.** `META` carries
+  `createdAt`, written with the first id the account counts and kept from then on; the write that
+  marks the account deleted again is conditional on it, so an account begun anew since is never
+  taken for the restored one. An account without `createdAt` counts as older.
+- **What a deletion left without `META` is deleted too**, for the deletion that stopped after
+  `META` went: no task, draft or attachment is ever written without `META`. A session signed in
+  after the deletion stays; each link carries when its session began. Finishing a deletion left
+  half-way spares such a session as well, so signing in again in between does not sign out.
+- **Each record is handled on its own**, and a run in which an account could not be deleted again
+  fails, to be retried by the next.
+- **A record is pruned once it is older than the oldest point the table could be restored to**,
+  unless its account is still there, and not if it was written again since it was read. That
+  point is the start of the table's point-in-time recovery window or the oldest backup in the
+  region, whichever is older: every backup counts, not only the table's, since a restore goes
+  into a new table and the old one's backups stay restorable, and a record kept too long costs
+  nothing. When neither exists, or DynamoDB will not say, nothing is pruned. Point-in-time
+  recovery is on for prod and off for qa (#553).
+- **Its role** (#554) needs `dynamodb:Query`, `GetItem`, `UpdateItem`, `DeleteItem` and
+  `BatchWriteItem` on the table, `DescribeContinuousBackups` on it and `ListBackups`, and on the
+  bucket `s3:ListBucket`, `GetObject` and `DeleteObject` under `deleted-accounts/`.
+
+### Restoring the table
+
+A DynamoDB restore always creates a new table; the old one stays until it is deleted. What was
+written between the restore point and the switch is lost, as with the database's snapshot
+restores ([database.md](database.md)), and files uploaded since are left to the orphan clean-up.
+A restore is billed by the size restored, cents for TaskFest. Every step runs with the
+administrator's profile.
+
+1. **Restore into a new table**, from point-in-time recovery (prod) or a backup:
+   ```bash
+   aws dynamodb restore-table-to-point-in-time --source-table-name <table> \
+     --target-table-name <table>-restored-<date> --restore-date-time <time>
+   aws dynamodb restore-table-from-backup --backup-arn <arn> \
+     --target-table-name <table>-restored-<date>
+   aws dynamodb wait table-exists --table-name <table>-restored-<date>
+   ```
+2. **Run the replay against it**, before anything else can reach it:
+   ```bash
+   cd serverless && AWS_PROFILE=<admin profile> AWS_REGION=eu-central-1 \
+     TABLE_NAME=<table>-restored-<date> TASKFEST_ATTACHMENTS_BUCKET=<bucket> go run ./cmd/replay
+   ```
+   It logs one JSON line, `deletion-replay`, with how many accounts it deleted again; it exits
+   non-zero when one could not be, and is then run again.
+3. **Switch the functions to the new table.** A restore does not carry the table's TTL, stream or
+   point-in-time recovery settings over, so the apply that switches also sets them (#554).
+
+The procedure is tried once in qa, from an on-demand backup, once #554 has built the table.
 
 ## Why Go
 
