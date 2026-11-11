@@ -256,6 +256,7 @@ func (w *Writes) forget(email string, id int64) types.TransactWriteItem {
 	}}
 }
 
+// number is n as a DynamoDB number.
 func number(n int64) types.AttributeValue {
 	return &types.AttributeValueMemberN{Value: strconv.FormatInt(n, 10)}
 }
