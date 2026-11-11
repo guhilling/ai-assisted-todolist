@@ -149,10 +149,14 @@ func TestADeleteThatFailsStopsNothingElse(t *testing.T) {
 	b := newBucket("first", "second", "a-file")
 	b.failing["first"] = true
 
-	r := sweep(t, withAFile(), b, now.Add(8*day))
+	r, err := Sweep(context.Background(), withAFile(), b, now.Add(8*day))
 
 	if !slices.Equal(r.Deleted, []string{"second"}) {
 		t.Errorf("%+v", r)
+	}
+	// And then fails, so a deletion failing run after run shows (CodeRabbit on #571).
+	if err == nil {
+		t.Error("the run succeeded")
 	}
 }
 

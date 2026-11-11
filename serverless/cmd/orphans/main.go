@@ -9,6 +9,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"os"
 	"time"
@@ -24,6 +25,10 @@ import (
 
 func main() {
 	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, nil)))
+	if err := endpoints(os.Getenv); err != nil {
+		slog.Error("the endpoints are wrong", "error", err)
+		os.Exit(1)
+	}
 	cfg, err := config.LoadDefaultConfig(context.Background())
 	if err != nil {
 		slog.Error("loading the AWS configuration failed", "error", err)
@@ -39,4 +44,13 @@ func main() {
 	lambda.Start(func(ctx context.Context) (orphans.Report, error) {
 		return orphans.Sweep(ctx, items, bucket, time.Now())
 	})
+}
+
+// endpoints says why the run must not start: one of the table and the bucket local and the other
+// real, so that a local table would decide which of the real bucket's files are orphans.
+func endpoints(getenv func(string) string) error {
+	if (getenv("DYNAMODB_ENDPOINT") == "") != (getenv("S3_ENDPOINT") == "") {
+		return errors.New("set DYNAMODB_ENDPOINT and S3_ENDPOINT both, or neither")
+	}
+	return nil
 }

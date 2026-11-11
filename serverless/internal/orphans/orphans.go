@@ -13,6 +13,7 @@ package orphans
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"time"
@@ -149,11 +150,14 @@ func Sweep(ctx context.Context, items Items, bucket Bucket, now time.Time) (r Re
 		alertOn(ctx, p)
 	}
 	defer func() { report(ctx, r) }()
-	// Each on its own, so one failure does not stop the rest; a failed one is left for the next run.
+	// Each on its own, so one failure does not stop the rest; a failed one is left for the next run,
+	// and fails this one once it has done everything else, so Lambda's error metric shows it.
+	var failed []error
 	for _, key := range p.Deletions {
 		if err := bucket.Delete(ctx, key); err != nil {
 			slog.WarnContext(ctx, "an orphaned object could not be deleted; the next run tries again",
 				"key", key, "error", err)
+			failed = append(failed, fmt.Errorf("delete %s: %w", key, err))
 			continue
 		}
 		r.Deleted = append(r.Deleted, key)
@@ -175,7 +179,7 @@ func Sweep(ctx context.Context, items Items, bucket Bucket, now time.Time) (r Re
 			r.WithoutObject = append(r.WithoutObject, fmt.Sprintf("%s/%d", row.Owner, row.ID))
 		}
 	}
-	return r, nil
+	return r, errors.Join(failed...)
 }
 
 // The run line's fields, and the alert line's: the field the alarm's metric filter matches.

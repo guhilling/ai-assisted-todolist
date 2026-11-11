@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -208,11 +209,24 @@ func (f *Files) List(ctx context.Context) ([]Stored, error) {
 		if err != nil {
 			return nil, fmt.Errorf("list the bucket: %w", err)
 		}
-		for _, o := range page.Contents {
-			if key := aws.ToString(o.Key); !strings.Contains(key, "/") {
-				objects = append(objects, Stored{Key: key, LastModified: aws.ToTime(o.LastModified)})
-			}
-		}
+		objects = append(objects, stored(ctx, page.Contents)...)
 	}
 	return objects, nil
+}
+
+// stored is a listing's attachment objects. One without its time is left out with a warning: S3
+// always sends it, and read as the zero time it would look old enough to delete (#571).
+func stored(ctx context.Context, contents []s3types.Object) []Stored {
+	var objects []Stored
+	for _, o := range contents {
+		key := aws.ToString(o.Key)
+		switch {
+		case strings.Contains(key, "/"):
+		case o.LastModified == nil:
+			slog.WarnContext(ctx, "a listed object has no time; left out of the clean-up", "key", key)
+		default:
+			objects = append(objects, Stored{Key: key, LastModified: *o.LastModified})
+		}
+	}
+	return objects
 }
