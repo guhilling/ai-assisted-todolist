@@ -177,10 +177,11 @@ time being, each with its own database, and share each environment's bucket:
 | Files | `<key>`, `<key>.thumbnail` | `serverless/attachments/<key>`, and `.thumbnail` |
 | Deletion records | `deleted-accounts/<hash>` | `serverless/deleted-accounts/<hash>` |
 
-Each orphan clean-up lists only its own files, and each replay only its own records, which it keeps
+Each orphan clean-up takes only its own files, and each replay only its own records, which it keeps
 for as long as its own restores need them: the RDS snapshots for the one, DynamoDB's restore points
-for the other. The Quarkus backend needed no change, since it leaves every key with a slash out of
-its clean-up. The Go functions' roles reach objects under `serverless/` only. Callers in the Go
+for the other. The Quarkus clean-up lists the whole bucket and leaves out every key with a slash,
+so its code needed no change. IAM keeps them apart as well: the Go functions' roles reach objects
+under `serverless/` only, and the containers' task role is denied them. Callers in the Go
 code name a file by its bare key, and `internal/files` adds the prefix.
 
 - **An attachment is an `ATT#<id>` item** with its id from `lastAttachmentId` on `META`, the
@@ -315,7 +316,8 @@ API is switched to it**, and nobody can sign in to a restored account first (Gun
   deletion counts as before it: the deletion the user asked for wins (Gunnar's decision on #573).
   An account without `createdAt` counts as older; there is none, as
   the table starts empty and no user moves over from the Quarkus backend (#557). The Quarkus
-  backend's records stay in the bucket and are replayed too; an account begun since stays.
+  backend's records, under `deleted-accounts/`, are its own replay's and never this one's (#578):
+  no account they name was ever in this table.
 - **What a deletion left without `META` is deleted too**, for the deletion that stopped after
   `META` went: no task, draft or attachment is ever written without `META`. A marked `META` is
   written first, on the condition that there is none, so a sign-up at that moment either keeps
@@ -505,8 +507,8 @@ API and the table bill per request, and the alarms, $0.10 a month each, are the 
   at fractions of a cent a GB-month, and off in qa (`table_point_in_time_recovery`, #553); and
   deletion protection keeps a destroy of the foundation from taking people's data with it.
 - **The `api` function**, arm64, 512 MB ([measured](#what-the-spike-measured)), with a timeout
-  of 28 seconds, under the HTTP API's own 30. Its role reaches its own table, the attachment
-  bucket, the Google client secret and its log group, nothing else.
+  of 28 seconds, under the HTTP API's own 30. Its role reaches its own table, its part of the
+  attachment bucket, the Google client secret and its log group, nothing else.
 - **The HTTP API** sends every request to it. Its address is public, so CloudFront adds a header
   with a secret, `X-Origin-Verify`, and the function refuses any request without it with a 403
   (`lambdahttp.FromOrigin`); OpenTofu generates the secret. A Secrets Manager secret would cost
@@ -564,8 +566,10 @@ administrator, after `build.sh`. Code that changes what the functions may touch 
 apply that changes their roles, as #578's did:
 
 ```sh
-for c in api streams orphans replay; do
-  AWS_PROFILE=<admin profile> aws lambda update-function-code --region eu-central-1 \
-    --function-name "taskfest-qa-$c" --zip-file "fileb://serverless/dist/$c.zip" >/dev/null
+for env in qa prod; do
+  for c in api streams orphans replay; do
+    AWS_PROFILE=<admin profile> aws lambda update-function-code --region eu-central-1 \
+      --function-name "taskfest-$env-$c" --zip-file "fileb://serverless/dist/$c.zip" >/dev/null
+  done
 done
 ```

@@ -3,6 +3,7 @@ package files
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -288,11 +289,19 @@ func putRaw(t *testing.T, client *s3.Client, key string) {
 	}
 }
 
-// existsRaw says whether an object is under exactly this key.
+// existsRaw says whether an object is under exactly this key; any answer but found or missing
+// fails the test, so a bucket that cannot be asked never passes for an empty one.
 func existsRaw(t *testing.T, client *s3.Client, key string) bool {
 	t.Helper()
 	_, err := client.HeadObject(context.Background(), &s3.HeadObjectInput{Bucket: aws.String(bucket), Key: aws.String(key)})
-	return err == nil
+	var missing *s3types.NotFound
+	if errors.As(err, &missing) {
+		return false
+	}
+	if err != nil {
+		t.Fatalf("look for %s: %v", key, err)
+	}
+	return true
 }
 
 func TestAFileIsStoredUnderTheGoBackendsOwnPrefix(t *testing.T) {
@@ -323,6 +332,8 @@ func TestTheListingLeavesOutTheContainersFilesAndRecords(t *testing.T) {
 	ctx := context.Background()
 	putRaw(t, client, "a-containers-file")
 	putRaw(t, client, "deleted-accounts/abc")
+	// The folder the S3 console makes: no attachment, though nothing is left of its key.
+	putRaw(t, client, "serverless/attachments/")
 	link, _ := f.UploadLink(ctx, "mine", "image/png", 3)
 	upload(t, link, []byte("png"))
 

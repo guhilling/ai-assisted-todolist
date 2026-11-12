@@ -225,7 +225,8 @@ type Stored struct {
 
 // List returns every attachment object of the Go backend, by its bare key, page by page; at a
 // demo's size, a request or two. Attachment keys have no slash, so anything under a further prefix
-// is something else and left out: the orphan clean-up must never take it for an orphan.
+// is something else and left out, as is the prefix itself, the folder the S3 console makes: the
+// orphan clean-up must never take either for an orphan.
 func (f *Files) List(ctx context.Context) ([]Stored, error) {
 	var objects []Stored
 	err := f.listUnder(ctx, attachmentPrefix, func(contents []s3types.Object) {
@@ -258,7 +259,7 @@ func stored(ctx context.Context, contents []s3types.Object) []Stored {
 	for _, o := range contents {
 		key := strings.TrimPrefix(aws.ToString(o.Key), attachmentPrefix)
 		switch {
-		case strings.Contains(key, "/"):
+		case key == "" || strings.Contains(key, "/"):
 		case o.LastModified == nil:
 			slog.WarnContext(ctx, "a listed object has no time; left out of the clean-up", "key", key)
 		default:

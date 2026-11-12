@@ -129,6 +129,15 @@ data "aws_iam_policy_document" "task_attachments" {
     resources = ["${aws_s3_bucket.attachments.arn}/*"]
   }
 
+  # The Go backend's part of the bucket (#578, serverless.tf), out of reach as the Go functions are
+  # kept out of the rest: not only the clean-up's skipping of keys with a slash keeps them apart.
+  statement {
+    sid       = "NeverTouchTheGoBackendsObjects"
+    effect    = "Deny"
+    actions   = ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"]
+    resources = ["${aws_s3_bucket.attachments.arn}/${local.go_root}*"]
+  }
+
   statement {
     sid       = "ListForTheCleanUpAndTellMissingFromForbidden"
     actions   = ["s3:ListBucket"]
