@@ -17,8 +17,9 @@ Named, because "best practices are applied" plans nothing:
 - **Traces.** Not in this plan. One service and one database do not repay X-Ray yet; when the
   commercial shape has more than one service, this is where it goes.
 - **Alerting to** an SNS topic per environment, `taskfest-<env>-alerts`, with Gunnar's email
-  subscribed (`alerting.tf`). Built for the orphan clean-up's alarm (#208) so far; the alarms
-  above notify the same topic once they exist.
+  subscribed (`alerting.tf`). Built for the orphan clean-up's alarm (#208); the up-time reminder
+  and the Go backend's alarms ([serverless.md](serverless.md#the-infrastructure)) notify it too,
+  and the alarms above will once they exist.
 
 ## Plan: how long a page takes to show (#236)
 
@@ -61,9 +62,10 @@ one for prod), and nothing is delivered until it is clicked. A topic that is eve
 created again needs its link clicked again. To change the address, overwrite the parameter
 (`--overwrite`) and apply both environments.
 
-**The orphan alarm** (`taskfest-<env>-orphan-alert`) counts the backend's `orphanSweepAlert` lines
-with a metric filter and goes to ALARM when an hour holds one, mailing on entering ALARM and on
-returning to OK. [attachments.md](attachments.md) says when the backend writes that line.
+**The orphan alarm** (`taskfest-<env>-orphan-alert`) counts the `orphanSweepAlert` lines of both
+backends, the containers' and the Go function's, with a metric filter each, and goes to ALARM when an
+hour holds one, mailing on entering ALARM and on returning to OK. [attachments.md](attachments.md)
+says when the backend writes that line.
 
 **The up-time reminder** (`taskfest-<env>-up-reminder`, #535) goes to ALARM once the backend
 service has run for four full hours (`up_reminder_hours`), counted by the samples of its

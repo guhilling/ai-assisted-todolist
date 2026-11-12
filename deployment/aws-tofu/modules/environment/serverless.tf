@@ -17,6 +17,10 @@ locals {
   dist          = "${path.module}/../../../../serverless/dist"
   origin_header = "X-Origin-Verify" # lambdahttp.OriginHeader
 
+  # Where the data is, for every function that touches it (here and serverless-jobs.tf).
+  bucket_settings  = { TASKFEST_ATTACHMENTS_BUCKET = aws_s3_bucket.attachments.bucket }
+  storage_settings = merge({ TABLE_NAME = aws_dynamodb_table.data.name }, local.bucket_settings)
+
   # The providers the function offers, the main one first, as auth.LoadConfig reads them. As for
   # the containers, sign-in is on only where Google is: the test accounts are a provider beside
   # it, whose client allows only its own callback, never the main one.
@@ -169,13 +173,11 @@ resource "aws_lambda_function" "api" {
   filename = "${local.dist}/api.zip"
 
   environment {
-    variables = merge({
-      TABLE_NAME                  = aws_dynamodb_table.data.name
-      TASKFEST_ATTACHMENTS_BUCKET = aws_s3_bucket.attachments.bucket
-      TASKFEST_ORIGIN_SECRET      = random_password.origin.result
-      TASKFEST_PUBLIC_ORIGIN      = "https://${var.hostname}"
-      TASKFEST_AUTH_ENABLED       = tostring(local.sign_in_enabled)
-      TASKFEST_AUTH_PROVIDERS     = join(",", local.api_providers)
+    variables = merge(local.storage_settings, {
+      TASKFEST_ORIGIN_SECRET  = random_password.origin.result
+      TASKFEST_PUBLIC_ORIGIN  = "https://${var.hostname}"
+      TASKFEST_AUTH_ENABLED   = tostring(local.sign_in_enabled)
+      TASKFEST_AUTH_PROVIDERS = join(",", local.api_providers)
       }, local.sign_in_enabled ? {
       TASKFEST_OIDC_GOOGLE_LABEL             = "Google"
       TASKFEST_OIDC_GOOGLE_ISSUER            = "https://accounts.google.com"

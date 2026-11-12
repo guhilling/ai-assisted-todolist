@@ -478,9 +478,9 @@ it initialises (`Store.Prime`).
 
 ## The infrastructure
 
-`deployment/aws-tofu/modules/environment/serverless.tf` (#554), in both environments alike. All of
-it bills per request and nothing by the hour, so it is foundation: `env.sh down` leaves it, and an
-idle environment costs nothing for it.
+`serverless.tf` and `serverless-jobs.tf` in `deployment/aws-tofu/modules/environment/` (#554), in
+both environments alike. All of it is foundation, which `env.sh down` leaves: the functions, the
+API and the table bill per request, and the alarms, $0.10 a month each, are the one fixed cost.
 
 - **The table**, `<project>-<env>-data`, on demand. TTL on `expiresAt` deletes ended sessions,
   sign-ins under way and session links; the stream carries what a deleted item held, for the
@@ -517,9 +517,11 @@ does:
   the one orphan alarm sees both backends.
 
 **The alarms**, each $0.10 a month, mail through the existing topic on entering ALARM and on
-leaving it: the API function's errors and throttles, the HTTP API's 5xx answers, each background
-function's errors, and the table's throttled reads and writes. That is eight per environment,
-about $1.60 a month for both.
+leaving it: the API function's errors and throttles, the stream function more than ten minutes
+behind (it reports a failed record rather than failing, so its errors would never show one), the
+scheduled functions' errors, and the table's throttled reads and writes. That is seven per
+environment, about $1.40 a month for both. Not the HTTP API's 5xx answers: until the port is done,
+every unported route answers 501 on purpose (#558 watches the answers).
 
 The functions are created from `serverless/dist/<command>.zip`, which `serverless/build.sh` makes,
 with Go where it is installed and the official Go image through podman or docker where it is not.

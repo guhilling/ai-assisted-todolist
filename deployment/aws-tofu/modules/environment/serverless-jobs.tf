@@ -4,7 +4,8 @@
 # any account a restore brought back and prunes the deletion records (#553). And the alarms on all
 # of them, which mail through the topic in alerting.tf.
 #
-# Foundation, like serverless.tf: per request and per run, nothing by the hour. The code comes from
+# Foundation, like serverless.tf: the functions bill per run, nothing by the hour; the alarms cost
+# $0.10 a month each, whether the environment is up or not. The code comes from
 # serverless/dist/<command>.zip as for the API.
 
 locals {
@@ -13,18 +14,26 @@ locals {
   replay_function  = "${local.name}-replay"
   scheduler_role   = "${local.name}-scheduler"
 
-  # Each background function's settings, all from serverless.tf's resources.
-  job_settings = {
-    TABLE_NAME                  = aws_dynamodb_table.data.name
-    TASKFEST_ATTACHMENTS_BUCKET = aws_s3_bucket.attachments.bucket
+  jobs = {
+    streams = { name = local.streams_function, timeout = 60, settings = local.bucket_settings }
+    # Lists the bucket and reads the table's attachment items: seconds at the demo's sizes.
+    orphans = { name = local.orphans_function, timeout = 300, settings = local.storage_settings }
+    # Lambda's longest, since one run may delete several restored accounts.
+    replay = { name = local.replay_function, timeout = 900, settings = local.storage_settings }
   }
 
-  jobs = {
-    streams = { name = local.streams_function, timeout = 60 }
-    # Lists the bucket and reads the table's attachment items: seconds at the demo's sizes.
-    orphans = { name = local.orphans_function, timeout = 300 }
-    # Lambda's longest, since one run may delete several restored accounts.
-    replay = { name = local.replay_function, timeout = 900 }
+  # When the scheduled ones run, in Berlin time: the orphan clean-up hourly, as the Quarkus
+  # backend ran it; the replay daily, at night.
+  schedules = {
+    orphans = "rate(1 hour)"
+    replay  = "cron(30 3 * * ? *)"
+  }
+
+  # Each function's role, one policy each (below).
+  job_policies = {
+    streams = data.aws_iam_policy_document.job_streams.json
+    orphans = data.aws_iam_policy_document.job_orphans.json
+    replay  = data.aws_iam_policy_document.job_replay.json
   }
 }
 
@@ -48,131 +57,110 @@ resource "aws_iam_role" "job" {
   tags = { Name = each.value.name }
 }
 
-# What each function does, and nothing more.
-data "aws_iam_policy_document" "job" {
-  for_each = local.jobs
-
-  # streams: read the stream, delete the files. Deleting a file already gone is no error, so it
-  # needs no ListBucket.
-  dynamic "statement" {
-    for_each = each.key == "streams" ? [1] : []
-
-    content {
-      sid       = "ReadTheTablesStream"
-      actions   = ["dynamodb:DescribeStream", "dynamodb:GetRecords", "dynamodb:GetShardIterator", "dynamodb:ListStreams"]
-      resources = [aws_dynamodb_table.data.stream_arn]
-    }
+# streams: read the stream, delete the files. Deleting a file already gone is no error, so it needs
+# no ListBucket.
+data "aws_iam_policy_document" "job_streams" {
+  statement {
+    sid       = "ReadTheTablesStream"
+    actions   = ["dynamodb:DescribeStream", "dynamodb:GetRecords", "dynamodb:GetShardIterator", "dynamodb:ListStreams"]
+    resources = [aws_dynamodb_table.data.stream_arn]
   }
 
-  dynamic "statement" {
-    for_each = each.key == "streams" ? [1] : []
-
-    content {
-      sid       = "DeleteAttachmentFiles"
-      actions   = ["s3:DeleteObject"]
-      resources = ["${aws_s3_bucket.attachments.arn}/*"]
-    }
-  }
-
-  # orphans: read every attachment item, list the bucket, look at and delete objects.
-  dynamic "statement" {
-    for_each = each.key == "orphans" ? [1] : []
-
-    content {
-      sid       = "ReadTheAttachmentItems"
-      actions   = ["dynamodb:Scan"]
-      resources = [aws_dynamodb_table.data.arn]
-    }
-  }
-
-  # replay: the account deletion's own reads and writes (store.Accounts).
-  dynamic "statement" {
-    for_each = each.key == "replay" ? [1] : []
-
-    content {
-      sid = "DeleteAccountsAgain"
-      actions = [
-        "dynamodb:BatchWriteItem",
-        "dynamodb:DeleteItem",
-        "dynamodb:GetItem",
-        "dynamodb:PutItem",
-        "dynamodb:Query",
-        "dynamodb:UpdateItem",
-      ]
-      resources = [aws_dynamodb_table.data.arn]
-    }
-  }
-
-  # How long a deletion record must be kept is decided by the oldest restore point of any table in
-  # the region (store.RestorePoints), so this reads every table's recovery window and backups.
-  # Settings only, never an item. ListTables and ListBackups take no resource.
-  dynamic "statement" {
-    for_each = each.key == "replay" ? [1] : []
-
-    content {
-      sid       = "ListTheTablesAndBackups"
-      actions   = ["dynamodb:ListTables", "dynamodb:ListBackups"]
-      resources = ["*"]
-    }
-  }
-
-  dynamic "statement" {
-    for_each = each.key == "replay" ? [1] : []
-
-    content {
-      sid       = "ReadEveryTablesRecoveryWindow"
-      actions   = ["dynamodb:DescribeContinuousBackups"]
-      resources = ["arn:aws:dynamodb:${local.region}:${data.aws_caller_identity.current.account_id}:table/*"]
-    }
-  }
-
-  # orphans: look at and delete any object. replay: look at the deletion records, and delete them
-  # and the files of the attachments it deletes. Neither writes one. ListBucket lists, and also
-  # makes S3 answer a HEAD on a missing object with 404 rather than 403.
-  dynamic "statement" {
-    for_each = each.key == "orphans" ? [1] : []
-
-    content {
-      sid       = "LookAtAndDeleteObjects"
-      actions   = ["s3:GetObject", "s3:DeleteObject"]
-      resources = ["${aws_s3_bucket.attachments.arn}/*"]
-    }
-  }
-
-  dynamic "statement" {
-    for_each = each.key == "replay" ? [1] : []
-
-    content {
-      sid       = "LookAtTheDeletionRecords"
-      actions   = ["s3:GetObject"]
-      resources = ["${aws_s3_bucket.attachments.arn}/deleted-accounts/*"]
-    }
-  }
-
-  dynamic "statement" {
-    for_each = each.key == "replay" ? [1] : []
-
-    content {
-      sid       = "DeleteRecordsAndFiles"
-      actions   = ["s3:DeleteObject"]
-      resources = ["${aws_s3_bucket.attachments.arn}/*"]
-    }
-  }
-
-  dynamic "statement" {
-    for_each = contains(["orphans", "replay"], each.key) ? [1] : []
-
-    content {
-      sid       = "ListTheBucket"
-      actions   = ["s3:ListBucket"]
-      resources = [aws_s3_bucket.attachments.arn]
-    }
+  statement {
+    sid       = "DeleteFiles"
+    actions   = ["s3:DeleteObject"]
+    resources = ["${aws_s3_bucket.attachments.arn}/*"]
   }
 
   statement {
     sid       = "WriteItsOwnLogs"
     actions   = ["logs:CreateLogStream", "logs:PutLogEvents"]
-    resources = ["${aws_cloudwatch_log_group.job[each.key].arn}:*"]
+    resources = ["${aws_cloudwatch_log_group.job["streams"].arn}:*"]
+  }
+}
+
+# orphans: read every attachment item, and one again before calling its file missing
+# (store.Inventory); list the bucket, look at and delete objects. ListBucket also makes S3 answer a
+# HEAD on a missing object with 404 rather than 403.
+data "aws_iam_policy_document" "job_orphans" {
+  statement {
+    sid       = "ReadTheAttachmentItems"
+    actions   = ["dynamodb:Scan", "dynamodb:GetItem"]
+    resources = [aws_dynamodb_table.data.arn]
+  }
+
+  statement {
+    sid       = "ListTheBucket"
+    actions   = ["s3:ListBucket"]
+    resources = [aws_s3_bucket.attachments.arn]
+  }
+
+  statement {
+    sid       = "LookAtAndDeleteObjects"
+    actions   = ["s3:GetObject", "s3:DeleteObject"]
+    resources = ["${aws_s3_bucket.attachments.arn}/*"]
+  }
+
+  statement {
+    sid       = "WriteItsOwnLogs"
+    actions   = ["logs:CreateLogStream", "logs:PutLogEvents"]
+    resources = ["${aws_cloudwatch_log_group.job["orphans"].arn}:*"]
+  }
+}
+
+# replay: the account deletion's own reads and writes (store.Accounts); every table's recovery
+# window and backups, settings only, since the oldest restore point in the region decides how long
+# a record is kept (store.RestorePoints); and the deletion records, which it reads and deletes, as
+# it deletes the files of the attachments it deletes. It writes no object.
+data "aws_iam_policy_document" "job_replay" {
+  statement {
+    sid = "DeleteAccountsAgain"
+    actions = [
+      "dynamodb:BatchWriteItem",
+      "dynamodb:DeleteItem",
+      "dynamodb:GetItem",
+      "dynamodb:PutItem",
+      "dynamodb:Query",
+      "dynamodb:UpdateItem",
+    ]
+    resources = [aws_dynamodb_table.data.arn]
+  }
+
+  # ListTables and ListBackups take no resource.
+  statement {
+    sid       = "ListTheTablesAndBackups"
+    actions   = ["dynamodb:ListTables", "dynamodb:ListBackups"]
+    resources = ["*"]
+  }
+
+  statement {
+    sid       = "ReadEveryTablesRecoveryWindow"
+    actions   = ["dynamodb:DescribeContinuousBackups"]
+    resources = ["arn:aws:dynamodb:${local.region}:${data.aws_caller_identity.current.account_id}:table/*"]
+  }
+
+  statement {
+    sid       = "ListTheBucket"
+    actions   = ["s3:ListBucket"]
+    resources = [aws_s3_bucket.attachments.arn]
+  }
+
+  statement {
+    sid       = "LookAtTheDeletionRecords"
+    actions   = ["s3:GetObject"]
+    resources = ["${aws_s3_bucket.attachments.arn}/deleted-accounts/*"]
+  }
+
+  statement {
+    sid       = "DeleteRecordsAndFiles"
+    actions   = ["s3:DeleteObject"]
+    resources = ["${aws_s3_bucket.attachments.arn}/*"]
+  }
+
+  statement {
+    sid       = "WriteItsOwnLogs"
+    actions   = ["logs:CreateLogStream", "logs:PutLogEvents"]
+    resources = ["${aws_cloudwatch_log_group.job["replay"].arn}:*"]
   }
 }
 
@@ -181,7 +169,7 @@ resource "aws_iam_role_policy" "job" {
 
   name   = each.value.name
   role   = aws_iam_role.job[each.key].id
-  policy = data.aws_iam_policy_document.job[each.key].json
+  policy = local.job_policies[each.key]
 }
 
 # AWS-0066, X-Ray tracing: as for the API (serverless.tf); each run logs what it did.
@@ -199,7 +187,7 @@ resource "aws_lambda_function" "job" {
   filename      = "${local.dist}/${each.key}.zip"
 
   environment {
-    variables = local.job_settings
+    variables = each.value.settings
   }
 
   logging_config {
@@ -242,7 +230,7 @@ resource "aws_lambda_event_source_mapping" "streams" {
 
 # A run that fails is not tried again: the next hour's or day's run does the same work.
 resource "aws_lambda_function_event_invoke_config" "scheduled" {
-  for_each = toset(["orphans", "replay"])
+  for_each = local.schedules
 
   function_name          = aws_lambda_function.job[each.key].function_name
   maximum_retry_attempts = 0
@@ -276,7 +264,7 @@ data "aws_iam_policy_document" "scheduler" {
   statement {
     sid       = "StartTheScheduledFunctions"
     actions   = ["lambda:InvokeFunction"]
-    resources = [aws_lambda_function.job["orphans"].arn, aws_lambda_function.job["replay"].arn]
+    resources = [for job in keys(local.schedules) : aws_lambda_function.job[job].arn]
   }
 }
 
@@ -287,12 +275,9 @@ resource "aws_iam_role_policy" "scheduler" {
 }
 
 # EventBridge Scheduler: free for the first 14 million runs a month, which two schedules never
-# reach. The orphan clean-up hourly, as the Quarkus backend ran it; the replay daily, at night.
+# reach.
 resource "aws_scheduler_schedule" "job" {
-  for_each = {
-    orphans = "rate(1 hour)"
-    replay  = "cron(30 3 * * ? *)"
-  }
+  for_each = local.schedules
 
   name                         = "${local.name}-${each.key}"
   schedule_expression          = each.value
@@ -329,7 +314,9 @@ resource "aws_cloudwatch_log_metric_filter" "orphan_alert_serverless" {
 }
 
 # The alarms, each $0.10 a month: one per thing that can go wrong unnoticed. Each mails once on
-# entering ALARM and once on leaving it. No data, as with no traffic, is no alarm.
+# entering ALARM and once on leaving it. No data, as with no traffic, is no alarm. Not the HTTP
+# API's 5xx answers: until the port is done, every unported route answers 501 on purpose, and a
+# crash or a timeout already shows as the function's error (#558 watches the answers).
 locals {
   serverless_alarms = {
     api-errors = {
@@ -340,13 +327,12 @@ locals {
       description = "The ${var.environment} API function was throttled: requests were turned away."
       namespace   = "AWS/Lambda", metric = "Throttles", dimensions = { FunctionName = local.api_function }
     }
-    api-5xx = {
-      description = "The ${var.environment} HTTP API answered with a 5xx: the function failed or could not be reached."
-      namespace   = "AWS/ApiGateway", metric = "5xx", dimensions = { ApiId = aws_apigatewayv2_api.this.id }
-    }
-    streams-errors = {
-      description = "The ${var.environment} stream function failed; files of deleted attachments wait for the orphan clean-up."
-      namespace   = "AWS/Lambda", metric = "Errors", dimensions = { FunctionName = local.streams_function }
+    # A record whose files fail to go is reported, not raised, so the function's errors never see
+    # it; the stream falling behind does, ten minutes before the hour after which it gives up.
+    streams-behind = {
+      description = "The ${var.environment} stream function is more than ten minutes behind: it keeps failing to delete the files of deleted attachments, and gives up on them after an hour, leaving them to the orphan clean-up."
+      namespace   = "AWS/Lambda", metric = "IteratorAge", dimensions = { FunctionName = local.streams_function }
+      statistic   = "Maximum", threshold = 600000
     }
     orphans-errors = {
       description = "The ${var.environment} orphan clean-up failed; the next hour's run tries again."
@@ -375,10 +361,10 @@ resource "aws_cloudwatch_metric_alarm" "serverless" {
   namespace           = each.value.namespace
   metric_name         = each.value.metric
   dimensions          = each.value.dimensions
-  statistic           = "Sum"
+  statistic           = lookup(each.value, "statistic", "Sum")
   period              = 300
   evaluation_periods  = 1
-  threshold           = 1
+  threshold           = lookup(each.value, "threshold", 1)
   comparison_operator = "GreaterThanOrEqualToThreshold"
   treat_missing_data  = "notBreaching"
   alarm_actions       = [aws_sns_topic.alerts.arn]

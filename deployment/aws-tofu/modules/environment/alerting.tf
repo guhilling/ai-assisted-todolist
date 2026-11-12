@@ -6,7 +6,9 @@
 # its threshold; a metric filter counts those lines; an alarm on the count notifies an SNS topic;
 # the topic mails the address subscribed to it. The threshold lives in the backend
 # (taskfest.attachments.orphan-sweep.alert-above), because mdc values are strings, which a filter
-# can match by equality but not compare as numbers.
+# can match by equality but not compare as numbers. The Go backend's clean-up writes a JSON line
+# whose orphanSweepAlert is true instead, and a second filter (serverless-jobs.tf) feeds the same
+# metric, so the one alarm sees both backends.
 #
 # The address is not in this repository: Gunnar keeps it in an SSM parameter, created once by hand
 # (doc/deployment/observability.md says how), and this reads it. A standard String parameter is
@@ -87,8 +89,8 @@ resource "aws_cloudwatch_metric_alarm" "orphan_alert" {
 # The service publishes CPUUtilization every minute while it runs and nothing while it is down,
 # so the hourly sample count is non-zero exactly when the environment was up that hour. No data
 # is "not up", which also returns the alarm to OK after `env.sh down`. Foundation rather than
-# billable.tf: an alarm is free within the account's first ten, and it must outlive the service
-# to see it go.
+# billable.tf: an alarm costs $0.10 a month whether the service runs or not (the account's ten
+# free ones are taken), and it must outlive the service to see it go.
 resource "aws_cloudwatch_metric_alarm" "up_reminder" {
   alarm_name          = "${local.name}-up-reminder"
   alarm_description   = "The ${var.environment} environment has been up for ${var.up_reminder_hours} hours, at about $1.86 a day. Take it down with './env.sh down ${var.environment}' if nobody is using it (#535)."
