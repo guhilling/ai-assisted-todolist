@@ -319,8 +319,8 @@ resource "aws_cloudwatch_log_metric_filter" "orphan_alert_serverless" {
 
 # The alarms, each $0.10 a month: one per thing that can go wrong unnoticed. Each mails once on
 # entering ALARM and once on leaving it. No data, as with no traffic, is no alarm. Not the HTTP
-# API's 5xx answers: until the port is done, every unported route answers 501 on purpose, and a
-# crash or a timeout already shows as the function's error (#558 watches the answers).
+# API's 5xx answers yet: they were left out while unported routes answered 501 on purpose, and a
+# crash or a timeout already shows as the function's error; #558 adds them.
 locals {
   serverless_alarms = {
     api-errors = {
