@@ -91,6 +91,11 @@ export type Dependencies = {
    * JPEGs made of HEIC photos -- once no form holds them and no upload uses them.
    */
   forgetPicked?(files: PickedFile[]): Promise<void>
+  /**
+   * Hands a viewed image's original to the phone to save (#586): its share sheet, which offers
+   * saving it to the photos or the files. None where the phone cannot, and then no Download.
+   */
+  saveFile?(url: string, fileName: string, contentType: string): Promise<void>
   /** Files other than images, opened in the phone's own viewer, and the copies that takes forgotten (#274). */
   documents?: {
     open(url: string, fileName: string, contentType: string): Promise<void>
@@ -243,6 +248,7 @@ export function TaskFestApp({
     attachments: files,
     pickFile,
     forgetPicked,
+    saveFile,
     documents,
     deleteAccount,
     keptBoard,
@@ -261,7 +267,7 @@ export function TaskFestApp({
   const [account, setAccount] = useState<Account | null>(null)
   const [failure, setFailure] = useState<string>()
   /** The image opened from a task, shown over everything (#274). */
-  const [viewing, setViewing] = useState<{ url: string; fileName: string } | null>(null)
+  const [viewing, setViewing] = useState<{ url: string; fileName: string; contentType: string } | null>(null)
   /** What other apps shared, oldest first, each waiting until the board can take it (#355). */
   const [shares, setShares] = useState<{ draft: SharedDraft; number: number }[]>([])
   /**
@@ -1613,7 +1619,7 @@ export function TaskFestApp({
         return
       }
       if (isImage(attachment)) {
-        setViewing({ url, fileName: attachment.fileName })
+        setViewing({ url, fileName: attachment.fileName, contentType: attachment.contentType })
       } else {
         await documents?.open(url, attachment.fileName, attachment.contentType)
       }
@@ -1785,7 +1791,15 @@ export function TaskFestApp({
                 />
               ) : null}
             </Modal>
-            <FileViewer file={viewing} messages={messages} styles={styles} onClose={() => setViewing(null)} />
+            <FileViewer
+              file={viewing}
+              messages={messages}
+              styles={styles}
+              onClose={() => setViewing(null)}
+              onDownload={
+                saveFile && viewing ? () => saveFile(viewing.url, viewing.fileName, viewing.contentType) : undefined
+              }
+            />
             <Modal
               testID="account-sheet"
               visible={account !== null}

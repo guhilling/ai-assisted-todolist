@@ -68,17 +68,26 @@ describe('on the row', () => {
     )
   })
 
-  it('opens a file in a new tab through a link asked for on the click', async () => {
-    await renderSignedIn(stubApi({ me: ALICE, tasks: [task({ attachments: [PDF] })] }))
-    const tab = { location: { href: '' }, opener: {} as unknown, close: vi.fn() }
-    const open = vi.spyOn(window, 'open').mockReturnValue(tab as unknown as Window)
+  it('opens a large preview of a file through a link asked for on the click', async () => {
+    await renderSignedIn(stubApi({ me: ALICE, tasks: [task({ attachments: [PDF, PHOTO] })] }))
 
+    fireEvent.click(rowFor('Pay the invoice').getByRole('button', { name: 'Open Quittung.jpg' }))
+
+    const photo = await screen.findByRole('dialog', { name: 'Quittung.jpg' })
+    expect(within(photo).getByRole('img', { name: 'Quittung.jpg' })).toHaveAttribute(
+      'src',
+      'https://bucket.example.com/object-8',
+    )
+    fireEvent.click(within(photo).getByRole('button', { name: 'Close' }))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+
+    // jsdom has no PDF viewer, as a phone's browser has none: the preview offers a tab instead.
     fireEvent.click(rowFor('Pay the invoice').getByRole('button', { name: 'Open Rechnung.pdf' }))
-
-    // The tab is opened on the click itself, so a popup blocker allows it; the link follows.
-    expect(open).toHaveBeenCalledWith('', '_blank')
-    await waitFor(() => expect(tab.location.href).toBe('https://bucket.example.com/object-7'))
-    expect(tab.opener).toBeNull()
+    const pdf = await screen.findByRole('dialog', { name: 'Rechnung.pdf' })
+    expect(within(pdf).getByRole('link', { name: 'Open in a new tab' })).toHaveAttribute(
+      'href',
+      'https://bucket.example.com/object-7',
+    )
   })
 
   it('removes a file', async () => {
@@ -109,25 +118,13 @@ describe('on the row', () => {
 })
 
 describe('when something goes wrong', () => {
-  it('closes the tab again and says so when a file cannot be opened', async () => {
+  it('shows no preview and says so when a file cannot be opened', async () => {
     await renderSignedIn(stubApi({ me: ALICE, tasks: [task({ attachments: [PDF] })], link: { status: 500 } }))
-    const tab = { location: { href: '' }, opener: {} as unknown, close: vi.fn() }
-    vi.spyOn(window, 'open').mockReturnValue(tab as unknown as Window)
 
     fireEvent.click(rowFor('Pay the invoice').getByRole('button', { name: 'Open Rechnung.pdf' }))
 
     expect(await screen.findByText('Unable to open the file.')).toBeInTheDocument()
-    expect(tab.close).toHaveBeenCalled()
-  })
-
-  it('does nothing more when the browser blocked the tab', async () => {
-    await renderSignedIn(stubApi({ me: ALICE, tasks: [task({ attachments: [PDF] })] }))
-    const open = vi.spyOn(window, 'open').mockReturnValue(null)
-
-    fireEvent.click(rowFor('Pay the invoice').getByRole('button', { name: 'Open Rechnung.pdf' }))
-
-    await waitFor(() => expect(open).toHaveBeenCalled())
-    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
   it('keeps an image whose preview could not be had as a box that still opens it', async () => {

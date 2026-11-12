@@ -200,8 +200,13 @@ export const en = {
     uploading: (fileName: string) => `Uploading ${fileName}`,
     open: (fileName: string) => `Open ${fileName}`,
     remove: (fileName: string) => `Remove ${fileName}`,
-    /** The mobile app's, closing an image it shows (#274). */
+    /** Closing a file's large preview (#586), and the mobile app's image viewer (#274). */
     close: 'Close',
+    /** Saving the original of a previewed file (#586). */
+    download: 'Download',
+    downloadFailed: (fileName: string) => `${fileName} could not be downloaded. Try again.`,
+    /** A PDF the browser cannot show inside the page, opened in a tab of its own (#586). */
+    openInNewTab: 'Open in a new tab',
     /** The mobile app's ways to attach a file (#274). */
     takePhoto: 'Take a photo',
     choosePhoto: 'Choose a photo',
@@ -432,6 +437,9 @@ export const de: Messages = {
     open: (fileName: string) => `${fileName} öffnen`,
     remove: (fileName: string) => `${fileName} entfernen`,
     close: 'Schließen',
+    download: 'Herunterladen',
+    downloadFailed: (fileName: string) => `${fileName} konnte nicht heruntergeladen werden. Versuch es noch einmal.`,
+    openInNewTab: 'In neuem Tab öffnen',
     takePhoto: 'Foto aufnehmen',
     choosePhoto: 'Foto auswählen',
     chooseFile: 'Datei auswählen',

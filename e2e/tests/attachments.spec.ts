@@ -55,12 +55,12 @@ test('attaches a PDF and an image, opens them, and removes them', async ({ page 
   const preview = row.getByRole('img', { name: 'receipt.png' })
   await expect.poll(() => preview.evaluate((image: HTMLImageElement) => image.naturalWidth)).toBeGreaterThan(0)
 
-  // Opening the PDF points a new tab at a signed link. A headless browser downloads a PDF rather
-  // than showing it, so the link is taken from the tab's request and fetched to compare the bytes.
-  const link = await openFile(page, row, 'invoice.pdf')
-  const fetched = await page.request.get(link)
-  expect(fetched.status()).toBe(200)
-  expect(Buffer.from(await fetched.body())).toEqual(PDF)
+  // Opening the PDF shows it in its large preview, through a signed link, and Download saves the
+  // very bytes uploaded, under the file's own name (#586).
+  const saved = await openFile(page, row, 'invoice.pdf')
+  expect(saved.link).toContain('X-Amz-Signature')
+  expect(saved.name).toBe('invoice.pdf')
+  expect(saved.bytes).toEqual(PDF)
 
   await row.getByRole('button', { name: 'Remove invoice.pdf' }).click()
   await row.getByRole('button', { name: 'Remove receipt.png' }).click()

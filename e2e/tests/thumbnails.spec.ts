@@ -47,7 +47,8 @@ test('shows a photo on its row by a thumbnail the browser made', async ({ page }
   await row.getByLabel(`Actions for "${description}"`).click()
   await row.getByRole('button', { name: 'Edit', exact: true }).click()
   const editor = page.getByRole('form', { name: `Edit "${description}"` })
-  await editor.getByLabel('choose a file').setInputFiles({ name: 'beach.png', mimeType: 'image/png', buffer: await photo(page) })
+  const original = await photo(page)
+  await editor.getByLabel('choose a file').setInputFiles({ name: 'beach.png', mimeType: 'image/png', buffer: original })
   await expect(editor.getByRole('button', { name: 'Remove beach.png' })).toBeVisible()
   await editor.getByRole('button', { name: 'Cancel' }).click()
 
@@ -56,8 +57,11 @@ test('shows a photo on its row by a thumbnail the browser made', async ({ page }
   await expect.poll(() => preview.evaluate((image: HTMLImageElement) => image.naturalHeight)).toBe(128)
   expect(await preview.getAttribute('src')).toContain('.thumbnail')
 
-  // Opening it still opens the photo itself.
-  expect(await openFile(page, row, 'beach.png')).not.toContain('.thumbnail')
+  // Its large preview is the photo itself, and so is what Download saves (#586).
+  const saved = await openFile(page, row, 'beach.png')
+  expect(saved.link).not.toContain('.thumbnail')
+  expect(saved.name).toBe('beach.png')
+  expect(saved.bytes).toEqual(original)
 
   // Tidy, as attachments.spec.ts does: the file, then the task, waiting for the server's answer.
   await row.getByRole('button', { name: 'Remove beach.png' }).click()

@@ -39,6 +39,7 @@ import AddTaskRow from './components/AddTaskRow'
 import type { AttachmentActions, UploadOutcome } from './components/AttachmentList'
 import type { TaskEdit } from './components/TaskEditor'
 import CompletedSection from './components/CompletedSection'
+import FilePreview, { type PreviewedFile } from './components/FilePreview'
 import LegalFooter from './components/LegalFooter'
 import Paused from './components/Paused'
 import SignedOut from './components/SignedOut'
@@ -150,6 +151,8 @@ function Board() {
   const [saving, setSaving] = useState(false)
   /** The offer to undo: the tasks it would put back, and its number, by which the toast is keyed. */
   const [deleted, setDeleted] = useState<{ tasks: Task[]; offer: number } | null>(null)
+  const [previewed, setPreviewed] = useState<PreviewedFile | null>(null)
+  const closePreview = useCallback(() => setPreviewed(null), [])
 
   /**
    * Read once per mount rather than per render, so a board left open overnight does not
@@ -448,27 +451,17 @@ function Board() {
     )
 
   /**
-   * What the rows and the editor do with files (#204). Opening asks for a link only on the click,
-   * because a link works for minutes and a board stays open for hours; the tab is opened first,
-   * on the click itself, since a browser blocks one opened after a request has come back.
+   * What the rows and the editor do with files (#204). Opening shows the file's large preview
+   * (#586), through a link asked for only on the click, because a link works for minutes and a
+   * board stays open for hours.
    */
   const attachmentActions: AttachmentActions = {
     link: linkToAttachment,
     open: (task, attachment) => {
       setError(null)
-      const tab = window.open('', '_blank')
       attachmentLink(task.id, attachment.id)
-        .then((url) => {
-          if (tab) {
-            // The new tab must not be able to reach back into the board.
-            tab.opener = null
-            tab.location.href = url
-          }
-        })
-        .catch((openError: unknown) => {
-          tab?.close()
-          reportFailure(openError, 'loading')
-        })
+        .then((url) => setPreviewed({ fileName: attachment.fileName, contentType: attachment.contentType, url }))
+        .catch((openError: unknown) => reportFailure(openError, 'loading'))
     },
     remove: (task, attachment) => {
       setError(null)
@@ -605,6 +598,7 @@ function Board() {
       )}
 
 
+      {previewed ? <FilePreview file={previewed} onClose={closePreview} /> : null}
       {deleted ? (
         <UndoToast
           key={deleted.offer}

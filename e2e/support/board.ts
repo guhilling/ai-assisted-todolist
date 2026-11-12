@@ -3,6 +3,7 @@
  * tests/attachments.spec.ts and tests/thumbnails.spec.ts), so the add row's interaction, and opening
  * a file, are written down once.
  */
+import { readFile } from 'node:fs/promises'
 import type { Locator, Page } from '@playwright/test'
 
 /**
@@ -30,26 +31,22 @@ export async function addTask(page: Page, description: string, dueDate: string, 
 }
 
 /**
- * Opens a file from its task's row, which the board does in a new tab pointed at a signed link,
- * and returns that link. The tab is closed again once it is done with the file: closed while a
- * large photo was still arriving, it once hung in Chromium (#485). Done means the photo's answer
- * has come in whole, or, for a PDF, which a headless browser downloads rather than shows and whose
- * answer then never finishes, that the download has started. And closed at once, because the live
- * run records every tab and publishes the largest video as the scenario's (doc/testing/live.md).
+ * Opens a file from its task's row in its large preview (#586), saves it with the preview's
+ * Download, and closes the preview again. Returns what was saved and the signed link the preview
+ * showed the file through -- the photo's, the PDF viewer's, or, where the browser shows no PDF
+ * inside the page, the link to open it in a new tab.
  */
 export async function openFile(page: Page, row: Locator, name: string) {
-  const popup = page.waitForEvent('popup')
-  const opened = page.context().waitForEvent(
-    'request',
-    (request) => request.url().includes('X-Amz-Signature') && request.resourceType() === 'document',
-  )
   await row.getByRole('button', { name: `Open ${name}` }).click()
-  // The tab opens on the click and is pointed at the link only once the board has it, so the
-  // download cannot have started before this waits for it.
-  const tab = await popup
-  const downloaded = tab.waitForEvent('download').catch(() => undefined)
-  const request = await opened
-  await Promise.race([request.response().then((response) => response?.finished()), downloaded])
-  await tab.close()
-  return request.url()
+  const preview = page.getByRole('dialog', { name })
+  const shown = preview.locator('img, iframe, a[target="_blank"]').first()
+  await shown.waitFor()
+  const link = (await shown.getAttribute('src')) ?? (await shown.getAttribute('href')) ?? ''
+  const downloaded = page.waitForEvent('download')
+  await preview.getByRole('button', { name: 'Download' }).click()
+  const download = await downloaded
+  const path = await download.path()
+  const saved = { name: download.suggestedFilename(), bytes: await readFile(path), link }
+  await preview.getByRole('button', { name: 'Close' }).click()
+  return saved
 }
