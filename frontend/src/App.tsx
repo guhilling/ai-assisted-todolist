@@ -151,8 +151,10 @@ function Board() {
   const [saving, setSaving] = useState(false)
   /** The offer to undo: the tasks it would put back, and its number, by which the toast is keyed. */
   const [deleted, setDeleted] = useState<{ tasks: Task[]; offer: number } | null>(null)
-  const [previewed, setPreviewed] = useState<PreviewedFile | null>(null)
+  const [previewed, setPreviewed] = useState<(PreviewedFile & { taskId: Task['id']; attachmentId: Attachment['id'] }) | null>(null)
   const closePreview = useCallback(() => setPreviewed(null), [])
+  /** Which open was asked for last: only its link may become the preview, whatever answers first. */
+  const opening = useRef(0)
 
   /**
    * Read once per mount rather than per render, so a board left open overnight does not
@@ -459,9 +461,18 @@ function Board() {
     link: linkToAttachment,
     open: (task, attachment) => {
       setError(null)
+      const asked = ++opening.current
       attachmentLink(task.id, attachment.id)
-        .then((url) => setPreviewed({ fileName: attachment.fileName, contentType: attachment.contentType, url }))
-        .catch((openError: unknown) => reportFailure(openError, 'loading'))
+        .then((url) => {
+          if (asked === opening.current) {
+            setPreviewed({ taskId: task.id, attachmentId: attachment.id, fileName: attachment.fileName, contentType: attachment.contentType, url })
+          }
+        })
+        .catch((openError: unknown) => {
+          if (asked === opening.current) {
+            reportFailure(openError, 'loading')
+          }
+        })
     },
     remove: (task, attachment) => {
       setError(null)
@@ -598,7 +609,14 @@ function Board() {
       )}
 
 
-      {previewed ? <FilePreview file={previewed} onClose={closePreview} /> : null}
+      {previewed ? (
+        <FilePreview
+          key={previewed.url}
+          file={previewed}
+          link={() => attachmentLink(previewed.taskId, previewed.attachmentId)}
+          onClose={closePreview}
+        />
+      ) : null}
       {deleted ? (
         <UndoToast
           key={deleted.offer}

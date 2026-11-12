@@ -137,14 +137,22 @@ export function FileViewer({
   // By the image that failed, so the next one opened starts without the message.
   const [failedFor, setFailedFor] = useState<string | null>(null)
   const failed = file !== null && failedFor === file.url
+  // One download at a time: a second tap would download it again, and iOS refuses a second sheet.
+  const [saving, setSaving] = useState(false)
 
   const download = () => {
+    if (saving || !onDownload) {
+      return
+    }
     const url = file?.url ?? null
     setFailedFor(null)
-    onDownload?.().catch((failure: unknown) => {
-      console.warn('A file could not be saved', failure)
-      setFailedFor(url)
-    })
+    setSaving(true)
+    onDownload()
+      .catch((failure: unknown) => {
+        console.warn('A file could not be saved', failure)
+        setFailedFor(url)
+      })
+      .finally(() => setSaving(false))
   }
 
   return (
@@ -164,7 +172,13 @@ export function FileViewer({
             </Text>
           ) : null}
           {onDownload ? (
-            <Pressable accessibilityRole="button" style={styles.quietButton} onPress={download}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityState={{ disabled: saving }}
+              disabled={saving}
+              style={[styles.quietButton, saving && styles.disabled]}
+              onPress={download}
+            >
               <Text style={styles.quietButtonText}>{messages.attachments.download}</Text>
             </Pressable>
           ) : null}

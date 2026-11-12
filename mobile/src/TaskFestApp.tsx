@@ -92,14 +92,14 @@ export type Dependencies = {
    */
   forgetPicked?(files: PickedFile[]): Promise<void>
   /**
-   * Hands a viewed image's original to the phone to save (#586): its share sheet, which offers
-   * saving it to the photos or the files. None where the phone cannot, and then no Download.
+   * Files other than images, opened in the phone's own viewer, and the copies that takes forgotten
+   * (#274); and a viewed image's original, handed to the share sheet to save (#586) -- no Download
+   * where there is no `save`.
    */
-  saveFile?(url: string, fileName: string, contentType: string): Promise<void>
-  /** Files other than images, opened in the phone's own viewer, and the copies that takes forgotten (#274). */
   documents?: {
     open(url: string, fileName: string, contentType: string): Promise<void>
     forget(): Promise<void>
+    save?(url: string, fileName: string, contentType: string): Promise<void>
   }
   /** Deletes the signed-in user's account with everything in it (#275). */
   deleteAccount(caller: Caller): Promise<void>
@@ -248,7 +248,6 @@ export function TaskFestApp({
     attachments: files,
     pickFile,
     forgetPicked,
-    saveFile,
     documents,
     deleteAccount,
     keptBoard,
@@ -1797,7 +1796,9 @@ export function TaskFestApp({
               styles={styles}
               onClose={() => setViewing(null)}
               onDownload={
-                saveFile && viewing ? () => saveFile(viewing.url, viewing.fileName, viewing.contentType) : undefined
+                documents?.save && viewing
+                  ? () => documents.save!(viewing.url, viewing.fileName, viewing.contentType)
+                  : undefined
               }
             />
             <Modal

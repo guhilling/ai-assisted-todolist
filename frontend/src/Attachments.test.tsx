@@ -90,6 +90,39 @@ describe('on the row', () => {
     )
   })
 
+  it('shows the file opened last, whichever link answers first', async () => {
+    const backend = stubApi({ me: ALICE, tasks: [task({ attachments: [PDF, PHOTO] })] })
+    let release: () => void = () => {}
+    const held = new Promise<void>((resolve) => (release = resolve))
+    const slowPdf = vi.fn((input: RequestInfo | URL, init?: RequestInit) =>
+      String(input).endsWith('/attachments/7/link') ? held.then(() => backend(input, init)) : backend(input, init),
+    )
+    await renderSignedIn(slowPdf)
+
+    fireEvent.click(rowFor('Pay the invoice').getByRole('button', { name: 'Open Rechnung.pdf' }))
+    fireEvent.click(rowFor('Pay the invoice').getByRole('button', { name: 'Open Quittung.jpg' }))
+    await screen.findByRole('dialog', { name: 'Quittung.jpg' })
+    await act(async () => release())
+
+    expect(screen.getByRole('dialog', { name: 'Quittung.jpg' })).toBeInTheDocument()
+    expect(screen.queryByRole('dialog', { name: 'Rechnung.pdf' })).not.toBeInTheDocument()
+  })
+
+  it('keeps the board out of reach of the keyboard while a preview is open, and gives the focus back', async () => {
+    await renderSignedIn(stubApi({ me: ALICE, tasks: [task({ attachments: [PHOTO] })] }))
+    const open = rowFor('Pay the invoice').getByRole('button', { name: 'Open Quittung.jpg' })
+    open.focus()
+    fireEvent.click(open)
+    const preview = await screen.findByRole('dialog', { name: 'Quittung.jpg' })
+
+    // The board's own shortcut for a new task must not act behind the preview.
+    fireEvent.keyDown(within(preview).getByRole('button', { name: 'Close' }), { key: 'n' })
+    expect(screen.queryByLabelText('What needs doing')).not.toBeInTheDocument()
+
+    fireEvent.click(within(preview).getByRole('button', { name: 'Close' }))
+    expect(open).toHaveFocus()
+  })
+
   it('removes a file', async () => {
     const backend = stubApi({ me: ALICE, tasks: [task({ attachments: [PDF] })] })
     await renderSignedIn(backend)

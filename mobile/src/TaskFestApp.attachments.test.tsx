@@ -102,20 +102,21 @@ describe("a task's files on the board (#274)", () => {
   })
 
   it('saves a viewed image through the phone, under its own name and type (#586)', async () => {
-    const saveFile = jest.fn().mockResolvedValue(undefined)
-    await show(dependencies({ saveFile }))
+    const save = jest.fn().mockResolvedValue(undefined)
+    await show(dependencies({ documents: { open: jest.fn(), forget: jest.fn().mockResolvedValue(undefined), save } }))
     const user = userEvent.setup()
     await user.press(await screen.findByRole('button', { name: 'Open photo.jpg' }))
     const viewer = await screen.findByTestId('file-viewer')
 
     await user.press(within(viewer).getByRole('button', { name: 'Download' }))
 
-    expect(saveFile).toHaveBeenCalledWith('https://bucket.example.com/1/3/file', 'photo.jpg', 'image/jpeg')
+    expect(save).toHaveBeenCalledWith('https://bucket.example.com/1/3/file', 'photo.jpg', 'image/jpeg')
     expect(within(viewer).queryByText('photo.jpg could not be downloaded. Try again.')).toBeNull()
   })
 
   it('says so in the viewer when a viewed image could not be saved, and stays open', async () => {
-    await show(dependencies({ saveFile: jest.fn().mockRejectedValue(new Error('offline')) }))
+    const save = jest.fn().mockRejectedValue(new Error('offline'))
+    await show(dependencies({ documents: { open: jest.fn(), forget: jest.fn().mockResolvedValue(undefined), save } }))
     const user = userEvent.setup()
     await user.press(await screen.findByRole('button', { name: 'Open photo.jpg' }))
     const viewer = await screen.findByTestId('file-viewer')
@@ -126,8 +127,23 @@ describe("a task's files on the board (#274)", () => {
     expect(screen.getByTestId('file-viewer')).toBeOnTheScreen()
   })
 
+  it('does not start a second download while one runs', async () => {
+    let arrive: () => void = () => undefined
+    const save = jest.fn().mockReturnValue(new Promise<void>((resolve) => (arrive = resolve)))
+    await show(dependencies({ documents: { open: jest.fn(), forget: jest.fn().mockResolvedValue(undefined), save } }))
+    const user = userEvent.setup()
+    await user.press(await screen.findByRole('button', { name: 'Open photo.jpg' }))
+    const viewer = await screen.findByTestId('file-viewer')
+
+    await user.press(within(viewer).getByRole('button', { name: 'Download' }))
+    await user.press(within(viewer).getByRole('button', { name: 'Download' }))
+    await act(async () => arrive())
+
+    expect(save).toHaveBeenCalledTimes(1)
+  })
+
   it('offers no Download where the phone cannot save a file', async () => {
-    await show(dependencies({ saveFile: undefined }))
+    await show(dependencies({ documents: { open: jest.fn(), forget: jest.fn().mockResolvedValue(undefined) } }))
     await userEvent.setup().press(await screen.findByRole('button', { name: 'Open photo.jpg' }))
 
     const viewer = await screen.findByTestId('file-viewer')

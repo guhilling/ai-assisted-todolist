@@ -89,8 +89,9 @@ function AddTaskRow({ today, saving, onAdd, attachments }: Readonly<AddTaskRowPr
    * `n` opens the add row from anywhere on the board, the way a list app is expected to work.
    *
    * It is ignored while the caret is in a field, or the shortcut would eat the letter as
-   * somebody typed it, and ignored with a modifier held so it cannot shadow a browser or
-   * screen-reader command.
+   * somebody typed it, ignored with a modifier held so it cannot shadow a browser or
+   * screen-reader command, and ignored while a dialog is open over the board, such as a file's
+   * preview (#586), which keeps the board out of reach.
    *
    * A layout effect, so that it listens as soon as the row is shown: an effect runs a moment later,
    * and a key pressed as the board appeared was lost (#396).
@@ -106,7 +107,10 @@ function AddTaskRow({ today, saving, onAdd, attachments }: Readonly<AddTaskRowPr
       }
 
       const target = event.target as HTMLElement
-      if (target.closest('input, textarea, select, [contenteditable]') !== null) {
+      if (
+        target.closest('input, textarea, select, [contenteditable]') !== null ||
+        document.querySelector('dialog[open]') !== null
+      ) {
         return
       }
 

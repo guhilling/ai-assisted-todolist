@@ -29,7 +29,7 @@ import {
   updateTask,
 } from './api'
 import { fileFlag } from './fileFlag'
-import { documentsFor, safeFileName } from './documents'
+import { documentsFor } from './documents'
 import { sharesFrom } from './incoming'
 import { pickFile, type PickedPhoto } from './pick'
 import { makeThumbnail } from './thumbnails'
@@ -341,19 +341,6 @@ const dependencies: Dependencies = {
       now: () => Date.now(),
     }),
   forgetPicked: async (files) => files.forEach((file) => discardPicked(file.uri)),
-  // Into the documents' cache, which goes with the session, then to the share sheet, which offers
-  // saving it to the photos or the files (#586). Within the largest file's time, as a document's.
-  saveFile: async (url, fileName, contentType) => {
-    if (!documents.exists) {
-      documents.create()
-    }
-    const copy = await withinLimit(
-      (signal) =>
-        File.downloadFileAsync(url, new File(documents, safeFileName(fileName)), { idempotent: true, signal }),
-      transferMs(attachmentLimits.maxSizeBytes),
-    )
-    await Sharing.shareAsync(copy.uri, { mimeType: contentType, dialogTitle: fileName })
-  },
   documents: documentsFor(Platform.OS, {
     openBrowser: (url) => WebBrowser.openBrowserAsync(url),
     download: async (url, fileName) => {
@@ -373,6 +360,8 @@ const dependencies: Dependencies = {
         type: mimeType,
         flags: FLAG_GRANT_READ_URI_PERMISSION,
       }),
+    // The share sheet, which offers saving the copy to the photos or the files (#586).
+    share: (uri, mimeType, fileName) => Sharing.shareAsync(uri, { mimeType, dialogTitle: fileName }),
     forget: async () => {
       if (documents.exists) {
         documents.delete()
