@@ -1,14 +1,21 @@
 # Deployment
 
-**Status: a plan. Nothing in this document exists yet**, and issue #60 deliberately creates
-nothing — the point was to settle the irreversible choices on paper first.
+**Two architectures run side by side** in each environment, and these chapters describe both
+([architecture.md](../architecture.md#two-architectures) compares them). Most describe the
+containers' one, Quarkus on Fargate with PostgreSQL, which serves `/api/*` today;
+[serverless.md](serverless.md) describes the Go backend on Lambda with DynamoDB, which is being
+ported (#547). The table at the end says which page belongs to which. This page began as the
+plan for issue #60, written before anything existed, to settle the irreversible choices on paper
+first.
 
 This is also a proof of concept for a more commercial project, which is why it prefers managed
-services and a real account boundary over the cheapest possible demo.
+services over the cheapest possible demo.
 
 ## The shape
 
-Two environments, `qa` and `prod`, in **separate AWS accounts**. Each holds the same thing:
+Two environments, `qa` and `prod`, in **one AWS account**, separated by IAM roles and tags
+([access.md](access.md) says why). Each holds the same thing, here with the containers serving
+`/api/*`:
 
 ```
   taskfest.cloud.hilling.de
@@ -21,7 +28,9 @@ Two environments, `qa` and `prod`, in **separate AWS accounts**. Each holds the 
                                 (internal)   (the Quarkus backend)
 ```
 
-One distribution, two origins. That is not a detail — see the next section.
+One distribution for the whole site. Its origins are the site bucket, the Go backend's HTTP API,
+which is always there, and the load balancer while the environment is up; `/api/*` goes to the
+one `api_backend` names. That it is one distribution is not a detail — see the next section.
 
 The load balancer is **internal**: CloudFront reaches it through a [VPC
 origin](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/private-content-vpc-origins.html),
@@ -96,17 +105,17 @@ Also checked and not chosen:
 
 ## In this chapter
 
-| Page | What it covers |
-| --- | --- |
-| [Names and certificates](names-and-certificates.md) | Hostnames, certificates, Google's OAuth client, the documentation site's name |
-| [Accounts and access](access.md) | One AWS account, and the identities that may change what |
-| [The code and what it creates](infrastructure.md) | Where the OpenTofu code is, and every resource it creates |
-| [Deploying: two paths, chosen by the release](deploying.md) | Blue/green, or downtime for a migration |
-| [How an environment is torn down](teardown.md) | The `running` switch, and CloudFront's `/api/*` origin |
-| [The database](database.md) | RDS, IAM sign-in, snapshots and restores |
-| [Attachment storage](attachments.md) | The bucket, the sweeps that keep it tidy, and what they cost |
-| [Observability](observability.md) | Logs, metrics, alarms |
-| [Image scanning](image-scanning.md) | Amazon Inspector on the running images, and the issue it raises |
-| [Cost](cost.md) | What an environment costs, measured |
-| [Serverless](serverless.md) | Lambda, Go and DynamoDB: being ported (#547), its infrastructure in place (#554) |
-| [Open points](open-points.md) | What is deliberately left out, and what is still to be verified |
+| Page | Architecture | What it covers |
+| --- | --- | --- |
+| [Names and certificates](names-and-certificates.md) | both | Hostnames, certificates, Google's OAuth client, the documentation site's name |
+| [Accounts and access](access.md) | both | One AWS account, and the identities that may change what |
+| [The code and what it creates](infrastructure.md) | both; the Go backend's resources are in serverless.md | Where the OpenTofu code is, and every resource it creates |
+| [Deploying: two paths, chosen by the release](deploying.md) | containers; deploying the site is shared | Blue/green, or downtime for a migration |
+| [How an environment is torn down](teardown.md) | containers | The `running` switch, and CloudFront's `/api/*` origin |
+| [The database](database.md) | containers | RDS, IAM sign-in, snapshots and restores |
+| [Attachment storage](attachments.md) | containers; the bucket is shared | The bucket, the sweeps that keep it tidy, and what they cost |
+| [Observability](observability.md) | both | Logs, metrics, alarms |
+| [Image scanning](image-scanning.md) | containers | Amazon Inspector on the running images, and the issue it raises |
+| [Cost](cost.md) | containers | What an environment costs, measured |
+| [Serverless](serverless.md) | serverless | Lambda, Go and DynamoDB: being ported (#547), its infrastructure in place (#554), and its own costs |
+| [Open points](open-points.md) | both | What is deliberately left out, and what is still to be verified |
