@@ -125,8 +125,6 @@ data "aws_iam_policy_document" "lifecycle" {
       "iam:List*",
       "kms:Describe*",
       "kms:List*",
-      "lambda:Get*",
-      "lambda:List*",
       "logs:Describe*",
       "logs:Get*",
       "logs:List*",
@@ -144,6 +142,19 @@ data "aws_iam_policy_document" "lifecycle" {
       "servicediscovery:List*",
     ]
     resources = ["*"]
+  }
+
+  # Lambda's reads return a function's settings, which hold the Go backend's origin secret and,
+  # in qa, the test accounts' client secret: this environment's own functions and their stream
+  # mapping only, so prod's role cannot read qa's (#554). Not ListFunctions, which takes no
+  # resource and returns every function's settings; a refresh does not call it.
+  statement {
+    sid     = "ReadThisEnvironmentsFunctions"
+    actions = ["lambda:Get*", "lambda:List*"]
+    resources = [
+      "arn:aws:lambda:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:function:${local.name}-*",
+      "arn:aws:lambda:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:event-source-mapping:*",
+    ]
   }
 
   # Where the test accounts exist (test-sign-in.tf), reading them, so a refresh can see them:

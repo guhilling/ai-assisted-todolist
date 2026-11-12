@@ -1,6 +1,7 @@
-// Package secrets reads the settings whose values must not pass through OpenTofu or a Lambda
-// function's configuration, such as a provider's client secret, from Secrets Manager (#554). It is
-// the one place Secrets Manager's types may appear.
+// Package secrets reads from Secrets Manager the settings a deployment keeps out of OpenTofu and a
+// Lambda function's configuration, such as Google's client secret (#554): those whose setting
+// names a secret rather than holding the value. It is the one place Secrets Manager's types may
+// appear.
 package secrets
 
 import (
@@ -47,7 +48,11 @@ func Resolve(ctx context.Context, environ []string, client API) (func(string) st
 		if err != nil {
 			return nil, fmt.Errorf("read %s: %w", k, err)
 		}
-		resolved[name] = aws.ToString(out.SecretString)
+		if out.SecretString == nil {
+			// Stored as bytes: an empty setting would pass for one, and sign-in fail later.
+			return nil, fmt.Errorf("%s names a secret without text", k)
+		}
+		resolved[name] = *out.SecretString
 	}
 	for k, v := range resolved {
 		settings[k] = v

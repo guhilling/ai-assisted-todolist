@@ -363,6 +363,13 @@ administrator's profile.
    ```
    and then `env.sh down` or `up`, whichever the environment is in, with the administrator's
    profile.
+4. **Run the replay again, now against the switched table, at least five minutes after the
+   switch.** The run in step 2 passed over the deletions of its last five minutes, which may still
+   have been under way, and deletions kept being recorded until the switch; this run takes both.
+   Until it has run, an account deleted in those minutes is back. Deletions are not stopped
+   during a restore, which would take the API down for its length; the window is minutes, and
+   only for accounts whose owners have just deleted them (Claude's decision on #554, for Gunnar
+   to review).
 
 The procedure is tried once in qa, from an on-demand backup, once #554 has built the table.
 

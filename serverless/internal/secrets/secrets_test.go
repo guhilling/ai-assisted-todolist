@@ -69,3 +69,19 @@ func TestASettingGivenBothWaysIsRefused(t *testing.T) {
 		t.Error("one of the two would be ignored without a word")
 	}
 }
+
+// binary answers every secret with SecretBinary only, as a secret stored as bytes is.
+type binary struct{}
+
+func (binary) GetSecretValue(context.Context, *secretsmanager.GetSecretValueInput,
+	...func(*secretsmanager.Options)) (*secretsmanager.GetSecretValueOutput, error) {
+	return &secretsmanager.GetSecretValueOutput{SecretBinary: []byte("bytes")}, nil
+}
+
+func TestASecretWithoutTextFailsTheStart(t *testing.T) {
+	_, err := Resolve(context.Background(), []string{"X_SECRET_ARN=arn:x"}, binary{})
+
+	if err == nil {
+		t.Error("an empty client secret would pass for a setting")
+	}
+}
