@@ -37,10 +37,8 @@ type SignIn interface {
 	Config() auth.Config
 }
 
-// Server implements every route of the contract. The ones not ported yet answer 501
-// (unported.go); each story of the port (#547) replaces some of them.
+// Server implements every route of the contract.
 type Server struct {
-	unported
 	Tasks TasksSource
 	// Writes is where creates, replaces and deletes of tasks go.
 	Writes TaskWrites
@@ -56,6 +54,8 @@ type Server struct {
 	SignIn   SignIn
 	// Now is the clock a new task's due date is judged by; time.Now when nil.
 	Now func() time.Time
+	// Version is the release this build was made as, MinimumAppVersion the oldest app it serves.
+	Version, MinimumAppVersion string
 }
 
 // Routes returns the routes of the contract, served by s, and the sign-in callbacks, which the

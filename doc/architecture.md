@@ -3,8 +3,8 @@
 **TaskFest has two backends**, built to the same API and run side by side in each AWS
 environment: the containers' backend, Quarkus on Fargate with PostgreSQL, and the Go backend on
 Lambda with DynamoDB, which is being ported (#547). One setting, `api_backend`, says which of them
-CloudFront sends `/api/*` to. Once the port is done the website and the apps cannot tell them
-apart; until then the Go backend answers 501 to the routes it does not have yet.
+CloudFront sends `/api/*` to. Every route is ported, so the website and the apps cannot tell
+them apart; what remains of the port is how it is built, deployed and watched.
 [Two architectures](#two-architectures) compares them and says why the Go backend is the one
 switched to. Most of this page describes the containers' backend, which serves prod; qa has
 served from the Go backend since 2026-11-12, to try it (#557).

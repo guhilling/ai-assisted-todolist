@@ -58,7 +58,9 @@ request:
 1. move `doc/api/oldest-supported-release` forward to the oldest release the backend will still
    serve after the change;
 2. raise `taskfest.minimum-app-version` (`TASKFEST_MINIMUM_APP_VERSION`) to the first app release
-   that copes with it — `/api/version` announces it, and older apps ask their user to update;
+   that copes with it — `/api/version` announces it, and older apps ask their user to update. The
+   Go backend's default is `minimumAppVersion` in `serverless/internal/api/version.go`: raise both
+   while both backends run;
 3. tag the next release as the next **major**.
 
 Before that, consider not breaking anything: a new endpoint or a new field beside the old one is
