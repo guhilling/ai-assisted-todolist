@@ -45,7 +45,8 @@ only in the total.
 
 ## Resource inventory
 
-Per environment, identical unless noted:
+Per environment, identical unless noted. The Go backend's resources, its table, functions, HTTP
+API, schedules and alarms, are listed in [serverless.md](serverless.md#the-infrastructure).
 
 | Resource | Why |
 | --- | --- |

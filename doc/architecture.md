@@ -1,9 +1,10 @@
 # Architecture
 
-**TaskFest has two backends**, which serve the same API and run side by side in each AWS
+**TaskFest has two backends**, built to the same API and run side by side in each AWS
 environment: the containers' backend, Quarkus on Fargate with PostgreSQL, and the Go backend on
 Lambda with DynamoDB, which is being ported (#547). One setting, `api_backend`, says which of them
-CloudFront sends `/api/*` to; the website and the apps cannot tell them apart.
+CloudFront sends `/api/*` to. Once the port is done the website and the apps cannot tell them
+apart; until then the Go backend answers 501 to the routes it does not have yet.
 [Two architectures](#two-architectures) compares them and says why the Go backend is the one
 switched to. Most of this page describes the containers' backend, which is what serves today.
 
@@ -17,9 +18,9 @@ The deployable components, the apps, and one external dependency:
 | Mobile apps | iOS and Android, one Expo (React Native, TypeScript) codebase; released to TestFlight and Play's internal testing, not deployed | `mobile/` |
 | Backend, containers | Quarkus 3 REST API on Java 25, also the OIDC client | `backend/` |
 | Backend, serverless | Go on AWS Lambda behind API Gateway's HTTP API: the same API, and also the OIDC client | `serverless/` |
-| Database | PostgreSQL 18 on RDS, schema managed by Liquibase, for the containers; one DynamoDB table for the Go backend | — |
+| Database | PostgreSQL 18 on RDS, schema managed by Liquibase, for the containers; one DynamoDB table for the Go backend, DynamoDB Local in its tests | — |
 | Identity provider | Google in production; a Keycloak container in development and tests | `keycloak/` |
-| Object storage | S3 for task attachments, one bucket per environment that both backends share under separate prefixes; LocalStack, through Quarkus Dev Services, in development and tests | — |
+| Object storage | S3 for task attachments, one bucket per environment that both backends share under separate prefixes; LocalStack in development and tests, through Quarkus Dev Services for the containers' backend and Testcontainers for the Go backend's | — |
 
 ## How a request travels
 
@@ -32,8 +33,9 @@ apps ─────▶ (static files   │
 ```
 
 Only one of the two lower paths serves `/api/*` at a time. The rest of this section follows the
-containers' one; [serverless.md](deployment/serverless.md#the-shape) has the Go backend's, where the
-HTTP API's public address is guarded by a header only CloudFront sends.
+containers' one; [serverless.md](deployment/serverless.md#the-shape) has the Go backend's. The
+HTTP API's address is public, so the function refuses every request without a header only
+CloudFront sends ([its infrastructure](deployment/serverless.md#the-infrastructure)).
 
 The browser talks to a single origin. In AWS that is CloudFront: the built assets come from the
 environment's site bucket, and everything under `/api/*` goes through a private VPC origin to the
@@ -134,13 +136,13 @@ and in what it costs:
 | Backend | Quarkus on Java 25, in a Fargate task | Go, four Lambda functions on arm64 |
 | Reached through | an internal load balancer, a CloudFront VPC origin | API Gateway's HTTP API, with an origin header |
 | Data | PostgreSQL on RDS, Liquibase | one DynamoDB table, TTL and a stream |
-| Clean-up and deletion replay | inside the backend, while it runs | scheduled functions, always |
-| Bills | by the hour, about $1.86 a day while up | by the request, cents a month |
+| Clean-up and deletion replay | inside the backend, while it runs | DynamoDB TTL and a stream function, and the orphan clean-up and replay on a schedule, always |
+| Bills | by the hour, about $1.86 a day while up | by the request, about $1 to $1.50 a month always up, seven alarms at $0.10 each included |
 | When idle | taken down with `env.sh down`, a daily chore | nothing to take down |
-| First request after a pause | none while up; once down, `env.sh up` takes minutes | a cold start, about half a second |
+| First request after a pause | none while up; once down, `env.sh up` takes minutes | a cold start, 125–146 ms as measured in qa |
 | Deploying | blue/green between two target groups | a new version of each function (#555) |
 | Lock-in | moves to any cloud: a container, PostgreSQL, a load balancer | tied to AWS: Lambda, DynamoDB, API Gateway, EventBridge |
-| Written by | Gunnar's language, Java | Claude, in Go, reviewed by behaviour |
+| Language, and how it is reviewed | Java, which Gunnar reads and reviews line by line | Go, which Gunnar does not mean to learn: reviewed by its behaviour, the tests and the contract checks |
 | Attachment keys | `<key>`, `deleted-accounts/<hash>` | `serverless/attachments/<key>`, `serverless/deleted-accounts/<hash>` |
 
 **Why switch: cost while always up.** The containers bill by the hour whether anyone uses them or
@@ -221,6 +223,7 @@ Node, serve with httpd.
 `deployment/` holds everything that deploys the app. `deployment/docker/` has the Compose
 stacks that wire the pieces together — [local-development.md](local-development/index.md)
 describes both — and `deployment/aws-tofu/` has the AWS infrastructure, written in
-OpenTofu; [deployment.md](deployment/index.md) is the plan it implements. Nothing about the
-application assumes AWS: it is a stateless container reading its configuration from the
-environment, plus a PostgreSQL it connects to by URL.
+OpenTofu; [deployment.md](deployment/index.md) describes what it creates. Nothing about the
+containers' backend assumes AWS: it is a stateless container reading its configuration from the
+environment, plus a PostgreSQL it connects to by URL. The Go backend, in `serverless/`, is the
+opposite, and [Two architectures](#two-architectures) says what that trades.

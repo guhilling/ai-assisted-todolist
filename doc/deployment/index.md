@@ -9,12 +9,13 @@ plan for issue #60, written before anything existed, to settle the irreversible 
 first.
 
 This is also a proof of concept for a more commercial project, which is why it prefers managed
-services and a real account boundary over the cheapest possible demo.
+services over the cheapest possible demo.
 
 ## The shape
 
-Two environments, `qa` and `prod`, in **separate AWS accounts**. Each holds the same thing, here
-with the containers serving `/api/*`:
+Two environments, `qa` and `prod`, in **one AWS account**, separated by IAM roles and tags
+([access.md](access.md) says why). Each holds the same thing, here with the containers serving
+`/api/*`:
 
 ```
   taskfest.cloud.hilling.de
@@ -106,7 +107,7 @@ Also checked and not chosen:
 | --- | --- | --- |
 | [Names and certificates](names-and-certificates.md) | both | Hostnames, certificates, Google's OAuth client, the documentation site's name |
 | [Accounts and access](access.md) | both | One AWS account, and the identities that may change what |
-| [The code and what it creates](infrastructure.md) | both | Where the OpenTofu code is, and every resource it creates |
+| [The code and what it creates](infrastructure.md) | both; the Go backend's resources are in serverless.md | Where the OpenTofu code is, and every resource it creates |
 | [Deploying: two paths, chosen by the release](deploying.md) | containers | Blue/green, or downtime for a migration |
 | [How an environment is torn down](teardown.md) | containers | The `running` switch, and CloudFront's `/api/*` origin |
 | [The database](database.md) | containers | RDS, IAM sign-in, snapshots and restores |
