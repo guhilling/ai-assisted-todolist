@@ -17,6 +17,12 @@ locals {
   dist          = "${path.module}/../../../../serverless/dist"
   origin_header = "X-Origin-Verify" # lambdahttp.OriginHeader
 
+  # The Go backend's part of the shared attachment bucket (#578), files.Root: its functions may
+  # touch objects there and nowhere else, so the containers' files and records are out of reach.
+  # ListBucket stays on the whole bucket, without which a HEAD on a missing object answers 403.
+  go_files   = "${aws_s3_bucket.attachments.arn}/serverless/attachments/*"
+  go_records = "${aws_s3_bucket.attachments.arn}/serverless/deleted-accounts/*"
+
   # Where the data is, for every function that touches it (here and serverless-jobs.tf).
   bucket_settings  = { TASKFEST_ATTACHMENTS_BUCKET = aws_s3_bucket.attachments.bucket }
   storage_settings = merge({ TABLE_NAME = aws_dynamodb_table.data.name }, local.bucket_settings)
@@ -129,7 +135,7 @@ data "aws_iam_policy_document" "api_function" {
   statement {
     sid       = "ReadWriteAndDeleteAttachmentsAndRecords"
     actions   = ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"]
-    resources = ["${aws_s3_bucket.attachments.arn}/*"]
+    resources = [local.go_files, local.go_records]
   }
 
   statement {

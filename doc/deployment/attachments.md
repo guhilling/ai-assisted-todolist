@@ -16,6 +16,12 @@ An image may have a **preview thumbnail** next to it (#236), a JPEG of a few kil
 made, under the file's key plus `.thumbnail`. It is deleted with its file by everything below, and
 the orphan clean-up counts it as referenced while its file's row exists.
 
+**The bucket is shared by both backends** while both run (#578): this page describes the
+containers' backend, whose files sit at bare keys and whose deletion records sit under
+`deleted-accounts/`. The Go backend keeps everything under `serverless/`, which this page's
+clean-up leaves alone, since it skips every key with a slash;
+[serverless.md](serverless.md#attachments) has its side.
+
 ## Two sweeps keep it tidy
 
 **The attachment sweep** (`AttachmentSweep`, every minute) works from the database. It deletes
