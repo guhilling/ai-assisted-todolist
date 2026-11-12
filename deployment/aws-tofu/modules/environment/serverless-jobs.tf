@@ -207,11 +207,15 @@ resource "aws_lambda_function" "job" {
 
 # The stream, filtered to the removals of attachment items, the only records `streams` acts on, so
 # no other write invokes it. A failed record holds its shard and is sent again, so the retries are
-# capped: what is given up on, the orphan clean-up deletes after seven days.
+# capped: what is given up on, the orphan clean-up deletes after seven days -- unless it was the
+# last file attachment in the table, since the clean-up deletes nothing from a table without one
+# (orphans.HoldNoAttachments); those files wait until there is one again.
 resource "aws_lambda_event_source_mapping" "streams" {
-  event_source_arn               = aws_dynamodb_table.data.stream_arn
-  function_name                  = aws_lambda_function.job["streams"].arn
-  starting_position              = "LATEST"
+  event_source_arn = aws_dynamodb_table.data.stream_arn
+  function_name    = aws_lambda_function.job["streams"].arn
+  # The oldest record still in the stream, so no removal written before the mapping began is
+  # missed; one deleted twice is no error.
+  starting_position              = "TRIM_HORIZON"
   batch_size                     = 100
   maximum_retry_attempts         = 5
   maximum_record_age_in_seconds  = 3600
