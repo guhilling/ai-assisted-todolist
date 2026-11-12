@@ -13,9 +13,10 @@ import (
 	"github.com/guhilling/ai-assisted-todolist/serverless/internal/identity"
 )
 
-// recordPrefix is where the deletion records live in the bucket (#213, #553), as the Quarkus
-// backend keeps them: attachment keys have no slash, so List never takes a record for an orphan.
-const recordPrefix = "deleted-accounts/"
+// recordPrefix is where the Go backend's deletion records live in the bucket (#213, #553), under
+// Root as the Quarkus backend's are under deleted-accounts/ (#578): each replay keeps its own
+// records for as long as its own restores need them.
+const recordPrefix = Root + "deleted-accounts/"
 
 // recordBody only says what the object is, for a person who finds it; its time is the object's.
 const recordBody = "TaskFest account deletion record (#213); the time is this object's."
@@ -36,7 +37,7 @@ func (f *Files) RecordDeletion(ctx context.Context, email string) error {
 // ForgetDeletion takes back the record of a deletion that did not go through, so that the replay
 // never carries out a deletion the user was told failed.
 func (f *Files) ForgetDeletion(ctx context.Context, email string) error {
-	return f.Delete(ctx, recordPrefix+identity.EmailHash(email))
+	return f.delete(ctx, recordPrefix+identity.EmailHash(email))
 }
 
 // Deletion is a deletion on record: the email's hash, and when the account was deleted, which is
@@ -70,9 +71,9 @@ func (f *Files) Deletions(ctx context.Context) ([]Deletion, error) {
 // the same address in that moment, is lost.
 func (f *Files) ForgetIfUnchanged(ctx context.Context, d Deletion) error {
 	key := recordPrefix + d.Hash
-	o, found, err := f.Head(ctx, key)
+	o, found, err := f.head(ctx, key)
 	if err != nil || !found || !o.LastModified.Equal(d.At) {
 		return err
 	}
-	return f.Delete(ctx, key)
+	return f.delete(ctx, key)
 }

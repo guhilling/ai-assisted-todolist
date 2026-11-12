@@ -3,6 +3,7 @@ package files
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -276,5 +277,72 @@ func TestTheListingHoldsTheAttachmentObjectsAndNothingUnderAPrefix(t *testing.T)
 	}
 	if strings.Join(keys, ",") != "one,one.thumbnail" {
 		t.Errorf("listed %v", keys)
+	}
+}
+
+// putRaw writes an object under exactly this key, as the containers' backend does, or a person.
+func putRaw(t *testing.T, client *s3.Client, key string) {
+	t.Helper()
+	if _, err := client.PutObject(context.Background(), &s3.PutObjectInput{
+		Bucket: aws.String(bucket), Key: aws.String(key), Body: strings.NewReader("x")}); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// existsRaw says whether an object is under exactly this key; any answer but found or missing
+// fails the test, so a bucket that cannot be asked never passes for an empty one.
+func existsRaw(t *testing.T, client *s3.Client, key string) bool {
+	t.Helper()
+	_, err := client.HeadObject(context.Background(), &s3.HeadObjectInput{Bucket: aws.String(bucket), Key: aws.String(key)})
+	var missing *s3types.NotFound
+	if errors.As(err, &missing) {
+		return false
+	}
+	if err != nil {
+		t.Fatalf("look for %s: %v", key, err)
+	}
+	return true
+}
+
+func TestAFileIsStoredUnderTheGoBackendsOwnPrefix(t *testing.T) {
+	// The bucket is shared with the containers' backend until the cut-over (#578): the Go
+	// backend's files sit under a prefix of their own, so neither takes the other's for orphans.
+	client := localBucket(t)
+	f := New(client, bucket)
+	ctx := context.Background()
+	link, _ := f.UploadLink(ctx, "key", "image/png", 3)
+	if status := upload(t, link, []byte("png")); status != http.StatusOK {
+		t.Fatalf("upload: %d", status)
+	}
+
+	if !existsRaw(t, client, "serverless/attachments/key") || existsRaw(t, client, "key") {
+		t.Error("not stored under serverless/attachments/")
+	}
+	if err := f.Delete(ctx, "key"); err != nil {
+		t.Fatal(err)
+	}
+	if existsRaw(t, client, "serverless/attachments/key") {
+		t.Error("deleting it left it there")
+	}
+}
+
+func TestTheListingLeavesOutTheContainersFilesAndRecords(t *testing.T) {
+	client := localBucket(t)
+	f := New(client, bucket)
+	ctx := context.Background()
+	putRaw(t, client, "a-containers-file")
+	putRaw(t, client, "deleted-accounts/abc")
+	// The folder the S3 console makes: no attachment, though nothing is left of its key.
+	putRaw(t, client, "serverless/attachments/")
+	link, _ := f.UploadLink(ctx, "mine", "image/png", 3)
+	upload(t, link, []byte("png"))
+
+	objects, err := f.List(ctx)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(objects) != 1 || objects[0].Key != "mine" {
+		t.Errorf("listed %v", objects)
 	}
 }

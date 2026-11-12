@@ -17,6 +17,13 @@ locals {
   dist          = "${path.module}/../../../../serverless/dist"
   origin_header = "X-Origin-Verify" # lambdahttp.OriginHeader
 
+  # The Go backend's part of the shared attachment bucket (#578), files.Root: its functions may
+  # touch objects there and nowhere else, so the containers' files and records are out of reach.
+  # ListBucket stays on the whole bucket, without which a HEAD on a missing object answers 403.
+  go_root    = "serverless/"
+  go_files   = "${aws_s3_bucket.attachments.arn}/${local.go_root}attachments/*"
+  go_records = "${aws_s3_bucket.attachments.arn}/${local.go_root}deleted-accounts/*"
+
   # Where the data is, for every function that touches it (here and serverless-jobs.tf).
   bucket_settings  = { TASKFEST_ATTACHMENTS_BUCKET = aws_s3_bucket.attachments.bucket }
   storage_settings = merge({ TABLE_NAME = aws_dynamodb_table.data.name }, local.bucket_settings)
@@ -127,9 +134,16 @@ data "aws_iam_policy_document" "api_function" {
   # As for the container's role (attachments.tf): ListBucket also makes S3 answer a HEAD on a
   # missing object with 404 rather than 403.
   statement {
-    sid       = "ReadWriteAndDeleteAttachmentsAndRecords"
+    sid       = "ReadWriteAndDeleteAttachments"
     actions   = ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"]
-    resources = ["${aws_s3_bucket.attachments.arn}/*"]
+    resources = [local.go_files]
+  }
+
+  # A deletion record is written and taken back, never read: the replay reads them.
+  statement {
+    sid       = "WriteAndTakeBackDeletionRecords"
+    actions   = ["s3:PutObject", "s3:DeleteObject"]
+    resources = [local.go_records]
   }
 
   statement {

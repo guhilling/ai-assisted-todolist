@@ -167,11 +167,27 @@ A task's files and links (#552) keep the Quarkus backend's `AttachmentResource`,
 bucket, `internal/store` the items against DynamoDB Local, `internal/files` the signed links
 against LocalStack with signature checking on. Files still travel straight between the browser
 and S3, through presigned links signed for exactly the announced size and type, and the bucket is
-unchanged.
+the same one.
+
+**The Go backend keeps to `serverless/` in it** (#578). Both backends run side by side for the
+time being, each with its own database, and share each environment's bucket:
+
+| | The containers' backend | The Go backend |
+|---|---|---|
+| Files | `<key>`, `<key>.thumbnail` | `serverless/attachments/<key>`, and `.thumbnail` |
+| Deletion records | `deleted-accounts/<hash>` | `serverless/deleted-accounts/<hash>` |
+
+Each orphan clean-up takes only its own files, and each replay only its own records, which it keeps
+for as long as its own restores need them: the RDS snapshots for the one, DynamoDB's restore points
+for the other. The Quarkus clean-up lists the whole bucket and leaves out every key with a slash,
+so its code needed no change. IAM keeps them apart as well: the Go functions' roles reach objects
+under `serverless/` only, and the containers' task role is denied them. Callers in the Go
+code name a file by its bare key, and `internal/files` adds the prefix.
 
 - **An attachment is an `ATT#<id>` item** with its id from `lastAttachmentId` on `META`, the
   id of the task or draft it is on, and its object's key: random, and with no slash, so the
-  orphan clean-up lists it. A thumbnail is the same key with `.thumbnail`.
+  orphan clean-up lists it; stored under `serverless/attachments/`. A thumbnail is the same key
+  with `.thumbnail`.
 - **The sweeps are DynamoDB TTL** on the item's `expiresAt`, set for as long as it is not kept for
   good, whichever ends first: an upload not confirmed an hour after it was announced, a deleted
   task's attachment ten minutes after the delete, the undo window, and a draft's when the draft
@@ -195,8 +211,7 @@ unchanged.
   Removing an attachment, and a mismatch on confirm, also delete the files at once, after the
   item; Quarkus deleted the file first, so that a failure in between left a row pointing at
   nothing rather than a file nobody could find. With the stream, neither order loses track of one.
-- **The orphan clean-up is `cmd/orphans`**, which EventBridge Scheduler runs hourly, once the
-  cut-over has switched it on ([the infrastructure](#the-infrastructure)). It reads every
+- **The orphan clean-up is `cmd/orphans`**, which EventBridge Scheduler runs hourly. It reads every
   user's `ATT#` items with a `Scan`, the one read across partitions, lists the bucket, and keeps
   every rule of Quarkus's `OrphanPlan`, whose tests are ported: an object no item refers to goes
   after seven days; a table without a single file deletes nothing; more than two orphans older
@@ -254,9 +269,10 @@ backend.
 
 `DELETE /api/account` (#553) keeps the
 [decision](../decisions/domain-and-backend.md#deleting-an-account-leaves-a-record-outside-the-database)
-and the Quarkus backend's tests: the record `deleted-accounts/<SHA-256 of the email>` is written
-to the attachment bucket first, where a restore of the table cannot take it back, and without a
-bucket an account is deleted without one. Two things differ, by Gunnar's decisions on #553:
+and the Quarkus backend's tests: the record `serverless/deleted-accounts/<SHA-256 of the email>`
+is written to the attachment bucket first, where a restore of the table cannot take it back, and
+without a bucket an account is deleted without one. Two things differ, by Gunnar's decisions on
+#553:
 
 - **The account is marked, then deleted in batches.** A transaction holds at most 100 items, and a
   user's tasks have no limit, so no single write deletes an account. The first write sets
@@ -300,7 +316,8 @@ API is switched to it**, and nobody can sign in to a restored account first (Gun
   deletion counts as before it: the deletion the user asked for wins (Gunnar's decision on #573).
   An account without `createdAt` counts as older; there is none, as
   the table starts empty and no user moves over from the Quarkus backend (#557). The Quarkus
-  backend's records stay in the bucket and are replayed too; an account begun since stays.
+  backend's records, under `deleted-accounts/`, are its own replay's and never this one's (#578):
+  no account they name was ever in this table.
 - **What a deletion left without `META` is deleted too**, for the deletion that stopped after
   `META` went: no task, draft or attachment is ever written without `META`. A marked `META` is
   written first, on the condition that there is none, so a sign-up at that moment either keeps
@@ -327,8 +344,9 @@ API is switched to it**, and nobody can sign in to a restored account first (Gun
   and off for qa (#553).
 - **Its role** has `dynamodb:Query`, `GetItem`, `PutItem`, `UpdateItem`, `DeleteItem` and
   `BatchWriteItem` on the table, `DescribeContinuousBackups` on every table, `ListTables` and
-  `ListBackups`, and on the bucket `s3:ListBucket`, `GetObject` under `deleted-accounts/`, and
-  `DeleteObject` there and on the attachments (`serverless-jobs.tf`).
+  `ListBackups`, and on the bucket `s3:ListBucket`, `GetObject` under
+  `serverless/deleted-accounts/`, and `DeleteObject` there and under `serverless/attachments/`
+  (`serverless-jobs.tf`).
 
 ### Restoring the table
 
@@ -489,8 +507,8 @@ API and the table bill per request, and the alarms, $0.10 a month each, are the 
   at fractions of a cent a GB-month, and off in qa (`table_point_in_time_recovery`, #553); and
   deletion protection keeps a destroy of the foundation from taking people's data with it.
 - **The `api` function**, arm64, 512 MB ([measured](#what-the-spike-measured)), with a timeout
-  of 28 seconds, under the HTTP API's own 30. Its role reaches its own table, the attachment
-  bucket, the Google client secret and its log group, nothing else.
+  of 28 seconds, under the HTTP API's own 30. Its role reaches its own table, its part of the
+  attachment bucket, the Google client secret and its log group, nothing else.
 - **The HTTP API** sends every request to it. Its address is public, so CloudFront adds a header
   with a secret, `X-Origin-Verify`, and the function refuses any request without it with a 403
   (`lambdahttp.FromOrigin`); OpenTofu generates the secret. A Secrets Manager secret would cost
@@ -514,13 +532,10 @@ does:
   invokes it, with at most five retries and records at most an hour old.
 - `orphans` runs hourly and `replay` daily at 03:30 Berlin time, on EventBridge Scheduler, which
   is free at two schedules. A failed run is not tried again; the next run does the same work.
-- **Both schedules are disabled until `api_backend` is `serverless`**, because until then the
-  bucket is the containers'. `orphans` called qa's six files orphans on its first run, since the Go
-  table refers to none, and raised the alarm; it deleted nothing, a table without a file deletes
-  nothing. `replay` would prune the containers' deletion records by DynamoDB's restore points,
-  where they must outlast the RDS snapshots. The switch alone does not make the bucket the Go
-  backend's: the containers' files and records are still in it, and #557 says what happens to
-  them before the schedules may run.
+- Both run whichever backend serves `/api/*`: they touch only `serverless/` in the bucket. Before
+  that prefix (#578), `orphans` called qa's six container files orphans on its first run and
+  raised the alarm, and `replay` would have pruned the containers' deletion records, so #577 had
+  switched both off for a day.
 - The Go orphan clean-up's alert line feeds the containers' metric through a second filter, so
   the one orphan alarm sees both backends.
 
@@ -545,3 +560,16 @@ serverless/build.sh
 
 **`down` takes qa down if it is up**; with qa down it applies only the foundation, and the plan
 it shows says what that is before anything happens.
+
+**Until a release deploys the code (#555)**, new code reaches the functions by hand, with the
+administrator, after `build.sh`. Code that changes what the functions may touch goes up before the
+apply that changes their roles, as #578's did:
+
+```sh
+for env in qa prod; do
+  for c in api streams orphans replay; do
+    AWS_PROFILE=<admin profile> aws lambda update-function-code --region eu-central-1 \
+      --function-name "taskfest-$env-$c" --zip-file "fileb://serverless/dist/$c.zip" >/dev/null
+  done
+done
+```

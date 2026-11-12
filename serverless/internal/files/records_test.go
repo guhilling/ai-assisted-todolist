@@ -9,16 +9,17 @@ import (
 )
 
 func TestADeletionIsRecordedUnderTheEmailsHashAndCanBeTakenBack(t *testing.T) {
-	f := New(localBucket(t), bucket)
+	client := localBucket(t)
+	f := New(client, bucket)
 	ctx := context.Background()
 	email := "taskfest-test-one@example.com"
-	key := "deleted-accounts/" + identity.EmailHash(email)
+	key := "serverless/deleted-accounts/" + identity.EmailHash(email)
 
 	if err := f.RecordDeletion(ctx, email); err != nil {
 		t.Fatal(err)
 	}
-	if _, found, err := f.Head(ctx, key); !found || err != nil {
-		t.Fatalf("no record at %s: %v", key, err)
+	if !existsRaw(t, client, key) {
+		t.Fatalf("no record at %s", key)
 	}
 	if objects, _ := f.List(ctx); len(objects) != 0 {
 		t.Errorf("the record was listed as an attachment: %v", objects)
@@ -26,7 +27,7 @@ func TestADeletionIsRecordedUnderTheEmailsHashAndCanBeTakenBack(t *testing.T) {
 	if err := f.ForgetDeletion(ctx, email); err != nil {
 		t.Fatal(err)
 	}
-	if _, found, _ := f.Head(ctx, key); found {
+	if existsRaw(t, client, key) {
 		t.Error("the record outlived being taken back")
 	}
 }
@@ -83,5 +84,19 @@ func TestARecordIsPrunedOnlyWhileItIsTheOneRead(t *testing.T) {
 	}
 	if again, _ := f.Deletions(ctx); len(again) != 0 {
 		t.Errorf("left: %v", again)
+	}
+}
+
+func TestTheContainersRecordsAreNotTheGoBackends(t *testing.T) {
+	// The containers' backend keeps its records under deleted-accounts/, for as long as its RDS
+	// snapshots need them (#578): the Go replay must never see them, and so never prune them.
+	client := localBucket(t)
+	f := New(client, bucket)
+	putRaw(t, client, "deleted-accounts/"+identity.EmailHash("taskfest-test-one@example.com"))
+
+	records, err := f.Deletions(context.Background())
+
+	if err != nil || len(records) != 0 {
+		t.Errorf("listed %v, %v", records, err)
 	}
 }
