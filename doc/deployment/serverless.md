@@ -48,8 +48,7 @@ Nothing to take down, and `prod` can simply stay up.
 
 - **Four functions** (#554): `api` serves every route behind the HTTP API; `streams` follows the
   table's stream and deletes the files of attachments that go; `orphans` and `replay` run on a
-  schedule. [The infrastructure](#the-infrastructure) says what `api` is given; the other three
-  come with the second part of #554.
+  schedule. [The infrastructure](#the-infrastructure) says what each is given.
 - **DynamoDB, one table.** The partition key is the user, `USER#<sha256 of the email>`; the sort
   key says what the item is: `META` for the user, `TASK#<id>`, `DRAFT#<id>`, `ATT#<id>`, and
   `SESSION#<key>` for each of the website's sessions, so that deleting the account ends them. A
@@ -191,7 +190,8 @@ unchanged.
   stream's records, with old images, and deletes the file and thumbnail of every `ATT#` item that
   goes: removed, discarded with its draft, or deleted by TTL. A record whose files fail to go is
   answered as a failure; Lambda sends it and the shard's later records again, holding the shard
-  until it succeeds, so #554 caps the retries and lets the orphan clean-up take what is given up.
+  until it succeeds, so the event source mapping caps the retries at five, and an hour's age, and
+  lets the orphan clean-up take what is given up.
   Removing an attachment, and a mismatch on confirm, also delete the files at once, after the
   item; Quarkus deleted the file first, so that a failure in between left a row pointing at
   nothing rather than a file nobody could find. With the stream, neither order loses track of one.
@@ -201,8 +201,8 @@ unchanged.
   after seven days; a table without a single file deletes nothing; more than two orphans older
   than an hour raise the alert, a JSON log line with `orphanSweepAlert`; an available attachment
   whose file is missing is logged, never deleted. Expired items still count as referring to their
-  files, which are the stream's to delete. The functions, the stream, the schedule and the alarm
-  come with #554.
+  files, which are the stream's to delete. The alert line feeds the same alarm as the
+  containers' ([the infrastructure](#the-infrastructure)).
 - **A link to open a file is handed out again while half its hour is left**, as before, per Lambda
   instance rather than per backend task; with several instances, a browser sees a few URLs for a
   file at worst. Each link ends with the credentials that signed it, when they end first, and says
@@ -287,9 +287,10 @@ a later restore; closing it would take a conditional delete in S3 or a lock on t
 
 `cmd/replay` deletes again any account a restore brought back, and prunes the records no restore
 can need any more; `internal/replay` keeps every rule of Quarkus's `DeletionReplay`, whose tests
-are ported. EventBridge Scheduler runs it daily (#554). Lambda has no start-up to run it in, so
-the restore procedure below runs it once against the restored table **before the API is
-switched to it**, and nobody can sign in to a restored account first (Gunnar's decision on #553).
+are ported. EventBridge Scheduler runs it daily, at 03:30 Berlin time. Lambda has no start-up to
+run it in, so the restore procedure below runs it once against the restored table **before the
+API is switched to it**, and nobody can sign in to a restored account first (Gunnar's decision on
+#553).
 
 - **An account is deleted again only if it began before its deletion.** `META` carries
   `createdAt`, written with the first id the account counts and kept from then on; the write that
@@ -323,10 +324,10 @@ switched to it**, and nobody can sign in to a restored account first (Gunnar's d
   it came from stays restorable until it is deleted, and a record kept too long costs nothing. When
   neither exists, or DynamoDB will not say, nothing is pruned. Point-in-time recovery is on for prod
   and off for qa (#553).
-- **Its role** (#554) needs `dynamodb:Query`, `GetItem`, `UpdateItem`, `DeleteItem` and
+- **Its role** has `dynamodb:Query`, `GetItem`, `PutItem`, `UpdateItem`, `DeleteItem` and
   `BatchWriteItem` on the table, `DescribeContinuousBackups` on every table, `ListTables` and
-  `ListBackups`, and on the bucket `s3:ListBucket` and `GetObject` under `deleted-accounts/`, and
-  `DeleteObject` there and on the attachments.
+  `ListBackups`, and on the bucket `s3:ListBucket`, `GetObject` under `deleted-accounts/`, and
+  `DeleteObject` there and on the attachments (`serverless-jobs.tf`).
 
 ### Restoring the table
 
@@ -477,9 +478,9 @@ it initialises (`Store.Prime`).
 
 ## The infrastructure
 
-`deployment/aws-tofu/modules/environment/serverless.tf` (#554), in both environments alike. All of
-it bills per request and nothing by the hour, so it is foundation: `env.sh down` leaves it, and an
-idle environment costs nothing for it.
+`serverless.tf` and `serverless-jobs.tf` in `deployment/aws-tofu/modules/environment/` (#554), in
+both environments alike. All of it is foundation, which `env.sh down` leaves: the functions, the
+API and the table bill per request, and the alarms, $0.10 a month each, are the one fixed cost.
 
 - **The table**, `<project>-<env>-data`, on demand. TTL on `expiresAt` deletes ended sessions,
   sign-ins under way and session links; the stream carries what a deleted item held, for the
@@ -505,10 +506,26 @@ idle environment costs nothing for it.
   reads it once at a cold start (`internal/secrets`). The test accounts' secret is in state already
   (D4 on #141).
 
-The function is created from `serverless/dist/api.zip`, which `serverless/build.sh` makes with Go
-where it is installed and the official Go image through podman or docker where it is not, with the
-other three commands' zips beside it for the second part of #554. OpenTofu uploads the code only
-when it creates a function; a release deploys its own (#555).
+**The background functions** are in `serverless-jobs.tf`, each with a role for exactly what it
+does:
+
+- `streams` gets the table's stream, filtered to the removals of `ATT#` items, so no other write
+  invokes it, with at most five retries and records at most an hour old.
+- `orphans` runs hourly and `replay` daily at 03:30 Berlin time, on EventBridge Scheduler, which
+  is free at two schedules. A failed run is not tried again; the next run does the same work.
+- The Go orphan clean-up's alert line feeds the containers' metric through a second filter, so
+  the one orphan alarm sees both backends.
+
+**The alarms**, each $0.10 a month, mail through the existing topic on entering ALARM and on
+leaving it: the API function's errors and throttles, the stream function more than ten minutes
+behind (it reports a failed record rather than failing, so its errors would never show one), the
+scheduled functions' errors, and the table's throttled reads and writes. That is seven per
+environment, about $1.40 a month for both. Not the HTTP API's 5xx answers: until the port is done,
+every unported route answers 501 on purpose (#558 watches the answers).
+
+The functions are created from `serverless/dist/<command>.zip`, which `serverless/build.sh` makes,
+with Go where it is installed and the official Go image through podman or docker where it is not.
+OpenTofu uploads the code only when it creates a function; a release deploys its own (#555).
 
 Applying it needs the administrator, since the lifecycle role, `env.sh`'s default, cannot create
 IAM roles, functions or tables. From the repository root on `main`:

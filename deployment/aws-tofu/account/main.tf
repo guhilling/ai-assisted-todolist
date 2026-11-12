@@ -176,6 +176,21 @@ data "aws_iam_policy_document" "read_only_guard" {
       "arn:aws:cognito-idp:*:*:userpool/*",
     ]
   }
+
+  # Nor a function's settings (#554), which hold the Go backend's origin secret and, in qa, the
+  # same Cognito client secret. Every read that returns them, the listings included, for every
+  # function: none of this account's needs looking into by this group.
+  statement {
+    sid    = "NeverReadAFunctionsSettings"
+    effect = "Deny"
+    actions = [
+      "lambda:GetFunction",
+      "lambda:GetFunctionConfiguration",
+      "lambda:ListFunctions",
+      "lambda:ListVersionsByFunction",
+    ]
+    resources = ["*"]
+  }
 }
 
 resource "aws_iam_group_policy" "read_only_guard" {

@@ -132,6 +132,9 @@ data "aws_iam_policy_document" "lifecycle" {
       "rds:List*",
       "route53:Get*",
       "route53:List*",
+      # The Go backend's schedules (serverless-jobs.tf).
+      "scheduler:Get*",
+      "scheduler:List*",
       # Describe and List, and the one Get a refresh needs: reading a secret's resource policy.
       # Not Get*, because that would include GetSecretValue -- a real privilege, which refreshing
       # a secret does not need.

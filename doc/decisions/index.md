@@ -125,6 +125,7 @@ commit that first wrote each one down. CI checks every line and that this index 
 - [The monitoring user reads no files and no secrets](deployment-and-aws.md#the-monitoring-user-reads-no-files-and-no-secrets)
 - [The attachments bucket refuses to be destroyed](deployment-and-aws.md#the-attachments-bucket-refuses-to-be-destroyed)
 - [The backend moves to Lambda, Go and DynamoDB, after a spike](deployment-and-aws.md#the-backend-moves-to-lambda-go-and-dynamodb-after-a-spike)
+- [The Go backend runs as four functions, behind a header, watched by seven alarms](deployment-and-aws.md#the-go-backend-runs-as-four-functions-behind-a-header-watched-by-seven-alarms)
 
 ## [Mobile app](mobile-app.md)
 
