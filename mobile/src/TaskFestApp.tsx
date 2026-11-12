@@ -266,7 +266,13 @@ export function TaskFestApp({
   const [account, setAccount] = useState<Account | null>(null)
   const [failure, setFailure] = useState<string>()
   /** The image opened from a task, shown over everything (#274). */
-  const [viewing, setViewing] = useState<{ url: string; fileName: string; contentType: string } | null>(null)
+  const [viewing, setViewing] = useState<{
+    taskId: Task['id']
+    attachmentId: Attachment['id']
+    url: string
+    fileName: string
+    contentType: string
+  } | null>(null)
   /** What other apps shared, oldest first, each waiting until the board can take it (#355). */
   const [shares, setShares] = useState<{ draft: SharedDraft; number: number }[]>([])
   /**
@@ -408,8 +414,10 @@ export function TaskFestApp({
       signOuts.current += 1
       signingOut.current += 1
       try {
-        // Before anything is awaited: a change answered meanwhile must not keep the board again.
+        // Before anything is awaited: a change answered meanwhile must not keep the board again,
+        // and a file downloaded meanwhile must find its session gone, neither shown nor kept.
         agreed.current = null
+        forgetFiles()
         // The keychain is cleared after the renewal under way, and stands in for one until it is: a
         // session asked for meanwhile is none, rather than one read from the keychain being cleared,
         // renewed and saved back into it after the clear (#428).
@@ -450,7 +458,6 @@ export function TaskFestApp({
         await reminders.replace([]).catch((failure: unknown) => {
           console.warn('The reminders could not be cleared', failure)
         })
-        forgetFiles()
         setOfferReminders(false)
         // An upload's own end no longer clears it once its session has ended.
         setUploading(null)
@@ -1557,6 +1564,22 @@ export function TaskFestApp({
     })
     return link
   }
+  /**
+   * Saves the image in the viewer (#586) from a link asked for now: the viewer's own may have
+   * expired while it stayed open. A session found ended signs out, as opening a file does.
+   */
+  const saveViewed = async (file: { taskId: Task['id']; attachmentId: Attachment['id']; fileName: string; contentType: string }) => {
+    try {
+      const url = await fileLink(file.taskId, file.attachmentId, false)
+      await documents?.save?.(url, file.fileName, file.contentType)
+    } catch (cause) {
+      if (cause instanceof SignedOutError) {
+        await signOut('sessionExpired')
+        return
+      }
+      throw cause
+    }
+  }
   const latestFileLink = useRef(fileLink)
   useEffect(() => {
     latestFileLink.current = fileLink
@@ -1618,7 +1641,13 @@ export function TaskFestApp({
         return
       }
       if (isImage(attachment)) {
-        setViewing({ url, fileName: attachment.fileName, contentType: attachment.contentType })
+        setViewing({
+          taskId: task.id,
+          attachmentId: attachment.id,
+          url,
+          fileName: attachment.fileName,
+          contentType: attachment.contentType,
+        })
       } else {
         await documents?.open(url, attachment.fileName, attachment.contentType)
       }
@@ -1796,9 +1825,7 @@ export function TaskFestApp({
               styles={styles}
               onClose={() => setViewing(null)}
               onDownload={
-                documents?.save && viewing
-                  ? () => documents.save!(viewing.url, viewing.fileName, viewing.contentType)
-                  : undefined
+                documents?.save && viewing ? () => saveViewed(viewing) : undefined
               }
             />
             <Modal

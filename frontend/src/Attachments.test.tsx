@@ -179,6 +179,29 @@ describe('when something goes wrong', () => {
   })
 })
 
+describe('a session that ends while a preview is open', () => {
+  it('signs the board out when Download finds the session gone, rather than calling it a failed download', async () => {
+    const backend = stubApi({ me: ALICE, tasks: [task({ attachments: [PHOTO] })] })
+    let links = 0
+    // The row's small preview and the large one get their links; the fresh one Download asks for
+    // finds the session ended.
+    const endsLater = vi.fn((input: RequestInfo | URL, init?: RequestInit) =>
+      String(input).endsWith('/attachments/8/link') && ++links > 2
+        ? Promise.resolve(new Response(null, { status: 401 }))
+        : backend(input, init),
+    )
+    await renderSignedIn(endsLater)
+    fireEvent.click(rowFor('Pay the invoice').getByRole('button', { name: 'Open Quittung.jpg' }))
+    const preview = await screen.findByRole('dialog', { name: 'Quittung.jpg' })
+
+    fireEvent.click(within(preview).getByRole('button', { name: 'Download' }))
+
+    expect(await screen.findByText('Your session has expired. Sign in again to carry on.')).toBeInTheDocument()
+    expect(screen.queryByText('Quittung.jpg could not be downloaded. Try again.')).not.toBeInTheDocument()
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+})
+
 describe('the refusals', () => {
   it('name the file, for every reason, in every language', () => {
     for (const catalogue of [en, de]) {

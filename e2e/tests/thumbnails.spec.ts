@@ -60,6 +60,7 @@ test('shows a photo on its row by a thumbnail the browser made', async ({ page }
   // Its large preview is the photo itself, and so is what Download saves (#586).
   const saved = await openFile(page, row, 'beach.png')
   expect(saved.link).not.toContain('.thumbnail')
+  expect(saved.size).toEqual({ width: 800, height: 600 })
   expect(saved.name).toBe('beach.png')
   expect(saved.bytes).toEqual(original)
 

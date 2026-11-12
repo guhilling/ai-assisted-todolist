@@ -4,7 +4,7 @@
  * a file, are written down once.
  */
 import { readFile } from 'node:fs/promises'
-import type { Locator, Page } from '@playwright/test'
+import { expect, type Locator, type Page } from '@playwright/test'
 
 /**
  * A due date this many days from today, as the date field takes it. Never a fixed date: the backend
@@ -32,8 +32,8 @@ export async function addTask(page: Page, description: string, dueDate: string, 
 
 /**
  * Opens a file from its task's row in its large preview (#586), saves it with the preview's
- * Download, and closes the preview again. Returns what was saved and the signed link the preview
- * showed the file through -- the photo's, the PDF viewer's, or, where the browser shows no PDF
+ * Download, and closes the preview again. Returns what was saved, the size a photo was shown at
+ * once decoded, and the signed link the preview showed the file through -- the photo's, the PDF viewer's, or, where the browser shows no PDF
  * inside the page, the link to open it in a new tab.
  */
 export async function openFile(page: Page, row: Locator, name: string) {
@@ -42,11 +42,17 @@ export async function openFile(page: Page, row: Locator, name: string) {
   const shown = preview.locator('img, iframe, a[target="_blank"]').first()
   await shown.waitFor()
   const link = (await shown.getAttribute('src')) ?? (await shown.getAttribute('href')) ?? ''
+  // A photo is shown once the browser has decoded it from storage, at its own size.
+  let size: { width: number; height: number } | null = null
+  if ((await shown.evaluate((element) => element.tagName)) === 'IMG') {
+    await expect.poll(() => shown.evaluate((image: HTMLImageElement) => image.naturalWidth)).toBeGreaterThan(0)
+    size = await shown.evaluate((image: HTMLImageElement) => ({ width: image.naturalWidth, height: image.naturalHeight }))
+  }
   const downloaded = page.waitForEvent('download')
   await preview.getByRole('button', { name: 'Download' }).click()
   const download = await downloaded
   const path = await download.path()
-  const saved = { name: download.suggestedFilename(), bytes: await readFile(path), link }
+  const saved = { name: download.suggestedFilename(), bytes: await readFile(path), link, size }
   await preview.getByRole('button', { name: 'Close' }).click()
   return saved
 }

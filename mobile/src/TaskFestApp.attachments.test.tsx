@@ -220,6 +220,47 @@ describe("a task's files on the board (#274)", () => {
     expect(deps.documents!.forget).toHaveBeenCalled()
   })
 
+  it('forgets the files as soon as a sign-out starts, before it waits for anything', async () => {
+    // A download for saving that ends while the sign-out clears the rest must find its session gone.
+    let cleared: () => void = () => undefined
+    const sessions = { ...memorySessions(session), clear: jest.fn(() => new Promise<void>((resolve) => (cleared = resolve))) }
+    const deps = dependencies({ sessions })
+    await show(deps)
+    const user = userEvent.setup()
+    await screen.findByRole('button', { name: 'Open photo.jpg' })
+
+    await user.press(screen.getByRole('button', { name: 'Account' }))
+    await user.press(screen.getByRole('button', { name: 'Sign out' }))
+
+    await waitFor(() => expect(deps.documents!.forget).toHaveBeenCalled())
+    expect(sessions.clear).toHaveBeenCalled()
+    await act(async () => cleared())
+  })
+
+  it('downloads from a fresh link, as the one the viewer opened with may have expired', async () => {
+    let clock = NOW
+    let signed = 0
+    const link = jest.fn(async () => `https://bucket.example.com/1/3/file?${++signed}`)
+    const save = jest.fn().mockResolvedValue(undefined)
+    await show(dependencies({
+      now: () => clock,
+      attachments: { link, remove: jest.fn().mockResolvedValue(undefined) },
+      documents: { open: jest.fn(), forget: jest.fn().mockResolvedValue(undefined), save },
+    }))
+    const user = userEvent.setup()
+    await user.press(await screen.findByRole('button', { name: 'Open photo.jpg' }))
+    const viewer = await screen.findByTestId('file-viewer')
+    const shown = (within(viewer).getByTestId('viewed-image').props as { source: { uri: string } }).source.uri
+
+    // Past the minutes a link is used again for, as a viewer left open would be.
+    clock += 10 * 60 * 1000
+    await user.press(within(viewer).getByRole('button', { name: 'Download' }))
+
+    await waitFor(() => expect(save).toHaveBeenCalled())
+    expect(save.mock.calls[0][0]).not.toBe(shown)
+    expect(save).toHaveBeenCalledWith(expect.stringMatching(/^https:\/\/bucket\.example\.com\/1\/3\/file\?/), 'photo.jpg', 'image/jpeg')
+  })
+
   it('says so when a file cannot be opened', async () => {
     const link = jest.fn((caller: unknown, taskId: number, attachmentId: number, thumbnail: boolean) =>
       thumbnail ? linkTo(caller, taskId, attachmentId, thumbnail) : Promise.reject(new Error('offline')),

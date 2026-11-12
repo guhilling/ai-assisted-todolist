@@ -613,7 +613,16 @@ function Board() {
         <FilePreview
           key={previewed.url}
           file={previewed}
-          link={() => attachmentLink(previewed.taskId, previewed.attachmentId)}
+          link={() =>
+            attachmentLink(previewed.taskId, previewed.attachmentId).catch((linkError: unknown) => {
+              // A session that has ended is the board's to report, as on every other request.
+              if (linkError instanceof SessionExpiredError) {
+                closePreview()
+                reportFailure(linkError, 'loading')
+              }
+              throw linkError
+            })
+          }
           onClose={closePreview}
         />
       ) : null}

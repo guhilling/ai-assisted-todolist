@@ -52,9 +52,41 @@ describe('a photo', () => {
     const cancel = new Event('cancel', { cancelable: true })
     fireEvent(dialog, cancel)
     expect(cancel.defaultPrevented).toBe(true)
-    // The backdrop is the dialog itself, around its content.
+    // The backdrop is the dialog itself, around its content: pressed there, it closes.
+    fireEvent.mouseDown(dialog)
     fireEvent.click(dialog)
     expect(onClose).toHaveBeenCalledTimes(3)
+  })
+
+  it('stays open when a press that began on the file ends on the backdrop', () => {
+    // Selecting the file's name and letting go beside it: the click lands on the backdrop.
+    const onClose = vi.fn()
+    render(<FilePreview file={PHOTO} link={fresh} onClose={onClose} />)
+    const dialog = screen.getByRole('dialog', { name: 'Quittung.jpg' })
+
+    fireEvent.mouseDown(screen.getByRole('img', { name: 'Quittung.jpg' }))
+    fireEvent.click(dialog)
+
+    expect(onClose).not.toHaveBeenCalled()
+  })
+
+  it('closes the modal dialog before giving the focus back, so the board is no longer out of reach', () => {
+    const closed = vi.fn()
+    HTMLDialogElement.prototype.close ??= function () {}
+    vi.spyOn(HTMLDialogElement.prototype, 'close').mockImplementation(function (this: HTMLDialogElement) {
+      closed(document.activeElement)
+      this.removeAttribute('open')
+    })
+    render(<button type="button">Open Quittung.jpg</button>)
+    const opener = screen.getByRole('button', { name: 'Open Quittung.jpg' })
+    opener.focus()
+    const { unmount } = render(<FilePreview file={PHOTO} link={fresh} onClose={() => {}} />)
+
+    unmount()
+
+    expect(closed).toHaveBeenCalledTimes(1)
+    expect(closed.mock.calls[0][0]).not.toBe(opener)
+    expect(opener).toHaveFocus()
   })
 
   it('takes the focus, and gives it back to what had it when it goes', () => {

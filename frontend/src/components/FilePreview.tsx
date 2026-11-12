@@ -47,6 +47,9 @@ function FilePreview({ file, link, onClose, inlinePdf = showsPdfInline() }: Read
   const [saving, setSaving] = useState(false)
   const dialog = useRef<HTMLDialogElement>(null)
   const close = useRef<HTMLButtonElement>(null)
+  // Whether the press now ending began on the backdrop: a selection begun on the file and let go
+  // beside it ends in a click there too, and must not close the preview.
+  const pressedOnBackdrop = useRef(false)
 
   // Modal where the browser can (jsdom cannot), then the focus on Close; and back to what had it
   // before, once the preview goes.
@@ -61,7 +64,14 @@ function FilePreview({ file, link, onClose, inlinePdf = showsPdfInline() }: Read
       }
     }
     close.current?.focus()
-    return () => opener?.focus()
+    return () => {
+      // Closed before the focus goes back: while the dialog is modal, the board is inert and
+      // cannot take it, and removing a dialog does not close it.
+      if (element?.open && typeof element.close === 'function') {
+        element.close()
+      }
+      opener?.focus()
+    }
   }, [])
 
   // Escape, which a modal dialog reports as a cancel and would act on by closing itself.
@@ -94,10 +104,14 @@ function FilePreview({ file, link, onClose, inlinePdf = showsPdfInline() }: Read
       ref={dialog}
       className="file-preview-backdrop"
       aria-label={file.fileName}
+      onMouseDown={(event) => {
+        pressedOnBackdrop.current = event.target === event.currentTarget
+      }}
       onClick={(event) => {
-        if (event.target === event.currentTarget) {
+        if (event.target === event.currentTarget && pressedOnBackdrop.current) {
           onClose()
         }
+        pressedOnBackdrop.current = false
       }}
     >
       <div className="file-preview">
