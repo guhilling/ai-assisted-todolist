@@ -518,7 +518,7 @@ API and the table bill per request, and the alarms, $0.10 a month each, are the 
 - **CloudFront** has the HTTP API as a second `/api/*` origin, always, without the viewer's
   `Host`, which API Gateway would refuse: the function takes its own address from
   `TASKFEST_PUBLIC_ORIGIN`. `api_backend` in `terraform.tfvars` says which origin `/api/*` uses:
-  `containers` until the cut-over (#557), then `serverless`.
+  `serverless` in qa since 2026-11-12, to try it (#557); `containers` in prod until its cut-over.
 - **Sign-in** is configured as for the containers: on only where Google's client id is set, and the
   test accounts beside Google where they exist. Google's client secret stays out of OpenTofu: the
   function's setting `TASKFEST_OIDC_GOOGLE_CLIENT_SECRET_ARN` names the secret, and the function

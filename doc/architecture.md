@@ -6,7 +6,8 @@ Lambda with DynamoDB, which is being ported (#547). One setting, `api_backend`, 
 CloudFront sends `/api/*` to. Every route is ported, so the website and the apps cannot tell
 them apart; what remains of the port is how it is built, deployed and watched.
 [Two architectures](#two-architectures) compares them and says why the Go backend is the one
-switched to. Most of this page describes the containers' backend, which is what serves today.
+switched to. Most of this page describes the containers' backend, which serves prod; qa has
+served from the Go backend since 2026-11-12, to try it (#557).
 
 ## The pieces
 
@@ -155,8 +156,9 @@ to learn, and DynamoDB's designed-up-front access patterns. The decision,
 weighs these, and [serverless.md](deployment/serverless.md#what-speaks-against-it) lists the
 drawbacks in full.
 
-**Why keep both for now.** Until the Go backend has every route and has served qa for a while, the
-containers are what serves, and the way back if the Go backend falls short. Each has its own
+**Why keep both for now.** The Go backend serves qa since 2026-11-12, to try it; until it has
+served qa for a while, the containers serve prod, and stay the way back if the Go backend falls
+short. Each has its own
 database; in the shared bucket the Go backend keeps to `serverless/`, so neither backend's
 clean-up takes the other's files for orphans, and IAM keeps each out of the other's part (#578).
 The cut-over (#557) switches `api_backend` and nothing else: no task or attachment moves with it,

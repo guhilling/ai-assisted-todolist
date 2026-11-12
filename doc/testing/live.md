@@ -31,8 +31,10 @@ It has three parts:
 The last one goes up to Google's door and not through it: following the button is checked,
 signing in at Google is not, because Google forbids automating that.
 
-**While the environment is down**, CloudFront answers every `/api` request with a 503 and *The
-backend is not running in this environment.* `e2e/live/backend-state.ts` asks once, before the
+**While the environment is down**, and the containers serve `/api/*` there, CloudFront answers
+every `/api` request with a 503 and *The backend is not running in this environment.* An
+environment whose `/api/*` the Go backend serves, as qa's has since 2026-11-12 (#557), is never
+down in this sense: its API checks always run. `e2e/live/backend-state.ts` asks once, before the
 checks: the API checks then **skip** with that message, the frontend checks **still run**,
 because the site outlives `down`, and the paused page is checked — which in turn skips while the
 environment is up. The run summary says which of the two it was. Anything else

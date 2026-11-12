@@ -200,7 +200,14 @@ jobs:
           IN_RELEASE: ${{ github.workflow == 'Release' }}
         run: |
           set -euo pipefail
-          version=$(curl -fsS "$LIVE_BASE_URL/api/version" | jq -er .version)
+          # A version that is no release -- unreadable, or the SNAPSHOT a build from main reports, as
+          # the Go functions uploaded by hand do until #555 -- has no app kept: skip at once rather
+          # than wait twenty minutes for a bundle that never comes.
+          version=$(curl -fsS "$LIVE_BASE_URL/api/version" | jq -er .version || echo unknown)
+          if [ "$version" = unknown ] || [[ "$version" == *-SNAPSHOT ]]; then
+            echo "::warning::${ENVIRONMENT} runs ${version}, no release: the app's live run is skipped."
+            exit 0
+          fi
           name="taskfest-${ENVIRONMENT}-${version}-aab"
           attempts=1
           if [ "$IN_RELEASE" = true ]; then attempts=40; fi
