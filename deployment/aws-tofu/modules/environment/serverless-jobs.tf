@@ -29,6 +29,13 @@ locals {
     replay  = "cron(30 3 * * ? *)"
   }
 
+  # Neither runs before the cut-over (#557). Until then the bucket is the containers': the orphan
+  # clean-up calls each of their files an orphan, since the Go table refers to none, and raises the
+  # alarm every hour, as qa's first run did. The replay prunes their deletion records by DynamoDB's
+  # restore points, not by the RDS snapshots those records are kept for. What the cut-over must do
+  # about the bucket first is #557's.
+  schedules_on = var.api_backend == "serverless"
+
   # Each function's role, one policy each (below).
   job_policies = {
     streams = data.aws_iam_policy_document.job_streams.json
@@ -286,6 +293,7 @@ resource "aws_scheduler_schedule" "job" {
   name                         = "${local.name}-${each.key}"
   schedule_expression          = each.value
   schedule_expression_timezone = "Europe/Berlin"
+  state                        = local.schedules_on ? "ENABLED" : "DISABLED"
 
   flexible_time_window {
     mode = "OFF"

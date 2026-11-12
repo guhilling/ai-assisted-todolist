@@ -195,7 +195,8 @@ unchanged.
   Removing an attachment, and a mismatch on confirm, also delete the files at once, after the
   item; Quarkus deleted the file first, so that a failure in between left a row pointing at
   nothing rather than a file nobody could find. With the stream, neither order loses track of one.
-- **The orphan clean-up is `cmd/orphans`**, which EventBridge Scheduler runs hourly. It reads every
+- **The orphan clean-up is `cmd/orphans`**, which EventBridge Scheduler runs hourly, once the
+  cut-over has switched it on ([the infrastructure](#the-infrastructure)). It reads every
   user's `ATT#` items with a `Scan`, the one read across partitions, lists the bucket, and keeps
   every rule of Quarkus's `OrphanPlan`, whose tests are ported: an object no item refers to goes
   after seven days; a table without a single file deletes nothing; more than two orphans older
@@ -513,6 +514,13 @@ does:
   invokes it, with at most five retries and records at most an hour old.
 - `orphans` runs hourly and `replay` daily at 03:30 Berlin time, on EventBridge Scheduler, which
   is free at two schedules. A failed run is not tried again; the next run does the same work.
+- **Both schedules are disabled until `api_backend` is `serverless`**, because until then the
+  bucket is the containers'. `orphans` called qa's six files orphans on its first run, since the Go
+  table refers to none, and raised the alarm; it deleted nothing, a table without a file deletes
+  nothing. `replay` would prune the containers' deletion records by DynamoDB's restore points,
+  where they must outlast the RDS snapshots. The switch alone does not make the bucket the Go
+  backend's: the containers' files and records are still in it, and #557 says what happens to
+  them before the schedules may run.
 - The Go orphan clean-up's alert line feeds the containers' metric through a second filter, so
   the one orphan alarm sees both backends.
 
