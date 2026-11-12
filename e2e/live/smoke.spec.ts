@@ -90,10 +90,16 @@ test.describe('the API through CloudFront', () => {
     // The frontend's fetches send this header, and Quarkus answers them with a 499 instead of a
     // redirect into a login page a script could not follow.
     const script = await request.get('/api/tasks', { headers: { 'X-Requested-With': 'JavaScript' }, maxRedirects: 0 })
-    expect(script.status()).toBe(499)
-
     // A browser navigation is sent to sign in instead -- never the data, and never the app.
     const navigation = await request.get('/api/tasks', { maxRedirects: 0 })
+
+    // The Go backend (#557) answers both with a 401 (authentication.md). Either backend's pair,
+    // never a mix of the two.
+    if (script.status() === 401) {
+      expect(navigation.status()).toBe(401)
+      return
+    }
+    expect(script.status()).toBe(499)
     expect(navigation.status()).toBe(302)
     expect(navigation.headers()['location']).toMatch(/^https:\/\/accounts\.google\.com\//)
   })

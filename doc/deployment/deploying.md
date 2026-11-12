@@ -156,7 +156,8 @@ last segment has no dot gets `index.html`, and a path that names a file is passe
 missing asset is still the bucket's 403. It replaces httpd's `FallbackResource`. CloudFront's
 custom error responses would have been the usual way, and are not used because they apply to
 every origin: `/api/*` errors would have become the app with a 200. While an environment is
-**down** there is no `/api/*` behaviour, so API requests reach this function too; it answers them
-with a plain 503, "The backend is not running in this environment", rather than the app — the
-first deployment showed `/api/auth/providers` coming back as `index.html` with a 200 until it did.
+**down**, and the containers serve its `/api/*`, there is no `/api/*` behaviour, so API requests
+reach this function too; it answers them with a plain 503, "The backend is not running in this
+environment", rather than the app — the first deployment showed `/api/auth/providers` coming back
+as `index.html` with a 200 until it did.
 
