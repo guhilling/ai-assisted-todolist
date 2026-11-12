@@ -85,11 +85,16 @@ func main() {
 		slog.Error("the sign-in configuration is wrong", "error", err)
 		os.Exit(1)
 	}
+	minimumApp, err := api.MinimumAppVersionIn(os.Getenv)
+	if err != nil {
+		slog.Error("the minimum app version is wrong", "error", err)
+		os.Exit(1)
+	}
 	avatars := gravatar.New(os.Getenv("TASKFEST_GRAVATAR_ENABLED") != "false", gravatar.DefaultBase)
 	signIn := auth.New(authConfig, store.NewSessions(client, table), avatars)
 	accounts := store.NewAccounts(client, table)
 	server := &api.Server{Tasks: tasks, Writes: writes, Attachments: writes, Files: bucket, SignIn: signIn,
-		Accounts: accounts, Version: version, MinimumAppVersion: api.MinimumAppVersionIn(os.Getenv),
+		Accounts: accounts, Version: version, MinimumAppVersion: minimumApp,
 		Caller: api.Settled(func(r *http.Request) (string, bool) {
 			id, ok := signIn.Identify(r)
 			return id.Email, ok

@@ -13,7 +13,10 @@ set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # What GET /api/version reports: a release's version (#555), or a build from main.
 version="${TASKFEST_VERSION:-1.0.0-SNAPSHOT}"
-[[ "$version" =~ ^[0-9A-Za-z.+-]+$ ]] || { echo "Not a version: $version" >&2; exit 1; }
+# As the release workflow reads it (deploy-backend.py's RELEASE_VERSION): no leading v, and within
+# the contract's 64 characters.
+[[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ && ${#version} -le 64 ]] ||
+    { echo "Not a release version: $version" >&2; exit 1; }
 mkdir -p "$HERE/dist"
 commands=(api streams orphans replay)
 
@@ -35,11 +38,13 @@ else
         echo "Needs Go, podman or docker." >&2
         exit 1
     fi
-    version="$(sed -n 's/^go \([0-9.]*\).*/\1/p' "$HERE/go.mod")"
-    "$engine" run --rm -v "$HERE:/src" -w /src "docker.io/library/golang:${version}" sh -c "$build"
+    go_version="$(sed -n 's/^go \([0-9.]*\).*/\1/p' "$HERE/go.mod")"
+    "$engine" run --rm -v "$HERE:/src" -w /src "docker.io/library/golang:${go_version}" sh -c "$build"
 fi
 
 for c in "${commands[@]}"; do
     (cd "$HERE/dist/$c" && zip -q -X "../$c.zip" bootstrap)
 done
-echo "Built ${commands[*]} into $HERE/dist"
+# -X is ignored without a word when the variable is not there, so check the version arrived.
+grep -qF "$version" "$HERE/dist/api/bootstrap" || { echo "The version did not reach cmd/api." >&2; exit 1; }
+echo "Built ${commands[*]} as $version into $HERE/dist"

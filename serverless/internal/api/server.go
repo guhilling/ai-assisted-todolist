@@ -37,8 +37,7 @@ type SignIn interface {
 	Config() auth.Config
 }
 
-// Server implements every route of the contract. The ones not ported yet answer 501
-// (unported.go); each story of the port (#547) replaces some of them.
+// Server implements every route of the contract.
 type Server struct {
 	Tasks TasksSource
 	// Writes is where creates, replaces and deletes of tasks go.
