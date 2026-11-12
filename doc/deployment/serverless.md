@@ -78,8 +78,8 @@ Nothing to take down, and `prod` can simply stay up.
 - **`cmd/streams`** deletes the files of attachment items that go, from the table's stream, and
   **`cmd/orphans`** is the hourly clean-up of files no item refers to ([Attachments](#attachments)).
 - **`internal/api`** holds the routes and wire types, generated from `doc/api/openapi.json`, and
-  the handlers. A route not ported yet answers 501. One test checks that every route of the
-  contract is served, and each ported route checks its responses against the contract.
+  the handlers. Every route is ported; one test checks that every route of the contract is
+  served, and each route's tests check its responses against the contract.
 - **`internal/board`** is the domain, with no AWS package in it; **`internal/store`** is DynamoDB,
   and **`internal/files`** the attachment bucket in S3.
 - **`internal/auth`** is sign-in, below, and **`internal/gravatar`** the picture fallback.
@@ -543,8 +543,8 @@ does:
 leaving it: the API function's errors and throttles, the stream function more than ten minutes
 behind (it reports a failed record rather than failing, so its errors would never show one), the
 scheduled functions' errors, and the table's throttled reads and writes. That is seven per
-environment, about $1.40 a month for both. Not the HTTP API's 5xx answers: until the port is done,
-every unported route answers 501 on purpose (#558 watches the answers).
+environment, about $1.40 a month for both. Not the HTTP API's 5xx answers yet: they were left out
+while unported routes answered 501 on purpose, and #558 adds them.
 
 The functions are created from `serverless/dist/<command>.zip`, which `serverless/build.sh` makes,
 with Go where it is installed and the official Go image through podman or docker where it is not.

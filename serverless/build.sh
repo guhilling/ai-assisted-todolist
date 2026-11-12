@@ -11,6 +11,9 @@
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# What GET /api/version reports: a release's version (#555), or a build from main.
+version="${TASKFEST_VERSION:-1.0.0-SNAPSHOT}"
+[[ "$version" =~ ^[0-9A-Za-z.+-]+$ ]] || { echo "Not a version: $version" >&2; exit 1; }
 mkdir -p "$HERE/dist"
 commands=(api streams orphans replay)
 
@@ -18,7 +21,7 @@ build='set -e; for c in '"${commands[*]}"'; do'
 build+=' CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -tags lambda.norpc -trimpath'
 # $c expands where the loop runs, here or in the container, not now.
 # shellcheck disable=SC2016
-build+=' -ldflags="-s -w" -o "dist/$c/bootstrap" "./cmd/$c"; done'
+build+=' -ldflags="-s -w -X main.version='"$version"'" -o "dist/$c/bootstrap" "./cmd/$c"; done'
 
 for c in "${commands[@]}"; do
     rm -rf "${HERE:?}/dist/$c" "$HERE/dist/$c.zip"

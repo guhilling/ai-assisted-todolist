@@ -1,13 +1,14 @@
-// Command api is the TaskFest backend in Go (#547): every route of doc/api/openapi.json, the
-// unported ones answering 501. On Lambda it serves API Gateway's HTTP API; anywhere else it is a
-// plain HTTP server, for local development and the end-to-end tests, so both run the same code.
+// Command api is the TaskFest backend in Go (#547): every route of doc/api/openapi.json. On Lambda
+// it serves API Gateway's HTTP API; anywhere else it is a plain HTTP server, for local development
+// and the end-to-end tests, so both run the same code.
 //
 // Settings, from the environment: TABLE_NAME, the DynamoDB table; DYNAMODB_ENDPOINT, set only for
 // DynamoDB Local; TASKFEST_ATTACHMENTS_BUCKET, the attachment bucket, as for the Quarkus backend;
 // S3_ENDPOINT, set only for LocalStack; PORT, for the HTTP server, 8080 by default; sign-in's,
 // which auth.LoadConfig lists, where a client secret X_SECRET may instead be X_SECRET_ARN, the
 // Secrets Manager secret holding it (internal/secrets); TASKFEST_GRAVATAR_ENABLED, "false" to
-// never ask Gravatar; on Lambda, TASKFEST_ORIGIN_SECRET, the value CloudFront sends in
+// never ask Gravatar; TASKFEST_MINIMUM_APP_VERSION, the oldest app release served, as for the
+// Quarkus backend; on Lambda, TASKFEST_ORIGIN_SECRET, the value CloudFront sends in
 // lambdahttp.OriginHeader.
 package main
 
@@ -34,6 +35,11 @@ import (
 	"github.com/guhilling/ai-assisted-todolist/serverless/internal/secrets"
 	"github.com/guhilling/ai-assisted-todolist/serverless/internal/store"
 )
+
+// version is the release this build was made as, which GET /api/version reports. build.sh sets it
+// from TASKFEST_VERSION, as a release's build will (#555); anything else is a build from main, as
+// the Quarkus backend's 1.0.0-SNAPSHOT is.
+var version = "1.0.0-SNAPSHOT"
 
 func main() {
 	// Once per cold start, outside any request, so that warm requests reuse the client.
@@ -83,7 +89,7 @@ func main() {
 	signIn := auth.New(authConfig, store.NewSessions(client, table), avatars)
 	accounts := store.NewAccounts(client, table)
 	server := &api.Server{Tasks: tasks, Writes: writes, Attachments: writes, Files: bucket, SignIn: signIn,
-		Accounts: accounts,
+		Accounts: accounts, Version: version, MinimumAppVersion: api.MinimumAppVersionIn(os.Getenv),
 		Caller: api.Settled(func(r *http.Request) (string, bool) {
 			id, ok := signIn.Identify(r)
 			return id.Email, ok

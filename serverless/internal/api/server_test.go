@@ -113,14 +113,6 @@ func TestAStoreFailureIsAServerErrorWithoutDetail(t *testing.T) {
 	}
 }
 
-func TestAnUnportedRouteSaysSo(t *testing.T) {
-	rec := get(&Server{Caller: signedIn, Tasks: &fakeTasks{}}, "/api/version")
-
-	if rec.Code != http.StatusNotImplemented {
-		t.Errorf("got %d; want 501", rec.Code)
-	}
-}
-
 func TestAPathIdThatIsNoNumberIsNotFound(t *testing.T) {
 	rec := httptest.NewRecorder()
 	Routes(&Server{Caller: signedIn, Tasks: &fakeTasks{}}).
