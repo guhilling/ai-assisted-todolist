@@ -261,11 +261,33 @@ variable "backend_memory" {
   }
 }
 
-variable "serverless_spike" {
+variable "table_name" {
   description = <<-EOT
-    Whether this environment has the serverless spike (#535): a Go Lambda function and a DynamoDB
-    table that measure a cold start (serverless-spike.tf). qa only.
+    The Go backend's table, when it is not the one this module names itself: set to a restored
+    table's name when the functions are switched to it (doc/deployment/serverless.md).
   EOT
+  type        = string
+  default     = ""
+}
+
+variable "table_point_in_time_recovery" {
+  description = "Whether the Go backend's table keeps point-in-time recovery (#553): prod only."
   type        = bool
   default     = false
+}
+
+variable "api_backend" {
+  description = <<-EOT
+    Which backend CloudFront sends /api/* to (#554): "containers", the Quarkus backend behind the
+    load balancer while the environment is up, or "serverless", the Go backend's HTTP API
+    (serverless.tf), which is there whether the environment is up or not. The cut-over (#557)
+    switches it.
+  EOT
+  type        = string
+  default     = "containers"
+
+  validation {
+    condition     = contains(["containers", "serverless"], var.api_backend)
+    error_message = "api_backend is \"containers\" or \"serverless\"."
+  }
 }

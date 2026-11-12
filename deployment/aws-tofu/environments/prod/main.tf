@@ -72,7 +72,9 @@ module "environment" {
   blue_green_bake_minutes      = var.blue_green_bake_minutes
   backend_cpu                  = var.backend_cpu
   backend_memory               = var.backend_memory
-  serverless_spike             = var.serverless_spike
+  api_backend                  = var.api_backend
+  table_point_in_time_recovery = var.table_point_in_time_recovery
+  table_name                   = var.table_name
   deregistration_delay_seconds = var.deregistration_delay_seconds
   cpu_architecture             = var.cpu_architecture
 }

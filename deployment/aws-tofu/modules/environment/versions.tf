@@ -22,5 +22,11 @@ terraform {
       # else is in, so the module is handed a second provider for that one resource.
       configuration_aliases = [aws.us_east_1]
     }
+
+    # The secret CloudFront sends to the Go backend (serverless.tf).
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.9"
+    }
   }
 }

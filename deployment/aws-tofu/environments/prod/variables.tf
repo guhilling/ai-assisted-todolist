@@ -95,9 +95,19 @@ variable "backend_memory" {
   type        = number
 }
 
-variable "serverless_spike" {
-  description = "Whether this environment has the serverless spike's function and table (#535)."
+variable "table_name" {
+  description = "The Go backend's table, when switched to a restored one; empty for its own."
+  type        = string
+}
+
+variable "table_point_in_time_recovery" {
+  description = "Whether the Go backend's table keeps point-in-time recovery (#553)."
   type        = bool
+}
+
+variable "api_backend" {
+  description = "Which backend CloudFront sends /api/* to: \"containers\" or \"serverless\" (#554)."
+  type        = string
 }
 
 variable "cpu_architecture" {

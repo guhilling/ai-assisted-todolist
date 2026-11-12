@@ -39,5 +39,11 @@ cpu_architecture = "ARM64"
 backend_cpu    = 512
 backend_memory = 1024
 
-# The serverless spike runs in qa only (#535).
-serverless_spike = false
+# The containers serve /api/* until the cut-over (#557) switches it to the Go backend.
+api_backend = "containers"
+
+# The Go backend's own table; a restored one's name only after a switch to it (serverless.md).
+table_name = ""
+
+# Point-in-time recovery for the Go backend's table, as decided on #553.
+table_point_in_time_recovery = true

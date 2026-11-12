@@ -4,8 +4,11 @@
 //
 // Settings, from the environment: TABLE_NAME, the DynamoDB table; DYNAMODB_ENDPOINT, set only for
 // DynamoDB Local; TASKFEST_ATTACHMENTS_BUCKET, the attachment bucket, as for the Quarkus backend;
-// S3_ENDPOINT, set only for LocalStack; PORT, for the HTTP server, 8080 by default; sign-in's, which auth.LoadConfig
-// lists; TASKFEST_GRAVATAR_ENABLED, "false" to never ask Gravatar.
+// S3_ENDPOINT, set only for LocalStack; PORT, for the HTTP server, 8080 by default; sign-in's,
+// which auth.LoadConfig lists, where a client secret X_SECRET may instead be X_SECRET_ARN, the
+// Secrets Manager secret holding it (internal/secrets); TASKFEST_GRAVATAR_ENABLED, "false" to
+// never ask Gravatar; on Lambda, TASKFEST_ORIGIN_SECRET, the value CloudFront sends in
+// lambdahttp.OriginHeader.
 package main
 
 import (
@@ -18,6 +21,7 @@ import (
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
+	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
 
 	// Lambda's provided.al2023 image has no zone database, and a task's due time is in a zone.
 	_ "time/tzdata"
@@ -27,6 +31,7 @@ import (
 	"github.com/guhilling/ai-assisted-todolist/serverless/internal/files"
 	"github.com/guhilling/ai-assisted-todolist/serverless/internal/gravatar"
 	"github.com/guhilling/ai-assisted-todolist/serverless/internal/lambdahttp"
+	"github.com/guhilling/ai-assisted-todolist/serverless/internal/secrets"
 	"github.com/guhilling/ai-assisted-todolist/serverless/internal/store"
 )
 
@@ -47,7 +52,29 @@ func main() {
 	writes := store.NewWrites(client, table)
 	bucketName := os.Getenv("TASKFEST_ATTACHMENTS_BUCKET")
 	bucket := files.New(files.NewClient(cfg, os.Getenv("S3_ENDPOINT")), bucketName)
-	authConfig, err := auth.LoadConfig(os.Getenv)
+	// Opening the DynamoDB connection waits on the network, and so does reading the secrets: both
+	// at once, so a cold start waits for the slower one only.
+	primed := make(chan struct{})
+	go func() {
+		defer close(primed)
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		if err := tasks.Prime(ctx); err != nil {
+			// Only slower: the first request opens the connection instead.
+			slog.Warn("priming the DynamoDB connection failed", "error", err)
+		}
+	}()
+	// A client secret comes from Secrets Manager where the setting names one (#554), well inside
+	// Lambda's ten seconds for a start, so a Secrets Manager that does not answer fails it with a
+	// line that says so.
+	secretsCtx, cancelSecrets := context.WithTimeout(context.Background(), 3*time.Second)
+	settings, err := secrets.Resolve(secretsCtx, os.Environ(), secretsmanager.NewFromConfig(cfg))
+	cancelSecrets()
+	if err != nil {
+		slog.Error("reading the secrets failed", "error", err)
+		os.Exit(1)
+	}
+	authConfig, err := auth.LoadConfig(settings)
 	if err != nil {
 		slog.Error("the sign-in configuration is wrong", "error", err)
 		os.Exit(1)
@@ -67,15 +94,16 @@ func main() {
 	}
 	routes := api.Routes(server)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	if err := tasks.Prime(ctx); err != nil {
-		// Only slower: the first request opens the connection instead.
-		slog.Warn("priming the DynamoDB connection failed", "error", err)
-	}
-	cancel()
+	<-primed
 
 	if os.Getenv("AWS_LAMBDA_RUNTIME_API") != "" {
-		lambda.Start(lambdahttp.Handler(routes))
+		secret := os.Getenv("TASKFEST_ORIGIN_SECRET")
+		if secret == "" {
+			// FromOrigin would refuse every request; better a start that fails and says why.
+			slog.Error("TASKFEST_ORIGIN_SECRET is not set")
+			os.Exit(1)
+		}
+		lambda.Start(lambdahttp.Handler(lambdahttp.FromOrigin(secret, routes)))
 		return
 	}
 	port := os.Getenv("PORT")

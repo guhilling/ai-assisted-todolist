@@ -46,8 +46,10 @@ Nothing to take down, and `prod` can simply stay up.
                                                           └──> S3 (attachments)
 ```
 
-- **One Lambda function per concern or one for the API** is decided during the port; the spike
-  has one handler.
+- **Four functions** (#554): `api` serves every route behind the HTTP API; `streams` follows the
+  table's stream and deletes the files of attachments that go; `orphans` and `replay` run on a
+  schedule. [The infrastructure](#the-infrastructure) says what `api` is given; the other three
+  come with the second part of #554.
 - **DynamoDB, one table.** The partition key is the user, `USER#<sha256 of the email>`; the sort
   key says what the item is: `META` for the user, `TASK#<id>`, `DRAFT#<id>`, `ATT#<id>`, and
   `SESSION#<key>` for each of the website's sessions, so that deleting the account ends them. A
@@ -123,8 +125,8 @@ rules, `internal/api` the requests, `internal/store` the items.
   `UpdateItem`, `DeleteItem`, `Query`, `BatchWriteItem`, which deleting an account uses, and
   `ConditionCheckItem`, which IAM checks for each item of a transaction, and on the attachment
   bucket `s3:PutObject`, `GetObject`, `DeleteObject` and `ListBucket`, without which a `HEAD` of
-  a missing file is a 403 rather than a 404. The spike's role has none of them but `Query`
-  (#554).
+  a missing file is a 403 rather than a 404. `serverless.tf` gives the API function's role exactly
+  these (#554).
 - **Keys are read as Jackson reads them:** exactly as written, so `"Description"` is no
   description, and of a key given twice the last one counts.
 - **Jackson's leniencies about values are not copied.** It takes a number for a string
@@ -238,8 +240,8 @@ Two things differ, by Gunnar's decision on #549:
   once broke every sign-in; the price is that a withdrawn account stays signed in for up to
   seven days rather than an hour.
 
-Both kinds of item carry `expiresAt`, which will be the table's TTL attribute once #554 turns
-TTL on, and the backend checks the times itself as well, since TTL deletes late. A busy session
+Both kinds of item carry `expiresAt`, the table's TTL attribute (#554), and the backend checks the
+times itself as well, since TTL deletes late. A busy session
 records its latest request at most every five minutes. A request with no or an ended session
 gets a 401: Quarkus answered the website's scripts a 499 instead, and the frontend treats both
 alike. A sign-in that fails at the callback (a second tab's, a callback used twice, one
@@ -349,8 +351,25 @@ administrator's profile.
    ```
    It logs one JSON line, `deletion-replay`, with how many accounts it deleted again; it exits
    non-zero when one could not be, and is then run again.
-3. **Switch the functions to the new table.** A restore does not carry the table's TTL, stream or
-   point-in-time recovery settings over, so the apply that switches also sets them (#554).
+3. **Switch the functions to the new table**, as the administrator, in the environment's root.
+   OpenTofu forgets the old table, which stays, protected from deletion, until it is deleted by
+   hand; `table_name` in `terraform.tfvars` names the restored one; OpenTofu takes it over; and
+   the apply sets what a restore does not carry over, TTL, the stream and point-in-time recovery,
+   and points the functions, their roles and the stream's mapping at it:
+   ```bash
+   tofu state rm module.environment.aws_dynamodb_table.data
+   # table_name = "<table>-restored-<date>" in terraform.tfvars
+   tofu import module.environment.aws_dynamodb_table.data <table>-restored-<date>
+   ```
+   and then `env.sh down` or `up`, whichever the environment is in, with the administrator's
+   profile.
+4. **Run the replay again, now against the switched table, at least five minutes after the
+   switch.** The run in step 2 passed over the deletions of its last five minutes, which may still
+   have been under way, and deletions kept being recorded until the switch; this run takes both.
+   Until it has run, an account deleted in those minutes is back. Deletions are not stopped
+   during a restore, which would take the API down for its length; the window is minutes, and
+   only for accounts whose owners have just deleted them (Claude's decision on #554, for Gunnar
+   to review).
 
 The procedure is tried once in qa, from an on-demand backup, once #554 has built the table.
 
@@ -410,23 +429,10 @@ the current backend, to measure the cold start in Frankfurt rather than trust be
   ([below](#what-the-spike-measured)).
 - It costs nothing measurable: about a hundred invocations and a table of twenty items.
 
-Running it, as an administrator, from the repository root on `main`:
-
-```sh
-serverless/build.sh          # the arm64 zip the function is created from
-(cd deployment/aws-tofu && TASKFEST_QA_AWS_PROFILE=<admin profile> ./env.sh down qa)
-AWS_PROFILE=<admin profile> serverless/spike/measure.sh
-```
-
-The apply needs the administrator: qa's lifecycle role, `env.sh`'s default, cannot create IAM
-roles, functions or tables. **`down` takes qa down if it is up**; with qa down it applies only
-the spike, and the plan it shows says so before anything happens.
-
-`build.sh` uses Go where it is installed and the official Go image through podman or docker
-where it is not. `measure.sh` uploads the code, writes twenty tasks for the test account
-`taskfest-test-one@example.com`, and prints Lambda's own initialisation, cold and warm times at
-128, 256 and 512 MB. The code is in [`serverless/`](../../serverless/), with its conventions in
-`serverless/CLAUDE.md`.
+The spike's function and table, and `serverless/spike/measure.sh`, which uploaded the code, wrote
+twenty tasks for the test account `taskfest-test-one@example.com` and printed Lambda's own
+initialisation, cold and warm times, were removed with #554, which replaced them with
+[the infrastructure](#the-infrastructure). They are in the git history before it.
 
 ## What the spike measured
 
@@ -468,3 +474,49 @@ it initialises (`Store.Prime`).
 - **A cold request now takes under 200 ms even at 256 MB**, well inside the 500 ms gate. The
   function stays at 512 MB: the routes still to come do work no priming covers, such as fetching
   a sign-in provider's keys, and at TaskFest's traffic the difference costs nothing.
+
+## The infrastructure
+
+`deployment/aws-tofu/modules/environment/serverless.tf` (#554), in both environments alike. All of
+it bills per request and nothing by the hour, so it is foundation: `env.sh down` leaves it, and an
+idle environment costs nothing for it.
+
+- **The table**, `<project>-<env>-data`, on demand. TTL on `expiresAt` deletes ended sessions,
+  sign-ins under way and session links; the stream carries what a deleted item held, for the
+  `streams` function; point-in-time recovery is on in prod, for [restoring](#restoring-the-table),
+  at fractions of a cent a GB-month, and off in qa (`table_point_in_time_recovery`, #553); and
+  deletion protection keeps a destroy of the foundation from taking people's data with it.
+- **The `api` function**, arm64, 512 MB ([measured](#what-the-spike-measured)), with a timeout
+  of 28 seconds, under the HTTP API's own 30. Its role reaches its own table, the attachment
+  bucket, the Google client secret and its log group, nothing else.
+- **The HTTP API** sends every request to it. Its address is public, so CloudFront adds a header
+  with a secret, `X-Origin-Verify`, and the function refuses any request without it with a 403
+  (`lambdahttp.FromOrigin`); OpenTofu generates the secret. A Secrets Manager secret would cost
+  $0.40 a month to prove only where a request came from, so it is in state and in the function's
+  settings instead. The stage is throttled at 50 requests a second, bursts of 100, as a ceiling on
+  what a flood could cost.
+- **CloudFront** has the HTTP API as a second `/api/*` origin, always, without the viewer's
+  `Host`, which API Gateway would refuse: the function takes its own address from
+  `TASKFEST_PUBLIC_ORIGIN`. `api_backend` in `terraform.tfvars` says which origin `/api/*` uses:
+  `containers` until the cut-over (#557), then `serverless`.
+- **Sign-in** is configured as for the containers: on only where Google's client id is set, and the
+  test accounts beside Google where they exist. Google's client secret stays out of OpenTofu: the
+  function's setting `TASKFEST_OIDC_GOOGLE_CLIENT_SECRET_ARN` names the secret, and the function
+  reads it once at a cold start (`internal/secrets`). The test accounts' secret is in state already
+  (D4 on #141).
+
+The function is created from `serverless/dist/api.zip`, which `serverless/build.sh` makes with Go
+where it is installed and the official Go image through podman or docker where it is not, with the
+other three commands' zips beside it for the second part of #554. OpenTofu uploads the code only
+when it creates a function; a release deploys its own (#555).
+
+Applying it needs the administrator, since the lifecycle role, `env.sh`'s default, cannot create
+IAM roles, functions or tables. From the repository root on `main`:
+
+```sh
+serverless/build.sh
+(cd deployment/aws-tofu && TASKFEST_QA_AWS_PROFILE=<admin profile> ./env.sh down qa)
+```
+
+**`down` takes qa down if it is up**; with qa down it applies only the foundation, and the plan
+it shows says what that is before anything happens.

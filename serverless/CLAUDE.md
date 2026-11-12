@@ -1,8 +1,10 @@
 # serverless/
 
 The Go backend (#547), being ported from Quarkus: `cmd/api` serves every route of the contract,
-the unported ones answering 501, on Lambda or as a plain HTTP server. `build.sh` packages
-`cmd/api`, so that is what the spike's function runs and `spike/measure.sh` measures.
+the unported ones answering 501, on Lambda or as a plain HTTP server; `cmd/streams`,
+`cmd/orphans` and `cmd/replay` are its background functions. `build.sh` packages all four for
+Lambda; `deployment/aws-tofu/modules/environment/serverless.tf` creates the API's function, and
+the second part of #554 the others.
 [doc/deployment/serverless.md](../doc/deployment/serverless.md) has the design and how to run it.
 
 Gunnar does not write or read Go by choice, so the code has to be reviewable by what it does:
@@ -10,8 +12,9 @@ Gunnar does not write or read Go by choice, so the code has to be reviewable by 
 - **Every package and exported identifier has a doc comment saying what it is for**, the Go
   counterpart of the backend's Javadoc rule.
 - **The domain imports no AWS package.** `internal/board` is plain Go; Lambda's event types stay
-  in `cmd/` and `internal/lambdahttp`, DynamoDB's in `internal/store`, S3's in `internal/files`.
-  That is the line that keeps the AWS lock-in (one of the decision's drawbacks) to the edges.
+  in `cmd/` and `internal/lambdahttp`, DynamoDB's in `internal/store`, S3's in `internal/files`,
+  Secrets Manager's in `internal/secrets`. That is the line that keeps the AWS lock-in (one of
+  the decision's drawbacks) to the edges.
 - **Tests sit next to the code** (`*_test.go`), with fakes for the one AWS call each part makes,
   and TDD holds as everywhere else in the repository.
 - **gofmt, `go vet` and `go test -race`** are what Serverless CI runs; run them before a commit.

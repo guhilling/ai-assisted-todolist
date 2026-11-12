@@ -108,5 +108,5 @@ Also checked and not chosen:
 | [Observability](observability.md) | Logs, metrics, alarms |
 | [Image scanning](image-scanning.md) | Amazon Inspector on the running images, and the issue it raises |
 | [Cost](cost.md) | What an environment costs, measured |
-| [Serverless](serverless.md) | Lambda, Go and DynamoDB: decided, behind a spike, not built yet (#535) |
+| [Serverless](serverless.md) | Lambda, Go and DynamoDB: being ported (#547), its infrastructure in place (#554) |
 | [Open points](open-points.md) | What is deliberately left out, and what is still to be verified |
