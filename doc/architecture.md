@@ -159,8 +159,9 @@ drawbacks in full.
 containers are what serves, and the way back if the Go backend falls short. Each has its own
 database; in the shared bucket the Go backend keeps to `serverless/`, so neither backend's
 clean-up takes the other's files for orphans, and IAM keeps each out of the other's part (#578).
-The cut-over (#557) switches `api_backend`; the git tag `pre-serverless` marks the last `main`
-before the move.
+The cut-over (#557) switches `api_backend` and nothing else: no task or attachment moves with it,
+and switching back to the containers does not bring back what was written through the Go backend.
+The git tag `pre-serverless` marks the last `main` before the move.
 
 ## Deployment
 

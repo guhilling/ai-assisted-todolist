@@ -28,7 +28,9 @@ Two environments, `qa` and `prod`, in **one AWS account**, separated by IAM role
                                 (internal)   (the Quarkus backend)
 ```
 
-One distribution, two origins. That is not a detail — see the next section.
+One distribution for the whole site. Its origins are the site bucket, the Go backend's HTTP API,
+which is always there, and the load balancer while the environment is up; `/api/*` goes to the
+one `api_backend` names. That it is one distribution is not a detail — see the next section.
 
 The load balancer is **internal**: CloudFront reaches it through a [VPC
 origin](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/private-content-vpc-origins.html),
@@ -108,7 +110,7 @@ Also checked and not chosen:
 | [Names and certificates](names-and-certificates.md) | both | Hostnames, certificates, Google's OAuth client, the documentation site's name |
 | [Accounts and access](access.md) | both | One AWS account, and the identities that may change what |
 | [The code and what it creates](infrastructure.md) | both; the Go backend's resources are in serverless.md | Where the OpenTofu code is, and every resource it creates |
-| [Deploying: two paths, chosen by the release](deploying.md) | containers | Blue/green, or downtime for a migration |
+| [Deploying: two paths, chosen by the release](deploying.md) | containers; deploying the site is shared | Blue/green, or downtime for a migration |
 | [How an environment is torn down](teardown.md) | containers | The `running` switch, and CloudFront's `/api/*` origin |
 | [The database](database.md) | containers | RDS, IAM sign-in, snapshots and restores |
 | [Attachment storage](attachments.md) | containers; the bucket is shared | The bucket, the sweeps that keep it tidy, and what they cost |
