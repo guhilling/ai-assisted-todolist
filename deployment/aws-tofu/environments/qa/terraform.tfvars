@@ -37,8 +37,9 @@ cpu_architecture = "ARM64"
 backend_cpu    = 256
 backend_memory = 512
 
-# The containers serve /api/* until the cut-over (#557) switches it to the Go backend.
-api_backend = "containers"
+# qa tries the Go backend first (#557), whether the environment is up or not. Its table starts
+# empty; the containers' data stays in RDS, and "containers" here brings it back.
+api_backend = "serverless"
 
 # The Go backend's own table; a restored one's name only after a switch to it (serverless.md).
 table_name = ""
