@@ -16,6 +16,7 @@ locals {
   api_gateway   = "${local.name}-api"
   dist          = "${path.module}/../../../../serverless/dist"
   origin_header = "X-Origin-Verify" # lambdahttp.OriginHeader
+  live_alias    = "live"            # deploy-serverless.py's ALIAS
 
   # The Go backend's part of the shared attachment bucket (#578), files.Root: its functions may
   # touch objects there and nowhere else, so the containers' files and records are out of reach.
@@ -226,6 +227,20 @@ resource "aws_lambda_function" "api" {
   depends_on = [aws_iam_role_policy.api_function]
 }
 
+# The version that serves (#555): API Gateway invokes the alias, never the function's unpublished
+# code, and a release's deploy moves it once the new version has answered a check
+# (deploy-serverless.py). It starts on that unpublished code, as created here, and OpenTofu leaves
+# it wherever a deploy has put it since.
+resource "aws_lambda_alias" "api" {
+  name             = local.live_alias
+  function_name    = aws_lambda_function.api.function_name
+  function_version = "$LATEST"
+
+  lifecycle {
+    ignore_changes = [function_version]
+  }
+}
+
 # AWS-0017, as above.
 #trivy:ignore:AWS-0017
 resource "aws_cloudwatch_log_group" "api_access" {
@@ -247,7 +262,7 @@ resource "aws_apigatewayv2_api" "this" {
 resource "aws_apigatewayv2_integration" "api" {
   api_id                 = aws_apigatewayv2_api.this.id
   integration_type       = "AWS_PROXY"
-  integration_uri        = aws_lambda_function.api.invoke_arn
+  integration_uri        = aws_lambda_alias.api.invoke_arn
   payload_format_version = "2.0"
 }
 
@@ -289,6 +304,7 @@ resource "aws_lambda_permission" "api_gateway" {
   statement_id  = "AllowTheHttpApi"
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.api.function_name
+  qualifier     = aws_lambda_alias.api.name
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_apigatewayv2_api.this.execution_arn}/*/*"
 }

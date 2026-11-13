@@ -603,3 +603,28 @@ purpose until the port is done; #558 watches the answers.
 **A restore does not stop deletions** ([serverless.md](../deployment/serverless.md#restoring-the-table)):
 the replay runs once more after the switch, and until then an account deleted in the minutes
 around the restore is back. Stopping deletions would take the API down for the restore's length.
+
+## The Go backend is deployed by moving an alias after a check
+
+*Accepted · 2026-11-13 · #555*
+
+**Decision.** A release builds the Go backend's four functions once and attaches them to the
+release; `deploy-serverless.yml` publishes each as a version described by the release, checks the
+API's new version by invoking it, and only then moves each function's alias `live`, which API
+Gateway, the stream and the schedules invoke. A failure before the move leaves every alias where it
+was; one during it tries to move each back, and names any it cannot. Unlike the containers'
+blue/green, a deploy is not rolled back on alarms after the fact: at TaskFest's traffic an alarm
+may come an hour later or never, and a rollback is a deploy of the previous release's zips. Claude's
+decision, as #555 left it to Claude; Gunnar agreed to the alias update on 2026-11-13, and the
+rollback on alarms #555 named is dropped by Claude, for Gunnar's review.
+
+**Cost.** A change of the functions' settings by OpenTofu reaches what serves only through a deploy,
+since a published version keeps the settings it was published with: a restore, or a new origin
+secret, is followed by redeploying the release that runs ([serverless.md](../deployment/serverless.md#deploying-a-release)).
+
+**Rejected: a traffic-weighted canary**, with CodeDeploy or a weighted alias. TaskFest's few requests
+could not tell a good version from a bad one within a deploy, and CodeDeploy would add its own setup
+and roles; the check before the alias moves catches what a canary mostly would. **Rejected:
+OpenTofu publishing a version on every apply**, which would keep settings and code together but
+move the alias back to an older release's code whenever an apply ran after a deploy.
+

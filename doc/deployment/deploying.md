@@ -1,5 +1,9 @@
 # Deploying: two paths, chosen by the release
 
+This page is the containers' backend's deploy. The Go backend's, a version published and an alias
+moved after a check, is in [serverless.md](serverless.md#deploying-a-release) (#555); a release
+deploys both, and the site after them.
+
 Blue/green and "take the downtime" are opposites — blue/green keeps both versions live, which is
 exactly the overlap that makes a schema change unsafe. Both are wanted, so the release picks:
 
@@ -135,9 +139,13 @@ one, then deploy. An old release that cannot run with a newer configuration (a v
 was renamed, say) needs the old configuration applied before it is rolled back to.
 
 **Every release goes to qa by itself** — every final one: a pre-release (`v1.2.3-rc.1`) is
-deployed by hand when wanted. `release.yml` ends by calling both workflows for qa with its own tag: the backend first, then the frontend once the backend job has succeeded. So a release with a
-migration ends with its own frontend in front of it, one whose backend deploy failed does not put
-its frontend in front of the old API, and a qa that is down still gets the frontend — the site bucket outlives `down`. **prod is never deployed
+deployed by hand when wanted. `release.yml` ends by calling the workflows for qa with its own tag:
+both backends first -- this page's `deploy-backend.yml` and the Go backend's `deploy-serverless.yml`
+(#555, [serverless.md](serverless.md#deploying-a-release)) -- then the frontend once both have
+succeeded. So a release with a migration ends with its own frontend in front of it, one whose
+backend deploy failed, either one, does not put its frontend in front of the old API, and a qa that
+is down still gets the Go backend and the frontend — the functions and the site bucket outlive
+`down`. **prod is never deployed
 automatically**: both workflows are started by hand for it, from the Actions tab, and wait at the
 `prod` environment's approval gate. The same manual start deploys any release to qa again, or
 rolls it back. **After every deploy to qa the [live checks](../testing/live.md) run** against the
