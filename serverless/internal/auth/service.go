@@ -332,7 +332,7 @@ func (s *Service) clearQuarkusCookies(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Service) oauth(r *http.Request, p Provider) (*oauth2.Config, error) {
-	op, err := s.discovery.provider(r.Context(), p.Issuer)
+	op, err := s.discovery.provider(r.Context(), p)
 	if err != nil {
 		return nil, err
 	}

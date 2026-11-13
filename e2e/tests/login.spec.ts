@@ -2,7 +2,8 @@
  * End-to-end coverage of the path no other test reaches: a real browser signing in and then using
  * the board.
  *
- * Runs against the containerised stack from deployment/docker/docker-compose.e2e.yml with the local
+ * Runs against the containerised stack from deployment/docker/docker-compose.e2e.yml (or its Go
+ * backend's, docker-compose.e2e.serverless.yml, #556) with the local
  * Keycloak accounts, so it exercises the same httpd proxying and OIDC redirects a deployment would --
  * and, unchanged, against qa with its Cognito test accounts (#144): support/identity.ts holds
  * everything that differs. Against an environment that is down, it skips.

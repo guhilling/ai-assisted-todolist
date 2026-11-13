@@ -43,7 +43,8 @@ type discovered struct {
 	provider *oidc.Provider
 }
 
-func (d *discovery) provider(ctx context.Context, issuer string) (*oidc.Provider, error) {
+func (d *discovery) provider(ctx context.Context, p Provider) (*oidc.Provider, error) {
+	issuer := p.Issuer
 	d.mu.Lock()
 	if d.issuers == nil {
 		d.issuers = map[string]*discovered{}
@@ -64,12 +65,25 @@ func (d *discovery) provider(ctx context.Context, issuer string) (*oidc.Provider
 	client := &http.Client{Timeout: discoveryTimeout}
 	ctx, cancel := context.WithTimeout(oidc.ClientContext(ctx, client), discoveryTimeout)
 	defer cancel()
-	p, err := oidc.NewProvider(ctx, issuer)
-	if err != nil {
-		return nil, fmt.Errorf("discover %s: %w", issuer, err)
+	from := issuer
+	if p.DiscoveryURL != "" {
+		// Fetched from there. go-oidc then checks the metadata's issuer no more, so it is checked
+		// below: another realm, or a typo, is refused here rather than at every sign-in after it.
+		from = p.DiscoveryURL
+		ctx = oidc.InsecureIssuerURLContext(ctx, issuer)
 	}
-	entry.provider = p
-	return p, nil
+	op, err := oidc.NewProvider(ctx, from)
+	if err != nil {
+		return nil, fmt.Errorf("discover %s: %w", from, err)
+	}
+	var metadata struct {
+		Issuer string `json:"issuer"`
+	}
+	if err := op.Claims(&metadata); err != nil || metadata.Issuer != issuer {
+		return nil, fmt.Errorf("discover %s: it answers for issuer %q, not %q", from, metadata.Issuer, issuer)
+	}
+	entry.provider = op
+	return op, nil
 }
 
 // claims are the parts of an ID token sign-in reads.
@@ -104,7 +118,7 @@ func declaresOtherThanID(value any) bool {
 // verifyIDToken checks a raw ID token from p: signature, issuer and expiry (go-oidc), that it was
 // issued to one of audiences, that it is an ID token, and that the provider vouches for the email.
 func verifyIDToken(ctx context.Context, d *discovery, p Provider, raw string, audiences []string) (identity.Identity, claims, error) {
-	op, err := d.provider(ctx, p.Issuer)
+	op, err := d.provider(ctx, p)
 	if err != nil {
 		return identity.Identity{}, claims{}, err
 	}

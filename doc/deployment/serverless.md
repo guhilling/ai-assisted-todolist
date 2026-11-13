@@ -84,13 +84,17 @@ Nothing to take down, and `prod` can simply stay up.
   and **`internal/files`** the attachment bucket in S3.
 - **`internal/auth`** is sign-in, below, and **`internal/gravatar`** the picture fallback.
 
-Locally, with DynamoDB Local on port 8000 and a table created in it, and the end-to-end stack's
-Keycloak on port 8082:
+Locally, against the Go backend's end-to-end stack
+([end-to-end-stack.md](../local-development/end-to-end-stack.md#with-the-go-backend)), whose
+DynamoDB Local is on port 8000, SeaweedFS on 8333 and Keycloak on 8082, with the stack's own
+backend stopped (`docker compose -f deployment/docker/docker-compose.e2e.serverless.yml stop
+backend frontend`):
 
 ```sh
 cd serverless
-TABLE_NAME=<table> DYNAMODB_ENDPOINT=http://localhost:8000 AWS_REGION=eu-central-1 \
-  AWS_ACCESS_KEY_ID=local AWS_SECRET_ACCESS_KEY=local \
+TABLE_NAME=taskfest-local DYNAMODB_ENDPOINT=http://localhost:8000 AWS_REGION=eu-central-1 \
+  AWS_ACCESS_KEY_ID=taskfest AWS_SECRET_ACCESS_KEY=taskfest-secret \
+  TASKFEST_ATTACHMENTS_BUCKET=taskfest-attachments S3_ENDPOINT=http://s3.localhost:8333 \
   TASKFEST_AUTH_ENABLED=true TASKFEST_AUTH_PROVIDERS=keycloak TASKFEST_COOKIE_SECURE=false \
   TASKFEST_OIDC_KEYCLOAK_ISSUER=http://localhost:8082/realms/taskfest \
   TASKFEST_OIDC_KEYCLOAK_CLIENT_ID=taskfest-backend \
@@ -228,8 +232,8 @@ code name a file by its bare key, and `internal/files` adds the prefix.
   it, a preview stays broken for up to half an hour, until the next link. Gunnar accepted that
   (#569) rather than signing anew on every request, which undoes #236, or signing with a role
   assumed for the purpose, which knows its end at the price of a role and an STS call per start.
-- **Locally**, `TASKFEST_ATTACHMENTS_BUCKET` names the bucket and `S3_ENDPOINT` points at
-  LocalStack, as for the end-to-end stack.
+- **Locally**, `TASKFEST_ATTACHMENTS_BUCKET` names the bucket and `S3_ENDPOINT` points at the
+  end-to-end stack's SeaweedFS (#556); the Go code's own tests still start LocalStack.
 
 ## Sign-in
 

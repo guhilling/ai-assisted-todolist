@@ -62,6 +62,13 @@ class CorsRuleTest(unittest.TestCase):
         drifted = INIT.replace('"MaxAgeSeconds": 3600', '"MaxAgeSeconds": 600')
         self.assertEqual(len(check.differences(check.tofu_rule(TOFU), check.localstack_rule(drifted))), 1)
 
+    def test_both_end_to_end_stacks_are_compared(self):
+        # The Go backend's stack has a rule of its own (#556), in SeaweedFS rather than LocalStack.
+        self.assertEqual([path.name for path in check.STACKS], ["localstack-init.sh", "serverless-init.sh"])
+        for path in check.STACKS:
+            self.assertEqual(check.differences(check.tofu_rule(check.TOFU.read_text()),
+                                               check.localstack_rule(path.read_text())), [], path.name)
+
     def test_a_rule_that_cannot_be_found_is_an_error(self):
         with self.assertRaises(ValueError):
             check.tofu_rule("no cors here")

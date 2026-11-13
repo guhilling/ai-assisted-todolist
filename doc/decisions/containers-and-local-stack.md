@@ -113,3 +113,24 @@ prototype on UBI micro passed the whole Playwright suite against the `prod` prof
 **Consequence.** UBI micro has bash and coreutils but no package manager, no `grep` and no `curl`:
 anything that runs inside the container — a health check script, a debugging session — has to make
 do with those.
+
+## The Go backend's local stack stores files in SeaweedFS
+
+*Accepted · 2026-11-13 · #556*
+
+**Decision.** The Go backend's end-to-end stack (`docker-compose.e2e.serverless.yml`) keeps its
+attachments in SeaweedFS, with an access key set, beside DynamoDB Local for the table. LocalStack
+Community, which the Quarkus stack still uses, was archived in March 2026, and MinIO's open-source
+repository since. Before choosing, Claude checked SeaweedFS against what the suite needs of S3: a
+presigned upload of another size or type is refused with a 403, the right one is taken, a download
+link carries the file's name, and the bucket's CORS rule lets the site in and nobody else. Without
+an access key it checks no signature at all, so the stack always sets one (`e2e/seaweedfs-s3.json`).
+Claude's decision, as #556 left it to Claude.
+
+**Cost.** Two S3 stand-ins while both stacks run, and each stack's CORS rule kept in step with
+AWS's by `check-cors-rule.py`. The Go code's own tests still start LocalStack.
+
+**Rejected: Garage**, which needs a node layout set up before its first bucket, and **RustFS**,
+younger than the others. **Rejected: one shared CORS file** for both stacks' scripts, as long as
+the check keeps both copies in step.
+

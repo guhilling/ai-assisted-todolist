@@ -7,9 +7,10 @@ Run it from anywhere:
     python3 .github/scripts/check-cors-rule.py
 
 The rule lets the site PUT and GET files straight to and from S3 (#204), and it lives twice: in the
-OpenTofu module (`attachments.tf`), for the real buckets, and in the LocalStack init script of the
-Compose end-to-end stack (`e2e/localstack-init.sh`), which the browser suite runs against. The
-point of the second is to be the first: a header the frontend starts sending, added to one rule
+OpenTofu module (`attachments.tf`), for the real buckets, and in each Compose end-to-end stack's
+init script, which the browser suite runs against: LocalStack's for the Quarkus backend
+(`e2e/localstack-init.sh`), SeaweedFS's for the Go backend (`e2e/serverless-init.sh`, #556). The
+point of those is to be the first: a header the frontend starts sending, added to one rule
 and not the other, would have the end-to-end run pass where qa fails, or the other way round.
 
 The methods, the headers and the max age must agree. The origins differ by design -- the site's
@@ -25,6 +26,8 @@ import sys
 ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
 TOFU = ROOT / "deployment" / "aws-tofu" / "modules" / "environment" / "attachments.tf"
 LOCALSTACK = ROOT / "e2e" / "localstack-init.sh"
+# Every end-to-end stack's init script, each compared with AWS's rule.
+STACKS = [LOCALSTACK, ROOT / "e2e" / "serverless-init.sh"]
 
 
 def _strings(hcl_list: str) -> list:
@@ -77,14 +80,18 @@ def differences(tofu: dict, localstack: dict) -> list:
 
 
 def main() -> int:
-    found = differences(tofu_rule(TOFU.read_text()), localstack_rule(LOCALSTACK.read_text()))
-    if found:
-        print(f"The attachment bucket's CORS rule differs between {TOFU.relative_to(ROOT)} and "
-              f"{LOCALSTACK.relative_to(ROOT)}:", file=sys.stderr)
-        for line in found:
-            print(f"  {line}", file=sys.stderr)
+    failed = False
+    for stack in STACKS:
+        found = differences(tofu_rule(TOFU.read_text()), localstack_rule(stack.read_text()))
+        if found:
+            print(f"The attachment bucket's CORS rule differs between {TOFU.relative_to(ROOT)} and "
+                  f"{stack.relative_to(ROOT)}:", file=sys.stderr)
+            for line in found:
+                print(f"  {line}", file=sys.stderr)
+            failed = True
+    if failed:
         return 1
-    print("The attachment bucket's CORS rule is the same in AWS and the end-to-end stack.")
+    print("The attachment bucket's CORS rule is the same in AWS and both end-to-end stacks.")
     return 0
 
 

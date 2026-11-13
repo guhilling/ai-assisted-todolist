@@ -7,8 +7,10 @@ material will join them when the target is chosen.
 | --- | --- | --- | --- |
 | `docker-compose.yml` | PostgreSQL, backend, frontend | Off, unless you supply Google credentials | `http://localhost:3000` |
 | `docker-compose.e2e.yml` | The same, plus Keycloak | On, against Keycloak on `:8082` | `http://localhost:3000` |
+| `docker-compose.e2e.serverless.yml` | The Go backend (#556), DynamoDB Local, SeaweedFS for S3, Keycloak, frontend | On, against Keycloak on `:8082` | `http://localhost:3000` |
 
-Neither is the best way to *work* on the application — `./mvnw quarkus:dev` is. Full
+None is the best way to *work* on the application — `./mvnw quarkus:dev` is, and for the Go
+backend `go run ./cmd/api` against the Go stack's stores ([serverless.md](../../doc/deployment/serverless.md)). Full
 instructions, including the images both stacks expect to exist, are in
 [../doc/local-development.md](../doc/local-development.md).
 
@@ -21,5 +23,5 @@ Two things to know before editing either file:
   the other's containers as orphans.
 
 The Dockerfiles themselves stay with their modules: `frontend/docker/Dockerfile` builds the
-frontend image, and the backend image is built by Jib from `backend/pom.xml` with no
-Dockerfile at all.
+frontend image, `serverless/Dockerfile` the Go backend's for the local stack, and the backend image
+is built by Jib from `backend/pom.xml` with no Dockerfile at all.
