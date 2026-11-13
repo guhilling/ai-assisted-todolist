@@ -550,8 +550,8 @@ does:
   the one orphan alarm sees both backends.
 
 **The alarms**, each $0.10 a month, mail through the existing topic on entering ALARM and on
-leaving it: the API function's errors and throttles, the API's server errors, at least two in five
-minutes (#558), the stream function more than ten minutes behind (it reports a failed record rather
+leaving it: the API function's errors and throttles, the API's server errors, at least five in five
+minutes (#558, Gunnar's threshold), the stream function more than ten minutes behind (it reports a failed record rather
 than failing, so its errors would never show one), the scheduled functions' errors, and the table's
 throttled reads and writes. That is eight per environment, about $1.60 a month for both.
 

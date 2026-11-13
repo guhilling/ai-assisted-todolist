@@ -125,7 +125,7 @@ repository since. Before choosing, Claude checked SeaweedFS against what the sui
 presigned upload of another size or type is refused with a 403, the right one is taken, a download
 link carries the file's name, and the bucket's CORS rule lets the site in and nobody else. Without
 an access key it checks no signature at all, so the stack always sets one (`e2e/seaweedfs-s3.json`).
-Claude's decision, as #556 left it to Claude.
+Claude's decision, as #556 left it to Claude; Gunnar confirmed it on 2026-11-13.
 
 **Cost.** Two S3 stand-ins while both stacks run, and each stack's CORS rule kept in step with
 AWS's by `check-cors-rule.py`. The Go code's own tests still start LocalStack.
