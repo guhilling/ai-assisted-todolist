@@ -17,11 +17,11 @@ function startEditing(description: string) {
 }
 
 describe('adding a task with a due time', () => {
-  it('offers the zone switch only once there is a time, off by default', async () => {
+  it('offers the zone switch from the start, off by default (#588)', async () => {
     await renderSignedIn(stubApi({ me: ALICE, tasks: [] }))
 
     startAdding('Call the office')
-    expect(screen.queryByRole('switch', { name: 'Tied to a time zone' })).not.toBeInTheDocument()
+    expect(screen.getByRole('switch', { name: 'Tied to a time zone' })).not.toBeChecked()
 
     fireEvent.change(screen.getByLabelText('Time'), { target: { value: '10:00' } })
     const tied = screen.getByRole('switch', { name: 'Tied to a time zone' })
@@ -66,7 +66,7 @@ describe('adding a task with a due time', () => {
     fireEvent.change(screen.getByLabelText('Time'), { target: { value: '10:00' } })
     fireEvent.click(screen.getByRole('switch', { name: 'Tied to a time zone' }))
     fireEvent.change(screen.getByLabelText('Time'), { target: { value: '' } })
-    expect(screen.queryByRole('switch', { name: 'Tied to a time zone' })).not.toBeInTheDocument()
+    expect(screen.getByRole('switch', { name: 'Tied to a time zone' })).not.toBeChecked()
     fireEvent.click(screen.getByRole('button', { name: 'Add' }))
 
     await waitFor(() => expect(bodyOf(fetchMock, 'POST')).toMatchObject({ description: 'Changed my mind' }))
