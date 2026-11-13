@@ -73,7 +73,9 @@ resource "aws_dynamodb_table" "data" {
     enabled = var.table_point_in_time_recovery
   }
 
-  # A destroy of the foundation must not take people's data with it by accident.
+  # A destroy of the foundation must not take people's data with it by accident. A restored table
+  # gets it by hand before its first apply, which cannot send it along with the stream (#553;
+  # "Restoring the table" in doc/deployment/serverless.md).
   deletion_protection_enabled = true
 
   tags = { Name = local.table }
