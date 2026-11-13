@@ -292,6 +292,25 @@ describe('a click on a task (#593)', () => {
     expect(fetchMock).not.toHaveBeenCalledWith(expect.stringContaining('/api/tasks/4'), expect.anything())
   })
 
+  it("opens the editor from anywhere in the task's section, its due line too", async () => {
+    // The section's whole height, not only the description's text (Gunnar, in Safari on qa).
+    await renderSignedIn(stubApi({ me: ALICE, tasks: [task({ id: 4, description: 'Renew the passport', dueDate: isoIn(9) })] }))
+    const row = rowFor('Renew the passport')
+
+    fireEvent.click(row.querySelector('.task-meta') as HTMLElement)
+    expect(screen.getByRole('form', { name: 'Edit "Renew the passport"' })).toBeInTheDocument()
+  })
+
+  it('leaves a click on an attachment to the attachment, which opens its preview', async () => {
+    const photo = { id: 8, fileName: 'Quittung.jpg', contentType: 'image/jpeg', sizeBytes: 9000, thumbnail: false }
+    await renderSignedIn(stubApi({ me: ALICE, tasks: [{ ...task({ id: 4, description: 'Renew the passport' }), attachments: [photo] }] }))
+
+    fireEvent.click(within(rowFor('Renew the passport')).getByRole('button', { name: 'Open Quittung.jpg' }))
+
+    expect(await screen.findByRole('dialog', { name: 'Quittung.jpg' })).toBeInTheDocument()
+    expect(screen.queryByRole('form', { name: 'Edit "Renew the passport"' })).not.toBeInTheDocument()
+  })
+
   it('ticks a task off with the checkbox alone', async () => {
     const fetchMock = stubApi({ me: ALICE, tasks: [task({ id: 4, description: 'Renew the passport' })] })
     await renderSignedIn(fetchMock)

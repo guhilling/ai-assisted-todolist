@@ -664,9 +664,11 @@ pickers on a phone as well**, which are worse than the phone's own there.
 
 *Accepted · 2026-11-13 · #593*
 
-**Decision.** Gunnar's: only the checkbox ticks a task off. A click or a tap on an open task's
-description opens its editor, as the row menu's **Edit** does, unless it ended a selection, so the
-text can still be copied; on a completed task, whose row is read-only, it does nothing. The
+**Decision.** Gunnar's: only the checkbox ticks a task off. A click or a tap anywhere in an open
+task's section -- its whole height, the due line and the space beside it too, as Gunnar asked after
+trying it in Safari -- opens its editor, as the row menu's **Edit** does, unless it ended a
+selection, so the text can still be copied, or landed on a control there, such as an attachment,
+which keeps its own; on a completed task, whose row is read-only, it does nothing. The
 description stays text rather than becoming a button: the keyboard and screen readers have the
 menu's **Edit** already, and a second control named after the task in every row would be one more
 to pass -- and would have the text no longer selectable, and its name matched by the menu's. The
