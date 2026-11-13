@@ -574,8 +574,8 @@ more (#558) -- at two in one five-minute period at first, Claude's threshold, an
 Gunnar raised it on 2026-11-13, so that only a clear pattern mails; the rest stands.
 
 Taken by Claude while Gunnar was away; he went through it on 2026-11-12 and kept it. The resources
-are in `serverless.tf` and `serverless-jobs.tf`; [serverless.md](../deployment/serverless.md#the-
-infrastructure) says what each is given.
+are in `serverless.tf` and `serverless-jobs.tf`;
+[serverless.md](../deployment/serverless.md#the-infrastructure) says what each is given.
 
 **Four functions, not one.** `api` behind the HTTP API; `streams` on the table's stream; `orphans`
 hourly and `replay` daily at 03:30 Berlin time, on EventBridge Scheduler. Each has a role for
