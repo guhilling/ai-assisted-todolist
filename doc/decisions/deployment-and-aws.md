@@ -573,6 +573,10 @@ Revised in part: an eighth alarm, the API's server errors, joined once no route 
 more (#558) -- at two in one five-minute period at first, Claude's threshold, and at five since
 Gunnar raised it on 2026-11-13, so that only a clear pattern mails; the rest stands.
 
+Revised in part: a fifth function, `logship`, sends the logs on to the monitoring server (#508,
+[below](#the-go-backends-logs-go-to-the-shared-monitoring-server-through-a-subscription-filter)).
+It has no alarm: a failed batch is in CloudWatch all the same.
+
 Taken by Claude while Gunnar was away; he went through it on 2026-11-12 and kept it. The resources
 are in `serverless.tf` and `serverless-jobs.tf`;
 [serverless.md](../deployment/serverless.md#the-infrastructure) says what each is given.
@@ -612,6 +616,9 @@ around the restore is back. Stopping deletions would take the API down for the r
 
 *Accepted · 2026-11-13 · #555*
 
+Revised in part: `logship` (#508) is deployed with the other four, and a release from before it,
+such as a rollback to v1.6.1, leaves it where it is rather than failing for its missing zip.
+
 **Decision.** A release builds the Go backend's four functions once and attaches them to the
 release; `deploy-serverless.yml` publishes each as a version described by the release, checks the
 API's new version by invoking it, and only then moves each function's alias `live`, which API
@@ -632,3 +639,31 @@ and roles; the check before the alias moves catches what a canary mostly would. 
 OpenTofu publishing a version on every apply**, which would keep settings and code together but
 move the alias back to an older release's code whenever an apply ran after a deploy.
 
+## The Go backend's logs go to the shared monitoring server through a subscription filter
+
+*Accepted · 2026-11-13 · #508*
+
+**Decision.** Where an environment names the monitoring server (`monitoring_endpoint`), a
+CloudWatch Logs subscription filter on each of the Go backend's log groups invokes `logship`, a
+fifth Go function, which posts the lines to the server's VictoriaLogs over HTTPS with basic auth.
+The dashboard's latency, status and cold-start figures come from those lines -- the HTTP API's
+access log and Lambda's `REPORT` lines -- rather than from a metrics pipeline. qa only, for now;
+the variable is there for prod. Claude's decision, as Gunnar left #508's remaining choices to
+Claude on 2026-11-13, after the move to Lambda had made #513's plan for the containers obsolete.
+
+**Why.** The Go backend runs on Lambda, so there is no task beside it for #513's sidecars to run in,
+and nothing to scrape: it serves no metrics. CloudWatch stays the record, which the alarms' metric
+filters read, so sending is best effort and nothing about the backend depends on it.
+
+**Rejected:**
+- *A Lambda extension in each function* (the Telemetry API), which would send without CloudWatch in
+  between: one more layer in every function's start and every deploy, for a dashboard's sake.
+- *Firehose to an HTTP endpoint*, which buffers and retries better but bills by the GB with a 5 KB
+  minimum per record, and VictoriaLogs reads no Firehose format.
+- *Pulling CloudWatch's metrics from the server*, with an exporter: CloudWatch bills
+  `GetMetricData` by the metric requested, about $10 a month at a one-minute resolution.
+- *Metrics from the Go code*, pushed to VictoriaMetrics: more code in the backend for figures its
+  logs already carry.
+
+**Cost.** One more function to build, deploy and keep, and the sign-in's `user` leaves AWS, which
+the privacy texts say for every environment that sends.

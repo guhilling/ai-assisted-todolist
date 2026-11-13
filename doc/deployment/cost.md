@@ -45,7 +45,11 @@ secret, which would have been another $0.40.
 month at TaskFest's traffic ([serverless.md](serverless.md#why)). What it adds by the month is its
 watching: eight alarms at $0.10, **$0.80 a month per environment**, and a dashboard each, free,
 since CloudWatch includes three per account and the account had one before them; a fourth would
-cost $3 a month. Its measured figures follow once a month of it is on the bill (#558).
+cost $3 a month. Its measured figures follow once a month of it is on the bill (#558). Sending its
+logs to the shared monitoring server, where an environment does (#508), adds a fifth function
+within Lambda's free tier and cents of data out of AWS
+([observability.md](observability.md#the-monitoring-server)); the server itself, a Hetzner VM
+shared with other workloads, is about €6 a month and billed outside AWS.
 
 That is the whole cost model: **qa costs about $1.86 for each day it is up, on Graviton, and close
 to nothing otherwise.** A day of demos is under $2; forgetting it for a month is about $56, which is

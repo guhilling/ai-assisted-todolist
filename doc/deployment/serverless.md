@@ -46,9 +46,10 @@ Nothing to take down, and `prod` can simply stay up.
                                                           └──> S3 (attachments)
 ```
 
-- **Four functions** (#554): `api` serves every route behind the HTTP API; `streams` follows the
-  table's stream and deletes the files of attachments that go; `orphans` and `replay` run on a
-  schedule. [The infrastructure](#the-infrastructure) says what each is given.
+- **Five functions** (#554, #508): `api` serves every route behind the HTTP API; `streams` follows
+  the table's stream and deletes the files of attachments that go; `orphans` and `replay` run on a
+  schedule; `logship` sends the logs on to the monitoring server, where an environment names one
+  ([observability.md](observability.md#the-monitoring-server)). [The infrastructure](#the-infrastructure) says what each is given.
 - **DynamoDB, one table.** The partition key is the user, `USER#<sha256 of the email>`; the sort
   key says what the item is: `META` for the user, `TASK#<id>`, `DRAFT#<id>`, `ATT#<id>`, and
   `SESSION#<key>` for each of the website's sessions, so that deleting the account ends them. A
@@ -603,7 +604,7 @@ it shows says what that is before anything happens.
 
 **A release deploys the code** (#555), as it deploys the containers' image and the site:
 
-- **`release.yml` builds the four functions once**, from the tag, with the version `GET /api/version`
+- **`release.yml` builds the five functions once**, from the tag, with the version `GET /api/version`
   reports, and attaches them to the release as `taskfest-serverless-<version>-<function>.zip`.
 - **`deploy-serverless.yml` deploys them**, to qa after every final release, and to prod by hand
   through its protected environment, as the containers are. `deploy-serverless.py` uploads each
@@ -624,7 +625,7 @@ it shows says what that is before anything happens.
   `aws lambda update-alias --function-name <name> --name live --function-version <version>`, with
   the administrator, puts it where the log says it was. **A rollback** is `deploy-serverless.yml`
   with the previous release's tag.
-- **The deploy role** may upload, publish, invoke and move the aliases of these four functions, and
+- **The deploy role** may upload, publish, invoke and move the aliases of these five functions, and
   nothing else of them: no setting, no permission.
 - **A change of the functions' settings by OpenTofu reaches what serves only through a deploy.** A
   published version keeps the settings it was published with, and the aliases name versions, so an
@@ -643,7 +644,7 @@ before it, with the administrator, as #578's did:
 
 ```sh
 for env in qa prod; do
-  for c in api streams orphans replay; do
+  for c in api streams orphans replay logship; do
     AWS_PROFILE=<admin profile> aws lambda update-function-code --region eu-central-1 \
       --function-name "taskfest-$env-$c" --zip-file "fileb://serverless/dist/$c.zip" >/dev/null
   done

@@ -291,3 +291,19 @@ variable "api_backend" {
     error_message = "api_backend is \"containers\" or \"serverless\"."
   }
 }
+
+variable "monitoring_endpoint" {
+  description = <<-EOT
+    The shared monitoring server's HTTPS address (#508, guhilling/monitoring), to which logship
+    sends the functions' and the HTTP API's logs, or empty to send nothing. Where it is set, the
+    sender's password must be in the SSM SecureString /<project>/<environment>/monitoring-password
+    before the apply (doc/deployment/observability.md).
+  EOT
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = var.monitoring_endpoint == "" || startswith(var.monitoring_endpoint, "https://")
+    error_message = "monitoring_endpoint is empty or an https:// address."
+  }
+}

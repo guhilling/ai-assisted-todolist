@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Builds the Go backend's four functions (#554) into dist/<command>.zip: api, streams, orphans and
-# replay, each one static arm64 binary named `bootstrap`, which is what Lambda's provided.al2023
-# runtime starts. OpenTofu creates each function from its zip once (serverless.tf has the API's,
+# Builds the Go backend's five functions (#554, #508) into dist/<command>.zip: api, streams,
+# orphans, replay and logship, each one static arm64 binary named `bootstrap`, which is what
+# Lambda's provided.al2023 runtime starts. OpenTofu creates each function from its zip once (serverless.tf has the API's,
 # serverless-jobs.tf the others); a release deploys its own (#555).
 #
 #   serverless/build.sh
@@ -18,7 +18,7 @@ version="${TASKFEST_VERSION:-1.0.0-SNAPSHOT}"
 [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ && ${#version} -le 64 ]] ||
     { echo "Not a release version: $version" >&2; exit 1; }
 mkdir -p "$HERE/dist"
-commands=(api streams orphans replay)
+commands=(api streams orphans replay logship)
 
 build='set -e; for c in '"${commands[*]}"'; do'
 build+=' CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -tags lambda.norpc -trimpath'

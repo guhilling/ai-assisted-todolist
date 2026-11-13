@@ -2,7 +2,8 @@
 
 The Go backend (#547), ported from Quarkus: `cmd/api` serves every route of the contract, on
 Lambda or as a plain HTTP server; `cmd/streams`, `cmd/orphans` and `cmd/replay` are its
-background functions. `build.sh` packages all four for
+background functions, and `cmd/logship` sends the logs to the monitoring server (#508). `build.sh`
+packages all five for
 Lambda; `serverless.tf` and `serverless-jobs.tf` in `deployment/aws-tofu/modules/environment/`
 create the functions (#554).
 [doc/deployment/serverless.md](../doc/deployment/serverless.md) has the design and how to run it.

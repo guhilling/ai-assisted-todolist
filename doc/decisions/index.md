@@ -132,6 +132,7 @@ commit that first wrote each one down. CI checks every line and that this index 
 - [The backend moves to Lambda, Go and DynamoDB, after a spike](deployment-and-aws.md#the-backend-moves-to-lambda-go-and-dynamodb-after-a-spike)
 - [The Go backend runs as four functions, behind a header, watched by seven alarms](deployment-and-aws.md#the-go-backend-runs-as-four-functions-behind-a-header-watched-by-seven-alarms)
 - [The Go backend is deployed by moving an alias after a check](deployment-and-aws.md#the-go-backend-is-deployed-by-moving-an-alias-after-a-check)
+- [The Go backend's logs go to the shared monitoring server through a subscription filter](deployment-and-aws.md#the-go-backends-logs-go-to-the-shared-monitoring-server-through-a-subscription-filter)
 
 ## [Mobile app](mobile-app.md)
 

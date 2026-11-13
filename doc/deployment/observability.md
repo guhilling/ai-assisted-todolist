@@ -4,9 +4,11 @@ Named, because "best practices are applied" plans nothing:
 
 - **Logs.** The Quarkus JSON log to CloudWatch Logs, one group per environment, 30-day retention
   in QA and 90 in prod. What they contain and how to query them is below.
-- **Metrics.** `/q/metrics` is already exposed and already tested (`MetricsResourceTest`).
-  Scraped into CloudWatch by the ECS agent's Prometheus support, so the dashboards use what the
-  application already publishes rather than something invented for AWS.
+- **Metrics.** The Quarkus backend exposes `/q/metrics` and tests it (`MetricsResourceTest`), but
+  nothing in AWS scrapes it: the plan to have the ECS agent do so was never built. Its trial with
+  the monitoring server scraped it locally (`doc/local-development/monitoring.md`). The Go backend
+  publishes no metrics of its own; Lambda's and API Gateway's are in CloudWatch, and its logs carry
+  the rest.
 - **Alarms**, each on a condition a person can act on: ALB 5xx rate; ALB target health; ECS
   service running-count below desired; RDS free storage; RDS CPU credit balance — `t4g` instances
   are burstable and exhausting credits looks exactly like a slow application.
@@ -24,6 +26,10 @@ Named, because "best practices are applied" plans nothing:
   `taskfest-<env>-go-backend`, on what a function-based backend shows -- requests and their answers,
   time, errors, throttles, the stream's lag and the table
   ([serverless.md](serverless.md#the-infrastructure)). The items above describe the containers.
+- **The shared monitoring server** (#508): where an environment names one, qa so far, the Go
+  backend's logs also go to the VictoriaLogs of [guhilling/monitoring](https://github.com/guhilling/monitoring) (private),
+  on a Hetzner VM, where Perses shows them beside other workloads. Below:
+  [The monitoring server](#the-monitoring-server).
 
 ## Plan: how long a page takes to show (#236)
 
@@ -151,3 +157,52 @@ replaces the `awslogs` driver with Fluent Bit as a sidecar container in each tas
 before shipping it to CloudWatch. The price is a second container in every task definition, its
 CPU and memory out of the task's share, and a Fluent Bit configuration to maintain. Considered in
 October 2026 and not taken: nothing here buffers its logs.
+
+## The monitoring server
+
+Gunnar's shared monitoring, VictoriaMetrics, VictoriaLogs and Perses on one Hetzner VM, lives in
+[guhilling/monitoring](https://github.com/guhilling/monitoring) (private), which says how it is set
+up and reached. TaskFest sends it the Go backend's logs from the environments that set
+`monitoring_endpoint` in `terraform.tfvars`: qa, once it is switched on; prod not, for now.
+
+**How they get there** (`monitoring.tf`). A CloudWatch Logs subscription filter on each of the Go
+backend's log groups -- the other four functions' and the HTTP API's access log -- hands every batch of
+lines to the function `taskfest-<env>-logship`, which posts them to the server's VictoriaLogs
+(`/insert/jsonline`) over HTTPS, with basic auth as the user `taskfest-<env>`. CloudWatch keeps
+every line as before, so nothing is lost when the server is away: Lambda retries a failed batch
+twice and then drops it. logship's own log is not sent.
+
+**What a line becomes** (`serverless/internal/logship`). Each carries `project` (`taskfest`), `env`
+and `source` -- `api`, `api-access`, `streams`, `orphans`, `replay` -- which are its stream. A JSON
+line keeps its fields, its `msg` becoming the message; the access log's path becomes a `route` with
+its ids as `{id}`, beside `method`, `status` and `latencyMs`; Lambda's `REPORT` line becomes
+`durationMs`, `billedDurationMs`, `maxMemoryUsedMB`, after a cold start `initDurationMs`, and for an
+invocation that did not end well its `invocationStatus`, such as `timeout`. The
+lines that only mark an invocation's start and end are left out. This is where the dashboards'
+latency and error figures come from: the Go backend has no metrics endpoint.
+
+**What leaves AWS:** the sign-in line's `user`, the OIDC subject, is personal data, which is why
+the privacy texts name Hetzner for the environments that send; the ids of the tasks and attachments
+some lines name go too, though not their content. The access log holds no IP address.
+VictoriaLogs keeps everything for 30 days, as qa's CloudWatch does.
+
+**Switching an environment on**, in this order, the first two by Gunnar:
+1. The server answers at its name with a certificate, and its Caddy knows the sender
+   (the [server page](https://github.com/guhilling/monitoring/blob/main/doc/server.md) (private)).
+2. The sender's password, the same one whose hash Caddy has, as an SSM SecureString:
+   ```sh
+   aws ssm put-parameter --name /taskfest/<env>/monitoring-password --type SecureString \
+     --value '<password>'
+   ```
+3. `monitoring_endpoint = "https://monitoring.cloud.hilling.de"` in the environment's
+   `terraform.tfvars`, and the privacy texts naming Hetzner for it, in one pull request; then
+   `env.sh up` or `down` as the administrator, since the apply adds permissions and filters. Without
+   the parameter the plan stops at the data source, before anything changes.
+4. **A redeploy of the release that runs**, with `deploy-serverless.yml`: the apply sets logship's
+   settings, which reach what serves only as a newly published version
+   ([serverless.md](serverless.md#deploying-a-release)). Until then the filters invoke the version
+   published without an endpoint, which logs a warning and sends nothing.
+
+**Cost:** logship runs once per batch, a few thousand times a month at the demo's traffic, inside
+Lambda's free tier; the subscription filters cost nothing; data leaving AWS is about $0.09/GB,
+cents. The server is a fixed ~€6 a month, shared with other workloads (#508).
