@@ -360,6 +360,8 @@ const dependencies: Dependencies = {
         type: mimeType,
         flags: FLAG_GRANT_READ_URI_PERMISSION,
       }),
+    // The share sheet, which offers saving the copy to the photos or the files (#586).
+    share: (uri, mimeType, fileName) => Sharing.shareAsync(uri, { mimeType, dialogTitle: fileName }),
     forget: async () => {
       if (documents.exists) {
         documents.delete()

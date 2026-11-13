@@ -2,8 +2,9 @@
  * Opening a file other than an image in the phone's own viewer (#274), the way each platform does
  * it: iOS's in-app browser shows a PDF from its link by itself; Android's does not, so the file is
  * downloaded into the app's cache and handed to whatever views its type there, allowed to read that
- * one file. The copies go when the session does -- and a copy that arrives after its session ended
-is neither viewed nor kept.
+ * one file. And saving a file (#586), on either: a copy, handed to the share sheet, which offers
+ * saving it to the photos or the files. The copies go when the session does -- and a copy that
+ * arrives after its session ended is neither viewed, shared nor kept.
  *
  * The platform's pieces are passed in (`Main.tsx` gives the real ones), so this is tested without them.
  */
@@ -12,10 +13,15 @@ is neither viewed nor kept.
 export type DocumentParts = {
   /** Shows a link in the in-app browser (iOS). */
   openBrowser(url: string): Promise<unknown>
-  /** Downloads a file into the app's cache under this name, overwriting an older copy (Android). */
-  download(url: string, fileName: string): Promise<{ contentUri: string }>
+  /**
+   * Downloads a file into the app's cache under this name, overwriting an older copy: on Android to
+   * view, on either to save. The content URI is the one another app may be allowed to read.
+   */
+  download(url: string, fileName: string): Promise<{ contentUri: string; uri: string }>
   /** Hands a file to the app that views its type, allowed to read it (Android). */
   view(contentUri: string, mimeType: string): Promise<unknown>
+  /** Opens the share sheet on a downloaded copy, titled by the file's name (#586). */
+  share(uri: string, mimeType: string, fileName: string): Promise<unknown>
   /** Deletes every copy downloaded (Android); nothing to do where none are made. */
   forget(): Promise<void>
   /** Deletes the one copy under this name (Android); none where no copies are made. */
@@ -40,6 +46,16 @@ export function documentsFor(platform: string, parts: DocumentParts) {
         return
       }
       await parts.openBrowser(url)
+    },
+    async save(url: string, fileName: string, contentType: string): Promise<void> {
+      const started = forgotten
+      const name = safeFileName(fileName)
+      const copy = await parts.download(url, name)
+      if (forgotten !== started) {
+        await parts.discard?.(name)
+        return
+      }
+      await parts.share(copy.uri, contentType, fileName)
     },
     forget: () => {
       forgotten += 1

@@ -115,19 +115,46 @@ function Preview({
   )
 }
 
-/** An image opened from its task, over everything, at the size the screen allows. */
+/**
+ * An image opened from its task, over everything, at the size the screen allows, with **Download**
+ * (#586), which hands the original to the phone to save, where the phone can, and **Close**.
+ */
 export function FileViewer({
   file,
   messages,
   styles,
   onClose,
+  onDownload,
 }: {
   /** The image shown; none while nothing is. */
   file: { url: string; fileName: string } | null
   messages: Messages
   styles: Styles
   onClose: () => void
+  /** Saves the image shown; none where the phone cannot save a file, and then no button. */
+  onDownload?: () => Promise<void>
 }) {
+  // By the image that failed, so the next one opened starts without the message.
+  const [failedFor, setFailedFor] = useState<string | null>(null)
+  const failed = file !== null && failedFor === file.url
+  // One download at a time: a second tap would download it again, and iOS refuses a second sheet.
+  const [saving, setSaving] = useState(false)
+
+  const download = () => {
+    if (saving || !onDownload) {
+      return
+    }
+    const url = file?.url ?? null
+    setFailedFor(null)
+    setSaving(true)
+    onDownload()
+      .catch((failure: unknown) => {
+        console.warn('A file could not be saved', failure)
+        setFailedFor(url)
+      })
+      .finally(() => setSaving(false))
+  }
+
   return (
     <Modal visible={file !== null} animationType="fade" onRequestClose={onClose}>
       {file ? (
@@ -139,6 +166,22 @@ export function FileViewer({
             style={styles.viewedImage}
             resizeMode="contain"
           />
+          {failed ? (
+            <Text accessibilityRole="alert" style={styles.notice}>
+              {messages.attachments.downloadFailed(file.fileName)}
+            </Text>
+          ) : null}
+          {onDownload ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityState={{ disabled: saving }}
+              disabled={saving}
+              style={[styles.quietButton, saving && styles.disabled]}
+              onPress={download}
+            >
+              <Text style={styles.quietButtonText}>{messages.attachments.download}</Text>
+            </Pressable>
+          ) : null}
           <Pressable accessibilityRole="button" style={styles.quietButton} onPress={onClose}>
             <Text style={styles.quietButtonText}>{messages.attachments.close}</Text>
           </Pressable>

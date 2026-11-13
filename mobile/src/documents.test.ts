@@ -4,8 +4,12 @@ import { documentsFor, safeFileName } from './documents'
 function platform() {
   return {
     openBrowser: jest.fn().mockResolvedValue(undefined),
-    download: jest.fn().mockResolvedValue({ contentUri: 'content://de.hilling.taskfest/cache/documents/scan.pdf' }),
+    download: jest.fn().mockResolvedValue({
+      contentUri: 'content://de.hilling.taskfest/cache/documents/scan.pdf',
+      uri: 'file:///cache/documents/scan.pdf',
+    }),
     view: jest.fn().mockResolvedValue(undefined),
+    share: jest.fn().mockResolvedValue(undefined),
     forget: jest.fn().mockResolvedValue(undefined),
   }
 }
@@ -67,5 +71,31 @@ describe('a copy downloaded after its session ended (#274)', () => {
 
     expect(parts.view).not.toHaveBeenCalled()
     expect(parts.discard).toHaveBeenCalledWith('scan.pdf')
+  })
+})
+
+describe('saving a file (#586)', () => {
+  it.each(['ios', 'android'])("downloads a copy on %s and hands it, by its own type, to the share sheet", async (os) => {
+    const parts = platform()
+
+    await documentsFor(os, parts).save('https://bucket.example.com/photo', 'photo.jpg', 'image/jpeg')
+
+    expect(parts.download).toHaveBeenCalledWith('https://bucket.example.com/photo', 'photo.jpg')
+    expect(parts.share).toHaveBeenCalledWith('file:///cache/documents/scan.pdf', 'image/jpeg', 'photo.jpg')
+  })
+
+  it('neither shares nor keeps a copy that arrived after its session ended', async () => {
+    const parts = { ...platform(), discard: jest.fn().mockResolvedValue(undefined) }
+    let arrive: (copy: { contentUri: string; uri: string }) => void = () => undefined
+    parts.download.mockReturnValue(new Promise((resolve) => (arrive = resolve)))
+    const documents = documentsFor('ios', parts)
+
+    const saved = documents.save('https://bucket.example.com/photo', 'photo.jpg', 'image/jpeg')
+    await documents.forget()
+    arrive({ contentUri: 'content://x/photo.jpg', uri: 'file:///cache/documents/photo.jpg' })
+    await saved
+
+    expect(parts.share).not.toHaveBeenCalled()
+    expect(parts.discard).toHaveBeenCalledWith('photo.jpg')
   })
 })

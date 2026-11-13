@@ -68,17 +68,59 @@ describe('on the row', () => {
     )
   })
 
-  it('opens a file in a new tab through a link asked for on the click', async () => {
-    await renderSignedIn(stubApi({ me: ALICE, tasks: [task({ attachments: [PDF] })] }))
-    const tab = { location: { href: '' }, opener: {} as unknown, close: vi.fn() }
-    const open = vi.spyOn(window, 'open').mockReturnValue(tab as unknown as Window)
+  it('opens a large preview of a file through a link asked for on the click', async () => {
+    await renderSignedIn(stubApi({ me: ALICE, tasks: [task({ attachments: [PDF, PHOTO] })] }))
+
+    fireEvent.click(rowFor('Pay the invoice').getByRole('button', { name: 'Open Quittung.jpg' }))
+
+    const photo = await screen.findByRole('dialog', { name: 'Quittung.jpg' })
+    expect(within(photo).getByRole('img', { name: 'Quittung.jpg' })).toHaveAttribute(
+      'src',
+      'https://bucket.example.com/object-8',
+    )
+    fireEvent.click(within(photo).getByRole('button', { name: 'Close' }))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+
+    // jsdom has no PDF viewer, as a phone's browser has none: the preview offers a tab instead.
+    fireEvent.click(rowFor('Pay the invoice').getByRole('button', { name: 'Open Rechnung.pdf' }))
+    const pdf = await screen.findByRole('dialog', { name: 'Rechnung.pdf' })
+    expect(within(pdf).getByRole('link', { name: 'Open in a new tab' })).toHaveAttribute(
+      'href',
+      'https://bucket.example.com/object-7',
+    )
+  })
+
+  it('shows the file opened last, whichever link answers first', async () => {
+    const backend = stubApi({ me: ALICE, tasks: [task({ attachments: [PDF, PHOTO] })] })
+    let release: () => void = () => {}
+    const held = new Promise<void>((resolve) => (release = resolve))
+    const slowPdf = vi.fn((input: RequestInfo | URL, init?: RequestInit) =>
+      String(input).endsWith('/attachments/7/link') ? held.then(() => backend(input, init)) : backend(input, init),
+    )
+    await renderSignedIn(slowPdf)
 
     fireEvent.click(rowFor('Pay the invoice').getByRole('button', { name: 'Open Rechnung.pdf' }))
+    fireEvent.click(rowFor('Pay the invoice').getByRole('button', { name: 'Open Quittung.jpg' }))
+    await screen.findByRole('dialog', { name: 'Quittung.jpg' })
+    await act(async () => release())
 
-    // The tab is opened on the click itself, so a popup blocker allows it; the link follows.
-    expect(open).toHaveBeenCalledWith('', '_blank')
-    await waitFor(() => expect(tab.location.href).toBe('https://bucket.example.com/object-7'))
-    expect(tab.opener).toBeNull()
+    expect(screen.getByRole('dialog', { name: 'Quittung.jpg' })).toBeInTheDocument()
+    expect(screen.queryByRole('dialog', { name: 'Rechnung.pdf' })).not.toBeInTheDocument()
+  })
+
+  it('keeps the board out of reach of the keyboard while a preview is open, and gives the focus back', async () => {
+    await renderSignedIn(stubApi({ me: ALICE, tasks: [task({ attachments: [PHOTO] })] }))
+    const open = rowFor('Pay the invoice').getByRole('button', { name: 'Open Quittung.jpg' })
+    open.focus()
+    fireEvent.click(open)
+    const preview = await screen.findByRole('dialog', { name: 'Quittung.jpg' })
+
+    // The board's own shortcut for a new task must not act behind the preview.
+    fireEvent.keyDown(within(preview).getByRole('button', { name: 'Close' }), { key: 'n' })
+    expect(screen.queryByLabelText('What needs doing')).not.toBeInTheDocument()
+
+    fireEvent.click(within(preview).getByRole('button', { name: 'Close' }))
+    expect(open).toHaveFocus()
   })
 
   it('removes a file', async () => {
@@ -109,25 +151,13 @@ describe('on the row', () => {
 })
 
 describe('when something goes wrong', () => {
-  it('closes the tab again and says so when a file cannot be opened', async () => {
+  it('shows no preview and says so when a file cannot be opened', async () => {
     await renderSignedIn(stubApi({ me: ALICE, tasks: [task({ attachments: [PDF] })], link: { status: 500 } }))
-    const tab = { location: { href: '' }, opener: {} as unknown, close: vi.fn() }
-    vi.spyOn(window, 'open').mockReturnValue(tab as unknown as Window)
 
     fireEvent.click(rowFor('Pay the invoice').getByRole('button', { name: 'Open Rechnung.pdf' }))
 
     expect(await screen.findByText('Unable to open the file.')).toBeInTheDocument()
-    expect(tab.close).toHaveBeenCalled()
-  })
-
-  it('does nothing more when the browser blocked the tab', async () => {
-    await renderSignedIn(stubApi({ me: ALICE, tasks: [task({ attachments: [PDF] })] }))
-    const open = vi.spyOn(window, 'open').mockReturnValue(null)
-
-    fireEvent.click(rowFor('Pay the invoice').getByRole('button', { name: 'Open Rechnung.pdf' }))
-
-    await waitFor(() => expect(open).toHaveBeenCalled())
-    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
   it('keeps an image whose preview could not be had as a box that still opens it', async () => {
@@ -146,6 +176,29 @@ describe('when something goes wrong', () => {
     fireEvent.change(editor.getByLabelText('choose a file'), { target: { files: [pdfFile()] } })
 
     expect(await screen.findByText('Your session has expired. Sign in again to carry on.')).toBeInTheDocument()
+  })
+})
+
+describe('a session that ends while a preview is open', () => {
+  it('signs the board out when Download finds the session gone, rather than calling it a failed download', async () => {
+    const backend = stubApi({ me: ALICE, tasks: [task({ attachments: [PHOTO] })] })
+    let links = 0
+    // The row's small preview and the large one get their links; the fresh one Download asks for
+    // finds the session ended.
+    const endsLater = vi.fn((input: RequestInfo | URL, init?: RequestInit) =>
+      String(input).endsWith('/attachments/8/link') && ++links > 2
+        ? Promise.resolve(new Response(null, { status: 401 }))
+        : backend(input, init),
+    )
+    await renderSignedIn(endsLater)
+    fireEvent.click(rowFor('Pay the invoice').getByRole('button', { name: 'Open Quittung.jpg' }))
+    const preview = await screen.findByRole('dialog', { name: 'Quittung.jpg' })
+
+    fireEvent.click(within(preview).getByRole('button', { name: 'Download' }))
+
+    expect(await screen.findByText('Your session has expired. Sign in again to carry on.')).toBeInTheDocument()
+    expect(screen.queryByText('Quittung.jpg could not be downloaded. Try again.')).not.toBeInTheDocument()
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 })
 

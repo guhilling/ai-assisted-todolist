@@ -26,6 +26,8 @@ export { default as DueDateField } from './components/DueDateField'
 export { default as DueTimeField } from './components/DueTimeField'
 export type { DueTimeValue } from './components/DueTimeField'
 export { default as FileDrop } from './components/FileDrop'
+export { default as FilePreview } from './components/FilePreview'
+export type { PreviewedFile } from './components/FilePreview'
 export { default as LegalFooter } from './components/LegalFooter'
 export { aboutUrl, imprintUrl, privacyUrl, privacyUrls } from './links'
 

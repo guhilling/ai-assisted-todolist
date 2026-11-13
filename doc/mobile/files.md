@@ -61,7 +61,10 @@ and removed.
 - **Tapping a link** opens its address in the phone's browser — only a web address, whatever the
   backend sent — and asks the backend for nothing: there is no file to sign a link to.
 - **Tapping one opens it.** An image opens in the app, over everything, as large as the screen
-  allows, with **Close** to go back. A PDF opens in the phone's own viewer: on iOS the in-app
+  allows, with **Download** and **Close** (#586). Download fetches the original into the app's
+  cache, which goes with the session, and hands it to the phone's share sheet (`expo-sharing`),
+  which offers saving it to the photos or the files; a failure says so in the viewer. The website
+  shows a file in a large preview of its own, with the same Download. A PDF opens in the phone's own viewer: on iOS the in-app
   browser shows it from its link; on Android it is downloaded into the app's cache and handed, by
   its own type, to whatever views that there, which may read that one file
   (`mobile/src/documents.ts`). Without a viewer, or without a connection, the board says the file

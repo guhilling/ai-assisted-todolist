@@ -17,7 +17,7 @@ export type AttachmentActions = {
    * rather than once per render.
    */
   link: (taskId: Task['id'], attachmentId: Attachment['id'], thumbnail: boolean) => Promise<string>
-  /** Opens the file in a new tab. */
+  /** Opens the file's large preview (#586). */
   open: (task: Task, attachment: Attachment) => void
   /** Removes the file from the task, for good. */
   remove: (task: Task, attachment: Attachment) => void
@@ -34,8 +34,8 @@ type AttachmentListProps = {
 
 /**
  * A task's files and links on its row: an image as a small preview (D2 on #204), a PDF by its name,
- * a link by its title (#414), each opening in a new tab when clicked, and each removable while the
- * task is open. A link opens its own address, as a real link does; one that is no web address is
+ * a link by its title (#414), each opening when clicked -- a file in its large preview (#586), a
+ * link in a new tab -- and each removable while the task is open. A link opens its own address, as a real link does; one that is no web address is
  * shown, but not linked.
  *
  * The preview is the image's thumbnail when it has one (#236) -- a few kilobytes the browser made

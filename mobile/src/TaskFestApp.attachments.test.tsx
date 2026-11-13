@@ -101,6 +101,55 @@ describe("a task's files on the board (#274)", () => {
     expect(screen.queryByTestId('file-viewer')).toBeNull()
   })
 
+  it('saves a viewed image through the phone, under its own name and type (#586)', async () => {
+    const save = jest.fn().mockResolvedValue(undefined)
+    await show(dependencies({ documents: { open: jest.fn(), forget: jest.fn().mockResolvedValue(undefined), save } }))
+    const user = userEvent.setup()
+    await user.press(await screen.findByRole('button', { name: 'Open photo.jpg' }))
+    const viewer = await screen.findByTestId('file-viewer')
+
+    await user.press(within(viewer).getByRole('button', { name: 'Download' }))
+
+    expect(save).toHaveBeenCalledWith('https://bucket.example.com/1/3/file', 'photo.jpg', 'image/jpeg')
+    expect(within(viewer).queryByText('photo.jpg could not be downloaded. Try again.')).toBeNull()
+  })
+
+  it('says so in the viewer when a viewed image could not be saved, and stays open', async () => {
+    const save = jest.fn().mockRejectedValue(new Error('offline'))
+    await show(dependencies({ documents: { open: jest.fn(), forget: jest.fn().mockResolvedValue(undefined), save } }))
+    const user = userEvent.setup()
+    await user.press(await screen.findByRole('button', { name: 'Open photo.jpg' }))
+    const viewer = await screen.findByTestId('file-viewer')
+
+    await user.press(within(viewer).getByRole('button', { name: 'Download' }))
+
+    expect(await within(viewer).findByText('photo.jpg could not be downloaded. Try again.')).toBeOnTheScreen()
+    expect(screen.getByTestId('file-viewer')).toBeOnTheScreen()
+  })
+
+  it('does not start a second download while one runs', async () => {
+    let arrive: () => void = () => undefined
+    const save = jest.fn().mockReturnValue(new Promise<void>((resolve) => (arrive = resolve)))
+    await show(dependencies({ documents: { open: jest.fn(), forget: jest.fn().mockResolvedValue(undefined), save } }))
+    const user = userEvent.setup()
+    await user.press(await screen.findByRole('button', { name: 'Open photo.jpg' }))
+    const viewer = await screen.findByTestId('file-viewer')
+
+    await user.press(within(viewer).getByRole('button', { name: 'Download' }))
+    await user.press(within(viewer).getByRole('button', { name: 'Download' }))
+    await act(async () => arrive())
+
+    expect(save).toHaveBeenCalledTimes(1)
+  })
+
+  it('offers no Download where the phone cannot save a file', async () => {
+    await show(dependencies({ documents: { open: jest.fn(), forget: jest.fn().mockResolvedValue(undefined) } }))
+    await userEvent.setup().press(await screen.findByRole('button', { name: 'Open photo.jpg' }))
+
+    const viewer = await screen.findByTestId('file-viewer')
+    expect(within(viewer).queryByRole('button', { name: 'Download' })).toBeNull()
+  })
+
   it('opens an image without a thumbnail by the link its preview already has', async () => {
     const deps = dependencies({ fetchTasks: jest.fn().mockResolvedValue([{ ...withFiles, attachments: [sketch] }]) })
     await show(deps)
@@ -169,6 +218,47 @@ describe("a task's files on the board (#274)", () => {
 
     expect(await screen.findByRole('button', { name: 'Sign in with Keycloak' })).toBeOnTheScreen()
     expect(deps.documents!.forget).toHaveBeenCalled()
+  })
+
+  it('forgets the files as soon as a sign-out starts, before it waits for anything', async () => {
+    // A download for saving that ends while the sign-out clears the rest must find its session gone.
+    let cleared: () => void = () => undefined
+    const sessions = { ...memorySessions(session), clear: jest.fn(() => new Promise<void>((resolve) => (cleared = resolve))) }
+    const deps = dependencies({ sessions })
+    await show(deps)
+    const user = userEvent.setup()
+    await screen.findByRole('button', { name: 'Open photo.jpg' })
+
+    await user.press(screen.getByRole('button', { name: 'Account' }))
+    await user.press(screen.getByRole('button', { name: 'Sign out' }))
+
+    await waitFor(() => expect(deps.documents!.forget).toHaveBeenCalled())
+    expect(sessions.clear).toHaveBeenCalled()
+    await act(async () => cleared())
+  })
+
+  it('downloads from a fresh link, as the one the viewer opened with may have expired', async () => {
+    let clock = NOW
+    let signed = 0
+    const link = jest.fn(async () => `https://bucket.example.com/1/3/file?${++signed}`)
+    const save = jest.fn().mockResolvedValue(undefined)
+    await show(dependencies({
+      now: () => clock,
+      attachments: { link, remove: jest.fn().mockResolvedValue(undefined) },
+      documents: { open: jest.fn(), forget: jest.fn().mockResolvedValue(undefined), save },
+    }))
+    const user = userEvent.setup()
+    await user.press(await screen.findByRole('button', { name: 'Open photo.jpg' }))
+    const viewer = await screen.findByTestId('file-viewer')
+    const shown = (within(viewer).getByTestId('viewed-image').props as { source: { uri: string } }).source.uri
+
+    // Past the minutes a link is used again for, as a viewer left open would be.
+    clock += 10 * 60 * 1000
+    await user.press(within(viewer).getByRole('button', { name: 'Download' }))
+
+    await waitFor(() => expect(save).toHaveBeenCalled())
+    expect(save.mock.calls[0][0]).not.toBe(shown)
+    expect(save).toHaveBeenCalledWith(expect.stringMatching(/^https:\/\/bucket\.example\.com\/1\/3\/file\?/), 'photo.jpg', 'image/jpeg')
   })
 
   it('says so when a file cannot be opened', async () => {
