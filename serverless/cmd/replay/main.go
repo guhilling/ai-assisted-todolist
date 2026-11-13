@@ -6,18 +6,24 @@
 // Settings, from the environment: TABLE_NAME, the DynamoDB table; TASKFEST_ATTACHMENTS_BUCKET,
 // the attachment bucket that holds the records; DYNAMODB_ENDPOINT and S3_ENDPOINT, set only for
 // DynamoDB Local and LocalStack, and only together, or local records would decide about a real
-// table. Its log lines are JSON.
+// table. Its log lines are JSON. From a shell it asks for an MFA code when the profile's role
+// needs one, on standard error, so the administrator's profile can be named as it is.
 package main
 
 import (
+	"bufio"
 	"context"
 	"errors"
+	"fmt"
+	"io"
 	"log/slog"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/credentials/stscreds"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 
 	"github.com/guhilling/ai-assisted-todolist/serverless/internal/files"
@@ -31,7 +37,10 @@ func main() {
 		slog.Error("the settings are wrong", "error", err)
 		os.Exit(1)
 	}
-	cfg, err := config.LoadDefaultConfig(context.Background())
+	cfg, err := config.LoadDefaultConfig(context.Background(),
+		config.WithAssumeRoleCredentialOptions(func(o *stscreds.AssumeRoleOptions) {
+			o.TokenProvider = mfaCode(os.Stdin, os.Stderr)
+		}))
 	if err != nil {
 		slog.Error("loading the AWS configuration failed", "error", err)
 		os.Exit(1)
@@ -69,4 +78,19 @@ func settings(getenv func(string) string) error {
 		return errors.New("set DYNAMODB_ENDPOINT and S3_ENDPOINT both, or neither")
 	}
 	return nil
+}
+
+// mfaCode asks for the MFA code of a role the profile assumes, and reads it as one line. The SDK
+// has no prompt of its own, and stscreds.StdinTokenProvider's goes to standard output, among the
+// JSON log lines. On Lambda nothing assumes a role with MFA, so it is never asked.
+func mfaCode(in io.Reader, out io.Writer) func() (string, error) {
+	return func() (string, error) {
+		fmt.Fprint(out, "MFA code: ")
+		line, err := bufio.NewReader(in).ReadString('\n')
+		code := strings.TrimSpace(line)
+		if code == "" {
+			return "", errors.Join(errors.New("no MFA code given"), err)
+		}
+		return code, nil
+	}
 }

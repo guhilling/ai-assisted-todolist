@@ -358,7 +358,7 @@ A DynamoDB restore always creates a new table; the old one stays until it is del
 written between the restore point and the switch is lost, as with the database's snapshot
 restores ([database.md](database.md)), and files uploaded since are left to the orphan clean-up.
 A restore is billed by the size restored, cents for TaskFest. Every step runs as the
-administrator: with its profile, or the credentials exported from it in step 2.
+administrator, with its profile.
 
 1. **Restore into a new table**, from point-in-time recovery (prod) or a backup:
    ```bash
@@ -368,17 +368,13 @@ administrator: with its profile, or the credentials exported from it in step 2.
      --target-table-name <table>-restored-<date>
    aws dynamodb wait table-exists --table-name <table>-restored-<date>
    ```
-2. **Run the replay against it**, before anything else can reach it. The Go program cannot ask
-   for an MFA code, so the AWS CLI exports the administrator's credentials first, asking for one
-   if it has none cached; nothing runs if that fails:
+2. **Run the replay against it**, before anything else can reach it. It asks for the MFA code
+   itself when the profile needs one, each time it runs, since it keeps no session the way the AWS
+   CLI does:
    ```bash
-   creds=$(aws configure export-credentials --profile <admin profile> --format env) &&
-     eval "$creds" && unset AWS_PROFILE &&
-     (cd serverless && AWS_REGION=eu-central-1 TABLE_NAME=<table>-restored-<date> \
-       TASKFEST_ATTACHMENTS_BUCKET=<bucket> go run ./cmd/replay)
+   (cd serverless && AWS_PROFILE=<admin profile> AWS_REGION=eu-central-1 \
+     TABLE_NAME=<table>-restored-<date> TASKFEST_ATTACHMENTS_BUCKET=<bucket> go run ./cmd/replay)
    ```
-   The credentials last as long as the CLI's cached session, at most an hour from when the profile
-   was first used. Should step 5 fail with `ExpiredToken`, the export is run again.
    It logs one JSON line, `deletion-replay`, with how many accounts it deleted again; it exits
    non-zero when one could not be, and is then run again.
 3. **Switch the functions to the new table**, as the administrator, in the environment's root.
@@ -393,8 +389,7 @@ administrator: with its profile, or the credentials exported from it in step 2.
    tofu import module.environment.aws_dynamodb_table.data <table>-restored-<date>
    # Deletion protection first, alone. The apply would send it together with the stream, and
    # DynamoDB refuses that: "DeletionProtection modification must be the only operation in the
-   # request" -- the apply then fails half done, as in the trial on #553. The profile and the
-   # region are named because step 2 unset the one and set the other only for the replay.
+   # request" -- the apply then fails half done, as in the trial on #553.
    aws dynamodb update-table --profile <admin profile> --region eu-central-1 \
      --table-name <table>-restored-<date> --deletion-protection-enabled
    aws dynamodb wait table-exists --profile <admin profile> --region eu-central-1 \
@@ -404,8 +399,8 @@ administrator: with its profile, or the credentials exported from it in step 2.
      --table-name <table>-restored-<date> --query Table.DeletionProtectionEnabled
    ```
    and then `env.sh down` or `up`, whichever the environment is in, naming the administrator's
-   profile for it, as `TASKFEST_<ENV>_AWS_PROFILE=<admin profile>`: after step 2 `AWS_PROFILE` is
-   unset, and `env.sh` would fall back to the lifecycle role, which cannot apply this. The change
+   profile for it, as `TASKFEST_<ENV>_AWS_PROFILE=<admin profile>`: with neither it nor
+   `AWS_PROFILE` set, `env.sh` takes the lifecycle role, which cannot apply this. The change
    of `table_name` reaches `main` just before, in a pull request; until this step has run, an apply
    of `main` would try to replace the old table and fail on its deletion protection.
 4. **Redeploy the release that runs**, with `deploy-serverless.yml` and its tag: the apply changed
