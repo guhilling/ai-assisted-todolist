@@ -1,0 +1,107 @@
+# The end-to-end stack with the Go backend (#556), beside docker-compose.e2e.yml's Quarkus one:
+# both backends run while the move to the Go backend is tried, and the suite runs against each.
+#
+#   docker build -t taskfest-serverless:e2e serverless
+#   docker compose -f deployment/docker/docker-compose.e2e.serverless.yml up -d --wait
+#
+# Keycloak and the frontend are the Quarkus stack's own, by `extends`. In place of PostgreSQL and
+# LocalStack, DynamoDB Local holds the table and SeaweedFS the attachments: LocalStack Community was
+# archived in March 2026, and SeaweedFS checks presigned uploads' signatures and CORS as S3 does
+# (doc/deployment/serverless.md). The Go server speaks plain HTTP, which the frontend proxies to.
+
+name: taskfest-e2e-serverless
+
+services:
+  keycloak:
+    extends:
+      file: docker-compose.e2e.yml
+      service: keycloak
+
+  dynamodb:
+    # The tag the Go backend's store tests run, so both test against one DynamoDB Local.
+    image: amazon/dynamodb-local:3.3.2
+    command: ["-jar", "DynamoDBLocal.jar", "-inMemory", "-sharedDb"]
+    ports:
+      # For `go run ./cmd/api` against this stack's stores (serverless.md).
+      - "8000:8000"
+
+  s3:
+    image: docker.io/chrislusf/seaweedfs:4.51
+    command: ["server", "-s3", "-s3.port=8333", "-s3.config=/etc/seaweedfs/s3.json"]
+    volumes:
+      - ../../e2e/seaweedfs-s3.json:/etc/seaweedfs/s3.json:ro
+    ports:
+      # The browser PUTs and GETs files here itself, through presigned links naming s3.localhost,
+      # which browsers resolve to this machine and the containers to this one (the alias below).
+      - "8333:8333"
+    networks:
+      default:
+        aliases:
+          - s3.localhost
+
+  # The table and the bucket, as OpenTofu makes them in AWS; once, before the backend starts.
+  serverless-init:
+    image: docker.io/amazon/aws-cli:2.39.2
+    entrypoint: ["bash", "/init/serverless-init.sh"]
+    environment: &aws
+      AWS_REGION: eu-central-1
+      AWS_ACCESS_KEY_ID: taskfest
+      AWS_SECRET_ACCESS_KEY: taskfest-secret
+      DYNAMODB_ENDPOINT: http://dynamodb:8000
+      S3_ENDPOINT: http://s3.localhost:8333
+      TABLE_NAME: taskfest-local
+      BUCKET: taskfest-attachments
+    volumes:
+      - ../../e2e/serverless-init.sh:/init/serverless-init.sh:ro
+    depends_on:
+      - dynamodb
+      - s3
+
+  backend:
+    image: ${SERVERLESS_IMAGE:-taskfest-serverless:e2e}
+    environment:
+      <<: *aws
+      TASKFEST_ATTACHMENTS_BUCKET: taskfest-attachments
+      PORT: "8080"
+      TASKFEST_PUBLIC_ORIGIN: http://localhost:3000
+      TASKFEST_AUTH_ENABLED: "true"
+      TASKFEST_AUTH_POST_LOGIN_REDIRECT_URI: http://localhost:3000/
+      TASKFEST_COOKIE_SECURE: "false"
+      TASKFEST_GRAVATAR_ENABLED: "false"
+      TASKFEST_AUTH_PROVIDERS: keycloak
+      TASKFEST_OIDC_KEYCLOAK_LABEL: Keycloak
+      # The issuer as the browser and the tokens name it; its metadata where a container reaches
+      # it (internal/auth, Provider.DiscoveryURL), as Quarkus's auth-server-url is set apart.
+      TASKFEST_OIDC_KEYCLOAK_ISSUER: http://localhost:8082/realms/taskfest
+      TASKFEST_OIDC_KEYCLOAK_DISCOVERY_URL: http://keycloak:8082/realms/taskfest
+      TASKFEST_OIDC_KEYCLOAK_CLIENT_ID: taskfest-backend
+      TASKFEST_OIDC_KEYCLOAK_CLIENT_SECRET: taskfest-secret
+      TASKFEST_OIDC_KEYCLOAK_AUDIENCES: taskfest-app
+    depends_on:
+      keycloak:
+        condition: service_healthy
+      serverless-init:
+        condition: service_completed_successfully
+
+  # Whether the backend is serving. Its image has nothing but the binary, so this asks for it, and
+  # the frontend waits for that rather than for the open port.
+  backend-ready:
+    image: docker.io/curlimages/curl:8.22.0
+    command: ["sleep", "infinity"]
+    depends_on:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "-o", "/dev/null", "http://backend:8080/api/auth/providers"]
+      interval: 3s
+      timeout: 5s
+      retries: 40
+
+  frontend:
+    extends:
+      file: docker-compose.e2e.yml
+      service: frontend
+    environment:
+      TASKFEST_BACKEND_URL: http://backend:8080
+    depends_on:
+      backend-ready:
+        condition: service_healthy

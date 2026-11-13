@@ -1,0 +1,9 @@
+{
+  "identities": [
+    {
+      "name": "taskfest",
+      "credentials": [{ "accessKey": "taskfest", "secretKey": "taskfest-secret" }],
+      "actions": ["Admin", "Read", "Write", "List", "Tagging"]
+    }
+  ]
+}

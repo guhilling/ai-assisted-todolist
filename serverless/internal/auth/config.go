@@ -31,6 +31,10 @@ type Provider struct {
 	Label string
 	// Issuer is the provider's issuer URL, exactly as its ID tokens' iss claim spells it.
 	Issuer string
+	// DiscoveryURL is where the provider's metadata is fetched when that is not Issuer: in the
+	// local stacks (#556), Keycloak's issuer is the browser's localhost:8082, which a container
+	// cannot reach, as Quarkus's auth-server-url is set apart from it. Empty means Issuer.
+	DiscoveryURL string
 	// ClientID and ClientSecret are the backend's client at the provider. A provider without
 	// both is listed but not usable.
 	ClientID, ClientSecret string
@@ -92,6 +96,7 @@ type Config struct {
 //	TASKFEST_AUTH_PROVIDERS          the provider ids, comma-separated, the main one first
 //	TASKFEST_OIDC_<ID>_LABEL         the button's label
 //	TASKFEST_OIDC_<ID>_ISSUER        the issuer URL
+//	TASKFEST_OIDC_<ID>_DISCOVERY_URL where its metadata is, when not at the issuer (local stacks)
 //	TASKFEST_OIDC_<ID>_CLIENT_ID     the backend's client id
 //	TASKFEST_OIDC_<ID>_CLIENT_SECRET its secret
 //	TASKFEST_OIDC_<ID>_AUDIENCES     further client ids a bearer token may name, comma-separated
@@ -121,7 +126,8 @@ func LoadConfig(getenv func(string) string) (Config, error) {
 		keys[key] = id
 		p := Provider{
 			ID: id, Label: getenv(key + "LABEL"), Issuer: getenv(key + "ISSUER"),
-			ClientID: getenv(key + "CLIENT_ID"), ClientSecret: getenv(key + "CLIENT_SECRET"),
+			DiscoveryURL: getenv(key + "DISCOVERY_URL"),
+			ClientID:     getenv(key + "CLIENT_ID"), ClientSecret: getenv(key + "CLIENT_SECRET"),
 			Audiences: list(getenv(key + "AUDIENCES")), Main: i == 0,
 		}
 		if p.Label == "" {

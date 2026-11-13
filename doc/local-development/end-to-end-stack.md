@@ -40,5 +40,44 @@ Always tear it down when finished — it binds the same ports as the other stack
 docker compose -f deployment/docker/docker-compose.e2e.yml down -v
 ```
 
+## With the Go backend
+
+The same suite runs against the Go backend (#556), which runs beside the Quarkus one while the move
+is tried ([architecture.md](../architecture.md#two-architectures)), in a stack of its own,
+`docker-compose.e2e.serverless.yml`. Keycloak and the frontend are the Quarkus stack's, by
+`extends`; the rest is the Go backend's:
+
+```bash
+docker build -t taskfest-serverless:e2e serverless
+cd frontend && docker build -f docker/Dockerfile -t taskfest-frontend:e2e . && cd ..
+
+docker compose -f deployment/docker/docker-compose.e2e.serverless.yml up -d --wait
+
+cd e2e && npx playwright test
+```
+
+- **The Go server** is `serverless/Dockerfile`: `cmd/api` as a plain HTTP server, the same code
+  Lambda runs. The frontend proxies `/api/` to it at `http://backend:8080`, which the stack names in
+  `TASKFEST_BACKEND_URL`; the frontend image proxies to the Quarkus backend by default.
+- **DynamoDB Local** holds the table, in memory, and **SeaweedFS** the attachments, at
+  `http://s3.localhost:8333`, one address for both sides as LocalStack's is. LocalStack Community was
+  archived in March 2026; SeaweedFS checks a presigned upload's signature, size and type, and the
+  bucket's CORS rule, as S3 does, once it has an access key (`e2e/seaweedfs-s3.json`).
+  `e2e/serverless-init.sh` creates the table and the bucket, and the bucket's CORS rule, which
+  `check-cors-rule.py` compares with AWS's as it does LocalStack's.
+- **Sign-in** is Keycloak's, as for Quarkus. Its issuer is the browser's `http://localhost:8082`,
+  which a container cannot reach, so the backend fetches its metadata from
+  `http://keycloak:8082` (`TASKFEST_OIDC_KEYCLOAK_DISCOVERY_URL`), as Quarkus's `auth-server-url`
+  is set apart from its issuer.
+- **What it leaves out**: the stream and the scheduled functions, which only Lambda runs. A deleted
+  attachment's file stays in the bucket, as nothing there cleans up after it; `down -v` takes it.
+
+```bash
+docker compose -f deployment/docker/docker-compose.e2e.serverless.yml down -v
+```
+
+End-to-end tests run this stack on every pull request that touches the Go backend, the frontend
+or the suite, as `e2e (Go backend)` beside the Quarkus jobs.
+
 See [testing.md](../testing/index.md) for what the suite covers and how to run it interactively.
 

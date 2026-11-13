@@ -17,5 +17,7 @@ RUN npm run build
 # the runtime needs has to be COPYed in rather than assembled with RUN.
 FROM registry.access.redhat.com/hi/httpd:2
 COPY docker/httpd.conf /etc/httpd/conf.d/taskfest.conf
+# Where httpd.conf proxies /api/ to: the Quarkus backend over TLS, unless a stack names another.
+ENV TASKFEST_BACKEND_URL=https://backend:8443
 COPY --from=build /app/dist /var/www/html
 EXPOSE 8080

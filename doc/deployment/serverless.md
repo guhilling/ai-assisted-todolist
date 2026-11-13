@@ -228,8 +228,8 @@ code name a file by its bare key, and `internal/files` adds the prefix.
   it, a preview stays broken for up to half an hour, until the next link. Gunnar accepted that
   (#569) rather than signing anew on every request, which undoes #236, or signing with a role
   assumed for the purpose, which knows its end at the price of a role and an STS call per start.
-- **Locally**, `TASKFEST_ATTACHMENTS_BUCKET` names the bucket and `S3_ENDPOINT` points at
-  LocalStack, as for the end-to-end stack.
+- **Locally**, `TASKFEST_ATTACHMENTS_BUCKET` names the bucket and `S3_ENDPOINT` points at the
+  end-to-end stack's SeaweedFS (#556); the Go code's own tests still start LocalStack.
 
 ## Sign-in
 
