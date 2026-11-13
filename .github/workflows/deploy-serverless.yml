@@ -1,6 +1,6 @@
 name: Deploy Go backend
 
-# Deploys a release's Go backend to an environment (#555): the four function zips release.yml built
+# Deploys a release's Go backend to an environment (#555): the function zips release.yml built
 # once and attached to the release, never a rebuild. deploy-serverless.py uploads each, publishes it
 # as a version, checks the API's new version, and moves each function's alias `live` to it.
 #

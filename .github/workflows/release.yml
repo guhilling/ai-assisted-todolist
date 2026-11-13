@@ -215,7 +215,7 @@ jobs:
         run: |
           serverless/build.sh
           mkdir serverless-build
-          for c in api streams orphans replay; do
+          for c in api streams orphans replay logship; do
             cp "serverless/dist/$c.zip" "serverless-build/taskfest-serverless-$TASKFEST_VERSION-$c.zip"
           done
           ls -la serverless-build

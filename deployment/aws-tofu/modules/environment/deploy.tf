@@ -282,7 +282,7 @@ data "aws_iam_policy_document" "deploy" {
       "lambda:UpdateFunctionCode",
     ]
     resources = flatten([
-      for command in ["api", "streams", "orphans", "replay"] : [
+      for command in ["api", "streams", "orphans", "replay", "logship"] : [
         "arn:aws:lambda:${local.region}:${local.account}:function:${local.name}-${command}",
         "arn:aws:lambda:${local.region}:${local.account}:function:${local.name}-${command}:*",
       ]

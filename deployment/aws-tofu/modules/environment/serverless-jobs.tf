@@ -1,8 +1,9 @@
 # The Go backend's background functions (#554), beside the API in serverless.tf: `streams`, which
 # follows the table's stream and deletes the files of attachments that go (#552); `orphans`, the
 # hourly clean-up of files no attachment refers to (#208, #552); and `replay`, which deletes again
-# any account a restore brought back and prunes the deletion records (#553). And the alarms on all
-# of them, which mail through the topic in alerting.tf.
+# any account a restore brought back and prunes the deletion records (#553); and `logship`, which
+# sends the logs on to the monitoring server where there is one (monitoring.tf, #508). And the
+# alarms on the first three, which mail through the topic in alerting.tf.
 #
 # Foundation, like serverless.tf: the functions bill per run, nothing by the hour; the alarms cost
 # $0.10 a month each, whether the environment is up or not. The code comes from
@@ -12,6 +13,7 @@ locals {
   streams_function = "${local.name}-streams"
   orphans_function = "${local.name}-orphans"
   replay_function  = "${local.name}-replay"
+  logship_function = "${local.name}-logship"
   scheduler_role   = "${local.name}-scheduler"
 
   jobs = {
@@ -20,6 +22,8 @@ locals {
     orphans = { name = local.orphans_function, timeout = 300, settings = local.storage_settings }
     # Lambda's longest, since one run may delete several restored accounts.
     replay = { name = local.replay_function, timeout = 900, settings = local.storage_settings }
+    # A batch of lines is posted in one request; Lambda tries a failed one twice more.
+    logship = { name = local.logship_function, timeout = 30, settings = local.logship_settings }
   }
 
   # When the scheduled ones run, in Berlin time: the orphan clean-up hourly, as the Quarkus
@@ -34,6 +38,7 @@ locals {
     streams = data.aws_iam_policy_document.job_streams.json
     orphans = data.aws_iam_policy_document.job_orphans.json
     replay  = data.aws_iam_policy_document.job_replay.json
+    logship = data.aws_iam_policy_document.job_logship.json
   }
 }
 

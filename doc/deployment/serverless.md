@@ -643,7 +643,7 @@ before it, with the administrator, as #578's did:
 
 ```sh
 for env in qa prod; do
-  for c in api streams orphans replay; do
+  for c in api streams orphans replay logship; do
     AWS_PROFILE=<admin profile> aws lambda update-function-code --region eu-central-1 \
       --function-name "taskfest-$env-$c" --zip-file "fileb://serverless/dist/$c.zip" >/dev/null
   done

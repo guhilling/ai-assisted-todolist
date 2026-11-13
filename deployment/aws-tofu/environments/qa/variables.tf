@@ -114,3 +114,9 @@ variable "cpu_architecture" {
   description = "What the Fargate tasks run on: X86_64, or ARM64 for Graviton (#250)."
   type        = string
 }
+
+variable "monitoring_endpoint" {
+  description = "The monitoring server the logs are sent on to (#508), or empty for none."
+  type        = string
+  default     = ""
+}

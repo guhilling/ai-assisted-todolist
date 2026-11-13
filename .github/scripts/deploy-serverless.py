@@ -2,14 +2,14 @@
 """
 Deploys one release of the Go backend to one environment (#555).
 
-Run by deploy-serverless.yml as the environment's deploy role, with the release's four function
+Run by deploy-serverless.yml as the environment's deploy role, with the release's function
 zips, which release.yml built once and attached to the release, downloaded into a directory:
 
     python3 .github/scripts/deploy-serverless.py --environment qa --version v1.6.0 --dist dist/
 
 What it does, in three steps, so that nothing new serves until everything is ready:
 
-1. For each function -- api, streams, orphans, replay -- uploads its zip to the unpublished code,
+1. For each function -- api, streams, orphans, replay, logship -- uploads its zip to the unpublished code,
    `$LATEST`, and publishes exactly that code (by its SHA-256) as a version described by the
    release. The settings OpenTofu applied come with it. An alias still on `$LATEST`, as OpenTofu
    creates it, is first pinned on a version of what runs, so the upload does not serve the new
@@ -38,7 +38,11 @@ import sys
 import tempfile
 
 # The Go backend's functions, in the order they are deployed: the API first, the one checked.
-FUNCTIONS = ("api", "streams", "orphans", "replay")
+FUNCTIONS = ("api", "streams", "orphans", "replay", "logship")
+
+# The functions a release from before them does not have, which a deploy of that release, a
+# rollback, leaves where they are: logship came after v1.6.1 (#508).
+LATER = ("logship",)
 
 # The alias everything that invokes a function names (serverless.tf, serverless-jobs.tf).
 ALIAS = "live"
@@ -122,13 +126,17 @@ def deploy(environment, version, dist, aws=aws):
     if not RELEASE_TAG.match(version):
         raise SystemExit(f"::error::'{version}' is not a release tag like v1.2.3")
     archives = {command: zip_of(dist, version, command) for command in FUNCTIONS}
-    missing = [str(path) for path in archives.values() if not path.is_file()]
+    older = [command for command in LATER if not archives[command].is_file()]
+    functions = [command for command in FUNCTIONS if command not in older]
+    for command in older:
+        print(f"{version} has no {command}; it stays as it is.")
+    missing = [str(archives[command]) for command in functions if not archives[command].is_file()]
     if missing:
         raise SystemExit(f"::error::The release has no {', '.join(missing)}")
 
-    names = {command: f"taskfest-{environment}-{command}" for command in FUNCTIONS}
+    names = {command: f"taskfest-{environment}-{command}" for command in functions}
     previous, new = {}, {}
-    for command in FUNCTIONS:
+    for command in functions:
         name = names[command]
         previous[command] = alias(aws, name)
         if previous[command] == "$LATEST":
@@ -144,7 +152,7 @@ def deploy(environment, version, dist, aws=aws):
 
     moved = []
     try:
-        for command in FUNCTIONS:
+        for command in functions:
             # Counted as moved before the call, which may take effect and still fail on the way back.
             moved.append(command)
             move(aws, names[command], new[command])

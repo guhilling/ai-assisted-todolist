@@ -18,7 +18,7 @@ version="${TASKFEST_VERSION:-1.0.0-SNAPSHOT}"
 [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ && ${#version} -le 64 ]] ||
     { echo "Not a release version: $version" >&2; exit 1; }
 mkdir -p "$HERE/dist"
-commands=(api streams orphans replay)
+commands=(api streams orphans replay logship)
 
 build='set -e; for c in '"${commands[*]}"'; do'
 build+=' CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -tags lambda.norpc -trimpath'

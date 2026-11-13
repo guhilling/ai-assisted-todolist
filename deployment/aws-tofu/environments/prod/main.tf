@@ -77,6 +77,7 @@ module "environment" {
   table_name                   = var.table_name
   deregistration_delay_seconds = var.deregistration_delay_seconds
   cpu_architecture             = var.cpu_architecture
+  monitoring_endpoint          = var.monitoring_endpoint
 }
 
 output "vpc_id" {
