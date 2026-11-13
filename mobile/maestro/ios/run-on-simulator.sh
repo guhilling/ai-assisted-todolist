@@ -51,8 +51,8 @@ simulator_log "$started" "$out/warm-up-simulator.log"
 status=0
 for flow in share-photo share-link; do
   started=$(date -u +%s)
-  # Run once more when Maestro's own driver failed rather than the flow (#401), or the simulator's
-  # iOS stalled before TaskFest's code ran (#533); driver-failed.sh and share-stalled.sh say which.
+  # Run once more when Maestro's own driver failed rather than the flow (#401), or Photos stalled
+  # before TaskFest's extension started (#533); driver-failed.sh and share-stalled.sh say which.
   # Each run keeps its own console output and debug output in the artifact.
   for run in 1 2; do
     # Each share finds the app closed, as after a restart: the extension has to open it. Photos and
@@ -76,7 +76,7 @@ for flow in share-photo share-link; do
       break
     fi
     if bash "$here/share-stalled.sh" "$out/$flow-$run-console.txt"; then
-      echo "::warning title=The simulator's iOS stalled::$flow is run once more (#533)."
+      echo "::warning title=Photos stalled::$flow is run once more (#533)."
       continue
     fi
     if ! bash "$here/../driver-failed.sh" "$out/$flow-$run-console.txt" "maestro-ios-$flow.xml" \

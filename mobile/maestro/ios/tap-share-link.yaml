@@ -27,6 +27,17 @@ appId: com.apple.mobilesafari
 - takeScreenshot: ios-share-link-0-page
 - tapOn: "More"
 - waitForAnimationToEnd
+# Now and then the menu does not open on the first tap, and Share is not found (#533): More is
+# tapped again while Share is not there.
+- repeat:
+    while:
+      notVisible: "Share"
+    times: 3
+    commands:
+      - tapOn:
+          text: "More"
+          optional: true
+      - waitForAnimationToEnd
 - tapOn: "Share"
 - waitForAnimationToEnd
 # A tap on Share while the menu was still opening was lost once, leaving the menu open: tapped

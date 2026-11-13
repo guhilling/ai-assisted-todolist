@@ -1,24 +1,21 @@
 #!/usr/bin/env bash
-# Says whether an iOS share failed because the simulator's own iOS stalled before TaskFest's code
-# ran, not because of TaskFest: exits 0 when Maestro's console output names one of the two stalls,
-# 1 otherwise (#533).
+# Says whether the iOS photo share failed because the simulator's Photos stalled before TaskFest's
+# extension started, not because of TaskFest: exits 0 when Maestro's console output says the flow
+# failed on Photos still "Preparing...", 1 otherwise (#533).
 #
 #   share-stalled.sh CONSOLE
 #
-# Photos now and then never finishes "Preparing..." the photo, so iOS never starts the extension;
+# Photos now and then never finishes preparing the photo, so iOS never starts the extension;
 # share-photo.yaml restarts Photos and shares again once, and on main that second share stalled as
-# well, twice in a day. Safari's menu now and then never opens, so its Share is not found. Both
-# come before the share sheet has offered TaskFest Dev, so a run after them tells as much as the
-# first would have. run-on-simulator.sh runs the flow once more after these, as after a failure of
-# Maestro's own driver (driver-failed.sh). TaskFest Dev missing from the sheet, the app not starting
-# after the share, and anything else still fail at once.
+# well, twice in a day. The flow then fails on an assertion of its own -- "Preparing" still on the
+# screen -- which only Photos shows, never TaskFest's extension. Only the flow's final failure counts,
+# its "[Failed]" line, so a step that failed earlier and was allowed to does not. run-on-simulator.sh
+# runs the flow once more after it, as after a failure of Maestro's own driver (driver-failed.sh).
+# TaskFest Dev missing from the sheet, the extension never opening the app, and anything else
+# still fail at once.
 set -uo pipefail
 
 console=${1:?"usage: share-stalled.sh CONSOLE"}
 [[ -r "$console" ]] || exit 1
 
-# Fixed strings, as Maestro reports the failing step.
-photos_stuck='Assertion is false: "(Open in .TaskFest Dev.\?|Sign in with Keycloak)" is visible'
-safari_menu='Element not found: Text matching regex: Share)'
-
-grep -qF -e "$photos_stuck" -e "$safari_menu" "$console"
+grep -qE '^\[Failed\] Share a photo .*"Preparing' "$console"

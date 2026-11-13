@@ -19,7 +19,8 @@
 # gave a request up (16 s in that run). The runner's log is in UTC and Maestro's in the machine's
 # time, which on GitHub's runners is UTC too; elsewhere they seldom match, and the failure is the
 # flow's, the safe side. The runners, ios/run-on-simulator.sh and run-on-emulator.sh, run a
-# flow once more after these, and only after these. An emulator that went away altogether is
+# flow once more after these -- and the simulator's runner also after Photos stalling before
+# TaskFest's extension started, which ios/share-stalled.sh finds (#533). An emulator that went away altogether is
 # emulator-lost.sh's (#461): a flow cannot run again on it.
 set -uo pipefail
 
