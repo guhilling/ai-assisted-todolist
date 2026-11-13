@@ -383,7 +383,10 @@ administrator's profile.
    ```
    and then `env.sh down` or `up`, whichever the environment is in, with the administrator's
    profile.
-4. **Run the replay again, now against the switched table, at least five minutes after the
+4. **Redeploy the release that runs**, with `deploy-serverless.yml` and its tag: the apply changed
+   the functions' settings, which reach what serves only as a newly published version (#555,
+   [Deploying a release](#deploying-a-release)). Until then the functions still use the old table.
+5. **Run the replay again, now against the switched table, at least five minutes after the
    switch.** The run in step 2 passed over the deletions of its last five minutes, which may still
    have been under way, and deletions kept being recorded until the switch; this run takes both.
    Until it has run, an account deleted in those minutes is back. Deletions are not stopped
@@ -581,13 +584,18 @@ it shows says what that is before anything happens.
   different releases. **A rollback** is `deploy-serverless.yml` with the previous release's tag.
 - **The deploy role** may upload, publish, invoke and move the aliases of these four functions, and
   nothing else of them: no setting, no permission.
+- **A change of the functions' settings by OpenTofu reaches what serves only through a deploy.** A
+  published version keeps the settings it was published with, and the aliases name versions, so an
+  apply changes the unpublished code's settings alone. After an apply that changes them -- a
+  restored table, the origin secret, sign-in -- run `deploy-serverless.yml` with the release that
+  runs; it publishes them with the same code.
 
-**A traffic-weighted canary was decided against** (#555): TaskFest's few requests could not tell a
-good version from a bad one within a deploy, and CodeDeploy would add its own setup and roles for
-it. The check before the alias moves is what a canary would mostly have caught.
+**A traffic-weighted canary was decided against** (#555,
+[the decision](../decisions/deployment-and-aws.md#the-go-backend-is-deployed-by-moving-an-alias-after-a-check)).
 
 **A function created by OpenTofu** starts with what `build.sh` made, and its alias on that
-unpublished code, until the next release's deploy publishes one. Code that changes what the
+unpublished code. The first deploy pins the alias on a published version of it before uploading
+anything, so the upload does not serve the new code before its check. Code that changes what the
 functions may touch goes out with the release after the apply that changes their roles, or by hand
 before it, with the administrator, as #578's did:
 

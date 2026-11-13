@@ -272,6 +272,9 @@ data "aws_iam_policy_document" "deploy" {
     sid = "DeployTheGoBackendsFunctions"
     actions = [
       "lambda:GetAlias",
+      # The CLI's waiters: function-updated-v2 asks GetFunction, published-version-active the
+      # configuration.
+      "lambda:GetFunction",
       "lambda:GetFunctionConfiguration",
       "lambda:InvokeFunction",
       "lambda:PublishVersion",

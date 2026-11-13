@@ -7,23 +7,26 @@ zips, which release.yml built once and attached to the release, downloaded into 
 
     python3 .github/scripts/deploy-serverless.py --environment qa --version v1.6.0 --dist dist/
 
-What it does, in order -- the API function first, then streams, orphans and replay:
+What it does, in three steps, so that nothing new serves until everything is ready:
 
-1. Uploads the function's zip to its unpublished code, `$LATEST`, and publishes that as a version
-   whose description is the release. The settings OpenTofu applied come with it.
-2. For the API function, checks the new version before anything serves it: invokes it with a
-   request as API Gateway sends one, without the header only CloudFront sends, which the function
-   must refuse with a 403 (`lambdahttp.FromOrigin`). An answer means the code starts -- its
-   settings read, its secrets fetched, its table reached -- and handles a request. Anything else
-   stops the deploy with every alias where it was.
-3. Moves the function's alias `live`, which API Gateway, the stream and the schedules invoke, to
-   the new version. Only then is it served.
+1. For each function -- api, streams, orphans, replay -- uploads its zip to the unpublished code,
+   `$LATEST`, and publishes exactly that code (by its SHA-256) as a version described by the
+   release. The settings OpenTofu applied come with it. An alias still on `$LATEST`, as OpenTofu
+   creates it, is first pinned on a version of what runs, so the upload does not serve the new
+   code before its check.
+2. Checks the API's new version: invokes it with a request as API Gateway sends one, without the
+   header only CloudFront sends, which it must refuse with a 403 (`lambdahttp.FromOrigin`). An
+   answer means the code starts -- its settings read, its secrets fetched, its table reached -- and
+   handles a request. The jobs are not invoked, since a run does real work; a failing one raises
+   its alarm.
+3. Moves each function's alias `live`, which API Gateway, the stream and the schedules invoke, to
+   its new version. A failure here moves every alias back to its previous version, each tried on
+   its own, so the functions do not run different releases.
 
-A failure after an alias has moved moves every alias moved so far back to its previous version, so
-the functions never run different releases. The jobs are not invoked to check them: a run of
-orphans or replay does real work, and a failing one raises its alarm.
-
-A rollback is this again with the previous release's tag, whose zips are still on its release.
+Anything failing before step 3 leaves every alias where it was. A rollback is this again with the
+previous release's tag, whose zips are still on its release. A change of a function's settings by
+OpenTofu reaches what serves only through a deploy, since a published version keeps its own:
+redeploying the current release publishes them (doc/deployment/serverless.md).
 """
 
 import argparse
@@ -63,9 +66,13 @@ CHECK_REQUEST = {
 
 
 def aws(*args):
-    """Runs an AWS CLI command and returns its JSON answer, or an empty one."""
-    output = subprocess.run(["aws", *args, "--output", "json"], check=True,
-                            capture_output=True, text=True).stdout
+    """Runs an AWS CLI command and returns its JSON answer, saying what AWS answered when it fails."""
+    try:
+        output = subprocess.run(["aws", *args, "--output", "json"], check=True,
+                                capture_output=True, text=True).stdout
+    except subprocess.CalledProcessError as failure:
+        print(f"aws {' '.join(args[:2])}: {failure.stderr}", file=sys.stderr)
+        raise
     return json.loads(output) if output.strip() else {}
 
 
@@ -74,13 +81,23 @@ def zip_of(dist, version, command):
     return pathlib.Path(dist) / f"taskfest-serverless-{version.removeprefix('v')}-{command}.zip"
 
 
-def publish(aws, name, archive, version):
-    """Uploads the code and publishes it as a version described by the release; returns the version."""
-    aws("lambda", "update-function-code", "--function-name", name, "--zip-file", f"fileb://{archive}")
+def published(aws, name, description, code=None):
+    """Publishes the function's unpublished code as a version, once it is ready; returns the version."""
     aws("lambda", "wait", "function-updated-v2", "--function-name", name)
-    number = aws("lambda", "publish-version", "--function-name", name, "--description", version)["Version"]
+    args = ["--description", description] + (["--code-sha256", code] if code else [])
+    number = aws("lambda", "publish-version", "--function-name", name, *args)["Version"]
     aws("lambda", "wait", "published-version-active", "--function-name", name, "--qualifier", number)
     return number
+
+
+def alias(aws, name):
+    """The version the function's alias names."""
+    return aws("lambda", "get-alias", "--function-name", name, "--name", ALIAS)["FunctionVersion"]
+
+
+def move(aws, name, number):
+    """Points the function's alias at the version."""
+    aws("lambda", "update-alias", "--function-name", name, "--name", ALIAS, "--function-version", number)
 
 
 def check_api(aws, name, number):
@@ -109,21 +126,38 @@ def deploy(environment, version, dist, aws=aws):
     if missing:
         raise SystemExit(f"::error::The release has no {', '.join(missing)}")
 
+    names = {command: f"taskfest-{environment}-{command}" for command in FUNCTIONS}
+    previous, new = {}, {}
+    for command in FUNCTIONS:
+        name = names[command]
+        previous[command] = alias(aws, name)
+        if previous[command] == "$LATEST":
+            previous[command] = published(aws, name, f"pinned before {version}")
+            move(aws, name, previous[command])
+            print(f"{name}: {ALIAS} pinned on version {previous[command]}, what ran before {version}.")
+        code = aws("lambda", "update-function-code", "--function-name", name,
+                   "--zip-file", f"fileb://{archives[command]}")["CodeSha256"]
+        new[command] = published(aws, name, version, code)
+        print(f"{name}: {version} published as version {new[command]}.")
+
+    check_api(aws, names["api"], new["api"])
+
     moved = []
     try:
         for command in FUNCTIONS:
-            name = f"taskfest-{environment}-{command}"
-            number = publish(aws, name, archives[command], version)
-            if command == "api":
-                check_api(aws, name, number)
-            previous = aws("lambda", "get-alias", "--function-name", name, "--name", ALIAS)["FunctionVersion"]
-            aws("lambda", "update-alias", "--function-name", name, "--name", ALIAS, "--function-version", number)
-            moved.append((name, previous))
-            print(f"{name}: {ALIAS} now runs version {number} ({version}), was {previous}.")
+            # Counted as moved before the call, which may take effect and still fail on the way back.
+            moved.append(command)
+            move(aws, names[command], new[command])
+            print(f"{names[command]}: {ALIAS} now runs version {new[command]} ({version}), "
+                  f"was {previous[command]}.")
     except BaseException:
-        for name, previous in reversed(moved):
-            aws("lambda", "update-alias", "--function-name", name, "--name", ALIAS, "--function-version", previous)
-            print(f"{name}: {ALIAS} moved back to version {previous}.", file=sys.stderr)
+        for command in reversed(moved):
+            try:
+                move(aws, names[command], previous[command])
+                print(f"{names[command]}: {ALIAS} moved back to version {previous[command]}.", file=sys.stderr)
+            except Exception as failure:  # noqa: BLE001 -- every alias gets its try
+                print(f"::error::{names[command]}: {ALIAS} could not be moved back to version "
+                      f"{previous[command]}: {failure}", file=sys.stderr)
         raise
 
 
