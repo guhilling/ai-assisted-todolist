@@ -190,6 +190,42 @@ jobs:
           name: frontend-build
           path: taskfest-frontend-${{ steps.version.outputs.version }}.tar.gz
 
+  # The Go backend's four functions (#555), built once from the tag and attached to the release,
+  # as the frontend build is: deploy-serverless.yml deploys these zips, never a rebuild, which is
+  # what makes a rollback "deploy the previous release". The version is the tag's, which
+  # GET /api/version reports.
+  serverless:
+    name: Build the Go backend
+    needs: gate
+    runs-on: ubuntu-26.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: serverless/go.mod
+          # Off, as in Serverless CI: caches are saved on main only (#308).
+          cache: false
+
+      - name: Build the functions
+        env:
+          TASKFEST_VERSION: ${{ needs.gate.outputs.version }}
+        run: |
+          serverless/build.sh
+          mkdir serverless-build
+          for c in api streams orphans replay; do
+            cp "serverless/dist/$c.zip" "serverless-build/taskfest-serverless-$TASKFEST_VERSION-$c.zip"
+          done
+          ls -la serverless-build
+
+      - name: Upload the functions
+        uses: actions/upload-artifact@v7
+        with:
+          name: serverless-build
+          path: serverless-build/*.zip
+
   publish:
     name: Publish ${{ matrix.name }} image
     needs: gate
@@ -271,7 +307,7 @@ jobs:
 
   announce:
     name: GitHub Release
-    needs: [gate, publish]
+    needs: [gate, publish, serverless]
     runs-on: ubuntu-26.04
     permissions:
       contents: write
@@ -291,6 +327,12 @@ jobs:
         with:
           name: frontend-build
           path: frontend-build
+
+      - name: Download the Go backend's functions
+        uses: actions/download-artifact@v8
+        with:
+          name: serverless-build
+          path: serverless-build
 
       - name: Create the release
         env:
@@ -336,6 +378,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh release upload "$GITHUB_REF_NAME" frontend-build/taskfest-frontend-*.tar.gz
+
+      - name: Attach the Go backend's functions to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "$GITHUB_REF_NAME" serverless-build/taskfest-serverless-*.zip
 
       - name: Publish the new version on Pages
         env:
@@ -394,9 +441,25 @@ jobs:
       environment: qa
       version: ${{ github.ref_name }}
 
+  # The Go backend to qa beside the containers (#555): its functions are there whether qa is up or
+  # not, and qa serves /api/* from them since #557.
+  deploy-serverless-qa:
+    name: Deploy the Go backend to qa
+    needs: [gate, announce]
+    if: ${{ needs.gate.outputs.prerelease == 'false' }}
+    permissions:
+      contents: read
+      id-token: write
+    uses: ./.github/workflows/deploy-serverless.yml
+    with:
+      environment: qa
+      version: ${{ github.ref_name }}
+
   deploy-frontend-qa:
     name: Deploy frontend to qa
-    needs: deploy-backend-qa
+    # After both backends, so its live tests check the release's frontend against the release's API,
+    # whichever backend serves it.
+    needs: [deploy-backend-qa, deploy-serverless-qa]
     permissions:
       contents: read
       id-token: write

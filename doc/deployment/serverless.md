@@ -561,9 +561,35 @@ serverless/build.sh
 **`down` takes qa down if it is up**; with qa down it applies only the foundation, and the plan
 it shows says what that is before anything happens.
 
-**Until a release deploys the code (#555)**, new code reaches the functions by hand, with the
-administrator, after `build.sh`. Code that changes what the functions may touch goes up before the
-apply that changes their roles, as #578's did:
+### Deploying a release
+
+**A release deploys the code** (#555), as it deploys the containers' image and the site:
+
+- **`release.yml` builds the four functions once**, from the tag, with the version `GET /api/version`
+  reports, and attaches them to the release as `taskfest-serverless-<version>-<function>.zip`.
+- **`deploy-serverless.yml` deploys them**, to qa after every final release, and to prod by hand
+  through its protected environment, as the containers are. `deploy-serverless.py` uploads each
+  function's zip, publishes it as a version described by the release, and moves the function's
+  alias `live` to it. API Gateway, the stream and the schedules invoke `live`, never the
+  unpublished code, so nothing serves a version before its alias moves.
+- **The API's new version is checked first.** It is invoked with a request as API Gateway sends one,
+  without CloudFront's header, which it must refuse with a 403: it has started, read its settings
+  and secrets, reached its table, and handled a request. Anything else stops the deploy with every
+  alias where it was. The jobs are not invoked, since a run does real work; a failing one raises its
+  alarm.
+- **A failure after an alias has moved moves every alias back**, so the functions never run
+  different releases. **A rollback** is `deploy-serverless.yml` with the previous release's tag.
+- **The deploy role** may upload, publish, invoke and move the aliases of these four functions, and
+  nothing else of them: no setting, no permission.
+
+**A traffic-weighted canary was decided against** (#555): TaskFest's few requests could not tell a
+good version from a bad one within a deploy, and CodeDeploy would add its own setup and roles for
+it. The check before the alias moves is what a canary would mostly have caught.
+
+**A function created by OpenTofu** starts with what `build.sh` made, and its alias on that
+unpublished code, until the next release's deploy publishes one. Code that changes what the
+functions may touch goes out with the release after the apply that changes their roles, or by hand
+before it, with the administrator, as #578's did:
 
 ```sh
 for env in qa prod; do
@@ -573,3 +599,6 @@ for env in qa prod; do
   done
 done
 ```
+
+Code uploaded so changes the unpublished code only; the aliases keep their version until a
+release's deploy moves them.

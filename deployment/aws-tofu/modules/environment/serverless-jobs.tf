@@ -205,6 +205,20 @@ resource "aws_lambda_function" "job" {
   depends_on = [aws_iam_role_policy.job]
 }
 
+# The version of each that runs, as for the API (serverless.tf): the stream and the schedules invoke
+# the alias, which a release's deploy moves.
+resource "aws_lambda_alias" "job" {
+  for_each = local.jobs
+
+  name             = local.live_alias
+  function_name    = aws_lambda_function.job[each.key].function_name
+  function_version = "$LATEST"
+
+  lifecycle {
+    ignore_changes = [function_version]
+  }
+}
+
 # The stream, filtered to the removals of attachment items, the only records `streams` acts on, so
 # no other write invokes it. A failed record holds its shard and is sent again, so the retries are
 # capped: what is given up on, the orphan clean-up deletes after seven days -- unless it was the
@@ -212,7 +226,7 @@ resource "aws_lambda_function" "job" {
 # (orphans.HoldNoAttachments); those files wait until there is one again.
 resource "aws_lambda_event_source_mapping" "streams" {
   event_source_arn = aws_dynamodb_table.data.stream_arn
-  function_name    = aws_lambda_function.job["streams"].arn
+  function_name    = aws_lambda_alias.job["streams"].arn
   # The oldest record still in the stream, so no removal written before the mapping began is
   # missed; one deleted twice is no error.
   starting_position              = "TRIM_HORIZON"
@@ -237,6 +251,7 @@ resource "aws_lambda_function_event_invoke_config" "scheduled" {
   for_each = local.schedules
 
   function_name          = aws_lambda_function.job[each.key].function_name
+  qualifier              = aws_lambda_alias.job[each.key].name
   maximum_retry_attempts = 0
 }
 
@@ -268,7 +283,7 @@ data "aws_iam_policy_document" "scheduler" {
   statement {
     sid       = "StartTheScheduledFunctions"
     actions   = ["lambda:InvokeFunction"]
-    resources = [for job in keys(local.schedules) : aws_lambda_function.job[job].arn]
+    resources = [for job in keys(local.schedules) : aws_lambda_alias.job[job].arn]
   }
 }
 
@@ -292,7 +307,7 @@ resource "aws_scheduler_schedule" "job" {
   }
 
   target {
-    arn      = aws_lambda_function.job[each.key].arn
+    arn      = aws_lambda_alias.job[each.key].arn
     role_arn = aws_iam_role.scheduler.arn
 
     # The function is not tried again either (above).

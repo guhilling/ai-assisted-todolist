@@ -1,5 +1,9 @@
 # Deploying: two paths, chosen by the release
 
+This page is the containers' backend's deploy. The Go backend's, a version published and an alias
+moved after a check, is in [serverless.md](serverless.md#deploying-a-release) (#555); a release
+deploys both, and the site after them.
+
 Blue/green and "take the downtime" are opposites — blue/green keeps both versions live, which is
 exactly the overlap that makes a schema change unsafe. Both are wanted, so the release picks:
 
