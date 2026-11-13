@@ -546,11 +546,15 @@ does:
   the one orphan alarm sees both backends.
 
 **The alarms**, each $0.10 a month, mail through the existing topic on entering ALARM and on
-leaving it: the API function's errors and throttles, the stream function more than ten minutes
-behind (it reports a failed record rather than failing, so its errors would never show one), the
-scheduled functions' errors, and the table's throttled reads and writes. That is seven per
-environment, about $1.40 a month for both. Not the HTTP API's 5xx answers yet: they were left out
-while unported routes answered 501 on purpose, and #558 adds them.
+leaving it: the API function's errors and throttles, the API's server errors, at least two in five
+minutes (#558), the stream function more than ten minutes behind (it reports a failed record rather
+than failing, so its errors would never show one), the scheduled functions' errors, and the table's
+throttled reads and writes. That is eight per environment, about $1.60 a month for both.
+
+**The dashboard** `taskfest-<env>-go-backend` (#558, `serverless-dashboard.tf`) shows the requests
+and their answers, the time they take, the API function's time, errors and throttles, the jobs'
+runs and errors, how far the stream function is behind, and the table's reads, writes and throttles.
+It is free: CloudWatch includes three dashboards per account, and these are the second and third.
 
 The functions are created from `serverless/dist/<command>.zip`, which `serverless/build.sh` makes,
 with Go where it is installed and the official Go image through podman or docker where it is not.

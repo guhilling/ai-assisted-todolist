@@ -333,9 +333,8 @@ resource "aws_cloudwatch_log_metric_filter" "orphan_alert_serverless" {
 }
 
 # The alarms, each $0.10 a month: one per thing that can go wrong unnoticed. Each mails once on
-# entering ALARM and once on leaving it. No data, as with no traffic, is no alarm. Not the HTTP
-# API's 5xx answers yet: they were left out while unported routes answered 501 on purpose, and a
-# crash or a timeout already shows as the function's error; #558 adds them.
+# entering ALARM and once on leaving it. No data, as with no traffic, is no alarm -- which is what
+# an environment whose /api/* the containers serve shows for the HTTP API's.
 locals {
   serverless_alarms = {
     api-errors = {
@@ -345,6 +344,18 @@ locals {
     api-throttles = {
       description = "The ${var.environment} API function was throttled: requests were turned away."
       namespace   = "AWS/Lambda", metric = "Throttles", dimensions = { FunctionName = local.api_function }
+    }
+    # The server errors the API answered (#558), including those a crash does not show: the
+    # function answered with a 500 -- the table or the bucket failing, a provider not answering.
+    # Two in five minutes, as one can be a moment's trouble the next request does not meet. A crash,
+    # a timeout or a throttle comes back from API Gateway as a 5xx too, so two of them raise this
+    # beside api-errors or api-throttles: two mails for one fault, which says how many requests met
+    # it. Claude's threshold, as #558 left it.
+    api-5xx = {
+      description = "The ${var.environment} API answered server errors: at least two in five minutes, the function's own 500s or API Gateway's."
+      namespace   = "AWS/ApiGateway", metric = "5xx"
+      dimensions  = { ApiId = aws_apigatewayv2_api.this.id, Stage = aws_apigatewayv2_stage.default.name }
+      threshold   = 2
     }
     # A record whose files fail to go is reported, not raised, so the function's errors never see
     # it; the stream falling behind does, ten minutes before the hour after which it gives up.

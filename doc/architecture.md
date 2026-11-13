@@ -138,7 +138,7 @@ and in what it costs:
 | Reached through | an internal load balancer, a CloudFront VPC origin | API Gateway's HTTP API, with an origin header |
 | Data | PostgreSQL on RDS, Liquibase | one DynamoDB table, TTL and a stream |
 | Clean-up and deletion replay | inside the backend, while it runs | DynamoDB TTL and a stream function, and the orphan clean-up and replay on a schedule, always |
-| Bills | by the hour, about $1.86 a day while up | by the request, about $1 to $1.50 a month always up, seven alarms at $0.10 each included |
+| Bills | by the hour, about $1.86 a day while up | by the request, about $1 to $1.50 a month always up, eight alarms at $0.10 each included |
 | When idle | taken down with `env.sh down`, a daily chore | nothing to take down |
 | First request after a pause | none while up; once down, `env.sh up` takes minutes | a cold start, 125–146 ms as measured in qa |
 | Deploying | blue/green between two target groups | a new version of each function (#555) |

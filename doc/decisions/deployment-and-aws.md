@@ -569,6 +569,9 @@ $0.019 for the RDS instance, cheaper only when idle most of the time it is up.
 
 *Accepted · 2026-11-12 · #554, #575, #576*
 
+Revised in part: an eighth alarm, the API's server errors, at least two in five minutes, joined
+once no route answered 501 any more (#558, Claude's threshold); the rest stands.
+
 Taken by Claude while Gunnar was away, for him to go through. The resources are in
 `serverless.tf` and `serverless-jobs.tf`; [serverless.md](../deployment/serverless.md#the-infrastructure)
 says what each is given.

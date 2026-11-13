@@ -41,6 +41,12 @@ nothing: Cognito's Lite plan is free for the first 10,000 monthly active users, 
 client's secret is an SSM standard parameter, which is free too — chosen over a Secrets Manager
 secret, which would have been another $0.40.
 
+**The Go backend** (#547) bills by the request, whether the environment is up or not, at cents a
+month at TaskFest's traffic ([serverless.md](serverless.md#why)). What it adds by the month is its
+watching: eight alarms at $0.10, **$0.80 a month per environment**, and a dashboard each, free,
+since CloudWatch includes three per account and the account had one before them; a fourth would
+cost $3 a month. Its measured figures follow once a month of it is on the bill (#558).
+
 That is the whole cost model: **qa costs about $1.86 for each day it is up, on Graviton, and close
 to nothing otherwise.** A day of demos is under $2; forgetting it for a month is about $56, which is
 what the budget alarm is for. prod, also on Graviton, costs the same, so **both environments up at
