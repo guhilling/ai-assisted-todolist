@@ -10,6 +10,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -54,26 +55,21 @@ func run(specPath, outPath string) error {
 		return err
 	}
 
-	// Written beside the target and renamed over it, so a failed run leaves the old file whole.
-	out, err := os.CreateTemp(filepath.Dir(outPath), ".contractgen-*.go")
-	if err != nil {
-		return err
-	}
-	defer os.Remove(out.Name())
-	cmd := exec.Command("go", "tool", "oapi-codegen",
+	// The go that go generate runs, from PATH, as every go generate does.
+	cmd := exec.Command("go", "tool", "oapi-codegen", // NOSONAR go:S4036
 		"-generate", "types,std-http-server", "-package", "api", marked)
-	cmd.Stdout, cmd.Stderr = out, os.Stderr
+	var out bytes.Buffer
+	cmd.Stdout, cmd.Stderr = &out, os.Stderr
 	if err := cmd.Run(); err != nil {
-		out.Close()
 		return fmt.Errorf("oapi-codegen: %w", err)
 	}
-	if err := out.Close(); err != nil {
+	// Written beside the target and renamed over it, so a failed run leaves the old file whole.
+	temp := outPath + ".tmp"
+	if err := os.WriteFile(temp, out.Bytes(), 0o644); err != nil {
 		return err
 	}
-	if err := os.Chmod(out.Name(), 0o644); err != nil {
-		return err
-	}
-	return os.Rename(out.Name(), outPath)
+	defer os.Remove(temp)
+	return os.Rename(temp, outPath)
 }
 
 // writeNulls marks every schema property whose type admits null with x-omitempty: false, which

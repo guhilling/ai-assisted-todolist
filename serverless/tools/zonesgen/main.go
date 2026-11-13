@@ -41,7 +41,7 @@ func gorootOf() (string, error) {
 	if root := os.Getenv("GOROOT"); root != "" {
 		return root, nil
 	}
-	out, err := exec.Command("go", "env", "GOROOT").Output()
+	out, err := exec.Command("go", "env", "GOROOT").Output() // NOSONAR go:S4036, as in contractgen
 	if err != nil {
 		return "", fmt.Errorf("finding GOROOT: %w", err)
 	}

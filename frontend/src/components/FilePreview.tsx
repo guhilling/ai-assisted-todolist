@@ -100,7 +100,7 @@ function FilePreview({ file, link, onClose, inlinePdf = showsPdfInline() }: Read
   const isPdf = file.contentType === 'application/pdf'
   return (
     // The dialog fills the window and is the backdrop; its content stops the clicks that are not.
-    <dialog
+    <dialog // NOSONAR -- S1082, S6847: a pointer's way to close; the keyboard's is Escape
       ref={dialog}
       className="file-preview-backdrop"
       aria-label={file.fileName}

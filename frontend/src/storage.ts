@@ -11,7 +11,9 @@
  * The link comes from this application's own backend, which signed it; SonarCloud's taint analysis
  * still counts every response as forged input (S8476, client-side request forgery), as it did a
  * task id (`taskUrl`). The check is a few lines, so the link is checked rather than the finding
- * waved through each time it comes back under a new key (`doc/decisions/frontend.md`).
+ * waved through each time it comes back under a new key (`doc/decisions/frontend.md`). The analysis
+ * does not recognise the check, though, so at the preview's download in `FilePreview.tsx` its two
+ * findings are excluded (`sonar-project.properties`, #561).
  *
  * @returns the link exactly as it came -- a signed link must not be rewritten, not even by the URL
  *   parser's normalising -- or null when it may not be used

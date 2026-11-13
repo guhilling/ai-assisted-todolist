@@ -91,7 +91,7 @@ commit that first wrote each one down. CI checks every line and that this index 
 - [Pages deploys only from `main`](build-and-dependencies.md#pages-deploys-only-from-main)
 - [Misconfiguration scanning is static, in CI, with Trivy — not AWS Config](build-and-dependencies.md#misconfiguration-scanning-is-static-in-ci-with-trivy-not-aws-config)
 - [SonarCloud runs on `main` only, and a failed quality gate becomes an issue](build-and-dependencies.md#sonarcloud-runs-on-main-only-and-a-failed-quality-gate-becomes-an-issue)
-- [A SonarCloud false positive is excluded in `sonar-project.properties`, one rule in one file](build-and-dependencies.md#a-sonarcloud-false-positive-is-excluded-in-sonar-projectproperties-one-rule-in-one-file)
+- [A SonarCloud false positive is silenced in the code, at its line](build-and-dependencies.md#a-sonarcloud-false-positive-is-silenced-in-the-code-at-its-line)
 - [The conventions shared with other repositories come from one public repository](build-and-dependencies.md#the-conventions-shared-with-other-repositories-come-from-one-public-repository)
 
 ## [Containers and the local stack](containers-and-local-stack.md)

@@ -315,6 +315,9 @@ this field. It is fixed by the next decision; the guard in `taskUrl` stays anywa
 ## A storage link is checked before a file goes to it
 
 *Accepted · 2026-10-11 · #298*
+*Revised in part · 2026-11-13 · #561: the check stays, but SonarCloud did not recognise it at the
+preview's download, so its two findings there are excluded for that file:
+[A SonarCloud false positive is silenced in the code, at its line](build-and-dependencies.md#a-sonarcloud-false-positive-is-silenced-in-the-code-at-its-line).*
 
 **Decision.** The signed links the backend hands out — to upload a file or its thumbnail, and to
 open one — go through `storageUrl` in `api.ts` before anything is sent or opened. A link must be
