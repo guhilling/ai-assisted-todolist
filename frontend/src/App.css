@@ -735,12 +735,15 @@ html {
   position: relative;
 }
 
-/* The field and its calendar button read as one control: the button sits flush on the right. */
-.date-field-row {
+/* The field and its button, the calendar's or the clock's, read as one control: the button sits
+   flush on the right. */
+.date-field-row,
+.time-field-row {
   display: flex;
 }
 
-.date-field-row input {
+.date-field-row input,
+.time-field-row input {
   border-top-right-radius: 0;
   border-bottom-right-radius: 0;
 }
@@ -780,29 +783,22 @@ html {
   padding: var(--space-3);
 }
 
-/* On a phone the date field's own picker is the one (#588): TaskFest's calendar would be a second. */
-@media (pointer: coarse) {
-  .date-field-toggle {
-    display: none;
-  }
-
-  .date-field-row input {
-    border-radius: var(--radius);
-  }
+/* On a phone the date field's own picker is the one (#588): TaskFest's calendar would be a second.
+   The script decides which it is (pointer.ts) and says so by the class. */
+.date-field--native .date-field-toggle {
+  display: none;
 }
 
-/* The desktop's time and its list (#588), one control as the date and its calendar are. */
+.date-field--native .date-field-row input {
+  border-radius: var(--radius);
+}
+
+/* The desktop's time and its list (#588), one control as the date and its calendar are; Chrome's
+   own clock would be a second picker beside the list. */
 .time-field-row {
   position: relative;
-  display: flex;
 }
 
-.time-field-row input {
-  border-top-right-radius: 0;
-  border-bottom-right-radius: 0;
-}
-
-/* Chrome's own clock would be a second picker beside the list. */
 .time-field-row input::-webkit-calendar-picker-indicator {
   display: none;
 }

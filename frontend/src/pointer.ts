@@ -1,8 +1,9 @@
 /**
- * Whether the board is used with a mouse or a trackpad (#588): a desktop, where browsers' own date
- * and time pickers differ, and TaskFest offers its own; on a phone, whose pickers suit it, the
- * phone's are used. Where the browser cannot say, as in jsdom, it counts as a phone.
+ * Whether the board is used on a desktop (#588): anything but a touch screen, whose pickers suit
+ * it, and where browsers' own date and time pickers differ, so TaskFest offers its own. The one
+ * place that decides; the stylesheet follows it through a class, rather than asking for itself and
+ * perhaps answering differently. Where the browser cannot say, as in jsdom, it counts as a phone.
  */
-export function hasFinePointer() {
-  return typeof window.matchMedia === 'function' && window.matchMedia('(pointer: fine)').matches
+export function onDesktop() {
+  return typeof window.matchMedia === 'function' && !window.matchMedia('(pointer: coarse)').matches
 }

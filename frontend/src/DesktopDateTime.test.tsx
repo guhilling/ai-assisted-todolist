@@ -26,6 +26,9 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.unstubAllGlobals()
+  // The language test's choice is remembered; no other test speaks German.
+  localStorage.removeItem('taskfest.language')
+  document.documentElement.lang = 'en'
 })
 
 describe('the due date on a desktop', () => {
@@ -67,6 +70,29 @@ describe('the due date on a desktop', () => {
     expect(date.validationMessage).toBe('')
   })
 
+  it('replaces what was typed with a shortcut, even the date the form already holds', async () => {
+    await renderSignedIn(stubApi({ me: ALICE, tasks: [] }))
+    startAdding('Water the plants')
+    const date = screen.getByLabelText('Due date') as HTMLInputElement
+
+    fireEvent.change(date, { target: { value: '15/1' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Tomorrow' }))
+
+    expect(date).toHaveValue(typedDate(isoIn(1), 'en-GB'))
+    expect(date.validationMessage).toBe('')
+  })
+
+  it('is written anew in the language switched to', async () => {
+    await renderSignedIn(stubApi({ me: ALICE, tasks: [] }))
+    startAdding('Water the plants')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Deutsch' }))
+
+    const date = screen.getByLabelText('Fällig am') as HTMLInputElement
+    expect(date).toHaveValue(typedDate(isoIn(1), 'de-DE'))
+    expect(date.validationMessage).toBe('')
+  })
+
   it('shows a date picked from the shortcuts in the same form', async () => {
     await renderSignedIn(stubApi({ me: ALICE, tasks: [] }))
     startAdding('Water the plants')
@@ -84,7 +110,7 @@ describe('the due time on a desktop', () => {
     const toggle = screen.getByRole('button', { name: 'Choose the time from a list' })
 
     fireEvent.click(toggle)
-    const list = screen.getByRole('listbox', { name: 'Time' })
+    const list = screen.getByRole('listbox', { name: 'Choose the time from a list' })
     const options = within(list).getAllByRole('option')
     expect(options).toHaveLength(96)
     expect(options[0]).toHaveTextContent('00:00')
@@ -93,7 +119,7 @@ describe('the due time on a desktop', () => {
     fireEvent.click(within(list).getByRole('option', { name: '09:15' }))
 
     expect(screen.getByLabelText('Time')).toHaveValue('09:15')
-    expect(screen.queryByRole('listbox', { name: 'Time' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('listbox', { name: 'Choose the time from a list' })).not.toBeInTheDocument()
     expect(toggle).toHaveFocus()
   })
 
@@ -103,7 +129,7 @@ describe('the due time on a desktop', () => {
     fireEvent.change(screen.getByLabelText('Time'), { target: { value: '14:30' } })
 
     fireEvent.click(screen.getByRole('button', { name: 'Choose the time from a list' }))
-    const list = screen.getByRole('listbox', { name: 'Time' })
+    const list = screen.getByRole('listbox', { name: 'Choose the time from a list' })
     expect(within(list).getByRole('option', { name: '14:30' })).toHaveFocus()
 
     fireEvent.keyDown(list, { key: 'ArrowDown' })
@@ -118,9 +144,32 @@ describe('the due time on a desktop', () => {
     startAdding('Call the office')
 
     fireEvent.click(screen.getByRole('button', { name: 'Choose the time from a list' }))
-    fireEvent.keyDown(screen.getByRole('listbox', { name: 'Time' }), { key: 'Escape' })
+    fireEvent.keyDown(screen.getByRole('listbox', { name: 'Choose the time from a list' }), { key: 'Escape' })
 
-    expect(screen.queryByRole('listbox', { name: 'Time' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('listbox', { name: 'Choose the time from a list' })).not.toBeInTheDocument()
+    expect(screen.getByLabelText('What needs doing')).toBeInTheDocument()
+  })
+
+  it('opens at the quarter hour nearest a time typed to the minute', async () => {
+    await renderSignedIn(stubApi({ me: ALICE, tasks: [] }))
+    startAdding('Call the office')
+    fireEvent.change(screen.getByLabelText('Time'), { target: { value: '14:10' } })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Choose the time from a list' }))
+
+    expect(screen.getByRole('option', { name: '14:15' })).toHaveFocus()
+  })
+
+  it('closes on Escape from its button too, and never the form', async () => {
+    await renderSignedIn(stubApi({ me: ALICE, tasks: [] }))
+    startAdding('Call the office')
+    const toggle = screen.getByRole('button', { name: 'Choose the time from a list' })
+
+    fireEvent.click(toggle)
+    toggle.focus()
+    fireEvent.keyDown(toggle, { key: 'Escape' })
+
+    expect(screen.queryByRole('listbox', { name: 'Choose the time from a list' })).not.toBeInTheDocument()
     expect(screen.getByLabelText('What needs doing')).toBeInTheDocument()
   })
 
@@ -135,6 +184,33 @@ describe('the due time on a desktop', () => {
 })
 
 describe('the time zone switch', () => {
+  it('takes back the 09:00 it set when turned off again', async () => {
+    const fetchMock = stubApi({ me: ALICE, tasks: [], echoPost: true })
+    await renderSignedIn(fetchMock)
+    startAdding('Call Berlin')
+    const tied = screen.getByRole('switch', { name: 'Tied to a time zone' })
+
+    fireEvent.click(tied)
+    fireEvent.click(tied)
+    expect(screen.getByLabelText('Time')).toHaveValue('')
+    fireEvent.click(screen.getByRole('button', { name: 'Add' }))
+
+    await waitFor(() => expect(bodyOf(fetchMock, 'POST')).toMatchObject({ description: 'Call Berlin' }))
+    expect(bodyOf(fetchMock, 'POST').dueTime).toBeUndefined()
+  })
+
+  it('keeps a time set by hand when turned off', async () => {
+    await renderSignedIn(stubApi({ me: ALICE, tasks: [] }))
+    startAdding('Call Berlin')
+    const tied = screen.getByRole('switch', { name: 'Tied to a time zone' })
+
+    fireEvent.click(tied)
+    fireEvent.change(screen.getByLabelText('Time'), { target: { value: '10:30' } })
+    fireEvent.click(tied)
+
+    expect(screen.getByLabelText('Time')).toHaveValue('10:30')
+  })
+
   it('ties a task without a time to a zone by giving it 09:00, so a zone is never sent alone', async () => {
     const fetchMock = stubApi({ me: ALICE, tasks: [], echoPost: true })
     await renderSignedIn(fetchMock)

@@ -172,14 +172,23 @@ export function quickDates(today: string, words: DateWords = en.dates): QuickDat
 
 /**
  * The order and separator a locale writes a numeric date in, read from `Intl` rather than kept by
- * hand: `en-GB` is `14/11/2026`, `de-DE` `14.11.2026`.
+ * hand: `en-GB` is `14/11/2026`, `de-DE` `14.11.2026`. Kept per locale, as a field reads every
+ * keystroke.
  */
+const numericForms = new Map<string, { order: Intl.DateTimeFormatPartTypes[]; separator: string }>()
+
 function numericForm(locale: string) {
+  const known = numericForms.get(locale)
+  if (known) {
+    return known
+  }
   const parts = new Intl.DateTimeFormat(locale, { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'UTC' })
     .formatToParts(new Date(Date.UTC(2026, 10, 14)))
   const order = parts.filter((part) => part.type !== 'literal').map((part) => part.type)
   const separator = parts.find((part) => part.type === 'literal')?.value ?? '/'
-  return { order, separator }
+  const form = { order, separator }
+  numericForms.set(locale, form)
+  return form
 }
 
 /**

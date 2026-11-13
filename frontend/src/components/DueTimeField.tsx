@@ -1,8 +1,8 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { browserZone, timeZones } from '../dueTime'
-import { useReturnFocus } from '../focus'
 import { useI18n } from '../i18n/context'
-import { hasFinePointer } from '../pointer'
+import { onDesktop } from '../pointer'
+import { usePopover } from '../popover'
 
 /** The times the desktop's list offers (#588): every quarter of an hour, 00:00 to 23:45. */
 const LISTED_TIMES = Array.from({ length: 96 }, (_, quarter) =>
@@ -23,7 +23,8 @@ type DueTimeFieldProps = {
 /**
  * The optional due time in the add and edit forms (#476), and the switch that ties it to a time
  * zone, shown from the start (#588): turned on before a time is set, it sets 09:00, since a zone
- * says nothing without a time and the backend refuses one alone. On a desktop a button beside the
+ * says nothing without a time and the backend refuses one alone, and turned off again it takes that
+ * 09:00 back. On a desktop a button beside the
  * time opens a list of the quarter hours, as desktop Safari and Firefox offer no picker of their
  * own; any minute can still be typed.
  *
@@ -35,11 +36,13 @@ type DueTimeFieldProps = {
  */
 function DueTimeField({ value, onChange }: Readonly<DueTimeFieldProps>) {
   const { messages } = useI18n()
-  const [desktop] = useState(hasFinePointer)
+  const [desktop] = useState(onDesktop)
   const timeId = useId()
   const zoneId = useId()
   // The zone the switch last held, so turning it off and on again gives a task back its own.
   const lastZone = useRef(value.zone)
+  // Whether the time is the 09:00 the switch set, which turning it off takes back.
+  const timeFromSwitch = useRef(false)
 
   return (
     <>
@@ -60,13 +63,17 @@ function DueTimeField({ value, onChange }: Readonly<DueTimeFieldProps>) {
               if (time === '' && value.zone !== null) {
                 lastZone.current = value.zone
               }
+              timeFromSwitch.current = false
               onChange({ time, zone: time === '' ? null : value.zone })
             }}
           />
           {desktop ? (
             <TimeList
               value={value.time}
-              onPick={(time) => onChange({ time, zone: value.zone })}
+              onPick={(time) => {
+                timeFromSwitch.current = false
+                onChange({ time, zone: value.zone })
+              }}
             />
           ) : null}
         </div>
@@ -81,7 +88,15 @@ function DueTimeField({ value, onChange }: Readonly<DueTimeFieldProps>) {
               lastZone.current = value.zone
             }
             const zone = event.target.checked ? (lastZone.current ?? browserZone()) : null
-            onChange({ time: zone !== null && value.time === '' ? TIME_FOR_A_ZONE : value.time, zone })
+            if (zone !== null && value.time === '') {
+              timeFromSwitch.current = true
+              onChange({ time: TIME_FOR_A_ZONE, zone })
+            } else if (zone === null && timeFromSwitch.current) {
+              timeFromSwitch.current = false
+              onChange({ time: '', zone })
+            } else {
+              onChange({ time: value.time, zone })
+            }
           }}
         />
         <span>{messages.dueTime.tied}</span>
@@ -96,41 +111,42 @@ function DueTimeField({ value, onChange }: Readonly<DueTimeFieldProps>) {
   )
 }
 
+/** The quarter hour nearest a time, for the list to open at: 14:10 is 14:15, 23:55 is 23:45. */
+function nearestQuarter(time: string) {
+  const [hours, minutes] = time.split(':').map(Number)
+  const quarter = Math.min(Math.round((hours * 60 + minutes) / 15), LISTED_TIMES.length - 1)
+  return LISTED_TIMES[quarter]
+}
+
 /**
  * The desktop's list of times (#588), opened from the clock button beside the field: a pick sets
  * the time and closes it, as Escape and a click elsewhere do, and the focus goes back to the
- * button. It opens at the time set, or the hour about to come, with the focus there; the arrow
- * keys move through it, and Enter or Space picks.
+ * button (`popover.ts`). It opens at the quarter hour nearest the time set, or the hour about to
+ * come, with the focus there; the arrow keys move through it, and Enter or Space picks.
  */
 function TimeList({ value, onPick }: Readonly<{ value: string; onPick: (time: string) => void }>) {
   const { messages } = useI18n()
-  const [open, setOpen] = useState(false)
   const listId = useId()
   const wrapper = useRef<HTMLSpanElement>(null)
   const toggle = useRef<HTMLButtonElement>(null)
   const list = useRef<HTMLUListElement>(null)
-  const returnFocus = useReturnFocus(open, toggle)
+  const { open, setOpen, closeToButton } = usePopover(wrapper, toggle)
 
   useEffect(() => {
     if (!open) {
       return
     }
-    const nearest = value || `${String((new Date().getHours() + 1) % 24).padStart(2, '0')}:00`
-    const chosen =
-      list.current?.querySelector<HTMLElement>(`[data-time="${nearest}"]`) ??
-      list.current?.querySelector<HTMLElement>('[role="option"]') ??
-      null
+    const start = value ? nearestQuarter(value) : `${String((new Date().getHours() + 1) % 24).padStart(2, '0')}:00`
+    const chosen = list.current?.querySelector<HTMLElement>(`[data-time="${start}"]`) ?? null
     chosen?.scrollIntoView?.({ block: 'center' })
     // The keyboard starts in the list, at the time it opened at; the arrow keys move from there.
     chosen?.focus()
-    const closeUnlessInside = (event: MouseEvent) => {
-      if (!wrapper.current?.contains(event.target as Node)) {
-        setOpen(false)
-      }
-    }
-    document.addEventListener('click', closeUnlessInside)
-    return () => document.removeEventListener('click', closeUnlessInside)
   }, [open, value])
+
+  const pick = (time: string) => {
+    onPick(time)
+    closeToButton()
+  }
 
   return (
     <span className="time-field-picker" ref={wrapper}>
@@ -154,27 +170,22 @@ function TimeList({ value, onPick }: Readonly<{ value: string; onPick: (time: st
           id={listId}
           className="time-field-popover"
           role="listbox"
-          aria-label={messages.dueTime.label}
+          aria-label={messages.dueTime.list}
           onKeyDown={(event) => {
-            // Escape closes the list and nothing else: the forms treat Escape as cancel.
-            if (event.key === 'Escape') {
-              event.stopPropagation()
-              returnFocus()
-              setOpen(false)
+            if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') {
+              return
             }
-            if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-              event.preventDefault()
-              const current = document.activeElement
-              const next =
-                current instanceof HTMLElement && list.current?.contains(current)
-                  ? event.key === 'ArrowDown'
-                    ? current.nextElementSibling
-                    : current.previousElementSibling
-                  : null
-              if (next instanceof HTMLElement) {
-                next.focus()
-                next.scrollIntoView?.({ block: 'nearest' })
-              }
+            event.preventDefault()
+            const current = document.activeElement
+            const next =
+              current instanceof HTMLElement && list.current?.contains(current)
+                ? event.key === 'ArrowDown'
+                  ? current.nextElementSibling
+                  : current.previousElementSibling
+                : null
+            if (next instanceof HTMLElement) {
+              next.focus()
+              next.scrollIntoView?.({ block: 'nearest' })
             }
           }}
         >
@@ -185,17 +196,11 @@ function TimeList({ value, onPick }: Readonly<{ value: string; onPick: (time: st
               aria-selected={time === value}
               data-time={time}
               tabIndex={-1}
-              onClick={() => {
-                onPick(time)
-                returnFocus()
-                setOpen(false)
-              }}
+              onClick={() => pick(time)}
               onKeyDown={(event) => {
                 if (event.key === 'Enter' || event.key === ' ') {
                   event.preventDefault()
-                  onPick(time)
-                  returnFocus()
-                  setOpen(false)
+                  pick(time)
                 }
               }}
             >
