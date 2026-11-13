@@ -6,7 +6,8 @@
 locals {
   # Every widget is a line over the last three hours, in this region, five minutes a point.
   dashboard_defaults = { view = "timeSeries", region = local.region, period = 300, stacked = false }
-  api_dimensions     = ["ApiId", aws_apigatewayv2_api.this.id, "Stage", "$default"]
+  api_dimensions     = ["ApiId", aws_apigatewayv2_api.this.id, "Stage", aws_apigatewayv2_stage.default.name]
+  jobs_shown         = sort(keys(local.jobs))
 
   dashboard_widgets = [
     { title = "Requests and their answers (HTTP API)", metrics = [
@@ -26,19 +27,20 @@ locals {
       ["AWS/Lambda", "Throttles", "FunctionName", local.api_function, { stat = "Sum", label = "Throttles" }],
     ] },
     { title = "Jobs (runs and errors)", metrics = concat(
-      [for job in ["streams", "orphans", "replay"] :
+      [for job in local.jobs_shown :
       ["AWS/Lambda", "Invocations", "FunctionName", local.jobs[job].name, { stat = "Sum", label = "${job}, runs" }]],
-      [for job in ["streams", "orphans", "replay"] :
+      [for job in local.jobs_shown :
       ["AWS/Lambda", "Errors", "FunctionName", local.jobs[job].name, { stat = "Sum", label = "${job}, errors" }]],
     ) },
     { title = "Stream function behind (ms)", metrics = [
-      ["AWS/Lambda", "IteratorAge", "FunctionName", local.streams_function, { stat = "Maximum", label = "Behind, longest" }],
+      ["AWS/Lambda", "IteratorAge", "FunctionName", local.jobs["streams"].name, { stat = "Maximum", label = "Behind, longest" }],
     ] },
-    { title = "Table (capacity used, throttles)", metrics = [
+    # The throttles on an axis of their own, or a few would lie flat beside hundreds of units.
+    { title = "Table (capacity used, throttles on the right)", metrics = [
       ["AWS/DynamoDB", "ConsumedReadCapacityUnits", "TableName", local.table, { stat = "Sum", label = "Reads" }],
       ["AWS/DynamoDB", "ConsumedWriteCapacityUnits", "TableName", local.table, { stat = "Sum", label = "Writes" }],
-      ["AWS/DynamoDB", "ReadThrottleEvents", "TableName", local.table, { stat = "Sum", label = "Throttled reads" }],
-      ["AWS/DynamoDB", "WriteThrottleEvents", "TableName", local.table, { stat = "Sum", label = "Throttled writes" }],
+      ["AWS/DynamoDB", "ReadThrottleEvents", "TableName", local.table, { stat = "Sum", label = "Throttled reads", yAxis = "right" }],
+      ["AWS/DynamoDB", "WriteThrottleEvents", "TableName", local.table, { stat = "Sum", label = "Throttled writes", yAxis = "right" }],
     ] },
   ]
 }

@@ -330,13 +330,16 @@ locals {
       description = "The ${var.environment} API function was throttled: requests were turned away."
       namespace   = "AWS/Lambda", metric = "Throttles", dimensions = { FunctionName = local.api_function }
     }
-    # The answers a crash does not show (#558): the function answered, with a server error -- the
-    # table or the bucket failing, a provider not answering. Two in five minutes, as one can be a
-    # moment's trouble the next request does not meet; a crash or a timeout alarms on the first,
-    # through api-errors above. Claude's threshold, as #558 left it.
+    # The server errors the API answered (#558), including those a crash does not show: the
+    # function answered with a 500 -- the table or the bucket failing, a provider not answering.
+    # Two in five minutes, as one can be a moment's trouble the next request does not meet. A crash,
+    # a timeout or a throttle comes back from API Gateway as a 5xx too, so two of them raise this
+    # beside api-errors or api-throttles: two mails for one fault, which says how many requests met
+    # it. Claude's threshold, as #558 left it.
     api-5xx = {
       description = "The ${var.environment} API answered server errors: at least two in five minutes, the function's own 500s or API Gateway's."
-      namespace   = "AWS/ApiGateway", metric = "5xx", dimensions = { ApiId = aws_apigatewayv2_api.this.id, Stage = "$default" }
+      namespace   = "AWS/ApiGateway", metric = "5xx"
+      dimensions  = { ApiId = aws_apigatewayv2_api.this.id, Stage = aws_apigatewayv2_stage.default.name }
       threshold   = 2
     }
     # A record whose files fail to go is reported, not raised, so the function's errors never see
