@@ -188,7 +188,7 @@ VictoriaLogs keeps everything for 30 days, as qa's CloudWatch does.
 
 **Switching an environment on**, in this order, the first two by Gunnar:
 1. The server answers at its name with a certificate, and its Caddy knows the sender
-   (guhilling/monitoring, `doc/server.md`).
+   (the [server page](https://github.com/guhilling/monitoring/blob/main/doc/server.md) (private)).
 2. The sender's password, the same one whose hash Caddy has, as an SSM SecureString:
    ```sh
    aws ssm put-parameter --name /taskfest/<env>/monitoring-password --type SecureString \
