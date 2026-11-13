@@ -47,3 +47,7 @@ table_name = "taskfest-qa-data-restored-2026-11-13"
 
 # qa restores from an on-demand backup when it must; prod keeps point-in-time recovery (#553).
 table_point_in_time_recovery = false
+
+# The Go backend's logs also go to the shared monitoring server (#508), with the password in
+# /taskfest/qa/monitoring-password (doc/deployment/observability.md, "The monitoring server").
+monitoring_endpoint = "https://monitoring.cloud.hilling.de"
