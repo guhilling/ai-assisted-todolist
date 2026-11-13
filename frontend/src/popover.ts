@@ -8,6 +8,11 @@ import { useCallback, useEffect, useState, type RefObject } from 'react'
 import { useReturnFocus } from './focus'
 
 /**
+ * Opens and closes a popover beside a field, and gives the focus back to the button that opened it
+ * when it closes by Escape or a pick.
+ *
+ * Escape stops here, since the add row and the editor treat it as cancel.
+ *
  * @param field the field the popover belongs to, button and popover included
  * @param toggle the button that opens it, which takes the focus back
  */

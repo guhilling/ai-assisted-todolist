@@ -171,12 +171,17 @@ export function quickDates(today: string, words: DateWords = en.dates): QuickDat
 }
 
 /**
- * The order and separator a locale writes a numeric date in, read from `Intl` rather than kept by
- * hand: `en-GB` is `14/11/2026`, `de-DE` `14.11.2026`. Kept per locale, as a field reads every
- * keystroke.
+ * Each locale's numeric date form, once worked out: `en-GB` is `14/11/2026`, `de-DE` `14.11.2026`,
+ * read from `Intl` rather than kept by hand.
  */
 const numericForms = new Map<string, { order: Intl.DateTimeFormatPartTypes[]; separator: string }>()
 
+/**
+ * The order and separator a locale writes a numeric date in, found by formatting a fixed date with
+ * `Intl`, for reading a typed date in that order.
+ *
+ * Kept per locale in `numericForms`, because the date field reads every keystroke.
+ */
 function numericForm(locale: string) {
   const known = numericForms.get(locale)
   if (known) {

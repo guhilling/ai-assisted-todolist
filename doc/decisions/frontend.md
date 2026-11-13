@@ -637,7 +637,8 @@ A browser that knows a zone the backend's JDK does not yet offers it, and the sa
 Safari. Safari opens a calendar of its own on a click into a native date field, and Firefox shows
 its own button, which no CSS hides; neither offers a picker for a time on a desktop.
 
-- **On a desktop** (a fine pointer), the due date is a text field in the language's numeric form,
+- **On a desktop** -- anything but a touch screen, a keyboard alone included, decided in one place
+  (`pointer.ts`) that the stylesheet follows -- the due date is a text field in the language's numeric form,
   `14/11/2026` or `14.11.2026`, read as it is typed, an ISO date too (`dates.ts`). TaskFest's
   calendar is its one picker. What cannot be read, or lies in the past when adding, keeps the form
   from being sent and says how to write one. The time stays a native field, for typing any minute,
