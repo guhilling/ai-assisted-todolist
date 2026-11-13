@@ -1,6 +1,8 @@
 import { Suspense, lazy, useEffect, useId, useRef, useState } from 'react'
+import { readTypedDate, typedDate } from '../dates'
 import { useReturnFocus } from '../focus'
 import { useI18n } from '../i18n/context'
+import { hasFinePointer } from '../pointer'
 
 const CalendarPanel = lazy(() => import('./CalendarPanel'))
 
@@ -15,13 +17,17 @@ type DueDateFieldProps = {
  * The due date in the add and edit forms: a date field to type into, and a calendar to pick
  * from.
  *
- * The field stays a native `input type="date"`, so typing a date and every assistive
- * technology's handling of it keep working. The calendar opens from the button next to it,
+ * On a phone the field is a native `input type="date"`, whose picker suits the phone. On a desktop
+ * it is a text field in the language's numeric form (#588): Safari opens a calendar of its own on
+ * a click into a date field, and Firefox shows its own button, which no CSS hides, so TaskFest's
+ * calendar would be the second picker. On a phone the button is hidden by the stylesheet, which
+ * leaves the phone's own picker the only one. The calendar opens from the button next to it,
  * closes on Escape, on a click outside and once a day is picked, and gives focus back to the
  * button. It is loaded on first use, so the board does not pay for it until it is wanted.
  */
 function DueDateField({ value, onChange, min }: Readonly<DueDateFieldProps>) {
-  const { messages } = useI18n()
+  const { messages, locale } = useI18n()
+  const [desktop] = useState(hasFinePointer)
   const inputId = useId()
   const calendarId = useId()
   const [open, setOpen] = useState(false)
@@ -70,14 +76,18 @@ function DueDateField({ value, onChange, min }: Readonly<DueDateFieldProps>) {
     <div className="add-field date-field" ref={fieldRef}>
       <label htmlFor={inputId}>{messages.dueDate.label}</label>
       <div className="date-field-row">
-        <input
-          id={inputId}
-          required
-          type="date"
-          min={min}
-          value={value}
-          onChange={(event) => onChange(event.target.value)}
-        />
+        {desktop ? (
+          <TypedDate id={inputId} value={value} min={min} locale={locale} onChange={onChange} />
+        ) : (
+          <input
+            id={inputId}
+            required
+            type="date"
+            min={min}
+            value={value}
+            onChange={(event) => onChange(event.target.value)}
+          />
+        )}
         <button
           ref={toggleRef}
           type="button"
@@ -108,6 +118,66 @@ function DueDateField({ value, onChange, min }: Readonly<DueDateFieldProps>) {
         </div>
       ) : null}
     </div>
+  )
+}
+
+/**
+ * The desktop's date field (#588): the date as the language writes it, read as it is typed. What
+ * cannot be read, or lies before `min`, keeps the form from being sent and says why, as a native
+ * date field's own checks would.
+ */
+function TypedDate({
+  id,
+  value,
+  min,
+  locale,
+  onChange,
+}: Readonly<{ id: string; value: string; min?: string; locale: string; onChange: (iso: string) => void }>) {
+  const { messages } = useI18n()
+  const [text, setText] = useState(() => typedDate(value, locale))
+  const input = useRef<HTMLInputElement>(null)
+
+  // A date set from elsewhere -- a shortcut, the calendar -- is shown as the language writes it,
+  // unless it is the one typed already.
+  const [shown, setShown] = useState(value)
+  if (value !== shown) {
+    setShown(value)
+    if (readTypedDate(text, locale) !== value) {
+      setText(typedDate(value, locale))
+    }
+  }
+
+  const problem = (typed: string) => {
+    const iso = readTypedDate(typed, locale)
+    if (iso === null) {
+      return messages.dueDate.invalid(typedDate(value || min || '', locale) || typed)
+    }
+    return min !== undefined && iso < min ? messages.dueDate.tooEarly : ''
+  }
+
+  useEffect(() => {
+    input.current?.setCustomValidity(problem(text))
+  })
+
+  return (
+    <input
+      ref={input}
+      id={id}
+      required
+      type="text"
+      autoComplete="off"
+      placeholder={messages.dueDate.format}
+      value={text}
+      onChange={(event) => {
+        const typed = event.target.value
+        setText(typed)
+        event.target.setCustomValidity(problem(typed))
+        const iso = readTypedDate(typed, locale)
+        if (iso !== null && (min === undefined || iso >= min)) {
+          onChange(iso)
+        }
+      }}
+    />
   )
 }
 

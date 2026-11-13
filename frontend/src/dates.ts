@@ -169,3 +169,60 @@ export function quickDates(today: string, words: DateWords = en.dates): QuickDat
     { label: words.inWeeks(2), iso: addDays(today, 14) },
   ]
 }
+
+/**
+ * The order and separator a locale writes a numeric date in, read from `Intl` rather than kept by
+ * hand: `en-GB` is `14/11/2026`, `de-DE` `14.11.2026`.
+ */
+function numericForm(locale: string) {
+  const parts = new Intl.DateTimeFormat(locale, { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'UTC' })
+    .formatToParts(new Date(Date.UTC(2026, 10, 14)))
+  const order = parts.filter((part) => part.type !== 'literal').map((part) => part.type)
+  const separator = parts.find((part) => part.type === 'literal')?.value ?? '/'
+  return { order, separator }
+}
+
+/**
+ * A due date as the desktop's date field shows it (#588): in the language's numeric form, where a
+ * browser's own date field would open a picker of its own beside TaskFest's calendar.
+ */
+export function typedDate(iso: string, locale = DISPLAY_LOCALE) {
+  if (iso === '') {
+    return ''
+  }
+  return new Intl.DateTimeFormat(locale, { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'UTC' })
+    .format(atUtcMidnight(iso))
+}
+
+/**
+ * Reads a date typed into that field: the language's numeric form, with or without leading zeros,
+ * or an ISO date. Null for anything else -- incomplete, a two-digit year, another order, or a day
+ * the calendar does not have.
+ */
+export function readTypedDate(text: string, locale = DISPLAY_LOCALE): string | null {
+  const typed = text.trim()
+  const iso = /^(\d{4})-(\d{2})-(\d{2})$/.exec(typed)
+  let year: number
+  let month: number
+  let day: number
+  if (iso) {
+    ;[year, month, day] = [Number(iso[1]), Number(iso[2]), Number(iso[3])]
+  } else {
+    const { order, separator } = numericForm(locale)
+    const pieces = typed.split(separator)
+    if (pieces.length !== 3 || pieces.some((piece) => !/^\d+$/.test(piece))) {
+      return null
+    }
+    const value = (type: string) => Number(pieces[order.indexOf(type as Intl.DateTimeFormatPartTypes)])
+    const yearPiece = pieces[order.indexOf('year')]
+    if (yearPiece.length !== 4) {
+      return null
+    }
+    ;[year, month, day] = [value('year'), value('month'), value('day')]
+  }
+  const date = new Date(Date.UTC(year, month - 1, day))
+  if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) {
+    return null
+  }
+  return `${String(year).padStart(4, '0')}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+}

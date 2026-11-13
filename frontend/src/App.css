@@ -780,6 +780,72 @@ html {
   padding: var(--space-3);
 }
 
+/* On a phone the date field's own picker is the one (#588): TaskFest's calendar would be a second. */
+@media (pointer: coarse) {
+  .date-field-toggle {
+    display: none;
+  }
+
+  .date-field-row input {
+    border-radius: var(--radius);
+  }
+}
+
+/* The desktop's time and its list (#588), one control as the date and its calendar are. */
+.time-field-row {
+  position: relative;
+  display: flex;
+}
+
+.time-field-row input {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+/* Chrome's own clock would be a second picker beside the list. */
+.time-field-row input::-webkit-calendar-picker-indicator {
+  display: none;
+}
+
+.time-field-picker {
+  display: flex;
+}
+
+.time-field-popover {
+  position: absolute;
+  z-index: 10;
+  top: calc(100% + var(--space-1));
+  left: 0;
+  width: 100%;
+  min-width: 7rem;
+  max-height: 15rem;
+  margin: 0;
+  padding: var(--space-1) 0;
+  overflow-y: auto;
+  list-style: none;
+  border: 1px solid var(--field-edge);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: 0 4px 16px rgb(0 0 0 / 0.15);
+}
+
+.time-field-popover [role='option'] {
+  padding: var(--space-1) var(--space-3);
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+
+.time-field-popover [role='option']:hover,
+.time-field-popover [role='option']:focus {
+  background: var(--surface-raised);
+  outline: none;
+}
+
+.time-field-popover [role='option'][aria-selected='true'] {
+  color: var(--accent);
+  font-weight: 600;
+}
+
 /* react-day-picker, themed through its own variables. The extra class outranks the library's
    stylesheet, which arrives later, with the lazily loaded calendar. */
 .date-field .rdp-root {

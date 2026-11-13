@@ -57,7 +57,9 @@ something untrue.
 
 Revised in part: the colours and the faces now follow hilling.it's new site, in
 [Colours and faces from hilling.it's new site](#colours-and-faces-from-hillingits-new-site) (#527).
-The calendar and the layout stand.
+The calendar and the layout stand. And on a desktop the date field is no longer the native one,
+in [One picker for each: TaskFest's on a desktop, the phone's on a phone](#one-picker-for-each-taskfests-on-a-desktop-the-phones-on-a-phone)
+(#588).
 
 **Decision** (#139). The palette and the heading face come from hilling.it. Its heading blue
 `#0367a5` is the accent, its green `#7fae1c` is a band along the top and, darkened to `#4d7a0a`,
@@ -601,6 +603,10 @@ enough would keep the row locked for minutes.
 
 *Accepted · 2026-11-02 · #476*
 
+Revised in part: the zone switch is shown from the start, and a desktop picks the time from a list,
+in [One picker for each: TaskFest's on a desktop, the phone's on a phone](#one-picker-for-each-taskfests-on-a-desktop-the-phones-on-a-phone)
+(#588).
+
 **Decision.** The add row and the editor take an optional time in an `input type="time"`, after the
 due date. With a time, a switch "Tied to a time zone" appears, off by default, so a time floats
 unless it is tied (Gunnar on #290). Turned on, it starts from the browser's zone, and a `<select>`
@@ -622,3 +628,29 @@ A browser that knows a zone the backend's JDK does not yet offers it, and the sa
 
 **Rejected: a free-text zone with suggestions**, which a mistyped name would only fail on Save, and
 **a picker by UTC offset**, which is a zone only half the year (#474).
+
+## One picker for each: TaskFest's on a desktop, the phone's on a phone
+
+*Accepted · 2026-11-13 · #588*
+
+**Decision.** Gunnar found the date picker twice, and no way to pick a time or a zone, in desktop
+Safari. Safari opens a calendar of its own on a click into a native date field, and Firefox shows
+its own button, which no CSS hides; neither offers a picker for a time on a desktop.
+
+- **On a desktop** (a fine pointer), the due date is a text field in the language's numeric form,
+  `14/11/2026` or `14.11.2026`, read as it is typed, an ISO date too (`dates.ts`). TaskFest's
+  calendar is its one picker. What cannot be read, or lies in the past when adding, keeps the form
+  from being sent and says how to write one. The time stays a native field, for typing any minute,
+  with a clock button beside it that opens the quarter hours, 00:00 to 23:45.
+- **On a phone** (Gunnar's choice), the native fields and the phone's own pickers, which suit it;
+  the calendar button is hidden by the stylesheet.
+- **The zone switch is shown from the start.** Turned on before a time is set, it sets 09:00, so a
+  zone is never sent alone, which the backend refuses.
+
+**Cost.** The desktop's date field is TaskFest's own code where a browser's used to be: its reading
+of a typed date is tested in `dates.test.ts`, and a screen reader hears a text field, labelled "Due
+date", rather than a date field.
+
+**Rejected: hiding the browser's own pickers by CSS**, which reaches only Chrome's, and **TaskFest's
+pickers on a phone as well**, which are worse than the phone's own there.
+

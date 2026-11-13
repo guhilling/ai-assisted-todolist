@@ -7,7 +7,7 @@
  * identical to a correct render unless it is asserted.
  */
 import { describe, expect, it } from 'vitest'
-import { addDays, bucketOf, daysBetween, describeDueDate, quickDates, todayIso, calendarParts, describeDueDateWithWeekday, sectionWeekday, weekdayBeside } from './dates'
+import { addDays, bucketOf, daysBetween, describeDueDate, quickDates, todayIso, calendarParts, describeDueDateWithWeekday, sectionWeekday, weekdayBeside, typedDate, readTypedDate } from './dates'
 import { de } from './i18n/messages'
 
 /** A Thursday, chosen so "within this week" crosses a weekend and a month end. */
@@ -160,5 +160,32 @@ describe('the weekday beside today and tomorrow (#337)', () => {
     expect(sectionWeekday('tomorrow', THURSDAY)).toBe('Friday')
     expect(sectionWeekday('thisWeek', THURSDAY)).toBeNull()
     expect(sectionWeekday('overdue', THURSDAY)).toBeNull()
+  })
+})
+
+describe('a date typed on a desktop (#588)', () => {
+  it("is written in the language's own numeric form", () => {
+    expect(typedDate('2026-11-14', 'en-GB')).toBe('14/11/2026')
+    expect(typedDate('2026-11-14', 'de-DE')).toBe('14.11.2026')
+    expect(typedDate('', 'de-DE')).toBe('')
+  })
+
+  it("is read in the language's own form, with or without leading zeros", () => {
+    expect(readTypedDate('14/11/2026', 'en-GB')).toBe('2026-11-14')
+    expect(readTypedDate('4.3.2027', 'de-DE')).toBe('2027-03-04')
+    expect(readTypedDate(' 04.03.2027 ', 'de-DE')).toBe('2027-03-04')
+  })
+
+  it('is read as an ISO date too, as tools and a paste from elsewhere give it', () => {
+    expect(readTypedDate('2026-11-14', 'de-DE')).toBe('2026-11-14')
+  })
+
+  it('is no date when it is incomplete, in another order, or not in the calendar', () => {
+    expect(readTypedDate('', 'de-DE')).toBeNull()
+    expect(readTypedDate('14.11.', 'de-DE')).toBeNull()
+    expect(readTypedDate('11/14/2026', 'en-GB')).toBeNull()
+    expect(readTypedDate('31.02.2027', 'de-DE')).toBeNull()
+    expect(readTypedDate('14.11.26', 'de-DE')).toBeNull()
+    expect(readTypedDate('tomorrow', 'en-GB')).toBeNull()
   })
 })
