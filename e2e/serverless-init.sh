@@ -7,13 +7,15 @@
 set -euo pipefail
 
 retry() {
+    local answer
     for _ in $(seq 1 60); do
-        if "$@" >/dev/null 2>&1; then
+        if answer=$("$@" 2>&1); then
             return 0
         fi
         sleep 2
     done
     echo "Gave up: $*" >&2
+    echo "Its last answer: $answer" >&2
     return 1
 }
 
@@ -30,10 +32,10 @@ if ! "${dynamodb[@]}" describe-table --table-name "$TABLE_NAME" >/dev/null 2>&1;
 fi
 
 retry "${s3[@]}" list-buckets
-if ! "${s3[@]}" head-bucket --bucket "$BUCKET" >/dev/null 2>&1; then
-    "${s3[@]}" create-bucket --bucket "$BUCKET" >/dev/null
+if ! "${s3[@]}" head-bucket --bucket "$TASKFEST_ATTACHMENTS_BUCKET" >/dev/null 2>&1; then
+    "${s3[@]}" create-bucket --bucket "$TASKFEST_ATTACHMENTS_BUCKET" >/dev/null
 fi
-"${s3[@]}" put-bucket-cors --bucket "$BUCKET" --cors-configuration '{
+"${s3[@]}" put-bucket-cors --bucket "$TASKFEST_ATTACHMENTS_BUCKET" --cors-configuration '{
   "CORSRules": [{
     "AllowedOrigins": ["http://localhost:3000"],
     "AllowedMethods": ["PUT", "GET"],
@@ -41,4 +43,4 @@ fi
     "MaxAgeSeconds": 3600
   }]
 }'
-echo "The table $TABLE_NAME and the bucket $BUCKET are ready."
+echo "The table $TABLE_NAME and the bucket $TASKFEST_ATTACHMENTS_BUCKET are ready."

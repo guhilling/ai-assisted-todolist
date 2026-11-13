@@ -67,13 +67,20 @@ func (d *discovery) provider(ctx context.Context, p Provider) (*oidc.Provider, e
 	defer cancel()
 	from := issuer
 	if p.DiscoveryURL != "" {
-		// Fetched from there, and still held to the issuer the ID tokens name.
+		// Fetched from there. go-oidc then checks the metadata's issuer no more, so it is checked
+		// below: another realm, or a typo, is refused here rather than at every sign-in after it.
 		from = p.DiscoveryURL
 		ctx = oidc.InsecureIssuerURLContext(ctx, issuer)
 	}
 	op, err := oidc.NewProvider(ctx, from)
 	if err != nil {
 		return nil, fmt.Errorf("discover %s: %w", from, err)
+	}
+	var metadata struct {
+		Issuer string `json:"issuer"`
+	}
+	if err := op.Claims(&metadata); err != nil || metadata.Issuer != issuer {
+		return nil, fmt.Errorf("discover %s: it answers for issuer %q, not %q", from, metadata.Issuer, issuer)
 	}
 	entry.provider = op
 	return op, nil

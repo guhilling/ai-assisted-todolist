@@ -48,7 +48,8 @@ is tried ([architecture.md](../architecture.md#two-architectures)), in a stack o
 `extends`; the rest is the Go backend's:
 
 ```bash
-docker build -t taskfest-serverless:e2e serverless
+docker build -t taskfest-serverless:e2e \
+  --build-arg GO_VERSION="$(sed -n 's/^go \([0-9.]*\).*/\1/p' serverless/go.mod)" serverless
 cd frontend && docker build -f docker/Dockerfile -t taskfest-frontend:e2e . && cd ..
 
 docker compose -f deployment/docker/docker-compose.e2e.serverless.yml up -d --wait
@@ -57,7 +58,7 @@ cd e2e && npx playwright test
 ```
 
 - **The Go server** is `serverless/Dockerfile`: `cmd/api` as a plain HTTP server, the same code
-  Lambda runs. The frontend proxies `/api/` to it at `http://backend:8080`, which the stack names in
+  Lambda runs, built with the toolchain `go.mod` names, passed in as `GO_VERSION`. The frontend proxies `/api/` to it at `http://backend:8080`, which the stack names in
   `TASKFEST_BACKEND_URL`; the frontend image proxies to the Quarkus backend by default.
 - **DynamoDB Local** holds the table, in memory, and **SeaweedFS** the attachments, at
   `http://s3.localhost:8333`, one address for both sides as LocalStack's is. LocalStack Community was
@@ -76,8 +77,8 @@ cd e2e && npx playwright test
 docker compose -f deployment/docker/docker-compose.e2e.serverless.yml down -v
 ```
 
-End-to-end tests run this stack on every pull request that touches the Go backend, the frontend
-or the suite, as `e2e (Go backend)` beside the Quarkus jobs.
+`e2e-serverless.yml` runs this stack on every pull request that touches the Go backend, the
+frontend, the suite or Keycloak, as `e2e (Go backend)`; `e2e.yml` runs the Quarkus one.
 
 See [testing.md](../testing/index.md) for what the suite covers and how to run it interactively.
 

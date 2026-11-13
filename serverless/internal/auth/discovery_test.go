@@ -39,6 +39,18 @@ func TestAProviderIsDiscoveredWhereItSaysWhenThatIsNotItsIssuer(t *testing.T) {
 	}
 }
 
+func TestADiscoveryAddressThatAnswersForAnotherIssuerIsRefused(t *testing.T) {
+	// Another realm, or a typo in the issuer: refused at discovery, not at every sign-in after it.
+	server := metadataServer(t, "http://localhost:8082/realms/other")
+
+	_, err := (&discovery{}).provider(context.Background(),
+		Provider{ID: "keycloak", Issuer: "http://localhost:8082/realms/taskfest", DiscoveryURL: server.URL})
+
+	if err == nil {
+		t.Error("metadata naming another issuer was taken")
+	}
+}
+
 func TestWithoutADiscoveryAddressTheIssuerMustAnswerForItself(t *testing.T) {
 	server := metadataServer(t, "http://localhost:8082/realms/taskfest")
 

@@ -1,0 +1,105 @@
+name: End-to-end tests (Go backend)
+
+# The end-to-end suite against the Go backend (#556), which runs beside the containers while the
+# move is tried: its own stack, the frontend and Keycloak shared with e2e.yml's
+# (docker-compose.e2e.serverless.yml). A workflow of its own, so each stack runs when its own
+# inputs change -- a change to the Go backend alone builds no Quarkus image, and the other way round
+# -- and both when the frontend, the suite or Keycloak do. On amd64 alone: the Lambda functions are
+# built for arm64 and tested by Serverless CI. It reads e2e.yml's caches and saves none.
+
+on:
+  pull_request:
+    paths:
+      - 'serverless/**'
+      - 'frontend/**'
+      - 'e2e/**'
+      - 'keycloak/**'
+      - 'deployment/docker/docker-compose.e2e.yml'
+      - 'deployment/docker/docker-compose.e2e.serverless.yml'
+      - '.github/workflows/e2e-serverless.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'serverless/**'
+      - 'frontend/**'
+      - 'e2e/**'
+      - 'keycloak/**'
+      - 'deployment/docker/docker-compose.e2e.yml'
+      - 'deployment/docker/docker-compose.e2e.serverless.yml'
+      - '.github/workflows/e2e-serverless.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  e2e:
+    name: e2e (Go backend)
+    runs-on: ubuntu-26.04
+    env:
+      # Every `docker compose` below means this stack.
+      COMPOSE_FILE: deployment/docker/docker-compose.e2e.serverless.yml
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+      - name: Restore npm's cache
+        uses: actions/cache/restore@v6
+        with:
+          path: ~/.npm
+          key: npm-e2e-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('e2e/package-lock.json') }}
+          restore-keys: ${{ github.ref != 'refs/heads/main' && format('npm-e2e-{0}-{1}-', runner.os, runner.arch) || '' }}
+
+      - name: Build the frontend image
+        working-directory: frontend
+        run: docker build -f docker/Dockerfile -t taskfest-frontend:e2e .
+
+      - name: Build the Go backend's image
+        # With the toolchain go.mod names, which Serverless CI tests with too.
+        run: >
+          docker build -t taskfest-serverless:e2e
+          --build-arg GO_VERSION="$(sed -n 's/^go \([0-9.]*\).*/\1/p' serverless/go.mod)"
+          serverless
+
+      - name: Start the stack
+        run: docker compose up -d --wait
+
+      - name: Wait for the frontend
+        run: curl -sS --retry 60 --retry-delay 2 --retry-all-errors --fail http://localhost:3000/api/auth/providers
+
+      - name: Restore the browser's system packages
+        uses: actions/cache/restore@v6
+        with:
+          path: ~/apt-archives
+          key: browser-packages-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('e2e/package-lock.json') }}
+          restore-keys: ${{ github.ref != 'refs/heads/main' && format('browser-packages-{0}-{1}-', runner.os, runner.arch) || '' }}
+
+      - name: Install the end-to-end dependencies
+        working-directory: e2e
+        run: |
+          npm ci
+          mkdir -p ~/apt-archives/partial
+          printf 'Dir::Cache::Archives "%s";\nAPT::Keep-Downloaded-Packages "true";\n' "$HOME/apt-archives" \
+            | sudo tee /etc/apt/apt.conf.d/99-browser-packages
+          npx playwright install --with-deps chromium
+
+      - name: Run the end-to-end tests
+        working-directory: e2e
+        run: npx playwright test
+
+      - name: Collect the stack logs
+        if: failure()
+        run: docker compose logs --no-color
+
+      - name: Upload the Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report-serverless
+          path: e2e/playwright-report
+          retention-days: 7
+
+      - name: Stop the stack
+        if: always()
+        run: docker compose down -v

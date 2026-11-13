@@ -2,8 +2,10 @@
 # suite, which run the same code as Lambda: cmd/api serves HTTP wherever it is not on Lambda. Not
 # deployed anywhere; a release builds the functions themselves (serverless/build.sh, #555).
 
-# The toolchain go.mod names, so the image builds what CI tests.
-FROM docker.io/library/golang:1.27.3 AS build
+# The toolchain go.mod names, so the image builds what CI tests; passed in rather than written
+# twice (e2e-serverless.yml, end-to-end-stack.md).
+ARG GO_VERSION
+FROM docker.io/library/golang:${GO_VERSION} AS build
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download

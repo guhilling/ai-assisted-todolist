@@ -96,6 +96,7 @@ commit that first wrote each one down. CI checks every line and that this index 
 - [Compose probes live in scripts, not inline](containers-and-local-stack.md#compose-probes-live-in-scripts-not-inline)
 - [The frontend is served by Red Hat's hardened httpd](containers-and-local-stack.md#the-frontend-is-served-by-red-hats-hardened-httpd)
 - [The backend runs on our own jre-runtime: Temurin's JRE on UBI micro](containers-and-local-stack.md#the-backend-runs-on-our-own-jre-runtime-temurins-jre-on-ubi-micro)
+- [The Go backend's local stack stores files in SeaweedFS](containers-and-local-stack.md#the-go-backends-local-stack-stores-files-in-seaweedfs)
 
 ## [Deployment on AWS](deployment-and-aws.md)
 
