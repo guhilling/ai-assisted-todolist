@@ -368,9 +368,13 @@ administrator's profile.
      --target-table-name <table>-restored-<date>
    aws dynamodb wait table-exists --table-name <table>-restored-<date>
    ```
-2. **Run the replay against it**, before anything else can reach it:
+2. **Run the replay against it**, before anything else can reach it. The Go program cannot ask
+   for an MFA code, so the AWS CLI fetches the administrator's credentials first, asking once;
+   they last about an hour, step 5 included:
    ```bash
-   cd serverless && AWS_PROFILE=<admin profile> AWS_REGION=eu-central-1 \
+   eval "$(aws configure export-credentials --profile <admin profile> --format env)"
+   unset AWS_PROFILE
+   cd serverless && AWS_REGION=eu-central-1 \
      TABLE_NAME=<table>-restored-<date> TASKFEST_ATTACHMENTS_BUCKET=<bucket> go run ./cmd/replay
    ```
    It logs one JSON line, `deletion-replay`, with how many accounts it deleted again; it exits
@@ -401,7 +405,9 @@ administrator's profile.
    only for accounts whose owners have just deleted them (Claude's decision on #554, which Gunnar
    confirmed on 2026-11-12).
 
-The procedure is tried once in qa, from an on-demand backup, once #554 has built the table.
+The procedure was tried once in qa on 2026-11-13, from an on-demand backup (#553): an account
+deleted after the backup came back with the restore, and the replay in step 2 deleted it again
+(`reapplied: 1`). The Go program's need for the CLI's credentials in step 2 was found there.
 
 ## Why Go
 
