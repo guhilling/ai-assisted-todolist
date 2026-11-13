@@ -2,7 +2,8 @@
 Pins down mobile/maestro/driver-failed.sh, which tells a failure of Maestro's own driver from a
 failure of the flow. Mobile CI runs the iOS share flow once more after the first kind only (#401):
 on a freshly booted simulator the driver sometimes starts too slowly, or goes away mid-tap, before
-anything is shared. A flow that fails a check, or Photos never finishing, still fails at once.
+anything is shared. A flow that fails a check still fails at once; Photos never finishing is
+share-stalled.sh's to tell (#533).
 The Android flows do the same (#445): the emulator's driver has failed its first call, before any
 step ran.
 

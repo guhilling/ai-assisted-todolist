@@ -136,7 +136,7 @@ go when the share's form is closed, with their folders (`releaseShared` in `Main
   Maestro's own driver failed too, three times in nineteen runs and never in the share: on the
   freshly booted simulator it started too slowly, or went away mid-tap. It now has 300 s to start,
   and `run-on-simulator.sh` runs the flow once more when `driver-failed.sh` finds the driver, not
-  the flow, failed; any other failure fails at once. Each run's console output is in the artifact.
+  the flow, failed, or (#533, below) Photos stalled; any other failure fails at once. Each run's console output is in the artifact.
   With that, ten re-runs of `main`'s run for #416 all passed, none needing the driver's second
   run. Those numbers are the photo's. The Safari share is younger and less proven: its own
   stumbles were the simulator's too -- a tap on Safari's first-run tip or on the menu's *Share*
@@ -165,5 +165,11 @@ go when the share's form is closed, with their folders (`releaseShared` in `Main
   for its share sheet, and both up to 150 s for the sign-in; `run-on-simulator.sh` starts the app until its sign-in shows and
   Photos until its grid does before the shares (`warm-up-app.yaml`, `warm-up-photos.yaml`), and
   logs Photos' daemons, whose hangs are still unexplained, from the warm-ups on. A second run of the photo's flow taps a photo only when Photos is not already
-  showing one, as iOS may reopen it there. Still tried by hand, on TestFlight:
+  showing one, as iOS may reopen it there. Two stalls of the simulator's iOS stayed (#533), on
+  `main` among others. Safari's menu now and then did not open on the first tap on *More*, so its
+  *Share* was not found: More is tapped again while Share is not there. And Photos still showed
+  *Preparing…* after the flow's restart and second share: the photo's flow then fails on that by
+  name, before TaskFest's extension has started, and `run-on-simulator.sh` runs it once more, as
+  after a driver failure, when `share-stalled.sh` finds that in the final failure. The extension
+  not opening the app, in either flow, and *TaskFest Dev* not offered still fail at once. Still tried by hand, on TestFlight:
   text shared on an iPhone, and a share taken on to the board signed in.

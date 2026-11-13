@@ -40,6 +40,12 @@ name: Share a photo into the app through iOS's share sheet
       - extendedWaitUntil:
           visible: '(Open in .TaskFest Dev.\?|Sign in with Keycloak)'
           timeout: 90000
+          optional: true
+      # Photos still preparing after the second share is the simulator's own stall, before
+      # TaskFest's extension starts: it fails here, by name, and run-on-simulator.sh runs the flow
+      # once more (share-stalled.sh, #533). Anything else that hands nothing over fails next.
+      - assertNotVisible: "Preparing.*"
+      - assertVisible: '(Open in .TaskFest Dev.\?|Sign in with Keycloak)'
 - takeScreenshot: ios-share-photo-2-handed-over
 # A tap on Open while the question is still coming in was lost once (#401): it waits for the
 # question to settle, and taps again while it is still there. The question may be gone by the
