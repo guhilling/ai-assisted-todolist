@@ -190,7 +190,7 @@ jobs:
           name: frontend-build
           path: taskfest-frontend-${{ steps.version.outputs.version }}.tar.gz
 
-  # The Go backend's four functions (#555), built once from the tag and attached to the release,
+  # The Go backend's five functions (#555, #508), built once from the tag and attached to the release,
   # as the frontend build is: deploy-serverless.yml deploys these zips, never a rebuild, which is
   # what makes a rollback "deploy the previous release". The version is the tag's, which
   # GET /api/version reports.

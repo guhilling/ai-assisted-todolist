@@ -7,8 +7,9 @@
 // the environment and its source, which are the stream. The Go backend publishes no metrics, so
 // what the dashboard draws comes from the lines themselves: the access log's route, status and
 // latency, and the figures of each invocation's REPORT line. A route names its ids {id}, so the
-// dashboard can group by it and no id leaves AWS. The rest of a JSON line is kept as it was,
-// including the sign-in's `user`, which is why the privacy texts name the server.
+// dashboard can group requests by it. The rest of a JSON line is kept as it was: the ids of the
+// tasks and attachments some lines name, and the sign-in's `user`, which is why the privacy texts
+// name the server.
 package logship
 
 import (
@@ -22,9 +23,14 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/aws/aws-lambda-go/events"
 )
+
+// Line is one log line as CloudWatch Logs hands it over: when it was written, in milliseconds
+// since the epoch, and what.
+type Line struct {
+	Timestamp int64
+	Message   string
+}
 
 // Record is one log line as VictoriaLogs takes it: _time and _msg, and fields beside them.
 type Record map[string]any
@@ -34,7 +40,7 @@ var labels = []string{"project", "env", "source"}
 
 // Convert turns one batch of logGroup's lines into records, leaving out the lines that only mark
 // an invocation's start and end.
-func Convert(env, logGroup string, lines []events.CloudwatchLogsLogEvent) []Record {
+func Convert(env, logGroup string, lines []Line) []Record {
 	source := Source(logGroup)
 	records := make([]Record, 0, len(lines))
 	for _, line := range lines {
@@ -151,6 +157,13 @@ var reportFields = map[string]string{
 	"Init Duration":   "initDurationMs",
 }
 
+// reportWords are the REPORT line's fields that are words: how an invocation that did not end
+// well ended, such as timeout.
+var reportWords = map[string]string{
+	"Status":     "invocationStatus",
+	"Error Type": "errorType",
+}
+
 // report is the line Lambda writes after each invocation: its time, what was billed, its memory,
 // and on a cold start how long the start took.
 func report(message string) Record {
@@ -162,6 +175,10 @@ func report(message string) Record {
 		}
 		if key == "RequestId" {
 			r["requestId"] = value
+			continue
+		}
+		if name, ok := reportWords[key]; ok {
+			r[name] = value
 			continue
 		}
 		name, known := reportFields[key]

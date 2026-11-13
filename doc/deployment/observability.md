@@ -166,7 +166,7 @@ up and reached. TaskFest sends it the Go backend's logs from the environments th
 `monitoring_endpoint` in `terraform.tfvars`: qa, once it is switched on; prod not, for now.
 
 **How they get there** (`monitoring.tf`). A CloudWatch Logs subscription filter on each of the Go
-backend's log groups -- the four functions' and the HTTP API's access log -- hands every batch of
+backend's log groups -- the other four functions' and the HTTP API's access log -- hands every batch of
 lines to the function `taskfest-<env>-logship`, which posts them to the server's VictoriaLogs
 (`/insert/jsonline`) over HTTPS, with basic auth as the user `taskfest-<env>`. CloudWatch keeps
 every line as before, so nothing is lost when the server is away: Lambda retries a failed batch
@@ -176,12 +176,14 @@ twice and then drops it. logship's own log is not sent.
 and `source` -- `api`, `api-access`, `streams`, `orphans`, `replay` -- which are its stream. A JSON
 line keeps its fields, its `msg` becoming the message; the access log's path becomes a `route` with
 its ids as `{id}`, beside `method`, `status` and `latencyMs`; Lambda's `REPORT` line becomes
-`durationMs`, `billedDurationMs`, `maxMemoryUsedMB` and, after a cold start, `initDurationMs`. The
+`durationMs`, `billedDurationMs`, `maxMemoryUsedMB`, after a cold start `initDurationMs`, and for an
+invocation that did not end well its `invocationStatus`, such as `timeout`. The
 lines that only mark an invocation's start and end are left out. This is where the dashboards'
 latency and error figures come from: the Go backend has no metrics endpoint.
 
 **What leaves AWS:** the sign-in line's `user`, the OIDC subject, is personal data, which is why
-the privacy texts name Hetzner for the environments that send. The access log holds no IP address.
+the privacy texts name Hetzner for the environments that send; the ids of the tasks and attachments
+some lines name go too, though not their content. The access log holds no IP address.
 VictoriaLogs keeps everything for 30 days, as qa's CloudWatch does.
 
 **Switching an environment on**, in this order, the first two by Gunnar:
@@ -196,6 +198,10 @@ VictoriaLogs keeps everything for 30 days, as qa's CloudWatch does.
    `terraform.tfvars`, and the privacy texts naming Hetzner for it, in one pull request; then
    `env.sh up` or `down` as the administrator, since the apply adds permissions and filters. Without
    the parameter the plan stops at the data source, before anything changes.
+4. **A redeploy of the release that runs**, with `deploy-serverless.yml`: the apply sets logship's
+   settings, which reach what serves only as a newly published version
+   ([serverless.md](serverless.md#deploying-a-release)). Until then the filters invoke the version
+   published without an endpoint, which logs a warning and sends nothing.
 
 **Cost:** logship runs once per batch, a few thousand times a month at the demo's traffic, inside
 Lambda's free tier; the subscription filters cost nothing; data leaving AWS is about $0.09/GB,

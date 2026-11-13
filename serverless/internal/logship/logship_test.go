@@ -9,19 +9,17 @@ import (
 	"strings"
 	"testing"
 	"time"
-
-	"github.com/aws/aws-lambda-go/events"
 )
 
 var at = time.Date(2026, 11, 13, 18, 30, 0, 0, time.UTC)
 
-func event(message string) events.CloudwatchLogsLogEvent {
-	return events.CloudwatchLogsLogEvent{ID: "1", Timestamp: at.UnixMilli(), Message: message}
+func event(message string) Line {
+	return Line{Timestamp: at.UnixMilli(), Message: message}
 }
 
 func one(t *testing.T, group, message string) Record {
 	t.Helper()
-	records := Convert("qa", group, []events.CloudwatchLogsLogEvent{event(message)})
+	records := Convert("qa", group, []Line{event(message)})
 	if len(records) != 1 {
 		t.Fatalf("%d records from %q", len(records), message)
 	}
@@ -108,8 +106,16 @@ func TestAReportLineBecomesTheInvocationsFigures(t *testing.T) {
 	}
 }
 
+func TestAReportLineSaysWhenAnInvocationDidNotEndWell(t *testing.T) {
+	r := one(t, "/aws/lambda/taskfest-qa-api", "REPORT RequestId: r4\tDuration: 30000.00 ms\t"+
+		"Billed Duration: 30000 ms\tMemory Size: 512 MB\tMax Memory Used: 60 MB\tStatus: timeout\n")
+	if r["invocationStatus"] != "timeout" || r["durationMs"] != 30000.0 {
+		t.Errorf("%v", r)
+	}
+}
+
 func TestStartEndAndInitLinesAreLeftOut(t *testing.T) {
-	records := Convert("qa", "/aws/lambda/taskfest-qa-api", []events.CloudwatchLogsLogEvent{
+	records := Convert("qa", "/aws/lambda/taskfest-qa-api", []Line{
 		event("START RequestId: r3 Version: 4\n"),
 		event("END RequestId: r3\n"),
 		event("INIT_START Runtime Version: provided:al2023.v100\tRuntime Version ARN: x\n"),

@@ -40,9 +40,9 @@ import tempfile
 # The Go backend's functions, in the order they are deployed: the API first, the one checked.
 FUNCTIONS = ("api", "streams", "orphans", "replay", "logship")
 
-# The functions a release from before them does not have, which a deploy of that release, a
-# rollback, leaves where they are: logship came after v1.6.1 (#508).
-LATER = ("logship",)
+# The functions added after a release, by the last release without them: a deploy of that
+# release or an older one, a rollback, leaves them where they are. logship came after v1.6.1 (#508).
+LAST_WITHOUT = {"logship": (1, 6, 1)}
 
 # The alias everything that invokes a function names (serverless.tf, serverless-jobs.tf).
 ALIAS = "live"
@@ -126,7 +126,9 @@ def deploy(environment, version, dist, aws=aws):
     if not RELEASE_TAG.match(version):
         raise SystemExit(f"::error::'{version}' is not a release tag like v1.2.3")
     archives = {command: zip_of(dist, version, command) for command in FUNCTIONS}
-    older = [command for command in LATER if not archives[command].is_file()]
+    number = tuple(int(part) for part in version[1:].split("-")[0].split("."))
+    older = [command for command, last in LAST_WITHOUT.items()
+             if number <= last and not archives[command].is_file()]
     functions = [command for command in FUNCTIONS if command not in older]
     for command in older:
         print(f"{version} has no {command}; it stays as it is.")

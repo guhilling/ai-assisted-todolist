@@ -37,8 +37,12 @@ func main() {
 		os.Exit(1)
 	}
 	if !on {
-		// No monitoring server for this environment: nothing subscribes it, so this is not invoked.
-		lambda.Start(func(context.Context, events.CloudwatchLogsEvent) error { return nil })
+		// Nothing subscribes it where no server is named. Invoked all the same, it runs a version
+		// published before the endpoint was set, which a deploy replaces (observability.md).
+		lambda.Start(func(ctx context.Context, _ events.CloudwatchLogsEvent) error {
+			slog.WarnContext(ctx, "invoked without a monitoring endpoint; the lines are not sent until a deploy publishes the settings")
+			return nil
+		})
 		return
 	}
 	cfg, err := config.LoadDefaultConfig(context.Background())
@@ -46,54 +50,84 @@ func main() {
 		slog.Error("loading the AWS configuration failed", "error", err)
 		os.Exit(1)
 	}
-	parameters := ssm.NewFromConfig(cfg)
-	var (
-		mu     sync.Mutex
-		sender *logship.Sender
-	)
-	// The password is read on the first batch, and again after a failure to read it.
-	senderFor := func(ctx context.Context) (*logship.Sender, error) {
-		mu.Lock()
-		defer mu.Unlock()
-		if sender != nil {
-			return sender, nil
-		}
-		out, err := parameters.GetParameter(ctx, &ssm.GetParameterInput{
-			Name: aws.String(os.Getenv("TASKFEST_MONITORING_PASSWORD_PARAMETER")), WithDecryption: aws.Bool(true)})
-		if err != nil {
-			return nil, err
-		}
-		sender = &logship.Sender{Client: &http.Client{Timeout: 10 * time.Second},
-			Endpoint: os.Getenv("TASKFEST_MONITORING_ENDPOINT"), User: os.Getenv("TASKFEST_MONITORING_USER"),
-			Password: aws.ToString(out.Parameter.Value)}
-		return sender, nil
+	s := &shipper{env: os.Getenv("TASKFEST_ENV"), parameters: ssm.NewFromConfig(cfg),
+		parameter: os.Getenv("TASKFEST_MONITORING_PASSWORD_PARAMETER"),
+		endpoint:  os.Getenv("TASKFEST_MONITORING_ENDPOINT"), user: os.Getenv("TASKFEST_MONITORING_USER"),
+		client: &http.Client{Timeout: 10 * time.Second}}
+	lambda.Start(s.handle)
+}
+
+// passwords is the one SSM call logship makes.
+type passwords interface {
+	GetParameter(ctx context.Context, in *ssm.GetParameterInput, opts ...func(*ssm.Options)) (*ssm.GetParameterOutput, error)
+}
+
+// shipper converts each batch and sends it, reading the password on the first batch, and again
+// after a failure to read it.
+type shipper struct {
+	env        string
+	parameters passwords
+	parameter  string
+	endpoint   string
+	user       string
+	client     *http.Client
+
+	mu     sync.Mutex
+	sender *logship.Sender
+}
+
+// handle sends one batch of lines, leaving out CloudWatch Logs' health check of the destination,
+// and fails when they could not be sent, so that Lambda tries again.
+func (s *shipper) handle(ctx context.Context, event events.CloudwatchLogsEvent) error {
+	data, err := event.AWSLogs.Parse()
+	if err != nil {
+		return err
 	}
-	env := os.Getenv("TASKFEST_ENV")
-	lambda.Start(func(ctx context.Context, event events.CloudwatchLogsEvent) error {
-		data, err := event.AWSLogs.Parse()
-		if err != nil {
-			return err
-		}
-		records := logship.Convert(env, data.LogGroup, data.LogEvents)
-		if len(records) == 0 {
-			return nil
-		}
-		body, err := logship.Lines(records)
-		if err != nil {
-			return err
-		}
-		s, err := senderFor(ctx)
-		if err != nil {
-			slog.ErrorContext(ctx, "reading the monitoring password failed", "error", err)
-			return err
-		}
-		if err := s.Send(ctx, body); err != nil {
-			slog.WarnContext(ctx, "sending logs to the monitoring server failed", "error", err,
-				"logGroup", data.LogGroup, "lines", len(records))
-			return err
-		}
+	if data.MessageType != "DATA_MESSAGE" {
 		return nil
-	})
+	}
+	lines := make([]logship.Line, len(data.LogEvents))
+	for i, e := range data.LogEvents {
+		lines[i] = logship.Line{Timestamp: e.Timestamp, Message: e.Message}
+	}
+	records := logship.Convert(s.env, data.LogGroup, lines)
+	if len(records) == 0 {
+		return nil
+	}
+	body, err := logship.Lines(records)
+	if err != nil {
+		return err
+	}
+	sender, err := s.senderFor(ctx)
+	if err != nil {
+		slog.ErrorContext(ctx, "reading the monitoring password failed", "error", err)
+		return err
+	}
+	if err := sender.Send(ctx, body); err != nil {
+		slog.WarnContext(ctx, "sending logs to the monitoring server failed", "error", err,
+			"logGroup", data.LogGroup, "lines", len(records))
+		return err
+	}
+	return nil
+}
+
+func (s *shipper) senderFor(ctx context.Context) (*logship.Sender, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.sender != nil {
+		return s.sender, nil
+	}
+	out, err := s.parameters.GetParameter(ctx, &ssm.GetParameterInput{
+		Name: aws.String(s.parameter), WithDecryption: aws.Bool(true)})
+	if err != nil {
+		return nil, err
+	}
+	if out.Parameter == nil || aws.ToString(out.Parameter.Value) == "" {
+		return nil, errors.New("the monitoring password's parameter has no value")
+	}
+	s.sender = &logship.Sender{Client: s.client, Endpoint: s.endpoint, User: s.user,
+		Password: aws.ToString(out.Parameter.Value)}
+	return s.sender, nil
 }
 
 // settings says whether logs are sent at all -- only where an endpoint is set -- and why the run

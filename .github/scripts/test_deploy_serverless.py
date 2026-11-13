@@ -174,6 +174,18 @@ class Deploying(unittest.TestCase):
 
         self.assertEqual(aws.calls, [])
 
+    def test_a_later_release_without_logship_is_refused(self):
+        for command in deploy.FUNCTIONS:
+            (pathlib.Path(self.dist) / f"taskfest-serverless-1.6.0-{command}.zip").rename(
+                pathlib.Path(self.dist) / f"taskfest-serverless-1.7.0-{command}.zip")
+        (pathlib.Path(self.dist) / "taskfest-serverless-1.7.0-logship.zip").unlink()
+        aws = FakeLambda()
+
+        with self.assertRaises(SystemExit):
+            deploy.deploy("qa", "v1.7.0", self.dist, aws=aws)
+
+        self.assertEqual(aws.calls, [])
+
     def test_a_release_from_before_logship_leaves_it_where_it_is(self):
         (pathlib.Path(self.dist) / "taskfest-serverless-1.6.0-logship.zip").unlink()
         aws = FakeLambda()

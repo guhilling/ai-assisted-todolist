@@ -235,6 +235,17 @@ data "aws_iam_policy_document" "lifecycle" {
     resources = ["arn:aws:ssm:${local.region}:${local.account}:parameter${local.alert_email_param}"]
   }
 
+  # The monitoring password's parameter, which monitoring.tf reads without decrypting it, so that a
+  # missing one stops the plan. Without decryption this returns the ciphertext only.
+  dynamic "statement" {
+    for_each = local.monitoring ? [1] : []
+    content {
+      sid       = "ReadTheMonitoringPasswordsParameter"
+      actions   = ["ssm:GetParameter"]
+      resources = ["arn:aws:ssm:${local.region}:${local.account}:parameter${local.monitoring_password}"]
+    }
+  }
+
   # The state backend. Without this the role cannot run OpenTofu at all: the first thing an apply
   # does is read the state object, which failed with a bare S3 403 naming no bucket.
   #
