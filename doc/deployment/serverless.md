@@ -357,8 +357,8 @@ API is switched to it**, and nobody can sign in to a restored account first (Gun
 A DynamoDB restore always creates a new table; the old one stays until it is deleted. What was
 written between the restore point and the switch is lost, as with the database's snapshot
 restores ([database.md](database.md)), and files uploaded since are left to the orphan clean-up.
-A restore is billed by the size restored, cents for TaskFest. Every step runs with the
-administrator's profile.
+A restore is billed by the size restored, cents for TaskFest. Every step runs as the
+administrator: with its profile, or the credentials exported from it in step 2.
 
 1. **Restore into a new table**, from point-in-time recovery (prod) or a backup:
    ```bash
@@ -368,11 +368,17 @@ administrator's profile.
      --target-table-name <table>-restored-<date>
    aws dynamodb wait table-exists --table-name <table>-restored-<date>
    ```
-2. **Run the replay against it**, before anything else can reach it:
+2. **Run the replay against it**, before anything else can reach it. The Go program cannot ask
+   for an MFA code, so the AWS CLI exports the administrator's credentials first, asking for one
+   if it has none cached; nothing runs if that fails:
    ```bash
-   cd serverless && AWS_PROFILE=<admin profile> AWS_REGION=eu-central-1 \
-     TABLE_NAME=<table>-restored-<date> TASKFEST_ATTACHMENTS_BUCKET=<bucket> go run ./cmd/replay
+   creds=$(aws configure export-credentials --profile <admin profile> --format env) &&
+     eval "$creds" && unset AWS_PROFILE &&
+     (cd serverless && AWS_REGION=eu-central-1 TABLE_NAME=<table>-restored-<date> \
+       TASKFEST_ATTACHMENTS_BUCKET=<bucket> go run ./cmd/replay)
    ```
+   The credentials last as long as the CLI's cached session, at most an hour from when the profile
+   was first used. Should step 5 fail with `ExpiredToken`, the export is run again.
    It logs one JSON line, `deletion-replay`, with how many accounts it deleted again; it exits
    non-zero when one could not be, and is then run again.
 3. **Switch the functions to the new table**, as the administrator, in the environment's root.
@@ -385,8 +391,11 @@ administrator's profile.
    # table_name = "<table>-restored-<date>" in terraform.tfvars
    tofu import module.environment.aws_dynamodb_table.data <table>-restored-<date>
    ```
-   and then `env.sh down` or `up`, whichever the environment is in, with the administrator's
-   profile.
+   and then `env.sh down` or `up`, whichever the environment is in, naming the administrator's
+   profile for it, as `TASKFEST_<ENV>_AWS_PROFILE=<admin profile>`: after step 2 `AWS_PROFILE` is
+   unset, and `env.sh` would fall back to the lifecycle role, which cannot apply this. The change
+   of `table_name` reaches `main` just before, in a pull request; until this step has run, an apply
+   of `main` would try to replace the old table and fail on its deletion protection.
 4. **Redeploy the release that runs**, with `deploy-serverless.yml` and its tag: the apply changed
    the functions' settings, which reach what serves only as a newly published version (#555,
    [Deploying a release](#deploying-a-release)). Until then the API serves server errors for
@@ -401,7 +410,9 @@ administrator's profile.
    only for accounts whose owners have just deleted them (Claude's decision on #554, which Gunnar
    confirmed on 2026-11-12).
 
-The procedure is tried once in qa, from an on-demand backup, once #554 has built the table.
+The procedure is being tried in qa, from an on-demand backup (#553). Its steps 1 and 2 passed on
+2026-11-13: an account deleted after the backup came back with the restore, and the replay deleted
+it again (`reapplied: 1`); the export of the CLI's credentials in step 2 was found missing there.
 
 ## Why Go
 

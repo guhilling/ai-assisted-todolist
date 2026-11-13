@@ -42,7 +42,8 @@ backend_memory = 512
 api_backend = "serverless"
 
 # The Go backend's own table; a restored one's name only after a switch to it (serverless.md).
-table_name = ""
+# Restored from an on-demand backup on 2026-11-13, as the trial of the procedure (#553).
+table_name = "taskfest-qa-data-restored-2026-11-13"
 
 # qa restores from an on-demand backup when it must; prod keeps point-in-time recovery (#553).
 table_point_in_time_recovery = false
