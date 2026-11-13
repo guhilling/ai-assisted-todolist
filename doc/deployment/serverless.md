@@ -398,8 +398,8 @@ administrator's profile.
    have been under way, and deletions kept being recorded until the switch; this run takes both.
    Until it has run, an account deleted in those minutes is back. Deletions are not stopped
    during a restore, which would take the API down for its length; the window is minutes, and
-   only for accounts whose owners have just deleted them (Claude's decision on #554, for Gunnar
-   to review).
+   only for accounts whose owners have just deleted them (Claude's decision on #554, which Gunnar
+   confirmed on 2026-11-12).
 
 The procedure is tried once in qa, from an on-demand backup, once #554 has built the table.
 
@@ -549,11 +549,12 @@ does:
 - The Go orphan clean-up's alert line feeds the containers' metric through a second filter, so
   the one orphan alarm sees both backends.
 
-**The alarms**, each $0.10 a month, mail through the existing topic on entering ALARM and on
-leaving it: the API function's errors and throttles, the API's server errors, at least two in five
-minutes (#558), the stream function more than ten minutes behind (it reports a failed record rather
-than failing, so its errors would never show one), the scheduled functions' errors, and the table's
-throttled reads and writes. That is eight per environment, about $1.60 a month for both.
+**The alarms**, each $0.10 a month, mail through the existing topic on entering ALARM and on leaving
+it: the API function's errors and throttles, the API's server errors, at least five in one five-
+minute period (#558, Gunnar's threshold), the stream function more than ten minutes behind (it
+reports a failed record rather than failing, so its errors would never show one), the scheduled
+functions' errors, and the table's throttled reads and writes. That is eight per environment, about
+$1.60 a month for both.
 
 **The dashboard** `taskfest-<env>-go-backend` (#558, `serverless-dashboard.tf`) shows the requests
 and their answers, the time they take, the API function's time, errors and throttles, the jobs'
@@ -588,11 +589,12 @@ it shows says what that is before anything happens.
   unpublished code, so nothing serves a version before its alias moves.
 - **The API's new version is checked first.** It is invoked with a request as API Gateway sends one,
   without CloudFront's header, which it must refuse with a 403: it has started, read its settings
-  and secrets, and handled a request. It does not prove the table is reached -- the function
-  starts even when its first read of the table fails, so that a moment's trouble does not fail a
-  cold start -- and the API's alarms (`api-errors`, and the server errors) show that once requests
-  come. Anything else stops the deploy with every alias where it was. The jobs are not invoked,
-  since a run does real work; a failing one raises its alarm.
+  and secrets, and handled a request. It does not prove the table is reached -- the function starts
+  even when its first read of the table fails, so that a moment's trouble does not fail a cold
+  start. A release that cannot reach it answers 500s, which the server-error alarm reports only at
+  five in one five-minute period: at TaskFest's traffic it may stay quiet, so after a deploy the
+  dashboard's answers are the place to look. Anything else stops the deploy with every alias where
+  it was. The jobs are not invoked, since a run does real work; a failing one raises its alarm.
 - **A failure after an alias has moved tries to move every alias back**, each on its own, so the
   functions do not stay on different releases. The aliases move one after another, so for the
   seconds of a deploy they do anyway; and should moving one back fail too, the log names it, and

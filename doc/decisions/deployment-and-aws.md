@@ -569,12 +569,13 @@ $0.019 for the RDS instance, cheaper only when idle most of the time it is up.
 
 *Accepted · 2026-11-12 · #554, #575, #576*
 
-Revised in part: an eighth alarm, the API's server errors, at least two in five minutes, joined
-once no route answered 501 any more (#558, Claude's threshold); the rest stands.
+Revised in part: an eighth alarm, the API's server errors, joined once no route answered 501 any
+more (#558) -- at two in one five-minute period at first, Claude's threshold, and at five since
+Gunnar raised it on 2026-11-13, so that only a clear pattern mails; the rest stands.
 
-Taken by Claude while Gunnar was away, for him to go through. The resources are in
-`serverless.tf` and `serverless-jobs.tf`; [serverless.md](../deployment/serverless.md#the-infrastructure)
-says what each is given.
+Taken by Claude while Gunnar was away; he went through it on 2026-11-12 and kept it. The resources
+are in `serverless.tf` and `serverless-jobs.tf`;
+[serverless.md](../deployment/serverless.md#the-infrastructure) says what each is given.
 
 **Four functions, not one.** `api` behind the HTTP API; `streams` on the table's stream; `orphans`
 hourly and `replay` daily at 03:30 Berlin time, on EventBridge Scheduler. Each has a role for
@@ -619,7 +620,7 @@ was; one during it tries to move each back, and names any it cannot. Unlike the 
 blue/green, a deploy is not rolled back on alarms after the fact: at TaskFest's traffic an alarm
 may come an hour later or never, and a rollback is a deploy of the previous release's zips. Claude's
 decision, as #555 left it to Claude; Gunnar agreed to the alias update on 2026-11-13, and the
-rollback on alarms #555 named is dropped by Claude, for Gunnar's review.
+rollback on alarms #555 named is dropped, which Gunnar confirmed on 2026-11-13.
 
 **Cost.** A change of the functions' settings by OpenTofu reaches what serves only through a deploy,
 since a published version keeps the settings it was published with: a restore, or a new origin
