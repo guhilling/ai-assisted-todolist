@@ -373,6 +373,37 @@ instead of re-running the tests*, which would need artifacts handed between work
 saving that no longer blocks anything. The cost is that a finding is seen after the merge, not
 before — accepted, because it then becomes an issue like any other piece of work.
 
+## A SonarCloud false positive is silenced in the code, at its line
+
+*Accepted · 2026-11-13 · #561*
+
+**Decision.** A finding that is wrong about this code is not marked a false positive in SonarCloud.
+It is answered in the code where the code can answer it, and otherwise silenced at its line with
+`NOSONAR` and the reason. Taint-analysis findings, for which `NOSONAR` is not documented to work,
+are excluded in `sonar-project.properties` instead, for their rule in one file. The first ones,
+which held the gate red from 2026-11-10:
+- a click without a key handler and without a role, on the task's section in `TaskRow.tsx` and on
+  the preview's backdrop in `FilePreview.tsx` (`typescript:S1082`, `S6847`, `S6848`): a pointer's
+  shortcut by design, with the keyboard's own way beside it, the row's menu and Escape. `NOSONAR`,
+  next to the same reason oxlint is given;
+- `go` run from `PATH` in `serverless/tools/` (`go:S4036`), which only `go generate` runs:
+  `NOSONAR`;
+- a generated file made readable by all with `chmod` (`go:S2612`): answered in the code, which now
+  writes the file with that mode, as `zonesgen` already did;
+- client- and server-side request forgery at the download in `FilePreview.tsx`
+  (`tssecurity:S8476`, `S5144`): excluded for that file. The link has passed `storageUrl` first, as
+  decided in
+  [A storage link is checked before a file goes to it](frontend.md#a-storage-link-is-checked-before-a-file-goes-to-it),
+  and the taint analysis does not recognise that check.
+
+**Why.** A false-positive mark lives in SonarCloud only, on the finding's key, and a key changes
+when the code around it moves: the storage link's mark of 8 October came back under new keys
+twice. A comment at the line moves with it and is reviewed with the code.
+
+**Cost.** The file-wide exclusion also silences a real request forgery anywhere else in
+`FilePreview.tsx`, which is why it is the exception. SonarCloud analyses `main` only, so whether
+it applies to taint findings shows after the merge; if not, the gate stays red and #561 open.
+
 ## The conventions shared with other repositories come from one public repository
 
 *Accepted · 2026-10-31 · #400, #455, #456, #457*

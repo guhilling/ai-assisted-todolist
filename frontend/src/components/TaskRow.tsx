@@ -154,7 +154,7 @@ function TaskRow({ task, today, onToggleDone, onDelete, onEdit, attachments }: R
         * pass. On a completed row, which is read-only, it is text alone.
         */}
       {/* oxlint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- a pointer convenience; the menu's Edit is the keyboard's way */}
-      <div
+      <div // NOSONAR -- S1082, S6848: as for oxlint above (doc/decisions/build-and-dependencies.md)
         className={`task-body${editable ? ' task-body--edit' : ''}`}
         onClick={
           editable
