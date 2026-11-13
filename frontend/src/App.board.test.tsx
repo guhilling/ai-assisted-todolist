@@ -244,8 +244,7 @@ describe('a task is open or done (#334)', () => {
   it('offers no "in progress" in the row menu', async () => {
     await renderSignedIn(stubApi({ me: ALICE, tasks: [task({ id: 51, description: 'Plain task' })] }))
 
-    openMenu('Plain task')
-    const menu = within(rowFor('Plain task').querySelector('.task-menu-items') as HTMLElement)
+    const menu = openMenu('Plain task')
 
     expect(menu.getAllByRole('button').map((button) => button.textContent)).toEqual(['Edit', 'Delete'])
   })
@@ -257,8 +256,9 @@ describe('a task is open or done (#334)', () => {
 
     expect(screen.getByLabelText('Mark "Started elsewhere" as done')).not.toBeChecked()
     expect(within(rowFor('Started elsewhere')).queryByText('doing')).toBeNull()
-    openMenu('Started elsewhere')
-    const menu = within(rowFor('Started elsewhere').querySelector('.task-menu-items') as HTMLElement)
-    expect(menu.getAllByRole('button').map((button) => button.textContent)).toEqual(['Edit', 'Delete'])
+    expect(openMenu('Started elsewhere').getAllByRole('button').map((button) => button.textContent)).toEqual([
+      'Edit',
+      'Delete',
+    ])
   })
 })

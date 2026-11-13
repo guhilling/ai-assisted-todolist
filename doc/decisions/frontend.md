@@ -664,11 +664,14 @@ pickers on a phone as well**, which are worse than the phone's own there.
 
 *Accepted · 2026-11-13 · #593*
 
-**Decision.** Gunnar's: only the checkbox ticks a task off. A click on an open task's description
-opens its editor, as the row menu's **Edit** does; on a completed task, whose row is read-only, the
-description is text alone. The description is a button named as the form it opens, `Edit "<task>"`,
-so a screen reader says what a click does. The app works this way already: its checkbox ticks a
-task off, and a tap on the rest of the row opens the form.
+**Decision.** Gunnar's: only the checkbox ticks a task off. A click or a tap on an open task's
+description opens its editor, as the row menu's **Edit** does, unless it ended a selection, so the
+text can still be copied; on a completed task, whose row is read-only, it does nothing. The
+description stays text rather than becoming a button: the keyboard and screen readers have the
+menu's **Edit** already, and a second control named after the task in every row would be one more
+to pass -- and would have the text no longer selectable, and its name matched by the menu's. The
+app works this way already: its checkbox ticks a task off, and a tap on the rest of the row opens
+the form.
 
 **Cost.** The larger target, the whole description, now starts the rarer action, which
 [Editing starts from the menu](#editing-starts-from-the-menu-and-waits-for-the-server) had chosen
