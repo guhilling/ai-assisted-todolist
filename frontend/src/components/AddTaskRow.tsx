@@ -46,6 +46,8 @@ function AddTaskRow({ today, saving, onAdd, attachments }: Readonly<AddTaskRowPr
   const [open, setOpen] = useState(false)
   const [description, setDescription] = useState('')
   const [dueDate, setDueDate] = useState(addDays(today, 1))
+  // The shortcuts picked, so the date field shows a pick even of the date it holds (#588).
+  const [picked, setPicked] = useState(0)
   const [importance, setImportance] = useState<TaskImportance>('MEDIUM')
   const [dueTime, setDueTime] = useState<DueTimeValue>(NO_TIME)
   const descriptionRef = useRef<HTMLInputElement>(null)
@@ -245,7 +247,10 @@ function AddTaskRow({ today, saving, onAdd, attachments }: Readonly<AddTaskRowPr
               type="button"
               className={`chip${quick.iso === dueDate ? ' chip--active' : ''}`}
               aria-pressed={quick.iso === dueDate}
-              onClick={() => setDueDate(quick.iso)}
+              onClick={() => {
+                setDueDate(quick.iso)
+                setPicked((count) => count + 1)
+              }}
             >
               {quick.label}
             </button>
@@ -254,7 +259,7 @@ function AddTaskRow({ today, saving, onAdd, attachments }: Readonly<AddTaskRowPr
 
         <div className="add-controls">
           {/* min matches the backend, which refuses a new task dated in the past. */}
-          <DueDateField value={dueDate} min={today} onChange={setDueDate} />
+          <DueDateField value={dueDate} min={today} picked={picked} onChange={setDueDate} />
           <DueTimeField value={dueTime} onChange={setDueTime} />
           <label className="add-field">
             <span>{messages.importance.label}</span>

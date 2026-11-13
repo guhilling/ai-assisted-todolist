@@ -735,12 +735,15 @@ html {
   position: relative;
 }
 
-/* The field and its calendar button read as one control: the button sits flush on the right. */
-.date-field-row {
+/* The field and its button, the calendar's or the clock's, read as one control: the button sits
+   flush on the right. */
+.date-field-row,
+.time-field-row {
   display: flex;
 }
 
-.date-field-row input {
+.date-field-row input,
+.time-field-row input {
   border-top-right-radius: 0;
   border-bottom-right-radius: 0;
 }
@@ -778,6 +781,77 @@ html {
 .date-field-loading {
   margin: 0;
   padding: var(--space-3);
+}
+
+/* On a phone the date field's own picker is the one (#588): TaskFest's calendar would be a second.
+   The script decides which it is (pointer.ts) and says so by the class. */
+.date-field--native .date-field-toggle {
+  display: none;
+}
+
+.date-field--native .date-field-row input {
+  border-radius: var(--radius);
+}
+
+/* The desktop's time and its list (#588), one control as the date and its calendar are; Chrome's
+   own clock would be a second picker beside the list. */
+.time-field-row {
+  position: relative;
+}
+
+.time-field-row input::-webkit-calendar-picker-indicator {
+  display: none;
+}
+
+.time-field-picker {
+  display: flex;
+}
+
+.time-field-popover {
+  position: absolute;
+  z-index: 10;
+  top: calc(100% + var(--space-1));
+  left: 0;
+  width: 100%;
+  min-width: 7rem;
+  max-height: 15rem;
+  margin: 0;
+  padding: var(--space-1) 0;
+  overflow-y: auto;
+  list-style: none;
+  border: 1px solid var(--field-edge);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: 0 4px 16px rgb(0 0 0 / 0.15);
+}
+
+.time-field-popover [role='option'] {
+  padding: var(--space-1) var(--space-3);
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+
+.time-field-popover [role='option']:hover,
+.time-field-popover [role='option']:focus {
+  background: var(--surface-raised);
+}
+
+/* The option the keyboard is on keeps an outline, inside the list's edge; in forced colours too,
+   where the background above is not drawn. */
+.time-field-popover [role='option']:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+@media (forced-colors: active) {
+  .time-field-popover [role='option']:focus-visible {
+    outline-color: Highlight;
+  }
+}
+
+.time-field-popover [role='option'][aria-selected='true'] {
+  color: var(--accent);
+  font-weight: 600;
 }
 
 /* react-day-picker, themed through its own variables. The extra class outranks the library's

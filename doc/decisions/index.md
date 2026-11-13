@@ -64,6 +64,7 @@ commit that first wrote each one down. CI checks every line and that this index 
 - [The mark is a panda with a ticked ear](frontend.md#the-mark-is-a-panda-with-a-ticked-ear)
 - [A task's saves go one after another, and a stalled save or upload is given up](frontend.md#a-tasks-saves-go-one-after-another-and-a-stalled-save-or-upload-is-given-up)
 - [A due time is a native time field, and its zone a switch with the browser's list](frontend.md#a-due-time-is-a-native-time-field-and-its-zone-a-switch-with-the-browsers-list)
+- [One picker for each: TaskFest's on a desktop, the phone's on a phone](frontend.md#one-picker-for-each-taskfests-on-a-desktop-the-phones-on-a-phone)
 
 ## [Testing](testing.md)
 
@@ -127,6 +128,7 @@ commit that first wrote each one down. CI checks every line and that this index 
 - [The attachments bucket refuses to be destroyed](deployment-and-aws.md#the-attachments-bucket-refuses-to-be-destroyed)
 - [The backend moves to Lambda, Go and DynamoDB, after a spike](deployment-and-aws.md#the-backend-moves-to-lambda-go-and-dynamodb-after-a-spike)
 - [The Go backend runs as four functions, behind a header, watched by seven alarms](deployment-and-aws.md#the-go-backend-runs-as-four-functions-behind-a-header-watched-by-seven-alarms)
+- [The Go backend is deployed by moving an alias after a check](deployment-and-aws.md#the-go-backend-is-deployed-by-moving-an-alias-after-a-check)
 
 ## [Mobile app](mobile-app.md)
 

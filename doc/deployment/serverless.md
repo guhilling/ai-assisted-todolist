@@ -387,7 +387,13 @@ administrator's profile.
    ```
    and then `env.sh down` or `up`, whichever the environment is in, with the administrator's
    profile.
-4. **Run the replay again, now against the switched table, at least five minutes after the
+4. **Redeploy the release that runs**, with `deploy-serverless.yml` and its tag: the apply changed
+   the functions' settings, which reach what serves only as a newly published version (#555,
+   [Deploying a release](#deploying-a-release)). Until then the API serves server errors for
+   whatever needs the table: the apply has given its role the restored table, while the version
+   that serves still names the old one. So this follows the apply at once; should it fail, the API
+   stays down until it is run again, or until `table_name` is set back and applied.
+5. **Run the replay again, now against the switched table, at least five minutes after the
    switch.** The run in step 2 passed over the deletions of its last five minutes, which may still
    have been under way, and deletions kept being recorded until the switch; this run takes both.
    Until it has run, an account deleted in those minutes is back. Deletions are not stopped
@@ -544,11 +550,15 @@ does:
   the one orphan alarm sees both backends.
 
 **The alarms**, each $0.10 a month, mail through the existing topic on entering ALARM and on
-leaving it: the API function's errors and throttles, the stream function more than ten minutes
-behind (it reports a failed record rather than failing, so its errors would never show one), the
-scheduled functions' errors, and the table's throttled reads and writes. That is seven per
-environment, about $1.40 a month for both. Not the HTTP API's 5xx answers yet: they were left out
-while unported routes answered 501 on purpose, and #558 adds them.
+leaving it: the API function's errors and throttles, the API's server errors, at least two in five
+minutes (#558), the stream function more than ten minutes behind (it reports a failed record rather
+than failing, so its errors would never show one), the scheduled functions' errors, and the table's
+throttled reads and writes. That is eight per environment, about $1.60 a month for both.
+
+**The dashboard** `taskfest-<env>-go-backend` (#558, `serverless-dashboard.tf`) shows the requests
+and their answers, the time they take, the API function's time, errors and throttles, the jobs'
+runs and errors, how far the stream function is behind, and the table's reads, writes and throttles.
+It is free: CloudWatch includes three dashboards per account, and these are the second and third.
 
 The functions are created from `serverless/dist/<command>.zip`, which `serverless/build.sh` makes,
 with Go where it is installed and the official Go image through podman or docker where it is not.
@@ -565,9 +575,46 @@ serverless/build.sh
 **`down` takes qa down if it is up**; with qa down it applies only the foundation, and the plan
 it shows says what that is before anything happens.
 
-**Until a release deploys the code (#555)**, new code reaches the functions by hand, with the
-administrator, after `build.sh`. Code that changes what the functions may touch goes up before the
-apply that changes their roles, as #578's did:
+### Deploying a release
+
+**A release deploys the code** (#555), as it deploys the containers' image and the site:
+
+- **`release.yml` builds the four functions once**, from the tag, with the version `GET /api/version`
+  reports, and attaches them to the release as `taskfest-serverless-<version>-<function>.zip`.
+- **`deploy-serverless.yml` deploys them**, to qa after every final release, and to prod by hand
+  through its protected environment, as the containers are. `deploy-serverless.py` uploads each
+  function's zip, publishes it as a version described by the release, and moves the function's
+  alias `live` to it. API Gateway, the stream and the schedules invoke `live`, never the
+  unpublished code, so nothing serves a version before its alias moves.
+- **The API's new version is checked first.** It is invoked with a request as API Gateway sends one,
+  without CloudFront's header, which it must refuse with a 403: it has started, read its settings
+  and secrets, and handled a request. It does not prove the table is reached -- the function
+  starts even when its first read of the table fails, so that a moment's trouble does not fail a
+  cold start -- and the API's alarms (`api-errors`, and the server errors) show that once requests
+  come. Anything else stops the deploy with every alias where it was. The jobs are not invoked,
+  since a run does real work; a failing one raises its alarm.
+- **A failure after an alias has moved tries to move every alias back**, each on its own, so the
+  functions do not stay on different releases. The aliases move one after another, so for the
+  seconds of a deploy they do anyway; and should moving one back fail too, the log names it, and
+  `aws lambda update-alias --function-name <name> --name live --function-version <version>`, with
+  the administrator, puts it where the log says it was. **A rollback** is `deploy-serverless.yml`
+  with the previous release's tag.
+- **The deploy role** may upload, publish, invoke and move the aliases of these four functions, and
+  nothing else of them: no setting, no permission.
+- **A change of the functions' settings by OpenTofu reaches what serves only through a deploy.** A
+  published version keeps the settings it was published with, and the aliases name versions, so an
+  apply changes the unpublished code's settings alone. After an apply that changes them -- a
+  restored table, the origin secret, sign-in -- run `deploy-serverless.yml` with the release that
+  runs; it publishes them with the same code.
+
+**A traffic-weighted canary was decided against** (#555,
+[the decision](../decisions/deployment-and-aws.md#the-go-backend-is-deployed-by-moving-an-alias-after-a-check)).
+
+**A function created by OpenTofu** starts with what `build.sh` made, and its alias on that
+unpublished code. The first deploy pins the alias on a published version of it before uploading
+anything, so the upload does not serve the new code before its check. Code that changes what the
+functions may touch goes out with the release after the apply that changes their roles, or by hand
+before it, with the administrator, as #578's did:
 
 ```sh
 for env in qa prod; do
@@ -577,3 +624,8 @@ for env in qa prod; do
   done
 done
 ```
+
+Once a release's deploy has pinned the aliases on published versions, code uploaded so changes the
+unpublished code only, and the aliases keep their version until a deploy moves them. **Before the
+first deploy, the aliases are still on the unpublished code**, as OpenTofu creates them, and an
+upload serves at once, unchecked.

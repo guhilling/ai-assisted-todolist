@@ -139,11 +139,17 @@ export const en = {
     /** The mobile app's chip that opens the platform's calendar. */
     other: 'Other date',
     loadingCalendar: 'Loading calendar…',
+    /** How a desktop's date field is written (#588), its placeholder. */
+    format: 'dd/mm/yyyy',
+    invalid: (example: string) => `Enter a date such as ${example}.`,
+    tooEarly: 'Pick today or a later date.',
   },
   /** A task's optional due time and the switch tying it to a zone (#476). */
   dueTime: {
     label: 'Time',
     tied: 'Tied to a time zone',
+    /** The desktop's button beside the time, opening a list of times (#588). */
+    list: 'Choose the time from a list',
     zone: 'Time zone',
     /** The app's (#477): the chip that opens the platform's time picker, and the one that clears the time. */
     add: 'Add a time',
@@ -387,10 +393,14 @@ export const de: Messages = {
     calendar: 'Fälligkeitsdatum im Kalender wählen',
     other: 'Anderes Datum',
     loadingCalendar: 'Kalender wird geladen …',
+    format: 'TT.MM.JJJJ',
+    invalid: (example: string) => `Gib ein Datum wie ${example} ein.`,
+    tooEarly: 'Wähl heute oder ein späteres Datum.',
   },
   dueTime: {
     label: 'Uhrzeit',
     tied: 'An eine Zeitzone gebunden',
+    list: 'Uhrzeit aus einer Liste wählen',
     zone: 'Zeitzone',
     add: 'Uhrzeit wählen',
     none: 'Keine Uhrzeit',

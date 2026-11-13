@@ -205,6 +205,20 @@ resource "aws_lambda_function" "job" {
   depends_on = [aws_iam_role_policy.job]
 }
 
+# The version of each that runs, as for the API (serverless.tf): the stream and the schedules invoke
+# the alias, which a release's deploy moves.
+resource "aws_lambda_alias" "job" {
+  for_each = local.jobs
+
+  name             = local.live_alias
+  function_name    = aws_lambda_function.job[each.key].function_name
+  function_version = "$LATEST"
+
+  lifecycle {
+    ignore_changes = [function_version]
+  }
+}
+
 # The stream, filtered to the removals of attachment items, the only records `streams` acts on, so
 # no other write invokes it. A failed record holds its shard and is sent again, so the retries are
 # capped: what is given up on, the orphan clean-up deletes after seven days -- unless it was the
@@ -212,7 +226,7 @@ resource "aws_lambda_function" "job" {
 # (orphans.HoldNoAttachments); those files wait until there is one again.
 resource "aws_lambda_event_source_mapping" "streams" {
   event_source_arn = aws_dynamodb_table.data.stream_arn
-  function_name    = aws_lambda_function.job["streams"].arn
+  function_name    = aws_lambda_alias.job["streams"].arn
   # The oldest record still in the stream, so no removal written before the mapping began is
   # missed; one deleted twice is no error.
   starting_position              = "TRIM_HORIZON"
@@ -237,6 +251,7 @@ resource "aws_lambda_function_event_invoke_config" "scheduled" {
   for_each = local.schedules
 
   function_name          = aws_lambda_function.job[each.key].function_name
+  qualifier              = aws_lambda_alias.job[each.key].name
   maximum_retry_attempts = 0
 }
 
@@ -268,7 +283,7 @@ data "aws_iam_policy_document" "scheduler" {
   statement {
     sid       = "StartTheScheduledFunctions"
     actions   = ["lambda:InvokeFunction"]
-    resources = [for job in keys(local.schedules) : aws_lambda_function.job[job].arn]
+    resources = [for job in keys(local.schedules) : aws_lambda_alias.job[job].arn]
   }
 }
 
@@ -292,7 +307,7 @@ resource "aws_scheduler_schedule" "job" {
   }
 
   target {
-    arn      = aws_lambda_function.job[each.key].arn
+    arn      = aws_lambda_alias.job[each.key].arn
     role_arn = aws_iam_role.scheduler.arn
 
     # The function is not tried again either (above).
@@ -318,9 +333,8 @@ resource "aws_cloudwatch_log_metric_filter" "orphan_alert_serverless" {
 }
 
 # The alarms, each $0.10 a month: one per thing that can go wrong unnoticed. Each mails once on
-# entering ALARM and once on leaving it. No data, as with no traffic, is no alarm. Not the HTTP
-# API's 5xx answers yet: they were left out while unported routes answered 501 on purpose, and a
-# crash or a timeout already shows as the function's error; #558 adds them.
+# entering ALARM and once on leaving it. No data, as with no traffic, is no alarm -- which is what
+# an environment whose /api/* the containers serve shows for the HTTP API's.
 locals {
   serverless_alarms = {
     api-errors = {
@@ -330,6 +344,18 @@ locals {
     api-throttles = {
       description = "The ${var.environment} API function was throttled: requests were turned away."
       namespace   = "AWS/Lambda", metric = "Throttles", dimensions = { FunctionName = local.api_function }
+    }
+    # The server errors the API answered (#558), including those a crash does not show: the
+    # function answered with a 500 -- the table or the bucket failing, a provider not answering.
+    # Two in five minutes, as one can be a moment's trouble the next request does not meet. A crash,
+    # a timeout or a throttle comes back from API Gateway as a 5xx too, so two of them raise this
+    # beside api-errors or api-throttles: two mails for one fault, which says how many requests met
+    # it. Claude's threshold, as #558 left it.
+    api-5xx = {
+      description = "The ${var.environment} API answered server errors: at least two in five minutes, the function's own 500s or API Gateway's."
+      namespace   = "AWS/ApiGateway", metric = "5xx"
+      dimensions  = { ApiId = aws_apigatewayv2_api.this.id, Stage = aws_apigatewayv2_stage.default.name }
+      threshold   = 2
     }
     # A record whose files fail to go is reported, not raised, so the function's errors never see
     # it; the stream falling behind does, ten minutes before the hour after which it gives up.

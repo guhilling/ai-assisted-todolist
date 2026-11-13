@@ -20,6 +20,10 @@ Named, because "best practices are applied" plans nothing:
   subscribed (`alerting.tf`). Built for the orphan clean-up's alarm (#208); the up-time reminder
   and the Go backend's alarms ([serverless.md](serverless.md#the-infrastructure)) notify it too,
   and the alarms above will once they exist.
+- **The Go backend** (#558) is watched by its own: eight alarms and a dashboard per environment,
+  `taskfest-<env>-go-backend`, on what a function-based backend shows -- requests and their answers,
+  time, errors, throttles, the stream's lag and the table
+  ([serverless.md](serverless.md#the-infrastructure)). The items above describe the containers.
 
 ## Plan: how long a page takes to show (#236)
 
