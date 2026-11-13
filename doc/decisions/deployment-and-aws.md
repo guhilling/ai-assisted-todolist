@@ -612,8 +612,11 @@ around the restore is back. Stopping deletions would take the API down for the r
 release; `deploy-serverless.yml` publishes each as a version described by the release, checks the
 API's new version by invoking it, and only then moves each function's alias `live`, which API
 Gateway, the stream and the schedules invoke. A failure before the move leaves every alias where it
-was; one during it moves them all back. A rollback deploys the previous release's zips. Claude's
-decision, as #555 left it to Claude; Gunnar agreed on 2026-11-13.
+was; one during it tries to move each back, and names any it cannot. Unlike the containers'
+blue/green, a deploy is not rolled back on alarms after the fact: at TaskFest's traffic an alarm
+may come an hour later or never, and a rollback is a deploy of the previous release's zips. Claude's
+decision, as #555 left it to Claude; Gunnar agreed to the alias update on 2026-11-13, and the
+rollback on alarms #555 named is dropped by Claude, for Gunnar's review.
 
 **Cost.** A change of the functions' settings by OpenTofu reaches what serves only through a deploy,
 since a published version keeps the settings it was published with: a restore, or a new origin

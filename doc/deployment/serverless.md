@@ -385,7 +385,10 @@ administrator's profile.
    profile.
 4. **Redeploy the release that runs**, with `deploy-serverless.yml` and its tag: the apply changed
    the functions' settings, which reach what serves only as a newly published version (#555,
-   [Deploying a release](#deploying-a-release)). Until then the functions still use the old table.
+   [Deploying a release](#deploying-a-release)). Until then the API serves server errors for
+   whatever needs the table: the apply has given its role the restored table, while the version
+   that serves still names the old one. So this follows the apply at once; should it fail, the API
+   stays down until it is run again, or until `table_name` is set back and applied.
 5. **Run the replay again, now against the switched table, at least five minutes after the
    switch.** The run in step 2 passed over the deletions of its last five minutes, which may still
    have been under way, and deletions kept being recorded until the switch; this run takes both.
@@ -577,11 +580,17 @@ it shows says what that is before anything happens.
   unpublished code, so nothing serves a version before its alias moves.
 - **The API's new version is checked first.** It is invoked with a request as API Gateway sends one,
   without CloudFront's header, which it must refuse with a 403: it has started, read its settings
-  and secrets, reached its table, and handled a request. Anything else stops the deploy with every
-  alias where it was. The jobs are not invoked, since a run does real work; a failing one raises its
-  alarm.
-- **A failure after an alias has moved moves every alias back**, so the functions never run
-  different releases. **A rollback** is `deploy-serverless.yml` with the previous release's tag.
+  and secrets, and handled a request. It does not prove the table is reached -- the function
+  starts even when its first read of the table fails, so that a moment's trouble does not fail a
+  cold start -- and the API's alarms (`api-errors`, and the server errors) show that once requests
+  come. Anything else stops the deploy with every alias where it was. The jobs are not invoked,
+  since a run does real work; a failing one raises its alarm.
+- **A failure after an alias has moved tries to move every alias back**, each on its own, so the
+  functions do not stay on different releases. The aliases move one after another, so for the
+  seconds of a deploy they do anyway; and should moving one back fail too, the log names it, and
+  `aws lambda update-alias --function-name <name> --name live --function-version <version>`, with
+  the administrator, puts it where the log says it was. **A rollback** is `deploy-serverless.yml`
+  with the previous release's tag.
 - **The deploy role** may upload, publish, invoke and move the aliases of these four functions, and
   nothing else of them: no setting, no permission.
 - **A change of the functions' settings by OpenTofu reaches what serves only through a deploy.** A
@@ -608,5 +617,7 @@ for env in qa prod; do
 done
 ```
 
-Code uploaded so changes the unpublished code only; the aliases keep their version until a
-release's deploy moves them.
+Once a release's deploy has pinned the aliases on published versions, code uploaded so changes the
+unpublished code only, and the aliases keep their version until a deploy moves them. **Before the
+first deploy, the aliases are still on the unpublished code**, as OpenTofu creates them, and an
+upload serves at once, unchecked.
