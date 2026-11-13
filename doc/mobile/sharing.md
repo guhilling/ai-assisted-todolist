@@ -165,5 +165,10 @@ go when the share's form is closed, with their folders (`releaseShared` in `Main
   for its share sheet, and both up to 150 s for the sign-in; `run-on-simulator.sh` starts the app until its sign-in shows and
   Photos until its grid does before the shares (`warm-up-app.yaml`, `warm-up-photos.yaml`), and
   logs Photos' daemons, whose hangs are still unexplained, from the warm-ups on. A second run of the photo's flow taps a photo only when Photos is not already
-  showing one, as iOS may reopen it there. Still tried by hand, on TestFlight:
+  showing one, as iOS may reopen it there. Two stalls of the simulator's iOS stayed (#533), on
+  `main` among others: Photos still preparing after the flow's restart and second share, and
+  Safari's menu never opening, so its *Share* is not found. Both come before the sheet has offered
+  *TaskFest Dev*, so `run-on-simulator.sh` runs the flow once more after them, as after a driver
+  failure, when `share-stalled.sh` finds one in the console output; *TaskFest Dev* not offered and
+  the app not opening still fail at once. Still tried by hand, on TestFlight:
   text shared on an iPhone, and a share taken on to the board signed in.
