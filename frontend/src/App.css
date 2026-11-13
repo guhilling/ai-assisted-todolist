@@ -985,8 +985,11 @@ html {
 
 .task-body {
   flex: 1 1 auto;
-  /* The row's whole height, so all of it opens the editor (#593), not only the lines of text. */
+  /* The row's whole height, its padding included, so all of it opens the editor (#593), not only
+     the lines of text: stretched to the row, and reaching into its padding above and below. */
   align-self: stretch;
+  margin-block: calc(-1 * var(--space-2));
+  padding-block: var(--space-2);
   min-width: 0;
 }
 
@@ -1001,7 +1004,7 @@ html {
   cursor: pointer;
 }
 
-.task-body--edit:hover .task-description {
+.task-body--edit:hover:not(:has(a:hover, button:hover)) .task-description {
   color: var(--accent);
 }
 

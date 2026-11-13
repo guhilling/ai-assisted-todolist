@@ -6,6 +6,9 @@ import AttachmentList, { type AttachmentActions } from './AttachmentList'
 import TaskEditor, { type TaskEdit } from './TaskEditor'
 import { useI18n } from '../i18n/context'
 
+/** What, inside a task's section, keeps its own click rather than opening the editor (#593). */
+const CONTROLS = 'a, button, input, select, textarea, summary, label, [role], [tabindex], [contenteditable]'
+
 type TaskRowProps = {
   task: Task
   today: string
@@ -156,8 +159,9 @@ function TaskRow({ task, today, onToggleDone, onDelete, onEdit, attachments }: R
         onClick={
           editable
             ? (event) => {
-                const target = event.target as HTMLElement
-                if (target.closest('button, a, input, select, textarea, summary, [role="dialog"]')) {
+                // A control keeps its own click: anything focusable, or with a role of its own.
+                const target = event.target
+                if (!(target instanceof Element) || target.closest(CONTROLS)) {
                   return
                 }
                 if (window.getSelection()?.toString()) {

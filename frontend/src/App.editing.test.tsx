@@ -311,6 +311,20 @@ describe('a click on a task (#593)', () => {
     expect(screen.queryByRole('form', { name: 'Edit "Renew the passport"' })).not.toBeInTheDocument()
   })
 
+  it("leaves a click on an attachment's remove or a link to them, never the editor", async () => {
+    const photo = { id: 8, fileName: 'Quittung.jpg', contentType: 'image/jpeg', sizeBytes: 9000, thumbnail: false }
+    const link = { id: 9, fileName: 'Docs', contentType: 'text/uri-list', sizeBytes: 0, thumbnail: false, url: 'https://example.com/docs' }
+    await renderSignedIn(
+      stubApi({ me: ALICE, tasks: [{ ...task({ id: 4, description: 'Renew the passport' }), attachments: [photo, link] }] }),
+    )
+    const row = within(rowFor('Renew the passport'))
+
+    fireEvent.click(row.getByRole('link', { name: 'Open Docs' }))
+    fireEvent.click(row.getByRole('button', { name: 'Remove Quittung.jpg' }))
+
+    expect(screen.queryByRole('form', { name: 'Edit "Renew the passport"' })).not.toBeInTheDocument()
+  })
+
   it('ticks a task off with the checkbox alone', async () => {
     const fetchMock = stubApi({ me: ALICE, tasks: [task({ id: 4, description: 'Renew the passport' })] })
     await renderSignedIn(fetchMock)
