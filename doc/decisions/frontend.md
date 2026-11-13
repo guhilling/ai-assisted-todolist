@@ -664,6 +664,10 @@ pickers on a phone as well**, which are worse than the phone's own there.
 
 *Accepted · 2026-11-13 · #593*
 
+Revised in part: not only the description but the task's whole section opens the editor, in
+[The whole task section opens the editor](#the-whole-task-section-opens-the-editor) (#593). The
+rest stands.
+
 **Decision.** Gunnar's: only the checkbox ticks a task off. A click or a tap on an open task's
 description opens its editor, as the row menu's **Edit** does, unless it ended a selection, so the
 text can still be copied; on a completed task, whose row is read-only, it does nothing. The
@@ -677,4 +681,18 @@ the form.
 [Editing starts from the menu](#editing-starts-from-the-menu-and-waits-for-the-server) had chosen
 against: ticking a task off needs the checkbox itself. A tick is no longer taken by a click meant
 to read the task.
+
+## The whole task section opens the editor
+
+*Accepted · 2026-11-13 · #593*
+
+**Decision.** Gunnar's, after trying the description's click in Safari on qa: the area was only as
+tall as the text. A click or a tap anywhere in an open task's section opens its editor -- its whole
+height, the row's padding above and below included, the due line and the space beside it. A
+control inside it keeps its own click: anything focusable, or with a role of its own, such as an
+attachment, its remove button or a link. A click that ended a selection still opens nothing.
+
+**Cost.** Which clicks are a control's is a selector (`CONTROLS` in `TaskRow.tsx`); a new kind of
+control in the section that is neither focusable nor given a role would open the editor as well
+as doing its own thing. The tests click an attachment, its remove button and a link to hold that.
 

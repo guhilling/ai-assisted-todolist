@@ -985,6 +985,11 @@ html {
 
 .task-body {
   flex: 1 1 auto;
+  /* The row's whole height, its padding included, so all of it opens the editor (#593), not only
+     the lines of text: stretched to the row, and reaching into its padding above and below. */
+  align-self: stretch;
+  margin-block: calc(-1 * var(--space-2));
+  padding-block: var(--space-2);
   min-width: 0;
 }
 
@@ -994,12 +999,12 @@ html {
   transition: color 120ms ease-out;
 }
 
-/* An open task's description opens its editor on a click (#593). */
-.task-description--edit {
+/* An open task's section opens its editor on a click (#593). */
+.task-body--edit {
   cursor: pointer;
 }
 
-.task-description--edit:hover {
+.task-body--edit:hover:not(:has(a:hover, button:hover)) .task-description {
   color: var(--accent);
 }
 
