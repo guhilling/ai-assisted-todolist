@@ -19,12 +19,13 @@ locals {
       concat(["AWS/ApiGateway", "Latency"], local.api_dimensions, [{ stat = "p50", label = "Median" }]),
       concat(["AWS/ApiGateway", "Latency"], local.api_dimensions, [{ stat = "p95", label = "95th percentile" }]),
     ] },
-    # A cold start shows as the duration's maximum, its typical answer as the median.
-    { title = "API function (ms, and counts)", metrics = [
+    # A cold start shows as the duration's maximum, its typical answer as the median; the counts on
+    # an axis of their own, or one failure would lie flat beside a second's duration.
+    { title = "API function (ms; errors and throttles on the right)", metrics = [
       ["AWS/Lambda", "Duration", "FunctionName", local.api_function, { stat = "p50", label = "Duration, median" }],
       ["AWS/Lambda", "Duration", "FunctionName", local.api_function, { stat = "Maximum", label = "Duration, longest" }],
-      ["AWS/Lambda", "Errors", "FunctionName", local.api_function, { stat = "Sum", label = "Errors" }],
-      ["AWS/Lambda", "Throttles", "FunctionName", local.api_function, { stat = "Sum", label = "Throttles" }],
+      ["AWS/Lambda", "Errors", "FunctionName", local.api_function, { stat = "Sum", label = "Errors", yAxis = "right" }],
+      ["AWS/Lambda", "Throttles", "FunctionName", local.api_function, { stat = "Sum", label = "Throttles", yAxis = "right" }],
     ] },
     { title = "Jobs (runs and errors)", metrics = concat(
       [for job in local.jobs_shown :
