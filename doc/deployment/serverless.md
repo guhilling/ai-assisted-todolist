@@ -383,13 +383,25 @@ administrator: with its profile, or the credentials exported from it in step 2.
    non-zero when one could not be, and is then run again.
 3. **Switch the functions to the new table**, as the administrator, in the environment's root.
    OpenTofu forgets the old table, which stays, protected from deletion, until it is deleted by
-   hand; `table_name` in `terraform.tfvars` names the restored one; OpenTofu takes it over; and
-   the apply sets what a restore does not carry over, TTL, the stream and point-in-time recovery,
-   and points the functions, their roles and the stream's mapping at it:
+   hand; `table_name` in `terraform.tfvars` names the restored one; OpenTofu takes it over;
+   deletion protection, which a restore does not carry over either, is set by hand on its own
+   first; and the apply sets the rest a restore leaves out, TTL, the stream and point-in-time
+   recovery, and points the functions, their roles and the stream's mapping at it:
    ```bash
    tofu state rm module.environment.aws_dynamodb_table.data
    # table_name = "<table>-restored-<date>" in terraform.tfvars
    tofu import module.environment.aws_dynamodb_table.data <table>-restored-<date>
+   # Deletion protection first, alone. The apply would send it together with the stream, and
+   # DynamoDB refuses that: "DeletionProtection modification must be the only operation in the
+   # request" -- the apply then fails half done, as in the trial on #553. The profile and the
+   # region are named because step 2 unset the one and set the other only for the replay.
+   aws dynamodb update-table --profile <admin profile> --region eu-central-1 \
+     --table-name <table>-restored-<date> --deletion-protection-enabled
+   aws dynamodb wait table-exists --profile <admin profile> --region eu-central-1 \
+     --table-name <table>-restored-<date>
+   # Must print true before the apply; the waiter alone can return before the change shows.
+   aws dynamodb describe-table --profile <admin profile> --region eu-central-1 \
+     --table-name <table>-restored-<date> --query Table.DeletionProtectionEnabled
    ```
    and then `env.sh down` or `up`, whichever the environment is in, naming the administrator's
    profile for it, as `TASKFEST_<ENV>_AWS_PROFILE=<admin profile>`: after step 2 `AWS_PROFILE` is
@@ -410,9 +422,14 @@ administrator: with its profile, or the credentials exported from it in step 2.
    only for accounts whose owners have just deleted them (Claude's decision on #554, which Gunnar
    confirmed on 2026-11-12).
 
-The procedure is being tried in qa, from an on-demand backup (#553). Its steps 1 and 2 passed on
-2026-11-13: an account deleted after the backup came back with the restore, and the replay deleted
-it again (`reapplied: 1`); the export of the CLI's credentials in step 2 was found missing there.
+**Tried in qa on 2026-11-13** (#553), from an on-demand backup of `taskfest-qa-data` into
+`taskfest-qa-data-restored-2026-11-13`, which qa has used since. An account was deleted after the
+backup: it came back with the restore, the replay in step 2 deleted it again (`reapplied: 1`), the
+one in step 5 found nothing more (`reapplied: 0`), and signing in afterwards began a new, empty
+account. The restore took about five minutes. Two steps were found missing and are written in
+above: exporting the CLI's credentials for the replay in step 2, and the deletion protection set on
+its own before the apply in step 3, which had failed half done without it; set by hand, the apply
+went through. The old table and its backup stay until deleted by hand.
 
 ## Why Go
 
