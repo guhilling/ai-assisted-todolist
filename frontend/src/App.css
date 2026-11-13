@@ -990,9 +990,24 @@ html {
 
 .task-description {
   display: block;
-  cursor: pointer;
   overflow-wrap: anywhere;
   transition: color 120ms ease-out;
+}
+
+/* An open task's description is a button that opens its editor (#593), reading as the text it is. */
+.task-description--edit {
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.task-description--edit:hover {
+  color: var(--accent);
 }
 
 /* A row being edited holds the edit form instead of the checkbox, text and menu. */

@@ -132,6 +132,11 @@ readable on a phone. Whether they do is judged on screenshots of the app.
 
 *Accepted · 2026-10-04 · #159*
 
+Revised in part: a click on an open task's description opens its editor too, and only the checkbox
+ticks a task off, in
+[A click on a task's description opens its editor](#a-click-on-a-tasks-description-opens-its-editor)
+(#593). "Why the menu, not the text" below no longer holds; the rest stands.
+
 **Decision** (#156). **Edit** in the row's overflow menu turns the row into a form with the same
 three fields as adding a task: description, due date and importance. Save sends them, while
 Cancel and Escape discard. Completed tasks are read-only, and reopening one is how to change it.
@@ -654,4 +659,19 @@ date", rather than a date field.
 
 **Rejected: hiding the browser's own pickers by CSS**, which reaches only Chrome's, and **TaskFest's
 pickers on a phone as well**, which are worse than the phone's own there.
+
+## A click on a task's description opens its editor
+
+*Accepted · 2026-11-13 · #593*
+
+**Decision.** Gunnar's: only the checkbox ticks a task off. A click on an open task's description
+opens its editor, as the row menu's **Edit** does; on a completed task, whose row is read-only, the
+description is text alone. The description is a button named as the form it opens, `Edit "<task>"`,
+so a screen reader says what a click does. The app works this way already: its checkbox ticks a
+task off, and a tap on the rest of the row opens the form.
+
+**Cost.** The larger target, the whole description, now starts the rarer action, which
+[Editing starts from the menu](#editing-starts-from-the-menu-and-waits-for-the-server) had chosen
+against: ticking a task off needs the checkbox itself. A tick is no longer taken by a click meant
+to read the task.
 

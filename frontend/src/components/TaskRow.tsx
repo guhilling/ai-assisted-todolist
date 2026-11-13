@@ -21,7 +21,8 @@ type TaskRowProps = {
 }
 
 /**
- * One line of the board: a checkbox, what needs doing, and when.
+ * One line of the board: a checkbox, what needs doing, and when. The checkbox alone ticks the
+ * task off; a click on what needs doing opens the editor (#593), as a tap on a row does in the app.
  *
  * The checkbox is a real `input type="checkbox"` rather than a styled button, so its keyboard
  * handling, focus ring and screen-reader role come for free and cannot drift. Its accessible
@@ -142,9 +143,23 @@ function TaskRow({ task, today, onToggleDone, onDelete, onEdit, attachments }: R
         aria-label={messages.row.markDone(task.description)}
       />
       <div className="task-body">
-        <label className="task-description" htmlFor={inputId}>
-          {task.description}
-        </label>
+        {/*
+          * Only the checkbox ticks a task off (#593): the description opens the editor, as the
+          * menu's Edit does, and on a completed row, which is read-only, it is text alone. Named as
+          * the form it opens, so a screen reader hears what a click does.
+          */}
+        {editable ? (
+          <button
+            type="button"
+            className="task-description task-description--edit"
+            aria-label={messages.editor.label(task.description)}
+            onClick={() => setEditing(true)}
+          >
+            {task.description}
+          </button>
+        ) : (
+          <span className="task-description">{task.description}</span>
+        )}
         <p className="task-meta">
           {/*
             * Importance leads the line, so it needs no separator before it, and it is a dot

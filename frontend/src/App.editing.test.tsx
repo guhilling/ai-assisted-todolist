@@ -280,3 +280,31 @@ function dayLabel(iso: string) {
   const suffix = day % 10 === 1 && day !== 11 ? 'st' : day % 10 === 2 && day !== 12 ? 'nd' : day % 10 === 3 && day !== 13 ? 'rd' : 'th'
   return `${monthName} ${day}${suffix}, ${year}`
 }
+
+describe('a click on a task (#593)', () => {
+  it('opens the editor from the description, and leaves the task open', async () => {
+    const fetchMock = stubApi({ me: ALICE, tasks: [task({ id: 4, description: 'Renew the passport' })] })
+    await renderSignedIn(fetchMock)
+
+    fireEvent.click(within(rowFor('Renew the passport')).getByRole('button', { name: 'Edit "Renew the passport"' }))
+
+    expect(screen.getByRole('form', { name: 'Edit "Renew the passport"' })).toBeInTheDocument()
+    expect(fetchMock).not.toHaveBeenCalledWith(expect.stringContaining('/api/tasks/4'), expect.anything())
+  })
+
+  it('ticks a task off with the checkbox alone', async () => {
+    await renderSignedIn(stubApi({ me: ALICE, tasks: [task({ id: 4, description: 'Renew the passport' })] }))
+
+    // The description is no longer the checkbox's label.
+    expect(screen.getByRole('checkbox', { name: 'Mark "Renew the passport" as done' })).toBeInTheDocument()
+    expect(screen.getByText('Renew the passport').closest('label')).toBeNull()
+  })
+
+  it('offers nothing on a completed task, whose row is read-only', async () => {
+    await renderSignedIn(stubApi({ me: ALICE, tasks: [task({ id: 4, description: 'Paid the bill', state: 'DONE' })] }))
+    fireEvent.click(screen.getByText(/^Completed/))
+
+    expect(screen.queryByRole('button', { name: 'Edit "Paid the bill"' })).not.toBeInTheDocument()
+    expect(screen.getByText('Paid the bill').closest('label')).toBeNull()
+  })
+})
