@@ -569,13 +569,13 @@ $0.019 for the RDS instance, cheaper only when idle most of the time it is up.
 
 *Accepted · 2026-11-12 · #554, #575, #576*
 
-Revised in part: an eighth alarm, the API's server errors, at least five in five minutes, joined
-once no route answered 501 any more (#558; Gunnar set the threshold on 2026-11-13); the rest
-stands.
+Revised in part: an eighth alarm, the API's server errors, joined once no route answered 501 any
+more (#558) -- at two in one five-minute period at first, Claude's threshold, and at five since
+Gunnar raised it on 2026-11-13, so that only a clear pattern mails; the rest stands.
 
-Taken by Claude while Gunnar was away, for him to go through. The resources are in
-`serverless.tf` and `serverless-jobs.tf`; [serverless.md](../deployment/serverless.md#the-infrastructure)
-says what each is given.
+Taken by Claude while Gunnar was away; he went through it on 2026-11-12 and kept it. The resources
+are in `serverless.tf` and `serverless-jobs.tf`; [serverless.md](../deployment/serverless.md#the-
+infrastructure) says what each is given.
 
 **Four functions, not one.** `api` behind the HTTP API; `streams` on the table's stream; `orphans`
 hourly and `replay` daily at 03:30 Berlin time, on EventBridge Scheduler. Each has a role for

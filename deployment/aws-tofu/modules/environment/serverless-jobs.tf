@@ -347,11 +347,13 @@ locals {
     }
     # The server errors the API answered (#558), including those a crash does not show: the
     # function answered with a 500 -- the table or the bucket failing, a provider not answering.
-    # Five in five minutes, a clear pattern rather than a moment's trouble (Gunnar's threshold,
-    # 2026-11-13). A crash, a timeout or a throttle comes back from API Gateway as a 5xx too, so
-    # five of them raise this beside api-errors or api-throttles, which alarm on the first.
+    # Five in one five-minute period, a clear pattern rather than a moment's trouble (Gunnar's
+    # threshold, 2026-11-13; two at first). The trade-off: a 500 the function answers itself, which
+    # api-errors never sees, goes unreported below five a period, so a broken release at TaskFest's
+    # traffic may stay quiet. A crash, a timeout or a throttle comes back as a 5xx too, and alarms
+    # on the first through api-errors or api-throttles.
     api-5xx = {
-      description = "The ${var.environment} API answered server errors: at least five in five minutes, the function's own 500s or API Gateway's."
+      description = "The ${var.environment} API answered server errors: at least five in one five-minute period, the function's own 500s or API Gateway's."
       namespace   = "AWS/ApiGateway", metric = "5xx"
       dimensions  = { ApiId = aws_apigatewayv2_api.this.id, Stage = aws_apigatewayv2_stage.default.name }
       threshold   = 5
