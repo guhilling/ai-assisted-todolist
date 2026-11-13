@@ -990,9 +990,17 @@ html {
 
 .task-description {
   display: block;
-  cursor: pointer;
   overflow-wrap: anywhere;
   transition: color 120ms ease-out;
+}
+
+/* An open task's description opens its editor on a click (#593). */
+.task-description--edit {
+  cursor: pointer;
+}
+
+.task-description--edit:hover {
+  color: var(--accent);
 }
 
 /* A row being edited holds the edit form instead of the checkbox, text and menu. */

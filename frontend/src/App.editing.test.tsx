@@ -280,3 +280,48 @@ function dayLabel(iso: string) {
   const suffix = day % 10 === 1 && day !== 11 ? 'st' : day % 10 === 2 && day !== 12 ? 'nd' : day % 10 === 3 && day !== 13 ? 'rd' : 'th'
   return `${monthName} ${day}${suffix}, ${year}`
 }
+
+describe('a click on a task (#593)', () => {
+  it('opens the editor from the description, and leaves the task open', async () => {
+    const fetchMock = stubApi({ me: ALICE, tasks: [task({ id: 4, description: 'Renew the passport' })] })
+    await renderSignedIn(fetchMock)
+
+    fireEvent.click(within(rowFor('Renew the passport')).getByText('Renew the passport'))
+
+    expect(screen.getByRole('form', { name: 'Edit "Renew the passport"' })).toBeInTheDocument()
+    expect(fetchMock).not.toHaveBeenCalledWith(expect.stringContaining('/api/tasks/4'), expect.anything())
+  })
+
+  it('ticks a task off with the checkbox alone', async () => {
+    const fetchMock = stubApi({ me: ALICE, tasks: [task({ id: 4, description: 'Renew the passport' })] })
+    await renderSignedIn(fetchMock)
+    const checkbox = screen.getByRole('checkbox', { name: 'Mark "Renew the passport" as done' })
+
+    // The description is no longer the checkbox's label, and its click is the editor's.
+    expect(screen.getByText('Renew the passport').closest('label')).toBeNull()
+    fireEvent.click(screen.getByText('Renew the passport'))
+    expect(checkbox).not.toBeChecked()
+    expect(fetchMock).not.toHaveBeenCalledWith(expect.stringContaining('/api/tasks/4'), expect.anything())
+  })
+
+  it('leaves a click that ends a selection to the selection, so the text can be copied', async () => {
+    await renderSignedIn(stubApi({ me: ALICE, tasks: [task({ id: 4, description: 'Call 0151 2345678' })] }))
+    // jsdom keeps no text for a selection; what a browser reports after a drag over the number.
+    const selection = vi.spyOn(window, 'getSelection').mockReturnValue({ toString: () => '0151 2345678' } as Selection)
+
+    fireEvent.click(screen.getByText('Call 0151 2345678'))
+
+    expect(screen.queryByRole('form', { name: 'Edit "Call 0151 2345678"' })).not.toBeInTheDocument()
+    selection.mockRestore()
+  })
+
+  it('offers no edit on a completed task, whose row is read-only', async () => {
+    await renderSignedIn(stubApi({ me: ALICE, tasks: [task({ id: 4, description: 'Paid the bill', state: 'DONE' })] }))
+    fireEvent.click(screen.getByText(/^Completed/))
+
+    fireEvent.click(screen.getByText('Paid the bill'))
+
+    expect(screen.queryByRole('form', { name: 'Edit "Paid the bill"' })).not.toBeInTheDocument()
+    expect(screen.getByText('Paid the bill').closest('label')).toBeNull()
+  })
+})

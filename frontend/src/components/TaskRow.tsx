@@ -21,7 +21,8 @@ type TaskRowProps = {
 }
 
 /**
- * One line of the board: a checkbox, what needs doing, and when.
+ * One line of the board: a checkbox, what needs doing, and when. The checkbox alone ticks the
+ * task off; a click on what needs doing opens the editor (#593), as a tap on a row does in the app.
  *
  * The checkbox is a real `input type="checkbox"` rather than a styled button, so its keyboard
  * handling, focus ring and screen-reader role come for free and cannot drift. Its accessible
@@ -142,9 +143,30 @@ function TaskRow({ task, today, onToggleDone, onDelete, onEdit, attachments }: R
         aria-label={messages.row.markDone(task.description)}
       />
       <div className="task-body">
-        <label className="task-description" htmlFor={inputId}>
+        {/*
+          * Only the checkbox ticks a task off (#593): a click or a tap on the description opens
+          * the editor, as the menu's Edit does -- unless it ended a selection, so the text can still
+          * be copied. Text, not a button: the keyboard and screen readers have that Edit already,
+          * and a second control named "Edit ..." in every row would be one more to pass. On a
+          * completed row, which is read-only, it is text alone.
+          */}
+        {/* oxlint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- a pointer convenience; the menu's Edit is the keyboard's way */}
+        <span
+          className={`task-description${editable ? ' task-description--edit' : ''}`}
+          onClick={
+            editable
+              ? () => {
+                  if (window.getSelection()?.toString()) {
+                    return
+                  }
+                  setMenuOpen(false)
+                  setEditing(true)
+                }
+              : undefined
+          }
+        >
           {task.description}
-        </label>
+        </span>
         <p className="task-meta">
           {/*
             * Importance leads the line, so it needs no separator before it, and it is a dot

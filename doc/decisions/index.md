@@ -65,6 +65,7 @@ commit that first wrote each one down. CI checks every line and that this index 
 - [A task's saves go one after another, and a stalled save or upload is given up](frontend.md#a-tasks-saves-go-one-after-another-and-a-stalled-save-or-upload-is-given-up)
 - [A due time is a native time field, and its zone a switch with the browser's list](frontend.md#a-due-time-is-a-native-time-field-and-its-zone-a-switch-with-the-browsers-list)
 - [One picker for each: TaskFest's on a desktop, the phone's on a phone](frontend.md#one-picker-for-each-taskfests-on-a-desktop-the-phones-on-a-phone)
+- [A click on a task's description opens its editor](frontend.md#a-click-on-a-tasks-description-opens-its-editor)
 
 ## [Testing](testing.md)
 
