@@ -160,19 +160,24 @@ LIVE_BASE_URL=https://example.test npm run test:live  # anywhere
 
 ## Hourly traffic
 
-`qa-traffic.yml` sends qa ten anonymous requests every hour, a few seconds apart (#558): its
-version and sign-in providers, which answer 200, and routes that need a sign-in or take no GET,
-which answer 401 and 405. It is there so the dashboards -- CloudWatch's and the monitoring server's
+`qa-traffic.yml` sends qa ten anonymous requests every hour, a few seconds apart (#558): what a
+first visit sends, signed out -- the version and the sign-in providers, which answer 200, and
+`/api/auth/me`, whose 401 is how the website learns nobody is signed in. It is there so the
+dashboards -- CloudWatch's and the monitoring server's
 ([observability.md](../deployment/observability.md#the-monitoring-server)) -- have something to
-draw between demos, mostly cold starts an hour apart, as a first visitor's would be. It is also
-the cheapest uptime check there is: the run fails, and GitHub mails, when `/api/version` does not
-answer 200; an unexpected status elsewhere is a warning in the run.
+draw between demos: one cold start an hour, then warm requests.
 
-It does not sign in: that takes Cognito's login page in a browser, with passwords set for the run,
-which the live tests above do after a deploy. Its requests count in the dashboards like any other,
-since the access log carries no user agent; about 240 a day. Free: a fraction of a cent a month on
-Lambda and API Gateway, and Actions cost nothing for a public repository. GitHub runs a schedule
-when it can, sometimes minutes late, and turns it off after 60 days without a commit.
+It is a smoke test as well: the run fails, and GitHub mails, when any request answers otherwise,
+after two retries, so a passing hiccup does not mail. It sends nothing a visitor would not, so the
+dashboards' 4xx figures get no synthetic floor that could hide real ones: the access log carries no
+user agent to tell these requests apart. It does not sign in, which takes Cognito's login page in a
+browser, as the live tests above do after a deploy.
+
+It assumes the Go backend serves qa's `/api`, which answers whether qa is up or down. Should qa go
+back to the containers, the repository variable `QA_TRAFFIC=off` pauses it, rather than a failure
+mail every hour while the environment is down. About 240 requests a day, a fraction of a cent a
+month on Lambda and API Gateway; Actions cost nothing for a public repository. GitHub runs a
+schedule when it can, sometimes minutes late, and turns it off after 60 days without a commit.
 
 ## What it costs
 

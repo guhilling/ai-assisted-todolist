@@ -1,15 +1,21 @@
 name: Hourly traffic on qa
 
 # Ten anonymous requests to qa every hour (#558), so the monitoring server's dashboards and qa's
-# CloudWatch dashboard have something to show between demos, and a check on the side: qa's API
-# answering at all. A run fails, and GitHub mails, when /api/version does not answer 200.
+# CloudWatch dashboard have something to show between demos -- and a smoke test on the side: the
+# run fails, and GitHub mails, when any request does not answer as it should.
 #
-# Anonymous on purpose: a signed-in request needs Cognito's login page in a browser, with
-# passwords set for the run, which is what the live tests do after a deploy and too much for every
-# hour. Signed out, the task routes answer 401, or 405 where a route takes no GET, which is as
-# much a request to the dashboards as any. The requests are cold starts mostly, an hour apart, as a first visitor's would be.
+# What a first visit sends, signed out: the version, the sign-in providers, and /api/auth/me,
+# whose 401 is how the website learns nobody is signed in. Nothing more, so the dashboards' 4xx
+# figures carry no synthetic floor that would hide real ones: the access log has no user agent to
+# tell these requests apart. A signed-in request needs Cognito's login page in a browser, which
+# is the live tests' job after a deploy. The first request of a run is mostly a cold start, the
+# rest warm.
 #
-# Costs nothing that shows: about 7,300 requests a month on Lambda and API Gateway is a fraction
+# Assumes the Go backend serves qa's /api, which answers whether qa is up or down. Should qa go
+# back to the containers (api_backend), the repository variable QA_TRAFFIC=off pauses it, rather
+# than a failure mail every hour while the environment is down.
+#
+# Costs nothing that shows: about 7,200 requests a month on Lambda and API Gateway is a fraction
 # of a cent, and Actions are free for a public repository. GitHub runs a schedule when it can,
 # sometimes minutes late, and turns it off after 60 days without a commit to the repository.
 
@@ -26,45 +32,41 @@ concurrency:
 
 jobs:
   traffic:
+    if: vars.QA_TRAFFIC != 'off'
     runs-on: ubuntu-26.04
     timeout-minutes: 5
     env:
       QA: https://taskfest-qa.cloud.hilling.de
     steps:
       - name: Send ten requests, a few seconds apart
+        shell: bash
         run: |
-          set -u
-          # path and the status it must answer with: 200 for what anyone may read, 401 for what
-          # needs a sign-in, 405 for a route that takes no GET.
+          set -euo pipefail
+          # Each path and the status it must answer with.
           requests=(
+            "/api/version 200"
+            "/api/auth/me 401"
+            "/api/auth/providers 200"
+            "/api/auth/me 401"
             "/api/version 200"
             "/api/auth/providers 200"
             "/api/auth/me 401"
-            "/api/tasks 401"
             "/api/version 200"
-            "/api/tasks/drafts 405"
-            "/api/account 405"
             "/api/auth/providers 200"
-            "/api/tasks/00000000-0000-0000-0000-000000000000 405"
-            "/api/version 200"
+            "/api/auth/me 401"
           )
           failed=0
           for request in "${requests[@]}"; do
             read -r path want <<<"$request"
-            got=$(curl -s -o /dev/null -w '%{http_code}' -m 20 -A 'taskfest-qa-traffic' "$QA$path" || echo 000)
-            echo "$path: $got (expected $want)"
-            [[ "$got" == "$want" ]] || failed=1
+            # Two retries, for a passing 5xx or a timeout, so a hiccup does not mail. -w prints
+            # 000 itself when no answer came.
+            got=$(curl -s -o /dev/null -w '%{http_code}' -m 20 --retry 2 --retry-delay 5 \
+              -A 'taskfest-qa-traffic' "$QA$path" || true)
+            echo "$path: ${got:-000} (expected $want)"
+            if [[ "${got:-000}" != "$want" ]]; then
+              echo "::error::qa answered $path with ${got:-000}, not $want"
+              failed=1
+            fi
             sleep 3
           done
-          if (( failed )); then
-            echo "::warning::qa answered at least one request other than expected"
-          fi
-
-      - name: qa's API answers
-        run: |
-          status=$(curl -s -o /dev/null -w '%{http_code}' -m 20 "$QA/api/version" || echo 000)
-          if [[ "$status" != 200 ]]; then
-            echo "::error::qa's /api/version answered $status"
-            exit 1
-          fi
-          echo "qa's /api/version answers 200."
+          exit "$failed"
