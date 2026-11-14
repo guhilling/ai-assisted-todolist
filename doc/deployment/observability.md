@@ -32,8 +32,9 @@ half.
   [below](#the-backends-logs-what-is-in-them-and-how-to-ask-them).
 - **Alarms:** the orphan clean-up's alert, shared with the Go backend, and the up-time reminder,
   which mails, and pushes to Gunnar's phone, once the backend service has run for four hours
-  ([below](#alerting-the-address-and-the-one-time-setup)). **Not built**, of the ones first planned: the load balancer's 5xx rate and target health, the service's running
-  count, and the database's free storage and CPU credits. The port makes them moot: once prod is cut
+  ([below](#alerting-the-address-and-the-one-time-setup)). **Not built**, of the ones first planned:
+  the load balancer's 5xx rate and target health, the service's running count, and the database's
+  free storage and CPU credits. The port makes them moot: once prod is cut
   over, none of these resources runs.
 - **Metrics:** the backend exposes `/q/metrics` and tests it (`MetricsResourceTest`), but nothing in
   AWS scrapes it; the plan to have the ECS agent do so was never built. The monitoring server's
