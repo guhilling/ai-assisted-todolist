@@ -1,0 +1,80 @@
+name: Hourly traffic on qa
+
+# Ten anonymous requests to qa every hour (#558), so the monitoring server's dashboards and qa's
+# CloudWatch dashboard have something to show between demos -- and a smoke test on the side: the
+# run fails, and GitHub mails, when a request answers otherwise three times running.
+#
+# What a first visit sends, signed out: the version, the sign-in providers, and /api/auth/me,
+# whose 401 is how the website learns nobody is signed in. Nothing more: those four 401s an hour
+# are the only floor it puts under the dashboards' 4xx figures, which the access log, having no
+# user agent, cannot tell from real ones. A signed-in request needs Cognito's login page in a browser, which
+# is the live tests' job after a deploy. The first request of a run is mostly a cold start, the
+# rest warm.
+#
+# Assumes the Go backend serves qa's /api, which answers whether qa is up or down. Should qa go
+# back to the containers (api_backend), the repository variable QA_TRAFFIC=off pauses it, rather
+# than a failure mail every hour while the environment is down.
+#
+# Costs nothing that shows: about 7,200 requests a month on Lambda and API Gateway is a fraction
+# of a cent, and Actions are free for a public repository. GitHub runs a schedule when it can,
+# sometimes minutes late, and turns it off after 60 days without a commit to the repository.
+
+on:
+  schedule:
+    - cron: "17 * * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: qa-traffic
+  cancel-in-progress: false
+
+jobs:
+  traffic:
+    if: vars.QA_TRAFFIC != 'off'
+    runs-on: ubuntu-26.04
+    timeout-minutes: 5
+    env:
+      QA: https://taskfest-qa.cloud.hilling.de
+    steps:
+      - name: Send ten requests, a few seconds apart
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Each path and the status it must answer with.
+          requests=(
+            "/api/version 200"
+            "/api/auth/me 401"
+            "/api/auth/providers 200"
+            "/api/auth/me 401"
+            "/api/version 200"
+            "/api/auth/providers 200"
+            "/api/auth/me 401"
+            "/api/version 200"
+            "/api/auth/providers 200"
+            "/api/auth/me 401"
+          )
+          failed=0
+          for request in "${requests[@]}"; do
+            read -r path want <<<"$request"
+            # Up to three tries, five seconds apart, for a passing 5xx, a timeout or a broken
+            # transfer, so a hiccup does not mail. A transfer curl reports as failed counts as no
+            # answer, even when a status came first; -w prints 000 itself when none came.
+            for try in 1 2 3; do
+              if got=$(curl -s -o /dev/null -w '%{http_code}' -m 20 -A 'taskfest-qa-traffic' "$QA$path"); then
+                :
+              else
+                got="000"
+              fi
+              [[ "$got" == "$want" ]] && break
+              (( try < 3 )) && sleep 5
+            done
+            echo "$path: $got (expected $want)"
+            if [[ "$got" != "$want" ]]; then
+              echo "::error::qa answered $path with $got, not $want, three times"
+              failed=1
+            fi
+            sleep 3
+          done
+          exit "$failed"
