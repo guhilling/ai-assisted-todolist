@@ -404,6 +404,20 @@ twice. A comment at the line moves with it and is reviewed with the code.
 `FilePreview.tsx`, which is why it is the exception. SonarCloud analyses `main` only, so whether
 it applies to taint findings shows after the merge; if not, the gate stays red and #561 open.
 
+## Java stays on its long-term support releases
+
+*Accepted · 2026-11-14 · #545*
+
+**Decision.** The JRE under the backend image, Temurin and the `jre-runtime` image built from it,
+moves only between Java's long-term support releases: 25 now, 29 from September 2027. Renovate's
+`allowedVersions` says so, and the list gets 29 when it is due. Gunnar's decision on Claude's
+recommendation; #545, Renovate's update to Temurin 27, is closed unmerged.
+
+**Why.** A release between two LTS ones gets updates only until the next, six months later, so
+following them is a major update every half year, each a new JVM to check, for nothing the backend
+needs. Less is at stake than it was: qa runs the Go backend, and only prod still runs the Quarkus
+one, until #559 retires it.
+
 ## The conventions shared with other repositories come from one public repository
 
 *Accepted · 2026-10-31 · #400, #455, #456, #457*
