@@ -6,8 +6,10 @@ Lambda with DynamoDB, which is being ported (#547). One setting, `api_backend`, 
 CloudFront sends `/api/*` to. Every route is ported, so the website and the apps cannot tell
 them apart; what remains of the port is how it is built, deployed and watched.
 [Two architectures](#two-architectures) compares them and says why the Go backend is the one
-switched to. Most of this page describes the containers' backend, which serves prod; qa has
-served from the Go backend since 2026-11-12, to try it (#557).
+switched to. The [README](../README.md#how-the-application-fits-together) draws the Go backend,
+with how it is watched; the containers' drawing is kept in that section, as the reference. Most of
+this page describes the containers' backend, which serves prod; qa has served from the Go backend
+since 2026-11-12, to try it (#557).
 
 ## The pieces
 
@@ -128,13 +130,29 @@ field the spec left optional would be a field the frontend accepted as missing.
 
 ## Two architectures
 
+**The containers' architecture**, as the README drew it until the port: one Quarkus backend on
+Fargate behind CloudFront, PostgreSQL on RDS, and the same sign-in and attachment paths as now. It
+still serves prod, and stays drawn here as the reference the Go backend is compared with:
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="images/architecture-containers-dark.svg">
+  <img alt="The browser talks only to CloudFront, which serves the app from S3 and passes /api to the Quarkus backend. The backend is the OIDC client: it exchanges the code with the identity provider, Google, itself and returns an encrypted session cookie, so the browser never holds a token. The iOS and Android apps sign in with the identity provider themselves and send their /api requests through CloudFront too, with the ID token as a Bearer token. The database is PostgreSQL on RDS. Files attached to tasks go straight between the browser or the apps and S3 through presigned links the backend signs, so their content never passes through it." src="images/architecture-containers-light.svg">
+</picture>
+
+What the drawing did not show, because it was not there: the containers have no alarms of their
+own beyond the orphan alert and the up-time reminder ([observability.md](deployment/observability.md)),
+and their load balancer, task and database bill by the hour, so an environment had to be taken
+down whenever nobody used it. The README's drawing of the Go backend has a whole band for how it is
+watched, and nothing in it bills by the hour: an idle month costs its alarms, $0.10 each, and the
+shared monitoring VM, about €6, is billed by Hetzner whatever runs.
+
 The two backends answer the same API, generated from the same contract (`doc/api/openapi.json`),
 and share CloudFront, the site, the attachment bucket and Google sign-in. They differ in what runs
 and in what it costs:
 
 | | Containers | Serverless |
 | --- | --- | --- |
-| Backend | Quarkus on Java 25, in a Fargate task | Go, four Lambda functions on arm64 |
+| Backend | Quarkus on Java 25, in a Fargate task | Go, five Lambda functions on arm64 |
 | Reached through | an internal load balancer, a CloudFront VPC origin | API Gateway's HTTP API, with an origin header |
 | Data | PostgreSQL on RDS, Liquibase | one DynamoDB table, TTL and a stream |
 | Clean-up and deletion replay | inside the backend, while it runs | DynamoDB TTL and a stream function, and the orphan clean-up and replay on a schedule, always |
