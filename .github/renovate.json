@@ -110,6 +110,11 @@
       "schedule": ["at any time"]
     },
     {
+      "description": "Java's long-term support releases only, for the JRE the backend image is built on (#545): 25 now, 29 when it comes (September 2027). A release in between, like 27, gets updates only until the next one six months later, so taking it would mean another major update every half year for nothing the backend needs. Extend the list when 29 is due.",
+      "matchPackageNames": ["docker.io/library/eclipse-temurin", "quay.io/ghilling/jre-runtime"],
+      "allowedVersions": "/^(25|29)\\./"
+    },
+    {
       "description": "oapi-codegen, the Go backend's contract generator (#548). It is a `tool` in serverless/go.mod, which Go always lists as an indirect requirement, and Renovate leaves indirect Go dependencies alone unless told otherwise.",
       "matchManagers": ["gomod"],
       "matchDepTypes": ["indirect"],
