@@ -18,9 +18,11 @@ half.
   the containers: a metric filter on each backend's clean-up log counts the alert line.
 - **A dashboard**, `taskfest-<env>-go-backend`, in CloudWatch: requests and their answers, time,
   errors, throttles, the stream's lag and the table. Free: the account's first three dashboards are.
-- **The shared monitoring server** (#508), qa only: every log line also goes to VictoriaLogs on a
+- **The shared monitoring server** (#508), qa only: the log lines also go to VictoriaLogs on a
   Hetzner VM, where Perses draws latency percentiles by route, cold starts and memory from them,
-  beside the lines themselves. Below: [The monitoring server](#the-monitoring-server).
+  beside the lines themselves. Not all of them: logship's own log stays in CloudWatch, the lines
+  that only mark an invocation's start and end are left out, and a batch that fails three times is
+  dropped. CloudWatch keeps every line. Below: [The monitoring server](#the-monitoring-server).
 - **Metrics of its own:** none. Lambda's and API Gateway's are in CloudWatch, and the logs carry the
   rest -- which is why the monitoring server's figures come from the access log and the `REPORT`
   lines.
