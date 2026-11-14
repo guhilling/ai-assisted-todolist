@@ -143,7 +143,8 @@ What the drawing did not show, because it was not there: the containers have no 
 own beyond the orphan alert and the up-time reminder ([observability.md](deployment/observability.md)),
 and their load balancer, task and database bill by the hour, so an environment had to be taken
 down whenever nobody used it. The README's drawing of the Go backend has a whole band for how it is
-watched, and nothing in it bills while idle.
+watched, and nothing in it bills by the hour: an idle month costs its alarms, $0.10 each, and the
+shared monitoring VM, about €6, is billed by Hetzner whatever runs.
 
 The two backends answer the same API, generated from the same contract (`doc/api/openapi.json`),
 and share CloudFront, the site, the attachment bucket and Google sign-in. They differ in what runs

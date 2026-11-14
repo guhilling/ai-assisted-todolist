@@ -2,8 +2,9 @@
 
 What watches TaskFest, as built (checked against `deployment/aws-tofu` on 2026-11-14, #558). The
 Go backend serves qa and is where the watching is complete; the containers serve prod and have only
-the two alarms that predate the port. The [architecture diagram](../architecture.md) draws the
-Go backend's half.
+the two alarms that predate the port, one of which they share with the Go backend. The
+[architecture diagram](../../README.md#how-the-application-fits-together) draws the Go backend's
+half.
 
 **The Go backend** (qa; prod once it is cut over, #557):
 
@@ -13,7 +14,8 @@ Go backend's half.
 - **Alarms**, eight per environment, on what a function-based backend shows: the API function's
   errors and throttles, the HTTP API's server errors (five in five minutes), the stream function
   falling behind, the scheduled jobs' errors, and the table's throttles. Thresholds and reasons are
-  in [serverless.md](serverless.md#the-infrastructure).
+  in [serverless.md](serverless.md#the-infrastructure). And the orphan alert, which it shares with
+  the containers: a metric filter on each backend's clean-up log counts the alert line.
 - **A dashboard**, `taskfest-<env>-go-backend`, in CloudWatch: requests and their answers, time,
   errors, throttles, the stream's lag and the table. Free: the account's first three dashboards are.
 - **The shared monitoring server** (#508), qa only: every log line also goes to VictoriaLogs on a
@@ -28,9 +30,9 @@ Go backend's half.
 - **Logs.** The Quarkus JSON log, one CloudWatch group per environment, 30 days in qa and 90 in
   prod. What they contain and how to query them is
   [below](#the-backends-logs-what-is-in-them-and-how-to-ask-them).
-- **Alarms:** the orphan clean-up's alert, and the up-time reminder, which mails once the backend
-  service has run for four hours ([below](#alerting-the-address-and-the-one-time-setup)). **Not built**, of
-  the ones first planned: the load balancer's 5xx rate and target health, the service's running
+- **Alarms:** the orphan clean-up's alert, shared with the Go backend, and the up-time reminder,
+  which mails, and pushes to Gunnar's phone, once the backend service has run for four hours
+  ([below](#alerting-the-address-and-the-one-time-setup)). **Not built**, of the ones first planned: the load balancer's 5xx rate and target health, the service's running
   count, and the database's free storage and CPU credits. The port makes them moot: once prod is cut
   over, none of these resources runs.
 - **Metrics:** the backend exposes `/q/metrics` and tests it (`MetricsResourceTest`), but nothing in
@@ -40,8 +42,8 @@ Go backend's half.
 **For both:**
 
 - **Alerting to** an SNS topic per environment, `taskfest-<env>-alerts`, with Gunnar's address
-  subscribed by mail, and User Notifications pushing the up-time reminder to his phone
-  (`alerting.tf`). Every alarm above notifies it, on entering ALARM and on returning to OK.
+  subscribed by mail (`alerting.tf`). Every alarm above notifies it, on entering ALARM and on
+  returning to OK. Only the up-time reminder also pushes to his phone, through User Notifications.
 - **Budgets**, account-wide and made by hand in the Billing console, not in OpenTofu: one at $1.50,
   one at $15 and a last warning at $100 a month, as of 2026-11-14. The per-environment budgets
   [cost.md](cost.md) proposed were not created; with the Go backend's costs a month at a time, the

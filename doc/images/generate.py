@@ -20,6 +20,7 @@ that actually works.
 from __future__ import annotations
 
 import pathlib
+import re
 from dataclasses import dataclass
 
 HERE = pathlib.Path(__file__).parent
@@ -111,15 +112,17 @@ def box(x, y, w, h, lines, p: Palette, *, accent=False, tint=None, dashed=False,
     return "\n  ".join(out)
 
 
-def arrow(points, p: Palette, *, accent=False, dashed=False, marker="arrow"):
-    """A polyline with an arrowhead at the end. `points` is [(x, y), ...]."""
+def arrow(points, p: Palette, *, accent=False, dashed=False, marker="arrow", both=False):
+    """A polyline with an arrowhead at the end, and with `both` at the start too.
+    `points` is [(x, y), ...]."""
     colour = p.accent if accent else p.muted
     dash = ' stroke-dasharray="5 4"' if dashed else ""
     path = " ".join(f"{x},{y}" for x, y in points)
     suffix = "-accent" if accent else ""
+    start = f' marker-start="url(#{marker}{suffix})"' if both else ""
     return (
         f'<polyline points="{path}" fill="none" stroke="{colour}" stroke-width="1.6"'
-        f'{dash} marker-end="url(#{marker}{suffix})"/>'
+        f'{dash}{start} marker-end="url(#{marker}{suffix})"/>'
     )
 
 
@@ -164,33 +167,46 @@ def architecture(p: Palette) -> str:
     """The Go backend on Lambda (#547), top to bottom: how a request travels, where the tokens
     stop, how files bypass the backend, what runs in the background, and how it is watched. Drawn
     upright, so that GitHub's README column shows it whole at a readable size."""
-    w, h = 840, 1290
+    w, h = 840, 1300
     main_x, main_w = 40, 420
-    left_w, right_x = 200, 260  # the main column split in two
+    left_w, right_x = 200, 260  # the main column, split in two
     side_x, side_w = 520, 280
+    # Where vertical arrows run: the centre of the main column and of its two halves, and their
+    # labels a little to the right of them.
+    lc, rc, mc = main_x + left_w / 2, right_x + left_w / 2, main_x + main_w / 2
+    sc = side_x + side_w / 2
+    gap = 12
+
+    def down(x, y1, y2, text=None, **kw):
+        out = [arrow([(x, y1), (x, y2)], p, **kw)]
+        if text:
+            out.append(label(x + gap, (y1 + y2) / 2 + 4, text, p, anchor="start", size=11))
+        return out
 
     parts = [
         # Ours in blue, AWS services in orange, someone else's in green.
         box(main_x, 50, left_w, 64, ["Browser", "the SPA"], p, accent=True),
         # The iOS and the Android app work alike, so they are one box with another behind it.
-        box(right_x + 12, 38, left_w, 64, [], p, accent=True),
+        box(right_x + gap, 38, left_w, 64, [], p, accent=True),
         box(right_x, 50, left_w, 64, ["iOS and Android apps", "one Expo codebase"], p, accent=True),
         box(side_x, 50, side_w, 64, ["Identity provider", "Google"], p, tint="external"),
         # The apps sign in themselves; the browser is only ever redirected there.
-        arrow([(right_x + left_w + 12, 82), (side_x, 82)], p),
-        label(496, 74, "sign in", p),
-        arrow([(140, 50), (140, 22), (620, 22), (620, 50)], p),
-        label(380, 16, "the browser is redirected to sign in", p),
+        arrow([(right_x + left_w + gap, 82), (side_x, 82)], p),
+        label((right_x + left_w + gap + side_x) / 2, 74, "sign in", p),
+        arrow([(lc, 50), (lc, 22), (sc, 22), (sc, 50)], p),
+        label((lc + sc) / 2, 16, "the browser is redirected to sign in", p),
 
         box(main_x, 170, main_w, 64, ["CloudFront", "the site's files, and /api"], p, tint="aws"),
         box(side_x, 170, side_w, 64, ["S3", "the site's files"], p, tint="aws"),
-        arrow([(140, 114), (140, 170)], p),
+        arrow([(lc, 114), (lc, 170)], p),
         # The claim the backend-for-frontend exists for.
-        label(150, 136, "same origin, a session cookie:", p, anchor="start", accent=True, size=12),
-        label(150, 152, "the browser never holds a token", p, anchor="start", accent=True, size=12),
-        arrow([(360, 114), (360, 170)], p),
-        label(372, 136, "ID token", p, anchor="start", size=11),
-        label(372, 151, "as Bearer", p, anchor="start", size=11),
+        label(lc + 10, 136, "same origin, a session cookie:", p, anchor="start", accent=True,
+              size=12),
+        label(lc + 10, 152, "the browser never holds a token", p, anchor="start", accent=True,
+              size=12),
+        arrow([(rc, 114), (rc, 170)], p),
+        label(rc + gap, 136, "ID token", p, anchor="start", size=11),
+        label(rc + gap, 151, "as Bearer", p, anchor="start", size=11),
         arrow([(main_x + main_w, 202), (side_x, 202)], p),
 
         box(main_x, 300, main_w, 64, ["API Gateway, HTTP API", "with CloudFront's secret header"], p,
@@ -198,66 +214,72 @@ def architecture(p: Palette) -> str:
         # The other backend, which api_backend switches to and prod still runs on.
         box(side_x, 300, side_w, 64, ["Quarkus on Fargate, RDS", "prod, until the cut-over (#557)"],
             p, dashed=True),
-        arrow([(250, 234), (250, 300)], p),
-        label(262, 271, "/api", p, anchor="start"),
-        arrow([(430, 234), (430, 267), (660, 267), (660, 300)], p, dashed=True),
-        label(472, 259, "or: api_backend = containers", p, anchor="start", size=11),
+        *down(mc, 234, 300, "/api"),
+        arrow([(main_x + main_w - 30, 234), (main_x + main_w - 30, 267), (sc, 267), (sc, 300)], p,
+              dashed=True),
+        label(main_x + main_w + gap, 259, "or: api_backend = containers", p, anchor="start",
+              size=11),
 
         box(main_x, 420, main_w, 80,
             ["api \u00b7 Go on Lambda", "every route; the OIDC client, which",
              "exchanges the code with Google itself"], p, accent=True),
-        arrow([(250, 364), (250, 420)], p),
-        label(262, 397, "invokes its alias live", p, anchor="start", size=11),
+        *down(mc, 364, 420, "invokes its alias live"),
 
         box(main_x, 560, left_w, 64, ["S3", "attachments \u00b7 serverless/"], p, tint="aws"),
         box(right_x, 560, left_w, 64, ["DynamoDB", "one table \u00b7 TTL \u00b7 stream"], p,
             tint="aws"),
-        arrow([(140, 500), (140, 560)], p),
-        label(152, 535, "signs links", p, anchor="start", size=11),
-        arrow([(360, 500), (360, 560)], p),
-        label(372, 535, "reads, writes", p, anchor="start", size=11),
-        # Attachments (#204): the content goes straight between the clients and S3.
-        arrow([(main_x, 98), (20, 98), (20, 600), (main_x, 600)], p, accent=True),
-        label(main_x, 646, "files: presigned PUT and GET, straight", p, anchor="start",
+        *down(lc, 500, 560, "signs links"),
+        *down(rc, 500, 560, "reads, writes"),
+        # Attachments (#204): the content goes both ways straight between the clients and S3.
+        arrow([(main_x, 98), (20, 98), (20, 600), (main_x, 600)], p, accent=True, both=True),
+        label(main_x, 646, "files, both ways: presigned PUT and GET, straight", p, anchor="start",
               accent=True, size=12),
-        label(main_x, 662, "from the browser and the apps", p, anchor="start", accent=True, size=12),
+        label(main_x, 662, "from the browser and the apps alike", p, anchor="start", accent=True,
+              size=12),
 
         box(main_x, 700, left_w, 64, ["orphans \u00b7 replay", "on EventBridge Scheduler"], p,
             accent=True),
         box(right_x, 700, left_w, 64, ["streams", "deletes the files of what goes"], p,
             accent=True),
-        arrow([(360, 624), (360, 700)], p),
-        label(372, 667, "stream", p, anchor="start", size=11),
+        *down(rc, 624, 700, "stream"),
 
         # How it is watched (#558, #508).
         label(main_x, 816, "Watching it", p, anchor="start", size=13),
         rule(140, side_x + side_w, 811, p),
-        box(main_x, 850, main_w, 64, ["CloudWatch Logs", "every function's log, the API's access log"],
+        label(side_x, 744, "Every function, api included, and", p, anchor="start", size=11),
+        label(side_x, 760, "the HTTP API report metrics and", p, anchor="start", size=11),
+        label(side_x, 776, "write their log lines below.", p, anchor="start", size=11),
+        box(main_x, 860, left_w, 64, ["CloudWatch Logs", "every function, the access log"], p,
+            tint="aws"),
+        box(right_x, 860, left_w, 64, ["CloudWatch metrics", "Lambda \u00b7 HTTP API \u00b7 table"],
             p, tint="aws"),
-        box(side_x, 850, side_w, 64, ["CloudWatch dashboard", "taskfest-<env>-go-backend"], p,
+        box(side_x, 860, side_w, 64, ["CloudWatch dashboard", "taskfest-<env>-go-backend"], p,
             tint="aws"),
-        arrow([(250, 764), (250, 850)], p),
-        label(262, 790, "every log line", p, anchor="start", size=11),
+        *down(lc, 764, 860, "log lines"),
+        *down(rc, 764, 860, "metrics"),
+        arrow([(right_x + left_w, 892), (side_x, 892)], p),
+        label((right_x + left_w + side_x) / 2, 884, "draws", p, size=11),
 
-        box(main_x, 970, left_w, 64, ["8 alarms", "on metrics and log lines"], p, tint="aws"),
-        box(right_x, 970, left_w, 64, ["logship", "Go on Lambda \u00b7 qa"], p, accent=True),
-        arrow([(140, 914), (140, 970)], p),
-        label(152, 947, "metric filters", p, anchor="start", size=11),
-        arrow([(360, 914), (360, 970)], p),
-        label(372, 947, "subscription", p, anchor="start", size=11),
+        box(main_x, 980, left_w, 64, ["logship", "Go on Lambda \u00b7 qa"], p, accent=True),
+        box(right_x, 980, left_w, 64, ["9 alarms", "8 on metrics, 1 on a log line"], p, tint="aws"),
+        *down(lc - 50, 924, 980, None),
+        label(lc - 38, 956, "subscription", p, anchor="start", size=11),
+        arrow([(rc, 924), (rc, 980)], p),
+        # The orphan alert counts a log line, through a metric filter (alerting.tf).
+        arrow([(lc + 50, 924), (lc + 50, 952), (rc - 50, 952), (rc - 50, 980)], p),
+        label(lc + 60, 946, "metric filter", p, anchor="start", size=11),
 
-        box(main_x, 1090, left_w, 64, ["SNS \u00b7 User Notifications", "taskfest-<env>-alerts"], p,
-            tint="aws"),
-        box(right_x, 1090, side_x + side_w - right_x, 64,
-            ["VictoriaLogs \u00b7 Perses", "a Hetzner VM, shared monitoring"], p, tint="external"),
-        arrow([(140, 1034), (140, 1090)], p),
-        arrow([(360, 1034), (360, 1090)], p),
-        label(372, 1067, "HTTPS, basic auth", p, anchor="start", size=11),
+        box(main_x, 1100, left_w, 64, ["VictoriaLogs \u00b7 Perses", "a Hetzner VM, shared"], p,
+            tint="external"),
+        box(right_x, 1100, left_w, 64, ["SNS", "taskfest-<env>-alerts"], p, tint="aws"),
+        *down(lc, 1044, 1100, "HTTPS, basic auth"),
+        arrow([(rc, 1044), (rc, 1100)], p),
 
-        box(main_x, 1210, left_w, 56, ["Gunnar", "mail, and a push to the phone"], p),
-        arrow([(140, 1154), (140, 1210)], p),
-        arrow([(main_x + left_w, 1238), (530, 1238), (530, 1154)], p),
-        label(385, 1230, "the dashboards, through SSH", p, size=11),
+        box(right_x, 1220, left_w, 56, ["Gunnar", "by mail"], p),
+        arrow([(rc, 1164), (rc, 1220)], p),
+        arrow([(right_x, 1248), (lc, 1248), (lc, 1164)], p),
+        label(lc + gap, 1204, "the dashboards,", p, anchor="start", size=11),
+        label(lc + gap, 1220, "through SSH", p, anchor="start", size=11),
     ]
     aria = (
         "TaskFest on the Go backend, top to bottom. The browser and the iOS and Android apps sign "
@@ -268,14 +290,15 @@ def architecture(p: Palette) -> str:
         "api function, Go on Lambda, which serves every route and is the OIDC client: it "
         "exchanges the code with Google itself, and the browser holds a session cookie, never a "
         "token, while the apps send their ID token as a Bearer token. The api function reads and "
-        "writes one DynamoDB table and signs links to the attachment bucket, so files go straight "
-        "between the clients and S3. The table's stream feeds the streams function, and "
-        "EventBridge Scheduler runs orphans and replay. Every log line goes to CloudWatch Logs, "
-        "where eight alarms watch metrics and log lines and notify an SNS topic, which mails "
-        "Gunnar and pushes to his phone; a CloudWatch dashboard shows the figures. In qa, a "
-        "subscription filter also hands every line to logship, which sends it over HTTPS with "
-        "basic auth to VictoriaLogs and Perses on a shared Hetzner VM, which Gunnar opens "
-        "through SSH."
+        "writes one DynamoDB table and signs links to the attachment bucket, so files go both "
+        "ways straight between the clients and S3. The table's stream feeds the streams "
+        "function, and EventBridge Scheduler runs orphans and replay. Every function and the "
+        "HTTP API report metrics to CloudWatch, which a CloudWatch dashboard draws, and write "
+        "their log lines to CloudWatch Logs. Nine alarms, eight on the metrics and one on the "
+        "orphan clean-up's log line through a metric filter, notify an SNS topic, which mails "
+        "Gunnar. In qa, a subscription filter also hands every log line to logship, which sends "
+        "it over HTTPS with basic auth to VictoriaLogs and Perses on a shared Hetzner VM, which "
+        "Gunnar opens through SSH."
     )
     return document(w, h, "\n  ".join(parts), p, aria)
 
@@ -626,6 +649,23 @@ def notification_icon() -> str:
     ).replace(f'fill="{INK}"', 'fill="#ffffff"').replace(f'stroke="{INK}"', 'stroke="#ffffff"')
 
 
+def alt_text(svg: str) -> str:
+    """A generated diagram's description, as its aria-label holds it."""
+    return re.search(r'aria-label="([^"]*)"', svg).group(1)
+
+
+def sync_alt(page: pathlib.Path, image: str, text: str) -> None:
+    """Writes the diagram's description into the `<img alt>` of each `<picture>` on the page that
+    shows it, so the text a screen reader gets cannot drift from the drawing. `image` is the light
+    file's name, which the `<img>` names as its `src`."""
+    html = page.read_text()
+    pattern = re.compile(r'(<img alt=")[^"]*(" src="[^"]*' + re.escape(image) + r'">)')
+    updated, count = pattern.subn(lambda m: m.group(1) + text + m.group(2), html)
+    if count == 0:
+        raise SystemExit(f"{page} shows no {image}")
+    page.write_text(updated)
+
+
 def main() -> None:
     per_scheme = {
         "architecture": architecture,
@@ -638,6 +678,16 @@ def main() -> None:
             path = HERE / f"{name}-{palette.name}.svg"
             path.write_text(build(palette))
             print(f"wrote {path.relative_to(HERE.parent.parent)}")
+
+    # The pages that show a diagram carry its description as alt text, from the same source.
+    repo = HERE.parent.parent
+    for page, name in ((repo / "README.md", "architecture"),
+                       (repo / "doc/architecture.md", "architecture-containers"),
+                       (repo / "doc/deployment/access.md", "identities"),
+                       (repo / "README.md", "workflow")):
+        build = per_scheme[name]
+        sync_alt(page, f"{name}-light.svg", alt_text(build(LIGHT)))
+        print(f"wrote the alt text of {name} in {page.relative_to(repo)}")
 
     # The mark is the same everywhere it is drawn; the website's copies are written here too, so
     # none of them can be left behind when it changes.
