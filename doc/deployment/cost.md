@@ -70,5 +70,8 @@ them only affects costs from then on.
 
 Proposed budget alarms, for sign-off: **QA $25**, **prod $40**, **total $75**, alerting at 80% of
 forecast and again at 100% of actual. They are set below the running-continuously cost on
-purpose — an environment left up is exactly what the alarm is for.
+purpose — an environment left up is exactly what the alarm is for. **Not created:** the account
+has three budgets instead, made by hand in the Billing console for the whole account, at $1.50,
+$15 and $100 a month (as of 2026-11-14). They are what #558 tests against the Go backend's first
+full month on the bill.
 

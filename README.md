@@ -43,21 +43,26 @@ experiment, and the application inside it is TaskFest.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="doc/images/architecture-dark.svg">
-  <img alt="The browser talks only to CloudFront, which serves the app from S3 and passes /api to the Quarkus backend. The backend is the OIDC client: it exchanges the code with the identity provider, Google, itself and returns an encrypted session cookie, so the browser never holds a token. The iOS and Android apps sign in with the identity provider themselves and send their /api requests through CloudFront too, with the ID token as a Bearer token. The database is PostgreSQL on RDS. Files attached to tasks go straight between the browser or the apps and S3 through presigned links the backend signs, so their content never passes through it." src="doc/images/architecture-light.svg">
+  <img alt="TaskFest on the Go backend, top to bottom. The browser and the iOS and Android apps sign in with Google: the browser is redirected there, the apps sign in themselves. Both talk only to CloudFront, which serves the site's files from S3 and passes /api to API Gateway's HTTP API with a secret header, or, where api_backend says containers, to the Quarkus backend on Fargate that prod runs until the cut-over. The HTTP API invokes the api function, Go on Lambda, which serves every route and is the OIDC client: it exchanges the code with Google itself, and the browser holds a session cookie, never a token, while the apps send their ID token as a Bearer token. The api function reads and writes one DynamoDB table and signs links to the attachment bucket, so files go straight between the clients and S3. The table's stream feeds the streams function, and EventBridge Scheduler runs orphans and replay. Every log line goes to CloudWatch Logs, where eight alarms watch metrics and log lines and notify an SNS topic, which mails Gunnar and pushes to his phone; a CloudWatch dashboard shows the figures. In qa, a subscription filter also hands every line to logship, which sends it over HTTPS with basic auth to VictoriaLogs and Perses on a shared Hetzner VM, which Gunnar opens through SSH." src="doc/images/architecture-light.svg">
 </picture>
 
-The backend is a *backend-for-frontend*: it is the OIDC client, it performs the code
-exchange itself, and what reaches the browser is an encrypted session cookie rather than a
-token. One origin for the app and its API, so the SPA needs no API base URL: in AWS that origin
-is CloudFront, locally and in the end-to-end stack it is httpd, and in development Vite. Blue is
-this project's code, orange an AWS service, green someone else's. The iOS and Android apps,
-drawn as one because they work alike, cannot carry the cookie: they sign in with the identity
-provider themselves and send the ID token as a Bearer token, through the same CloudFront. The one
-cross-origin path is a file attached to a task: the browser and the apps upload and download it
-straight to and from S3, through links the backend signs; the bucket's CORS rule is there for the
-browser's requests.
-[architecture.md](doc/architecture.md) has the deployment shape and
-[authentication.md](doc/authentication.md) the sign-in flow in full.
+The backend is Go on AWS Lambda with one DynamoDB table (#547), billed by the request, so an
+environment can stay up for about a dollar a month. It is a *backend-for-frontend*: it is the OIDC
+client, it performs the code exchange itself, and what reaches the browser is an encrypted session
+cookie rather than a token. One origin for the app and its API, so the SPA needs no API base URL:
+in AWS that origin is CloudFront, locally and in the end-to-end stack it is httpd, and in
+development Vite. Blue is this project's code, orange an AWS service, green someone else's. The iOS
+and Android apps, drawn as one because they work alike, cannot carry the cookie: they sign in with
+the identity provider themselves and send the ID token as a Bearer token, through the same
+CloudFront. The one cross-origin path is a file attached to a task: the browser and the apps upload
+and download it straight to and from S3, through links the backend signs. Below the line, how it is
+watched: alarms that mail and push to the phone, and in qa every log line on a shared monitoring
+server with Perses dashboards.
+
+qa runs on the Go backend; prod still runs on the containers, Quarkus on Fargate with PostgreSQL,
+drawn dashed, until the cut-over (#557).
+[architecture.md](doc/architecture.md#two-architectures) shows the containers' architecture and says
+why the backend moved, and [authentication.md](doc/authentication.md) has the sign-in flow in full.
 
 ## How a change reaches main
 

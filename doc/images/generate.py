@@ -161,7 +161,130 @@ def document(width, height, body, p: Palette, aria: str) -> str:
 
 
 def architecture(p: Palette) -> str:
-    """How a request travels, where the tokens stop, and how files bypass the backend."""
+    """The Go backend on Lambda (#547), top to bottom: how a request travels, where the tokens
+    stop, how files bypass the backend, what runs in the background, and how it is watched. Drawn
+    upright, so that GitHub's README column shows it whole at a readable size."""
+    w, h = 840, 1290
+    main_x, main_w = 40, 420
+    left_w, right_x = 200, 260  # the main column split in two
+    side_x, side_w = 520, 280
+
+    parts = [
+        # Ours in blue, AWS services in orange, someone else's in green.
+        box(main_x, 50, left_w, 64, ["Browser", "the SPA"], p, accent=True),
+        # The iOS and the Android app work alike, so they are one box with another behind it.
+        box(right_x + 12, 38, left_w, 64, [], p, accent=True),
+        box(right_x, 50, left_w, 64, ["iOS and Android apps", "one Expo codebase"], p, accent=True),
+        box(side_x, 50, side_w, 64, ["Identity provider", "Google"], p, tint="external"),
+        # The apps sign in themselves; the browser is only ever redirected there.
+        arrow([(right_x + left_w + 12, 82), (side_x, 82)], p),
+        label(496, 74, "sign in", p),
+        arrow([(140, 50), (140, 22), (620, 22), (620, 50)], p),
+        label(380, 16, "the browser is redirected to sign in", p),
+
+        box(main_x, 170, main_w, 64, ["CloudFront", "the site's files, and /api"], p, tint="aws"),
+        box(side_x, 170, side_w, 64, ["S3", "the site's files"], p, tint="aws"),
+        arrow([(140, 114), (140, 170)], p),
+        # The claim the backend-for-frontend exists for.
+        label(150, 136, "same origin, a session cookie:", p, anchor="start", accent=True, size=12),
+        label(150, 152, "the browser never holds a token", p, anchor="start", accent=True, size=12),
+        arrow([(360, 114), (360, 170)], p),
+        label(372, 136, "ID token", p, anchor="start", size=11),
+        label(372, 151, "as Bearer", p, anchor="start", size=11),
+        arrow([(main_x + main_w, 202), (side_x, 202)], p),
+
+        box(main_x, 300, main_w, 64, ["API Gateway, HTTP API", "with CloudFront's secret header"], p,
+            tint="aws"),
+        # The other backend, which api_backend switches to and prod still runs on.
+        box(side_x, 300, side_w, 64, ["Quarkus on Fargate, RDS", "prod, until the cut-over (#557)"],
+            p, dashed=True),
+        arrow([(250, 234), (250, 300)], p),
+        label(262, 271, "/api", p, anchor="start"),
+        arrow([(430, 234), (430, 267), (660, 267), (660, 300)], p, dashed=True),
+        label(472, 259, "or: api_backend = containers", p, anchor="start", size=11),
+
+        box(main_x, 420, main_w, 80,
+            ["api \u00b7 Go on Lambda", "every route; the OIDC client, which",
+             "exchanges the code with Google itself"], p, accent=True),
+        arrow([(250, 364), (250, 420)], p),
+        label(262, 397, "invokes its alias live", p, anchor="start", size=11),
+
+        box(main_x, 560, left_w, 64, ["S3", "attachments \u00b7 serverless/"], p, tint="aws"),
+        box(right_x, 560, left_w, 64, ["DynamoDB", "one table \u00b7 TTL \u00b7 stream"], p,
+            tint="aws"),
+        arrow([(140, 500), (140, 560)], p),
+        label(152, 535, "signs links", p, anchor="start", size=11),
+        arrow([(360, 500), (360, 560)], p),
+        label(372, 535, "reads, writes", p, anchor="start", size=11),
+        # Attachments (#204): the content goes straight between the clients and S3.
+        arrow([(main_x, 98), (20, 98), (20, 600), (main_x, 600)], p, accent=True),
+        label(main_x, 646, "files: presigned PUT and GET, straight", p, anchor="start",
+              accent=True, size=12),
+        label(main_x, 662, "from the browser and the apps", p, anchor="start", accent=True, size=12),
+
+        box(main_x, 700, left_w, 64, ["orphans \u00b7 replay", "on EventBridge Scheduler"], p,
+            accent=True),
+        box(right_x, 700, left_w, 64, ["streams", "deletes the files of what goes"], p,
+            accent=True),
+        arrow([(360, 624), (360, 700)], p),
+        label(372, 667, "stream", p, anchor="start", size=11),
+
+        # How it is watched (#558, #508).
+        label(main_x, 816, "Watching it", p, anchor="start", size=13),
+        rule(140, side_x + side_w, 811, p),
+        box(main_x, 850, main_w, 64, ["CloudWatch Logs", "every function's log, the API's access log"],
+            p, tint="aws"),
+        box(side_x, 850, side_w, 64, ["CloudWatch dashboard", "taskfest-<env>-go-backend"], p,
+            tint="aws"),
+        arrow([(250, 764), (250, 850)], p),
+        label(262, 790, "every log line", p, anchor="start", size=11),
+
+        box(main_x, 970, left_w, 64, ["8 alarms", "on metrics and log lines"], p, tint="aws"),
+        box(right_x, 970, left_w, 64, ["logship", "Go on Lambda \u00b7 qa"], p, accent=True),
+        arrow([(140, 914), (140, 970)], p),
+        label(152, 947, "metric filters", p, anchor="start", size=11),
+        arrow([(360, 914), (360, 970)], p),
+        label(372, 947, "subscription", p, anchor="start", size=11),
+
+        box(main_x, 1090, left_w, 64, ["SNS \u00b7 User Notifications", "taskfest-<env>-alerts"], p,
+            tint="aws"),
+        box(right_x, 1090, side_x + side_w - right_x, 64,
+            ["VictoriaLogs \u00b7 Perses", "a Hetzner VM, shared monitoring"], p, tint="external"),
+        arrow([(140, 1034), (140, 1090)], p),
+        arrow([(360, 1034), (360, 1090)], p),
+        label(372, 1067, "HTTPS, basic auth", p, anchor="start", size=11),
+
+        box(main_x, 1210, left_w, 56, ["Gunnar", "mail, and a push to the phone"], p),
+        arrow([(140, 1154), (140, 1210)], p),
+        arrow([(main_x + left_w, 1238), (530, 1238), (530, 1154)], p),
+        label(385, 1230, "the dashboards, through SSH", p, size=11),
+    ]
+    aria = (
+        "TaskFest on the Go backend, top to bottom. The browser and the iOS and Android apps sign "
+        "in with Google: the browser is redirected there, the apps sign in themselves. Both talk "
+        "only to CloudFront, which serves the site's files from S3 and passes /api to API "
+        "Gateway's HTTP API with a secret header, or, where api_backend says containers, to the "
+        "Quarkus backend on Fargate that prod runs until the cut-over. The HTTP API invokes the "
+        "api function, Go on Lambda, which serves every route and is the OIDC client: it "
+        "exchanges the code with Google itself, and the browser holds a session cookie, never a "
+        "token, while the apps send their ID token as a Bearer token. The api function reads and "
+        "writes one DynamoDB table and signs links to the attachment bucket, so files go straight "
+        "between the clients and S3. The table's stream feeds the streams function, and "
+        "EventBridge Scheduler runs orphans and replay. Every log line goes to CloudWatch Logs, "
+        "where eight alarms watch metrics and log lines and notify an SNS topic, which mails "
+        "Gunnar and pushes to his phone; a CloudWatch dashboard shows the figures. In qa, a "
+        "subscription filter also hands every line to logship, which sends it over HTTPS with "
+        "basic auth to VictoriaLogs and Perses on a shared Hetzner VM, which Gunnar opens "
+        "through SSH."
+    )
+    return document(w, h, "\n  ".join(parts), p, aria)
+
+
+def architecture_containers(p: Palette) -> str:
+    """The containers' architecture, Quarkus on Fargate with PostgreSQL, which served TaskFest
+    until the port (#547) and prod still runs: kept as the reference architecture.md compares the
+    Go backend with. How a request travels, where the tokens stop, and how files bypass the
+    backend."""
     w, h = 1000, 500
     row_y, box_h = 190, 72
     bottom = row_y + box_h
@@ -506,6 +629,7 @@ def notification_icon() -> str:
 def main() -> None:
     per_scheme = {
         "architecture": architecture,
+        "architecture-containers": architecture_containers,
         "workflow": workflow,
         "identities": identities,
     }

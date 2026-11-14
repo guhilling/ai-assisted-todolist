@@ -49,11 +49,14 @@ request, since the site itself is only built on `main`.
 
 ## The diagrams
 
-`images/` holds the two diagrams the root README shows: how the application fits together,
-and how a change reaches `main`. They are **generated** — `python3 doc/images/generate.py`
-rewrites all four files — so edit the generator rather than the SVGs.
+`images/` holds the diagrams: the two the root README shows, how the application fits together
+on the Go backend and how a change reaches `main`; the containers' architecture, which the README
+showed until the port and [architecture.md](architecture.md#two-architectures) keeps as the
+reference; and the identities in [access.md](deployment/access.md). They are **generated** —
+`python3 doc/images/generate.py` rewrites them, with the logo's files — so edit the generator
+rather than the SVGs.
 
-Four files for two diagrams, because a README is rendered by GitHub through `<img>`: an
+Two files for each diagram, because a README is rendered by GitHub through `<img>`: an
 embedded SVG has no page foreground to inherit, so `currentColor` is no use, and a `<style>`
 block carrying a `prefers-color-scheme` query is stripped by GitHub's sanitiser. A light and
 a dark file behind a `<picture>` element is the arrangement that actually works, and
