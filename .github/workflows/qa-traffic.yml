@@ -1,0 +1,70 @@
+name: Hourly traffic on qa
+
+# Ten anonymous requests to qa every hour (#558), so the monitoring server's dashboards and qa's
+# CloudWatch dashboard have something to show between demos, and a check on the side: qa's API
+# answering at all. A run fails, and GitHub mails, when /api/version does not answer 200.
+#
+# Anonymous on purpose: a signed-in request needs Cognito's login page in a browser, with
+# passwords set for the run, which is what the live tests do after a deploy and too much for every
+# hour. Signed out, the task routes answer 401, or 405 where a route takes no GET, which is as
+# much a request to the dashboards as any. The requests are cold starts mostly, an hour apart, as a first visitor's would be.
+#
+# Costs nothing that shows: about 7,300 requests a month on Lambda and API Gateway is a fraction
+# of a cent, and Actions are free for a public repository. GitHub runs a schedule when it can,
+# sometimes minutes late, and turns it off after 60 days without a commit to the repository.
+
+on:
+  schedule:
+    - cron: "17 * * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: qa-traffic
+  cancel-in-progress: false
+
+jobs:
+  traffic:
+    runs-on: ubuntu-26.04
+    timeout-minutes: 5
+    env:
+      QA: https://taskfest-qa.cloud.hilling.de
+    steps:
+      - name: Send ten requests, a few seconds apart
+        run: |
+          set -u
+          # path and the status it must answer with: 200 for what anyone may read, 401 for what
+          # needs a sign-in, 405 for a route that takes no GET.
+          requests=(
+            "/api/version 200"
+            "/api/auth/providers 200"
+            "/api/auth/me 401"
+            "/api/tasks 401"
+            "/api/version 200"
+            "/api/tasks/drafts 405"
+            "/api/account 405"
+            "/api/auth/providers 200"
+            "/api/tasks/00000000-0000-0000-0000-000000000000 405"
+            "/api/version 200"
+          )
+          failed=0
+          for request in "${requests[@]}"; do
+            read -r path want <<<"$request"
+            got=$(curl -s -o /dev/null -w '%{http_code}' -m 20 -A 'taskfest-qa-traffic' "$QA$path" || echo 000)
+            echo "$path: $got (expected $want)"
+            [[ "$got" == "$want" ]] || failed=1
+            sleep 3
+          done
+          if (( failed )); then
+            echo "::warning::qa answered at least one request other than expected"
+          fi
+
+      - name: qa's API answers
+        run: |
+          status=$(curl -s -o /dev/null -w '%{http_code}' -m 20 "$QA/api/version" || echo 000)
+          if [[ "$status" != 200 ]]; then
+            echo "::error::qa's /api/version answered $status"
+            exit 1
+          fi
+          echo "qa's /api/version answers 200."

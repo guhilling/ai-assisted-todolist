@@ -8,6 +8,7 @@
 | `e2e-serverless.yml` | the same suite against the Go backend's stack (#556), on amd64, when the Go backend, the frontend, the suite or Keycloak change; it reads `e2e.yml`'s caches and saves none ([the stack](../local-development/end-to-end-stack.md#with-the-go-backend)) |
 | `mobile-ci.yml` | the app's checks and tests, a release APK and an iOS simulator build, the Maestro flows on an emulator and the share on a simulator ([mobile development](../mobile/development.md)) |
 | `live-tests.yml` | after each deploy to qa (and by hand): the [live checks](live.md) against the environment itself |
+| `qa-traffic.yml` | every hour: ten anonymous requests to qa, for the dashboards, and fails when its API does not answer ([live.md](live.md#hourly-traffic)) |
 | `sonarcloud.yml` | the backend's, the frontend's and the Go backend's tests with coverage (the Go ones start DynamoDB Local in Docker), then the Sonar scan |
 | `docs-ci.yml` | the scripts' own tests under `.github/scripts/`, and the consistency checks: doc references (the shared action from [conventions](https://github.com/guhilling/conventions), #455), decision records, the Renovate config, no local issue forms (#457), links to private resources marked (#531), one PostgreSQL version, one CORS rule |
 | `tofu-ci.yml` | `tofu fmt` and `validate` of the AWS roots, and that the two environments match |

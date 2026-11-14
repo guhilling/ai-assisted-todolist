@@ -158,6 +158,22 @@ npm run test:live                                     # qa
 LIVE_BASE_URL=https://example.test npm run test:live  # anywhere
 ```
 
+## Hourly traffic
+
+`qa-traffic.yml` sends qa ten anonymous requests every hour, a few seconds apart (#558): its
+version and sign-in providers, which answer 200, and routes that need a sign-in or take no GET,
+which answer 401 and 405. It is there so the dashboards -- CloudWatch's and the monitoring server's
+([observability.md](../deployment/observability.md#the-monitoring-server)) -- have something to
+draw between demos, mostly cold starts an hour apart, as a first visitor's would be. It is also
+the cheapest uptime check there is: the run fails, and GitHub mails, when `/api/version` does not
+answer 200; an unexpected status elsewhere is a warning in the run.
+
+It does not sign in: that takes Cognito's login page in a browser, with passwords set for the run,
+which the live tests above do after a deploy. Its requests count in the dashboards like any other,
+since the access log carries no user agent; about 240 a day. Free: a fraction of a cent a month on
+Lambda and API Gateway, and Actions cost nothing for a public repository. GitHub runs a schedule
+when it can, sometimes minutes late, and turns it off after 60 days without a commit.
+
 ## What it costs
 
 A few minutes of GitHub Actions per deploy, about ten more for the app's flows on the emulator.
