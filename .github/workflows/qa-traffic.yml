@@ -2,12 +2,12 @@ name: Hourly traffic on qa
 
 # Ten anonymous requests to qa every hour (#558), so the monitoring server's dashboards and qa's
 # CloudWatch dashboard have something to show between demos -- and a smoke test on the side: the
-# run fails, and GitHub mails, when any request does not answer as it should.
+# run fails, and GitHub mails, when a request answers otherwise three times running.
 #
 # What a first visit sends, signed out: the version, the sign-in providers, and /api/auth/me,
-# whose 401 is how the website learns nobody is signed in. Nothing more, so the dashboards' 4xx
-# figures carry no synthetic floor that would hide real ones: the access log has no user agent to
-# tell these requests apart. A signed-in request needs Cognito's login page in a browser, which
+# whose 401 is how the website learns nobody is signed in. Nothing more: those four 401s an hour
+# are the only floor it puts under the dashboards' 4xx figures, which the access log, having no
+# user agent, cannot tell from real ones. A signed-in request needs Cognito's login page in a browser, which
 # is the live tests' job after a deploy. The first request of a run is mostly a cold start, the
 # rest warm.
 #
@@ -58,13 +58,21 @@ jobs:
           failed=0
           for request in "${requests[@]}"; do
             read -r path want <<<"$request"
-            # Two retries, for a passing 5xx or a timeout, so a hiccup does not mail. -w prints
-            # 000 itself when no answer came.
-            got=$(curl -s -o /dev/null -w '%{http_code}' -m 20 --retry 2 --retry-delay 5 \
-              -A 'taskfest-qa-traffic' "$QA$path" || true)
-            echo "$path: ${got:-000} (expected $want)"
-            if [[ "${got:-000}" != "$want" ]]; then
-              echo "::error::qa answered $path with ${got:-000}, not $want"
+            # Up to three tries, five seconds apart, for a passing 5xx, a timeout or a broken
+            # transfer, so a hiccup does not mail. A transfer curl reports as failed counts as no
+            # answer, even when a status came first; -w prints 000 itself when none came.
+            for try in 1 2 3; do
+              if got=$(curl -s -o /dev/null -w '%{http_code}' -m 20 -A 'taskfest-qa-traffic' "$QA$path"); then
+                :
+              else
+                got="000"
+              fi
+              [[ "$got" == "$want" ]] && break
+              (( try < 3 )) && sleep 5
+            done
+            echo "$path: $got (expected $want)"
+            if [[ "$got" != "$want" ]]; then
+              echo "::error::qa answered $path with $got, not $want, three times"
               failed=1
             fi
             sleep 3

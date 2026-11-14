@@ -167,10 +167,11 @@ dashboards -- CloudWatch's and the monitoring server's
 ([observability.md](../deployment/observability.md#the-monitoring-server)) -- have something to
 draw between demos: one cold start an hour, then warm requests.
 
-It is a smoke test as well: the run fails, and GitHub mails, when any request answers otherwise,
-after two retries, so a passing hiccup does not mail. It sends nothing a visitor would not, so the
-dashboards' 4xx figures get no synthetic floor that could hide real ones: the access log carries no
-user agent to tell these requests apart. It does not sign in, which takes Cognito's login page in a
+It is a smoke test as well: the run fails when a request answers otherwise three times running, so
+a passing hiccup does not count. GitHub mails a failed scheduled run to whoever last changed its
+schedule, if their notification settings for Actions say so. It sends nothing a visitor would not,
+but its four 401s an hour, 96 a day, are a floor under the dashboards' 4xx figures, which the
+access log, having no user agent, cannot tell from real ones. It does not sign in, which takes Cognito's login page in a
 browser, as the live tests above do after a deploy.
 
 It assumes the Go backend serves qa's `/api`, which answers whether qa is up or down. Should qa go
