@@ -10,12 +10,12 @@ on:
     branches: [main]
     paths:
       - 'doc/api/**'
-      - '.github/scripts/requirements.txt'
+      - 'doc/api/requirements.txt'
       - '.github/workflows/contract-ci.yml'
   pull_request:
     paths:
       - 'doc/api/**'
-      - '.github/scripts/requirements.txt'
+      - 'doc/api/requirements.txt'
       - '.github/workflows/contract-ci.yml'
 
 permissions:
@@ -28,7 +28,7 @@ jobs:
       - uses: actions/checkout@v7
 
       - name: Install the generator's dependencies
-        run: pip install -r .github/scripts/requirements.txt
+        run: pip install -r doc/api/requirements.txt
 
       - name: Check the contract, and that what is derived from it is current
         # generate.py validates openapi.json as OpenAPI 3.1 and rewrites openapi.yaml and the

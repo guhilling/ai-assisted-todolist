@@ -576,5 +576,9 @@ and need annotations or a framework it does not have.
 **Cost.** Descriptions, examples and required fields are kept by hand; the validator catches a
 malformed document, not a misleading one. Switching sources found one flaw on the way: the link
 pattern used `(?i)`, a Java regex flag that JSON Schema's ECMAScript dialect does not have,
-rewritten as `[Hh][Tt][Tt][Pp][Ss]?` with the same meaning.
+rewritten as `[Hh][Tt][Tt][Pp][Ss]?`, which matches what the Java one did. The Go backend checks a
+link with a pattern of its own (`board/attachments.go`), which nothing derives from the contract:
+a change to the one needs the other by hand, and the two differ at the edges of what `\s` means
+in each language. And oasdiff reports the rewritten pattern as a change, so the next release is a
+minor rather than a patch.
 

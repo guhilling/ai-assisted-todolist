@@ -39,6 +39,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import pathlib
 import sys
 
@@ -89,7 +90,7 @@ def standalone(name: str, schema: dict) -> dict:
 
 def write_json(path: pathlib.Path, document: dict) -> None:
     """Writes formatted JSON with a trailing newline, so the files read as text and diff well."""
-    path.write_text(json.dumps(document, indent=2) + "\n")
+    path.write_text(json.dumps(document, indent=2, ensure_ascii=False) + "\n")
 
 
 def references(node: object) -> set[str]:
@@ -126,6 +127,12 @@ def main() -> int:
 
     document = json.loads(SOURCE.read_text())
     if args.version:
+        # It rewrites the source too, which only a release's own checkout may: nothing commits
+        # there. Run by hand, it would leave the committed contract claiming a release.
+        if os.environ.get("GITHUB_ACTIONS") != "true":
+            print("--version is for the release workflow only; it rewrites openapi.json itself",
+                  file=sys.stderr)
+            return 1
         document["info"]["version"] = args.version
     if not str(document.get("openapi", "")).startswith("3.1"):
         print(f"{SOURCE.name} must be OpenAPI 3.1, whose schemas are JSON Schema 2020-12; "
@@ -135,6 +142,9 @@ def main() -> int:
         validate(document)
     except OpenAPIValidationError as error:
         print(f"{SOURCE.name} is not valid OpenAPI 3.1: {error.message}", file=sys.stderr)
+        return 1
+    except Exception as error:  # noqa: BLE001 -- an unresolvable $ref, say, raises its own kind
+        print(f"{SOURCE.name} could not be checked: {type(error).__name__}: {error}", file=sys.stderr)
         return 1
 
     # Rewritten as it reads, so a hand edit's formatting does not linger as a diff.

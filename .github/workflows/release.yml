@@ -121,9 +121,7 @@ jobs:
         working-directory: backend
         # -Prelease adds requireReleaseVersion to the requireReleaseDeps rule that every
         # build runs, so this fails on a SNAPSHOT dependency and on a SNAPSHOT version.
-        # verify then runs the tests, the coverage gate, Checkstyle and PIT. It also writes
-        # target/openapi (quarkus.smallrye-openapi.store-schema-directory), which the next
-        # step turns into the contract announce attaches to the GitHub Release.
+        # verify then runs the tests, the coverage gate, Checkstyle and PIT.
         env:
           VERSION: ${{ steps.version.outputs.version }}
         run: ./mvnw -B -Prelease -Drevision="$VERSION" verify
@@ -136,7 +134,7 @@ jobs:
         env:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
-          pip install -r .github/scripts/requirements.txt
+          pip install -r doc/api/requirements.txt
           python3 doc/api/generate.py --version "$VERSION"
 
       - name: Upload the API contract
