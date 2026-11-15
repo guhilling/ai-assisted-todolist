@@ -1,5 +1,11 @@
 # Image scanning
 
+**Status: without its workflow since #559.** The images scanned here are the Quarkus backend's,
+which no release publishes any more; `image-findings.yml` and its script, which turned findings
+into the issue below, went with the backend and are in the tag `pre-serverless`. The pull-through
+cache and Inspector stay, as OpenTofu creates them, until the containers' infrastructure is
+removed. The rest of this page describes the arrangement as it ran.
+
 Amazon Inspector scans the backend image ECS runs, and a workflow every six hours turns what it finds into
 a GitHub issue (#162). Nobody has to look at a console; an issue appears when there is something
 to do, and closes itself once there is not.

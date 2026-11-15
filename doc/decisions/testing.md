@@ -2,7 +2,11 @@
 
 ## Quarkus Dev Services, not hand-rolled Testcontainers
 
-*Accepted · 2026-09-25 · #14*
+*Superseded · 2026-09-25 · #14 · by #559*
+
+**Since #559 there are no Quarkus tests.** The Go backend's tests start DynamoDB Local and
+LocalStack through Testcontainers themselves (`serverless/CLAUDE.md`), Dev Services being
+Quarkus's. What follows is why the Quarkus backend used it.
 
 **Decision.** PostgreSQL and Keycloak in dev and test come from Dev Services, driven by
 *leaving* the datasource URL and issuer unset.
@@ -19,6 +23,10 @@ Keycloak container needs more memory than a default Podman machine provides.
 
 *Accepted · 2026-09-25 · #14*
 
+Revised in part on 2026-11-15 (#559): `KeycloakLoginFlowTest` went with the Quarkus backend. The
+Go backend's sign-in is tested by `internal/auth`'s flow tests, and the real code flow against
+Keycloak by the browser suite, which signs in on every run.
+
 **Decision.** `KeycloakLoginFlowTest` drives the actual authorization code exchange rather
 than injecting a bearer token.
 
@@ -30,7 +38,11 @@ sign-in return 401.
 
 ## Coverage is measured by `quarkus-jacoco`, and gates the build
 
-*Accepted · 2026-09-26 · #18*
+*Superseded · 2026-09-26 · #18 · by #559*
+
+**Since #559 there is no JaCoCo.** The Quarkus backend's coverage gate went with it; the
+frontend's gate stands, and the Go backend's coverage is reported to SonarCloud without a gate
+([coverage.md](../testing/coverage.md)). What follows is why `quarkus-jacoco` was needed.
 
 **Decision.** The `quarkus-jacoco` extension produces the coverage report; the
 `jacoco-maven-plugin` keeps only its agent and its `check` goal, which fails `verify` below
@@ -67,7 +79,10 @@ work; neither tells us anything we want to act on.
 
 ## Mutation testing, scoped to the tests that do not boot Quarkus
 
-*Accepted · 2026-09-26 · #19*
+*Superseded · 2026-09-26 · #19 · by #559*
+
+**Since #559 there is no mutation testing.** PIT ran on the Quarkus backend's Java, which went;
+nothing has replaced it for Go or TypeScript. What follows is how it was scoped.
 
 **Decision.** PIT runs at `verify` over an explicit allowlist of non-Quarkus test classes,
 and **reports without failing the build**. `targetClasses` stays wide, and each production

@@ -13,8 +13,8 @@ points to (ask-don't-guess, TDD, DDD, and project context all still apply here).
   it fits the existing Vite setup with no extra bundler config, and is the
   natural choice for a Vite-based React project.
 - Use **`@vitest/coverage-v8`** to produce coverage output, feeding
-  **SonarCloud** for code quality/coverage analysis (mirrors the backend's
-  JaCoCo → SonarCloud setup).
+  **SonarCloud** for code quality/coverage analysis, as the Go backend's
+  `go test -coverprofile` does.
 - **Coverage is a gate.** `coverage.thresholds` in `vite.config.ts` fails
   `npm run test:coverage` below the minimum, and `frontend-ci.yml` runs it. The
   `include`/`exclude` there are deliberate: without them the report covers whatever the
@@ -107,9 +107,9 @@ points to (ask-don't-guess, TDD, DDD, and project context all still apply here).
   hatches.
 - **The API boundary is generated, not hand-maintained.** `src/generated/` holds the wire
   types and the ahead-of-time compiled Ajv validators, written by `npm run generate:api` from
-  the JSON Schemas the backend publishes under `doc/api/schema/`. **Never hand-edit anything in
-  `src/generated/`** — `frontend-ci.yml` regenerates it and fails on any difference. Change the
-  backend's record, regenerate the contract, regenerate these.
+  the JSON Schemas under `doc/api/schema/`. **Never hand-edit anything in
+  `src/generated/`** — `frontend-ci.yml` regenerates it and fails on any difference. Change
+  `doc/api/openapi.json`, run `doc/api/generate.py`, regenerate these.
 - **A component's props are `Readonly<…Props>`.** Write `function Row({ … }: Readonly<RowProps>)`.
   It is what Sonar's S6759 asks for, and the seven components it once flagged were changed to
   this form (#121). oxlint has no rule for it, so SonarCloud is what catches a new component
@@ -123,8 +123,7 @@ points to (ask-don't-guess, TDD, DDD, and project context all still apply here).
 - `oxlint` is part of the project (`npm run lint`) and is wired into
   `frontend-ci.yml` as a failing check, alongside tests/coverage. Anything
   automatable — lint, type-check, tests, coverage — should be enforced by
-  the standard CI run, not left as a manual convention (same principle as
-  the backend).
+  the standard CI run, not left as a manual convention.
 - **A `TODO:` comment fails the lint.** To-dos are GitHub issues, not comments (#121), so
   `.oxlintrc.json` sets `no-warning-comments` to the marker `todo:` at the start of a comment.
   It is narrowed on purpose: the domain word — the `TODO` task state — is everywhere and is
@@ -133,21 +132,21 @@ points to (ask-don't-guess, TDD, DDD, and project context all still apply here).
 
 ## Code quality tooling
 
-- Frontend code is analyzed with **SonarCloud** (alongside the backend),
+- Frontend code is analyzed with **SonarCloud** (alongside the Go backend),
   using the Vitest coverage report as input.
 
 ## Documentation
 
 - **TSDoc blocks on types, module-level functions and components**, following the same
-  rule as the backend: the first sentence says what the thing is _for_, and a second
-  paragraph carries the _why_ when there is one.
+  rule as the Go backend's doc comments: the first sentence says what the thing is _for_, and a
+  second paragraph carries the _why_ when there is one.
 - This is **convention only, not enforced** — oxlint ships no `require-jsdoc` rule, so
   nothing will fail the build for a missing block. It depends on being remembered.
 - What _is_ linted is doc-comment hygiene: `jsdoc/check-tag-names`, `jsdoc/empty-tags` and
   `jsdoc/no-blank-blocks` are errors in `.oxlintrc.json`. Deliberately not enabled are
   `jsdoc/require-param-type` and `jsdoc/require-returns-type`, which would ask for types in
   comments that TypeScript already carries.
-- **A type the backend owns is not redeclared here**, it is aliased from `src/generated/` with
+- **A type the contract owns is not redeclared here**, it is aliased from `src/generated/` with
   a block saying what the application calls it and why. Types used to be mirrored by hand with a
   comment saying the two had to change together; generating them is what replaced that.
 - Files whose reason for existing is a configuration subtlety — the Vite proxy, the Vitest

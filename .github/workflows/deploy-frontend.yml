@@ -2,7 +2,7 @@ name: Deploy frontend
 
 # Puts a release's frontend build into an environment's site bucket, where CloudFront serves it.
 #
-# Started with a release tag -- by release.yml for qa, after deploy-backend.yml, or by hand for
+# Started with a release tag -- by release.yml for qa, after deploy-serverless.yml, or by hand for
 # any environment. The build is the one release.yml attached to that release, never a fresh one,
 # so rolling back the frontend is running this again with the previous tag.
 #

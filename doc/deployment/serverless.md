@@ -1,11 +1,11 @@
 # Serverless: Lambda, Go and DynamoDB
 
-**Status: being ported (#547).** Gunnar chose this direction on 2026-11-09 (#535), and the spike
-that had to measure it first passed. Everything else in these deployment chapters still describes
-what runs today: the container architecture, Quarkus on Fargate behind a load balancer with
-PostgreSQL on RDS. That description stays when the port is done, as the alternative to this one, and
-the git tag `pre-serverless` marks the last `main` before the move, for a rollback in the worst
-case; the `rollback-tags` ruleset keeps anyone, administrators included, from deleting or moving it.
+**Status: ported (#547), and serving qa and prod.** Gunnar chose this direction on 2026-11-09
+(#535), and the spike that had to measure it first passed. The Quarkus backend it replaced went in
+#559; several deployment chapters still describe its infrastructure, Quarkus on Fargate behind a
+load balancer with PostgreSQL on RDS, until that is removed too. The git tag `pre-serverless`
+marks the last `main` before the move, for a rollback in the worst case; the `rollback-tags`
+ruleset keeps anyone, administrators included, from deleting or moving it.
 
 ## Why
 
@@ -74,8 +74,7 @@ Nothing to take down, and `prod` can simply stay up.
 
 - **`cmd/api`** is the backend: one binary that serves API Gateway's events on Lambda and plain
   HTTP anywhere else, so that local development and the end-to-end tests can run the code Lambda
-  runs. `internal/lambdahttp` turns one into the other. The end-to-end suite still builds the
-  Quarkus backend until #556 moves it.
+  runs. `internal/lambdahttp` turns one into the other.
 - **`cmd/streams`** deletes the files of attachment items that go, from the table's stream, and
   **`cmd/orphans`** is the hourly clean-up of files no item refers to ([Attachments](#attachments)).
 - **`internal/api`** holds the routes and wire types, generated from `doc/api/openapi.json`, and
@@ -85,8 +84,8 @@ Nothing to take down, and `prod` can simply stay up.
   and **`internal/files`** the attachment bucket in S3.
 - **`internal/auth`** is sign-in, below, and **`internal/gravatar`** the picture fallback.
 
-Locally, against the Go backend's end-to-end stack
-([end-to-end-stack.md](../local-development/end-to-end-stack.md#with-the-go-backend)), whose
+Locally, against the end-to-end stack
+([end-to-end-stack.md](../local-development/end-to-end-stack.md)), whose
 DynamoDB Local is on port 8000, SeaweedFS on 8333 and Keycloak on 8082, with the stack's own
 backend stopped (`docker compose -f deployment/docker/docker-compose.e2e.serverless.yml stop
 backend frontend`):
@@ -553,8 +552,9 @@ API and the table bill per request, and the alarms, $0.10 a month each, are the 
   `Host`, which API Gateway would refuse: the function takes its own address from
   `TASKFEST_PUBLIC_ORIGIN`. `api_backend` in `terraform.tfvars` says which origin `/api/*` uses:
   `serverless` in qa since 2026-11-12, to try it, and in prod since its cut-over (#557);
-  `containers`, with `env.sh up`, would switch back to the Quarkus backend, until #559 removes it;
-  while the environment is down, `/api/*` then answers CloudFront's 503.
+  `containers`, with `env.sh up`, would switch back to the Quarkus backend's last published image
+  while its infrastructure is still there (its code went in #559); while the environment is down,
+  `/api/*` then answers CloudFront's 503.
 - **Sign-in** is configured as for the containers: on only where Google's client id is set, and the
   test accounts beside Google where they exist. Google's client secret stays out of OpenTofu: the
   function's setting `TASKFEST_OIDC_GOOGLE_CLIENT_SECRET_ARN` names the secret, and the function
@@ -604,12 +604,13 @@ it shows says what that is before anything happens.
 
 ### Deploying a release
 
-**A release deploys the code** (#555), as it deploys the containers' image and the site:
+**A release deploys the code** (#555), as it deploys the site, and as it deployed the containers'
+image until #559:
 
 - **`release.yml` builds the five functions once**, from the tag, with the version `GET /api/version`
   reports, and attaches them to the release as `taskfest-serverless-<version>-<function>.zip`.
 - **`deploy-serverless.yml` deploys them**, to qa after every final release, and to prod by hand
-  through its protected environment, as the containers are. `deploy-serverless.py` uploads each
+  through its protected environment, as the containers were. `deploy-serverless.py` uploads each
   function's zip, publishes it as a version described by the release, and moves the function's
   alias `live` to it. API Gateway, the stream and the schedules invoke `live`, never the
   unpublished code, so nothing serves a version before its alias moves.

@@ -26,6 +26,10 @@ on:
         description: Release tag to deploy, e.g. v1.6.0
         type: string
         required: true
+      live_test:
+        description: Run the live tests afterwards (qa only)
+        type: boolean
+        default: true
   workflow_call:
     inputs:
       environment:
@@ -34,6 +38,11 @@ on:
       version:
         type: string
         required: true
+      # release.yml leaves this off: deploy-frontend.yml runs next and checks then, with both
+      # halves in place.
+      live_test:
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -87,3 +96,21 @@ jobs:
         env:
           ENVIRONMENT: ${{ inputs.environment }}
         run: echo "### Go backend $VERSION deployed to $ENVIRONMENT" >> "$GITHUB_STEP_SUMMARY"
+
+  # A deploy or a rollback by hand is checked against qa at once, as deploy-backend.yml's were
+  # until #559; a release's is checked after its frontend's deploy instead.
+  live-test:
+    name: Live tests
+    needs: deploy
+    if: inputs.environment == 'qa' && inputs.live_test
+    permissions:
+      contents: read
+      id-token: write
+      # The live tests' app job (#278): to download the released app, an artifact of the
+      # release's run, and to read the emulator's cached setup. A called workflow's jobs get no
+      # more than this.
+      actions: read
+      packages: read
+    uses: ./.github/workflows/live-tests.yml
+    with:
+      environment: ${{ inputs.environment }}

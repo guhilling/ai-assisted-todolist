@@ -14,9 +14,9 @@ the same tag, and `doc/purpose.md` says what is still missing.
 
 ## About this project
 
-This is `ai-assisted-todolist`, home of **TaskFest**: a browser-based task list app (Quarkus backend,
-React + TypeScript frontend, PostgreSQL persistence). It is primarily a **demo
-project** — its main purpose is to build up experience with AI-assisted
+This is `ai-assisted-todolist`, home of **TaskFest**: a browser-based task list app (Go backend on
+AWS Lambda, React + TypeScript frontend, a React Native app, DynamoDB persistence). It is
+primarily a **demo project** — its main purpose is to build up experience with AI-assisted
 software development, not to ship production software. Favor clarity and
 learning value in explanations and commits over maximal speed.
 
@@ -66,9 +66,9 @@ In this repository, stopping to ask applies especially to:
   (`serverless/internal/api/api.gen.go`) come from `go generate ./...` in `serverless/`. Contract
   CI, Frontend CI and Serverless CI each regenerate their part and fail on any difference, so none
   can go stale and nothing derived is hand-edited. A wire change starts at `openapi.json`.
-- Code-level documentation is Javadoc and TSDoc in the code itself, saying what
-  a type is *for*. The conventions are in `backend/CLAUDE.md`,
-  `frontend/CLAUDE.md` and `mobile/CLAUDE.md`; on the backend they are enforced by Checkstyle.
+- Code-level documentation is Go doc comments and TSDoc in the code itself, saying what a type
+  is *for*. The conventions are in `serverless/CLAUDE.md`, `frontend/CLAUDE.md` and
+  `mobile/CLAUDE.md`.
 - Deployment artifacts live under `/deployment`, never at the repository root:
   `deployment/docker/` holds the Compose stacks and `deployment/aws-tofu/` the AWS
   infrastructure. The AWS code is **OpenTofu**, not Terraform — the binary is `tofu`,
@@ -85,15 +85,14 @@ In this repository, stopping to ask applies especially to:
   run `tofu apply`. `doc/decisions/deployment-and-aws.md` explains why that is a guarantee
   rather than a policy. The plugin's `plan-only.py` hook refuses `tofu` commands that would
   change infrastructure or its state, and asks first before `env.sh up`, `down` or `account`.
-- **Never hand-edit a version.** A release is a git tag (`v1.2.3`); the
-  backend's `pom.xml` carries `${revision}` and the release build overrides it
-  from the tag. `main` stays `1.0.0-SNAPSHOT` permanently, and the frontend's
-  `package.json` version is unused because the package is never published.
-  `doc/releasing.md` has the whole procedure.
-- **A SNAPSHOT dependency fails every backend build**, not just a release
-  (`requireReleaseDeps` at `validate`); the npm counterpart is
-  `npm run check:deps` in `frontend/`. Do not move either into a release-only
-  path — the point is to fail when the dependency is added.
+- **Never hand-edit a version.** A release is a git tag (`v1.2.3`); the release build gives
+  it to the Go backend (`TASKFEST_VERSION` in `serverless/build.sh`) and to the frontend build.
+  `main` stays `1.0.0-SNAPSHOT` permanently, and the frontend's `package.json` version is unused
+  because the package is never published. `doc/releasing.md` has the whole procedure.
+- **A pre-release npm dependency is refused** by `npm run check:deps`
+  (`frontend/scripts/check-no-prerelease-deps.mjs`), which Frontend CI and Mobile CI run on every
+  pull request. Do not move either into a release-only path — the point is to fail when the
+  dependency is added.
 - Renovate's configuration is `.github/renovate.json`, which extends the shared preset from
   [conventions](https://github.com/guhilling/conventions) and adds this repository's own
   rules to it. `main` requires no status checks because the `main-branch` ruleset names none.
@@ -122,9 +121,8 @@ In this repository, stopping to ask applies especially to:
 
 ## Development methodology
 
-- TDD holds for both backend (JUnit/Quarkus test framework) and frontend (whatever test runner
-  is configured) work, and the code's own documentation that is part of each change is its
-  TSDoc or Javadoc.
+- TDD holds for backend (`go test`), frontend (Vitest) and mobile work alike, and the code's own
+  documentation that is part of each change is its Go doc comment or TSDoc.
 - **DDD for planning.** When planning a feature or change, think in terms of
   the domain first: ubiquitous language, entities, value objects, aggregates,
   and bounded contexts, before jumping to REST endpoints, database schema, or

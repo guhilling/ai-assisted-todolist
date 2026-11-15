@@ -19,7 +19,7 @@ on:
       # The instruction pages: the CLAUDE.md files, and the pin of conventions that decides
       # which shared rules the site shows (#471).
       - 'CLAUDE.md'
-      - 'backend/CLAUDE.md'
+      - 'serverless/CLAUDE.md'
       - 'frontend/CLAUDE.md'
       - 'mobile/CLAUDE.md'
       - '.claude/settings.json'

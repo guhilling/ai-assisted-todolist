@@ -29,8 +29,8 @@ one of the two that would work at a zone apex. There is no case for the `CNAME`.
 ## The Google OIDC configuration
 
 Fixed hostnames make these knowable now, so they can be set up once the environments exist.
-The backend uses `quarkus.oidc.authentication.redirect-path=/api/auth/callback`, and `/api/*`
-routes through the same distribution, so the authorised redirect URIs are:
+The backend's callback is `/api/auth/callback`, the Quarkus backend's path, which the Go backend
+kept, and `/api/*` routes through the same distribution, so the authorised redirect URIs are:
 
 - `https://taskfest-qa.cloud.hilling.de/api/auth/callback`
 - `https://taskfest.cloud.hilling.de/api/auth/callback`

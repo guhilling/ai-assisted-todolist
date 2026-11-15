@@ -1,9 +1,9 @@
 name: Release
 
-# The git tag is the only place a release version is written down. Nothing in pom.xml or
-# package.json is edited by hand or by this workflow: the backend's version is the
-# ${revision} property, which is overridden from the tag here, and the frontend package is
-# private and never published, so its version field is unused.
+# The git tag is the only place a release version is written down. Nothing in package.json or
+# go.mod is edited by hand or by this workflow: the Go backend is told its version from the tag at
+# build time, and the frontend package is private and never published, so its version field is
+# unused.
 on:
   push:
     tags:
@@ -51,7 +51,7 @@ jobs:
 
       - name: Refuse a tag that is already released
         # A pushed tag cannot be pushed again, but release.yml can be started again for one from the
-        # Actions tab: publish would then push new images over the released version's before
+        # Actions tab: it would then build the released version's artifacts again and fail only once
         # announce found the Release there. A failed release is retried by deleting its Release and
         # its tag first, as "If a release fails" in doc/releasing.md says. Only a lookup GitHub
         # answers with 404 means "not released": any other failure stops the release too.
@@ -103,29 +103,6 @@ jobs:
           fi
           echo "$GITHUB_REF_NAME is on main."
 
-      - uses: actions/setup-java@v6
-        with:
-          distribution: temurin
-          java-version: '25'
-      # Read on every branch, saved from main only, with no fallback there so that a new entry starts
-      # clean: see doc/testing/continuous-integration.md.
-      - name: Restore Maven's cache
-        id: maven-cache
-        uses: actions/cache/restore@v6
-        with:
-          path: ~/.m2/repository
-          key: maven-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('**/pom.xml') }}
-          restore-keys: ${{ github.ref != 'refs/heads/main' && format('maven-{0}-{1}-', runner.os, runner.arch) || '' }}
-
-      - name: Verify the backend at the release version
-        working-directory: backend
-        # -Prelease adds requireReleaseVersion to the requireReleaseDeps rule that every
-        # build runs, so this fails on a SNAPSHOT dependency and on a SNAPSHOT version.
-        # verify then runs the tests, the coverage gate, Checkstyle and PIT.
-        env:
-          VERSION: ${{ steps.version.outputs.version }}
-        run: ./mvnw -B -Prelease -Drevision="$VERSION" verify
-
       - name: Write the API contract at the release version
         # The committed doc/api says 1.0.0-SNAPSHOT, which is what main's version permanently is.
         # generate.py --version writes the tag's version into the documents, so the contract
@@ -162,7 +139,7 @@ jobs:
 
       - name: Refuse pre-release npm dependencies
         working-directory: frontend
-        # npm's counterpart to requireReleaseDeps; see the script's own comment.
+        # A pre-release dependency must not reach a release; see the script's own comment.
         run: npm run check:deps
 
       - name: Verify the frontend
@@ -211,6 +188,25 @@ jobs:
           # Off, as in Serverless CI: caches are saved on main only (#308).
           cache: false
 
+      # Serverless CI runs these on pull requests, but only when the Go backend or the contract
+      # changes, and main requires no status check: so the tag's own commit is checked here before
+      # anything is built from it, as the gate re-runs the frontend's suite (doc/releasing.md).
+      - name: The generated code is current
+        working-directory: serverless
+        run: |
+          go generate ./...
+          git diff --exit-code -- . || {
+            echo "::error::generated code is stale (api.gen.go, zones.gen.go): run go generate ./... in serverless/"
+            exit 1
+          }
+      - name: Vet
+        working-directory: serverless
+        run: go vet ./...
+      - name: Test
+        # DynamoDB Local and LocalStack start through Testcontainers, in the runner's Docker.
+        working-directory: serverless
+        run: go test -race ./...
+
       - name: Build the functions
         env:
           TASKFEST_VERSION: ${{ needs.gate.outputs.version }}
@@ -228,88 +224,9 @@ jobs:
           name: serverless-build
           path: serverless-build/*.zip
 
-  publish:
-    name: Publish ${{ matrix.name }} image
-    needs: gate
-    runs-on: ubuntu-26.04
-    env:
-      # Every platform the images are published for (#249), in one place for both and the check.
-      PLATFORMS: linux/amd64,linux/arm64
-    strategy:
-      matrix:
-        include:
-          - name: backend
-            context: backend
-          - name: frontend
-            context: frontend
-    defaults:
-      run:
-        working-directory: ${{ matrix.context }}
-    steps:
-      - uses: actions/checkout@v7
-      - uses: docker/setup-buildx-action@v4
-
-      - name: Log in to Quay
-        uses: docker/login-action@v4
-        with:
-          registry: quay.io
-          username: ${{ secrets.QUAY_ROBOT_USER || secrets.QUAY_USERNAME }}
-          password: ${{ secrets.QUAY_ROBOT_PASSWORD || secrets.QUAY_ROBOT_TOKEN || secrets.QUAY_PASSWORD }}
-
-      - uses: actions/setup-java@v6
-        if: matrix.name == 'backend'
-        with:
-          distribution: temurin
-          java-version: '25'
-      # Read on every branch, saved from main only, with no fallback there so that a new entry starts
-      # clean: see doc/testing/continuous-integration.md.
-      - name: Restore Maven's cache
-        id: maven-cache
-        if: matrix.name == 'backend'
-        uses: actions/cache/restore@v6
-        with:
-          path: ~/.m2/repository
-          key: maven-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('**/pom.xml') }}
-          restore-keys: ${{ github.ref != 'refs/heads/main' && format('maven-{0}-{1}-', runner.os, runner.arch) || '' }}
-
-      - name: Publish the backend image
-        if: matrix.name == 'backend'
-        env:
-          # application.properties reads the tag from here.
-          IMAGE_TAG: ${{ needs.gate.outputs.version }}
-        # Jib cannot retry a base image download that breaks off; the script can, and only that.
-        run: >
-          $GITHUB_WORKSPACE/.github/scripts/retry-on-broken-download.sh
-          ./mvnw -B -Prelease -Drevision="$IMAGE_TAG"
-          package -DskipTests
-          -Dquarkus.container-image.build=true
-          -Dquarkus.container-image.push=true
-          -Dquarkus.jib.platforms="$PLATFORMS"
-
-      - name: Publish the frontend image
-        if: matrix.name == 'frontend'
-        env:
-          VERSION: ${{ needs.gate.outputs.version }}
-        run: >
-          docker buildx build --push
-          --platform "$PLATFORMS"
-          --tag "quay.io/ghilling/taskfest-frontend:$VERSION"
-          --build-arg "VITE_TASKFEST_VERSION=$VERSION"
-          -f docker/Dockerfile .
-
-      # The tag must be one image index with every platform built (#249), or a machine of the
-      # missing one pulls nothing it can run.
-      - name: Check the image is published for every platform
-        working-directory: .
-        env:
-          VERSION: ${{ needs.gate.outputs.version }}
-        run: >
-          python3 .github/scripts/check-image-platforms.py
-          "quay.io/ghilling/taskfest-${{ matrix.name }}:$VERSION" "$PLATFORMS"
-
   announce:
     name: GitHub Release
-    needs: [gate, publish, serverless]
+    needs: [gate, serverless]
     runs-on: ubuntu-26.04
     permissions:
       contents: write
@@ -419,32 +336,10 @@ jobs:
       APPLE_API_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER_ID }}
 
   # Every final release goes to qa; prod only ever by hand, through its protected environment.
-  # Pre-releases (v1.2.3-rc.1) are deployed by hand when wanted: `env.sh up qa` starts the newest
-  # *final* release, so one deployed automatically would quietly be undone by a down/up cycle.
-  # The backend first, and the frontend only once it serves: a release that changes the database
-  # changelog takes the downtime path (#215) and then gets its own frontend, so qa ends on one
-  # version; a backend deploy that fails does not put its frontend in front of the old API. When qa
-  # is down the backend is skipped without failing and the frontend is still uploaded, since the
-  # site bucket outlives `down`.
-  deploy-backend-qa:
-    name: Deploy backend to qa
-    needs: [gate, announce]
-    if: ${{ needs.gate.outputs.prerelease == 'false' }}
-    permissions:
-      contents: read
-      id-token: write
-      # The live tests' app job (#278): to download the released app, an artifact of the
-      # release's run, and to read the emulator's cached setup. A called workflow's jobs get no
-      # more than this.
-      actions: read
-      packages: read
-    uses: ./.github/workflows/deploy-backend.yml
-    with:
-      environment: qa
-      version: ${{ github.ref_name }}
-
-  # The Go backend to qa beside the containers (#555): its functions are there whether qa is up or
-  # not, and qa serves /api/* from them since #557.
+  # Pre-releases (v1.2.3-rc.1) are deployed by hand when wanted.
+  # The Go backend first, and the frontend only once it is deployed: a backend deploy that fails
+  # does not put its frontend in front of the old API. The functions are there whether qa is up or not,
+  # and qa serves /api/* from them since #557.
   deploy-serverless-qa:
     name: Deploy the Go backend to qa
     needs: [gate, announce]
@@ -452,6 +347,10 @@ jobs:
     permissions:
       contents: read
       id-token: write
+      # What deploy-serverless.yml's live-test job may ask for, though a release leaves it off: a
+      # called workflow's jobs may not request more than the caller grants, skipped or not.
+      actions: read
+      packages: read
     uses: ./.github/workflows/deploy-serverless.yml
     with:
       environment: qa
@@ -459,9 +358,9 @@ jobs:
 
   deploy-frontend-qa:
     name: Deploy frontend to qa
-    # After both backends, so its live tests check the release's frontend against the release's API,
-    # whichever backend serves it.
-    needs: [deploy-backend-qa, deploy-serverless-qa]
+    # After the Go backend, so its live tests check the release's frontend against the release's
+    # API.
+    needs: deploy-serverless-qa
     permissions:
       contents: read
       id-token: write

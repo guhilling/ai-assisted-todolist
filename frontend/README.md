@@ -13,7 +13,7 @@ npm run build           # tsc -b && vite build
 ```
 
 The backend has to be running for anything beyond the shell to work — see
-[../doc/local-development.md](../doc/local-development.md).
+[../doc/local-development/index.md](../doc/local-development/index.md).
 
 Conventions for working here — TDD, strict TypeScript, linting, TSDoc — are in
 [CLAUDE.md](CLAUDE.md). The app talks to the backend through a session cookie and never

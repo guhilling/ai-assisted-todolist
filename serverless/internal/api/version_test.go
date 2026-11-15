@@ -3,8 +3,6 @@ package api
 import (
 	"encoding/json"
 	"net/http"
-	"os"
-	"regexp"
 	"testing"
 )
 
@@ -47,19 +45,5 @@ func TestAMinimumAppVersionTheAppCannotReadIsRefused(t *testing.T) {
 		if _, err := MinimumAppVersionIn(func(string) string { return bad }); err == nil {
 			t.Errorf("%q was taken", bad)
 		}
-	}
-}
-
-func TestTheDefaultMinimumAppVersionIsQuarkuses(t *testing.T) {
-	// Both backends announce it while both run; raising one alone would let one serve apps the
-	// other turns away.
-	raw, err := os.ReadFile("../../../backend/src/main/resources/application.properties")
-	if err != nil {
-		t.Fatal(err)
-	}
-	quarkus := regexp.MustCompile(`(?m)^taskfest\.minimum-app-version=\$\{TASKFEST_MINIMUM_APP_VERSION:([^}]+)\}$`).
-		FindSubmatch(raw)
-	if quarkus == nil || string(quarkus[1]) != minimumAppVersion {
-		t.Errorf("Quarkus's default is %q, the Go backend's %q", quarkus, minimumAppVersion)
 	}
 }

@@ -5,12 +5,13 @@ redirects, real httpd proxying, real cookies, real persistence.
 
 ```bash
 # build both images, then:
-docker compose -f deployment/docker/docker-compose.e2e.yml up -d --wait
+docker compose -f deployment/docker/docker-compose.e2e.serverless.yml up -d --wait
 cd e2e && npx playwright test
 ```
 
-In CI it runs twice, on an amd64 and on an arm64 runner, each with images built natively for it
-(#249): the arm64 run is what shows the images work on Apple silicon and Graviton.
+In CI it runs on an amd64 runner (`e2e-serverless.yml`). Until #559 it also ran on arm64, against
+the Quarkus backend's stack, which is what showed the images working on Apple silicon (#249); the
+Lambda functions themselves are built for arm64 and tested by Serverless CI.
 
 Full setup is in [local-development.md](../local-development/index.md). Useful flags while
 debugging: `--headed`, `--debug`, and `npx playwright show-report` after a failure.
@@ -21,12 +22,12 @@ sign-out.
 
 Two things in here exist because of failures that only a real stack produces:
 
-- **`up --wait` needs the backend healthcheck** in `docker-compose.e2e.yml`. Without one,
-  Compose calls a container ready the moment it runs, and the backend takes over thirty
-  seconds to start — so Playwright met a 502 from httpd. The probe lives in
-  `e2e/backend-healthcheck.sh` rather than inline, because an inline command is split on
-  whitespace into separate argv entries: the first version became `bash -c exec`, a no-op
-  that always succeeded, which looks exactly like a service that is always healthy.
+- **`up --wait` needs the backend's readiness check**, the `backend-ready` service in
+  `docker-compose.e2e.serverless.yml`. Without one, Compose calls a container ready the moment it
+  runs, and Playwright met a 502 from httpd while the backend was still starting. The Quarkus
+  backend took over thirty seconds; its probe was a mounted script rather than an inline command,
+  because an inline one is split on whitespace into separate argv entries, and the first version
+  became `bash -c exec`, a no-op that always succeeded.
 - **A reload has to wait for the save it is testing.** Ticking a task and deleting one are
   both optimistic — the board updates before the server answers — so `page.reload()` fired
   while the request was still in flight and cancelled it. The specs now await the `PUT` and

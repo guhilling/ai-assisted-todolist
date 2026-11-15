@@ -4,6 +4,10 @@
 
 *Accepted · 2026-09-30 · #94*
 
+Revised in part on 2026-11-15 (#559): one stack is left there, the end-to-end one,
+`docker-compose.e2e.serverless.yml`; the Quarkus backend's local stack, its end-to-end stack and
+the monitoring overlay went with it.
+
 **Decision.** Both Compose stacks moved from the repository root into `docker/`, each with
 an explicit `name:`, and later into `deployment/docker/` when the AWS material arrived and
 needed a sibling.
@@ -19,6 +23,10 @@ and the volumes do not notice.
 ## Compose probes live in scripts, not inline
 
 *Accepted · 2026-09-27 · #51*
+
+Revised in part on 2026-11-15 (#559): the backend's probe script, `e2e/backend-healthcheck.sh`, went
+with the Quarkus stack; the Go stack's readiness is a `curl` container whose test is an exec-form
+list, which nothing splits. The rule stands for the next multi-part command.
 
 **Decision.** A healthcheck or other multi-part command in a Compose file goes in a script
 file next to it, mounted read-only, and is referenced by path:
@@ -78,7 +86,11 @@ and has not been taken.
 
 ## The backend runs on our own jre-runtime: Temurin's JRE on UBI micro
 
-*Accepted · 2026-10-06 · #66, #179*
+*Superseded · 2026-10-06 · #66, #179 · by #559*
+
+**Since #559 there is no jre-runtime.** It was the Quarkus backend's base image; the image,
+`deployment/jre-runtime/` and `publish-jre-runtime.yml` went with the backend, and the tag
+`pre-serverless` keeps them. What follows is why it was built.
 
 **Decision** (#66, Gunnar). The backend image is built by Jib onto `quay.io/ghilling/jre-runtime`,
 an image of our own: the full Eclipse Temurin JRE copied onto Red Hat **UBI 10 micro**. It is

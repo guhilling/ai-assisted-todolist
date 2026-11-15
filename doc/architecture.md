@@ -1,16 +1,14 @@
 # Architecture
 
-**TaskFest has two backends**, built to the same API and run side by side in each AWS
-environment: the containers' backend, Quarkus on Fargate with PostgreSQL, and the Go backend on
-Lambda with DynamoDB, which it was ported to (#547). One setting, `api_backend`, says which of them
-CloudFront sends `/api/*` to. Every route is ported, so the website and the apps cannot tell
-them apart.
-[Two architectures](#two-architectures) compares them and says why the Go backend is the one
+**TaskFest's backend is Go on AWS Lambda with one DynamoDB table** (#547), behind CloudFront with
+the website's files. It replaced a Quarkus backend on Fargate with PostgreSQL, which it was ported
+from route by route, so the website and the apps could not tell them apart. Both environments run
+on the Go backend: qa since 2026-11-12, prod since its cut-over (#557). The Quarkus backend's code
+went in #559; the git tag `pre-serverless` keeps it. Its infrastructure, which `api_backend`
+could still switch `/api/*` back to, is removed in a change of its own.
+[Two architectures](#two-architectures) compares the two and says why the Go backend is the one
 switched to. The [README](../README.md#how-the-application-fits-together) draws the Go backend,
-with how it is watched; the containers' drawing is kept in that section, as the reference. Both
-environments run on the Go backend: qa since 2026-11-12, prod since its cut-over (#557). Most of
-this page still describes the containers' backend, which stays in the repository, the way back,
-until its removal (#559).
+with how it is watched; the containers' drawing is kept in that section, as the reference.
 
 ## The pieces
 
@@ -20,41 +18,37 @@ The deployable components, the apps, and one external dependency:
 | --- | --- | --- |
 | Frontend | React 19 + TypeScript single-page app, served as static files: from S3 through CloudFront in AWS, by Apache httpd locally | `frontend/` |
 | Mobile apps | iOS and Android, one Expo (React Native, TypeScript) codebase; released to TestFlight and Play's internal testing, not deployed | `mobile/` |
-| Backend, containers | Quarkus 3 REST API on Java 25, also the OIDC client | `backend/` |
-| Backend, serverless | Go on AWS Lambda behind API Gateway's HTTP API: the same API, and also the OIDC client | `serverless/` |
-| Database | PostgreSQL 18 on RDS, schema managed by Liquibase, for the containers; one DynamoDB table for the Go backend, DynamoDB Local in its tests | — |
+| Backend | Go on AWS Lambda behind API Gateway's HTTP API, also the OIDC client | `serverless/` |
+| Database | One DynamoDB table; DynamoDB Local in the tests and the end-to-end stack | — |
 | Identity provider | Google in production; a Keycloak container in development and tests | `keycloak/` |
-| Object storage | S3 for task attachments, one bucket per environment that both backends share under separate prefixes; LocalStack in development and tests, through Quarkus Dev Services for the containers' backend and Testcontainers for the Go backend's | — |
+| Object storage | S3 for task attachments, one bucket per environment, the Go backend's files under `serverless/`; LocalStack in the Go tests, through Testcontainers, and SeaweedFS in the end-to-end stack | — |
 
 ## How a request travels
 
 ```
-                            ┌─▶ load balancer ──▶ Quarkus (Fargate) ──▶ PostgreSQL (RDS)
-browser ──▶ CloudFront ─────┤   api_backend = "containers"
-apps ─────▶ (static files   │
-             from S3)       └─▶ HTTP API ──▶ Go (Lambda) ──▶ DynamoDB
-                                api_backend = "serverless"
+browser ──▶ CloudFront ──▶ HTTP API ──▶ Go (Lambda) ──▶ DynamoDB
+apps ─────▶ (static files
+             from S3)
 ```
 
-Only one of the two lower paths serves `/api/*` at a time. The rest of this section follows the
-containers' one; [serverless.md](deployment/serverless.md#the-shape) has the Go backend's. The
-HTTP API's address is public, so the function refuses every request without a header only
-CloudFront sends ([its infrastructure](deployment/serverless.md#the-infrastructure)).
+[serverless.md](deployment/serverless.md#the-shape) has the Go backend's side in full. The HTTP
+API's address is public, so the function refuses every request without a header only CloudFront
+sends ([its infrastructure](deployment/serverless.md#the-infrastructure)).
 
 The browser talks to a single origin. In AWS that is CloudFront: the built assets come from the
-environment's site bucket, and everything under `/api/*` goes through a private VPC origin to the
-internal load balancer and on to the backend ([deployment](deployment/index.md)). Locally and in
-the end-to-end stack httpd plays the same part, serving the assets on `:8080` and proxying `/api`
-to the backend's TLS port, `:8443`; the image's `prod` profile serves nothing else (#247);
-in development Vite's dev server does, serving the app on `:5173` and proxying `/api` to the
-backend on `:8080`. Either way the SPA makes same-origin requests and needs no CORS handling and
-no API base URL. The apps send their `/api` requests to the same address: the qa and prod
-variants are each built with their environment's CloudFront as the one base URL, the dev variant
-with a local stack ([mobile/development.md](mobile/development.md)).
+environment's site bucket, and everything under `/api/*` goes to the HTTP API and on to the backend
+([deployment](deployment/index.md)). In the end-to-end stack httpd plays the same part, serving the
+assets on `:8080` and proxying `/api` to the Go server's plain HTTP port, `:8080` in its own
+container; in development Vite's dev server does, serving the app on `:5173` and proxying `/api` to
+the backend on `:8080`. Either way the SPA makes same-origin requests and needs no CORS handling and
+no API base URL. The apps send their `/api` requests to the same address: the qa and prod variants
+are each built with their environment's CloudFront as the one base URL, the dev variant with a local
+stack ([mobile/development.md](mobile/development.md)).
 
 Both proxies must preserve the original `Host` header — Vite with `changeOrigin: false`,
-httpd with `ProxyPreserveHost On`. The backend builds the OIDC `redirect_uri` from that
-header, so a rewritten host sends the browser to the wrong port after sign-in.
+httpd with `ProxyPreserveHost On`. Where `TASKFEST_PUBLIC_ORIGIN` is not set, as in development, the
+backend builds the OIDC `redirect_uri` from that header, so a rewritten host sends the browser to
+the wrong port after sign-in.
 
 The one exception is an attachment's content, which never passes through either: the backend
 hands out presigned links, and the browser PUTs and GETs the file straight against S3. That
@@ -69,40 +63,31 @@ rather than the index page.
 ## Why the backend is a backend-for-frontend
 
 The backend is the OIDC *client*, not a resource server that validates bearer tokens the
-frontend obtained for itself. For the browser, Quarkus OIDC runs the code flow: the backend
-performs the authorization code exchange and keeps the resulting tokens in the encrypted
-`q_session` cookie. The frontend never holds a token, and never sees one.
+frontend obtained for itself. For the browser, the backend runs the code flow
+(`serverless/internal/auth`): it performs the authorization code exchange itself and sets the
+`taskfest_session` cookie, a random value whose hash keys the session in the table. The frontend
+never holds a token, and never sees one.
 
 The mobile app is the exception, and a deliberate one: it cannot carry the website's cookie, so
-it sends the ID token its platform's sign-in gave it as a bearer token, and the tenants are
-`hybrid` to accept both ([authentication.md](authentication.md#apps-sign-in-with-a-bearer-id-token)).
+it sends the ID token its platform's sign-in gave it as a bearer token, and the backend accepts
+both ([authentication.md](authentication.md#apps-sign-in-with-a-bearer-id-token)).
 
 The consequences are worth stating, because they explain several shapes elsewhere:
 
 - The frontend's only notion of identity is `GET /api/auth/me`, which returns an email.
 - Sign-in is a full-page navigation to `/api/auth/login`, not a fetch — the flow needs
   redirects the browser follows itself.
-- `fetch` calls send `X-Requested-With: JavaScript`, which the backend pairs with
-  `quarkus.oidc.authentication.java-script-auto-redirect=false` to answer 401 instead of
-  redirecting a background request.
+- `fetch` calls send `X-Requested-With: JavaScript`, for which the backend answers a missing
+  session with 401 instead of redirecting a background request, as the Quarkus backend did.
 
 [authentication.md](authentication.md) covers the flow in detail.
 
 ## Backend structure
 
-Three packages, and no more layering than the application earns:
-
-- `api` — JAX-RS resources. Each owns its own request and response records, so the
-  persistence entities never reach the wire.
-- `model` — Panache active-record entities and the domain enums. See
-  [domain-model.md](domain-model.md).
-- `service` — the little application logic that is not a resource concern. Currently only
-  `UserService`, which owns the create-a-user-on-first-sight rule.
-
-Panache active records mean entities expose public fields and carry their own queries.
-That is idiomatic Quarkus rather than an encapsulation lapse: Hibernate rewrites field
-access into accessor calls at build time. It is why Checkstyle's `VisibilityModifier`
-check is switched off here.
+One Go module, `serverless/`: `cmd/` holds the five functions' entry points, `internal/board` the
+domain with no AWS package in it, and `internal/store` and `internal/files` DynamoDB and S3.
+[serverless.md](deployment/serverless.md#the-code) has the rest, and `serverless/CLAUDE.md` the
+conventions.
 
 ## API documentation
 
@@ -132,23 +117,23 @@ field the contract left optional would be a field the frontend accepted as missi
 **The containers' architecture**, as the README drew it until the port: one Quarkus backend on
 Fargate behind CloudFront, PostgreSQL on RDS, and the same sign-in and attachment paths as now. It
 served prod until the cut-over (#557), and stays drawn here as the reference the Go backend is
-compared with:
+compared with; its code is in the tag `pre-serverless` (#559):
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="images/architecture-containers-dark.svg">
   <img alt="The browser talks only to CloudFront, which serves the app from S3 and passes /api to the Quarkus backend. The backend is the OIDC client: it exchanges the code with the identity provider, Google, itself and returns an encrypted session cookie, so the browser never holds a token. The iOS and Android apps sign in with the identity provider themselves and send their /api requests through CloudFront too, with the ID token as a Bearer token. The database is PostgreSQL on RDS. Files attached to tasks go straight between the browser or the apps and S3 through presigned links the backend signs, so their content never passes through it." src="images/architecture-containers-light.svg">
 </picture>
 
-What the drawing did not show, because it was not there: the containers have no alarms of their
+What the drawing did not show, because it was not there: the containers had no alarms of their
 own beyond the orphan alert and the up-time reminder ([observability.md](deployment/observability.md)),
-and their load balancer, task and database bill by the hour, so an environment had to be taken
+and their load balancer, task and database billed by the hour, so an environment had to be taken
 down whenever nobody used it. The README's drawing of the Go backend has a whole band for how it is
 watched, and nothing in it bills by the hour: an idle month costs its alarms, $0.10 each, and the
 shared monitoring VM, about €6, is billed by Hetzner whatever runs.
 
-The two backends answer the same API, generated from the same contract (`doc/api/openapi.json`),
-and share CloudFront, the site, the attachment bucket and Google sign-in. They differ in what runs
-and in what it costs:
+The two backends answered the same API, from the same contract (`doc/api/openapi.json`), and
+shared CloudFront, the site, the attachment bucket and Google sign-in. They differ in what runs and
+in what it costs:
 
 | | Containers | Serverless |
 | --- | --- | --- |
@@ -175,8 +160,8 @@ weighs these, and [serverless.md](deployment/serverless.md#what-speaks-against-i
 drawbacks in full.
 
 **Why both stayed for a while.** The Go backend served qa from 2026-11-12, to try it, while the
-containers kept serving prod as the way back; prod followed with its cut-over (#557), and the
-containers stay until #559 removes them, `api_backend` switching back to them till then. Each has
+containers kept serving prod as the way back; prod followed with its cut-over (#557). The Quarkus
+code went in #559; the infrastructure, which `api_backend` could switch back to, follows. Each has
 its own database; in the shared bucket the Go backend keeps to `serverless/`, so neither backend's
 clean-up takes the other's files for orphans, and IAM keeps each out of the other's part (#578).
 The cut-over (#557) switches `api_backend` and nothing else: no task or attachment moves with it,
@@ -185,66 +170,34 @@ The git tag `pre-serverless` marks the last `main` before the move.
 
 ## Deployment
 
-Locally and in the end-to-end stack, httpd serves the built SPA and reverse-proxies `/api`, which
-is what makes the application same-origin. In AWS ([deployment](deployment/index.md)) that job is a
-CloudFront distribution with S3 for the SPA and, for `/api`, the load balancer or the Go backend's
-HTTP API, as `api_backend` says — precisely so the same-origin arrangement the OIDC flow depends on
-survives, whichever backend serves.
+In the end-to-end stack, httpd serves the built SPA and reverse-proxies `/api`, which is what makes
+the application same-origin. In AWS ([deployment](deployment/index.md)) that job is a CloudFront
+distribution with S3 for the SPA and the Go backend's HTTP API for `/api` — precisely so the
+same-origin arrangement the OIDC flow depends on survives.
 
-## Schema management
+## Data
 
-Liquibase owns the schema; Hibernate is set to `validate` and never generates DDL. Every
-schema change is its own changelog under `backend/src/main/resources/db/changes/`, checked
-in with the code that needs it, and applied at startup by
-`quarkus.liquibase.migrate-at-start`. The application therefore fails fast on a schema it
-does not recognise rather than quietly adapting to it.
-
-`001-baseline.xml` is the whole schema as one changelog. It replaced the three that had built
-it up, because no database they applied to outlived them and reading three files to learn the
-shape of two tables was the only thing that history added.
-
-**`state` and `importance` are native PostgreSQL enum types**, `task_state` and
-`task_importance`, not `VARCHAR`. The database rejects a value the application does not define
-rather than storing it for someone else to find. The entity says so with
-`@JdbcTypeCode(SqlTypes.NAMED_ENUM)` and a `columnDefinition` naming the type; without the
-first, the driver sends a `varchar` parameter that PostgreSQL will not assign to an enum
-column, and without the second, Hibernate looks for a type named after the Java class.
-
-The cost is that the type and the Java enum are declared in two places. `TaskEnumColumnTest`
-is what keeps them honest: it asserts that both columns really are enum types and that their
-labels match the Java constants exactly, so adding a value to one and not the other fails the
-build rather than the first request that uses it. Adding a value later is
-`ALTER TYPE ... ADD VALUE`, which PostgreSQL allows; renaming or removing one needs a new type
-and a column rewrite.
+One DynamoDB table holds the tasks, drafts, attachments' records and sign-in sessions, with TTL
+and a stream; its items and access patterns are in [serverless.md](deployment/serverless.md#tasks).
+There is no schema to migrate: the shape of an item is the Go code's. The Quarkus backend's
+PostgreSQL schema, managed by Liquibase with native enum types, went with it (#559).
 
 ## Configuration
 
-One `application.properties` with profile prefixes (`%prod.`, `%dev,test.`, `%qa.`) rather
-than separate files per environment, so the differences between environments are visible
-side by side. Secrets are never checked in: production reads Google credentials from
-environment variables, and `.env.example` documents which ones. The dev and test profiles
-need no secrets at all, because they point at a local Keycloak with throwaway credentials.
-
-Dev and test deliberately leave the datasource URL and the OIDC issuer *unset*, which is
-what makes Quarkus Dev Services start PostgreSQL and Keycloak automatically.
+The Go backend reads its configuration from environment variables only, set by OpenTofu in AWS
+and by `docker-compose.e2e.serverless.yml` locally; the secrets (the Google client's) come from
+Secrets Manager in AWS, never from the repository. The local stack needs no secret at all, because
+it points at a local Keycloak with throwaway credentials.
 
 ## Containers and deployment
 
-The backend image is built by **Jib** rather than from a Dockerfile — `./mvnw package
--Dquarkus.container-image.build=true` — and published, like the frontend's, for `amd64` and `arm64`
-(#249), on an explicitly pinned base of our own, `jre-runtime`
-(Temurin's Java 25 JRE on UBI micro, `deployment/jre-runtime/`). The pin matters: Jib's default
-base ships JDK 21 and cannot load this code's class files. There are no Dockerfiles under
-`backend/` at all: the four Quarkus generated were unused, two of them JDK 17 based, and all
-four were deleted.
-
 The frontend image is a two-stage Dockerfile at `frontend/docker/Dockerfile`: build with
-Node, serve with httpd.
+Node, serve with httpd. It is built for the end-to-end stack only; in AWS the built files go to S3.
+`serverless/Dockerfile` builds the Go backend's image for the same stack; on Lambda the functions
+are zips, built by `serverless/build.sh`.
 
 `deployment/` holds everything that deploys the app. `deployment/docker/` has the Compose
-stacks that wire the pieces together — [local-development.md](local-development/index.md)
-describes both — and `deployment/aws-tofu/` has the AWS infrastructure, written in
-OpenTofu; [deployment.md](deployment/index.md) describes what it creates. Nothing about the
-containers' backend assumes AWS: it is a stateless container reading its configuration from the
-environment, plus a PostgreSQL it connects to by URL. The Go backend, in `serverless/`, is the
-opposite, and [Two architectures](#two-architectures) says what that trades.
+stack that wires the pieces together — [local-development.md](local-development/index.md)
+describes it — and `deployment/aws-tofu/` has the AWS infrastructure, written in
+OpenTofu; [deployment.md](deployment/index.md) describes what it creates. The Go backend is tied
+to AWS, and [Two architectures](#two-architectures) says what that trades.

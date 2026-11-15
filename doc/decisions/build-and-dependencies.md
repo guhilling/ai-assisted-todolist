@@ -2,7 +2,11 @@
 
 ## Jib with a pinned Java 25 base image
 
-*Accepted · 2026-09-25 · #14*
+*Superseded · 2026-09-25 · #14 · by #559*
+
+**Since #559 there is no Jib build.** The Quarkus backend went, and with it the image this chose a
+base for; the Go backend is built into Lambda zips (`serverless/build.sh`). The tag
+`pre-serverless` keeps the build. What follows is why the image was built that way.
 
 **Decision.** The backend image is built by Jib onto a pinned Java 25 base image — since #66 our
 own `jre-runtime`, Temurin's JRE on UBI micro
@@ -59,7 +63,10 @@ resolves `quay.io/ghilling/jre-runtime`, the tag and the digest, with the `docke
 
 ## sun_checks with documented relaxations
 
-*Accepted · 2026-09-25 · #14*
+*Superseded · 2026-09-25 · #14 · by #559*
+
+**Since #559 there is no Checkstyle.** It checked the Quarkus backend's Java, which went; the Go
+code has gofmt and `go vet` (Serverless CI). What follows is the Java style it enforced.
 
 **Decision.** Checkstyle's `sun_checks.xml` as the style baseline, with a short list of
 relaxations recorded in the header of `backend/checkstyle.xml`, and type-level Javadoc
@@ -95,6 +102,11 @@ which matters when redistributing someone else's Apache-licensed work and there 
 ## A release is a git tag, and the version lives nowhere else
 
 *Accepted · 2026-09-26 · #20*
+
+Revised in part on 2026-11-15 (#559): there is no `pom.xml` and no `${revision}` any more, and a
+release publishes no container images; the tag's version goes to the Go functions'
+`TASKFEST_VERSION` and the frontend build instead ([releasing.md](../releasing.md)). The tag as
+the only place the version is written stands.
 
 **What.** Pushing `v1.2.3` runs `release.yml`, which builds at that version and publishes
 container images tagged `1.2.3`. `backend/pom.xml` declares `<version>${revision}</version>`
@@ -141,6 +153,10 @@ A pre-push hook was left out, since nothing could enforce it.
 ## SNAPSHOT dependencies fail every build, not just releases
 
 *Accepted · 2026-09-26 · #20*
+
+Revised in part on 2026-11-15 (#559): the Maven half, `requireReleaseDeps` and
+`requireReleaseVersion`, went with the Quarkus backend. The npm check stands: `gate` runs it for
+the frontend, and Mobile CI for the app on every pull request.
 
 **What.** `requireReleaseDeps` runs at `validate` on every backend build. `requireReleaseVersion`
 is release-only, in the `release` profile. The frontend's counterpart,
@@ -220,6 +236,10 @@ behind the account rather than the repository API.
 
 *Accepted · 2026-09-26 · #20*
 
+Revised in part on 2026-11-15 (#559): `java-kotlin` and its manual Maven build went with the
+Quarkus backend; `codeql.yml` analyses `javascript-typescript` and `go`. Unfiltered by path, it
+stands.
+
 **What.** `codeql.yml` analyses `java-kotlin` and `javascript-typescript` on every push to
 `main`, every pull request, and weekly. The Java build mode is `manual`, compiling with
 `-DskipTests -Dcheckstyle.skip -Dquarkus.build.skip`.
@@ -256,7 +276,12 @@ not something a repository supplies. It is not a sign of a missing
 
 ## The images are published for amd64 and arm64
 
-*Accepted · 2026-10-09 · #251*
+*Superseded · 2026-10-09 · #251 · by #559*
+
+**Since #559 no image is published.** The Quarkus backend's image went with it, and the
+frontend's, which only the local container stack pulled, with that stack; both images of the
+end-to-end stack are built where it runs. Released images stay on Quay. What follows is why they
+were multi-platform.
 
 **Decision.** `taskfest-backend` and `taskfest-frontend` are each one image index with an `amd64`
 and an `arm64` image, for `latest` and for every release (#249). An Apple-silicon Mac without
@@ -406,7 +431,10 @@ it applies to taint findings shows after the merge; if not, the gate stays red a
 
 ## Java stays on its long-term support releases
 
-*Accepted · 2026-11-14 · #545*
+*Superseded · 2026-11-14 · #545 · by #559*
+
+**Since #559 no Java runtime is shipped.** The rule chose the JRE of the Quarkus backend's image,
+which went, and Renovate's rule with it. Maestro's JDK in Mobile CI was never covered by it.
 
 **Decision.** The JRE under the backend image, Temurin and the `jre-runtime` image built from it,
 moves only between Java's long-term support releases: 25 now, 29 from September 2027. Renovate's

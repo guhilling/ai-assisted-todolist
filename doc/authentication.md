@@ -1,7 +1,11 @@
 # Authentication
 
-This chapter describes the Quarkus backend, which runs today. The Go backend that replaces it
-(#547) signs in the same way, except for what follows from two decisions Gunnar made on #549:
+This chapter was written for the Quarkus backend, which served TaskFest until the Go backend
+(#547) replaced it, and still describes the design as Quarkus implemented it: its configuration
+keys, tenants and tests below are in the tag `pre-serverless` since #559; #613 rewrites it for the
+Go backend. The Go backend signs in
+the same way, with the same paths, providers and rules, except for what follows from two decisions
+Gunnar made on #549:
 
 - The website's session is stored in DynamoDB rather than carried in an encrypted cookie, so
   signing out ends it on the server too.

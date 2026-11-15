@@ -1,5 +1,12 @@
 # The database
 
+**Status: the containers' database, without a backend since #559.** RDS serves only the Quarkus
+backend, whose code is in the tag `pre-serverless`; the Go backend keeps its data in DynamoDB
+([serverless.md](serverless.md#restoring-the-table) has its restores). The instance and its
+snapshots stay until the containers' infrastructure is removed, and `env.sh` still creates and
+restores it as below. The deploy that took a snapshot before a migration, `deploy-backend.yml`,
+went with the backend, so no new pre-release snapshot is taken.
+
 **Migration** is a one-off ECS task running Liquibase, never the application. `migrate-at-start`
 stays on for dev and test, where overlap cannot happen, and off everywhere else.
 

@@ -20,8 +20,8 @@ application this small:
 - **The domain is deliberately modest** so that attention goes to the process rather than
   to domain complexity. There is no sharing between users, no recurrence, and no reminder
   beyond the apps' one on the due day.
-- **The stack is deliberately current** — Quarkus 3, Java 25, React 19, TypeScript 7, and
-  Expo for the apps — because working near the edge is where the friction, and therefore the
+- **The stack is deliberately current** — Go on AWS Lambda, React 19, TypeScript 7, and Expo
+  for the apps — because working near the edge is where the friction, and therefore the
   learning, is. Renovate keeps it there.
 - **Clarity beats speed.** Explanations and commit messages are expected to say *why*, not
   just *what*. A change that works but leaves nobody wiser has missed the point.
@@ -32,7 +32,7 @@ These follow from the goal. Those this repository shares with Gunnar's other rep
 stated in full in the
 [shared rules](https://github.com/guhilling/conventions/blob/main/plugins/conventions/rules.md)
 of the `conventions` Claude Code plugin from the conventions repository, and the rest in the
-`CLAUDE.md` files at the repository root and in `backend/`, `frontend/` and `mobile/`:
+`CLAUDE.md` files at the repository root and in `serverless/`, `frontend/` and `mobile/`:
 
 - **Ask, don't guess.** An underspecified requirement is surfaced, not silently resolved
   with a plausible default. A wrong guess that compiles is the expensive failure mode.

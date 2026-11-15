@@ -11,15 +11,7 @@
   "customManagers": [
     {
       "customType": "regex",
-      "description": "The Jib base image, pinned by tag and digest. The regex versioning reads jre-runtime's dated tags (<temurin>-<yyyymmdd[hhmm]>): Temurin's major.minor.patch first, then the publish date, which also orders a Temurin respin (25.0.5.1 after 25.0.5) and its own build number correctly. The moving tags (25, 25.0.4.1_1) carry no date, do not match, and so are never offered -- loose versioning ranked the bare 25 highest and would have automerged the pin onto a floating tag. It lives in a Quarkus properties file, which no built-in manager reads: the Maven manager updates dependency versions, not a container reference, so moving it into pom.xml would not have helped either.",
-      "managerFilePatterns": ["/^backend/src/main/resources/application\\.properties$/"],
-      "matchStrings": ["quarkus\\.jib\\.base-jvm-image=(?<depName>[^:\\s]+):(?<currentValue>[^@\\s]+)@(?<currentDigest>sha256:[0-9a-f]+)"],
-      "versioningTemplate": "regex:^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(?:\\.\\d+)?_\\d+-(?<build>\\d{8,12})$",
-      "datasourceTemplate": "docker"
-    },
-    {
-      "customType": "regex",
-      "description": "The pinned OpenTofu version in the CI workflow. The github-actions manager updates the action reference, not an input passed to it, so without this the pin would never move -- the same gap as the Jib base image above. The pin itself is deliberate: tofu fmt output has changed between minor releases, so CI and the developer machine must agree.",
+      "description": "The pinned OpenTofu version in the CI workflow. The github-actions manager updates the action reference, not an input passed to it, so without this the pin would never move. The pin itself is deliberate: tofu fmt output has changed between minor releases, so CI and the developer machine must agree.",
       "managerFilePatterns": ["/^\\.github/workflows/tofu-ci\\.yml$/"],
       "matchStrings": ["tofu_version:\\s*'(?<currentValue>\\S+)'"],
       "depNameTemplate": "opentofu/opentofu",
@@ -83,11 +75,6 @@
       "automerge": false
     },
     {
-      "description": "One pull request for the Quarkus platform rather than one per artifact, because the BOM and the extensions have to move together.",
-      "matchPackageNames": ["io.quarkus:**", "io.quarkus.platform:**"],
-      "groupName": "Quarkus"
-    },
-    {
       "description": "React and its type definitions are a set; splitting them produces pull requests that cannot pass tsc on their own.",
       "matchPackageNames": ["react", "react-dom", "@types/react", "@types/react-dom"],
       "groupName": "React"
@@ -103,16 +90,6 @@
       "description": "Test tooling churns often and cannot break production, so it travels together.",
       "matchPackageNames": ["vitest", "@vitest/**", "@testing-library/**", "jsdom", "@playwright/test"],
       "groupName": "frontend test tooling"
-    },
-    {
-      "description": "The base-image chain at any time, not in the Monday batch: a fixed vulnerability in the backend image (#315) arrives as a new ubi-micro or Temurin, becomes a jre-runtime build, and only then reaches the backend's pin. Each step waiting for a Monday is what kept a fix that existed on Friday out of the backend. Everything else stays weekly.",
-      "matchPackageNames": ["registry.access.redhat.com/ubi10/ubi-micro", "docker.io/library/eclipse-temurin", "quay.io/ghilling/jre-runtime"],
-      "schedule": ["at any time"]
-    },
-    {
-      "description": "Java's long-term support releases only, for the JRE the backend image is built on (#545): 25 now, 29 when it comes (September 2027). A release in between, like 27, gets updates only until the next one six months later, so taking it would mean another major update every half year for nothing the backend needs. Extend the list when 29 is due.",
-      "matchPackageNames": ["docker.io/library/eclipse-temurin", "quay.io/ghilling/jre-runtime"],
-      "allowedVersions": "/^(25|29)\\./"
     },
     {
       "description": "oapi-codegen, the Go backend's contract generator (#548). It is a `tool` in serverless/go.mod, which Go always lists as an indirect requirement, and Renovate leaves indirect Go dependencies alone unless told otherwise.",

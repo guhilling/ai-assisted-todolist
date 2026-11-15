@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "description": "Browser end-to-end tests for TaskFest: against the deployment/docker/docker-compose.e2e.yml stack, and live against a deployed environment (playwright.live.config.ts).",
+  "description": "Browser end-to-end tests for TaskFest: against the deployment/docker/docker-compose.e2e.serverless.yml stack, and live against a deployed environment (playwright.live.config.ts).",
   "scripts": {
     "test": "playwright test",
     "report": "playwright show-report",

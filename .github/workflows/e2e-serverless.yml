@@ -1,11 +1,9 @@
 name: End-to-end tests (Go backend)
 
-# The end-to-end suite against the Go backend (#556), which runs beside the containers while the
-# move is tried: its own stack, the frontend and Keycloak shared with e2e.yml's
-# (docker-compose.e2e.serverless.yml). A workflow of its own, so each stack runs when its own
-# inputs change -- a change to the Go backend alone builds no Quarkus image, and the other way round
-# -- and both when the frontend, the suite or Keycloak do. On amd64 alone: the Lambda functions are
-# built for arm64 and tested by Serverless CI. It reads e2e.yml's caches and saves none.
+# The browser suite against the whole stack: the Go backend, the frontend's image and Keycloak
+# (docker-compose.e2e.serverless.yml). Until #559 e2e.yml ran it against the Quarkus backend too,
+# collected the live checks and saved the caches; this workflow does both now. On amd64 alone: the
+# Lambda functions are built for arm64 and tested by Serverless CI.
 
 on:
   pull_request:
@@ -14,7 +12,6 @@ on:
       - 'frontend/**'
       - 'e2e/**'
       - 'keycloak/**'
-      - 'deployment/docker/docker-compose.e2e.yml'
       - 'deployment/docker/docker-compose.e2e.serverless.yml'
       - '.github/workflows/e2e-serverless.yml'
   push:
@@ -24,7 +21,6 @@ on:
       - 'frontend/**'
       - 'e2e/**'
       - 'keycloak/**'
-      - 'deployment/docker/docker-compose.e2e.yml'
       - 'deployment/docker/docker-compose.e2e.serverless.yml'
       - '.github/workflows/e2e-serverless.yml'
 
@@ -44,7 +40,10 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: '24'
+      # Read on every branch, saved from main only, with no fallback there so that a new entry starts
+      # clean: see doc/testing/continuous-integration.md.
       - name: Restore npm's cache
+        id: npm-cache
         uses: actions/cache/restore@v6
         with:
           path: ~/.npm
@@ -68,7 +67,11 @@ jobs:
       - name: Wait for the frontend
         run: curl -sS --retry 60 --retry-delay 2 --retry-all-errors --fail http://localhost:3000/api/auth/providers
 
+      # The system packages the browser needs, as apt downloaded them: on amd64 Ubuntu's mirror took
+      # eight minutes over them, mostly fonts. apt finds them here and downloads only what changed
+      # since. Read on every branch, saved from main only, as above.
       - name: Restore the browser's system packages
+        id: browser-packages
         uses: actions/cache/restore@v6
         with:
           path: ~/apt-archives
@@ -83,6 +86,17 @@ jobs:
           printf 'Dir::Cache::Archives "%s";\nAPT::Keep-Downloaded-Packages "true";\n' "$HOME/apt-archives" \
             | sudo tee /etc/apt/apt.conf.d/99-browser-packages
           npx playwright install --with-deps chromium
+          # apt wrote them as root; the cache is saved as the runner.
+          sudo chown -R "$USER" ~/apt-archives
+
+      - name: Collect the live checks
+        # They run against a deployed environment, after a deploy (live-tests.yml), not here; but
+        # a syntax or import error in them should fail this pull request, not the next release.
+        working-directory: e2e
+        run: |
+          npx playwright test -c playwright.live.config.ts --list
+          npx playwright test -c playwright.live-signed-in.config.ts --list
+          npx playwright test -c playwright.live-clear.config.ts --list
 
       - name: Run the end-to-end tests
         working-directory: e2e
@@ -103,3 +117,15 @@ jobs:
       - name: Stop the stack
         if: always()
         run: docker compose down -v
+      - name: Save the browser's system packages
+        if: github.ref == 'refs/heads/main' && steps.browser-packages.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: ~/apt-archives
+          key: ${{ steps.browser-packages.outputs.cache-primary-key }}
+      - name: Save npm's cache
+        if: github.ref == 'refs/heads/main' && steps.npm-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: ~/.npm
+          key: ${{ steps.npm-cache.outputs.cache-primary-key }}

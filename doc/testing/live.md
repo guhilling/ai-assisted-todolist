@@ -139,12 +139,11 @@ signing in first:
 passed, the signed-in scenarios, then the app's flows:
 
 - **After every deploy to qa.** `deploy-frontend.yml` calls it once the new frontend is in place,
-  which in a release is the last step, so both halves are new. `deploy-backend.yml` calls it when
-  started by hand — a rollback, say — unless *Run the live tests afterwards* is unticked; not from
-  a release, where the frontend deploy follows anyway.
+  which in a release is the last step, so both halves are new. A deploy of the Go backend alone
+  (`deploy-serverless.yml`) does not call it; run it by hand afterwards.
 - **By hand**, from the Actions tab.
-- **On every pull request touching `e2e/`**, `e2e.yml` only *collects* them (`--list`), so a
-  syntax or import error fails the pull request rather than the next deploy.
+- **On every pull request touching `e2e/`**, `e2e-serverless.yml` only *collects* them
+  (`--list`), so a syntax or import error fails the pull request rather than the next deploy.
 
 A failure fails the deploying run visibly. It rolls nothing back; whether to is a person's
 decision. On failure the Playwright report is uploaded as an artifact, and for the app,

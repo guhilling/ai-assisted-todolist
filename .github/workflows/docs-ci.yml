@@ -43,25 +43,14 @@ jobs:
             exit 1
           }
 
-  postgres-version:
-    name: One PostgreSQL version
-    runs-on: ubuntu-26.04
-    steps:
-      - uses: actions/checkout@v7
-      - name: Check every PostgreSQL pin agrees
-        # Dev Services for %dev and %test, both Compose stacks, and the local-development doc
-        # each name a version. They drifted to 17 and 18 once already, which matters because the
-        # enum-type tests run against whatever Dev Services starts.
-        run: python3 .github/scripts/check-postgres-version.py
-
   cors-rule:
     name: One attachment CORS rule
     runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v7
       - name: Check the CORS rule is the same in AWS and the end-to-end stack
-        # attachments.tf and the LocalStack init script each carry the bucket's rule (#204); the
-        # end-to-end run is only evidence about AWS while the two agree.
+        # attachments.tf and the end-to-end stack's init script each carry the bucket's rule (#204);
+        # the end-to-end run is only evidence about AWS while the two agree.
         run: python3 .github/scripts/check-cors-rule.py
 
   script-tests:

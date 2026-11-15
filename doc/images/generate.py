@@ -452,16 +452,15 @@ def identities(p: Palette) -> str:
 
 
 def workflow(p: Palette) -> str:
-    """What every change passes through, the one gate that deliberately does not block, and
-    what a release leaves to watch."""
+    """What every change passes through, and what a release leaves to watch."""
     w, h = 1090, 520
     row_y, box_h = 172, 56
     gates = [
-        "Checkstyle + Javadoc",
-        "Tests, coverage 95 / 90",
+        "gofmt, go vet, oxlint",
+        "Tests, frontend coverage gate",
+        "Contract checks",
         "CodeQL",
         "End-to-end in a browser",
-        "PIT mutation \u00b7 reports only",
     ]
     gate_h, gap, pill_x, pill_w = 34, 12, 675, 210
     stack_h = len(gates) * gate_h + (len(gates) - 1) * gap
@@ -495,8 +494,7 @@ def workflow(p: Palette) -> str:
 
     for i, name in enumerate(gates):
         y = pill_top + i * (gate_h + gap)
-        report_only = i == len(gates) - 1
-        parts.append(box(pill_x, y, pill_w, gate_h, [name], p, dashed=report_only, radius=8))
+        parts.append(box(pill_x, y, pill_w, gate_h, [name], p, radius=8))
 
     parts += [
         # The loop closes: nobody starts the next change by hand.
@@ -516,10 +514,10 @@ def workflow(p: Palette) -> str:
     ]
     aria = (
         "Every change starts from a question rather than a guess, then a failing test, then "
-        "the change and its documentation in one commit. A pull request must pass Checkstyle, "
-        "the tests and coverage gate, CodeQL, and the browser end-to-end run before it is "
-        "squashed onto main. SonarCloud then analyses main, and a failed quality gate becomes "
-        "a GitHub issue. PIT mutation testing reports but does not block. A git tag on main "
+        "the change and its documentation in one commit. A pull request must pass gofmt, go vet "
+        "and oxlint, the tests and the frontend's coverage gate, the contract checks, CodeQL, "
+        "and the browser end-to-end run before it is squashed onto main. SonarCloud then analyses main, and a "
+        "failed quality gate becomes a GitHub issue. A git tag on main "
         "cuts a release, which is deployed to qa and tested there from outside, the website's "
         "scenarios and the app's flows each recorded; the newest run's videos are published on "
         "the documentation site."

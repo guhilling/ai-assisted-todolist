@@ -37,8 +37,8 @@ Why `main` is published as well as the releases: a release-only spec answers wha
 release promised, never what the code currently does. The `api/main` directory is this project's
 `-SNAPSHOT`.
 
-Why the version is patched for a tag: `info.version` comes from the Maven revision, which is
-permanently `1.0.0-SNAPSHOT` on main (see `doc/releasing.md`), so the committed file at tag
+Why the version is patched for a tag: `info.version` in the committed contract is permanently
+`1.0.0-SNAPSHOT` on main (see `doc/releasing.md`), so the committed file at tag
 `v1.2.3` claims to be a snapshot. The tag is the version, so it is written in. The release assets
 need no such patching -- the release build generates them at the real version -- which is why
 those, not these, are the authoritative download.
@@ -91,7 +91,7 @@ SNAPSHOT_VERSION_LINE = "\n  version: 1.0.0-SNAPSHOT\n"
 # the repository they govern, because their own headings are all "CLAUDE.md".
 INSTRUCTIONS = [
     ("index", "CLAUDE.md", "Repository"),
-    ("backend", "backend/CLAUDE.md", "Backend"),
+    ("serverless", "serverless/CLAUDE.md", "Backend"),
     ("frontend", "frontend/CLAUDE.md", "Frontend"),
     ("mobile", "mobile/CLAUDE.md", "Mobile app"),
 ]
@@ -733,8 +733,8 @@ def build_instructions(site: pathlib.Path, pages: list[DocPage]) -> None:
     """
     Renders the CLAUDE.md files, which are the working agreement this repository is built under.
 
-    Each is rendered from where it sits, because its links are relative to that directory: the
-    backend's file means the backend's pom.xml when it says so.
+    Each is rendered from where it sits, because its links are relative to that directory: a
+    link in mobile/CLAUDE.md means a file under mobile/.
     """
     out = site / "instructions"
     out.mkdir(parents=True, exist_ok=True)

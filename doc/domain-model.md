@@ -52,6 +52,12 @@ past the window, and uploads that were never confirmed.
 
 ## Invariants, and where each is enforced
 
+The column on the right names where the Quarkus backend enforced each rule, which is in the tag
+`pre-serverless` since #559, until #613 names the Go backend's places. It keeps every one of them: the domain's in
+`serverless/internal/board` (`rules.go`, with its tests ported from these), ownership in every
+key `internal/store` reads, and the deletion replay in `internal/replay`
+([serverless.md](deployment/serverless.md)). Re-pointing each row at the Go code is still to do.
+
 | Invariant | Enforced by |
 | --- | --- |
 | A task always has an owner | Not-null column and `@ManyToOne` on `Task.owner`; the owner is set from the token, never from the request |
@@ -97,14 +103,13 @@ that does not exist — both yield 404 — which leaks nothing about other users
   wait out the undo window detached, because a file once deleted from S3 cannot be brought back
   by re-creating the task the way its fields can.
 - **No registration.** A `User` row appears the first time an authenticated request arrives
-  with an email the application has not seen. See `UserService.getOrCreateByEmail`, which
-  is a check-then-act: the unique email constraint decides the winner when two first
-  requests arrive together, and the loser re-reads instead of failing.
+  with an email the application has not seen. The Quarkus backend's
+  `UserService.getOrCreateByEmail` was a check-then-act: the unique email constraint decided the
+  winner when two first requests arrived together, and the loser re-read instead of failing.
 
 ## Persistence
 
-`Task` maps to `task`, `User` to `app_user` (`user` is reserved in PostgreSQL), `Attachment`
-to `attachment`, whose file is the S3 object named by its `objectKey`, a random UUID. Both are
-Panache active-record entities. The schema is created and evolved by Liquibase changelogs
-under `backend/src/main/resources/db/changes/`; the third of these is the `todoitem` →
-`task` rename, which is why the changelog history and the current model differ in naming.
+Tasks, drafts and attachments' records are items in the Go backend's one DynamoDB table; the keys
+and access patterns are in [serverless.md](deployment/serverless.md#tasks), and an attachment's
+file is the S3 object its record names. Until #559 they were PostgreSQL tables — `task`,
+`app_user`, `attachment` — evolved by Liquibase changelogs, which the tag `pre-serverless` keeps.

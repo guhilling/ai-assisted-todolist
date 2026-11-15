@@ -41,7 +41,7 @@ half.
   these resources runs, unless `env.sh up` starts them.
 - **Metrics:** the backend exposes `/q/metrics` and tests it (`MetricsResourceTest`), but nothing in
   AWS scrapes it; the plan to have the ECS agent do so was never built. The monitoring server's
-  trial scraped it locally (`doc/local-development/monitoring.md`).
+  trial scraped it locally, with a Compose overlay that went with the Quarkus backend (#559).
 
 **For both:**
 
@@ -154,9 +154,9 @@ its provider, so `user` alone is ambiguous once there is more than one.
 
 **Personal data:** the only one is **`user`, the OpenID Connect `sub`** — a pseudonymous id the
 identity provider assigns, which says nothing about the person without the provider's records.
-Email addresses, names, tokens and cookies are never logged; `RequestLog` and `SignInLog` (in
-`backend/src/main/java/de/hilling/taskfest/logging/`) say so where the lines are written, and
-their tests pin it. Retention is the log group's: 30 days in qa, 90 in prod.
+Email addresses, names, tokens and cookies are never logged; the Quarkus backend's `RequestLog`
+and `SignInLog` said so where the lines were written, and their tests pinned it (in the tag
+`pre-serverless` since #559). Retention is the log group's: 30 days in qa, 90 in prod.
 
 **Saved queries.** CloudWatch → *Logs Insights* → *Queries*, in the folder `taskfest-<env>`;
 defined in `deployment/aws-tofu/modules/environment/ecs.tf`. Choose the time range in the

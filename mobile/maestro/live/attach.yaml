@@ -1,6 +1,6 @@
 # Attaches an image to a task on qa through Android's file picker, sees it on the board, and opens
 # it (#278): uploaded straight to qa's attachment bucket, and shown from there by a signed link --
-# the bucket's CORS rule and the links are what the Compose stack's LocalStack cannot prove.
+# the bucket's CORS rule and the links are what the Compose stack's SeaweedFS cannot prove.
 appId: de.hilling.taskfest.qa
 name: Attach an image on qa
 ---
