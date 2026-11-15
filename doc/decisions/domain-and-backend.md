@@ -2,7 +2,10 @@
 
 ## Panache active-record entities
 
-*Accepted · 2026-09-25 · #14*
+*Superseded · 2026-09-25 · #14 · by #559*
+
+**Since #559 there are no entities.** The Go backend keeps its data as DynamoDB items
+([serverless.md](../deployment/serverless.md)). What follows is the Quarkus backend's model.
 
 **Decision.** Entities extend `PanacheEntityBase`, expose public fields and carry their own
 queries. No repository layer.
@@ -17,7 +20,10 @@ objects know about persistence.
 
 ## Liquibase, not Hibernate-managed schema
 
-*Accepted · 2026-09-25 · #14*
+*Superseded · 2026-09-25 · #14 · by #559*
+
+**Since #559 there is no relational schema.** The Go backend's table has none to migrate. What
+follows is how the Quarkus backend's was managed; the tag `pre-serverless` keeps the changelogs.
 
 **Decision.** `quarkus.hibernate-orm.schema-management.strategy=validate`, with Liquibase
 changelogs applied at startup.
@@ -62,7 +68,10 @@ than a risk: correcting a date you typed wrong is now possible.
 
 ## The database defines the enums, and the changelogs were squashed to say so
 
-*Accepted · 2026-09-30 · #79*
+*Superseded · 2026-09-30 · #79 · by #559*
+
+**Since #559 there is no PostgreSQL schema.** The states and importances are checked by the Go
+backend and the contract's enums. What follows is why the Quarkus backend's database defined them.
 
 **Decision.** `state` and `importance` are native PostgreSQL enum types, `task_state` and
 `task_importance`, created in `001-baseline.xml`. That file is the whole schema as one
@@ -115,6 +124,10 @@ does not.
 
 *Accepted · 2026-09-30 · #80*
 
+Revised in part on 2026-11-15 (#559): there is no schema to carry the constraints any more. The
+bounds stand: the Go backend checks the same ones (`serverless/internal/board/rules.go`), and the
+contract states them.
+
 **Decision.** Jakarta Bean Validation annotations on the response records, not only on the
 requests, with these bounds:
 
@@ -165,7 +178,11 @@ remains a devDependency and `dependencies` is still React alone. The bundle grew
 
 ## Wire identifiers are constants, and a GET's query count is asserted
 
-*Accepted · 2026-09-30 · #84*
+*Superseded · 2026-09-30 · #84 · by #559*
+
+**Since #559 neither is there.** The constants were the Quarkus backend's Java, and the query
+count its SQL; the Go backend's wire types are generated from the contract, and each request reads
+the table by key. What follows is why the Quarkus backend did both.
 
 **Decision.** The OpenID Connect claim names this application reads live in `OidcClaims`, and
 `TaskQueryCountTest` holds the list endpoint to a constant number of database statements.

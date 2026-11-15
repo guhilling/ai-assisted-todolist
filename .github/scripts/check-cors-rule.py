@@ -7,11 +7,12 @@ Run it from anywhere:
     python3 .github/scripts/check-cors-rule.py
 
 The rule lets the site PUT and GET files straight to and from S3 (#204), and it lives twice: in the
-OpenTofu module (`attachments.tf`), for the real buckets, and in each Compose end-to-end stack's
-init script, which the browser suite runs against: LocalStack's for the Quarkus backend
-(`e2e/localstack-init.sh`), SeaweedFS's for the Go backend (`e2e/serverless-init.sh`, #556). The
-point of those is to be the first: a header the frontend starts sending, added to one rule
-and not the other, would have the end-to-end run pass where qa fails, or the other way round.
+OpenTofu module (`attachments.tf`), for the real buckets, and in the Compose end-to-end stack's
+init script, which the browser suite runs against (`e2e/serverless-init.sh`, #556). The point of
+that one is to be the first: a header the frontend starts sending, added to one rule and not the
+other, would have the end-to-end run pass where qa fails, or the other way round. The Quarkus
+backend's stack had a rule of its own in LocalStack until #559, which `localstack_rule` is named
+after.
 
 The methods, the headers and the max age must agree. The origins differ by design -- the site's
 own address in AWS, http://localhost:3000 in the stack -- and are not compared. Headers are
@@ -25,9 +26,8 @@ import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
 TOFU = ROOT / "deployment" / "aws-tofu" / "modules" / "environment" / "attachments.tf"
-LOCALSTACK = ROOT / "e2e" / "localstack-init.sh"
 # Every end-to-end stack's init script, each compared with AWS's rule.
-STACKS = [LOCALSTACK, ROOT / "e2e" / "serverless-init.sh"]
+STACKS = [ROOT / "e2e" / "serverless-init.sh"]
 
 
 def _strings(hcl_list: str) -> list:
@@ -91,7 +91,7 @@ def main() -> int:
             failed = True
     if failed:
         return 1
-    print("The attachment bucket's CORS rule is the same in AWS and both end-to-end stacks.")
+    print("The attachment bucket's CORS rule is the same in AWS and the end-to-end stack.")
     return 0
 
 

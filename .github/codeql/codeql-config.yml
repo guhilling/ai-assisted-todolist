@@ -14,10 +14,7 @@ name: ai-assisted-todolist
 queries:
   - uses: security-extended
 
-# IMPORTANT: paths and paths-ignore apply to javascript-typescript and to go, not to
-# java-kotlin, whose scope is whatever the build in codeql.yml actually compiles. That build passes -Dmaven.test.skip=true, so
-# backend/src/test is never compiled and is out of scope by construction rather than by a
-# rule in this file. Adding backend paths below would look like it worked and would not.
+# paths-ignore applies to both languages analysed here, javascript-typescript and go.
 paths-ignore:
   # Test code. Scanning it mostly reports the fixtures as findings: hard-coded test
   # credentials are the point of a test, not a vulnerability in the product.

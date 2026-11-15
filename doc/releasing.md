@@ -18,17 +18,13 @@ tag again with `-a`: the two lines under [If a release fails](#if-a-release-fail
 
 ## The version lives in the tag and nowhere else
 
-There is no version to bump before a release and none to bump after one. `backend/pom.xml`
-declares `<version>${revision}</version>` with the property defaulting to `1.0.0-SNAPSHOT`,
-and the release build overrides it with `-Drevision=1.0.0` taken from the tag name. The
-frontend's `package.json` says `0.0.0` and always will: the package is `private` and never
-published to npm, so nothing reads that field. The image tag carries the version instead.
-
-This is Maven's "CI-friendly version" mechanism. The usual caveat with it — that an
-installed or deployed `pom.xml` keeps the literal `${revision}` unless
-`flatten-maven-plugin` rewrites it — does not apply here, because no Maven artifact is
-published. Nothing outside this repository ever consumes the backend's POM. If that changes,
-`flatten-maven-plugin` becomes necessary.
+There is no version to bump before a release and none to bump after one. The release build
+hands the tag's version to what it builds: to the Go backend's functions as `TASKFEST_VERSION`
+(`serverless/build.sh`), which `GET /api/version` reports and which is `1.0.0-SNAPSHOT` for any
+other build, to the frontend build as `VITE_TASKFEST_VERSION`, and to the API contract through
+`doc/api/generate.py --version`. The frontend's `package.json` says `0.0.0` and always will: the
+package is `private` and never published to npm, so nothing reads that field. Until #559 the
+Quarkus backend's `pom.xml` carried `${revision}`, overridden from the tag the same way.
 
 Tags are `vMAJOR.MINOR.PATCH`, optionally with a suffix of dot-separated parts of letters and
 digits (`v1.1.0-rc.1`). The workflow's trigger matches those two shapes only, so an unrelated tag does not
@@ -57,10 +53,9 @@ request:
 
 1. move `doc/api/oldest-supported-release` forward to the oldest release the backend will still
    serve after the change;
-2. raise `taskfest.minimum-app-version` (`TASKFEST_MINIMUM_APP_VERSION`) to the first app release
-   that copes with it — `/api/version` announces it, and older apps ask their user to update. The
-   Go backend's default is `minimumAppVersion` in `serverless/internal/api/version.go`: raise both
-   while both backends run;
+2. raise the minimum app version, `minimumAppVersion` in `serverless/internal/api/version.go`
+   (`TASKFEST_MINIMUM_APP_VERSION` overrides it), to the first app release that copes with it —
+   `/api/version` announces it, and older apps ask their user to update;
 3. tag the next release as the next **major**.
 
 Before that, consider not breaking anything: a new endpoint or a new field beside the old one is
@@ -81,7 +76,7 @@ stays strict.
 **Several API versions at once**, should a breaking change ever be unavoidable: today's paths are
 version 1. A breaking change would add `/api/v2/...` beside them, from records of its own, with its
 own OpenAPI document and its own baseline, and v1 would stay served until
-`taskfest.minimum-app-version` no longer admits an app that uses it. Path versioning keeps the
+the minimum app version no longer admits an app that uses it. Path versioning keeps the
 CloudFront routing and the generated documents simple. None exists yet.
 
 ## Cutting a release from GitHub
@@ -99,7 +94,7 @@ its tests pin the rule down.
 
 The run's summary says the version, the step and oasdiff's reasons, in a dry run too. **A major for
 a break of the API is refused** until the two changes it needs have been made since the newest
-release: `doc/api/oldest-supported-release` moved forward and `taskfest.minimum-app-version` raised
+release: `doc/api/oldest-supported-release` moved forward and `minimumAppVersion` raised
 (their values, not the comments around them). Contract CI cannot insist on them alone: it compares
 with the oldest supported release only, so removing something added after that one passes it. A
 major asked for without a break needs neither. A real run then tags `main` and starts
@@ -107,34 +102,29 @@ major asked for without a break needs neither. A real run then tags `main` and s
 starts no workflow, GitHub's guard against runs starting runs. `release.yml` therefore also has a
 `workflow_dispatch` trigger, and refuses to run for anything but a tag `vX.Y.Z`. Its `announce`
 job creates the GitHub Release with the generated notes, as for a tag pushed by hand, so no
-Release exists before both images do.
+Release exists before its artifacts do.
 
 **Under 0.x** `auto` gives a minor, whatever the API did; a patch may be asked for. **1.0.0 is not cut here**: it is released by hand, together, and a `major` asked for
 under 0.x is refused. From then on, the API decides.
 
 The workflow refuses to run on any branch but `main`, and when `main` is already a final release;
 a pre-release (`-rc.1`, tagged by hand) on the same commit does not count. `release.yml` in turn
-refuses a tag that already has a GitHub Release, so starting it again by hand cannot push new
-images over a released version; when GitHub cannot say, it refuses as well.
+refuses a tag that already has a GitHub Release, so starting it again by hand cannot build a
+released version's artifacts again; when GitHub cannot say, it refuses as well.
 
 ## What the workflow does
 
 | Job | What it does |
 | --- | --- |
-| `gate` | Derives the version, refuses a lightweight tag and one that is not on `main`, then runs the full backend `verify` and the full frontend suite at the release version, and packs the frontend build — built with `VITE_TASKFEST_VERSION` from the tag, which the page's footer shows (a build that is no release says *Development build*) |
+| `gate` | Derives the version, refuses a lightweight tag and one that is not on `main`, writes the API contract at the release version, refuses a pre-release npm dependency, runs the full frontend suite, and packs the frontend build — built with `VITE_TASKFEST_VERSION` from the tag, which the page's footer shows (a build that is no release says *Development build*) |
 | `serverless` | Builds the Go backend's five functions once, with the version from the tag, which `GET /api/version` reports (#555), as `taskfest-serverless-<version>-<function>.zip` |
-| `publish` | Builds and pushes `taskfest-backend` and `taskfest-frontend` to Quay, tagged with the version, each for `amd64` and `arm64` in one image index, and checks both are there (#249) |
 | `announce` | Creates the GitHub Release — a pre-release, not the latest, for a tag with a suffix — with notes generated from the pull requests since the previous final release, so a final release's notes cover its pre-releases too, and attaches the API contract, `taskfest-frontend-<version>.tar.gz` — the build `deploy-frontend.yml` puts into a site bucket — and the Go backend's five zips, which `deploy-serverless.yml` deploys |
 | `mobile` | Once the release exists, builds the app's qa and prod variants for a final release, signed, and uploads them to TestFlight and Play internal testing through `mobile-release.yml`, once Gunnar approves the `app-stores` deployment in the run — see [Distribution to testers](mobile/distribution.md). A platform whose accounts are not set up yet is skipped |
-| `deploy-backend-qa`, `deploy-serverless-qa`, `deploy-frontend-qa` | Deploy a final release — not a pre-release — to qa, both backends first, through `deploy-backend.yml`, `deploy-serverless.yml` and `deploy-frontend.yml` — see [Deploying](deployment/deploying.md) and [the Go backend's deploy](deployment/serverless.md#deploying-a-release). A qa whose containers are down skips their deploy without failing the release, while the Go backend's functions, which are always there, are deployed regardless; a release that changes the database changelog takes the downtime path described below, and its frontend follows once both backends serve. prod is always deployed by hand |
+| `deploy-serverless-qa`, `deploy-frontend-qa` | Deploy a final release — not a pre-release — to qa, the Go backend first, through `deploy-serverless.yml` and `deploy-frontend.yml` — see [Deploying](deployment/deploying.md) and [the Go backend's deploy](deployment/serverless.md#deploying-a-release). The functions are always there, so they are deployed whether qa is up or not, and the frontend follows once they are. prod is always deployed by hand |
 
-**A release with a migration** reaches qa by itself, with a few minutes' downtime:
-`deploy-backend-qa` stops the backend, snapshots the database, migrates and starts the release
-(#215, [Deploying](deployment/deploying.md)), and `deploy-frontend-qa` follows as for any other
-release. For prod, the same two workflows are started by hand, and the backend's approval names
-the job `Deploy to prod WITH DOWNTIME (database migration)`. If the migration fails, the backend
-stays stopped, the frontend is not deployed, and the run summary names the snapshot to restore
-([The database](deployment/database.md)).
+Until #559 a release also published the Quarkus backend's and the frontend's images to Quay and
+deployed the backend's to qa's containers, `taskfest-backend:<version>`; the frontend image is
+built for the end-to-end stack only now. Those released images stay on Quay.
 
 **Releases up to v0.2.0 carry the old name.** Their images are `quay.io/ghilling/todo-backend`
 and `todo-frontend`, and their frontend archive is `todo-frontend-<version>.tar.gz`; everything
@@ -142,50 +132,31 @@ after the rename to TaskFest (#128) is `taskfest-*`. The old Quay repositories s
 and `deploy-frontend.yml` accepts either archive name, so an old release can still be deployed
 for a rollback.
 
-`gate` runs everything again rather than trusting the CI run on `main`. That is deliberate:
-`backend-ci.yml` and `frontend-ci.yml` are path-filtered, so for any given commit on `main`
-one of them may not have run at all, and the release checks below only exist in the release
-profile.
+`gate` runs the frontend's checks again rather than trusting the CI run on `main`. That is
+deliberate: `frontend-ci.yml` is path-filtered, so for any given commit on `main` it may not have
+run at all. The Go backend's functions are built by the `serverless` job, from the tag.
 
-## The no-snapshot checks
+## The no-pre-release check
 
-This is the part worth understanding, because there are two different mechanisms and only
-one of them is release-specific.
+npm has no equivalent of Maven's SNAPSHOT, so the analogous mistake is a semver pre-release:
+`-beta.2`, `-rc.1`, `-canary.a1b2c3`, which is what installing a `next` or `canary` dist-tag gives
+you. `frontend/scripts/check-no-prerelease-deps.mjs` reads `package-lock.json` — not
+`package.json`, because a caret range says nothing about what a transitive dependency actually
+resolved to — and fails naming each offender. Run it locally with `npm run check:deps`. `gate`
+runs it for the frontend, and Mobile CI for the app on every pull request. The Quarkus backend's
+counterpart, `maven-enforcer-plugin`'s `requireReleaseDeps` on every build, went with it (#559).
 
-**Backend, every build.** `maven-enforcer-plugin` runs `requireReleaseDeps` at `validate` on
-every single build, not only releases. A SNAPSHOT dependency is a mistake whenever it is
-introduced, so it fails immediately rather than being discovered at the worst moment. It
-names the offending coordinate:
-
-```
-Rule 0: RequireReleaseDeps failed with message:
-A release cannot depend on a SNAPSHOT. Replace the
-   org.example:deliberate-snapshot:jar:1.0-SNAPSHOT <--- is not a release dependency
-```
-
-**Backend, releases only.** `-Prelease` adds `requireReleaseVersion`, which fails if the
-artifact being built is itself a SNAPSHOT. On `main` it always would be, which is why it is
-in a profile rather than always on. In practice it catches a release workflow that somehow
-failed to pass `-Drevision`.
-
-**Frontend.** npm has no equivalent of a SNAPSHOT, so the analogous mistake is a semver
-pre-release: `-beta.2`, `-rc.1`, `-canary.a1b2c3`, which is what installing a `next` or
-`canary` dist-tag gives you. `frontend/scripts/check-no-prerelease-deps.mjs` reads
-`package-lock.json` — not `package.json`, because a caret range says nothing about what a
-transitive dependency actually resolved to — and fails naming each offender. Run it locally
-with `npm run check:deps`.
-
-## What a release publishes besides the images
+## What a release publishes
 
 Every release carries the API contract as downloadable assets: `openapi.yaml`,
 `openapi.json`, and one `<Name>.schema.json` per type. They are attached individually rather
 than as an archive so each has a citable URL, and the relative `$ref`s between the schemas
 still resolve because they name siblings.
 
-These are **regenerated during `gate`**, not taken from the commit. The committed
-`doc/api/openapi.yaml` says `1.0.0-SNAPSHOT`, because that is what `main`'s revision
-permanently is; `gate` builds with the revision overridden from the tag, so regenerating
-afterwards is what makes the attached spec claim the version it describes.
+These are **written again during `gate`**, not taken from the commit. The committed
+`doc/api/openapi.json` says `1.0.0-SNAPSHOT`, because that is what `main`'s version permanently
+is; `generate.py --version` writes the tag's version into the documents, which is what makes the
+attached spec claim the version it describes.
 
 The same contract is also on GitHub Pages, at
 [taskfest-docs.cloud.hilling.de](https://taskfest-docs.cloud.hilling.de/):
@@ -205,24 +176,11 @@ the site's videos page shows the release's own run. `pages.yml` rebuilds after a
 `Release` run by itself as well, but not after one `cut-release.yml` started: that run is
 started with a workflow's token, and its end sets off no other workflow.
 
-## `latest` is not moved by a release
-
-`publish-images.yml` pushes `latest` on every merge to `main`, and a release does not
-change that. So `latest` means the tip of `main`, and `1.0.0` means the release. The Compose
-stacks default to `latest`, which is what you want locally.
-
-This is worth knowing because it is the opposite of the usual container convention, where
-`latest` tracks the newest release. It is the pre-existing behaviour of this repository and
-a release was not allowed to start fighting `main` over the same tag. If the deployment
-story later wants `latest` to mean the newest release, the change belongs in
-`publish-images.yml` — stop it pushing `latest` — and in `release.yml` at the same time, not
-in one of them alone.
-
 ## If a release fails
 
-Nothing is published until `gate` is green, and the GitHub Release is not created until both
-images are pushed, so a failure part-way leaves no half-release except possibly one of the
-two images. Fix the cause on `main` through a pull request, then delete and re-push the tag:
+Nothing is published until `gate` is green, and the GitHub Release is not created until the Go
+backend's functions are built, so a failure part-way leaves no half-release. Fix the cause on
+`main` through a pull request, then delete and re-push the tag:
 
 ```bash
 git tag -d v1.0.0 && git push origin :refs/tags/v1.0.0

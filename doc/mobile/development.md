@@ -28,7 +28,7 @@ The `dev` variant runs against the end-to-end stack
 ([local-development/end-to-end-stack.md](../local-development/end-to-end-stack.md)):
 
 ```sh
-docker compose -f deployment/docker/docker-compose.e2e.yml up -d --wait
+docker compose -f deployment/docker/docker-compose.e2e.serverless.yml up -d --wait
 cd mobile && npm install
 npx expo run:ios          # needs Xcode; the simulator shares the Mac's localhost
 npx expo run:android      # needs the Android SDK and an emulator, then:

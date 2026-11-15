@@ -1,7 +1,7 @@
 name: SonarCloud
 
-# Runs after the merge, on main only -- not on pull requests. It re-runs the whole backend suite to
-# get its coverage, which made it the check every pull request waited for, including the many that
+# Runs after the merge, on main only -- not on pull requests. It re-runs the test suites to get
+# their coverage, which made it the check every pull request waited for, including the many that
 # change no code at all. Findings now arrive after the merge, and the quality gate is what makes
 # them impossible to miss: the job waits for it, fails when it fails, and sonar-gate-issue.py turns
 # a failed gate into one open GitHub issue (commented on while it stays red, closed when it is
@@ -30,24 +30,6 @@ jobs:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-
-      - uses: actions/setup-java@v6
-        with:
-          distribution: temurin
-          java-version: '25'
-      # Read on every branch, saved from main only, with no fallback there so that a new entry starts
-      # clean: see doc/testing/continuous-integration.md.
-      - name: Restore Maven's cache
-        id: maven-cache
-        uses: actions/cache/restore@v6
-        with:
-          path: ~/.m2/repository
-          key: maven-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('**/pom.xml') }}
-          restore-keys: ${{ github.ref != 'refs/heads/main' && format('maven-{0}-{1}-', runner.os, runner.arch) || '' }}
-
-      - name: Run backend tests with coverage
-        working-directory: backend
-        run: ./mvnw -B test
 
       - uses: actions/setup-node@v7
         with:

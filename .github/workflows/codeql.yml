@@ -1,6 +1,6 @@
 name: CodeQL
 
-# Deliberately not path-filtered, unlike backend-ci and frontend-ci. The README carries a
+# Deliberately not path-filtered, unlike serverless-ci and frontend-ci. The README carries a
 # CodeQL badge, and a path-filtered workflow makes that badge report the last run that
 # happened to touch the matching directory, which can be many commits old.
 on:
@@ -28,8 +28,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - language: java-kotlin
-            build-mode: manual
           - language: javascript-typescript
             build-mode: none
           - language: go
@@ -44,41 +42,12 @@ jobs:
           go-version-file: serverless/go.mod
           cache: false
 
-      - uses: actions/setup-java@v6
-        if: matrix.language == 'java-kotlin'
-        with:
-          distribution: temurin
-          java-version: '25'
-      # Read on every branch, saved from main only, with no fallback there so that a new entry starts
-      # clean: see doc/testing/continuous-integration.md.
-      - name: Restore Maven's cache
-        id: maven-cache
-        if: matrix.language == 'java-kotlin'
-        uses: actions/cache/restore@v6
-        with:
-          path: ~/.m2/repository
-          key: maven-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('**/pom.xml') }}
-          restore-keys: ${{ github.ref != 'refs/heads/main' && format('maven-{0}-{1}-', runner.os, runner.arch) || '' }}
-
       - name: Initialise CodeQL
         uses: github/codeql-action/init@v4
         with:
           languages: ${{ matrix.language }}
           build-mode: ${{ matrix.build-mode }}
           config-file: ./.github/codeql/codeql-config.yml
-
-      - name: Compile the backend for the extractor
-        if: matrix.build-mode == 'manual'
-        working-directory: backend
-        # The extractor only needs the compiled classes. Quarkus's augmentation step and
-        # Checkstyle run in backend-ci already, and skipping them here keeps a CodeQL failure
-        # meaning what it says.
-        #
-        # -Dmaven.test.skip, not -DskipTests: skipTests still runs testCompile, which put
-        # backend/src/test into the CodeQL database. paths-ignore cannot exclude it either,
-        # because that setting does not apply to compiled languages — not compiling the tests
-        # is the only way to keep them out of scope.
-        run: ./mvnw -B package -Dmaven.test.skip=true -Dcheckstyle.skip=true -Dquarkus.build.skip=true
 
       - name: Analyse
         uses: github/codeql-action/analyze@v4

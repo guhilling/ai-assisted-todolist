@@ -100,6 +100,6 @@ Documentation is updated in the same change as the behaviour it describes, not a
 follow-up. The root README already showed what happens otherwise: it documented an
 `/api/todos` endpoint and four task states that had not existed for some time.
 
-Code-level documentation lives in the code as Javadoc and TSDoc. The conventions for it
-are in `backend/CLAUDE.md` and `frontend/CLAUDE.md`, and the backend build enforces them:
-Checkstyle's `MissingJavadocType` fails `./mvnw verify` on a public type with no Javadoc.
+Code-level documentation lives in the code as Go doc comments and TSDoc. The conventions for it
+are in `serverless/CLAUDE.md` and `frontend/CLAUDE.md`. Until #559 the Quarkus backend's build
+enforced its Javadoc with Checkstyle; nothing enforces the Go and TypeScript ones yet.

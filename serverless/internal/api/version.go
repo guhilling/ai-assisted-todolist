@@ -7,8 +7,8 @@ import (
 )
 
 // minimumAppVersion is the oldest app release served unless TASKFEST_MINIMUM_APP_VERSION says
-// otherwise: the Quarkus backend's own default (taskfest.minimum-app-version), kept in step by
-// hand while both backends run.
+// otherwise. cut-release.yml's release-version.py reads it from this line: a major for a break of
+// the API needs it raised (doc/releasing.md).
 const minimumAppVersion = "1.4.0"
 
 // appVersion is the only form the app reads a version in (mobile/src/appVersion.ts).

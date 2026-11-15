@@ -13,7 +13,7 @@ set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # What GET /api/version reports: a release's version (#555), or a build from main.
 version="${TASKFEST_VERSION:-1.0.0-SNAPSHOT}"
-# As the release workflow reads it (deploy-backend.py's RELEASE_VERSION): no leading v, and within
+# As the release workflow derives it from the tag (release.yml's gate): no leading v, and within
 # the contract's 64 characters.
 [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ && ${#version} -le 64 ]] ||
     { echo "Not a release version: $version" >&2; exit 1; }

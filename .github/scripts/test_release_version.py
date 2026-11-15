@@ -112,15 +112,16 @@ class MajorPrerequisitesTest(unittest.TestCase):
 class MissingPrerequisitesTest(unittest.TestCase):
     """Which of the two changes a major needs have not been made since the newest release."""
 
-    PROPERTIES = """# a comment
-taskfest.post-login-redirect-uri=${TASKFEST_AUTH_POST_LOGIN_REDIRECT_URI:/}
-taskfest.minimum-app-version=${TASKFEST_MINIMUM_APP_VERSION:%s}
+    VERSION_GO = """package api
+
+// a comment
+const minimumAppVersion = "%s"
 """
     OLDEST = "# The oldest release whose API every newer backend still serves.\n%s\n"
 
     def files(self, oldest, minimum):
         return {release.OLDEST_SUPPORTED: self.OLDEST % oldest,
-                release.APPLICATION_PROPERTIES: self.PROPERTIES % minimum}
+                release.MINIMUM_APP_VERSION_FILE: self.VERSION_GO % minimum}
 
     def missing(self, then, now):
         return release.missing_prerequisites(lambda ref, path: (then if ref == "v1.4.2" else now)[path],
@@ -133,10 +134,10 @@ taskfest.minimum-app-version=${TASKFEST_MINIMUM_APP_VERSION:%s}
         missing = self.missing(self.files("v1.0.0", "1.0.0"), self.files("v1.0.0", "1.0.0"))
         self.assertEqual(len(missing), 2)
         self.assertIn(release.OLDEST_SUPPORTED, missing[0])
-        self.assertIn("taskfest.minimum-app-version", missing[1])
+        self.assertIn("minimumAppVersion", missing[1])
 
     def test_a_file_the_release_did_not_have_yet_counts_as_changed(self):
-        then = {release.OLDEST_SUPPORTED: "", release.APPLICATION_PROPERTIES: ""}
+        then = {release.OLDEST_SUPPORTED: "", release.MINIMUM_APP_VERSION_FILE: ""}
         self.assertEqual(self.missing(then, self.files("v1.0.0", "1.0.0")), [])
 
     def test_only_the_values_count_not_the_comments_around_them(self):
@@ -178,7 +179,7 @@ class SummaryTest(unittest.TestCase):
     def test_a_major_points_to_the_steps_its_pull_request_needed(self):
         summary = release.decide("auto", (1, 4, 2), REMOVED).summary
         self.assertIn("doc/api/oldest-supported-release", summary)
-        self.assertIn("taskfest.minimum-app-version", summary)
+        self.assertIn("minimumAppVersion", summary)
 
     def test_a_step_asked_for_under_0_x_is_not_called_the_rule(self):
         summary = release.decide("patch", (0, 17, 0), ADDED).summary

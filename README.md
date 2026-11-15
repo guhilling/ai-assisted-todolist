@@ -9,14 +9,14 @@
 
 # TaskFest
 
-[![Backend CI](https://github.com/guhilling/ai-assisted-todolist/actions/workflows/backend-ci.yml/badge.svg?branch=main)](https://github.com/guhilling/ai-assisted-todolist/actions/workflows/backend-ci.yml)
+[![Serverless CI](https://github.com/guhilling/ai-assisted-todolist/actions/workflows/serverless-ci.yml/badge.svg?branch=main)](https://github.com/guhilling/ai-assisted-todolist/actions/workflows/serverless-ci.yml)
 [![Frontend CI](https://github.com/guhilling/ai-assisted-todolist/actions/workflows/frontend-ci.yml/badge.svg?branch=main)](https://github.com/guhilling/ai-assisted-todolist/actions/workflows/frontend-ci.yml)
 [![CodeQL](https://github.com/guhilling/ai-assisted-todolist/actions/workflows/codeql.yml/badge.svg?branch=main)](https://github.com/guhilling/ai-assisted-todolist/actions/workflows/codeql.yml)
 [![Quality gate](https://sonarcloud.io/api/project_badges/measure?project=guhilling_ai-assisted-todolist&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=guhilling_ai-assisted-todolist)
 
 TaskFest is a task list on the web and as an app for iOS and Android: tasks with due dates,
-importance and workflow state, private to whoever signed in. Quarkus backend, React + TypeScript
-website, an Expo app, PostgreSQL persistence, OpenID Connect sign-in.
+importance and workflow state, private to whoever signed in. A Go backend on AWS Lambda, React +
+TypeScript website, an Expo app, DynamoDB persistence, OpenID Connect sign-in.
 
 📖 **[The documentation and the API reference are published at
 taskfest-docs.cloud.hilling.de](https://taskfest-docs.cloud.hilling.de/)** —
@@ -48,8 +48,8 @@ experiment, and the application inside it is TaskFest.
 
 The backend is Go on AWS Lambda with one DynamoDB table (#547), billed by the request, so an
 environment can stay up for about a dollar a month. It is a *backend-for-frontend*: it is the OIDC
-client, it performs the code exchange itself, and what reaches the browser is an encrypted session
-cookie rather than a token. One origin for the app and its API, so the SPA needs no API base URL:
+client, it performs the code exchange itself, and what reaches the browser is a session cookie
+rather than a token. One origin for the app and its API, so the SPA needs no API base URL:
 in AWS that origin is CloudFront, locally and in the end-to-end stack it is httpd, and in
 development Vite. Blue is this project's code, orange an AWS service, green someone else's. The iOS
 and Android apps, drawn as one because they work alike, cannot carry the cookie: they sign in with
@@ -61,7 +61,7 @@ monitoring server with Perses dashboards.
 
 qa and prod run on the Go backend, prod since the cut-over (#557). Drawn dashed: the containers,
 Quarkus on Fargate with PostgreSQL, which `api_backend = "containers"` would switch back to, until
-#559 removes them.
+#559 removes them; the Quarkus code is gone already, kept in the tag `pre-serverless`.
 [architecture.md](doc/architecture.md#two-architectures) shows the containers' architecture and says
 why the backend moved, and [authentication.md](doc/authentication.md) has the sign-in flow in full.
 
@@ -69,13 +69,12 @@ why the backend moved, and [authentication.md](doc/authentication.md) has the si
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="doc/images/workflow-dark.svg">
-  <img alt="Every change starts from a question rather than a guess, then a failing test, then the change and its documentation in one commit. A pull request must pass Checkstyle, the tests and coverage gate, CodeQL, and the browser end-to-end run before it is squashed onto main. SonarCloud then analyses main, and a failed quality gate becomes a GitHub issue. PIT mutation testing reports but does not block. A git tag on main cuts a release, which is deployed to qa and tested there from outside, the website's scenarios and the app's flows each recorded; the newest run's videos are published on the documentation site." src="doc/images/workflow-light.svg">
+  <img alt="Every change starts from a question rather than a guess, then a failing test, then the change and its documentation in one commit. A pull request must pass gofmt, go vet and oxlint, the tests and coverage gate, the contract checks, CodeQL, and the browser end-to-end run before it is squashed onto main. SonarCloud then analyses main, and a failed quality gate becomes a GitHub issue. A git tag on main cuts a release, which is deployed to qa and tested there from outside, the website's scenarios and the app's flows each recorded; the newest run's videos are published on the documentation site." src="doc/images/workflow-light.svg">
 </picture>
 
 Anything that can be checked by a machine is, so that a convention does not depend on
-somebody remembering it. The one deliberate exception is mutation testing, which reports
-rather than blocks — [the testing chapter](doc/testing/mutation-testing.md) says why, and
-[the decisions](doc/decisions/index.md) record that and every other choice with its reasoning.
+somebody remembering it. [The decisions](doc/decisions/index.md) record every choice with its
+reasoning.
 
 The diagrams and the logo are generated: edit `doc/images/generate.py` and re-run it rather than
 touching the SVGs, which exist in a light and a dark variant that must stay in step. It also writes
@@ -85,13 +84,16 @@ turns into the PNGs the app is built with.
 ## Getting it running
 
 ```bash
-cd backend && ./mvnw quarkus:dev      # starts PostgreSQL and Keycloak for you
-cd frontend && npm install && npm run dev
+docker build -t taskfest-serverless:e2e \
+  --build-arg GO_VERSION="$(sed -n 's/^go \([0-9.]*\).*/\1/p' serverless/go.mod)" serverless
+cd frontend && docker build -f docker/Dockerfile -t taskfest-frontend:e2e . && cd ..
+docker compose -f deployment/docker/docker-compose.e2e.serverless.yml up -d --wait
 ```
 
-Open `http://localhost:5173` and sign in as `gunnar` / `gunnar`. Nothing else to install
+Open `http://localhost:3000` and sign in as `gunnar` / `gunnar`. Nothing else to install
 and no credentials to obtain — [doc/local-development/](doc/local-development/index.md) has the
-details, the second local account, the container stacks and the troubleshooting.
+details, the second local account, running the backend and the frontend from source, and the
+troubleshooting.
 
 ## Documentation
 
@@ -121,21 +123,22 @@ question, so start from the question rather than the filename.
 `decisions/` is the one worth reading before changing anything structural: several
 settings in this repository look removable and are not, and it says which and why.
 
-Code-level documentation lives in the code, as Javadoc and TSDoc. The conventions are in
-[backend/CLAUDE.md](backend/CLAUDE.md), [frontend/CLAUDE.md](frontend/CLAUDE.md) and
-[mobile/CLAUDE.md](mobile/CLAUDE.md), and the backend build enforces them.
+Code-level documentation lives in the code, as Go doc comments and TSDoc. The conventions are in
+[serverless/CLAUDE.md](serverless/CLAUDE.md), [frontend/CLAUDE.md](frontend/CLAUDE.md) and
+[mobile/CLAUDE.md](mobile/CLAUDE.md).
 
 ## Repository layout
 
-- `backend/` — Quarkus REST API, published as `quay.io/ghilling/taskfest-backend`
-- `frontend/` — React + TypeScript SPA, published as `quay.io/ghilling/taskfest-frontend`
+- `serverless/` — the Go backend: the API and four background functions, on AWS Lambda
+- `frontend/` — React + TypeScript SPA, attached to every release as a build
 - `mobile/` — the iOS and Android app, one Expo codebase, released to TestFlight and Play's internal testing
 - `e2e/` — Playwright browser tests driving the whole stack through a real sign-in
-- `keycloak/` — realm export with the local test accounts, shared by Dev Services and CI
-- `deployment/` — everything that deploys the app: `docker/` for the Compose stacks,
+- `keycloak/` — realm export with the local test accounts, for the end-to-end stack
+- `deployment/` — everything that deploys the app: `docker/` for the Compose stack,
   `aws-tofu/` for the AWS infrastructure as OpenTofu
-- `doc/` — project documentation, including `doc/api/`: the generated wire contract
-- `.github/workflows/` — CI for backend, frontend, end-to-end, SonarCloud and publication
+- `doc/` — project documentation, including `doc/api/`: the wire contract
+- `.github/workflows/` — CI for backend, frontend, app, contract, end-to-end, SonarCloud, releases
+  and deploys
 
 ## API
 
@@ -152,32 +155,28 @@ All endpoints require a session except `/api/auth/providers` and `/api/version`.
 | `GET` | `/api/version` | the running release, for the prod approval |
 
 A task has a description, a due date, an importance (`LOW`, `MEDIUM`, `HIGH`) and a state
-(`TODO` or `DONE`; `WORKING` is no longer offered, see `doc/domain-model.md`). OpenAPI is at `/q/openapi`, Swagger UI at `/q/swagger-ui`,
-Prometheus metrics at `/q/metrics`.
+(`TODO` or `DONE`; `WORKING` is no longer offered, see `doc/domain-model.md`).
 
 The contract is **published**, not only served:
 [**the API reference**](https://taskfest-docs.cloud.hilling.de/) has `/api/main/` for
 the current code and `/api/v1.2.3/` per release, each with the OpenAPI 3.1 document and one
 JSON Schema per type. The same files are committed under [`doc/api/`](doc/api/) and attached to
-every release. They are generated and CI fails if the committed copy has drifted.
+every release. `openapi.json` is the source, edited by hand; the rest is derived from it, and CI
+fails if a derived copy has drifted.
 
 ## CI/CD
 
-- `backend-ci.yml` — backend tests, JVM packaging, container image build
+- `serverless-ci.yml` — the Go backend: generated code current, gofmt, `go vet`, tests, the Lambda
+  build
 - `frontend-ci.yml` — install, lint, build, frontend image build
-- `e2e.yml` — builds both images, starts the full stack, runs the Playwright suite
-- `sonarcloud.yml` — on `main` only: both test suites with coverage, the Sonar scan, and the quality gate, a failure of which opens a GitHub issue
-- `publish-images.yml` — publishes both images to Quay as `latest` from `main`
-- `codeql.yml` — CodeQL security scanning for Java and TypeScript, plus a weekly run
-- `release.yml` — on a `v*` tag: release checks, versioned images, a GitHub Release
-
-Image publication needs these repository secrets:
-
-- `QUAY_ROBOT_USER` (preferred) or `QUAY_USERNAME`
-- `QUAY_ROBOT_PASSWORD` / `QUAY_ROBOT_TOKEN` (preferred) or `QUAY_PASSWORD`
-
-Production Google credentials are supplied through environment variables and never checked
-in; `.env.example` lists them.
+- `contract-ci.yml` — the API contract is valid, its derived files current, and nothing breaks the
+  oldest release in use
+- `e2e-serverless.yml` — builds both images, starts the full stack, runs the Playwright suite
+- `mobile-ci.yml` — the app's checks and tests, its builds, and its flows on an emulator
+- `sonarcloud.yml` — on `main` only: the test suites with coverage, the Sonar scan, and the quality gate, a failure of which opens a GitHub issue
+- `codeql.yml` — CodeQL security scanning for TypeScript and Go, plus a weekly run
+- `release.yml` — on a `v*` tag: release checks, the Go functions and the frontend build, a GitHub
+  Release, and the deploy to qa
 
 ## Releases
 
@@ -185,12 +184,11 @@ in; `.env.example` lists them.
 git tag -a v1.0.0 -m "TaskFest v1.0.0" && git push origin v1.0.0
 ```
 
-That is the whole procedure. No version is written down anywhere else: the backend's
-`pom.xml` carries `${revision}`, which the release build overrides from the tag, and the
-frontend package is private and never published. `release.yml` then refuses SNAPSHOT and
-pre-release dependencies, runs both suites, publishes `quay.io/ghilling/taskfest-backend:1.0.0`
-and `taskfest-frontend:1.0.0`, and opens a GitHub Release. Details, including why `latest` is
-not moved, are in [doc/releasing.md](doc/releasing.md).
+That is the whole procedure. No version is written down anywhere else: the release build hands
+the tag's version to the Go functions and the frontend build, and the frontend package is private
+and never published. `release.yml` then refuses pre-release npm dependencies, runs the frontend's
+suite, builds the Go functions and the frontend, opens a GitHub Release with them attached, and
+deploys it to qa. Details are in [doc/releasing.md](doc/releasing.md).
 
 ## Dependencies
 

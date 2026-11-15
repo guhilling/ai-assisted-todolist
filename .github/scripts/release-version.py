@@ -17,7 +17,8 @@ from 1.0.0 on lets it decide the step:
 
 A larger step than that may be asked for, a smaller one is refused. A major for a break of the API
 is refused, too, until the two changes it needs have been made since the newest release:
-doc/api/oldest-supported-release moved forward and taskfest.minimum-app-version raised (#297).
+doc/api/oldest-supported-release moved forward and the Go backend's default minimum app version
+raised (#297).
 Under 0.x `auto` gives a minor, and 1.0.0 is not this script's to give: it is released by hand.
 
 `decide` writes its reasons to GITHUB_STEP_SUMMARY and the version to GITHUB_OUTPUT, both set by
@@ -41,8 +42,10 @@ ERROR = 3
 NOT_ABOUT_THE_API = {"api-version-not-bumped"}
 # Where the two changes a major needs are made (doc/releasing.md).
 OLDEST_SUPPORTED = "doc/api/oldest-supported-release"
-APPLICATION_PROPERTIES = "backend/src/main/resources/application.properties"
-MINIMUM_APP_VERSION = re.compile(r"^taskfest\.minimum-app-version=.*$", re.MULTILINE)
+# The Go backend's default; until #559 the Quarkus backend's taskfest.minimum-app-version in its
+# application.properties, kept in step with it.
+MINIMUM_APP_VERSION_FILE = "serverless/internal/api/version.go"
+MINIMUM_APP_VERSION = re.compile(r'^const minimumAppVersion = ".*"$', re.MULTILINE)
 
 
 @dataclasses.dataclass
@@ -101,13 +104,13 @@ def missing_prerequisites(read, latest_tag):
         return [line for line in lines if line and not line.startswith("#")]
 
     def minimum(ref):
-        return MINIMUM_APP_VERSION.findall(read(ref, APPLICATION_PROPERTIES))
+        return MINIMUM_APP_VERSION.findall(read(ref, MINIMUM_APP_VERSION_FILE))
 
     missing = []
     if oldest(latest_tag) == oldest("HEAD"):
         missing.append(f"`{OLDEST_SUPPORTED}` is where it was at {latest_tag}")
     if minimum(latest_tag) == minimum("HEAD"):
-        missing.append(f"`taskfest.minimum-app-version` in `{APPLICATION_PROPERTIES}` is what it "
+        missing.append(f"`minimumAppVersion` in `{MINIMUM_APP_VERSION_FILE}` is what it "
                        f"was at {latest_tag}")
     return missing
 
@@ -161,7 +164,8 @@ _MAJOR_STEPS = """
 A major also needs, in the pull request that broke the API (doc/releasing.md):
 
 1. `doc/api/oldest-supported-release` moved forward to the oldest release still served;
-2. `taskfest.minimum-app-version` raised to the first app release that copes with the change.
+2. `minimumAppVersion` in `serverless/internal/api/version.go` raised to the first app release
+   that copes with the change.
 """
 
 

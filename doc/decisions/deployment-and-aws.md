@@ -257,6 +257,10 @@ CodeDeploy. It no longer does: ECS has blue/green natively, which removed the ma
 
 *Accepted · 2026-09-30 · #93*
 
+Revised in part on 2026-11-15 (#559): `deploy-backend.yml`, which took both paths, went with the
+Quarkus backend, so nothing deploys the containers any more; the Go backend has no schema to
+migrate ([The Go backend is deployed by moving an alias after a check](#the-go-backend-is-deployed-by-moving-an-alias-after-a-check)).
+
 A release with no migration goes
 blue/green with zero downtime and an instant rollback; a release with a migration takes the
 downtime, because nothing old running means nothing needs to be backward-compatible. The image
@@ -453,6 +457,10 @@ the release mechanism needed testing anyway.
 ## Image vulnerabilities come from Amazon Inspector, through ECR's pull-through cache
 
 *Accepted · 2026-10-05 · #170*
+
+Revised in part on 2026-11-15 (#559): `image-findings.yml`, which turned the findings into an issue,
+went with the Quarkus backend, whose image was the one scanned. The cache and Inspector stay until
+the containers' infrastructure is removed.
 
 ECS pulls the backend image from ECR, which caches it from Quay on first use. Amazon Inspector
 scans what lands there, continuously, and a workflow every six hours turns fixable HIGH and CRITICAL

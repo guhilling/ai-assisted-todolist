@@ -2,40 +2,38 @@
 
 Two ways to run the whole thing. Pick by what you are doing:
 
-| | Dev mode | Container stack |
+| | From source | End-to-end stack |
 | --- | --- | --- |
-| **Use it for** | Working on the app | Checking the container images |
-| **Starts** | Quarkus dev mode + Vite, with PostgreSQL and Keycloak in containers | Everything in containers |
-| **Sign-in** | Works out of the box, local accounts | Off, unless you supply Google credentials |
-| **Live reload** | Yes, both sides | No |
+| **Use it for** | Working on the app | Running the browser suite, checking the images |
+| **Starts** | `go run ./cmd/api` + Vite, with the stack's Keycloak, DynamoDB Local and SeaweedFS | Everything in containers |
+| **Sign-in** | Works out of the box, local accounts | The same |
+| **Live reload** | The frontend's; the Go server is restarted by hand | No |
 | **Open** | `http://localhost:5173` | `http://localhost:3000` |
 
-**Dev mode is the default answer.** It is the only one of the two where you can sign in
-without external credentials.
+**From source** starts the [end-to-end stack](end-to-end-stack.md) and stops its backend and
+frontend, then runs the Go backend with the command in
+[serverless.md](../deployment/serverless.md#the-code), which listens on `:8080`, and the frontend
+with `npm run dev` in `frontend/`, whose Vite server proxies `/api` there. The Quarkus backend's
+dev mode and its container stack went with it (#559); the tag `pre-serverless` keeps them.
 
 **Neither is the shape of AWS.** In AWS there is no httpd: the frontend comes from an S3 bucket
-through CloudFront, which also routes `/api/*` to the backend and gives deep links their
-`index.html`. The container stack checks the images and how they run together; what only AWS
+through CloudFront, which also routes `/api/*` to the backend's Lambda function and gives deep
+links their `index.html`. The stack checks the images and how they run together; what only AWS
 does is checked in qa itself — see [the deployment chapter](../deployment/index.md).
 
 ## Prerequisites
 
-- **A container engine** — Docker Desktop or Podman. Quarkus Dev Services needs a reachable
-  socket. With Podman, start the machine and leave `DOCKER_HOST` unset: `podman-mac-helper`
-  provides `/var/run/docker.sock` (see [Troubleshooting](troubleshooting.md)).
-- **JDK 25, Temurin.** `java -version` should report 25. Maven comes from the wrapper.
-- **Node 22** and npm, for the frontend.
+- **A container engine** — Docker Desktop or Podman, for the stack (see
+  [Troubleshooting](troubleshooting.md)).
+- **Go**, the version `serverless/go.mod` names, to run the backend from source.
+- **Node 22** and npm, for the frontend and the end-to-end suite.
 
 Nothing else. In particular you need no `.env` file, no database installed, and no OIDC
-credentials of your own.
-
+credentials of your own: Keycloak's realm (`keycloak/realm-taskfest.json`) has the accounts.
 
 ## In this chapter
 
 | Page | What it covers |
 | --- | --- |
-| [Dev mode](dev-mode.md) | Running backend and frontend from source, with live reload |
-| [Container stack](container-stack.md) | The Compose stack, with the images CI builds |
 | [End-to-end stack](end-to-end-stack.md) | The stack the Playwright suite runs against |
-| [Sending to the monitoring server](monitoring.md) | The trial of #508: a local stack's metrics and logs in Perses |
 | [Troubleshooting](troubleshooting.md) | What goes wrong locally, and what to do about it |

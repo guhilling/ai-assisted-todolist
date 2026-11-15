@@ -1,10 +1,11 @@
 # Deployment
 
-**Two architectures run side by side** in each environment, and these chapters describe both
-([architecture.md](../architecture.md#two-architectures) compares them). Most describe the
-containers' one, Quarkus on Fargate with PostgreSQL, which serves `/api/*` today;
-[serverless.md](serverless.md) describes the Go backend on Lambda with DynamoDB, which is being
-ported (#547). The table at the end says which page belongs to which. This page began as the
+**Two architectures' infrastructure is in each environment**, and these chapters describe both
+([architecture.md](../architecture.md#two-architectures) compares them).
+[serverless.md](serverless.md) describes the Go backend on Lambda with DynamoDB, which serves
+`/api/*` in qa and prod (#547, #557); most of the others the containers' one, Quarkus on Fargate
+with PostgreSQL, whose code went in #559 and whose infrastructure is still there, until it is
+removed too. The table at the end says which page belongs to which. This page began as the
 plan for issue #60, written before anything existed, to settle the irreversible choices on paper
 first.
 
@@ -110,12 +111,12 @@ Also checked and not chosen:
 | [Names and certificates](names-and-certificates.md) | both | Hostnames, certificates, Google's OAuth client, the documentation site's name |
 | [Accounts and access](access.md) | both | One AWS account, and the identities that may change what |
 | [The code and what it creates](infrastructure.md) | both; the Go backend's resources are in serverless.md | Where the OpenTofu code is, and every resource it creates |
-| [Deploying: two paths, chosen by the release](deploying.md) | containers; deploying the site is shared | Blue/green, or downtime for a migration |
+| [Deploying: the Go backend, then the site](deploying.md) | both | What a release deploys, and the approval gate; the containers' deploy went in #559 |
 | [How an environment is torn down](teardown.md) | containers | The `running` switch, and CloudFront's `/api/*` origin |
-| [The database](database.md) | containers | RDS, IAM sign-in, snapshots and restores |
+| [The database](database.md) | containers | RDS, IAM sign-in, snapshots and restores; without a backend since #559 |
 | [Attachment storage](attachments.md) | containers; the bucket is shared | The bucket, the sweeps that keep it tidy, and what they cost |
 | [Observability](observability.md) | both | Logs, metrics, alarms |
-| [Image scanning](image-scanning.md) | containers | Amazon Inspector on the running images, and the issue it raises |
+| [Image scanning](image-scanning.md) | containers | Amazon Inspector on the containers' images; its workflow went in #559 |
 | [Cost](cost.md) | containers | What an environment costs, measured |
 | [Serverless](serverless.md) | serverless | Lambda, Go and DynamoDB: being ported (#547), its infrastructure in place (#554), and its own costs |
 | [Open points](open-points.md) | both | What is deliberately left out, and what is still to be verified |

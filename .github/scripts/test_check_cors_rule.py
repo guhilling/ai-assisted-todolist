@@ -62,9 +62,9 @@ class CorsRuleTest(unittest.TestCase):
         drifted = INIT.replace('"MaxAgeSeconds": 3600', '"MaxAgeSeconds": 600')
         self.assertEqual(len(check.differences(check.tofu_rule(TOFU), check.localstack_rule(drifted))), 1)
 
-    def test_both_end_to_end_stacks_are_compared(self):
-        # The Go backend's stack has a rule of its own (#556), in SeaweedFS rather than LocalStack.
-        self.assertEqual([path.name for path in check.STACKS], ["localstack-init.sh", "serverless-init.sh"])
+    def test_the_end_to_end_stack_is_compared(self):
+        # The Go backend's stack (#556), in SeaweedFS; the Quarkus one, in LocalStack, went (#559).
+        self.assertEqual([path.name for path in check.STACKS], ["serverless-init.sh"])
         for path in check.STACKS:
             self.assertEqual(check.differences(check.tofu_rule(check.TOFU.read_text()),
                                                check.localstack_rule(path.read_text())), [], path.name)

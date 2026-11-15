@@ -11,7 +11,7 @@
     {
       "clientId": "taskfest-backend",
       "name": "Todo list backend",
-      "description": "Confidential client used by the Quarkus BFF for the authorization code flow.",
+      "description": "Confidential client used by the backend (BFF) for the authorization code flow.",
       "enabled": true,
       "protocol": "openid-connect",
       "publicClient": false,
