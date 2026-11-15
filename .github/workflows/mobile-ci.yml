@@ -4,28 +4,32 @@ on:
   pull_request:
     paths:
       - 'mobile/**'
-      # The Maestro flow runs the backend and the end-to-end stack built from this commit.
-      - 'backend/**'
+      # The Maestro flow runs the Go backend and its end-to-end stack built from this commit.
+      - 'serverless/**'
       - 'frontend/docker/**'
       - 'deployment/docker/docker-compose.e2e.yml'
+      - 'deployment/docker/docker-compose.e2e.serverless.yml'
+      - 'e2e/seaweedfs-s3.json'
+      - 'e2e/serverless-init.sh'
       # The app imports the website's generated types, validators, texts and date rules (#267).
       - 'frontend/src/**'
       - 'frontend/scripts/check-no-prerelease-deps.mjs'
       - 'keycloak/**'
-      - 'e2e/backend-e2e.properties'
       - '.github/workflows/mobile-ci.yml'
   push:
     branches: [main]
     paths:
       - 'mobile/**'
-      # The Maestro flow runs the backend and the end-to-end stack built from this commit.
-      - 'backend/**'
+      # The Maestro flow runs the Go backend and its end-to-end stack built from this commit.
+      - 'serverless/**'
       - 'frontend/docker/**'
       - 'deployment/docker/docker-compose.e2e.yml'
+      - 'deployment/docker/docker-compose.e2e.serverless.yml'
+      - 'e2e/seaweedfs-s3.json'
+      - 'e2e/serverless-init.sh'
       - 'frontend/src/**'
       - 'frontend/scripts/check-no-prerelease-deps.mjs'
       - 'keycloak/**'
-      - 'e2e/backend-e2e.properties'
       - '.github/workflows/mobile-ci.yml'
 
 permissions:
@@ -275,10 +279,11 @@ jobs:
       - uses: actions/checkout@v7
 
       - name: Start the stack's other services
-        # Postgres, Keycloak and LocalStack need nothing built here, so they are pulled and started
-        # first, while the rest of the job runs; Keycloak's start is the slowest part of the stack.
+        # Keycloak, DynamoDB Local and SeaweedFS need nothing built here, so they are pulled and
+        # started first, while the rest of the job runs; Keycloak's start is the slowest part of the
+        # stack. The Go backend's stack, since the Quarkus one went (#559).
         run: |
-          nohup docker compose -f deployment/docker/docker-compose.e2e.yml up -d postgres keycloak localstack \
+          nohup docker compose -f deployment/docker/docker-compose.e2e.serverless.yml up -d keycloak dynamodb s3 \
             > services-start.log 2>&1 &
           echo $! > services-start.pid
 
@@ -294,24 +299,12 @@ jobs:
           (set -a && source mobile/maestro/emulator.env && env | grep '^EMULATOR_') >> "$GITHUB_ENV"
           bash mobile/maestro/emulator-cache.sh restore
 
-      - uses: actions/setup-java@v6
-        with:
-          distribution: temurin
-          java-version: '25'
-      # Read on every branch, saved from main only, with no fallback there so that a new entry starts
-      # clean: see doc/testing/continuous-integration.md.
-      - name: Restore Maven's cache
-        id: maven-cache
-        uses: actions/cache/restore@v6
-        with:
-          path: ~/.m2/repository
-          key: maven-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('**/pom.xml') }}
-          restore-keys: ${{ github.ref != 'refs/heads/main' && format('maven-{0}-{1}-', runner.os, runner.arch) || '' }}
-
-      - name: Build the backend image
-        working-directory: backend
-        # Jib cannot retry a base image download that breaks off; the script can, and only that.
-        run: $GITHUB_WORKSPACE/.github/scripts/retry-on-broken-download.sh ./mvnw -B package -DskipTests -Dquarkus.container-image.build=true
+      - name: Build the Go backend's image
+        # With the toolchain go.mod names, which Serverless CI tests with too.
+        run: >
+          docker build -t taskfest-serverless:e2e
+          --build-arg GO_VERSION="$(sed -n 's/^go \([0-9.]*\).*/\1/p' serverless/go.mod)"
+          serverless
 
       - name: Build the frontend image
         working-directory: frontend
@@ -319,13 +312,13 @@ jobs:
 
       - name: Start the stack
         # In the background, while the emulator is installed and boots: `up -d` itself waits for the
-        # services the backend depends on to be healthy, which is most of its minute. seed-stack.sh
+        # services the Go backend depends on to be healthy, which is most of its minute. seed-stack.sh
         # waits for this to finish, then for the whole stack, before the flows run. The other
         # services' start comes first, so two `compose up` never race.
         run: |
           while kill -0 "$(cat services-start.pid)" 2>/dev/null; do sleep 1; done
           cat services-start.log
-          nohup docker compose -f deployment/docker/docker-compose.e2e.yml up -d > stack-start.log 2>&1 &
+          nohup docker compose -f deployment/docker/docker-compose.e2e.serverless.yml up -d > stack-start.log 2>&1 &
           echo $! > stack-start.pid
 
       - uses: actions/download-artifact@v8
@@ -387,9 +380,9 @@ jobs:
           { sudo dmesg -T | grep -i -E 'oom|killed process|qemu|emulator' || echo 'Nothing in dmesg.'; } | tee emulator-lost/dmesg.txt || true
           { free -m; df -h /; } | tee emulator-lost/runner.txt || true
           cp -r /tmp/android-runner emulator-lost/ 2>/dev/null || true
-          docker compose -f deployment/docker/docker-compose.e2e.yml logs --no-color > emulator-lost/stack.log || true
+          docker compose -f deployment/docker/docker-compose.e2e.serverless.yml logs --no-color > emulator-lost/stack.log || true
           mv emulator-lost.txt maestro-output maestro-*.xml emulator-lost/ 2>/dev/null || true
-          docker compose -f deployment/docker/docker-compose.e2e.yml down -v
+          docker compose -f deployment/docker/docker-compose.e2e.serverless.yml down -v
           # Whatever is left of the emulator that went, and adb's memory of it, would keep the new
           # one off emulator-5554 or put it beside it; its locks would keep the AVD from booting.
           pkill -9 -f qemu-system || true
@@ -421,8 +414,8 @@ jobs:
 
       - name: Collect the stack logs
         if: failure()
-        run: docker compose -f deployment/docker/docker-compose.e2e.yml logs --no-color
+        run: docker compose -f deployment/docker/docker-compose.e2e.serverless.yml logs --no-color
 
       - name: Stop the stack
         if: always()
-        run: docker compose -f deployment/docker/docker-compose.e2e.yml down -v
+        run: docker compose -f deployment/docker/docker-compose.e2e.serverless.yml down -v
