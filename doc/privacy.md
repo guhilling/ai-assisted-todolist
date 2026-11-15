@@ -88,11 +88,11 @@ finding the cause of errors.
 
 ### Backups
 
-The database is backed up automatically for 7 days while an environment is running. When an
-environment is shut down, which happens often, a snapshot of its database is kept so that it can
-be restored later. When you delete your account, the deletion is also applied to any backup or
-snapshot that is restored afterwards, automatically, through the record described under *Your
-rights*.
+For `taskfest`, the database can be restored to any moment of the past 35 days; `taskfest-qa` is
+backed up only now and then, by hand. When you delete your account, the deletion is also applied
+to any backup restored afterwards, automatically, through the record described under *Your
+rights*. The database the application used until November 2026 is kept, unused, as a snapshot
+until it is deleted; it holds what was stored before then.
 
 ### Profile pictures
 
