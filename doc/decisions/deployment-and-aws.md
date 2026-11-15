@@ -677,9 +677,9 @@ to the Go backend's DynamoDB table: prod's cut-over starts it empty, as qa's did
 data stays in their final RDS snapshot, kept until Gunnar deletes it, and `api_backend =
 "containers"` with `env.sh up` brings it back with the Quarkus backend until #559 removes that.
 
-**Why.** TaskFest is a demo with a handful of accounts, all of whose people are known: a migration
-between two data models, with its tests and a cut-over window, would cost more than signing in once
-more and adding a few tasks again.
+**Why.** Not written down when it was taken, on #547. Claude's reading, for Gunnar to confirm:
+TaskFest is a demo, and a migration between two data models, with its tests and a cut-over
+window, would cost more than its few users signing in once more and adding their tasks again.
 
 **Cost.** Everyone on prod starts afresh, and what was there is reachable only by switching back.
 
