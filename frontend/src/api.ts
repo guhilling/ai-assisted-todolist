@@ -106,10 +106,10 @@ const tasksBaseUrl = `${apiBaseUrl}/api/tasks`
 /**
  * Marks a request as coming from script rather than from browser navigation.
  *
- * The backend sets `quarkus.oidc.authentication.java-script-auto-redirect=false`, so a
- * request carrying this header gets a plain 401 instead of a redirect to the identity
- * provider -- which is what lets `fetchCurrentUser` probe the session without navigating the
- * page away.
+ * The Go backend answers a request without a session with a plain 401 whatever it carries, which
+ * is what lets `fetchCurrentUser` probe the session without navigating the page away. The header
+ * is what the Quarkus backend needed for that (#559); harmless now, and kept so the frontend works
+ * against the tag `pre-serverless` too.
  */
 const jsFetchHeaders = { 'X-Requested-With': 'JavaScript' }
 
@@ -319,8 +319,8 @@ function toAuthProviders(data: unknown): AuthProvidersResponse {
 }
 
 /**
- * The session ended while the app was open: the request came back 401, or 499 -- what Quarkus
- * answers a script that asked not to be redirected to the identity provider.
+ * The session ended while the app was open: the request came back 401, or 499 -- what the Quarkus
+ * backend, until #559, answered a script that asked not to be redirected to the identity provider.
  *
  * Its own type rather than an error message, because it is not a failure of the request that
  * noticed it. Every later request would fail the same way; what the reader needs is to sign in

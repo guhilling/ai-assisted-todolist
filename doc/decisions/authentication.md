@@ -4,6 +4,10 @@
 
 *Accepted · 2026-09-25 · #14*
 
+Revised in part on 2026-11-16 (#559, #613): the Go backend keeps the design, with its own
+mechanics -- a session item in DynamoDB behind a random cookie, a plain 401 whatever the request
+carries, so `X-Requested-With` is no longer needed ([authentication.md](../authentication.md)).
+
 Revised in part for the Go backend (#549, Gunnar's decisions): the session is an item in DynamoDB,
 not an encrypted cookie, so the cookie holds only a random id and sign-out ends the session on the
 server; and it is never renewed with the provider, ending after eight hours without a request and
@@ -101,6 +105,10 @@ is also exactly what a fresh production deployment should show.
 
 *Accepted · 2026-09-28 · #63*
 
+Revised in part on 2026-11-16 (#559, #613): the Go backend keeps name and picture on the session
+item, so they are stored for the session's life, up to seven days, though never with the tasks
+([authentication.md](../authentication.md)).
+
 **Decision.** `/api/auth/me` returns the signed-in person's display name and picture, read
 from the provider's token on each request. Neither is stored. `User` remains `id`, `email`,
 `createdAt`.
@@ -159,6 +167,10 @@ trade is now written down rather than decided by omission.
 ## Apps send a bearer ID token, and the audience is checked in code
 
 *Accepted · 2026-10-10 · #270*
+
+Revised in part on 2026-11-16 (#559, #613): the checks are the Go backend's own
+(`serverless/internal/auth`), not Quarkus' `BearerIdToken` and `token.audience`; the rule stands
+([authentication.md](../authentication.md#apps-sign-in-with-a-bearer-id-token)).
 
 **Decision (#266, S1 on #264).** Every tenant is `hybrid`: the website keeps its code flow and
 session cookie, and an installed app sends its ID token as `Authorization: Bearer`. The tenant is
