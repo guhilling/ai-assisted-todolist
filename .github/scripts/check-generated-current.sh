@@ -15,7 +15,7 @@ shift
 changed=$(git status --porcelain --untracked-files=all -- "$@")
 if [[ -n "$changed" ]]; then
     echo "$changed"
-    git diff -- "$@" | head -200
+    git diff -- "$@" | sed -n '1,200p'
     echo "::error::Generated files are out of date (above). Run: $fix"
     exit 1
 fi
