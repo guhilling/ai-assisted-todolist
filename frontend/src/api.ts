@@ -84,9 +84,9 @@ export type AuthProvidersResponse = WireAuthProvidersResponse
  * Who is signed in.
  *
  * The email is the identity — it is what the backend keys a user by and decides ownership on.
- * `name` and `pictureUrl` are neither stored nor identifying: the backend reads them from the
- * provider's token on each request, so they exist only for as long as the session does, and
- * either may be absent because a provider need not supply it. `toCurrentUser` turns absent into
+ * `name` and `pictureUrl` are not identifying, and not stored with the tasks: the backend takes
+ * them from the provider's ID token at sign-in and keeps them on the session, so they last as
+ * long as it does, and either may be absent because a provider need not supply it. `toCurrentUser` turns absent into
  * null, so a caller has one case to handle rather than two.
  */
 export type CurrentUser = CurrentUserResponse
@@ -108,8 +108,8 @@ const tasksBaseUrl = `${apiBaseUrl}/api/tasks`
  *
  * The Go backend answers a request without a session with a plain 401 whatever it carries, which
  * is what lets `fetchCurrentUser` probe the session without navigating the page away. The header
- * is what the Quarkus backend needed for that (#559); harmless now, and kept so the frontend works
- * against the tag `pre-serverless` too.
+ * is what the Quarkus backend needed for that, until #559; harmless now, and dropping it is a
+ * change to tests, not to behaviour.
  */
 const jsFetchHeaders = { 'X-Requested-With': 'JavaScript' }
 

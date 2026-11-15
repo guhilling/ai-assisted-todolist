@@ -81,7 +81,7 @@ navigation, so anything typed but not saved is lost; the notice at least says wh
 | `taskfest_signin` | the `state` of a sign-in under way | ten minutes, cleared at the callback |
 
 Both are `HttpOnly`, `SameSite=Lax` and on the path `/`, and `Secure` everywhere but where
-`TASKFEST_COOKIE_SECURE=false` says the site is plain HTTP, which only the local stacks do. The
+`TASKFEST_COOKIE_SECURE=false` says the site is plain HTTP, which only the end-to-end stack and running from source do. The
 table stores only each value's SHA-256, so nothing in it lets anyone in. Signing in or out also
 expires any `q_session…` and `q_auth…` cookie a browser still holds from the Quarkus backend.
 
@@ -102,7 +102,7 @@ the user's partition ([serverless.md](deployment/serverless.md#deleting-an-accou
 
 ## Which provider, where
 
-Every deployment has a **main provider**, which signs in at `/api/auth/login`, and may have
+Every deployment with sign-in has a **main provider**, which signs in at `/api/auth/login`, and may have
 **further providers** beside it (#143) — qa gets a Cognito pool with test accounts that automated
 tests can sign in with (#190), since Google forbids automating its own sign-in. The main provider
 is the first in `TASKFEST_AUTH_PROVIDERS`.
@@ -110,8 +110,8 @@ is the first in `TASKFEST_AUTH_PROVIDERS`.
 | Where | Providers | Credentials |
 | --- | --- | --- |
 | prod | `google` | the client id from `terraform.tfvars`; the secret from Secrets Manager, named by `TASKFEST_OIDC_GOOGLE_CLIENT_SECRET_ARN` and read once per cold start (`internal/secrets`) ([deployment/names-and-certificates.md](deployment/names-and-certificates.md)) |
-| qa | `google`, and `cognito` beside it (`test_sign_in = true`) | Google's as in prod; the test accounts' pool and client are made by `deployment/aws-tofu/modules/environment/test-sign-in.tf`, which puts the client's id and secret in the function's settings |
-| the local stacks | `keycloak` | `taskfest-backend` / `taskfest-secret`, checked in as throwaway values |
+| qa | `google`, and `cognito` beside it (`test_sign_in = true`) | Google's as in prod; the test accounts' pool and client are made by `deployment/aws-tofu/modules/environment/test-sign-in.tf`; `serverless.tf` puts the client's id and secret in the function's settings |
+| the end-to-end stack, and running from source | `keycloak` | `taskfest-backend` / `taskfest-secret`, checked in as throwaway values |
 
 `deployment/aws-tofu/modules/environment/serverless.tf` writes these settings. An environment with
 no Google client id has sign-in switched off: `TASKFEST_AUTH_ENABLED` is false and no provider is
@@ -221,7 +221,7 @@ Available: c.Enabled && p.Usable() // a client id and a secret, neither blank
 
 No provider name appears in the code, on either side. Adding one is a configuration change:
 its id joins `TASKFEST_AUTH_PROVIDERS`, its `TASKFEST_OIDC_<ID>_*` settings are set, and a sign-in
-button appears with it. The local stacks declare `keycloak`; AWS declares `google`, and `cognito`
+button appears with it. The end-to-end stack and running from source declare `keycloak`; AWS declares `google`, and `cognito`
 in qa alone. **A provider not declared is not part of the deployment at all**: it is left out of
 the list and its paths are a 404 — so prod's list holds Google alone.
 
@@ -306,10 +306,11 @@ Three settings look innocuous and are not; each of them, wrong, sends sign-in so
 
 - **`TASKFEST_PUBLIC_ORIGIN` in AWS.** The redirect URI is built from it; without it, it would be
   built from API Gateway's host, which the provider does not know and the browser cannot use.
-- **`changeOrigin: false` in `vite.config.ts`, `ProxyPreserveHost On` in httpd.** Both proxies
-  default to rewriting the `Host` header. Where `TASKFEST_PUBLIC_ORIGIN` is unset, as when running
-  from source, the backend builds the redirect URI from that header, so a rewritten host returns
-  the browser to the backend's port instead of the app.
+- **`changeOrigin: false` in `vite.config.ts`.** Vite's proxy defaults to rewriting the `Host`
+  header. Running from source leaves `TASKFEST_PUBLIC_ORIGIN` unset, so the backend builds the
+  redirect URI from that header, and a rewritten host would return the browser to the backend's
+  port instead of the app. The end-to-end stack sets `TASKFEST_PUBLIC_ORIGIN`, so httpd's
+  `ProxyPreserveHost On` is no longer what holds it.
 - **`TASKFEST_OIDC_KEYCLOAK_DISCOVERY_URL` in the end-to-end stack.** Keycloak's issuer is the
   browser's `http://localhost:8082`, which a container cannot reach; the backend fetches the
   metadata from `http://keycloak:8082` and still checks it names the browser's issuer
