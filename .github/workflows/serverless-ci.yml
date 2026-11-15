@@ -40,7 +40,10 @@ jobs:
       - name: Generated code is current
         run: |
           go generate ./...
-          git diff --exit-code -- . || {
+          # --intent-to-add, or a new generated file would be untracked and invisible to git diff;
+          # against HEAD, or one the generator deleted would be staged and invisible too (#611).
+          git add --all --intent-to-add .
+          git diff --exit-code HEAD -- . || {
             echo "::error::generated code is stale (api.gen.go, zones.gen.go): run go generate ./... in serverless/"
             exit 1
           }

@@ -38,7 +38,9 @@ jobs:
           # pages that show them.
           generated="doc/images frontend/public/favicon.svg frontend/src/assets/taskfest-mark.svg mobile/assets/icons README.md doc/architecture.md doc/deployment/access.md"
           git add --all --intent-to-add $generated
-          git diff --exit-code $generated || {
+          # Against HEAD, not the index: `git add --all` stages a file the generator deleted, which a
+          # diff of the working tree with the index would then not show (#611).
+          git diff --exit-code HEAD -- $generated || {
             echo "::error::The generated artwork is out of date. Run: python3 doc/images/generate.py"
             exit 1
           }

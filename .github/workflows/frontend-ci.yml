@@ -54,7 +54,9 @@ jobs:
         run: |
           npm run generate:api
           git add --all --intent-to-add src/generated
-          git diff --exit-code src/generated || {
+          # Against HEAD, not the index: `git add --all` stages a file the generator deleted, which a
+          # diff of the working tree with the index would then not show (#611).
+          git diff --exit-code HEAD -- src/generated || {
             echo "::error::src/generated is out of date. Run: cd frontend && npm run generate:api"
             exit 1
           }
