@@ -281,7 +281,8 @@ jobs:
       - name: Start the stack's other services
         # Keycloak, DynamoDB Local and SeaweedFS need nothing built here, so they are pulled and
         # started first, while the rest of the job runs; Keycloak's start is the slowest part of the
-        # stack. The Go backend's stack, since the Quarkus one went (#559).
+        # stack. The Go backend's stack (#559); it takes Keycloak and the frontend from
+        # docker-compose.e2e.yml by `extends`, which is why that file is among the triggers.
         run: |
           nohup docker compose -f deployment/docker/docker-compose.e2e.serverless.yml up -d keycloak dynamodb s3 \
             > services-start.log 2>&1 &
@@ -298,6 +299,13 @@ jobs:
         run: |
           (set -a && source mobile/maestro/emulator.env && env | grep '^EMULATOR_') >> "$GITHUB_ENV"
           bash mobile/maestro/emulator-cache.sh restore
+
+      # Maestro is a Java program: a JDK of the project's own, rather than whatever the runner
+      # image happens to carry. It was there for the Quarkus build before #559.
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '25'
 
       - name: Build the Go backend's image
         # With the toolchain go.mod names, which Serverless CI tests with too.
