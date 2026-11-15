@@ -39,8 +39,10 @@ cpu_architecture = "ARM64"
 backend_cpu    = 512
 backend_memory = 1024
 
-# The containers serve /api/* until the cut-over (#557) switches it to the Go backend.
-api_backend = "containers"
+# The Go backend serves /api/* since the cut-over (#557), whether the environment is up or not. Its
+# table started empty, as decided on 2026-11-10; the containers' data stays in their final RDS
+# snapshot, and "containers" here would bring the Quarkus backend back.
+api_backend = "serverless"
 
 # The Go backend's own table; a restored one's name only after a switch to it (serverless.md).
 table_name = ""
