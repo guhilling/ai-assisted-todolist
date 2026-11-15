@@ -136,6 +136,7 @@ commit that first wrote each one down. CI checks every line and that this index 
 - [The Go backend is deployed by moving an alias after a check](deployment-and-aws.md#the-go-backend-is-deployed-by-moving-an-alias-after-a-check)
 - [The Go backend's logs go to the shared monitoring server through a subscription filter](deployment-and-aws.md#the-go-backends-logs-go-to-the-shared-monitoring-server-through-a-subscription-filter)
 - [prod starts the Go backend with an empty table](deployment-and-aws.md#prod-starts-the-go-backend-with-an-empty-table)
+- [The container architecture is removed from the infrastructure](deployment-and-aws.md#the-container-architecture-is-removed-from-the-infrastructure)
 
 ## [Mobile app](mobile-app.md)
 

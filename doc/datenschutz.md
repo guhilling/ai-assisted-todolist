@@ -83,11 +83,11 @@ sie wird nicht an die Anwendung übertragen.
 
 ### Technische Protokolle
 
-Jede Anfrage durchläuft das Content Delivery Network und den Load Balancer von Amazon Web Services
-und erreicht den Server der Anwendung. Dabei werden technische Daten erfasst, etwa der Zeitpunkt,
+Jede Anfrage durchläuft das Content Delivery Network und das API-Gateway von Amazon Web Services
+und erreicht die Anwendung. Dabei werden technische Daten erfasst, etwa der Zeitpunkt,
 die aufgerufene Adresse, Ihre IP-Adresse, die Kennung Ihres Browsers und ob die Anfrage erfolgreich
 war. Das eigene Protokoll der Anwendung wird für `taskfest-qa` 30 Tage und für `taskfest` 90 Tage
-aufbewahrt, Netzwerkprotokolle 30 Tage. Für `taskfest-qa` wird das Protokoll der Anwendung
+aufbewahrt. Für `taskfest-qa` wird das Protokoll der Anwendung
 zusätzlich an einen Monitoring-Server bei Hetzner gesendet und dort ebenfalls 30 Tage aufbewahrt;
 es enthält Ihre Anmeldekennung, aber weder Ihre IP-Adresse noch die Inhalte Ihrer Aufgaben.
 
@@ -96,11 +96,12 @@ betreiben und Fehlerursachen zu finden.
 
 ### Datensicherungen
 
-Die Datenbank wird automatisch gesichert und die Sicherungen 7 Tage aufbewahrt, solange eine
-Umgebung läuft. Wird eine Umgebung abgeschaltet, was oft geschieht, wird ein Abbild ihrer
-Datenbank aufbewahrt, damit sie später wiederhergestellt werden kann. Löschen Sie Ihr Konto, wird
-die Löschung automatisch auch auf jede später wiederhergestellte Sicherung und jedes Abbild
-angewendet, über den unter *Ihre Rechte* beschriebenen Vermerk.
+Für `taskfest` lässt sich die Datenbank auf jeden Zeitpunkt der letzten 35 Tage zurücksetzen;
+`taskfest-qa` wird nur gelegentlich von Hand gesichert. Löschen Sie Ihr Konto, wird die Löschung
+automatisch auch auf jede später wiederhergestellte Sicherung angewendet, über den unter *Ihre
+Rechte* beschriebenen Vermerk. Die Datenbank, die die Anwendung bis November 2026 nutzte, wird
+ungenutzt als Abbild aufbewahrt, bis sie gelöscht wird; sie enthält, was bis dahin gespeichert
+war.
 
 ### Profilbilder
 
@@ -164,4 +165,4 @@ Prinzenstraße 5<br>
 Diese Erklärung ist Teil der Projektdokumentation und wird öffentlich im Repository geändert. Das
 Datum unten ist das der letzten inhaltlichen Änderung.
 
-Stand: 13. November 2026
+Stand: 15. November 2026

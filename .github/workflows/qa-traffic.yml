@@ -11,9 +11,8 @@ name: Hourly traffic on qa
 # is the live tests' job after a deploy. The first request of a run is mostly a cold start, the
 # rest warm.
 #
-# Assumes the Go backend serves qa's /api, which answers whether qa is up or down. Should qa go
-# back to the containers (api_backend), the repository variable QA_TRAFFIC=off pauses it, rather
-# than a failure mail every hour while the environment is down.
+# The Go backend serves qa's /api and is always there. The repository variable QA_TRAFFIC=off
+# pauses the run, should a failure mail every hour ever need stopping.
 #
 # Costs nothing that shows: about 7,200 requests a month on Lambda and API Gateway is a fraction
 # of a cent, and Actions are free for a public repository. GitHub runs a schedule when it can,

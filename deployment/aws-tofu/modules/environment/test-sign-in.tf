@@ -2,30 +2,27 @@
 #
 # Google forbids automating its sign-in, so an end-to-end test cannot sign in with a Google
 # account. This pool holds accounts made for exactly that, nothing else: nobody can sign up, and
-# every account is created here. The backend offers it as a second provider beside Google -- a
-# named OIDC tenant, `cognito`, switched on by the task definition (billable.tf) -- and the
-# Playwright suite fills in its hosted login page (#144).
+# every account is created here. The backend offers it as a second provider beside Google -- the
+# provider `cognito`, switched on by the function's settings (serverless.tf) -- and the Playwright
+# suite fills in its hosted login page (#144).
 #
-# Only where `test_sign_in` is true: qa, never prod. It is foundation, not billable -- Cognito's
-# Lite plan is free for the first 10,000 monthly active users, two accounts cost nothing -- so the
-# accounts survive a down/up cycle.
+# Only where `test_sign_in` is true: qa, never prod. Cognito's Lite plan is free for the first
+# 10,000 monthly active users; two accounts cost nothing.
 #
 # **No password lives anywhere.** The accounts are created without one; the live-test workflow
 # sets a fresh random password at the start of every run and keeps it in memory (D2 on #141).
 #
 # **The app client's secret is in OpenTofu state**, unlike Google's: Cognito generates it, so the
 # client resource holds it whatever is done. Accepted (D4 on #141): the state bucket is encrypted
-# and only administrators and the environment's own roles read it, and the secret signs nobody in
-# without an account's password. ECS gets it from an SSM SecureString, which is free where a
-# Secrets Manager secret would cost $0.40 a month.
+# and only administrators read it, and the secret signs nobody in without an account's password.
+# The function gets it in its settings (serverless.tf).
 
 locals {
   test_sign_in = var.test_sign_in ? 1 : 0
 
   # The provider's id: the tenant's name in the backend, and the last segment of its two paths.
-  test_provider          = "cognito"
-  test_accounts_pool     = "${local.name}-test-accounts"
-  test_client_secret_ssm = "/${var.project}/${var.environment}/cognito-client-secret"
+  test_provider      = "cognito"
+  test_accounts_pool = "${local.name}-test-accounts"
 
   # Reserved by RFC 2606, so no Google account can ever have one of these addresses -- the email is
   # the identity, and a test account must never be someone's real account (D1 on #141). Nor can
@@ -122,9 +119,8 @@ resource "aws_cognito_user_pool_client" "backend" {
 # secret, so it signs in with the code flow and PKCE through the system browser and returns to the
 # qa build's scheme -- written out rather than derived from var.environment, because prod's build
 # is not `de.hilling.taskfest.prod` (mobile/src/variants.ts), and test_sign_in's validation keeps
-# the pool to qa (#435). The backend accepts its ID tokens as bearer tokens: the task definition names
-# it in TASKFEST_OIDC_COGNITO_APP_CLIENT_ID (billable.tf), and application.properties lists it as an
-# audience of the cognito tenant.
+# the pool to qa (#435). The backend accepts its ID tokens as bearer tokens: the function's settings
+# name it in TASKFEST_OIDC_COGNITO_AUDIENCES (serverless.tf).
 resource "aws_cognito_user_pool_client" "app" {
   count = local.test_sign_in
 
@@ -177,19 +173,6 @@ resource "aws_cognito_user" "test" {
   lifecycle {
     ignore_changes = [password, temporary_password]
   }
-}
-
-# Encrypted with the AWS-managed aws/ssm key; a customer-managed one would cost $1 a month for
-# nothing a test pool needs.
-resource "aws_ssm_parameter" "test_client_secret" {
-  count = local.test_sign_in
-
-  name        = local.test_client_secret_ssm
-  description = "The ${var.environment} Cognito app client's secret, for the backend task. Set by OpenTofu."
-  type        = "SecureString"
-  value       = aws_cognito_user_pool_client.backend[0].client_secret
-
-  tags = { Name = local.test_client_secret_ssm }
 }
 
 # The identity the live-test job signs the test accounts in with (#144): it sets a fresh random

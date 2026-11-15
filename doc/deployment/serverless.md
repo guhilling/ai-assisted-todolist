@@ -2,18 +2,18 @@
 
 **Status: ported (#547), and serving qa and prod.** Gunnar chose this direction on 2026-11-09
 (#535), and the spike that had to measure it first passed. The Quarkus backend it replaced went in
-#559; several deployment chapters still describe its infrastructure, Quarkus on Fargate behind a
-load balancer with PostgreSQL on RDS, until that is removed too. The git tag `pre-serverless`
-marks the last `main` before the move, for a rollback in the worst case; the `rollback-tags`
-ruleset keeps anyone, administrators included, from deleting or moving it.
+#559, and its infrastructure, Quarkus on Fargate behind a load balancer with PostgreSQL on RDS, in
+#557. The git tag `pre-serverless` marks the last `main` before the move, for a rollback in the
+worst case; the `rollback-tags` ruleset keeps anyone, administrators included, from deleting or
+moving it.
 
 ## Why
 
-An environment costs about **$1.86 a day while it is up** ([cost.md](cost.md)), almost all of it
-billed by the hour whether anyone uses it or not: the load balancer, the Fargate task, the
-database instance and the task's public IPv4 address. So environments are taken down when idle,
-and `env.sh up` and `down` are a daily chore that is easy to forget: qa once ran four days
-unnoticed.
+An environment cost about **$1.86 a day while it was up** on the containers
+([cost.md](cost.md#until-557-the-containers)), almost all of it billed by the hour whether anyone
+used it or not: the load balancer, the Fargate task, the database instance and the task's public
+IPv4 address. So environments were taken down when idle, and `env.sh up` and `down` were a daily
+chore that was easy to forget: qa once ran four days unnoticed.
 
 Serverless bills per request instead. At TaskFest's traffic, an environment that is **always up**
 costs about **$1 to $1.50 a month**:
@@ -173,20 +173,21 @@ against LocalStack with signature checking on. Files still travel straight betwe
 and S3, through presigned links signed for exactly the announced size and type, and the bucket is
 the same one.
 
-**The Go backend keeps to `serverless/` in it** (#578). Both backends run side by side for the
-time being, each with its own database, and share each environment's bucket:
+**The Go backend keeps to `serverless/` in it** (#578). Both backends ran side by side until the
+cut-over, each with its own database, and shared each environment's bucket, where the Quarkus
+backend's files are still at the top level:
 
 | | The containers' backend | The Go backend |
 |---|---|---|
 | Files | `<key>`, `<key>.thumbnail` | `serverless/attachments/<key>`, and `.thumbnail` |
 | Deletion records | `deleted-accounts/<hash>` | `serverless/deleted-accounts/<hash>` |
 
-Each orphan clean-up takes only its own files, and each replay only its own records, which it keeps
-for as long as its own restores need them: the RDS snapshots for the one, DynamoDB's restore points
-for the other. The Quarkus clean-up lists the whole bucket and leaves out every key with a slash,
-so its code needed no change. IAM keeps them apart as well: the Go functions' roles reach objects
-under `serverless/` only, and the containers' task role is denied them. Callers in the Go
-code name a file by its bare key, and `internal/files` adds the prefix.
+Each orphan clean-up took only its own files, and each replay only its own records, which it kept
+for as long as its own restores needed them: the RDS snapshots for the one, DynamoDB's restore
+points for the other. The Quarkus clean-up listed the whole bucket and left out every key with a
+slash, so its code needed no change. IAM keeps them apart as well: the Go functions' roles reach
+objects under `serverless/` only. Callers in the Go code name a file by its bare key, and
+`internal/files` adds the prefix.
 
 - **An attachment is an `ATT#<id>` item** with its id from `lastAttachmentId` on `META`, the
   id of the task or draft it is on, and its object's key: random, and with no slash, so the
@@ -221,8 +222,8 @@ code name a file by its bare key, and `internal/files` adds the prefix.
   after seven days; a table without a single file deletes nothing; more than two orphans older
   than an hour raise the alert, a JSON log line with `orphanSweepAlert`; an available attachment
   whose file is missing is logged, never deleted. Expired items still count as referring to their
-  files, which are the stream's to delete. The alert line feeds the same alarm as the
-  containers' ([the infrastructure](#the-infrastructure)).
+  files, which are the stream's to delete. The alert line feeds the orphan alarm
+  ([the infrastructure](#the-infrastructure)).
 - **A link to open a file is handed out again while half its hour is left**, as before, per Lambda
   instance rather than per backend task; with several instances, a browser sees a few URLs for a
   file at worst. Each link ends with the credentials that signed it, when they end first, and says
@@ -398,11 +399,10 @@ administrator, with its profile.
    aws dynamodb describe-table --profile <admin profile> --region eu-central-1 \
      --table-name <table>-restored-<date> --query Table.DeletionProtectionEnabled
    ```
-   and then `env.sh down` or `up`, whichever the environment is in, naming the administrator's
-   profile for it, as `TASKFEST_<ENV>_AWS_PROFILE=<admin profile>`: with neither it nor
-   `AWS_PROFILE` set, `env.sh` takes the lifecycle role, which cannot apply this. The change
-   of `table_name` reaches `main` just before, in a pull request; until this step has run, an apply
-   of `main` would try to replace the old table and fail on its deletion protection.
+   and then `env.sh up <env>`, naming the administrator's profile for it, as
+   `TASKFEST_<ENV>_AWS_PROFILE=<admin profile>` ([infrastructure.md](infrastructure.md#applying)).
+   The change of `table_name` reaches `main` just before, in a pull request; until this step has
+   run, an apply of `main` would try to replace the old table and fail on its deletion protection.
 4. **Redeploy the release that runs**, with `deploy-serverless.yml` and its tag: the apply changed
    the functions' settings, which reach what serves only as a newly published version (#555,
    [Deploying a release](#deploying-a-release)). Until then the API serves server errors for
@@ -531,14 +531,14 @@ it initialises (`Store.Prime`).
 ## The infrastructure
 
 `serverless.tf` and `serverless-jobs.tf` in `deployment/aws-tofu/modules/environment/` (#554), in
-both environments alike. All of it is foundation, which `env.sh down` leaves: the functions, the
-API and the table bill per request, and the alarms, $0.10 a month each, are the one fixed cost.
+both environments alike. The functions, the API and the table bill per request, and the alarms,
+$0.10 a month each, are the one fixed cost.
 
 - **The table**, `<project>-<env>-data`, on demand. TTL on `expiresAt` deletes ended sessions,
   sign-ins under way and session links; the stream carries what a deleted item held, for the
   `streams` function; point-in-time recovery is on in prod, for [restoring](#restoring-the-table),
   at fractions of a cent a GB-month, and off in qa (`table_point_in_time_recovery`, #553); and
-  deletion protection keeps a destroy of the foundation from taking people's data with it.
+  deletion protection keeps a destroy from taking people's data with it.
 - **The `api` function**, arm64, 512 MB ([measured](#what-the-spike-measured)), with a timeout
   of 28 seconds, under the HTTP API's own 30. Its role reaches its own table, its part of the
   attachment bucket, the Google client secret and its log group, nothing else.
@@ -548,18 +548,15 @@ API and the table bill per request, and the alarms, $0.10 a month each, are the 
   $0.40 a month to prove only where a request came from, so it is in state and in the function's
   settings instead. The stage is throttled at 50 requests a second, bursts of 100, as a ceiling on
   what a flood could cost.
-- **CloudFront** has the HTTP API as a second `/api/*` origin, always, without the viewer's
-  `Host`, which API Gateway would refuse: the function takes its own address from
-  `TASKFEST_PUBLIC_ORIGIN`. `api_backend` in `terraform.tfvars` says which origin `/api/*` uses:
-  `serverless` in qa since 2026-11-12, to try it, and in prod since its cut-over (#557);
-  `containers`, with `env.sh up`, would switch back to the Quarkus backend's last published image
-  while its infrastructure is still there (its code went in #559); while the environment is down,
-  `/api/*` then answers CloudFront's 503.
-- **Sign-in** is configured as for the containers: on only where Google's client id is set, and the
-  test accounts beside Google where they exist. Google's client secret stays out of OpenTofu: the
-  function's setting `TASKFEST_OIDC_GOOGLE_CLIENT_SECRET_ARN` names the secret, and the function
-  reads it once at a cold start (`internal/secrets`). The test accounts' secret is in state already
-  (D4 on #141).
+- **CloudFront** sends `/api/*` to the HTTP API, without the viewer's `Host`, which API Gateway
+  would refuse: the function takes its own address from `TASKFEST_PUBLIC_ORIGIN`. qa went first, on
+  2026-11-12, and prod followed with its cut-over (#557); the variable `api_backend` that switched
+  between the two backends went with the containers' infrastructure (#557).
+- **Sign-in** is configured as for the containers before: on only where Google's client id is set,
+  and the test accounts beside Google where they exist. Google's client secret stays out of
+  OpenTofu: the function's setting `TASKFEST_OIDC_GOOGLE_CLIENT_SECRET_ARN` names the secret, and
+  the function reads it once at a cold start (`internal/secrets`). The test accounts' secret is in
+  state already (D4 on #141).
 
 **The background functions** are in `serverless-jobs.tf`, each with a role for exactly what it
 does:
@@ -568,12 +565,10 @@ does:
   invokes it, with at most five retries and records at most an hour old.
 - `orphans` runs hourly and `replay` daily at 03:30 Berlin time, on EventBridge Scheduler, which
   is free at two schedules. A failed run is not tried again; the next run does the same work.
-- Both run whichever backend serves `/api/*`: they touch only `serverless/` in the bucket. Before
-  that prefix (#578), `orphans` called qa's six container files orphans on its first run and
-  raised the alarm, and `replay` would have pruned the containers' deletion records, so #577 had
-  switched both off for a day.
-- The Go orphan clean-up's alert line feeds the containers' metric through a second filter, so
-  the one orphan alarm sees both backends.
+- They touch only `serverless/` in the bucket. Before that prefix (#578), `orphans` called qa's six
+  container files orphans on its first run and raised the alarm, and `replay` would have pruned the
+  containers' deletion records, so #577 had switched both off for a day.
+- The Go orphan clean-up's alert line feeds the orphan alarm's metric through a metric filter.
 
 **The alarms**, each $0.10 a month, mail through the existing topic on entering ALARM and on leaving
 it: the API function's errors and throttles, the API's server errors, at least five in one five-
@@ -591,21 +586,19 @@ The functions are created from `serverless/dist/<command>.zip`, which `serverles
 with Go where it is installed and the official Go image through podman or docker where it is not.
 OpenTofu uploads the code only when it creates a function; a release deploys its own (#555).
 
-Applying it needs the administrator, since the lifecycle role, `env.sh`'s default, cannot create
-IAM roles, functions or tables. From the repository root on `main`:
+Applying it needs the administrator ([infrastructure.md](infrastructure.md#applying)). From the
+repository root on `main`:
 
 ```sh
 serverless/build.sh
-(cd deployment/aws-tofu && TASKFEST_QA_AWS_PROFILE=<admin profile> ./env.sh down qa)
+(cd deployment/aws-tofu && TASKFEST_QA_AWS_PROFILE=<admin profile> ./env.sh up qa)
 ```
 
-**`down` takes qa down if it is up**; with qa down it applies only the foundation, and the plan
-it shows says what that is before anything happens.
+The plan it shows says what will change before anything happens.
 
 ### Deploying a release
 
-**A release deploys the code** (#555), as it deploys the site, and as it deployed the containers'
-image until #559:
+**A release deploys the code** (#555), as it deploys the site:
 
 - **`release.yml` builds the five functions once**, from the tag, with the version `GET /api/version`
   reports, and attaches them to the release as `taskfest-serverless-<version>-<function>.zip`.

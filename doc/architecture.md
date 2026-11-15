@@ -4,8 +4,8 @@
 the website's files. It replaced a Quarkus backend on Fargate with PostgreSQL, which it was ported
 from route by route, so the website and the apps could not tell them apart. Both environments run
 on the Go backend: qa since 2026-11-12, prod since its cut-over (#557). The Quarkus backend's code
-went in #559; the git tag `pre-serverless` keeps it. Its infrastructure, which `api_backend`
-could still switch `/api/*` back to, is removed in a change of its own.
+went in #559, and its infrastructure in #557; the git tag `pre-serverless` keeps both, and is
+the way back.
 [Two architectures](#two-architectures) compares the two and says why the Go backend is the one
 switched to. The [README](../README.md#how-the-application-fits-together) draws the Go backend,
 with how it is watched; the containers' drawing is kept in that section, as the reference.
@@ -116,8 +116,8 @@ field the contract left optional would be a field the frontend accepted as missi
 
 **The containers' architecture**, as the README drew it until the port: one Quarkus backend on
 Fargate behind CloudFront, PostgreSQL on RDS, and the same sign-in and attachment paths as now. It
-served prod until the cut-over (#557), and stays drawn here as the reference the Go backend is
-compared with; its code is in the tag `pre-serverless` (#559):
+served prod until the cut-over (#557), and stays drawn here as the alternative the Go backend is
+compared with; its code (#559) and its infrastructure (#557) are in the tag `pre-serverless`:
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="images/architecture-containers-dark.svg">
@@ -161,12 +161,12 @@ drawbacks in full.
 
 **Why both stayed for a while.** The Go backend served qa from 2026-11-12, to try it, while the
 containers kept serving prod as the way back; prod followed with its cut-over (#557). The Quarkus
-code went in #559; the infrastructure, which `api_backend` could switch back to, follows. Each has
-its own database; in the shared bucket the Go backend keeps to `serverless/`, so neither backend's
-clean-up takes the other's files for orphans, and IAM keeps each out of the other's part (#578).
-The cut-over (#557) switches `api_backend` and nothing else: no task or attachment moves with it,
-and switching back to the containers does not bring back what was written through the Go backend.
-The git tag `pre-serverless` marks the last `main` before the move.
+code went in #559, and the infrastructure, the load balancer, the Fargate service and the
+database, in #557. Each had its own database; in the shared bucket the Go backend keeps to
+`serverless/`, so neither backend's clean-up took the other's files for orphans (#578), and the
+Quarkus backend's files are still at the top level. The cut-over moved no task or attachment, and
+the containers' data is in their final RDS snapshots, kept until Gunnar deletes them. The git tag
+`pre-serverless` marks the last `main` before the move, and is the way back.
 
 ## Deployment
 

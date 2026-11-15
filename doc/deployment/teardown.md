@@ -1,57 +1,16 @@
-# How an environment is torn down
+# How an environment was torn down
 
-**Teardown is a parameter, not a `tofu destroy`.** Each environment has a `running` variable; the
-resources that cost money — the database, the load balancer, the service — exist only when it is
-true. The foundation ignores it and is always there, because it is free and destroying it buys
-nothing.
+**Nothing is torn down any more.** Until #557 the container architecture's billable resources,
+the database, the load balancer and the Fargate service, existed only while an environment's
+`running` switch was on, and `env.sh up` and `down` created and destroyed them. They are gone
+from the infrastructure, and with them the switch and both commands: the Go backend bills per
+request and is always there ([serverless.md](serverless.md)). `env.sh up <env>` applies an
+environment's configuration ([infrastructure.md](infrastructure.md#applying)).
 
-**The CloudFront distribution stays; its `/api/*` origin does not.** A CloudFront VPC origin names
-one load balancer ARN and cannot be changed or deleted while a distribution uses it, and the load
-balancer is destroyed on every `down`. So `down` drops the distribution's `/api/*` behaviour and
-deletes the VPC origin, and `up` creates a new one and adds the behaviour back. Deploying a VPC
-origin takes up to 15 minutes and a distribution change several more, so `up` and `down` each take
-**roughly 25–35 minutes**. That is the price of a `down` that costs nothing; keeping the load
-balancer up instead would have cost about $20 a month while nobody was using the environment.
-While down, the distribution still answers, from the site bucket alone, unless `api_backend` is
-`serverless`, as in qa since 2026-11-12 and in prod since its cut-over (#557): then `/api/*` goes to
-the Go backend, which never goes down, and none of this paragraph applies. Otherwise every `/api` request gets
-CloudFront's own 503, *The backend is not running in this environment.*, and the app recognises
-exactly that answer: instead of a sign-in that cannot work, a visitor sees **"Environment QA is
-paused at the moment."** with a panda chewing bamboo. The name comes from `/environment.json`,
-which `deploy-frontend.yml` writes next to the build ([deploying.md](deploying.md)); any other
-503 — a load balancer with no healthy task — is an outage, and is not dressed up as a pause.
-
-**`env.sh up` where the Go backend serves** starts the containers all the same: the load balancer,
-the task and the database bill by the hour, and nothing reaches them. Do it only to try them
-again, or to switch back.
-
-```sh
-deployment/aws-tofu/env.sh up qa       # create what bills
-deployment/aws-tofu/env.sh down qa     # destroy it; VPC, subnets and IAM stay
-deployment/aws-tofu/env.sh status qa   # what the last apply recorded
-```
-
-Three properties of this are deliberate:
-
-- **`running` defaults to `false`.** An environment nobody is demoing is meant to cost nothing, so
-  the safe outcome of an apply nobody thought hard about is a foundation and no bill. Bringing an
-  environment up is the deliberate act; leaving it up is not.
-- **It is never set in `terraform.tfvars`.** Whether an environment happens to be up is a
-  transient fact about the world. Committing it would make every teardown a commit and every
-  `git pull` a possible surprise — so it is passed on the command line, which is what `env.sh`
-  is for.
-- **Every billable resource is guarded, and that is checked.** `check-billable-guard.py` fails the
-  build on a resource in `billable.tf` without `count = var.running ? 1 : 0`. The failure mode it
-  prevents is silent: teardown succeeds, the resource keeps running, and the bill a month later is
-  the first evidence.
-
-The alternative was a separate root and state for the billable layer, where `tofu destroy` could
-not reach the foundation. It was rejected: the environment roots are already applied, so their
-state keys would have had to move, and a parameter is the same mechanism this directory already
-uses for the difference between qa and prod.
-
-`env.sh` shows the plan and waits for an answer on every run, and applies the saved plan file
-rather than re-evaluating — so what is applied is exactly what was displayed. It defaults to the
-lifecycle profile for `up` and `down`, and deliberately not for `status`, since reading what the
-last apply recorded needs nothing but the state bucket.
-
+The container architecture is the alternative, kept in the tag `pre-serverless`, which is the way
+back;
+[this page as it was there](https://github.com/guhilling/ai-assisted-todolist/blob/pre-serverless/doc/deployment/teardown.md)
+describes the switch, CloudFront's `/api/*` origin that came and went with the load balancer, and
+the paused screen.
+[decisions/deployment-and-aws.md](../decisions/deployment-and-aws.md#the-container-architecture-is-removed-from-the-infrastructure)
+records the removal.

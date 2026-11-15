@@ -6,10 +6,6 @@ region      = "eu-central-1"
 project     = "taskfest"
 environment = "prod"
 
-vpc_cidr             = "10.30.0.0/16"
-public_subnet_cidrs  = ["10.30.0.0/20", "10.30.16.0/20"]
-private_subnet_cidrs = ["10.30.128.0/20", "10.30.144.0/20"]
-
 log_retention_days = 90
 
 hostname = "taskfest.cloud.hilling.de"
@@ -24,25 +20,6 @@ google_ios_client_id = "284066835041-2jslp8n0p5o0p7c94220urrdo3eag4cr.apps.googl
 
 # No test accounts in prod: it signs in with Google alone.
 test_sign_in = false
-
-# Both versions run this long after a blue/green switch, for an instant rollback.
-blue_green_bake_minutes = 5
-
-# A rollout's last phase waits this long for connections to the old task to finish.
-deregistration_delay_seconds = 30
-
-# Graviton (#250): about 20% less for the same task size. qa ran on it first; Gunnar moved prod
-# after qa had shown it works. Needs a release from v0.15.0 on, which plan and deploy both enforce.
-cpu_architecture = "ARM64"
-
-# The backend's size (#535): unchanged until qa has shown the smaller one works.
-backend_cpu    = 512
-backend_memory = 1024
-
-# The Go backend serves /api/* since the cut-over (#557), whether the environment is up or not. Its
-# table started empty, as decided on 2026-11-10; the containers' data stays in their final RDS
-# snapshot, and "containers" here would bring the Quarkus backend back.
-api_backend = "serverless"
 
 # The Go backend's own table; a restored one's name only after a switch to it (serverless.md).
 table_name = ""

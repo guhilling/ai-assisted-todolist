@@ -211,14 +211,7 @@ def architecture(p: Palette) -> str:
 
         box(main_x, 300, main_w, 64, ["API Gateway, HTTP API", "with CloudFront's secret header"], p,
             tint="aws"),
-        # The other backend, which api_backend switches back to until it is removed (#559).
-        box(side_x, 300, side_w, 64, ["Quarkus on Fargate, RDS", "the way back, until #559"],
-            p, dashed=True),
         *down(mc, 234, 300, "/api"),
-        arrow([(main_x + main_w - 30, 234), (main_x + main_w - 30, 267), (sc, 267), (sc, 300)], p,
-              dashed=True),
-        label(main_x + main_w + gap, 259, "or: api_backend = containers", p, anchor="start",
-              size=11),
 
         box(main_x, 420, main_w, 80,
             ["api \u00b7 Go on Lambda", "every route; the OIDC client, which",
@@ -285,8 +278,7 @@ def architecture(p: Palette) -> str:
         "TaskFest on the Go backend, top to bottom. The browser and the iOS and Android apps sign "
         "in with Google: the browser is redirected there, the apps sign in themselves. Both talk "
         "only to CloudFront, which serves the site's files from S3 and passes /api to API "
-        "Gateway's HTTP API with a secret header, or, where api_backend says containers, to the "
-        "Quarkus backend on Fargate, the way back until it is removed. The HTTP API invokes the "
+        "Gateway's HTTP API with a secret header. The HTTP API invokes the "
         "api function, Go on Lambda, which serves every route and is the OIDC client: it "
         "exchanges the code with Google itself, and the browser holds a session cookie, never a "
         "token, while the apps send their ID token as a Bearer token. The api function reads and "
@@ -378,75 +370,58 @@ def architecture_containers(p: Palette) -> str:
 
 def identities(p: Palette) -> str:
     """Who may do what to AWS, and where the line between a person and automation falls."""
-    w, h = 1020, 600
+    w, h = 1020, 470
     left_x, left_w = 40, 250
     right_x, right_w = 470, 510
     box_h = 90
-    rows = (40, 180, 340)
-    line_y = 300
+    rows = (40, 200, 340)
+    line_y = 160
 
     parts = [
         box(left_x, rows[0], left_w, box_h,
             ["gunnar", "IAM admin user \u00b7 MFA", "not the account root user"], p),
         box(right_x, rows[0], right_w, box_h,
-            ["Foundation \u2014 free, created once",
-             "VPC \u00b7 subnets \u00b7 route tables \u00b7 security groups",
+            ["Everything, by an apply",
+             "table \u00b7 buckets \u00b7 functions \u00b7 HTTP API \u00b7 distribution",
              "IAM \u00b7 ACM certificate \u00b7 Route 53 records"], p),
         arrow([(left_x + left_w, rows[0] + box_h / 2), (right_x, rows[0] + box_h / 2)], p),
-        label(380, rows[0] + box_h / 2 - 10, "creates", p),
-
-        box(left_x, rows[1], left_w, box_h,
-            ["taskfest-<env>-lifecycle", "a role gunnar assumes", "MFA required"], p),
-        box(right_x, rows[1], right_w, box_h,
-            ["Everything that bills",
-             "RDS instance \u00b7 load balancer \u00b7 Fargate service",
-             "destroyed again when nothing is being demoed"], p, dashed=True),
-        # The right half stays dashed: the role exists, the resources it will create do not yet.
-        arrow([(left_x + left_w, rows[1] + box_h / 2), (right_x, rows[1] + box_h / 2)], p,
-              dashed=True),
-        label(380, rows[1] + box_h / 2 - 10, "creates \u00b7 destroys", p),
+        label(380, rows[0] + box_h / 2 - 10, "creates \u00b7 changes", p),
 
         # The claim: the only identity that runs unattended is the one that cannot create
-        # anything. Everything with a bill attached to it needs a person.
+        # anything. Every change to infrastructure needs a person.
         rule(30, 990, line_y, p, accent=True),
-        label(34, line_y - 10, "above \u2014 a person at a terminal; prod needs an approval", p,
-              anchor="start"),
+        label(34, line_y - 10, "above \u2014 a person at a terminal", p, anchor="start"),
         label(34, line_y + 22,
               "below \u2014 unattended, and cannot create, change or delete infrastructure", p,
               anchor="start", accent=True, size=12),
 
-        box(left_x, rows[2], left_w, box_h,
+        box(left_x, rows[1], left_w, box_h,
             ["taskfest-<env>-deploy", "GitHub Actions, via OIDC", "no stored credential"], p,
             accent=True),
-        box(right_x, rows[2], right_w, box_h,
+        box(right_x, rows[1], right_w, box_h,
             ["Redeploy only",
-             "task definition \u00b7 service \u00b7 migration task",
+             "the Go backend's code \u00b7 its alias live",
              "frontend artifact \u2192 site bucket"], p),
-        arrow([(left_x + left_w, rows[2] + box_h / 2), (right_x, rows[2] + box_h / 2)], p,
+        arrow([(left_x + left_w, rows[1] + box_h / 2), (right_x, rows[1] + box_h / 2)], p,
               accent=True),
-        label(380, rows[2] + box_h / 2 - 10, "updates", p, accent=True),
+        label(380, rows[1] + box_h / 2 - 10, "updates", p, accent=True),
 
-        box(left_x, 470, left_w, 84,
+        box(left_x, rows[2], left_w, 84,
             ["taskfest-monitoring", "read-only, everywhere", "a person at a console"], p),
-        box(right_x, 470, right_w, 104,
-            ["taskfest-<env>-task-execution \u00b7 -task",
-             "what the container runs as \u2014 nobody assumes these",
-             "pulls the image, reads the sign-in secrets, writes logs",
-             "not -db-bootstrap-execution, which reads the master secret: lifecycle only"], p),
-        arrow([(725, rows[2] + box_h), (725, 470)], p),
-        label(738, 452, "iam:PassRole \u2014 only these two, only to ECS", p, anchor="start"),
+        box(right_x, rows[2], right_w, 84,
+            ["taskfest-<env>-api \u00b7 -streams \u00b7 -orphans \u00b7 \u2026",
+             "what the functions run as \u2014 nobody assumes these",
+             "each may make only the calls its function makes"], p),
     ]
     aria = (
-        "Three identities, in order of how much they may do. A human IAM admin creates the "
-        "free foundation once: the VPC, subnets, security groups, IAM, the certificate and "
-        "the DNS records. A role that same human assumes creates and destroys everything "
-        "that bills: the database, the load balancer and the Fargate service. Below the "
-        "line, the only unattended identity is the deploy role, assumed from GitHub Actions "
-        "through OIDC, which may update the service and the site bucket and cannot create, "
-        "change or delete any infrastructure. Separately, the task roles are what the "
-        "container runs as rather than an identity anyone assumes; only the bootstrap task's "
-        "execution role reads the master secret, and only the lifecycle role may pass it. A read-only user "
-        "exists for looking at things."
+        "Two identities, in order of how much they may do. A human IAM admin creates and changes "
+        "everything by an apply: the table, the buckets, the functions, the HTTP API, the "
+        "distribution, IAM, the certificate and the DNS records. Below the line, the only "
+        "unattended identity is the deploy role, assumed from GitHub Actions through OIDC, which "
+        "may deploy the Go backend's code and the site bucket and cannot create, change or delete "
+        "any infrastructure. Separately, the function roles are what the Go backend's functions "
+        "run as rather than an identity anyone assumes. A read-only user exists for looking at "
+        "things."
     )
     return document(w, h, "\n  ".join(parts), p, aria)
 

@@ -32,6 +32,8 @@ provider "aws" {
   }
 }
 
+data "aws_caller_identity" "current" {}
+
 # GitHub's OpenID Connect issuer, trusted once for the whole account.
 #
 # This is what replaces long-lived access keys in GitHub Actions secrets. A workflow job asks
@@ -82,8 +84,7 @@ resource "aws_iam_user_group_membership" "monitoring" {
 }
 
 # MFA, enforced on the group rather than trusted to the person. ReadOnlyAccess is broad -- it
-# reads every bucket's objects -- so a leaked access key on its own must be useless, which is the
-# same property the lifecycle role already has.
+# reads every bucket's objects -- so a leaked access key on its own must be useless.
 #
 # The shape is AWS's own published pattern: deny everything without MFA except what a user needs
 # to set up MFA in the first place. In practice that means the console works as usual once a
@@ -143,9 +144,11 @@ data "aws_iam_policy_document" "read_only_guard" {
   # With or without MFA. Looking at the account never needs the state, and the state is the one
   # place where every attribute of every resource -- prod's included -- sits in one readable file.
   # Nor people's files or the network's flow logs (#430): what was uploaded and who connected
-  # where are the users' business. The two bucket names are the environment module's
-  # (attachments.tf, flow-logs.tf), which point back here. GetObject* takes in every way of
-  # reading an object, its versions, ACL and tags included.
+  # where are the users' business. The attachments bucket is the environment module's
+  # (attachments.tf), which points back here. The flow-log buckets went with the containers
+  # (#557); their line stays until both environments' applies have deleted them, and goes in a
+  # change of its own after that. GetObject* takes in every way of reading an object, its
+  # versions, ACL and tags included.
   statement {
     sid     = "NeverReadTheStateOrPeoplesFiles"
     effect  = "Deny"
@@ -157,8 +160,8 @@ data "aws_iam_policy_document" "read_only_guard" {
     ]
   }
 
-  # Nor a secret (#430): qa's Cognito client secret, readable through its SSM parameter or the
-  # client itself, is for administrators and the environment's own roles
+  # Nor a secret (#430): qa's Cognito client secret, readable through the client itself, or the
+  # monitoring password in its SSM parameter, is for administrators and the environment's own roles
   # (doc/decisions/deployment-and-aws.md, "The monitoring user reads no files and no secrets").
   # SSM is pinned to this account, so AWS's public parameters stay readable.
   statement {

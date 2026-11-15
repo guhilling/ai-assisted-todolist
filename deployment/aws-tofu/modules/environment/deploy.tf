@@ -4,16 +4,13 @@
 # signed token describing itself for credentials that expire in minutes, so there is no secret
 # in GitHub to leak and nothing to rotate. The account root creates the trusted issuer.
 #
-# The scope is deliberately "redeploy the application", not "manage the environment". The VPC,
-# the database, the load balancer and the cluster are created by a human with their own
-# privileges, and this role cannot touch any of them. That split is not a matter of degree: a
+# The scope is deliberately "redeploy the application", not "manage the environment": put a
+# release's frontend into the site bucket and a release's code into the Go backend's functions.
+# The table, the buckets, the distribution and every IAM role are created by a human with their
+# own privileges, and this role cannot touch any of them. That split is not a matter of degree: a
 # role that could run `tofu apply` would need create and delete on everything this module
 # manages, which is administrator for the environment under a different name. Not creating such
 # a credential at all is stronger than trying to constrain one.
-
-data "aws_caller_identity" "current" {}
-
-data "aws_region" "current" {}
 
 # Created by the account root, which must be applied first.
 data "aws_iam_openid_connect_provider" "github" {
@@ -21,33 +18,8 @@ data "aws_iam_openid_connect_provider" "github" {
 }
 
 locals {
-  account = data.aws_caller_identity.current.account_id
-  region  = data.aws_region.current.region
-
-  # The names of resources this role will deploy, most of which do not exist yet. They are
-  # written here rather than waited for because they are *chosen*, not generated -- so the policy
-  # can be least-privilege from the start instead of holding a wildcard until later.
-  #
-  # Whichever change creates each resource must take its name from this block. That is what stops
-  # the policy and the resource drifting into an AccessDenied nobody can explain.
-  cluster_name        = local.name
-  service_name        = "${local.name}-backend"
-  migrate_family      = "${local.name}-migrate"
-  db_bootstrap_family = "${local.name}-db-bootstrap"
-  site_bucket         = "${local.name}-site"
-  task_execution_role = "${local.name}-task-execution"
-  task_role           = "${local.name}-task"
-  ecs_infrastructure  = "${local.name}-ecs-infrastructure"
-  # Passed by the lifecycle role only, never by this one (#454).
-  db_bootstrap_execution_role = "${local.name}-db-bootstrap-execution"
-
-  # The snapshots the downtime path takes before migrating (#215), named by deploy-backend.py.
-  # A final snapshot is `-final-`, so it never matches this.
-  pre_release_snapshots = "${local.db_instance}-pre-release-*"
-
-  cluster_arn     = "arn:aws:ecs:${local.region}:${local.account}:cluster/${local.cluster_name}"
-  db_instance_arn = "arn:aws:rds:${local.region}:${local.account}:db:${local.db_instance}"
-  service_arn     = "arn:aws:ecs:${local.region}:${local.account}:service/${local.cluster_name}/${local.service_name}"
+  # The site bucket's name, chosen rather than generated, so the policy below can name it.
+  site_bucket     = "${local.name}-site"
   site_bucket_arn = "arn:aws:s3:::${local.site_bucket}"
 }
 
@@ -85,169 +57,10 @@ resource "aws_iam_role" "deploy" {
   description        = "Redeploys the ${var.environment} application from GitHub Actions. Cannot change infrastructure."
   assume_role_policy = data.aws_iam_policy_document.deploy_trust.json
 
-  # Two hours, not IAM's default one: the downtime path's waits (#215) -- stop, snapshot, migrate,
-  # and a rollout with prod's bake -- may add up to more than an hour, and credentials that expire
-  # mid-start would also fail the call that leaves the service safe. deploy-backend.yml asks for it.
-  max_session_duration = 7200
-
   tags = { Name = "${local.name}-deploy" }
 }
 
 data "aws_iam_policy_document" "deploy" {
-  # Point the running service at a new task definition. This is what a backend deploy *is*, and
-  # it is scoped to one service ARN, so this role cannot touch the other environment's service.
-  #
-  # The ARN alone is not enough, because UpdateService also takes a network configuration. Without
-  # the condition, the qa role could move the qa service into prod's subnets with prod's tasks
-  # security group -- and a qa image would then have a network path to prod's database. Pinning
-  # the subnets pins the VPC as well, since a security group must belong to its subnet's VPC.
-  #
-  # ForAllValues because an ordinary deploy sends no network configuration, so the key is absent,
-  # and ForAllValues passes on an absent key where StringEquals would deny every deploy.
-  #
-  # The task definition is pinned to the backend's family too. Without that, this role could point
-  # the service at a bootstrap revision OpenTofu registered, whose execution role reads the master
-  # secret, and ECS would inject it into the service's tasks (#454). IfExists because a call that
-  # only scales the service names no task definition.
-  statement {
-    sid = "UpdateTheBackendServiceWithinThisEnvironmentsSubnets"
-    actions = [
-      "ecs:UpdateService",
-      "ecs:DescribeServices",
-    ]
-    resources = [local.service_arn]
-
-    condition {
-      test     = "ForAllValues:StringEquals"
-      variable = "ecs:subnet"
-      values   = aws_subnet.public[*].id
-    }
-
-    condition {
-      test     = "ArnLikeIfExists"
-      variable = "ecs:task-definition"
-      values   = ["arn:aws:ecs:${local.region}:${local.account}:task-definition/${local.service_name}:*"]
-    }
-  }
-
-  # Registering a task definition cannot be restricted to a resource: the call *creates* one, so
-  # there is no ARN or tag for a condition to match. Stated plainly because the alternative is
-  # believing this role is fenced in when it is not -- the qa role can register a revision in
-  # prod's family.
-  #
-  # It is tolerable because a task definition nobody runs is inert, and the calls that would run
-  # or deploy one -- UpdateService above, RunTask below -- are both scoped to this environment's
-  # service, family and cluster. A revision the other environment's roles register here carries
-  # their own roles or none, never this environment's execution role -- PassRole below -- and
-  # env.sh and deploy-backend.py pass over any revision without it (#429). If that ever stops being
-  # true, this is the statement to revisit.
-  statement {
-    sid = "RegisterTaskDefinitionsWhichCannotBeScoped"
-    actions = [
-      "ecs:RegisterTaskDefinition",
-      "ecs:DescribeTaskDefinition",
-    ]
-    resources = ["*"]
-  }
-
-  # The one-off Liquibase task, and watching it finish. Restricted to the migration family, and
-  # to this environment's cluster.
-  #
-  # Not to this environment's subnets, unlike UpdateService: RunTask has no ecs:subnet or
-  # security-group condition key (#429). So this role could run a migration task of its own family,
-  # with an image of its choosing, in the other environment's subnets and tasks security group: a
-  # network path to that database's port. It is tolerable because the task can carry only this
-  # environment's roles -- PassRole below -- so it holds no credentials the other database accepts.
-  statement {
-    sid       = "RunTheMigrationTask"
-    actions   = ["ecs:RunTask"]
-    resources = ["arn:aws:ecs:${local.region}:${local.account}:task-definition/${local.migrate_family}:*"]
-
-    condition {
-      test     = "ArnEquals"
-      variable = "ecs:cluster"
-      values   = [local.cluster_arn]
-    }
-  }
-
-  statement {
-    sid = "WatchTasksInThisCluster"
-    actions = [
-      "ecs:DescribeTasks",
-      "ecs:ListTasks",
-      "ecs:StopTask",
-    ]
-    resources = ["arn:aws:ecs:${local.region}:${local.account}:task/${local.cluster_name}/*"]
-
-    condition {
-      test     = "ArnEquals"
-      variable = "ecs:cluster"
-      values   = [local.cluster_arn]
-    }
-  }
-
-  # The statement that decides whether any of the above is actually safe.
-  #
-  # Running a task means handing it a role. Granted on "*", this one permission would let the
-  # deployer attach *any* role in the account to a task and read that role's credentials out of
-  # it -- turning "redeploy the application" into account administrator in a single step. So it
-  # names exactly the two roles this environment's tasks use, and the condition means they can
-  # only ever be passed to ECS. Not the bootstrap task's execution role, the one that reads the
-  # master secret: with it, a revision of this role's choosing could have ECS inject that (#454).
-  statement {
-    sid     = "PassOnlyThisEnvironmentsTaskRolesAndOnlyToEcs"
-    actions = ["iam:PassRole"]
-    resources = [
-      "arn:aws:iam::${local.account}:role/${local.task_execution_role}",
-      "arn:aws:iam::${local.account}:role/${local.task_role}",
-    ]
-
-    condition {
-      test     = "StringEquals"
-      variable = "iam:PassedToService"
-      values   = ["ecs-tasks.amazonaws.com"]
-    }
-  }
-
-  # The downtime path's way back (#215): a manual snapshot of this environment's database, taken
-  # after the backend has stopped and before the migration runs. Creating one names both the
-  # instance and the new snapshot, so both are listed; the snapshot only by its pre-release name.
-  statement {
-    sid     = "SnapshotThisDatabaseBeforeMigrating"
-    actions = ["rds:CreateDBSnapshot"]
-    resources = [
-      local.db_instance_arn,
-      "arn:aws:rds:${local.region}:${local.account}:snapshot:${local.pre_release_snapshots}",
-    ]
-  }
-
-  # The instance copies its tags to every snapshot (copy_tags_to_snapshot), and RDS checks that
-  # against the caller: without this, CreateDBSnapshot is refused, as v0.12.0's first downtime
-  # deploy was. Only on the pre-release snapshots, which is where the tags land.
-  statement {
-    sid       = "TagThePreReleaseSnapshot"
-    actions   = ["rds:AddTagsToResource"]
-    resources = ["arn:aws:rds:${local.region}:${local.account}:snapshot:${local.pre_release_snapshots}"]
-  }
-
-  # Watching it become available, and listing this database's snapshots to find the old ones.
-  statement {
-    sid     = "SeeThisDatabasesSnapshots"
-    actions = ["rds:DescribeDBSnapshots"]
-    resources = [
-      local.db_instance_arn,
-      "arn:aws:rds:${local.region}:${local.account}:snapshot:${local.db_instance}-*",
-    ]
-  }
-
-  # Keeping the newest three (D3 on #215). Only pre-release snapshots: a final snapshot is what
-  # `env.sh up` restores after a teardown, and this role can never delete one.
-  statement {
-    sid       = "DeleteOldPreReleaseSnapshots"
-    actions   = ["rds:DeleteDBSnapshot"]
-    resources = ["arn:aws:rds:${local.region}:${local.account}:snapshot:${local.pre_release_snapshots}"]
-  }
-
   # The frontend deploy: sync a release artifact into this environment's site bucket.
   statement {
     sid       = "ListTheSiteBucket"
@@ -291,13 +104,9 @@ data "aws_iam_policy_document" "deploy" {
 
   # Deliberately absent: cloudfront:CreateInvalidation. A distribution's id is generated by AWS
   # rather than chosen, so unlike everything above its ARN cannot be written before it exists.
-  # It joins this policy in the change that creates the distribution, scoped to that ARN, rather
-  # than being granted on "*" now.
   #
   # Also deliberately absent: any Deny keyed on the env tag. With every statement above scoped to
-  # an ARN built from this environment's name, there is no grant for such a Deny to catch -- and
-  # the one statement that cannot be scoped, RegisterTaskDefinition, has no resource to carry a
-  # tag either, so a tag Deny would not catch that one and would only look reassuring.
+  # an ARN built from this environment's name, there is no grant for such a Deny to catch.
 }
 
 resource "aws_iam_role_policy" "deploy" {

@@ -4,12 +4,12 @@
 # The browser moves the content itself, straight to and from S3, through links the backend signs
 # for one object and a few minutes (doc/decisions/domain-and-backend.md). So the bucket needs
 # exactly two things beyond being private: a CORS rule letting this environment's site PUT to it,
-# and a task role allowed to sign those links -- a presigned URL can do no more than the identity
-# that signed it.
+# and a function role allowed to sign those links (serverless.tf) -- a presigned URL can do no more
+# than the identity that signed it.
 #
-# Foundation rather than billable.tf, because it is people's data: `env.sh down` keeps it, like the
-# database's final snapshot, and the next `up` finds every file where it was. At demo sizes -- five
-# files of at most 10 MB a user -- it costs fractions of a cent a month.
+# It is people's data. At demo sizes -- five files of at most 10 MB a user -- it costs fractions of
+# a cent a month. The Go backend keeps its objects under serverless/ (serverless.tf); whatever the
+# Quarkus backend left at the top level stays where it was (doc/decisions/deployment-and-aws.md).
 
 locals {
   # The monitoring user is denied its objects by this name (account/main.tf, #430).
@@ -33,10 +33,9 @@ resource "aws_s3_bucket" "attachments" {
 
   # A plan that would destroy the bucket fails instead (#435). Without this, only S3's refusal to
   # delete a non-empty bucket stood in the way, at apply time and not at all for an empty one --
-  # and a renamed environment or project replaces the bucket. `env.sh down` never plans its
-  # destruction, since it is foundation, so teardown is unaffected. Retiring an environment for
-  # good means `tofu state rm` of this bucket in that environment and deleting it by hand; not
-  # deleting this line, which would unprotect the other environment too.
+  # and a renamed environment or project replaces the bucket. Retiring an environment for good
+  # means `tofu state rm` of this bucket in that environment and deleting it by hand; not deleting
+  # this line, which would unprotect the other environment too.
   lifecycle {
     prevent_destroy = true
   }
@@ -60,7 +59,7 @@ resource "aws_s3_bucket_ownership_controls" "attachments" {
 }
 
 # AWS-0132: S3-managed keys. A customer-managed key costs a dollar a month per environment and
-# protects against nothing here that the bucket policy does not: only the task role can sign.
+# protects against nothing here that the bucket policy does not: only the function roles can sign.
 #trivy:ignore:AWS-0132
 resource "aws_s3_bucket_server_side_encryption_configuration" "attachments" {
   bucket = aws_s3_bucket.attachments.id
@@ -115,38 +114,4 @@ resource "aws_s3_bucket_policy" "attachments" {
 
   # A policy written before the public access block can be refused as public.
   depends_on = [aws_s3_bucket_public_access_block.attachments]
-}
-
-# What the backend signs links with, deletes with, and lists. ListBucket does two jobs: the orphan
-# clean-up (#208) lists the bucket hourly, and without it S3 answers a HEAD on a missing object with
-# 403 instead of 404, so "not uploaded yet" -- the confirm the browser sends too early -- would
-# become a server error. Narrowing it breaks both, and LocalStack, which enforces no IAM, would not
-# notice.
-data "aws_iam_policy_document" "task_attachments" {
-  statement {
-    sid       = "ReadWriteAndDeleteAttachments"
-    actions   = ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"]
-    resources = ["${aws_s3_bucket.attachments.arn}/*"]
-  }
-
-  # The Go backend's part of the bucket (#578, serverless.tf), out of reach as the Go functions are
-  # kept out of the rest: not only the clean-up's skipping of keys with a slash keeps them apart.
-  statement {
-    sid       = "NeverTouchTheGoBackendsObjects"
-    effect    = "Deny"
-    actions   = ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"]
-    resources = ["${aws_s3_bucket.attachments.arn}/${local.go_root}*"]
-  }
-
-  statement {
-    sid       = "ListForTheCleanUpAndTellMissingFromForbidden"
-    actions   = ["s3:ListBucket"]
-    resources = [aws_s3_bucket.attachments.arn]
-  }
-}
-
-resource "aws_iam_role_policy" "task_attachments" {
-  name   = "${local.task_role}-attachments"
-  role   = aws_iam_role.task.id
-  policy = data.aws_iam_policy_document.task_attachments.json
 }

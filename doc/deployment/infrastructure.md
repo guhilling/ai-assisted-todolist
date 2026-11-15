@@ -19,15 +19,16 @@ environments/prod/       the same root, different values
 account/                 the things there is one of per AWS account
 ```
 
-`account/` holds the GitHub OIDC provider, the monitoring user, and the image scanning: ECR's
-pull-through cache for quay.io, Amazon Inspector, and the read-only role the findings workflow
-used until #559 ([image scanning](image-scanning.md)). Its permissions come from a
-`read-only` group: `ReadOnlyAccess`, everything **denied without MFA** except registering a
-device, and the state bucket's objects denied even with it, as are people's attachments, the flow
-logs, SSM parameters and Cognito app clients' secrets (#430). `ReadOnlyAccess` reads every bucket,
-so without the MFA rule a leaked access key would have read prod's state. From the CLI the user
-therefore needs a session from `aws sts get-session-token --serial-number … --token-code …`; the
-bare access key is refused. It exists because those are
+`account/` holds the GitHub OIDC provider, the monitoring user and the documentation site's DNS
+name; the image scanning it held for the containers went in #557
+([image scanning](image-scanning.md)).
+The monitoring user's permissions come from a `read-only` group: `ReadOnlyAccess`, everything
+**denied without MFA** except registering a device, and the state bucket's objects denied even with
+it, as are people's attachments, SSM parameters, Cognito app clients' secrets and the functions'
+settings (#430, #554). `ReadOnlyAccess` reads every bucket, so without the MFA rule a leaked access
+key would have read prod's state. From the CLI the user therefore needs a session from
+`aws sts get-session-token --serial-number … --token-code …`; the bare access key is refused.
+It exists because those are
 singular: instantiating them from a module applied twice would have the two environments fighting
 over one provider. It is applied **before** either environment, which look the provider up by URL.
 
@@ -43,6 +44,25 @@ tagging is complete: an untagged resource is invisible to both environment budge
 only in the total.
 
 
+## Applying
+
+Every apply is a person's, with an administrator's profile; no credential in CI can apply
+([access.md](access.md)). `env.sh` does the ceremony: it resolves the profile through the AWS CLI,
+which can ask for the MFA code OpenTofu cannot, shows the plan, and applies the saved plan once
+confirmed.
+
+```sh
+deployment/aws-tofu/env.sh account       # the account-wide root, first
+deployment/aws-tofu/env.sh up qa      # an environment
+deployment/aws-tofu/env.sh up prod
+```
+
+The profile is named in `TASKFEST_<ENV>_AWS_PROFILE` (`TASKFEST_QA_AWS_PROFILE`,
+`TASKFEST_ACCOUNT_AWS_PROFILE`, …) or else `AWS_PROFILE`; there is no default. `up`, `down`,
+`status`, `migrate` and `db-bootstrap` were the container architecture's, and stop with a note now
+([teardown.md](teardown.md)).
+
+
 ## Resource inventory
 
 Per environment, identical unless noted. The Go backend's resources, its table, functions, HTTP
@@ -50,29 +70,18 @@ API, schedules and alarms, are listed in [serverless.md](serverless.md#the-infra
 
 | Resource | Why |
 | --- | --- |
-| VPC, two public subnets in two AZs | Two AZs because the load balancer requires it, not for availability |
-| **No NAT gateway** | See *Cost* — this is the single biggest saving, and it is why the tasks sit in the public subnets |
-| Security groups | ALB open on 443; ECS open only to the ALB; RDS open only to ECS |
-| VPC flow logs, to a private S3 bucket | All traffic, kept 30 days; see *Observability*. Not behind the teardown switch, because delivery is charged per GB and a torn-down VPC sends almost nothing |
-| Alerting: SNS topic `taskfest-<env>-alerts`, Gunnar's email subscribed (address from the SSM parameter `/taskfest/alert-email`), a log metric filter and the alarms `taskfest-<env>-orphan-alert` and `taskfest-<env>-up-reminder` | Mail when the orphan clean-up finds more than two orphans (#208), and when the environment has been up for four hours (#535); `alerting.tf`. Foundation: the alarm must exist when `up` restores a database |
-| Attachments bucket `taskfest-<env>-attachments` | The files on tasks (#204, `attachments.tf`). Private, TLS only, no versioning so a deleted file is gone; CORS lets the site PUT and GET; the task role may read, write and delete objects and list the bucket -- the last only so that HEAD on a missing object is a 404, not a 403. Foundation: people's files survive `down` |
-| **Internal** ALB, two target groups | Blue/green shifts traffic between them; reachable only from CloudFront |
-| Two private subnets | For the load balancer only. No NAT gateway: nothing in them makes outbound calls |
+| Alerting: SNS topic `taskfest-<env>-alerts`, Gunnar's email subscribed (address from the SSM parameter `/taskfest/alert-email`), and the alarm `taskfest-<env>-orphan-alert` | Mail when the orphan clean-up finds more than two orphans (#208), counted by a metric filter on the `orphans` function's log (`alerting.tf`, `serverless-jobs.tf`); the Go backend's other alarms notify the same topic |
+| Attachments bucket `taskfest-<env>-attachments` | The files on tasks (#204, `attachments.tf`). Private, TLS only, no versioning so a deleted file is gone; CORS lets the site PUT and GET. The Go backend's functions may touch only `serverless/` in it; the Quarkus backend's files are still at the top level. It refuses to be destroyed (#435) |
 | ACM certificate in **us-east-1** | CloudFront accepts certificates from that region only |
 | Route 53 alias records | In the same account as everything else; free to query |
-| ECS cluster, one Fargate service | The Quarkus backend, 0.5 vCPU / 1 GB |
-| **qa only:** Cognito user pool `taskfest-qa-test-accounts`, its app clients (the backend's and the mobile app's) and prefix domain, two accounts, the client secret in SSM | The test accounts the live tests sign in with (`test-sign-in.tf`, #190); foundation, so they survive `down`. Switched by `test_sign_in` in `terraform.tfvars`; with them the role `taskfest-qa-live-test`, which may only set the accounts' passwords for a live-test run (#144) |
-| ECS cluster, and two one-off tasks | `migrate` (the backend image with `quarkus.init-and-exit`) and `db-bootstrap` (`psql`, once per environment); see *The database* |
-| RDS PostgreSQL, single-AZ, `db.t4g.micro` | HA is explicitly not required |
-| Secrets Manager | The RDS-managed master password, for bootstrapping and administration only, and the Google client secret. The application has no database password at all |
-| Three IAM users and their policies | The technical identities above, scoped by tag |
+| **qa only:** Cognito user pool `taskfest-qa-test-accounts`, its app clients (the backend's and the mobile app's) and prefix domain, two accounts | The test accounts the live tests sign in with (`test-sign-in.tf`, #190). Switched by `test_sign_in` in `terraform.tfvars`; with them the role `taskfest-qa-live-test`, which may only set the accounts' passwords for a live-test run (#144) |
+| Secrets Manager | The Google client secret, value set by hand (`sign-in.tf`) |
+| IAM role `taskfest-<env>-deploy` | What GitHub Actions deploys with ([access.md](access.md)) |
 | S3 bucket, private | The built SPA; reachable only through CloudFront's origin access control |
-| CloudFront distribution | The two origins above |
-| CloudWatch log groups, alarms, dashboard | See *Observability* |
-| AWS Budgets | See *Cost* |
+| CloudFront distribution | The site bucket, and `/api/*` to the Go backend's HTTP API |
+| CloudWatch log groups, alarms, dashboard | See *Observability* and serverless.md |
+| AWS Budgets | See *Cost*; made by hand, not here |
 
-ECS tasks run in **public subnets with a public IP**, which is what avoids the NAT gateway. They
-are not reachable from outside: the security group admits only the ALB. This is a deliberate
-demo-scale trade — a commercial deployment would use private subnets and pay for NAT or VPC
-endpoints, and the reasoning is in [decisions/deployment-and-aws.md](../decisions/deployment-and-aws.md).
-
+There is no VPC: no function runs in one, so the network the containers needed, its subnets,
+security groups and flow logs went with them (#557). The container architecture's resources are
+in the tag `pre-serverless`.

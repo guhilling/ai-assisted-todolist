@@ -6,11 +6,10 @@
 # value is put in by a person with `aws secretsmanager put-secret-value`, so it never passes
 # through this repository or OpenTofu state. doc/deployment/names-and-certificates.md has the command.
 #
-# Unlike the RDS master secret it does not rotate by itself, so ECS injecting it at task start is
-# fine. Changing it means putting a new value and starting new tasks.
+# It does not rotate by itself. The Go backend reads it at a cold start (serverless.tf), so
+# changing it means putting a new value and letting the functions start again, or deploying.
 #
-# About $0.40 a month. It is foundation, so it stays while the environment is down, with the rest
-# of what costs nothing to keep.
+# About $0.40 a month.
 
 locals {
   google_client_secret = "${local.name}-google-client-secret"
@@ -28,7 +27,7 @@ resource "aws_secretsmanager_secret" "google_client_secret" {
   description = "The ${var.environment} Google OAuth client secret. Value set by hand, never by OpenTofu."
 
   # The default 30-day recovery window would block re-creating the same name for a month after
-  # a teardown of the foundation; a week is enough to notice a mistake.
+  # the environment is destroyed; a week is enough to notice a mistake.
   recovery_window_in_days = 7
 
   tags = { Name = local.google_client_secret }
