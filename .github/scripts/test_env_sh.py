@@ -6,7 +6,8 @@ with a note (#557).
 `AWS_PROFILE=hilling-it env.sh down qa` failed with a 403 on the state bucket: the profile was the
 IAM user itself, which may assume the lifecycle role but holds none of its permissions. Now the
 profile is chosen per environment (TASKFEST_QA_AWS_PROFILE, TASKFEST_PROD_AWS_PROFILE), then
-AWS_PROFILE, then taskfest-<env>-lifecycle, and one without a role_arn or an SSO role is refused.
+AWS_PROFILE, with no default since the lifecycle role went (#557); one without a role_arn or an
+SSO role is refused, and so is a taskfest-<env>-lifecycle one.
 
 The profile tests run env.sh against a throwaway AWS config file, so nothing there signs a request;
 they need bash and the AWS CLI, whose `configure get` only reads that file.
@@ -119,7 +120,7 @@ class AccountTest(unittest.TestCase):
 
 @unittest.skipUnless(shutil.which("bash"), "needs bash")
 class RetiredCommandTest(unittest.TestCase):
-    """The container architecture's commands stop with a note pointing at `apply` (#557), before
+    """The container architecture's commands stop with a note pointing at `up` (#557), before
     any AWS profile, OpenTofu or AWS is reached: `down` must not quietly do something else."""
 
     def run_env_sh(self, *args):
@@ -179,6 +180,13 @@ class ApplyTest(unittest.TestCase):
 
         self.assertEqual(result.returncode, 1)
         self.assertIn("AWS_PROFILE is set to nowhere, which is not configured.", result.stderr)
+
+    def test_an_environment_must_be_a_name_not_a_path(self):
+        # `../account` would reach the account root under `up`, and name a variable no shell can
+        # expand (#557's review).
+        result = self.run_env_sh("up", "../account", AWS_PROFILE="with-role")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("No such environment: ../account", result.stderr)
 
     def test_an_option_it_does_not_know_is_a_usage_error(self):
         result = self.run_env_sh("up", "qa", "v1.2.3")

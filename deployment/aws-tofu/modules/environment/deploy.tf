@@ -12,20 +12,12 @@
 # manages, which is administrator for the environment under a different name. Not creating such
 # a credential at all is stronger than trying to constrain one.
 
-data "aws_caller_identity" "current" {}
-
-data "aws_region" "current" {}
-
 # Created by the account root, which must be applied first.
 data "aws_iam_openid_connect_provider" "github" {
   url = "https://token.actions.githubusercontent.com"
 }
 
 locals {
-  name    = "${var.project}-${var.environment}"
-  account = data.aws_caller_identity.current.account_id
-  region  = data.aws_region.current.region
-
   # The site bucket's name, chosen rather than generated, so the policy below can name it.
   site_bucket     = "${local.name}-site"
   site_bucket_arn = "arn:aws:s3:::${local.site_bucket}"

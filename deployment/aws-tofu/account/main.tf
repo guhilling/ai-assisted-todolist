@@ -143,9 +143,12 @@ data "aws_iam_policy_document" "read_only_guard" {
 
   # With or without MFA. Looking at the account never needs the state, and the state is the one
   # place where every attribute of every resource -- prod's included -- sits in one readable file.
-  # Nor people's files (#430): what was uploaded is the users' business. The bucket name is the
-  # environment module's (attachments.tf), which points back here. GetObject* takes in every way
-  # of reading an object, its versions, ACL and tags included.
+  # Nor people's files or the network's flow logs (#430): what was uploaded and who connected
+  # where are the users' business. The attachments bucket is the environment module's
+  # (attachments.tf), which points back here. The flow-log buckets went with the containers
+  # (#557); their line stays until both environments' applies have deleted them, and goes in a
+  # change of its own after that. GetObject* takes in every way of reading an object, its
+  # versions, ACL and tags included.
   statement {
     sid     = "NeverReadTheStateOrPeoplesFiles"
     effect  = "Deny"
@@ -153,6 +156,7 @@ data "aws_iam_policy_document" "read_only_guard" {
     resources = [
       "arn:aws:s3:::${var.state_bucket}/*",
       "arn:aws:s3:::${var.project}-*-attachments/*",
+      "arn:aws:s3:::${var.project}-*-flow-logs/*",
     ]
   }
 

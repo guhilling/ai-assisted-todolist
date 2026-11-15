@@ -122,7 +122,7 @@ AssumeRoleTokenProvider session option not set"*. The state key differs per envi
 two never see each other.
 
 **`up`, `down`, `status`, `migrate` and `db-bootstrap` are gone**, with the container architecture
-they were for (#557). Each stops with a note pointing at `apply`, rather than doing something
+they were for (#557). Each stops with a note pointing at `up`, rather than doing something
 else under a name people have in their fingers.
 
 **Which profile it uses**, in this order:

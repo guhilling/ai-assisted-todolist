@@ -86,6 +86,13 @@ for argument in "$@"; do
 done
 readonly ASSUME_YES
 
+# A name, not a path: it becomes a directory and a variable's name, and `../account` would be
+# both the account root and a variable no shell can expand.
+if [[ "$COMMAND" != "account" && ! "$ENVIRONMENT" =~ ^[a-z]+$ ]]; then
+    echo "No such environment: ${ENVIRONMENT}" >&2
+    exit 1
+fi
+
 if [[ "$COMMAND" == "account" ]]; then
     readonly ROOT="${HERE}/account"
 else

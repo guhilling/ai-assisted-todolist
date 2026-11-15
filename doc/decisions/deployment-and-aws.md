@@ -5,8 +5,9 @@
 *Superseded · 2026-10-01 · #96 · by [The container architecture is removed from the infrastructure](#the-container-architecture-is-removed-from-the-infrastructure)*
 
 **Since #557 nothing is torn down.** What billed by the hour went with the containers, and with it
-`running`, `billable.tf`, `check-billable-guard.py` and `env.sh up` and `down`; `env.sh up`
-keeps the shown plan and the saved plan file. The tag `pre-serverless` keeps the rest. What
+`running`, `billable.tf`, `check-billable-guard.py`, `env.sh down` and what `env.sh up` did;
+`env.sh up` now only applies an environment's root, and keeps the shown plan and the saved plan
+file. The tag `pre-serverless` keeps the rest. What
 follows is why teardown was a parameter.
 
 **Decision.** Each environment has a `running` variable, default `false`. The resources that bill
@@ -736,7 +737,7 @@ the privacy texts say for every environment that sends.
 
 *Accepted · 2026-11-10 · #557*
 
-Revised in part on 2026-11-15 (#557): `api_backend` and `env.sh up` went with the containers'
+Revised in part on 2026-11-15 (#557): `api_backend` and what `env.sh up` did went with the containers'
 infrastructure; the way back is the tag `pre-serverless`, and the final RDS snapshots are kept
 ([below](#the-container-architecture-is-removed-from-the-infrastructure)).
 
@@ -764,7 +765,7 @@ lifecycle role, the up-time reminder, the containers' half of the orphan alert, 
 Cognito client secret, and the deploy role's ECS and RDS grants; from the account root ECR's
 pull-through cache, its repository template, Inspector and the registry's scanning configuration.
 `api_backend`, `running` and the containers' variables go with them, so `/api/*` always goes to the
-Go backend. `env.sh` shrinks to `apply <env>` and `account`, an administrator's, with the plan
+Go backend. `env.sh` shrinks to `up <env>` and `account`, an administrator's, with the plan
 shown and the saved plan applied; `up`, `down`, `status`, `migrate` and `db-bootstrap` stop with a
 note instead of doing something else. Claude's choices, within #557's done-when, for Gunnar to
 review.
