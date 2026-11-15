@@ -195,10 +195,7 @@ jobs:
         working-directory: serverless
         run: |
           go generate ./...
-          git diff --exit-code -- . || {
-            echo "::error::generated code is stale (api.gen.go, zones.gen.go): run go generate ./... in serverless/"
-            exit 1
-          }
+          ../.github/scripts/check-generated-current.sh "go generate ./... in serverless/" .
       - name: Vet
         working-directory: serverless
         run: go vet ./...
