@@ -212,16 +212,16 @@ class ReasonTest(unittest.TestCase):
 
 
 class SameOasdiffTest(unittest.TestCase):
-    """The release decides with the oasdiff Backend CI gates with (#297)."""
+    """The release decides with the oasdiff Contract CI gates with (#297, #559)."""
 
     def test_both_workflows_use_one_oasdiff_version(self):
         workflows = pathlib.Path(__file__).parents[1] / "workflows"
         versions = {
             name: set(re.findall(r"tufin/oasdiff:(\S+)", (workflows / name).read_text()))
-            for name in ("backend-ci.yml", "cut-release.yml")
+            for name in ("contract-ci.yml", "cut-release.yml")
         }
-        self.assertEqual(len(versions["backend-ci.yml"]), 1, versions)
-        self.assertEqual(versions["cut-release.yml"], versions["backend-ci.yml"])
+        self.assertEqual(len(versions["contract-ci.yml"]), 1, versions)
+        self.assertEqual(versions["cut-release.yml"], versions["contract-ci.yml"])
 
 
 if __name__ == "__main__":
