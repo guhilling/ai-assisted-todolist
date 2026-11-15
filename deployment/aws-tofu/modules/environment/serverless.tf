@@ -1,9 +1,8 @@
 # The Go backend (#547, #554): its DynamoDB table, its function, and the HTTP API that CloudFront
-# sends /api/* to once `api_backend` says so (edge.tf). doc/deployment/serverless.md has the design.
+# sends /api/* to (edge.tf). doc/deployment/serverless.md has the design.
 #
-# Foundation rather than billable.tf: everything here bills per request, nothing by the hour, so an
-# idle environment costs nothing for it and `env.sh down` leaves it alone. The table is people's
-# data, as the attachment bucket is.
+# Everything here bills per request, nothing by the hour, so an idle environment costs nothing for
+# it. The table is people's data, as the attachment bucket is.
 #
 # The code is serverless/dist/api.zip, built by serverless/build.sh before the apply that creates
 # the function. OpenTofu creates the function with it once and never tracks it after that: a
@@ -19,7 +18,7 @@ locals {
   live_alias    = "live"            # deploy-serverless.py's ALIAS
 
   # The Go backend's part of the shared attachment bucket (#578), files.Root: its functions may
-  # touch objects there and nowhere else, so the containers' files and records are out of reach.
+  # touch objects there and nowhere else, so what the Quarkus backend left there is out of reach.
   # ListBucket stays on the whole bucket, without which a HEAD on a missing object answers 403.
   go_root    = "serverless/"
   go_files   = "${aws_s3_bucket.attachments.arn}/${local.go_root}attachments/*"
@@ -29,9 +28,9 @@ locals {
   bucket_settings  = { TASKFEST_ATTACHMENTS_BUCKET = aws_s3_bucket.attachments.bucket }
   storage_settings = merge({ TABLE_NAME = aws_dynamodb_table.data.name }, local.bucket_settings)
 
-  # The providers the function offers, the main one first, as auth.LoadConfig reads them. As for
-  # the containers, sign-in is on only where Google is: the test accounts are a provider beside
-  # it, whose client allows only its own callback, never the main one.
+  # The providers the function offers, the main one first, as auth.LoadConfig reads them. Sign-in
+  # is on only where Google is: the test accounts are a provider beside it, whose client allows
+  # only its own callback, never the main one.
   api_providers = local.sign_in_enabled ? concat(["google"], var.test_sign_in ? ["cognito"] : []) : []
 }
 
@@ -89,7 +88,8 @@ resource "random_password" "origin" {
   special = false
 }
 
-# AWS-0017, as for the backend's log group (ecs.tf).
+# AWS-0017, a customer-managed key: about $1 a month per key, more than these logs are worth.
+# CloudWatch encrypts them at rest with its own key regardless.
 #trivy:ignore:AWS-0017
 resource "aws_cloudwatch_log_group" "api_function" {
   name              = "/aws/lambda/${local.api_function}"
@@ -134,8 +134,7 @@ data "aws_iam_policy_document" "api_function" {
 
   # TransactWriteItems is authorised per item, by the actions above; it has no action of its own.
 
-  # As for the container's role (attachments.tf): ListBucket also makes S3 answer a HEAD on a
-  # missing object with 404 rather than 403.
+  # ListBucket also makes S3 answer a HEAD on a missing object with 404 rather than 403.
   statement {
     sid       = "ReadWriteAndDeleteAttachments"
     actions   = ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"]

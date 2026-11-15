@@ -46,12 +46,6 @@ jobs:
         # is what stops it quietly becoming a second codebase.
         run: python3 check-environments-match.py
 
-      - name: Check every billable resource is behind the teardown switch
-        # Tearing an environment down is a parameter change, which only works if the resources
-        # that bill are actually guarded. An unguarded one fails silently -- the teardown
-        # succeeds, the resource keeps running, and the bill is the first evidence.
-        run: python3 check-billable-guard.py
-
       - name: Scan for misconfigurations
         # Trivy reads the .tf files and fails on any finding, at every severity: a finding is
         # either fixed or suppressed inline with `#trivy:ignore:<ID>` and a comment saying why, so
@@ -63,9 +57,8 @@ jobs:
         # Renovate pull request, rather than failing an unrelated change on the day it ships.
         # It runs before `init`, so it scans this repository's code and not downloaded modules.
         #
-        # trivy.tfvars sets running = true. Without it every billable resource evaluates to
-        # zero instances and is never checked at all -- the database once passed this scan by
-        # not existing.
+        # trivy.tfvars turns on what is off by default, qa's test accounts, so that they are
+        # scanned too rather than evaluating to zero instances.
         uses: docker://aquasec/trivy:0.76.2
         with:
           args: config --skip-check-update --exit-code 1 --tf-vars deployment/aws-tofu/trivy.tfvars deployment/aws-tofu
@@ -78,7 +71,7 @@ jobs:
 
       - name: Lint the shell script
         # shellcheck ships on the GitHub-hosted Ubuntu images. env.sh is the one place here where
-        # a quoting mistake would be discovered by destroying the wrong thing.
+        # a quoting mistake would be discovered by applying the wrong thing.
         run: shellcheck env.sh
 
       - name: Validate every root

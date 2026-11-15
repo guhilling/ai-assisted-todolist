@@ -5,9 +5,8 @@
 # sends the logs on to the monitoring server where there is one (monitoring.tf, #508). And the
 # alarms on the first three, which mail through the topic in alerting.tf.
 #
-# Foundation, like serverless.tf: the functions bill per run, nothing by the hour; the alarms cost
-# $0.10 a month each, whether the environment is up or not. The code comes from
-# serverless/dist/<command>.zip as for the API.
+# As in serverless.tf, the functions bill per run, nothing by the hour; the alarms cost $0.10 a
+# month each. The code comes from serverless/dist/<command>.zip as for the API.
 
 locals {
   streams_function = "${local.name}-streams"
@@ -42,7 +41,7 @@ locals {
   }
 }
 
-# AWS-0017, as for the backend's log group (ecs.tf).
+# AWS-0017, as for the API's log group (serverless.tf).
 #trivy:ignore:AWS-0017
 resource "aws_cloudwatch_log_group" "job" {
   for_each = local.jobs
@@ -322,8 +321,8 @@ resource "aws_scheduler_schedule" "job" {
   }
 }
 
-# The Go orphan clean-up's alert line feeds the same metric as the containers' (alerting.tf), so
-# the one alarm sees both. Its log lines are JSON, the field a boolean.
+# The Go orphan clean-up's alert line feeds the metric of the orphan alarm (alerting.tf). Its log
+# lines are JSON, the field a boolean.
 resource "aws_cloudwatch_log_metric_filter" "orphan_alert_serverless" {
   name           = "${local.name}-orphan-alert-serverless"
   log_group_name = aws_cloudwatch_log_group.job["orphans"].name
@@ -338,8 +337,7 @@ resource "aws_cloudwatch_log_metric_filter" "orphan_alert_serverless" {
 }
 
 # The alarms, each $0.10 a month: one per thing that can go wrong unnoticed. Each mails once on
-# entering ALARM and once on leaving it. No data, as with no traffic, is no alarm -- which is what
-# an environment whose /api/* the containers serve shows for the HTTP API's.
+# entering ALARM and once on leaving it. No data, as with no traffic, is no alarm.
 locals {
   serverless_alarms = {
     api-errors = {

@@ -76,11 +76,10 @@ not sent to the application.
 
 ### Technical logs
 
-Every request passes through Amazon Web Services' content delivery network and load balancer, and
-reaches the application's server. These record technical data such as the time, the requested
+Every request passes through Amazon Web Services' content delivery network and its API gateway,
+and reaches the application. These record technical data such as the time, the requested
 address, your IP address, your browser's identification, and whether the request succeeded. The
-application's own log is kept for 30 days for `taskfest-qa` and 90 days for `taskfest`; network
-logs are kept for 30 days. For `taskfest-qa`, the application's log is also sent to a monitoring
+application's own log is kept for 30 days for `taskfest-qa` and 90 days for `taskfest`. For `taskfest-qa`, the application's log is also sent to a monitoring
 server at Hetzner and kept there for 30 days as well; it holds your sign-in identifier, but neither
 your IP address nor the content of your tasks.
 
@@ -153,4 +152,4 @@ Prinzenstraße 5<br>
 This policy is part of the project's documentation and is changed in the open, in the
 repository. The date below is the date of the last change to its content.
 
-Last changed: 13 November 2026
+Last changed: 15 November 2026

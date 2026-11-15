@@ -1,6 +1,7 @@
 """
 Pins down which AWS profile deployment/aws-tofu/env.sh uses, and that it stops on one that assumes
-no role -- before OpenTofu or AWS is reached; and which task revision its one-off tasks run (#429).
+no role -- before OpenTofu or AWS is reached; and that the container architecture's commands stop
+with a note (#557).
 
 `AWS_PROFILE=hilling-it env.sh down qa` failed with a 403 on the state bucket: the profile was the
 IAM user itself, which may assume the lifecycle role but holds none of its permissions. Now the
@@ -8,8 +9,7 @@ profile is chosen per environment (TASKFEST_QA_AWS_PROFILE, TASKFEST_PROD_AWS_PR
 AWS_PROFILE, then taskfest-<env>-lifecycle, and one without a role_arn or an SSO role is refused.
 
 The profile tests run env.sh against a throwaway AWS config file, so nothing there signs a request;
-they need bash and the AWS CLI, whose `configure get` only reads that file. The one-off task tests
-put fake `tofu` and `aws` commands first on the PATH instead.
+they need bash and the AWS CLI, whose `configure get` only reads that file.
 
 Run with:  python3 -m unittest discover -s .github/scripts -p 'test_*.py'
 """
@@ -58,7 +58,7 @@ class ProfileChoiceTest(unittest.TestCase):
                               capture_output=True, text=True, timeout=60)
 
     def test_a_plain_user_profile_is_refused(self):
-        result = self.run_env_sh("down", "qa", AWS_PROFILE="plain")
+        result = self.run_env_sh("up", "qa", AWS_PROFILE="plain")
 
         self.assertEqual(result.returncode, 1)
         self.assertIn("plain", result.stderr)
@@ -67,21 +67,21 @@ class ProfileChoiceTest(unittest.TestCase):
 
     def test_the_environments_own_variable_comes_first(self):
         # A global AWS_PROFILE is what got in the way; the per-environment choice wins over it.
-        result = self.run_env_sh("down", "qa", AWS_PROFILE="with-role", TASKFEST_QA_AWS_PROFILE="other-plain")
+        result = self.run_env_sh("up", "qa", AWS_PROFILE="with-role", TASKFEST_QA_AWS_PROFILE="other-plain")
 
         self.assertEqual(result.returncode, 1)
         self.assertIn("other-plain", result.stderr)
         self.assertIn("TASKFEST_QA_AWS_PROFILE", result.stderr)
 
     def test_each_environment_has_its_own_variable(self):
-        result = self.run_env_sh("up", "prod", "v1.2.3", TASKFEST_PROD_AWS_PROFILE="plain",
+        result = self.run_env_sh("up", "prod", TASKFEST_PROD_AWS_PROFILE="plain",
                                  TASKFEST_QA_AWS_PROFILE="with-role")
 
         self.assertEqual(result.returncode, 1)
         self.assertIn("TASKFEST_PROD_AWS_PROFILE", result.stderr)
 
     def test_a_chosen_profile_that_does_not_exist_is_refused(self):
-        result = self.run_env_sh("migrate", "qa", TASKFEST_QA_AWS_PROFILE="nowhere")
+        result = self.run_env_sh("up", "qa", TASKFEST_QA_AWS_PROFILE="nowhere")
 
         self.assertEqual(result.returncode, 1)
         self.assertIn("nowhere", result.stderr)
@@ -117,134 +117,74 @@ class AccountTest(unittest.TestCase):
         self.assertEqual(result.returncode, 1)
         self.assertIn("other-plain (from AWS_PROFILE)", result.stderr)
 
-OWN_ROLE = "arn:aws:iam::123456789012:role/taskfest-qa-task-execution"
-
-FAKE_TOFU = """#!/usr/bin/env bash
-# OpenTofu's outputs for qa while it is up; every other command succeeds and prints nothing.
-shift  # -chdir=...
-[[ "$1" == output ]] || exit 0
-case "${@: -1}" in
-  db_endpoint) echo '"taskfest-qa.example.com"' ;;
-  migrate_task_family) echo taskfest-qa-migrate ;;
-  db_bootstrap_task_family) echo taskfest-qa-db-bootstrap ;;
-  cluster_name) echo taskfest-qa ;;
-  tasks_security_group_id) echo sg-tasks ;;
-  public_subnet_ids) echo '["subnet-a","subnet-b"]' ;;
-  *) exit 1 ;;
-esac
-"""
-
-FAKE_AWS = """#!/usr/bin/env bash
-# The AWS CLI as far as a one-off task needs it: the lifecycle profile, a family of two active
-# revisions, 7 with the execution role in $NEWEST_ROLE and 6 with qa's own for that family (#454),
-# and ECS answering that the task ran and exited 0. Each call is written to $AWS_CALLS.
-echo "$*" >> "$AWS_CALLS"
-case "$1 $2" in
-  "configure list-profiles") echo taskfest-qa-lifecycle ;;
-  "configure get") [[ "$3" == role_arn ]] && echo arn:aws:iam::123456789012:role/taskfest-qa-lifecycle ;;
-  "configure export-credentials") [[ "$3" == help ]] || echo "export AWS_ACCESS_KEY_ID=fake" ;;
-  "ecs list-task-definitions")
-    family="$(sed -n 's/.*--family-prefix \\([^ ]*\\).*/\\1/p' <<< "$*")"
-    printf 'arn:aws:ecs:eu-central-1:123456789012:task-definition/%s:%s\t' "$family" 7 "$family" 6; echo ;;
-  "ecs describe-task-definition")
-    own=arn:aws:iam::123456789012:role/taskfest-qa-task-execution
-    [[ "$*" == *db-bootstrap* ]] && own=arn:aws:iam::123456789012:role/taskfest-qa-db-bootstrap-execution
-    case "$*" in
-      *:7*) echo "${NEWEST_ROLE:-$own}" ;;
-      *:6*) echo "$own" ;;
-    esac ;;
-  "ecs run-task") echo arn:aws:ecs:eu-central-1:123456789012:task/taskfest-qa/abc ;;
-  "ecs describe-tasks") echo 0 ;;
-esac
-exit 0
-"""
-
-
 @unittest.skipUnless(shutil.which("bash"), "needs bash")
-class OneOffTaskTest(unittest.TestCase):
-    """`env.sh migrate` and `db-bootstrap` run their family's newest revision that carries this
-    environment's own execution role for that task (#429, #454): the other environment's roles may
-    register a revision in this family too, but never with that role, since iam:PassRole is pinned."""
+class RetiredCommandTest(unittest.TestCase):
+    """The container architecture's commands stop with a note pointing at `apply` (#557), before
+    any AWS profile, OpenTofu or AWS is reached: `down` must not quietly do something else."""
 
-    def setUp(self):
-        self.work = tempfile.TemporaryDirectory()
-        work = pathlib.Path(self.work.name)
-        for name, script in (("tofu", FAKE_TOFU), ("aws", FAKE_AWS)):
-            (work / name).write_text(script)
-            (work / name).chmod(0o755)
-        self.calls = work / "aws-calls"
-        self.env = {"PATH": f"{work}:{os.environ['PATH']}", "HOME": self.work.name,
-                    "AWS_CALLS": str(self.calls)}
-
-    def tearDown(self):
-        self.work.cleanup()
-
-    def run_env_sh(self, which):
-        return subprocess.run(["bash", str(ENV_SH), which, "qa"], env=self.env,
+    def run_env_sh(self, *args):
+        return subprocess.run(["bash", str(ENV_SH), *args], env={"PATH": os.environ["PATH"]},
                               capture_output=True, text=True, timeout=60)
 
-    def run_task(self, which):
-        result = self.run_env_sh(which)
-        self.assertEqual(result.returncode, 0, result.stderr)
-        return next(line for line in self.calls.read_text().splitlines() if line.startswith("ecs run-task"))
+    def test_each_retired_command_stops_and_points_at_up(self):
+        for command in ("down", "status", "migrate", "db-bootstrap"):
+            with self.subTest(command=command):
+                result = self.run_env_sh(command, "qa")
 
-    def test_migrate_runs_the_newest_revision_it_checked(self):
-        # By its ARN, so a revision registered after the check is not the one that runs.
-        self.assertIn("--task-definition arn:aws:ecs:eu-central-1:123456789012:task-definition/taskfest-qa-migrate:7 ",
-                      self.run_task("migrate"))
+                self.assertEqual(result.returncode, 1)
+                self.assertIn(f"'{command}' is gone", result.stderr)
+                self.assertIn("Nothing was planned or applied.", result.stderr)
+                self.assertIn("./env.sh up qa", result.stderr)
+                self.assertIn("pre-serverless", result.stderr)
 
-    def test_db_bootstrap_runs_the_newest_revision_it_checked(self):
-        self.assertIn("--task-definition arn:aws:ecs:eu-central-1:123456789012:task-definition/taskfest-qa-db-bootstrap:7 ",
-                      self.run_task("db-bootstrap"))
+    def test_an_unknown_command_is_a_usage_error(self):
+        result = self.run_env_sh("destroy", "qa")
 
-    def test_a_newer_revision_with_the_other_environments_role_is_passed_over(self):
-        self.env["NEWEST_ROLE"] = OWN_ROLE.replace("taskfest-qa-", "taskfest-prod-")
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("Unknown command: destroy", result.stderr)
 
-        self.assertIn("task-definition/taskfest-qa-migrate:6 ", self.run_task("migrate"))
 
-    def test_a_newer_revision_without_roles_is_passed_over(self):
-        self.env["NEWEST_ROLE"] = "None"
+@unittest.skipUnless(shutil.which("aws") and shutil.which("bash"), "needs the AWS CLI and bash")
+class ApplyTest(unittest.TestCase):
+    """`env.sh up <env>` is an administrator's, like `account`: no default profile, and neither
+    a plain user nor a lifecycle role's profile, whose roles went with the containers (#557)."""
 
-        self.assertIn("task-definition/taskfest-qa-db-bootstrap:6 ", self.run_task("db-bootstrap"))
+    setUp = ProfileChoiceTest.setUp
+    tearDown = ProfileChoiceTest.tearDown
+    run_env_sh = ProfileChoiceTest.run_env_sh
 
-    def test_db_bootstrap_passes_over_a_newer_revision_with_the_shared_execution_role(self):
-        # The deploy role may pass that one, so it never reads the master secret (#454).
-        self.env["NEWEST_ROLE"] = OWN_ROLE
+    def test_a_profile_must_be_named(self):
+        result = self.run_env_sh("up", "qa")
 
-        self.assertIn("task-definition/taskfest-qa-db-bootstrap:6 ", self.run_task("db-bootstrap"))
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("no default profile", result.stderr)
+        self.assertIn("TASKFEST_QA_AWS_PROFILE", result.stderr)
 
-    def test_a_family_with_no_revision_of_its_own_runs_nothing(self):
-        (pathlib.Path(self.work.name) / "aws").write_text(FAKE_AWS.replace(
-            '*:6*) echo "$own"', "*:6*) echo None"))
-        self.env["NEWEST_ROLE"] = OWN_ROLE.replace("taskfest-qa-", "taskfest-prod-")
+    def test_the_environments_own_variable_comes_first_and_a_plain_user_is_refused(self):
+        result = self.run_env_sh("up", "prod", AWS_PROFILE="with-role", TASKFEST_PROD_AWS_PROFILE="plain")
 
-        result = self.run_env_sh("migrate")
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("assumes no role", result.stderr)
+        self.assertIn("TASKFEST_PROD_AWS_PROFILE", result.stderr)
 
-        self.assertNotEqual(result.returncode, 0)
-        self.assertIn("taskfest-qa-migrate has no active revision with qa's own execution role.", result.stderr)
-        self.assertNotIn("ecs run-task", self.calls.read_text())
+    def test_a_lifecycle_profile_is_refused(self):
+        result = self.run_env_sh("up", "qa", TASKFEST_QA_AWS_PROFILE="taskfest-qa-lifecycle")
 
-    def test_a_bootstrap_family_with_no_revision_of_its_own_runs_nothing(self):
-        # Both its revisions carry the shared execution role, which the deploy role may pass (#454).
-        self.env["NEWEST_ROLE"] = OWN_ROLE
-        (pathlib.Path(self.work.name) / "aws").write_text(FAKE_AWS.replace('*:6*) echo "$own"', f"*:6*) echo {OWN_ROLE}"))
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("lifecycle role's profile", result.stderr)
+        self.assertIn("TASKFEST_QA_AWS_PROFILE", result.stderr)
 
-        result = self.run_env_sh("db-bootstrap")
+    def test_a_chosen_profile_that_does_not_exist_is_refused(self):
+        result = self.run_env_sh("up", "qa", AWS_PROFILE="nowhere")
 
-        self.assertNotEqual(result.returncode, 0)
-        self.assertIn("taskfest-qa-db-bootstrap has no active revision with qa's own execution role.", result.stderr)
-        self.assertIn("Its revisions need taskfest-qa-db-bootstrap-execution.", result.stderr)
-        self.assertNotIn("ecs run-task", self.calls.read_text())
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("AWS_PROFILE is set to nowhere, which is not configured.", result.stderr)
 
-    def test_a_family_that_cannot_be_read_stops_with_aws_s_own_error(self):
-        (pathlib.Path(self.work.name) / "aws").write_text(FAKE_AWS.replace(
-            '"ecs list-task-definitions")', '"ecs list-task-definitions") echo "ExpiredToken" >&2; exit 254 ;;\n  "unused")'))
+    def test_an_option_it_does_not_know_is_a_usage_error(self):
+        result = self.run_env_sh("up", "qa", "v1.2.3")
 
-        result = self.run_env_sh("migrate")
-
-        self.assertNotEqual(result.returncode, 0)
-        self.assertIn("ExpiredToken", result.stderr)
-        self.assertNotIn("Refusing", result.stderr)
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("Unknown option: v1.2.3", result.stderr)
 
 
 if __name__ == "__main__":

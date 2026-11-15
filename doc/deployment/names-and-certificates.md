@@ -13,8 +13,8 @@ alias records to CloudFront are not charged.
 **Two things that catch people, both worth knowing before building:**
 
 - **The certificate must be in `us-east-1`.** CloudFront only accepts ACM certificates from that
-  region, whatever region everything else lives in. The backend's own certificate, if the
-  internal load balancer ever needs one, is separate and regional.
+  region, whatever region everything else lives in. The HTTP API answers on its own AWS name and
+  needs none of ours.
 - **The zone and the environments are in the same account**, which is one of the reasons that
   decision was reverted — no cross-account role, no subdomain delegation, and ACM's DNS
   validation writes its record directly.
@@ -53,15 +53,12 @@ This is manual configuration in the Google console and cannot be automated here.
       --secret-string '<the client secret from the Google console>'
     ```
 
-    The task **execution** role may read that one secret and injects it at task start as
-    `TASKFEST_OIDC_GOOGLE_CLIENT_SECRET`. It does not rotate by itself, unlike the RDS master secret, so
-    injection at start is fine; after changing it, start new tasks. About $0.40 a month, and it stays
-    while the environment is down.
-- **Behind CloudFront and the ALB** the backend sees the load balancer's connection, not the
-  visitor's -- TLS since #247, with a certificate of its own the load balancer does not check --
-  so it is told to believe the load balancer's `X-Forwarded-Proto` (`quarkus.http.proxy.*`, set in the task definition, trusted
-  from inside the VPC only). Without that it asks Google to return to `http://…`, which Google
-  rejects as an unregistered redirect URI. `SignInBehindProxyTest` pins it.
+    The `api` function's role may read that one secret, which the function reads at a cold start
+    (`TASKFEST_OIDC_GOOGLE_CLIENT_SECRET_ARN`). It does not rotate by itself; after changing it,
+    redeploy the release that runs, so that every instance starts afresh. About $0.40 a month.
+- **Behind CloudFront and the HTTP API** the backend does not build its callback from the request:
+  it takes its own address from `TASKFEST_PUBLIC_ORIGIN`, `https://<hostname>`, so Google is always
+  asked to return to the registered redirect URI.
 - **Who may sign in** is decided in the Google console: with the app in *Testing*, only the Google
   accounts listed as test users can.
 
@@ -76,20 +73,20 @@ with (#141, #190). Unlike the Google client, all of it is code (`test-sign-in.tf
   `taskfest-qa.auth.eu-central-1.amazoncognito.com` — no certificate, no DNS.
 - **The app client** is confidential and returns to `https://taskfest-qa.cloud.hilling.de/api/auth/callback/cognito`,
   the provider's own callback (#143). Cognito generates its secret, so it is in OpenTofu state
-  ([the decision](../decisions/deployment-and-aws.md)); ECS injects it from the SSM parameter
-  `/taskfest/qa/cognito-client-secret`.
+  ([the decision](../decisions/deployment-and-aws.md)), and the `api` function gets it in its
+  settings.
 - **The mobile app's client** (#267) is public — an installed app cannot keep a secret — and returns
   to the qa build's scheme, `de.hilling.taskfest.qa://oauthredirect`, through the system browser
   with PKCE. Its refresh tokens last thirty days. The backend accepts its ID tokens as bearer tokens
-  because the task definition names it (`TASKFEST_OIDC_COGNITO_APP_CLIENT_ID`); the qa build of the
+  because the function's settings name it (`TASKFEST_OIDC_COGNITO_AUDIENCES`); the qa build of the
   app is given the issuer and the client id from the outputs `test_accounts_issuer` and
   `test_accounts_app_client_id`.
 - **No password is stored anywhere.** The accounts are created without one; the live-test run
   sets a fresh random password before signing in, as the role `taskfest-qa-live-test`, which may
   do nothing else (#144).
-- **The backend** declares the provider for the `prod` profile it runs in AWS, switched off; the
-  task definition switches it on where the pool exists (`TASKFEST_OIDC_COGNITO_*`). Its button
-  reads *Sign in with TaskFest test account*, with the TaskFest mark.
+- **The backend** offers the provider where the pool exists: the function's settings name it in
+  `TASKFEST_AUTH_PROVIDERS` and configure it (`TASKFEST_OIDC_COGNITO_*`). Its button reads
+  *Sign in with TaskFest test account*, with the TaskFest mark.
 
 ## The documentation site's own name
 

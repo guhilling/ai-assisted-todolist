@@ -43,7 +43,7 @@ experiment, and the application inside it is TaskFest.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="doc/images/architecture-dark.svg">
-  <img alt="TaskFest on the Go backend, top to bottom. The browser and the iOS and Android apps sign in with Google: the browser is redirected there, the apps sign in themselves. Both talk only to CloudFront, which serves the site's files from S3 and passes /api to API Gateway's HTTP API with a secret header, or, where api_backend says containers, to the Quarkus backend on Fargate, the way back until it is removed. The HTTP API invokes the api function, Go on Lambda, which serves every route and is the OIDC client: it exchanges the code with Google itself, and the browser holds a session cookie, never a token, while the apps send their ID token as a Bearer token. The api function reads and writes one DynamoDB table and signs links to the attachment bucket, so files go both ways straight between the clients and S3. The table's stream feeds the streams function, and EventBridge Scheduler runs orphans and replay. Every function and the HTTP API report metrics to CloudWatch, which a CloudWatch dashboard draws, and write their log lines to CloudWatch Logs. Nine alarms, eight on the metrics and one on the orphan clean-up's log line through a metric filter, notify an SNS topic, which mails Gunnar. In qa, a subscription filter also hands every log line to logship, which sends it over HTTPS with basic auth to VictoriaLogs and Perses on a shared Hetzner VM, which Gunnar opens through SSH." src="doc/images/architecture-light.svg">
+  <img alt="TaskFest on the Go backend, top to bottom. The browser and the iOS and Android apps sign in with Google: the browser is redirected there, the apps sign in themselves. Both talk only to CloudFront, which serves the site's files from S3 and passes /api to API Gateway's HTTP API with a secret header. The HTTP API invokes the api function, Go on Lambda, which serves every route and is the OIDC client: it exchanges the code with Google itself, and the browser holds a session cookie, never a token, while the apps send their ID token as a Bearer token. The api function reads and writes one DynamoDB table and signs links to the attachment bucket, so files go both ways straight between the clients and S3. The table's stream feeds the streams function, and EventBridge Scheduler runs orphans and replay. Every function and the HTTP API report metrics to CloudWatch, which a CloudWatch dashboard draws, and write their log lines to CloudWatch Logs. Nine alarms, eight on the metrics and one on the orphan clean-up's log line through a metric filter, notify an SNS topic, which mails Gunnar. In qa, a subscription filter also hands every log line to logship, which sends it over HTTPS with basic auth to VictoriaLogs and Perses on a shared Hetzner VM, which Gunnar opens through SSH." src="doc/images/architecture-light.svg">
 </picture>
 
 The backend is Go on AWS Lambda with one DynamoDB table (#547), billed by the request, so an
@@ -59,9 +59,9 @@ and download it straight to and from S3, through links the backend signs. Below 
 watched: CloudWatch's metrics and logs, alarms that mail, and in qa every log line on a shared
 monitoring server with Perses dashboards.
 
-qa and prod run on the Go backend, prod since the cut-over (#557). Drawn dashed: the containers,
-Quarkus on Fargate with PostgreSQL, which `api_backend = "containers"` would switch back to, until
-#559 removes them; the Quarkus code is gone already, kept in the tag `pre-serverless`.
+qa and prod run on the Go backend, prod since the cut-over (#557). The containers it replaced,
+Quarkus on Fargate with PostgreSQL, are gone from the code (#559) and the infrastructure (#557);
+the tag `pre-serverless` keeps them, and is the way back.
 [architecture.md](doc/architecture.md#two-architectures) shows the containers' architecture and says
 why the backend moved, and [authentication.md](doc/authentication.md) has the sign-in flow in full.
 

@@ -15,39 +15,6 @@ variable "environment" {
   type        = string
 }
 
-variable "vpc_cidr" {
-  description = "Address space for this environment. The two environments do not overlap."
-  type        = string
-}
-
-variable "public_subnet_cidrs" {
-  description = "Two subnets for the ECS tasks."
-  type        = list(string)
-}
-
-variable "private_subnet_cidrs" {
-  description = "Two subnets for the internal load balancer."
-  type        = list(string)
-}
-
-variable "running" {
-  description = "Whether the billable resources exist. Passed on the command line, never in terraform.tfvars -- see env.sh."
-  type        = bool
-  default     = false
-}
-
-variable "db_restore_snapshot" {
-  description = "Snapshot a newly created database is restored from. Passed by env.sh up, never in terraform.tfvars."
-  type        = string
-  default     = null
-}
-
-variable "backend_image" {
-  description = "The release the backend runs, by version and digest. Passed by env.sh up, never in terraform.tfvars."
-  type        = string
-  default     = null
-}
-
 variable "test_sign_in" {
   description = "Whether this environment has the Cognito test accounts its live tests sign in with."
   type        = bool
@@ -55,7 +22,7 @@ variable "test_sign_in" {
 }
 
 variable "log_retention_days" {
-  description = "How long the ECS task logs are kept."
+  description = "How long the Go backend's logs are kept."
   type        = number
 }
 
@@ -75,26 +42,6 @@ variable "google_client_id" {
   type        = string
 }
 
-variable "blue_green_bake_minutes" {
-  description = "How long both versions run after a blue/green switch, for an instant rollback."
-  type        = number
-}
-
-variable "deregistration_delay_seconds" {
-  description = "How long a target leaving the load balancer keeps its connections; every rollout waits on it."
-  type        = number
-}
-
-variable "backend_cpu" {
-  description = "The backend task's CPU units: 256 is a quarter vCPU, 512 half of one (#535)."
-  type        = number
-}
-
-variable "backend_memory" {
-  description = "The backend task's memory in MiB (#535)."
-  type        = number
-}
-
 variable "table_name" {
   description = "The Go backend's table, when switched to a restored one; empty for its own."
   type        = string
@@ -103,16 +50,6 @@ variable "table_name" {
 variable "table_point_in_time_recovery" {
   description = "Whether the Go backend's table keeps point-in-time recovery (#553)."
   type        = bool
-}
-
-variable "api_backend" {
-  description = "Which backend CloudFront sends /api/* to: \"containers\" or \"serverless\" (#554)."
-  type        = string
-}
-
-variable "cpu_architecture" {
-  description = "What the Fargate tasks run on: X86_64, or ARM64 for Graviton (#250)."
-  type        = string
 }
 
 variable "monitoring_endpoint" {

@@ -1,125 +1,19 @@
 # The database
 
-**Status: the containers' database, without a backend since #559.** RDS serves only the Quarkus
-backend, whose code is in the tag `pre-serverless`; the Go backend keeps its data in DynamoDB
-([serverless.md](serverless.md#restoring-the-table) has its restores). The instance and its
-snapshots stay until the containers' infrastructure is removed, and `env.sh` still creates and
-restores it as below. The deploy that took a snapshot before a migration, `deploy-backend.yml`,
-went with the backend, so no new pre-release snapshot is taken.
+**There is no database server any more.** The container architecture's PostgreSQL on RDS, its IAM
+sign-in, the one-off `migrate` and `db-bootstrap` tasks and the restore of a final snapshot on
+`env.sh up` were removed from the infrastructure in #557. The Go backend keeps its data in one
+DynamoDB table ([serverless.md](serverless.md)), with its own backups and restores
+([serverless.md](serverless.md#restoring-the-table)).
 
-**Migration** is a one-off ECS task running Liquibase, never the application. `migrate-at-start`
-stays on for dev and test, where overlap cannot happen, and off everywhere else.
+**The final RDS snapshots are kept** until Gunnar deletes them by hand (`taskfest-<env>-db-final-…`,
+manual snapshots of the instance `taskfest-<env>-db`). They hold the containers' data, which did not
+move to the table
+([prod starts the Go backend with an empty table](../decisions/deployment-and-aws.md#prod-starts-the-go-backend-with-an-empty-table)),
+and they are what the way back would restore.
 
-**Rollback of a migration is a snapshot restore**, taken immediately before the migration ran.
-Liquibase rollbacks exist and are not exercised here; a restore is the honest answer and it costs
-the downtime that this deployment model already accepts.
-
-**The deploy takes that snapshot itself** (#215): a release with a migration stops the backend,
-snapshots the database as `taskfest-<env>-db-pre-release-<release>-<time>`, and only then migrates
-([deploying.md](deploying.md)). After a successful deploy the newest three such snapshots per
-environment are kept and older ones deleted; final snapshots are never touched by it. A deploy
-refuses to roll back across a migration, because the older release would start on the newer
-schema: this restore is that rollback. **To restore one** — after a
-migration that failed, or a release that has to go — take the environment down and bring it up on
-the release that ran before, from that snapshot:
-
-```bash
-deployment/aws-tofu/env.sh down qa
-deployment/aws-tofu/env.sh up qa v1.2.2 --from-snapshot=taskfest-qa-db-pre-release-v1-2-3-20261008-201530
-```
-
-`--from-snapshot` is refused while the environment is up: tofu restores only a database it
-creates. `down` leaves a final snapshot of the migrated database as usual, so nothing is lost by
-trying.
-What was written between the snapshot and the restore is gone with it — little, since the backend
-was stopped in between — except that account deletions are replayed at start (#213); attachment
-files are the case below.
-
-**`task_state` and `task_importance` are native PostgreSQL enums**, and `ALTER TYPE … ADD VALUE`
-cannot be rolled back at all. A release adding an enum value is one-way: it must ship before
-anything uses the value, and the only way back is the snapshot. That is the price of the enum
-decision in [decisions/domain-and-backend.md](../decisions/domain-and-backend.md), and it is the sharpest edge in this plan.
-
-**Idle cost** is handled by destroying the environment, database included, with a final snapshot.
-Stopping is not enough: a stopped RDS instance still bills storage *and AWS restarts it
-automatically after seven days*.
-
-**A down/up cycle keeps the data, not the instance.** `env.sh down` destroys the instance and leaves
-a final snapshot named `taskfest-<env>-db-final-<timestamp>` — UTC, `YYYYMMDDhhmmss` in
-`formatdate`'s letters (24-hour), the time the instance was *created*, since the name is fixed then;
-`env.sh up` looks up the newest one by creation time, not by name, and passes it as
-`db_restore_snapshot`, so the new instance starts from it. With no snapshot it starts empty, and it
-says which on screen. To start empty on purpose, or from an older snapshot, pass
-`--from-snapshot=<name>` to `up`, or run the plan by hand with `-var db_restore_snapshot=null` to
-start empty. `up` restores only *final* snapshots by itself; the pre-release ones above are each the
-state before some release, and restoring one unasked would drop everything since. Final snapshots
-are never deleted automatically; at this size each is cents a month, and old ones are removed in the
-console when wanted.
-
-**Starting empty or from an older snapshot costs attachment files.** The attachment bucket
-survives `down` and is not versioned, and the orphan clean-up deletes, after seven days, every file
-no attachment refers to ([attachments.md](attachments.md)). From an older snapshot, the files
-written since it was taken are such files. Started empty, the clean-up deletes nothing until the
-first attachment exists -- and then every file older than seven days on its next hourly run. The
-orphan alarm mails within the hour either way; put the right snapshot back before the files go.
-
-**The application logs in with IAM, not a password.** The ECS task role
-(`taskfest-<env>-task`) may `rds-db:connect` as one database user, `taskfest_<env>`, and
-nothing else. On every new connection `RdsIamCredentialsProvider` signs a token from the task
-role's credentials, valid for 15 minutes; RDS checks it against IAM. Nothing secret is configured,
-injected or rotated, and the counterpart on EKS would be a service account. The backend switches
-it on with `TASKFEST_DATASOURCE_CREDENTIALS_PROVIDER=rds-iam`; without it, as in the Compose stacks,
-the password is used as before. Migrations run as the same user.
-
-**The master password is RDS's, and is for bootstrapping only.** `manage_master_user_password`
-has RDS generate it, keep it in Secrets Manager and rotate it every seven days, so it is never in
-state. Injecting it into the running service was rejected for exactly that rotation: ECS reads a
-secret once, at task start, so a long-running task would keep the old password and fail on its
-next connection after a rotation.
-
-**Creating the database user happens once per environment, inside `up`.** `taskfest_<env>` does
-not exist until the master user creates it, and nothing outside the VPC can reach the database to
-do that, so it is a one-off ECS task. `up` runs it whenever there was no snapshot to restore from,
-then the migration, and only then starts the backend:
-
-```sh
-./env.sh up qa             # apply; db-bootstrap if the database started empty; migrate; start
-./env.sh db-bootstrap qa   # the same steps by hand, should one need repeating
-./env.sh migrate qa
-```
-
-**Why `up` starts the backend last.** Before it did, the first `up` of a brand-new environment
-failed: it waited for the service, whose backend could not log in as a user that did not exist yet
-(`FATAL: password authentication failed for user "taskfest_qa"`), and because it was the service's
-first deployment ECS had nothing to roll back to and stopped with *No rollback candidate was
-found*. That happened when the environments were rebuilt under the TaskFest name (#128). A release
-with a migration would have failed the same way, on Hibernate's schema validation. The service is
-now created with no tasks and scaled up by `up` once the database is ready
-([deploying.md](deploying.md)).
-
-`db-bootstrap` runs `psql` from the official PostgreSQL image (pulled from ECR Public's mirror,
-which has no Docker Hub rate limit) with the SQL in `modules/environment/db-bootstrap.sql`. It is
-the only task that receives the master credentials, and the only one the deploy role cannot run.
-Its execution role, `taskfest-<env>-db-bootstrap-execution`, is the only one that may read the master
-secret, and the deploy role cannot pass it (#454).
-It verifies the server with the region's RDS CA bundle, which is committed under
-`modules/environment/rds-ca/` and passed in as a variable, because the image does not carry it.
-Every statement is idempotent, so running it again — or on a restored database, which already has
-the user — changes nothing. It is needed once per environment: every later `up` restores the user
-along with the data.
-
-`migrate` is the backend image with `quarkus.init-and-exit`, so Quarkus runs Liquibase and stops
-instead of serving. It logs in exactly as the application will, with `verify-full` against the RDS
-bundle that `backend/src/main/jib/opt/rds/` puts in the image, so a run that exits 0 proves the
-whole path: the user exists, RDS accepts the token, and the certificate checks out. Both commands
-print the task's log and exit with its exit code. The tasks run `quay.io/ghilling/taskfest-backend:latest`, pulled through ECR's cache ([image scanning](image-scanning.md)),
-until the deploy change pins a release.
-
-**A restore needs its managed password re-established.** For PostgreSQL, RDS cannot turn on
-managed credentials during a snapshot restore — AWS supports that for Oracle only — so a restored
-instance comes back with the master password from the time of the snapshot, whose secret was
-deleted with the old instance. The AWS provider follows the restore with a `ModifyDBInstance`
-that turns managed credentials back on and creates a new secret. That is expected rather than
-verified; if the first restore shows no `db_master_secret_arn`, the fallback is
-`aws rds modify-db-instance --db-instance-identifier taskfest-<env>-db --manage-master-user-password --apply-immediately`.
-
+The container architecture is the alternative, kept in the tag `pre-serverless`;
+[this page as it was there](https://github.com/guhilling/ai-assisted-todolist/blob/pre-serverless/doc/deployment/database.md)
+describes the database.
+[decisions/deployment-and-aws.md](../decisions/deployment-and-aws.md#the-container-architecture-is-removed-from-the-infrastructure)
+records the removal.

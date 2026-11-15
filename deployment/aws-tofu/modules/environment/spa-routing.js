@@ -9,9 +9,10 @@
 // CloudFront's runtime (cloudfront-js-2.0) has no modules: this is a script that declares
 // `handler`. spa-routing.test.mjs loads it the same way.
 //
-// An /api request only reaches this function while the environment is down: then there is no
-// /api/* behaviour, so it falls through to the default one. It gets a plain 503 instead of the
-// app -- the frontend would otherwise read HTML as JSON and fail somewhere far from the cause.
+// An /api request reaches this function only as the bare /api, which the /api/* behaviour does not
+// match. It gets a plain 503 instead of the app -- the frontend would otherwise read HTML as JSON
+// and fail somewhere far from the cause. Before #557 every /api request came here while the
+// environment was down, when the containers' /api/* behaviour was gone.
 function handler(event) {
   var request = event.request;
 

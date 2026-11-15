@@ -1,28 +1,12 @@
-# The way in: the environment's name, its certificates, and the CloudFront distribution that
-# answers on it. All of it is free while nobody uses it, so it is foundation and survives
-# `env.sh down` -- except the one part that cannot: the /api/* origin.
-#
-# That origin is a CloudFront VPC origin pointing at the internal load balancer, and a VPC origin
-# names one load balancer ARN and cannot be changed or deleted while a distribution uses it. The
-# load balancer is destroyed on every `down`, so the distribution drops its /api/* origin and
-# behaviour then, and gains them again on `up`, around a VPC origin created in billable.tf. That
-# costs up to ~15-20 minutes on each, and is the price of a `down` that costs nothing; keeping
-# the load balancer up instead would cost ~$20 a month. See doc/decisions/deployment-and-aws.md.
-#
-# While the environment is down the distribution still answers, from the site bucket only.
-#
-# The Go backend's HTTP API (serverless.tf) is a second /api/* origin, which is always there.
-# `api_backend` says which of the two the /api/* behaviour uses: the containers' only while the
-# environment is up, the Go backend's whether it is up or not (#554, #557).
+# The way in: the environment's name, its certificate, and the CloudFront distribution that
+# answers on it. The site bucket is the default origin; /api/* goes to the Go backend's HTTP API
+# (serverless.tf). All of it is free while nobody uses it.
 
 data "aws_route53_zone" "this" {
   name = var.dns_zone
 }
 
-# Two certificates for the same name. The viewer certificate has to be in us-east-1 for
-# CloudFront; the load balancer needs its own in this region. Both are free, and both validate
-# through the same DNS record: ACM creates the record "specifically for your domain and your
-# account", and the token "works for any AWS Region" (ACM user guide, DNS validation).
+# The viewer certificate, which has to be in us-east-1 for CloudFront. Free.
 resource "aws_acm_certificate" "viewer" {
   provider = aws.us_east_1
 
@@ -30,17 +14,6 @@ resource "aws_acm_certificate" "viewer" {
   validation_method = "DNS"
 
   tags = { Name = "${local.name}-viewer" }
-
-  lifecycle {
-    create_before_destroy = true
-  }
-}
-
-resource "aws_acm_certificate" "origin" {
-  domain_name       = var.hostname
-  validation_method = "DNS"
-
-  tags = { Name = "${local.name}-origin" }
 
   lifecycle {
     create_before_destroy = true
@@ -72,18 +45,12 @@ resource "aws_acm_certificate_validation" "viewer" {
   validation_record_fqdns = [aws_route53_record.certificate_validation.fqdn]
 }
 
-resource "aws_acm_certificate_validation" "origin" {
-  certificate_arn         = aws_acm_certificate.origin.arn
-  validation_record_fqdns = [aws_route53_record.certificate_validation.fqdn]
-}
-
 # The site bucket: private, reachable only through this distribution's origin access control.
-# It is the distribution's default origin because a distribution must have one, and this is the
-# one it keeps. A release's frontend build is synced into it by deploy-frontend.yml, with the
-# deploy role -- see doc/deployment/deploying.md.
+# It is the distribution's default origin. A release's frontend build is synced into it by
+# deploy-frontend.yml, with the deploy role -- see doc/deployment/deploying.md.
 #
-# Suppressed for the reasons the flow-log bucket gives: AWS-0089 (access logging would need
-# another bucket), AWS-0090 (versioning: a release is rolled back by syncing the previous one,
+# Suppressed: AWS-0089 (access logging would need another bucket, whose own access logging would
+# need a third), AWS-0090 (versioning: a release is rolled back by syncing the previous one,
 # not by object versions -- see doc/deployment/deploying.md), AWS-0132 on the encryption below.
 #trivy:ignore:AWS-0089
 #trivy:ignore:AWS-0090
@@ -110,7 +77,8 @@ resource "aws_s3_bucket_ownership_controls" "site" {
   }
 }
 
-# AWS-0132: S3-managed keys, as for the flow logs. The objects are a public website.
+# AWS-0132: a customer-managed KMS key costs about $1 a month; S3-managed keys still encrypt
+# every object at rest, and the objects are a public website.
 #trivy:ignore:AWS-0132
 resource "aws_s3_bucket_server_side_encryption_configuration" "site" {
   bucket = aws_s3_bucket.site.id
@@ -190,10 +158,6 @@ data "aws_cloudfront_cache_policy" "caching_optimized" {
   name = "Managed-CachingOptimized"
 }
 
-data "aws_cloudfront_origin_request_policy" "all_viewer" {
-  name = "Managed-AllViewer"
-}
-
 # The HTTP API answers only on its own name, so the viewer's Host header must not reach it. The
 # Go backend takes its own address from TASKFEST_PUBLIC_ORIGIN instead.
 data "aws_cloudfront_origin_request_policy" "all_viewer_except_host" {
@@ -202,26 +166,14 @@ data "aws_cloudfront_origin_request_policy" "all_viewer_except_host" {
 
 locals {
   site_origin_id       = "site"
-  api_origin_id        = "api"
   serverless_origin_id = "serverless-api"
-
-  # The /api/* behaviour, once for whichever backend serves it: none for the containers while the
-  # environment is down, since their origin is gone then.
-  api_behaviour = var.api_backend == "serverless" ? [{
-    origin_id = local.serverless_origin_id
-    policy_id = data.aws_cloudfront_origin_request_policy.all_viewer_except_host.id
-    }] : [for _ in aws_cloudfront_vpc_origin.api : {
-    origin_id = local.api_origin_id
-    policy_id = data.aws_cloudfront_origin_request_policy.all_viewer.id
-  }]
 }
 
 # Deep links: any path whose last segment has no dot gets the app's index.html. Only on the
 # default behaviour, so /api/* errors stay the backend's own -- CloudFront's custom error
 # responses, the usual way, apply to every origin and would have turned them into the app.
-# While the environment is down it also answers /api/* with a 503, since those requests then
-# reach the default behaviour. The code and why are in spa-routing.js, and spa-routing.test.mjs
-# pins it (Tofu CI runs it).
+# It answers the bare /api, which the /api/* behaviour does not match, with a 503. The code and
+# why are in spa-routing.js, and spa-routing.test.mjs pins it (Tofu CI runs it).
 # Free at this traffic: the first two million invocations a month cost nothing.
 resource "aws_cloudfront_function" "spa_routing" {
   name    = "${local.name}-spa-routing"
@@ -249,20 +201,6 @@ resource "aws_cloudfront_distribution" "this" {
     origin_id                = local.site_origin_id
     domain_name              = aws_s3_bucket.site.bucket_regional_domain_name
     origin_access_control_id = aws_cloudfront_origin_access_control.site.id
-  }
-
-  # Only while the environment is up: see the header of this file.
-  dynamic "origin" {
-    for_each = aws_cloudfront_vpc_origin.api
-
-    content {
-      origin_id   = local.api_origin_id
-      domain_name = one(aws_lb.this[*].dns_name)
-
-      vpc_origin_config {
-        vpc_origin_id = origin.value.id
-      }
-    }
   }
 
   # The Go backend. Its header is how the function tells CloudFront's requests from the rest.
@@ -299,19 +237,15 @@ resource "aws_cloudfront_distribution" "this" {
     }
   }
 
-  dynamic "ordered_cache_behavior" {
-    for_each = local.api_behaviour
-
-    content {
-      path_pattern             = "/api/*"
-      target_origin_id         = ordered_cache_behavior.value.origin_id
-      viewer_protocol_policy   = "https-only"
-      allowed_methods          = ["GET", "HEAD", "OPTIONS", "PUT", "POST", "PATCH", "DELETE"]
-      cached_methods           = ["GET", "HEAD"]
-      cache_policy_id          = data.aws_cloudfront_cache_policy.caching_disabled.id
-      origin_request_policy_id = ordered_cache_behavior.value.policy_id
-      compress                 = true
-    }
+  ordered_cache_behavior {
+    path_pattern             = "/api/*"
+    target_origin_id         = local.serverless_origin_id
+    viewer_protocol_policy   = "https-only"
+    allowed_methods          = ["GET", "HEAD", "OPTIONS", "PUT", "POST", "PATCH", "DELETE"]
+    cached_methods           = ["GET", "HEAD"]
+    cache_policy_id          = data.aws_cloudfront_cache_policy.caching_disabled.id
+    origin_request_policy_id = data.aws_cloudfront_origin_request_policy.all_viewer_except_host.id
+    compress                 = true
   }
 
   viewer_certificate {

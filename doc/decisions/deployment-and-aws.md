@@ -2,7 +2,12 @@
 
 ## Tearing an environment down is a parameter, not a destroy
 
-*Accepted · 2026-10-01 · #96*
+*Superseded · 2026-10-01 · #96 · by [The container architecture is removed from the infrastructure](#the-container-architecture-is-removed-from-the-infrastructure)*
+
+**Since #557 nothing is torn down.** What billed by the hour went with the containers, and with it
+`running`, `billable.tf`, `check-billable-guard.py` and `env.sh up` and `down`; `env.sh up`
+keeps the shown plan and the saved plan file. The tag `pre-serverless` keeps the rest. What
+follows is why teardown was a parameter.
 
 **Decision.** Each environment has a `running` variable, default `false`. The resources that bill
 live in `modules/environment/billable.tf`, each carrying `count = var.running ? 1 : 0`, so taking
@@ -40,6 +45,11 @@ applied without showing would be how an environment gets destroyed by muscle mem
 ## Deploy identities are OIDC roles, scoped to deploying and nothing else
 
 *Accepted · 2026-09-30 · #95*
+
+Revised in part on 2026-11-15 (#557): with the containers' infrastructure gone, the roles deploy the
+Go backend's functions and the site bucket only, for an hour a session; the ECS, RDS and
+`iam:PassRole` grants below, and their two limits, went with it
+([below](#the-container-architecture-is-removed-from-the-infrastructure)).
 
 Revised in part: `RunTask` cannot be pinned to the environment's network, a limit added to the two
 below, and `env.sh` and `deploy-backend.py` pass over a task revision without this environment's own
@@ -173,7 +183,10 @@ resource becomes invisible to both environment budgets.
 
 ## PostgreSQL on RDS, destroyed with a final snapshot when idle
 
-*Accepted · 2026-09-30 · #93*
+*Superseded · 2026-09-30 · #93 · by [The container architecture is removed from the infrastructure](#the-container-architecture-is-removed-from-the-infrastructure)*
+
+**Since #557 there is no database server.** The Go backend's data is in DynamoDB; the final RDS
+snapshots stay until Gunnar deletes them. What follows is why the database was RDS.
 
 The database is managed because
 this stands in for a commercial project and a managed database is part of what it proves.
@@ -186,7 +199,10 @@ chosen.
 
 ## The application authenticates to RDS with IAM, not a password
 
-*Accepted · 2026-10-01 · #108*
+*Superseded · 2026-10-01 · #108 · by [The container architecture is removed from the infrastructure](#the-container-architecture-is-removed-from-the-infrastructure)*
+
+**Since #557 there is no RDS instance to sign in to**, nor a task role. What follows is how the
+Quarkus backend signed in.
 
 The task role is the
 credential: a token signed per connection by a Quarkus `CredentialsProvider`, which Agroal asks
@@ -204,7 +220,10 @@ resource id changes with every restore, while the user travels with the snapshot
 
 ## The database user is created by a one-off ECS task, run by a person
 
-*Accepted · 2026-10-01 · #109*
+*Superseded · 2026-10-01 · #109 · by [The container architecture is removed from the infrastructure](#the-container-architecture-is-removed-from-the-infrastructure)*
+
+**Since #557 there is no database user and no one-off task**; `env.sh db-bootstrap` and `migrate`
+went with them. What follows is why the user was made that way.
 
 Revised in part: the task starts with an execution role of its own, the only one that may read the
 master secret, and the deploy role may not pass it (#454).
@@ -255,7 +274,9 @@ CodeDeploy. It no longer does: ECS has blue/green natively, which removed the ma
 
 ## Two deployment paths rather than expand-and-contract
 
-*Accepted · 2026-09-30 · #93*
+*Superseded · 2026-09-30 · #93 · by [The container architecture is removed from the infrastructure](#the-container-architecture-is-removed-from-the-infrastructure)*
+
+**Since #557 there are no containers to deploy to.** What follows is how they were deployed.
 
 Revised in part on 2026-11-15 (#559): `deploy-backend.yml`, which took both paths, went with the
 Quarkus backend, so nothing deploys the containers any more; the Go backend has no schema to
@@ -272,7 +293,10 @@ still served.
 
 ## The load balancer stays, and is internal
 
-*Accepted · 2026-09-30 · #93*
+*Superseded · 2026-09-30 · #93 · by [The container architecture is removed from the infrastructure](#the-container-architecture-is-removed-from-the-infrastructure)*
+
+**Since #557 there is no load balancer**: CloudFront sends `/api/*` to the Go backend's HTTP API.
+What follows is why there was one.
 
 It is the largest fixed cost in an environment
 (~$16 a month, idle or not), so it was challenged. It stays because **ECS blue/green shifts
@@ -318,7 +342,10 @@ first deployment.
 
 ## Fargate tasks in public subnets, with no NAT gateway
 
-*Accepted · 2026-09-30 · #93*
+*Superseded · 2026-09-30 · #93 · by [The container architecture is removed from the infrastructure](#the-container-architecture-is-removed-from-the-infrastructure)*
+
+**Since #557 there is no VPC**: no function runs in one. What follows is why the tasks' network
+was built that way.
 
 A NAT gateway is about $33 a month
 before data — more than the database, and the largest line item in an environment that would
@@ -334,7 +361,9 @@ the deploy and lifecycle roles may *place* the service and the load balancer —
 
 ## VPC flow logs go to S3, all traffic, for 30 days
 
-*Accepted · 2026-10-01 · #106*
+*Superseded · 2026-10-01 · #106 · by [The container architecture is removed from the infrastructure](#the-container-architecture-is-removed-from-the-infrastructure)*
+
+**Since #557 there is no VPC, and no flow logs.** What follows is why they went to S3.
 
 Delivery to S3 is about half the per-GB
 price of CloudWatch Logs and needs no delivery role, and logs read when something needs
@@ -344,7 +373,10 @@ the useful question is what talked to what. The bucket is encrypted with S3-mana
 
 ## CloudFront's `/api/*` origin comes and goes with the environment; the distribution stays
 
-*Accepted · 2026-10-03 · #112*
+*Superseded · 2026-10-03 · #112 · by [The container architecture is removed from the infrastructure](#the-container-architecture-is-removed-from-the-infrastructure)*
+
+**Since #557 the `/api/*` origin is always the Go backend's HTTP API**, and neither it nor the
+distribution comes or goes. What follows is why the containers' origin did.
 
 A
 VPC origin names one load balancer ARN and cannot be changed or deleted while a distribution uses
@@ -359,7 +391,10 @@ untouched while the origin changed; it cannot.
 
 ## CloudFront reaches the load balancer over HTTPS with the environment's own name
 
-*Accepted · 2026-10-03 · #112*
+*Superseded · 2026-10-03 · #112 · by [The container architecture is removed from the infrastructure](#the-container-architecture-is-removed-from-the-infrastructure)*
+
+**Since #557 there is no load balancer, and no regional certificate for it.** What follows is
+how CloudFront reached it.
 
 The ALB
 carries a regional ACM certificate for `taskfest-<env>.cloud.hilling.de`, the same name as
@@ -371,6 +406,10 @@ certificates validate through the same DNS record.
 ## Encryption in transit is settled by configuration, hop by hop, not measured
 
 *Accepted · 2026-10-09 · #97, #246*
+
+Revised in part on 2026-11-15 (#557): the hops through the load balancer, the tasks and RDS went
+with them. What is left is TLS throughout: browser to CloudFront, CloudFront to the site bucket and
+to the HTTP API (`https-only`), and the functions to AWS's APIs and Google.
 
 #97 asked to switch on AWS's VPC Encryption Controls in monitor mode and let the flow logs say
 which traffic inside qa's VPC is in cleartext. It is not switched on (Gunnar's decision): since
@@ -410,7 +449,10 @@ monitor mode for a day costs about $4.
 
 ## The tasks run on Graviton, chosen per environment
 
-*Accepted · 2026-10-09 · #252*
+*Superseded · 2026-10-09 · #252 · by [The container architecture is removed from the infrastructure](#the-container-architecture-is-removed-from-the-infrastructure)*
+
+**Since #557 there are no tasks**, and `cpu_architecture` went with them; the Go functions are
+arm64 by design. What follows is how the tasks moved.
 
 Fargate on ARM64 costs 20% less than on x86 for the same vCPU and memory
 ([cost](../deployment/cost.md)), and the database was Graviton already (`db.t4g`). Once the images
@@ -432,7 +474,11 @@ migrate task on x86 against an arm64 service for no saving worth having.
 
 ## ECS-native blue/green, which needed AWS provider 6
 
-*Accepted · 2026-10-03 · #112*
+*Superseded · 2026-10-03 · #112 · by [The container architecture is removed from the infrastructure](#the-container-architecture-is-removed-from-the-infrastructure)*
+
+**Since #557 there is no ECS service to deploy blue/green**; the Go backend moves an alias after a
+check ([below](#the-go-backend-is-deployed-by-moving-an-alias-after-a-check)). Provider 6 stays.
+What follows is how the containers were deployed.
 
 Two target groups, a production listener
 rule ECS moves between them, a bake with both versions running (two minutes in qa, five in prod), and the circuit
@@ -456,7 +502,11 @@ the release mechanism needed testing anyway.
 
 ## Image vulnerabilities come from Amazon Inspector, through ECR's pull-through cache
 
-*Accepted · 2026-10-05 · #170*
+*Superseded · 2026-10-05 · #170 · by [The container architecture is removed from the infrastructure](#the-container-architecture-is-removed-from-the-infrastructure)*
+
+**Since #557 no image is scanned.** The cache, Inspector and the registry's scanning configuration
+went from the account root; the Go backend runs as zips. What follows is how the images were
+scanned.
 
 Revised in part on 2026-11-15 (#559): `image-findings.yml`, which turned the findings into an issue,
 went with the Quarkus backend, whose image was the one scanned. The cache and Inspector stay until
@@ -483,6 +533,9 @@ rather than email, like the SonarCloud gate's.
 
 *Accepted · 2026-10-07 · #190, #197*
 
+Revised in part on 2026-11-15 (#557): the SSM SecureString went with ECS, the one thing that read
+it; the Go backend's function gets the client secret in its settings, as it has since #554.
+
 **Decision (#190, D2 and D4 on #141).** qa's live tests sign in with two accounts in a Cognito user
 pool, a second provider beside Google. The accounts have no stored password — the live-test run
 sets one per run. The app client's secret, which Cognito generates, is accepted in OpenTofu state
@@ -508,6 +561,9 @@ needs no rotation either; Secrets Manager's features buy nothing here.
 ## The monitoring user reads no files and no secrets
 
 *Accepted · 2026-10-31 · #430*
+
+Revised in part on 2026-11-15 (#557): the flow-log buckets went with the VPC, and their line
+with them.
 
 Revised in part (#554, #576): the group is also denied every Lambda function's settings, which
 hold the Go backend's origin secret and, in qa, the Cognito client secret.
@@ -680,6 +736,10 @@ the privacy texts say for every environment that sends.
 
 *Accepted · 2026-11-10 · #557*
 
+Revised in part on 2026-11-15 (#557): `api_backend` and `env.sh up` went with the containers'
+infrastructure; the way back is the tag `pre-serverless`, and the final RDS snapshots are kept
+([below](#the-container-architecture-is-removed-from-the-infrastructure)).
+
 **Decision** (Gunnar). No task, draft, attachment or account moves from the containers' PostgreSQL
 to the Go backend's DynamoDB table: prod's cut-over starts it empty, as qa's did. The containers'
 data stays in their final RDS snapshot, kept until Gunnar deletes it, and `api_backend =
@@ -691,3 +751,38 @@ window, would cost more than its few users signing in once more and adding their
 
 **Cost.** Everyone on prod starts afresh, and what was there is reachable only by switching back.
 
+## The container architecture is removed from the infrastructure
+
+*Accepted · 2026-11-15 · #557*
+
+**Decision.** With both environments on the Go backend, everything only the container
+architecture needed is removed from OpenTofu: from each environment the RDS instance, its subnet
+group and the one-off tasks, the ECS cluster, service, task definitions, roles and log group with
+its saved queries, the load balancer and its target groups, CloudFront's VPC origin and the
+regional certificate it used, the VPC with its subnets, routes, security groups and flow logs, the
+lifecycle role, the up-time reminder, the containers' half of the orphan alert, the SSM copy of the
+Cognito client secret, and the deploy role's ECS and RDS grants; from the account root ECR's
+pull-through cache, its repository template, Inspector and the registry's scanning configuration.
+`api_backend`, `running` and the containers' variables go with them, so `/api/*` always goes to the
+Go backend. `env.sh` shrinks to `apply <env>` and `account`, an administrator's, with the plan
+shown and the saved plan applied; `up`, `down`, `status`, `migrate` and `db-bootstrap` stop with a
+note instead of doing something else. Claude's choices, within #557's done-when, for Gunnar to
+review.
+
+**Why.** Nothing reached the containers any more, and keeping their infrastructure applied kept
+its rules, its roles and its checks alive for a way back the tag keeps better. The VPC goes too,
+since no function runs in one; keeping it would have kept flow logs of a network nothing uses.
+
+**The way back** is the tag `pre-serverless`: the code, the infrastructure and these pages as they
+were. Going back would restore a final snapshot into a new instance, as `env.sh up` did.
+
+**What stays, and what is left by hand.** The final RDS snapshots, `taskfest-<env>-db-final-…`,
+were never in OpenTofu, and stay until Gunnar deletes them; they hold the containers' data. So do
+the repositories ECR's cache created, `quay/ghilling/taskfest-*`, with their images, which are
+deleted by hand once Inspector is off. The Quarkus backend's files at the top level of the
+attachment buckets stay where they are. A flow-log bucket that still holds records stops its
+destroy, and is emptied by hand first.
+
+**Cost.** About $0.10 a month less per environment for the up-time reminder, and Inspector's
+rescans; nothing else billed while the environments were down. The price is the way back: a
+`git checkout` of the tag and an apply of its infrastructure, not a variable.

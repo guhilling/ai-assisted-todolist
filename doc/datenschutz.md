@@ -83,11 +83,11 @@ sie wird nicht an die Anwendung übertragen.
 
 ### Technische Protokolle
 
-Jede Anfrage durchläuft das Content Delivery Network und den Load Balancer von Amazon Web Services
-und erreicht den Server der Anwendung. Dabei werden technische Daten erfasst, etwa der Zeitpunkt,
+Jede Anfrage durchläuft das Content Delivery Network und das API-Gateway von Amazon Web Services
+und erreicht die Anwendung. Dabei werden technische Daten erfasst, etwa der Zeitpunkt,
 die aufgerufene Adresse, Ihre IP-Adresse, die Kennung Ihres Browsers und ob die Anfrage erfolgreich
 war. Das eigene Protokoll der Anwendung wird für `taskfest-qa` 30 Tage und für `taskfest` 90 Tage
-aufbewahrt, Netzwerkprotokolle 30 Tage. Für `taskfest-qa` wird das Protokoll der Anwendung
+aufbewahrt. Für `taskfest-qa` wird das Protokoll der Anwendung
 zusätzlich an einen Monitoring-Server bei Hetzner gesendet und dort ebenfalls 30 Tage aufbewahrt;
 es enthält Ihre Anmeldekennung, aber weder Ihre IP-Adresse noch die Inhalte Ihrer Aufgaben.
 
@@ -164,4 +164,4 @@ Prinzenstraße 5<br>
 Diese Erklärung ist Teil der Projektdokumentation und wird öffentlich im Repository geändert. Das
 Datum unten ist das der letzten inhaltlichen Änderung.
 
-Stand: 13. November 2026
+Stand: 15. November 2026
