@@ -605,7 +605,9 @@ minor rather than a patch.
 
 **Decision** (Gunnar). A user has at most 500 tasks; the next create, or a draft added, is refused
 with 422, as a sixth draft is. The HTTP API is throttled at 10 requests a second with bursts of
-20, down from 50 and 100, and an alarm mails when an hour holds 50,000 requests.
+20, down from 50 and 100, and an alarm mails when an hour holds 20,000 requests. The website and
+the app send their own bursts -- clearing completed tasks, undoing their deletion -- four at a
+time, inside that burst.
 
 **Why.** The website is to be open to anyone with a Google account (#607). Drafts and attachments
 had limits; tasks had none, so one account could grow the table at will, and the throttle alone
@@ -613,9 +615,14 @@ let a script spend a few hundred dollars a month. 500 tasks is far beyond what a
 10 a second far beyond what a person clicks; the alarm sees abuse within the hour, where the
 budgets see it a day or more later.
 
-**Rejected:** AWS WAF rate rules, at $5 a month or more fixed, more than the environment costs.
+**Rejected:** AWS WAF rate rules, at $5 a month or more fixed, more than the environment costs,
+which would have throttled per caller rather than for everyone at once.
 
 **Cost.** The count is a query before each create, not part of the write: creates at the same
 moment may each find the last place and pass the limit by a few, which a limit against a script
-can afford. The tenth alarm is $0.10 a month per environment.
+can afford. The throttle is one bucket for everyone: a script at the ceiling slows every visitor
+down, which the request alarm then reports. It is the Go backend's ninth alarm, $0.10 a month per
+environment. The alarm and its threshold of 20,000 below the throttle's 36,000 an hour are
+Claude's reading of Gunnar's "add the alarm": the 50,000 first proposed lay above what the
+throttle lets through, and could not have fired.
 

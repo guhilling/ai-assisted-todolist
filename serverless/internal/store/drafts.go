@@ -116,12 +116,19 @@ func (w *Writes) StartDraft(ctx context.Context, email string, now time.Time) (i
 func (w *Writes) AddDraft(ctx context.Context, email string, t board.Task, now time.Time) (board.Task, bool, error) {
 	// A draft becoming a task is a create, and counts (#607). A task with this id already, an add
 	// retried after it went through, only takes the values: Replace finds it, and writes nothing
-	// when there is none.
+	// when there is none. Neither a task nor an open draft is not found, full board or not.
 	if full, err := w.full(ctx, email); err != nil {
 		return board.Task{}, false, err
 	} else if full {
 		if replaced, found, err := w.Replace(ctx, email, t, false); found || err != nil {
 			return replaced, found, err
+		}
+		open, err := w.openDraftsOf(ctx, email)
+		if err != nil {
+			return board.Task{}, false, err
+		}
+		if expires, ok := open.expiries[openDraft(t.ID)]; !ok || expires <= now.Unix() {
+			return board.Task{}, false, nil
 		}
 		return board.Task{}, false, board.ErrTooManyTasks
 	}

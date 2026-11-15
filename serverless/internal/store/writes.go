@@ -70,8 +70,10 @@ const collisionsBeforeGivingUp = 32
 // A deleted task's id is not given again either. An id already taken by a task written around
 // the count is stepped over. board.ErrTooManyTasks when the user has board.MaxTasksPerUser.
 func (w *Writes) Create(ctx context.Context, email string, t board.Task) (board.Task, error) {
-	if full, err := w.full(ctx, email); err != nil || full {
-		return board.Task{}, errors.Join(err, tooMany(full))
+	if full, err := w.full(ctx, email); err != nil {
+		return board.Task{}, err
+	} else if full {
+		return board.Task{}, board.ErrTooManyTasks
 	}
 	for range collisionsBeforeGivingUp {
 		id, err := w.nextID(ctx, email)
@@ -258,12 +260,4 @@ func (w *Writes) full(ctx context.Context, email string) (bool, error) {
 		}
 		start = out.LastEvaluatedKey
 	}
-}
-
-// tooMany is board.ErrTooManyTasks when full, nil otherwise, for errors.Join.
-func tooMany(full bool) error {
-	if full {
-		return board.ErrTooManyTasks
-	}
-	return nil
 }

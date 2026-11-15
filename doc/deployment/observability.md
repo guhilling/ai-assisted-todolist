@@ -12,7 +12,7 @@ watched.
   in qa and 90 in prod (`serverless.tf`, `serverless-jobs.tf`).
 - **Alarms**, nine per environment, on what a function-based backend shows: the API function's
   errors and throttles, the HTTP API's server errors (five in five minutes) and its request count
-  (50,000 in an hour, #607), the stream function
+  (20,000 in an hour, #607), the stream function
   falling behind, the scheduled jobs' errors, and the table's throttles. Thresholds and reasons are
   in [serverless.md](serverless.md#the-infrastructure). And the orphan alert: a metric filter on
   the clean-up's log counts the alert line.
