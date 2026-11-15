@@ -21,8 +21,7 @@ Per environment, a month:
 The dashboards are free because CloudWatch includes three per account and the account had one
 before them; a fourth would cost $3 a month. Cognito's Lite plan is free for the first 10,000
 monthly active users. The Route 53 zone, $0.50 a month, is the account's and exists for other
-reasons anyway. Until Gunnar deletes them, the containers' final RDS snapshots add cents a month
-([database.md](database.md)).
+reasons anyway.
 
 The Go backend's measured figures follow once a month of it is on the bill (#558). Sending its
 logs to the shared monitoring server, where an environment does (#508), adds a fifth function

@@ -186,8 +186,8 @@ resource becomes invisible to both environment budgets.
 
 *Superseded · 2026-09-30 · #93 · by [The container architecture is removed from the infrastructure](#the-container-architecture-is-removed-from-the-infrastructure)*
 
-**Since #557 there is no database server.** The Go backend's data is in DynamoDB; the final RDS
-snapshots stay until Gunnar deletes them. What follows is why the database was RDS.
+**Since #557 there is no database server.** The Go backend's data is in DynamoDB; Gunnar deleted
+the final RDS snapshots on 2026-11-15. What follows is why the database was RDS.
 
 The database is managed because
 this stands in for a commercial project and a managed database is part of what it proves.
@@ -737,6 +737,9 @@ the privacy texts say for every environment that sends.
 
 *Accepted · 2026-11-10 · #557*
 
+Revised in part on 2026-11-15 (#557): Gunnar deleted the final RDS snapshots, and with them the
+containers' data; nothing can bring it back now.
+
 Revised in part on 2026-11-15 (#557): `api_backend` and what `env.sh up` did went with the containers'
 infrastructure; the way back is the tag `pre-serverless`, and the final RDS snapshots are kept
 ([below](#the-container-architecture-is-removed-from-the-infrastructure)).
@@ -755,6 +758,9 @@ window, would cost more than its few users signing in once more and adding their
 ## The container architecture is removed from the infrastructure
 
 *Accepted · 2026-11-15 · #557*
+
+Revised in part on 2026-11-15 (#557): Gunnar deleted the final RDS snapshots the same day, so the
+way back through the tag starts with an empty database.
 
 **Decision.** With both environments on the Go backend, everything only the container
 architecture needed is removed from OpenTofu: from each environment the RDS instance, its subnet
