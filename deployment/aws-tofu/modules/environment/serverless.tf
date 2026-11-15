@@ -279,10 +279,12 @@ resource "aws_apigatewayv2_stage" "default" {
   name        = "$default"
   auto_deploy = true
 
-  # A ceiling on what a flood of requests can cost, far above what the demo's people send.
+  # A ceiling on what a flood of requests can cost, far above what a person clicking sends: 10 a
+  # second with bursts of 20 caps a script hammering the API nonstop at about $30 a month of
+  # requests (Gunnar's choice on #607, for the website open to everyone; it was 50 and 100).
   default_route_settings {
-    throttling_rate_limit  = 50
-    throttling_burst_limit = 100
+    throttling_rate_limit  = 10
+    throttling_burst_limit = 20
   }
 
   access_log_settings {

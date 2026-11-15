@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"log/slog"
 	"net/http"
@@ -129,7 +130,8 @@ func (s *Server) now() time.Time {
 }
 
 // PostApiTasks creates a task for the caller, due today or later somewhere (#425): filing
-// something new in the past is almost always a mistyped year.
+// something new in the past is almost always a mistyped year. 422 when they have
+// board.MaxTasksPerUser tasks already (#607), as a draft beyond its limit is refused.
 func (s *Server) PostApiTasks(w http.ResponseWriter, r *http.Request) {
 	email, ok := s.Caller(r)
 	if !ok {
@@ -141,6 +143,11 @@ func (s *Server) PostApiTasks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	t, err := s.Writes.Create(r.Context(), email, req.task(0))
+	if errors.Is(err, board.ErrTooManyTasks) {
+		slog.InfoContext(r.Context(), "a new task is refused", "reason", "the tasks' limit")
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		return
+	}
 	if err != nil {
 		slog.ErrorContext(r.Context(), "creating a task failed", "error", err)
 		w.WriteHeader(http.StatusInternalServerError)

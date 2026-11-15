@@ -11,7 +11,7 @@ Per environment, a month:
 | | Per month |
 | --- | --- |
 | The Go backend's requests: Lambda, API Gateway, DynamoDB, CloudFront | cents at TaskFest's traffic ([serverless.md](serverless.md#why)) |
-| Its eight alarms, $0.10 each | $0.80 |
+| Its nine alarms, $0.10 each | $0.90 |
 | The orphan alarm (#208), and the custom metric its log filter publishes | $0.40 |
 | The Google client secret in Secrets Manager | $0.40 |
 | The site and attachment buckets, the logs | cents; attachments are at most 50 MB a user |

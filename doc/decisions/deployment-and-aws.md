@@ -642,6 +642,10 @@ Revised in part: a fifth function, `logship`, sends the logs on to the monitorin
 [below](#the-go-backends-logs-go-to-the-shared-monitoring-server-through-a-subscription-filter)).
 It has no alarm: a failed batch is in CloudWatch all the same.
 
+Revised in part on 2026-11-16 (#607): a ninth alarm on the API's request count, 50,000 in an
+hour, and the stage's throttle down to 10 a second with bursts of 20
+([At most 500 tasks per user](domain-and-backend.md#at-most-500-tasks-per-user-and-the-api-throttled-at-10-a-second)).
+
 Taken by Claude while Gunnar was away; he went through it on 2026-11-12 and kept it. The resources
 are in `serverless.tf` and `serverless-jobs.tf`;
 [serverless.md](../deployment/serverless.md#the-infrastructure) says what each is given.

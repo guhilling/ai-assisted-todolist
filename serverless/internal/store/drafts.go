@@ -114,6 +114,17 @@ func (w *Writes) StartDraft(ctx context.Context, email string, now time.Time) (i
 // values on the task it became, its due time and zone too, which a create always sends. found is
 // false when the user has neither a draft nor a task with this id, and nothing is written.
 func (w *Writes) AddDraft(ctx context.Context, email string, t board.Task, now time.Time) (board.Task, bool, error) {
+	// A draft becoming a task is a create, and counts (#607). A task with this id already, an add
+	// retried after it went through, only takes the values: Replace finds it, and writes nothing
+	// when there is none.
+	if full, err := w.full(ctx, email); err != nil {
+		return board.Task{}, false, err
+	} else if full {
+		if replaced, found, err := w.Replace(ctx, email, t, false); found || err != nil {
+			return replaced, found, err
+		}
+		return board.Task{}, false, board.ErrTooManyTasks
+	}
 	put, err := w.newTask(email, t)
 	if err != nil {
 		return board.Task{}, false, err

@@ -254,7 +254,7 @@ def architecture(p: Palette) -> str:
         label((right_x + left_w + side_x) / 2, 884, "draws", p, size=11),
 
         box(main_x, 980, left_w, 64, ["logship", "Go on Lambda \u00b7 qa"], p, accent=True),
-        box(right_x, 980, left_w, 64, ["9 alarms", "8 on metrics, 1 on a log line"], p, tint="aws"),
+        box(right_x, 980, left_w, 64, ["10 alarms", "9 on metrics, 1 on a log line"], p, tint="aws"),
         *down(lc - 50, 924, 980, None),
         label(lc - 38, 956, "subscription", p, anchor="start", size=11),
         arrow([(rc, 924), (rc, 980)], p),
@@ -286,7 +286,7 @@ def architecture(p: Palette) -> str:
         "ways straight between the clients and S3. The table's stream feeds the streams "
         "function, and EventBridge Scheduler runs orphans and replay. Every function and the "
         "HTTP API report metrics to CloudWatch, which a CloudWatch dashboard draws, and write "
-        "their log lines to CloudWatch Logs. Nine alarms, eight on the metrics and one on the "
+        "their log lines to CloudWatch Logs. Ten alarms, nine on the metrics and one on the "
         "orphan clean-up's log line through a metric filter, notify an SNS topic, which mails "
         "Gunnar. In qa, a subscription filter also hands every log line to logship, which sends "
         "it over HTTPS with basic auth to VictoriaLogs and Perses on a shared Hetzner VM, which "

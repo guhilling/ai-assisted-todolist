@@ -546,8 +546,10 @@ $0.10 a month each, are the one fixed cost.
   with a secret, `X-Origin-Verify`, and the function refuses any request without it with a 403
   (`lambdahttp.FromOrigin`); OpenTofu generates the secret. A Secrets Manager secret would cost
   $0.40 a month to prove only where a request came from, so it is in state and in the function's
-  settings instead. The stage is throttled at 50 requests a second, bursts of 100, as a ceiling on
-  what a flood could cost.
+  settings instead. The stage is throttled at 10 requests a second, bursts of 20, as a ceiling on
+  what a flood could cost: about $30 a month of requests at the most (#607; it was 50 and 100).
+  An alarm mails when an hour holds 50,000 requests, so a script below the ceiling is seen within
+  the hour rather than a day later by a budget.
 - **CloudFront** sends `/api/*` to the HTTP API, without the viewer's `Host`, which API Gateway
   would refuse: the function takes its own address from `TASKFEST_PUBLIC_ORIGIN`. qa went first, on
   2026-11-12, and prod followed with its cut-over (#557); the variable `api_backend` that switched

@@ -68,8 +68,11 @@ const collisionsBeforeGivingUp = 32
 // separate writes rather than one transaction: the count goes up first and atomically, so an id
 // is never given twice, and a create that fails after it only leaves a gap, which nothing minds.
 // A deleted task's id is not given again either. An id already taken by a task written around
-// the count is stepped over.
+// the count is stepped over. board.ErrTooManyTasks when the user has board.MaxTasksPerUser.
 func (w *Writes) Create(ctx context.Context, email string, t board.Task) (board.Task, error) {
+	if full, err := w.full(ctx, email); err != nil || full {
+		return board.Task{}, errors.Join(err, tooMany(full))
+	}
 	for range collisionsBeforeGivingUp {
 		id, err := w.nextID(ctx, email)
 		if err != nil {
@@ -225,4 +228,42 @@ func (w *Writes) Delete(ctx context.Context, email string, id int64) (bool, erro
 		}
 	}
 	return false, errors.New("delete the task: lost every race for the count")
+}
+
+// full says whether the user has board.MaxTasksPerUser tasks already (#607), counted from their
+// TASK# items, read strongly consistent. The count and the write are not one transaction: creates
+// at the same moment may each find one place left and pass it by a few, which a limit against a
+// script filling the table at will can afford.
+func (w *Writes) full(ctx context.Context, email string) (bool, error) {
+	var count int32
+	var start map[string]types.AttributeValue
+	for {
+		out, err := w.client.Query(ctx, &dynamodb.QueryInput{
+			TableName:              aws.String(w.table),
+			KeyConditionExpression: aws.String("PK = :pk AND begins_with(SK, :task)"),
+			ExpressionAttributeValues: map[string]types.AttributeValue{
+				":pk":   &types.AttributeValueMemberS{Value: OwnerKey(email)},
+				":task": &types.AttributeValueMemberS{Value: "TASK#"},
+			},
+			Select:            types.SelectCount,
+			ConsistentRead:    aws.Bool(true),
+			ExclusiveStartKey: start,
+		})
+		if err != nil {
+			return false, fmt.Errorf("count the tasks: %w", err)
+		}
+		count += out.Count
+		if count >= board.MaxTasksPerUser || out.LastEvaluatedKey == nil {
+			return count >= board.MaxTasksPerUser, nil
+		}
+		start = out.LastEvaluatedKey
+	}
+}
+
+// tooMany is board.ErrTooManyTasks when full, nil otherwise, for errors.Join.
+func tooMany(full bool) error {
+	if full {
+		return board.ErrTooManyTasks
+	}
+	return nil
 }
