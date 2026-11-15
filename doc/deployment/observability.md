@@ -38,7 +38,7 @@ half.
   ([below](#alerting-the-address-and-the-one-time-setup)). **Not built**, of the ones first planned:
   the load balancer's 5xx rate and target health, the service's running count, and the database's
   free storage and CPU credits. The port made them moot: with both environments cut over, none of
-  these resources runs unless an environment is switched back.
+  these resources runs, unless `env.sh up` starts them.
 - **Metrics:** the backend exposes `/q/metrics` and tests it (`MetricsResourceTest`), but nothing in
   AWS scrapes it; the plan to have the ECS agent do so was never built. The monitoring server's
   trial scraped it locally (`doc/local-development/monitoring.md`).
