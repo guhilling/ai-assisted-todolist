@@ -34,7 +34,7 @@ import sys
 
 STEPS = ("patch", "minor", "major")
 TAG = re.compile(r"v(\d+)\.(\d+)\.(\d+)")
-# oasdiff's levels: 1 information, 2 warning, 3 error -- what Backend CI's `--fail-on ERR` fails on.
+# oasdiff's levels: 1 information, 2 warning, 3 error -- what Contract CI's `--fail-on ERR` fails on.
 ERROR = 3
 # Says the document's info.version did not change with a breaking change. main's is always
 # 1.0.0-SNAPSHOT (doc/releasing.md), so this is no news about the API itself.

@@ -58,13 +58,14 @@ In this repository, stopping to ask applies especially to:
   issues, `Accepted`); one that is revised is marked `Superseded · by …`, keeps a short summary
   and gets a new section, rather than being edited in place. `doc/decisions/index.md` says how, and
   CI checks it.
-- **The API contract is generated and drift-gated, never written twice.** The backend's
-  OpenAPI document and the per-type JSON Schemas under `doc/api/` come from
-  `doc/api/generate.py`; the frontend's wire types and response validators under
-  `frontend/src/generated/` come from `npm run generate:api`; the Go backend's routes and wire
-  types (`serverless/internal/api/api.gen.go`) come from `go generate ./...` in `serverless/`.
-  Backend CI, Frontend CI and Serverless CI each regenerate their part and fail on any difference,
-  so none can go stale and none is hand-edited. A wire change starts at the backend record.
+- **The API contract is the source, and everything else is generated from it and drift-gated.**
+  `doc/api/openapi.json` is edited by hand (#559); `doc/api/generate.py` checks it is valid
+  OpenAPI 3.1 and derives `openapi.yaml` and the per-type JSON Schemas under `doc/api/schema/`;
+  the frontend's wire types and response validators under `frontend/src/generated/` come from
+  `npm run generate:api`; the Go backend's routes and wire types
+  (`serverless/internal/api/api.gen.go`) come from `go generate ./...` in `serverless/`. Contract
+  CI, Frontend CI and Serverless CI each regenerate their part and fail on any difference, so none
+  can go stale and nothing derived is hand-edited. A wire change starts at `openapi.json`.
 - Code-level documentation is Javadoc and TSDoc in the code itself, saying what
   a type is *for*. The conventions are in `backend/CLAUDE.md`,
   `frontend/CLAUDE.md` and `mobile/CLAUDE.md`; on the backend they are enforced by Checkstyle.

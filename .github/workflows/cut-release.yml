@@ -5,7 +5,7 @@ name: Cut a release
 # hand (doc/releasing.md). The version is still written down in the tag alone.
 #
 # From 1.0.0 the API decides the step: release-version.py compares main's doc/api/openapi.yaml with
-# the newest release's, using the oasdiff Backend CI gates with. Under 0.x a release is a minor,
+# the newest release's, using the oasdiff Contract CI gates with. Under 0.x a release is a minor,
 # and 1.0.0 itself is released by hand.
 on:
   workflow_dispatch:
@@ -67,7 +67,7 @@ jobs:
           git show "$latest:doc/api/openapi.yaml" > .oasdiff/latest.yaml
 
       - name: Compare the API with the newest release's
-        # The same oasdiff as Backend CI, which test_release_version.py holds it to. Through a shell,
+        # The same oasdiff as Contract CI, which test_release_version.py holds it to. Through a shell,
         # because the changelog goes to a file rather than to the log.
         uses: docker://tufin/oasdiff:v1.33.0
         with:

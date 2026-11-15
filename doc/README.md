@@ -22,13 +22,14 @@ truth; the root `README.md` is a short entry point that links here.
 
 ## The API contract
 
-`api/` holds the wire contract as files: the generated OpenAPI 3.1 document, and one
-standalone JSON Schema per type under `api/schema/`. Like the diagrams below, these are
-**generated** — `python3 doc/api/generate.py` reads what the backend build wrote to
-`backend/target/openapi/` — so change the resource or the record, not the file.
+`api/` holds the wire contract as files. **`api/openapi.json` is the source** (#559), an OpenAPI
+3.1 document edited by hand; `python3 doc/api/generate.py` checks it and derives `openapi.yaml`
+and one standalone JSON Schema per type under `api/schema/`, so edit the JSON and run it, never
+the derived files. Until #559 the document was generated from the Quarkus backend's records.
 
-Unlike the diagrams, they are enforced rather than trusted: Backend CI regenerates them and
-fails on any difference. They are committed rather than built on demand because the frontend
+They are enforced rather than trusted: Contract CI checks the document, regenerates the derived
+files and fails on any difference, and refuses a change that would break the oldest release still
+in use. They are committed rather than built on demand because the frontend
 generates its response validators from them, and because a change to the wire contract should
 be visible in the pull request that causes it.
 

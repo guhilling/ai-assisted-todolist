@@ -49,7 +49,7 @@ release apps are built against, the API decides (the app builds follow during 1.
 
 Under 0.x semantic versioning promises nothing; the releases before 1.0.0 made no such promise.
 
-**Enforced, not remembered.** Backend CI compares `doc/api/openapi.yaml` with the one of the
+**Enforced, not remembered.** Contract CI compares `doc/api/openapi.yaml` with the one of the
 release named in `doc/api/oldest-supported-release`, using
 [oasdiff](https://github.com/oasdiff/oasdiff), and fails on a breaking change. A breaking change
 therefore cannot land by accident; landing one on purpose takes three things in the same pull
@@ -87,7 +87,7 @@ CloudFront routing and the generated documents simple. None exists yet.
 ## Cutting a release from GitHub
 
 `.github/workflows/cut-release.yml` takes the newest release — the highest `vX.Y.Z` tag, pre-releases
-aside — compares its `doc/api/openapi.yaml` with `main`'s using the oasdiff Backend CI gates with,
+aside — compares its `doc/api/openapi.yaml` with `main`'s using the oasdiff Contract CI gates with,
 and raises the version as the table above says: an error is a **major**, any other change, a
 warning included, a **minor**, none a **patch**. `.github/scripts/release-version.py` decides, and
 its tests pin the rule down.
@@ -100,7 +100,7 @@ its tests pin the rule down.
 The run's summary says the version, the step and oasdiff's reasons, in a dry run too. **A major for
 a break of the API is refused** until the two changes it needs have been made since the newest
 release: `doc/api/oldest-supported-release` moved forward and `taskfest.minimum-app-version` raised
-(their values, not the comments around them). Backend CI cannot insist on them alone: it compares
+(their values, not the comments around them). Contract CI cannot insist on them alone: it compares
 with the oldest supported release only, so removing something added after that one passes it. A
 major asked for without a break needs neither. A real run then tags `main` and starts
 `release.yml` for the tag. It has to start it explicitly: a tag pushed with a workflow's own token

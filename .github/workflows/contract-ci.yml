@@ -1,0 +1,64 @@
+name: Contract CI
+
+# The API contract, doc/api/openapi.json, is the source the Go backend and the frontend are
+# generated from (#559). This keeps it honest: valid OpenAPI 3.1, its derived files current, and
+# nothing in it that breaks the oldest release still in use. Serverless CI and Frontend CI check
+# that their own generated code matches it.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'doc/api/**'
+      - 'doc/api/requirements.txt'
+      - '.github/workflows/contract-ci.yml'
+  pull_request:
+    paths:
+      - 'doc/api/**'
+      - 'doc/api/requirements.txt'
+      - '.github/workflows/contract-ci.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    runs-on: ubuntu-26.04
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install the generator's dependencies
+        run: pip install -r doc/api/requirements.txt
+
+      - name: Check the contract, and that what is derived from it is current
+        # generate.py validates openapi.json as OpenAPI 3.1 and rewrites openapi.yaml and the
+        # per-type schemas from it; a difference means someone edited the source without running
+        # it, or edited a derived file by hand.
+        run: |
+          python3 doc/api/generate.py
+          # --intent-to-add first, or a brand new schema file would be untracked and so
+          # invisible to git diff -- the one case the gate most needs to catch. Against HEAD, not
+          # the index: git add --all stages a schema generate.py deleted, which a diff of the
+          # working tree with the index would then not show.
+          git add --all --intent-to-add doc/api
+          git diff --exit-code HEAD -- doc/api || {
+            echo "::error::doc/api is out of date. Run: python3 doc/api/generate.py"
+            exit 1
+          }
+
+      - name: Fetch the API of the oldest supported release
+        # Installed mobile apps are weeks behind the backend (#268), so the API must keep serving
+        # them. doc/api/oldest-supported-release names the oldest release it still has to serve.
+        run: |
+          baseline=$(grep -v '^#' doc/api/oldest-supported-release | tr -d '[:space:]')
+          git fetch --no-tags --depth=1 origin "refs/tags/$baseline:refs/tags/$baseline"
+          mkdir -p "$GITHUB_WORKSPACE/.oasdiff"
+          git show "$baseline:doc/api/openapi.yaml" > "$GITHUB_WORKSPACE/.oasdiff/baseline.yaml"
+          echo "Comparing with $baseline"
+
+      - name: Check the API breaks nothing that release relies on
+        # Errors only: a warning is a change oasdiff cannot judge, such as a new enum value in a
+        # response, which an app tolerates by reading unknown values as unknown (doc/releasing.md).
+        uses: docker://tufin/oasdiff:v1.33.0
+        with:
+          args: breaking .oasdiff/baseline.yaml doc/api/openapi.yaml --fail-on ERR

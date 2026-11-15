@@ -1,44 +1,55 @@
 #!/usr/bin/env python3
 """
-Turns the backend's generated OpenAPI document into the committed API contract.
+Derives the rest of the API contract from its source, `openapi.json`, and checks it.
 
-Run it after changing anything a REST resource or a response record says:
+`doc/api/openapi.json` is the contract (#559): a wire change starts there, edited by hand, and the
+Go backend's routes and types (`go generate`) and the frontend's types and validators
+(`npm run generate:api`) are generated from it. Run this after editing it:
 
-    cd backend && ./mvnw -B package -DskipTests
     python3 doc/api/generate.py
 
-It writes three things next to itself:
+A release runs it with `--version 1.2.3`, which writes that version into the documents instead of
+main's `1.0.0-SNAPSHOT`, so the contract attached to the release says what it describes; nothing
+commits that.
 
-    openapi.json, openapi.yaml    the document as the backend generated it
+It checks the document is valid OpenAPI 3.1, then writes next to it:
+
+    openapi.yaml                  the same document as YAML, for oasdiff and readers who prefer it
     schema/<Name>.schema.json     one standalone JSON Schema per component schema
 
 Why the schemas are split out at all: the frontend compiles them into runtime validators, and
 anything else consuming the contract wants one document per type rather than a whole API
-description to index into. The split is possible because the backend emits **OpenAPI 3.1**,
-whose component schemas are JSON Schema 2020-12 documents already -- there is no conversion
-here, only extraction. `OpenApiContractTest` guards that version, because on 3.0 this would
-quietly produce something that is not JSON Schema.
+description to index into. The split needs no conversion because OpenAPI 3.1's component schemas
+are JSON Schema 2020-12 documents already -- which is why the document must stay on 3.1, and the
+check below refuses anything else.
 
 Why the `$id` and every `$ref` are relative: the same files are served from the filesystem,
 from /api/main/ and from /api/v1.2.3/ on GitHub Pages. A relative reference resolves against
 wherever the document was actually retrieved from, so one set of files works in all three
 places. An absolute `$id` would have had to name one of them and be wrong in the others.
 
-Why generated output is committed rather than built on demand: it makes a change to the wire
-contract visible in the pull request that causes it, and it lets the frontend build depend on
-the contract without depending on a Java toolchain. Backend CI regenerates and fails on any
-difference, so the committed copy cannot drift from the code.
+Why the derived files are committed rather than built on demand: they show a change to the wire
+contract in the pull request that makes it, and the frontend build needs no Python. Contract CI
+runs this and fails on any difference, so they cannot drift from the source.
+
+Until #559 the contract was generated from the Quarkus backend's records; the tag
+`pre-serverless` keeps that way of making it.
 """
 from __future__ import annotations
 
+import argparse
 import json
+import os
 import pathlib
-import shutil
 import sys
+
+import yaml
+from openapi_spec_validator import validate
+from openapi_spec_validator.validation.exceptions import OpenAPIValidationError
 
 HERE = pathlib.Path(__file__).parent
 REPO = HERE.parent.parent
-GENERATED = REPO / "backend" / "target" / "openapi"
+SOURCE = HERE / "openapi.json"
 SCHEMA_DIR = HERE / "schema"
 
 DIALECT = "https://json-schema.org/draft/2020-12/schema"
@@ -79,7 +90,7 @@ def standalone(name: str, schema: dict) -> dict:
 
 def write_json(path: pathlib.Path, document: dict) -> None:
     """Writes formatted JSON with a trailing newline, so the files read as text and diff well."""
-    path.write_text(json.dumps(document, indent=2) + "\n")
+    path.write_text(json.dumps(document, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
 
 def references(node: object) -> set[str]:
@@ -104,33 +115,50 @@ def check_refs_resolve(directory: pathlib.Path) -> set[str]:
     return {
         ref
         for path in directory.glob("*.schema.json")
-        for ref in references(json.loads(path.read_text()))
+        for ref in references(json.loads(path.read_text(encoding="utf-8")))
         if ref not in written
     }
 
 
 def main() -> int:
-    source = GENERATED / "openapi.json"
-    if not source.exists():
-        print(
-            f"{source} does not exist.\n"
-            "The backend build writes it (quarkus.smallrye-openapi.store-schema-directory). Run:\n"
-            "    cd backend && ./mvnw -B package -DskipTests",
-            file=sys.stderr,
-        )
+    parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    parser.add_argument("--version", help="the release version to write into the documents")
+    args = parser.parse_args()
+
+    document = json.loads(SOURCE.read_text(encoding="utf-8"))
+    if args.version:
+        # It rewrites the source too, which only a release's own checkout may: nothing commits
+        # there. Run by hand, it would leave the committed contract claiming a release.
+        if os.environ.get("GITHUB_ACTIONS") != "true":
+            print("--version is for the release workflow only; it rewrites openapi.json itself",
+                  file=sys.stderr)
+            return 1
+        document["info"]["version"] = args.version
+    if not str(document.get("openapi", "")).startswith("3.1"):
+        print(f"{SOURCE.name} must be OpenAPI 3.1, whose schemas are JSON Schema 2020-12; "
+              f"it says {document.get('openapi')!r}", file=sys.stderr)
+        return 1
+    try:
+        validate(document)
+    except OpenAPIValidationError as error:
+        print(f"{SOURCE.name} is not valid OpenAPI 3.1: {error.message}", file=sys.stderr)
+        return 1
+    except Exception as error:  # noqa: BLE001 -- an unresolvable $ref, say, raises its own kind
+        print(f"{SOURCE.name} could not be checked: {type(error).__name__}: {error}", file=sys.stderr)
         return 1
 
-    document = json.loads(source.read_text())
-    write_json(HERE / "openapi.json", document)
-    shutil.copyfile(GENERATED / "openapi.yaml", HERE / "openapi.yaml")
+    # Rewritten as it reads, so a hand edit's formatting does not linger as a diff.
+    write_json(SOURCE, document)
+    yaml_text = yaml.safe_dump(document, sort_keys=False, allow_unicode=True)
+    (HERE / "openapi.yaml").write_text(yaml_text, encoding="utf-8")
 
     schemas = document["components"]["schemas"]
     SCHEMA_DIR.mkdir(exist_ok=True)
     for name, schema in schemas.items():
         write_json(SCHEMA_DIR / schema_filename(name), standalone(name, schema))
 
-    # A renamed or deleted record would otherwise leave its schema behind, and the frontend
-    # would go on generating a validator for a type the backend no longer has.
+    # A renamed or deleted schema would otherwise leave its file behind, and the frontend would
+    # go on generating a validator for a type the contract no longer has.
     expected = {schema_filename(name) for name in schemas}
     for stale in sorted(path for path in SCHEMA_DIR.glob("*.schema.json") if path.name not in expected):
         stale.unlink()
@@ -141,7 +169,7 @@ def main() -> int:
         print(f"these references point at no file: {', '.join(unresolved)}", file=sys.stderr)
         return 1
 
-    print(f"wrote openapi.json, openapi.yaml and {len(schemas)} schemas to {HERE.relative_to(REPO)}")
+    print(f"checked openapi.json; wrote openapi.yaml and {len(schemas)} schemas to {HERE.relative_to(REPO)}")
     return 0
 
 
