@@ -204,3 +204,12 @@ then:
   `.github/scripts/check-share-extension.py`). `expo-notifications`' push entitlement is left out
   on purpose: the App IDs have no push, and push (#277) adds it.
 - **Play's draft state**, above: whether the internal release went out or waits as a draft.
+
+**When Apple's agreement has changed**, every iOS upload fails at the export, first with
+`FORBIDDEN.REQUIRED_AGREEMENTS_MISSING_OR_EXPIRED`, later with `Unable to process request - PLA
+Update available` and `No signing certificate "iOS Distribution" found`: until the account holder
+accepts the updated Program License Agreement, Apple's cloud signing hands out no certificate. The
+banner that asks for it showed on **App Store Connect's home page** in November 2026, not on
+developer.apple.com, where we looked first. Once it is accepted, *Re-run failed jobs* on the
+release's run, and approve `app-stores` again; no new release is needed. Android is not held up by
+it.
