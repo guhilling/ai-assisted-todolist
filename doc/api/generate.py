@@ -90,7 +90,7 @@ def standalone(name: str, schema: dict) -> dict:
 
 def write_json(path: pathlib.Path, document: dict) -> None:
     """Writes formatted JSON with a trailing newline, so the files read as text and diff well."""
-    path.write_text(json.dumps(document, indent=2, ensure_ascii=False) + "\n")
+    path.write_text(json.dumps(document, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
 
 def references(node: object) -> set[str]:
@@ -115,7 +115,7 @@ def check_refs_resolve(directory: pathlib.Path) -> set[str]:
     return {
         ref
         for path in directory.glob("*.schema.json")
-        for ref in references(json.loads(path.read_text()))
+        for ref in references(json.loads(path.read_text(encoding="utf-8")))
         if ref not in written
     }
 
@@ -125,7 +125,7 @@ def main() -> int:
     parser.add_argument("--version", help="the release version to write into the documents")
     args = parser.parse_args()
 
-    document = json.loads(SOURCE.read_text())
+    document = json.loads(SOURCE.read_text(encoding="utf-8"))
     if args.version:
         # It rewrites the source too, which only a release's own checkout may: nothing commits
         # there. Run by hand, it would leave the committed contract claiming a release.
@@ -149,7 +149,8 @@ def main() -> int:
 
     # Rewritten as it reads, so a hand edit's formatting does not linger as a diff.
     write_json(SOURCE, document)
-    (HERE / "openapi.yaml").write_text(yaml.safe_dump(document, sort_keys=False, allow_unicode=True))
+    yaml_text = yaml.safe_dump(document, sort_keys=False, allow_unicode=True)
+    (HERE / "openapi.yaml").write_text(yaml_text, encoding="utf-8")
 
     schemas = document["components"]["schemas"]
     SCHEMA_DIR.mkdir(exist_ok=True)

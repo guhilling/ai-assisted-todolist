@@ -37,9 +37,11 @@ jobs:
         run: |
           python3 doc/api/generate.py
           # --intent-to-add first, or a brand new schema file would be untracked and so
-          # invisible to git diff -- the one case the gate most needs to catch.
+          # invisible to git diff -- the one case the gate most needs to catch. Against HEAD, not
+          # the index: git add --all stages a schema generate.py deleted, which a diff of the
+          # working tree with the index would then not show.
           git add --all --intent-to-add doc/api
-          git diff --exit-code doc/api || {
+          git diff --exit-code HEAD -- doc/api || {
             echo "::error::doc/api is out of date. Run: python3 doc/api/generate.py"
             exit 1
           }
