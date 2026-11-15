@@ -165,8 +165,9 @@ code went in #559, and the infrastructure, the load balancer, the Fargate servic
 database, in #557. Each had its own database; in the shared bucket the Go backend keeps to
 `serverless/`, so neither backend's clean-up took the other's files for orphans (#578), and the
 Quarkus backend's files are still at the top level. The cut-over moved no task or attachment, and
-the containers' data is in their final RDS snapshots, kept until Gunnar deletes them. The git tag
-`pre-serverless` marks the last `main` before the move, and is the way back.
+the containers' data was in their final RDS snapshots until Gunnar deleted them on 2026-11-15. The
+git tag `pre-serverless` marks the last `main` before the move, and is the way back to its code and
+infrastructure, with an empty database.
 
 ## Deployment
 

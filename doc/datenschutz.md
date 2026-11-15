@@ -99,9 +99,8 @@ betreiben und Fehlerursachen zu finden.
 Für `taskfest` lässt sich die Datenbank auf jeden Zeitpunkt der letzten 35 Tage zurücksetzen;
 `taskfest-qa` wird nur gelegentlich von Hand gesichert. Löschen Sie Ihr Konto, wird die Löschung
 automatisch auch auf jede später wiederhergestellte Sicherung angewendet, über den unter *Ihre
-Rechte* beschriebenen Vermerk. Die Datenbank, die die Anwendung bis November 2026 nutzte, wird
-ungenutzt als Abbild aufbewahrt, bis sie gelöscht wird; sie enthält, was bis dahin gespeichert
-war.
+Rechte* beschriebenen Vermerk. Die Datenbank, die die Anwendung bis November 2026 nutzte, wurde
+am 15. November 2026 gelöscht, mit allem, was darin gespeichert war.
 
 ### Profilbilder
 
