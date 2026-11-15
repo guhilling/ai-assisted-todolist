@@ -13,8 +13,8 @@ origin takes up to 15 minutes and a distribution change several more, so `up` an
 **roughly 25–35 minutes**. That is the price of a `down` that costs nothing; keeping the load
 balancer up instead would have cost about $20 a month while nobody was using the environment.
 While down, the distribution still answers, from the site bucket alone, unless `api_backend` is
-`serverless`, as in qa since 2026-11-12: then `/api/*` goes to the Go backend, which never goes
-down, and none of this paragraph applies. Otherwise every `/api` request gets
+`serverless`, as in qa since 2026-11-12 and in prod since its cut-over (#557): then `/api/*` goes to
+the Go backend, which never goes down, and none of this paragraph applies. Otherwise every `/api` request gets
 CloudFront's own 503, *The backend is not running in this environment.*, and the app recognises
 exactly that answer: instead of a sign-in that cannot work, a visitor sees **"Environment QA is
 paused at the moment."** with a panda chewing bamboo. The name comes from `/environment.json`,

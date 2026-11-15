@@ -59,9 +59,9 @@ and download it straight to and from S3, through links the backend signs. Below 
 watched: CloudWatch's metrics and logs, alarms that mail, and in qa every log line on a shared
 monitoring server with Perses dashboards.
 
-qa and prod run on the Go backend, prod since the cut-over (#557). The containers, Quarkus on Fargate
-with PostgreSQL, are drawn dashed: the setting that switches back to them, until they are removed
-(#559).
+qa and prod run on the Go backend, prod since the cut-over (#557). Drawn dashed: the containers,
+Quarkus on Fargate with PostgreSQL, which `api_backend = "containers"` would switch back to, until
+#559 removes them.
 [architecture.md](doc/architecture.md#two-architectures) shows the containers' architecture and says
 why the backend moved, and [authentication.md](doc/authentication.md) has the sign-in flow in full.
 

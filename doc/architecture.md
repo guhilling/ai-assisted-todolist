@@ -2,9 +2,9 @@
 
 **TaskFest has two backends**, built to the same API and run side by side in each AWS
 environment: the containers' backend, Quarkus on Fargate with PostgreSQL, and the Go backend on
-Lambda with DynamoDB, which is being ported (#547). One setting, `api_backend`, says which of them
+Lambda with DynamoDB, which it was ported to (#547). One setting, `api_backend`, says which of them
 CloudFront sends `/api/*` to. Every route is ported, so the website and the apps cannot tell
-them apart; what remains of the port is how it is built, deployed and watched.
+them apart.
 [Two architectures](#two-architectures) compares them and says why the Go backend is the one
 switched to. The [README](../README.md#how-the-application-fits-together) draws the Go backend,
 with how it is watched; the containers' drawing is kept in that section, as the reference. Both
@@ -179,8 +179,7 @@ drawbacks in full.
 **Why both stayed for a while.** The Go backend served qa from 2026-11-12, to try it, while the
 containers kept serving prod as the way back; prod followed with its cut-over (#557), and the
 containers stay until #559 removes them, `api_backend` switching back to them till then. Each has
-its own
-database; in the shared bucket the Go backend keeps to `serverless/`, so neither backend's
+its own database; in the shared bucket the Go backend keeps to `serverless/`, so neither backend's
 clean-up takes the other's files for orphans, and IAM keeps each out of the other's part (#578).
 The cut-over (#557) switches `api_backend` and nothing else: no task or attachment moves with it,
 and switching back to the containers does not bring back what was written through the Go backend.
