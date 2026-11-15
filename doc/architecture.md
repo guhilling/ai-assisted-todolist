@@ -2,14 +2,15 @@
 
 **TaskFest has two backends**, built to the same API and run side by side in each AWS
 environment: the containers' backend, Quarkus on Fargate with PostgreSQL, and the Go backend on
-Lambda with DynamoDB, which is being ported (#547). One setting, `api_backend`, says which of them
+Lambda with DynamoDB, which it was ported to (#547). One setting, `api_backend`, says which of them
 CloudFront sends `/api/*` to. Every route is ported, so the website and the apps cannot tell
-them apart; what remains of the port is how it is built, deployed and watched.
+them apart.
 [Two architectures](#two-architectures) compares them and says why the Go backend is the one
 switched to. The [README](../README.md#how-the-application-fits-together) draws the Go backend,
-with how it is watched; the containers' drawing is kept in that section, as the reference. Most of
-this page describes the containers' backend, which serves prod; qa has served from the Go backend
-since 2026-11-12, to try it (#557).
+with how it is watched; the containers' drawing is kept in that section, as the reference. Both
+environments run on the Go backend: qa since 2026-11-12, prod since its cut-over (#557). Most of
+this page still describes the containers' backend, which stays in the repository, the way back,
+until its removal (#559).
 
 ## The pieces
 
@@ -132,7 +133,8 @@ field the spec left optional would be a field the frontend accepted as missing.
 
 **The containers' architecture**, as the README drew it until the port: one Quarkus backend on
 Fargate behind CloudFront, PostgreSQL on RDS, and the same sign-in and attachment paths as now. It
-still serves prod, and stays drawn here as the reference the Go backend is compared with:
+served prod until the cut-over (#557), and stays drawn here as the reference the Go backend is
+compared with:
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="images/architecture-containers-dark.svg">
@@ -174,10 +176,10 @@ to learn, and DynamoDB's designed-up-front access patterns. The decision,
 weighs these, and [serverless.md](deployment/serverless.md#what-speaks-against-it) lists the
 drawbacks in full.
 
-**Why keep both for now.** The Go backend serves qa since 2026-11-12, to try it; until it has
-served qa for a while, the containers serve prod, and stay the way back if the Go backend falls
-short. Each has its own
-database; in the shared bucket the Go backend keeps to `serverless/`, so neither backend's
+**Why both stayed for a while.** The Go backend served qa from 2026-11-12, to try it, while the
+containers kept serving prod as the way back; prod followed with its cut-over (#557), and the
+containers stay until #559 removes them, `api_backend` switching back to them till then. Each has
+its own database; in the shared bucket the Go backend keeps to `serverless/`, so neither backend's
 clean-up takes the other's files for orphans, and IAM keeps each out of the other's part (#578).
 The cut-over (#557) switches `api_backend` and nothing else: no task or attachment moves with it,
 and switching back to the containers does not bring back what was written through the Go backend.

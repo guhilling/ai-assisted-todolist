@@ -1,12 +1,13 @@
 # Observability
 
 What watches TaskFest, as built (checked against `deployment/aws-tofu` on 2026-11-14, #558). The
-Go backend serves qa and is where the watching is complete; the containers serve prod and have only
-the two alarms that predate the port, one of which they share with the Go backend. The
+Go backend serves qa and prod and is where the watching is complete; the containers, the way back
+until #559 removes them, have only the two alarms that predate the port, one of which they share
+with the Go backend. The
 [architecture diagram](../../README.md#how-the-application-fits-together) draws the Go backend's
 half.
 
-**The Go backend** (qa; prod once it is cut over, #557):
+**The Go backend** (qa and prod, #557):
 
 - **Logs.** Each of the five functions writes to its own CloudWatch log group, and the HTTP API
   writes an access log, one line per request with its path, status and latency; JSON lines, 30 days
@@ -27,7 +28,7 @@ half.
   rest -- which is why the monitoring server's figures come from the access log and the `REPORT`
   lines.
 
-**The containers** (prod, while it is on them):
+**The containers** (the way back, until #559):
 
 - **Logs.** The Quarkus JSON log, one CloudWatch group per environment, 30 days in qa and 90 in
   prod. What they contain and how to query them is
@@ -36,8 +37,8 @@ half.
   which mails, and pushes to Gunnar's phone, once the backend service has run for four hours
   ([below](#alerting-the-address-and-the-one-time-setup)). **Not built**, of the ones first planned:
   the load balancer's 5xx rate and target health, the service's running count, and the database's
-  free storage and CPU credits. The port makes them moot: once prod is cut
-  over, none of these resources runs.
+  free storage and CPU credits. The port made them moot: with both environments cut over, none of
+  these resources runs, unless `env.sh up` starts them.
 - **Metrics:** the backend exposes `/q/metrics` and tests it (`MetricsResourceTest`), but nothing in
   AWS scrapes it; the plan to have the ECS agent do so was never built. The monitoring server's
   trial scraped it locally (`doc/local-development/monitoring.md`).

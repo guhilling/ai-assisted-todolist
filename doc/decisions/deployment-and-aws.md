@@ -667,3 +667,19 @@ filters read, so sending is best effort and nothing about the backend depends on
 
 **Cost.** One more function to build, deploy and keep, and the sign-in's `user` leaves AWS, which
 the privacy texts say for every environment that sends.
+
+## prod starts the Go backend with an empty table
+
+*Accepted · 2026-11-10 · #557*
+
+**Decision** (Gunnar). No task, draft, attachment or account moves from the containers' PostgreSQL
+to the Go backend's DynamoDB table: prod's cut-over starts it empty, as qa's did. The containers'
+data stays in their final RDS snapshot, kept until Gunnar deletes it, and `api_backend =
+"containers"` with `env.sh up` brings it back with the Quarkus backend until #559 removes that.
+
+**Why.** Not written down when it was taken, on #547. Claude's reading, for Gunnar to confirm:
+TaskFest is a demo, and a migration between two data models, with its tests and a cut-over
+window, would cost more than its few users signing in once more and adding their tasks again.
+
+**Cost.** Everyone on prod starts afresh, and what was there is reachable only by switching back.
+

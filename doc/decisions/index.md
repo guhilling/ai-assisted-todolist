@@ -134,6 +134,7 @@ commit that first wrote each one down. CI checks every line and that this index 
 - [The Go backend runs as four functions, behind a header, watched by seven alarms](deployment-and-aws.md#the-go-backend-runs-as-four-functions-behind-a-header-watched-by-seven-alarms)
 - [The Go backend is deployed by moving an alias after a check](deployment-and-aws.md#the-go-backend-is-deployed-by-moving-an-alias-after-a-check)
 - [The Go backend's logs go to the shared monitoring server through a subscription filter](deployment-and-aws.md#the-go-backends-logs-go-to-the-shared-monitoring-server-through-a-subscription-filter)
+- [prod starts the Go backend with an empty table](deployment-and-aws.md#prod-starts-the-go-backend-with-an-empty-table)
 
 ## [Mobile app](mobile-app.md)
 

@@ -211,8 +211,8 @@ def architecture(p: Palette) -> str:
 
         box(main_x, 300, main_w, 64, ["API Gateway, HTTP API", "with CloudFront's secret header"], p,
             tint="aws"),
-        # The other backend, which api_backend switches to and prod still runs on.
-        box(side_x, 300, side_w, 64, ["Quarkus on Fargate, RDS", "prod, until the cut-over (#557)"],
+        # The other backend, which api_backend switches back to until it is removed (#559).
+        box(side_x, 300, side_w, 64, ["Quarkus on Fargate, RDS", "the way back, until #559"],
             p, dashed=True),
         *down(mc, 234, 300, "/api"),
         arrow([(main_x + main_w - 30, 234), (main_x + main_w - 30, 267), (sc, 267), (sc, 300)], p,
@@ -286,7 +286,7 @@ def architecture(p: Palette) -> str:
         "in with Google: the browser is redirected there, the apps sign in themselves. Both talk "
         "only to CloudFront, which serves the site's files from S3 and passes /api to API "
         "Gateway's HTTP API with a secret header, or, where api_backend says containers, to the "
-        "Quarkus backend on Fargate that prod runs until the cut-over. The HTTP API invokes the "
+        "Quarkus backend on Fargate, the way back until it is removed. The HTTP API invokes the "
         "api function, Go on Lambda, which serves every route and is the OIDC client: it "
         "exchanges the code with Google itself, and the browser holds a session cookie, never a "
         "token, while the apps send their ID token as a Bearer token. The api function reads and "
@@ -305,7 +305,7 @@ def architecture(p: Palette) -> str:
 
 def architecture_containers(p: Palette) -> str:
     """The containers' architecture, Quarkus on Fargate with PostgreSQL, which served TaskFest
-    until the port (#547) and prod still runs: kept as the reference architecture.md compares the
+    until the port (#547): kept as the reference architecture.md compares the
     Go backend with. How a request travels, where the tokens stop, and how files bypass the
     backend."""
     w, h = 1000, 500
