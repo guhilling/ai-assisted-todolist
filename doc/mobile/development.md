@@ -105,7 +105,7 @@ since that is all an iOS app's version may be, and the backend logs nothing else
   app's alarm ([reminders.md](reminders.md)); then `attach.yaml` attaches an image the script put in
   the emulator's Downloads, through Android's file picker, and sees it on the board
   ([files.md](files.md)). The app reaches the stack's storage as the browser does, at
-  `s3.localhost:4566`, through one more `adb reverse`.
+  `s3.localhost:8333`, SeaweedFS in the Go backend's stack, through one more `adb reverse`.
 - **On iOS**, the flows in `maestro/ios/` share a photo from Photos and a page from Safari into the
   app through the real share sheet, on an iPhone simulator, with no stack behind it
   ([sharing.md](sharing.md)); `maestro/ios/run-on-simulator.sh` boots the simulator and runs them.
@@ -129,8 +129,8 @@ those files, so a pull request touching only the backend goes straight to the fl
 build is kept the same way, signed and checked, under a hash of the same files and the scripts that
 check and sign it: on a hit the `ios` job skips installing, generating and building — about eight
 of its twenty minutes — and goes straight to the share on the simulator. The stack
-starts in the background, so it comes up while the emulator is set up and boots — Postgres,
-Keycloak and LocalStack first thing, since they need nothing built — and `maestro/seed-stack.sh`
+starts in the background, so it comes up while the emulator is set up and boots — Keycloak,
+DynamoDB Local and SeaweedFS first thing, since they need nothing built — and `maestro/seed-stack.sh`
 waits for it before putting the CI task on the board, due today, with a second one due in a month
 at 10:00 in Tokyo, which *Change the board* finds shown there and on the emulator's UTC clock
 (#475); filed last, under *Later*, it pushes no row another flow looks for off the screen.

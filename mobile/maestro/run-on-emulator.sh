@@ -65,10 +65,11 @@ fi
 
 # The emulator's localhost is not the runner's: give it the stack's ports under the same numbers,
 # so the app and Keycloak's issuer use the addresses the browser does -- and storage's, which the
-# backend signs links to as s3.localhost:4566 (#274); Android resolves *.localhost to itself.
+# Go backend signs links to as s3.localhost:8333, SeaweedFS (#274, #559); Android resolves
+# *.localhost to itself.
 retry adb reverse tcp:3000 tcp:3000
 retry adb reverse tcp:8082 tcp:8082
-retry adb reverse tcp:4566 tcp:4566
+retry adb reverse tcp:8333 tcp:8333
 retry adb install -r "$apk"
 
 case "$share" in

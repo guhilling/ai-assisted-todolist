@@ -3,7 +3,7 @@
 # deployed anywhere; a release builds the functions themselves (serverless/build.sh, #555).
 
 # The toolchain go.mod names, so the image builds what CI tests; passed in rather than written
-# twice (e2e-serverless.yml, end-to-end-stack.md).
+# twice (e2e-serverless.yml, mobile-ci.yml, end-to-end-stack.md).
 ARG GO_VERSION
 FROM docker.io/library/golang:${GO_VERSION} AS build
 WORKDIR /src
