@@ -53,7 +53,7 @@ past the window, and uploads that were never confirmed.
 ## Invariants, and where each is enforced
 
 The column on the right names where the Quarkus backend enforced each rule, which is in the tag
-`pre-serverless` since #559. The Go backend keeps every one of them: the domain's in
+`pre-serverless` since #559, until #613 names the Go backend's places. It keeps every one of them: the domain's in
 `serverless/internal/board` (`rules.go`, with its tests ported from these), ownership in every
 key `internal/store` reads, and the deletion replay in `internal/replay`
 ([serverless.md](deployment/serverless.md)). Re-pointing each row at the Go code is still to do.
