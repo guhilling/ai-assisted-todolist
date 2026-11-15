@@ -195,13 +195,7 @@ jobs:
         working-directory: serverless
         run: |
           go generate ./...
-          # --intent-to-add, or a new generated file would be untracked and invisible to git diff;
-          # against HEAD, or one the generator deleted would be staged and invisible too (#611).
-          git add --all --intent-to-add .
-          git diff --exit-code HEAD -- . || {
-            echo "::error::generated code is stale (api.gen.go, zones.gen.go): run go generate ./... in serverless/"
-            exit 1
-          }
+          ../.github/scripts/check-generated-current.sh "go generate ./... in serverless/" .
       - name: Vet
         working-directory: serverless
         run: go vet ./...

@@ -31,19 +31,11 @@ jobs:
         # the next regeneration silently reverts it.
         run: |
           python3 doc/images/generate.py
-          # --intent-to-add first, or a brand new diagram would be untracked and so invisible
-          # to git diff -- the one case this gate most needs to catch.
           # The mark's copies outside doc/images are generated too: the website's favicon and
           # sign-in icon, and the sources of the app's icons. So are the diagrams' alt texts on the
           # pages that show them.
-          generated="doc/images frontend/public/favicon.svg frontend/src/assets/taskfest-mark.svg mobile/assets/icons README.md doc/architecture.md doc/deployment/access.md"
-          git add --all --intent-to-add $generated
-          # Against HEAD, not the index: `git add --all` stages a file the generator deleted, which a
-          # diff of the working tree with the index would then not show (#611).
-          git diff --exit-code HEAD -- $generated || {
-            echo "::error::The generated artwork is out of date. Run: python3 doc/images/generate.py"
-            exit 1
-          }
+          .github/scripts/check-generated-current.sh "python3 doc/images/generate.py" \
+            doc/images frontend/public/favicon.svg frontend/src/assets/taskfest-mark.svg mobile/assets/icons README.md doc/architecture.md doc/deployment/access.md
 
   cors-rule:
     name: One attachment CORS rule

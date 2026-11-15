@@ -52,14 +52,11 @@ jobs:
         # It catches both halves of a drift: a schema change that nobody regenerated against,
         # and a hand-edit of the generated files.
         run: |
+          # From an empty directory, so a file no schema makes any more -- left over, or added by
+          # hand -- shows as deleted rather than passing.
+          rm -rf src/generated
           npm run generate:api
-          git add --all --intent-to-add src/generated
-          # Against HEAD, not the index: `git add --all` stages a file the generator deleted, which a
-          # diff of the working tree with the index would then not show (#611).
-          git diff --exit-code HEAD -- src/generated || {
-            echo "::error::src/generated is out of date. Run: cd frontend && npm run generate:api"
-            exit 1
-          }
+          ../.github/scripts/check-generated-current.sh "cd frontend && npm run generate:api" src/generated
 
       - name: Lint frontend
         run: npm run lint
