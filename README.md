@@ -69,7 +69,7 @@ why the backend moved, and [authentication.md](doc/authentication.md) has the si
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="doc/images/workflow-dark.svg">
-  <img alt="Every change starts from a question rather than a guess, then a failing test, then the change and its documentation in one commit. A pull request must pass gofmt, go vet and oxlint, the tests and coverage gate, the contract checks, CodeQL, and the browser end-to-end run before it is squashed onto main. SonarCloud then analyses main, and a failed quality gate becomes a GitHub issue. A git tag on main cuts a release, which is deployed to qa and tested there from outside, the website's scenarios and the app's flows each recorded; the newest run's videos are published on the documentation site." src="doc/images/workflow-light.svg">
+  <img alt="Every change starts from a question rather than a guess, then a failing test, then the change and its documentation in one commit. A pull request must pass gofmt, go vet and oxlint, the tests and the frontend's coverage gate, the contract checks, CodeQL, and the browser end-to-end run before it is squashed onto main. SonarCloud then analyses main, and a failed quality gate becomes a GitHub issue. A git tag on main cuts a release, which is deployed to qa and tested there from outside, the website's scenarios and the app's flows each recorded; the newest run's videos are published on the documentation site." src="doc/images/workflow-light.svg">
 </picture>
 
 Anything that can be checked by a machine is, so that a convention does not depend on

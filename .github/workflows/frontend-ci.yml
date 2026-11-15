@@ -43,6 +43,10 @@ jobs:
           restore-keys: ${{ github.ref != 'refs/heads/main' && format('npm-frontend-{0}-{1}-', runner.os, runner.arch) || '' }}
       - name: Install dependencies
         run: npm ci
+      - name: No pre-release dependencies
+        # On every pull request, not only at release: the point is to fail when such a dependency
+        # is added (CLAUDE.md). Until #559 the release gate alone ran it for the website.
+        run: npm run check:deps
       - name: Check the generated wire types and validators are current
         # Regenerated from the committed schemas under doc/api, so this needs no backend build.
         # It catches both halves of a drift: a schema change that nobody regenerated against,

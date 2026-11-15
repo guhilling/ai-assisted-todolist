@@ -227,3 +227,16 @@ class SameOasdiffTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TheRealMinimumAppVersionTest(unittest.TestCase):
+    """The Go backend's file still holds the constant in the shape the script reads (#559).
+
+    The prerequisite compares what the pattern finds at the newest release and at HEAD; a line
+    that stopped matching -- moved into a const block, given a trailing comment -- would find
+    nothing at HEAD, differ from the release, and pass a major that never raised the version.
+    """
+
+    def test_the_constant_is_found_exactly_once(self):
+        text = (pathlib.Path(__file__).parents[2] / release.MINIMUM_APP_VERSION_FILE).read_text()
+        self.assertEqual(len(release.MINIMUM_APP_VERSION.findall(text)), 1)

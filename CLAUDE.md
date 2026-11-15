@@ -90,9 +90,9 @@ In this repository, stopping to ask applies especially to:
   `main` stays `1.0.0-SNAPSHOT` permanently, and the frontend's `package.json` version is unused
   because the package is never published. `doc/releasing.md` has the whole procedure.
 - **A pre-release npm dependency is refused** by `npm run check:deps`
-  (`frontend/scripts/check-no-prerelease-deps.mjs`): Mobile CI runs it for the app on every pull
-  request, the release for the frontend. Do not move the app's into a release-only path — the
-  point is to fail when the dependency is added.
+  (`frontend/scripts/check-no-prerelease-deps.mjs`), which Frontend CI and Mobile CI run on every
+  pull request. Do not move either into a release-only path — the point is to fail when the
+  dependency is added.
 - Renovate's configuration is `.github/renovate.json`, which extends the shared preset from
   [conventions](https://github.com/guhilling/conventions) and adds this repository's own
   rules to it. `main` requires no status checks because the `main-branch` ruleset names none.

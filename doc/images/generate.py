@@ -457,7 +457,7 @@ def workflow(p: Palette) -> str:
     row_y, box_h = 172, 56
     gates = [
         "gofmt, go vet, oxlint",
-        "Tests, coverage gate",
+        "Tests, frontend coverage gate",
         "Contract checks",
         "CodeQL",
         "End-to-end in a browser",
@@ -515,8 +515,8 @@ def workflow(p: Palette) -> str:
     aria = (
         "Every change starts from a question rather than a guess, then a failing test, then "
         "the change and its documentation in one commit. A pull request must pass gofmt, go vet "
-        "and oxlint, the tests and coverage gate, the contract checks, CodeQL, and the browser "
-        "end-to-end run before it is squashed onto main. SonarCloud then analyses main, and a "
+        "and oxlint, the tests and the frontend's coverage gate, the contract checks, CodeQL, "
+        "and the browser end-to-end run before it is squashed onto main. SonarCloud then analyses main, and a "
         "failed quality gate becomes a GitHub issue. A git tag on main "
         "cuts a release, which is deployed to qa and tested there from outside, the website's "
         "scenarios and the app's flows each recorded; the newest run's videos are published on "

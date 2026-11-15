@@ -188,6 +188,25 @@ jobs:
           # Off, as in Serverless CI: caches are saved on main only (#308).
           cache: false
 
+      # Serverless CI runs these on pull requests, but only when the Go backend or the contract
+      # changes, and main requires no status check: so the tag's own commit is checked here before
+      # anything is built from it, as the gate re-runs the frontend's suite (doc/releasing.md).
+      - name: The generated code is current
+        working-directory: serverless
+        run: |
+          go generate ./...
+          git diff --exit-code -- . || {
+            echo "::error::generated code is stale (api.gen.go, zones.gen.go): run go generate ./... in serverless/"
+            exit 1
+          }
+      - name: Vet
+        working-directory: serverless
+        run: go vet ./...
+      - name: Test
+        # DynamoDB Local and LocalStack start through Testcontainers, in the runner's Docker.
+        working-directory: serverless
+        run: go test -race ./...
+
       - name: Build the functions
         env:
           TASKFEST_VERSION: ${{ needs.gate.outputs.version }}
@@ -328,6 +347,10 @@ jobs:
     permissions:
       contents: read
       id-token: write
+      # What deploy-serverless.yml's live-test job may ask for, though a release leaves it off: a
+      # called workflow's jobs may not request more than the caller grants, skipped or not.
+      actions: read
+      packages: read
     uses: ./.github/workflows/deploy-serverless.yml
     with:
       environment: qa
