@@ -338,6 +338,11 @@ file from going anywhere but HTTPS storage.
 
 *Accepted · 2026-09-29 · #74*
 
+Revised in part on 2026-11-14 (#559): the schemas are no longer generated from the Quarkus
+backend; `doc/api/openapi.json` is the source they and the validators are derived from
+([The API contract is the source](domain-and-backend.md#the-api-contract-is-the-source)). The
+validation itself stands.
+
 **Decision.** `api.ts` declares none of the shapes it receives. The types and the runtime
 validators are both generated from `doc/api/schema/*.schema.json` by `npm run generate:api`,
 and every response is checked before anything reads a field off it.

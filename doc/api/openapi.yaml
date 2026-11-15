@@ -1,4 +1,3 @@
----
 openapi: 3.1.0
 components:
   schemas:
@@ -29,7 +28,7 @@ components:
         thumbnailSizeBytes:
           type:
           - integer
-          - "null"
+          - 'null'
           format: int64
           examples:
           - 6120
@@ -95,7 +94,7 @@ components:
         loginUrl:
           type:
           - string
-          - "null"
+          - 'null'
           examples:
           - /api/auth/login
           maxLength: 2048
@@ -115,7 +114,7 @@ components:
         providers:
           type: array
           items:
-            $ref: "#/components/schemas/AuthProviderResponse"
+            $ref: '#/components/schemas/AuthProviderResponse'
     CurrentUserResponse:
       type: object
       required:
@@ -130,14 +129,14 @@ components:
         name:
           type:
           - string
-          - "null"
+          - 'null'
           examples:
           - Person Example
           maxLength: 255
         pictureUrl:
           type:
           - string
-          - "null"
+          - 'null'
           examples:
           - https://example.com/avatar.jpg
           maxLength: 2048
@@ -155,7 +154,7 @@ components:
       type: string
       format: date-time
       examples:
-      - 2022-03-10T16:15:50Z
+      - '2022-03-10T16:15:50Z'
     LinkRequest:
       type: object
       required:
@@ -165,12 +164,12 @@ components:
           type: string
           examples:
           - https://example.com/articles/42
-          pattern: "^(?i)https?://[^\\s/?#:]+(:[0-9]{1,5})?([/?#][^\\s]*)?$"
+          pattern: ^[Hh][Tt][Tt][Pp][Ss]?://[^\s/?#:]+(:[0-9]{1,5})?([/?#][^\s]*)?$
           maxLength: 2048
         title:
           type:
           - string
-          - "null"
+          - 'null'
           examples:
           - An article worth reading
           maxLength: 1024
@@ -184,7 +183,7 @@ components:
           type: string
           maxLength: 4096
         expiresAt:
-          $ref: "#/components/schemas/Instant"
+          $ref: '#/components/schemas/Instant'
     LocalDate:
       type: string
       format: date
@@ -221,24 +220,24 @@ components:
         dueDate:
           type: string
           examples:
-          - 2026-11-30
-          $ref: "#/components/schemas/LocalDate"
+          - '2026-11-30'
+          $ref: '#/components/schemas/LocalDate'
         dueTime:
           type:
           - string
-          - "null"
-          pattern: "^([01][0-9]|2[0-3]):[0-5][0-9]$"
-          description: "The time of day it is due at, to the minute (#474); none,\
-            \ or null, for a task due all day. Floating without a timeZone."
+          - 'null'
+          pattern: ^([01][0-9]|2[0-3]):[0-5][0-9]$
+          description: The time of day it is due at, to the minute (#474); none, or
+            null, for a task due all day. Floating without a timeZone.
           examples:
-          - 10:00
+          - '10:00'
         timeZone:
           type:
           - string
-          - "null"
-          description: "The IANA zone dueTime is meant in (#474), one the backend\
-            \ knows; only with a dueTime. None, or null, for a floating time, which\
-            \ follows the reader's clock."
+          - 'null'
+          description: The IANA zone dueTime is meant in (#474), one the backend knows;
+            only with a dueTime. None, or null, for a floating time, which follows
+            the reader's clock.
           examples:
           - Europe/Berlin
           maxLength: 64
@@ -246,21 +245,21 @@ components:
           type: string
           examples:
           - HIGH
-          $ref: "#/components/schemas/TaskImportance"
+          $ref: '#/components/schemas/TaskImportance'
         state:
           type: string
           examples:
           - TODO
-          $ref: "#/components/schemas/TaskState"
+          $ref: '#/components/schemas/TaskState'
         attachmentIds:
           type:
           - array
-          - "null"
+          - 'null'
           items:
             type: integer
             format: int64
-          description: "Attachments of a task deleted moments ago, for an undo to\
-            \ bring back (#204); only the caller's, only within the undo window."
+          description: Attachments of a task deleted moments ago, for an undo to bring
+            back (#204); only the caller's, only within the undo window.
           maxItems: 10
     TaskImportance:
       type: string
@@ -290,52 +289,51 @@ components:
         dueDate:
           type: string
           examples:
-          - 2026-11-30
-          $ref: "#/components/schemas/LocalDate"
+          - '2026-11-30'
+          $ref: '#/components/schemas/LocalDate'
         dueTime:
           type:
           - string
-          - "null"
-          pattern: "^([01][0-9]|2[0-3]):[0-5][0-9]$"
-          description: "The time of day it is due at, to the minute (#474); none,\
-            \ or null, for a task due all day. Floating without a timeZone."
+          - 'null'
+          pattern: ^([01][0-9]|2[0-3]):[0-5][0-9]$
+          description: The time of day it is due at, to the minute (#474); none, or
+            null, for a task due all day. Floating without a timeZone.
           examples:
-          - 10:00
+          - '10:00'
         timeZone:
           type:
           - string
-          - "null"
-          description: "The IANA zone dueTime is meant in (#474), one the backend\
-            \ knows; only with a dueTime. None, or null, for a floating time, which\
-            \ follows the reader's clock."
+          - 'null'
+          description: The IANA zone dueTime is meant in (#474), one the backend knows;
+            only with a dueTime. None, or null, for a floating time, which follows
+            the reader's clock.
           examples:
           - Europe/Berlin
           maxLength: 64
         dueAt:
           type:
           - string
-          - "null"
-          description: "The moment a task with a timeZone is due at (#474), worked\
-            \ out on every read: a time in a daylight-saving gap moves later, one\
-            \ in an overlap is its earlier moment. Null for an all-day or floating\
-            \ task."
+          - 'null'
+          description: 'The moment a task with a timeZone is due at (#474), worked
+            out on every read: a time in a daylight-saving gap moves later, one in
+            an overlap is its earlier moment. Null for an all-day or floating task.'
           format: date-time
           examples:
-          - 2026-11-30T09:00:00Z
+          - '2026-11-30T09:00:00Z'
         importance:
           type: string
           examples:
           - HIGH
-          $ref: "#/components/schemas/TaskImportance"
+          $ref: '#/components/schemas/TaskImportance'
         state:
           type: string
           examples:
           - TODO
-          $ref: "#/components/schemas/TaskState"
+          $ref: '#/components/schemas/TaskState'
         attachments:
           type: array
           items:
-            $ref: "#/components/schemas/AttachmentResponse"
+            $ref: '#/components/schemas/AttachmentResponse'
           description: Its available attachments (#204). Always sent; optional in
             the schema so the board still validates a task from a backend rolled back
             to before attachments.
@@ -362,30 +360,29 @@ components:
         dueDate:
           type: string
           examples:
-          - 2026-11-30
-          $ref: "#/components/schemas/LocalDate"
+          - '2026-11-30'
+          $ref: '#/components/schemas/LocalDate'
         dueTime:
           type:
           - string
-          - "null"
-          pattern: "^([01][0-9]|2[0-3]):[0-5][0-9]$"
-          description: "The time of day it is due at, to the minute (#474); none,\
-            \ or null, for a task due all day. Floating without a timeZone. Left out\
-            \ together with the other of dueTime and timeZone, the task keeps both\
-            \ (#497), for apps that know neither. Left out alone, it counts as null,\
-            \ so a timeZone sent without a dueTime is refused."
+          - 'null'
+          pattern: ^([01][0-9]|2[0-3]):[0-5][0-9]$
+          description: The time of day it is due at, to the minute (#474); none, or
+            null, for a task due all day. Floating without a timeZone. Left out together
+            with the other of dueTime and timeZone, the task keeps both (#497), for
+            apps that know neither. Left out alone, it counts as null, so a timeZone
+            sent without a dueTime is refused.
           examples:
-          - 10:00
+          - '10:00'
         timeZone:
           type:
           - string
-          - "null"
-          description: "The IANA zone dueTime is meant in (#474), one the backend\
-            \ knows; only with a dueTime. None, or null, for a floating time, which\
-            \ follows the reader's clock. Left out together with the other of dueTime\
-            \ and timeZone, the task keeps both (#497), for apps that know neither.\
-            \ Left out alone, it counts as null, so a timeZone sent without a dueTime\
-            \ is refused."
+          - 'null'
+          description: The IANA zone dueTime is meant in (#474), one the backend knows;
+            only with a dueTime. None, or null, for a floating time, which follows
+            the reader's clock. Left out together with the other of dueTime and timeZone,
+            the task keeps both (#497), for apps that know neither. Left out alone,
+            it counts as null, so a timeZone sent without a dueTime is refused.
           examples:
           - Europe/Berlin
           maxLength: 64
@@ -393,12 +390,12 @@ components:
           type: string
           examples:
           - HIGH
-          $ref: "#/components/schemas/TaskImportance"
+          $ref: '#/components/schemas/TaskImportance'
         state:
           type: string
           examples:
           - TODO
-          $ref: "#/components/schemas/TaskState"
+          $ref: '#/components/schemas/TaskState'
     ThumbnailUploadResponse:
       type: object
       required:
@@ -421,7 +418,7 @@ components:
       - expiresAt
       properties:
         attachment:
-          $ref: "#/components/schemas/AttachmentResponse"
+          $ref: '#/components/schemas/AttachmentResponse'
         url:
           type: string
           maxLength: 4096
@@ -430,9 +427,9 @@ components:
           additionalProperties:
             type: string
         expiresAt:
-          $ref: "#/components/schemas/Instant"
+          $ref: '#/components/schemas/Instant'
         thumbnailUpload:
-          $ref: "#/components/schemas/ThumbnailUploadResponse"
+          $ref: '#/components/schemas/ThumbnailUploadResponse'
     VersionResponse:
       type: object
       required:
@@ -458,52 +455,52 @@ tags:
 - name: Account
   description: The signed-in user's own account.
 - name: Attachments
-  description: "Files on a task, transferred directly between the browser and storage."
+  description: Files on a task, transferred directly between the browser and storage.
 - name: Authentication
-  description: "The browser side of sign-in, sign-out, and the current session."
+  description: The browser side of sign-in, sign-out, and the current session.
 - name: Deployment
-  description: "What a deployment runs, for the tooling that deploys it."
+  description: What a deployment runs, for the tooling that deploys it.
 - name: Tasks
   description: Everything a signed-in user can do to their own tasks.
 paths:
   /api/account:
     delete:
       summary: Delete my account
-      description: "Deletes every task and every file of the caller, and the account\
-        \ itself. It cannot be undone."
+      description: Deletes every task and every file of the caller, and the account
+        itself. It cannot be undone.
       tags:
       - Account
       responses:
-        "204":
-          description: "Deleted, and this browser's session ended."
-        "401":
+        '204':
+          description: Deleted, and this browser's session ended.
+        '401':
           description: Not Authorized
-        "403":
+        '403':
           description: Not Allowed
       security:
       - SecurityScheme: []
   /api/auth/login:
     get:
       summary: Start or complete sign-in
-      description: "Being @Authenticated is the whole point: an unauthenticated request\
-        \ is intercepted by the OIDC authorization code flow before this method ever\
-        \ runs."
+      description: 'Being @Authenticated is the whole point: an unauthenticated request
+        is intercepted by the OIDC authorization code flow before this method ever
+        runs.'
       tags:
       - Authentication
       responses:
-        "303":
+        '303':
           description: Sign-in succeeded; redirects to the post-login URI.
-        "401":
+        '401':
           description: Not Authorized
-        "403":
+        '403':
           description: Not Allowed
       security:
       - SecurityScheme: []
   /api/auth/login/{provider}:
     get:
       summary: Start or complete sign-in with one provider
-      description: "For every provider but the deployment's main one, which uses /api/auth/login.\
-        \ The provider list names each provider's path."
+      description: For every provider but the deployment's main one, which uses /api/auth/login.
+        The provider list names each provider's path.
       tags:
       - Authentication
       parameters:
@@ -514,11 +511,11 @@ paths:
           type: string
           maxLength: 64
       responses:
-        "303":
+        '303':
           description: Sign-in succeeded; redirects to the post-login URI.
-        "401":
+        '401':
           description: Not Authorized
-        "403":
+        '403':
           description: Not Allowed
       security:
       - SecurityScheme: []
@@ -530,7 +527,7 @@ paths:
       tags:
       - Authentication
       responses:
-        "303":
+        '303':
           description: Signed out; redirects to the post-login URI.
   /api/auth/me:
     get:
@@ -539,7 +536,7 @@ paths:
       tags:
       - Authentication
       responses:
-        "200":
+        '200':
           description: The signed-in user.
           content:
             application/json:
@@ -550,22 +547,22 @@ paths:
                     name: Person Example
                     pictureUrl: https://example.com/avatar.jpg
               schema:
-                $ref: "#/components/schemas/CurrentUserResponse"
-        "401":
+                $ref: '#/components/schemas/CurrentUserResponse'
+        '401':
           description: No one is signed in.
-        "403":
+        '403':
           description: Not Allowed
       security:
       - SecurityScheme: []
   /api/auth/providers:
     get:
       summary: List the configured sign-in providers
-      description: "Every provider this deployment declares, usable or not, needing\
-        \ no authentication to ask."
+      description: Every provider this deployment declares, usable or not, needing
+        no authentication to ask.
       tags:
       - Authentication
       responses:
-        "200":
+        '200':
           description: The configured providers.
           content:
             application/json:
@@ -580,15 +577,15 @@ paths:
                       loginUrl: /api/auth/login
                       issuer: https://accounts.google.com
               schema:
-                $ref: "#/components/schemas/AuthProvidersResponse"
+                $ref: '#/components/schemas/AuthProvidersResponse'
   /api/tasks:
     get:
       summary: List the caller's tasks
-      description: "Ordered by due date, then by importance, high first, then id."
+      description: Ordered by due date, then by importance, high first, then id.
       tags:
       - Tasks
       responses:
-        "200":
+        '200':
           description: The caller's tasks.
           content:
             application/json:
@@ -597,16 +594,16 @@ paths:
                   value:
                   - id: 42
                     description: Renew the passport
-                    dueDate: 2026-11-30
+                    dueDate: '2026-11-30'
                     importance: HIGH
                     state: TODO
               schema:
                 type: array
                 items:
-                  $ref: "#/components/schemas/TaskResponse"
-        "401":
+                  $ref: '#/components/schemas/TaskResponse'
+        '401':
           description: Not Authorized
-        "403":
+        '403':
           description: Not Allowed
       security:
       - SecurityScheme: []
@@ -619,10 +616,10 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/TaskCreateRequest"
+              $ref: '#/components/schemas/TaskCreateRequest'
         required: true
       responses:
-        "201":
+        '201':
           description: The task as created.
           content:
             application/json:
@@ -631,17 +628,17 @@ paths:
                   value:
                     id: 42
                     description: Renew the passport
-                    dueDate: 2026-11-30
+                    dueDate: '2026-11-30'
                     importance: HIGH
                     state: TODO
               schema:
-                $ref: "#/components/schemas/TaskResponse"
-        "400":
-          description: "A field failed validation, for example a blank description\
-            \ or a due date that is past everywhere."
-        "401":
+                $ref: '#/components/schemas/TaskResponse'
+        '400':
+          description: A field failed validation, for example a blank description
+            or a due date that is past everywhere.
+        '401':
           description: Not Authorized
-        "403":
+        '403':
           description: Not Allowed
       security:
       - SecurityScheme: []
@@ -653,24 +650,24 @@ paths:
       tags:
       - Tasks
       responses:
-        "201":
+        '201':
           description: The draft.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/DraftResponse"
-        "422":
-          description: "Refused: the caller has 5 drafts open already (#434)."
-        "401":
+                $ref: '#/components/schemas/DraftResponse'
+        '422':
+          description: 'Refused: the caller has 5 drafts open already (#434).'
+        '401':
           description: Not Authorized
-        "403":
+        '403':
           description: Not Allowed
       security:
       - SecurityScheme: []
   /api/tasks/drafts/{id}:
     delete:
       summary: Discard a draft task
-      description: "Its files go with it, at once."
+      description: Its files go with it, at once.
       tags:
       - Tasks
       parameters:
@@ -681,22 +678,22 @@ paths:
           type: integer
           format: int64
       responses:
-        "204":
+        '204':
           description: The draft was discarded.
-        "404":
+        '404':
           description: No draft with this id is owned by the caller.
-        "401":
+        '401':
           description: Not Authorized
-        "403":
+        '403':
           description: Not Allowed
       security:
       - SecurityScheme: []
   /api/tasks/drafts/{id}/add:
     post:
       summary: Add a draft task
-      description: "Makes the draft a task, with its files, validated as a create\
-        \ is. Adding it again, as a retry whose answer was lost does, applies the\
-        \ values to the task (#427)."
+      description: Makes the draft a task, with its files, validated as a create is.
+        Adding it again, as a retry whose answer was lost does, applies the values
+        to the task (#427).
       tags:
       - Tasks
       parameters:
@@ -710,30 +707,30 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/TaskCreateRequest"
+              $ref: '#/components/schemas/TaskCreateRequest'
         required: true
       responses:
-        "201":
+        '201':
           description: The task as added.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/TaskResponse"
-        "400":
-          description: "A field failed validation, as for a create."
-        "404":
+                $ref: '#/components/schemas/TaskResponse'
+        '400':
+          description: A field failed validation, as for a create.
+        '404':
           description: No draft or task with this id is owned by the caller.
-        "401":
+        '401':
           description: Not Authorized
-        "403":
+        '403':
           description: Not Allowed
       security:
       - SecurityScheme: []
   /api/tasks/{id}:
     put:
       summary: Replace a task
-      description: "Replaces every field of a task owned by the caller, except a due\
-        \ time and zone the request leaves out both of (#497)."
+      description: Replaces every field of a task owned by the caller, except a due
+        time and zone the request leaves out both of (#497).
       tags:
       - Tasks
       parameters:
@@ -747,10 +744,10 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/TaskUpdateRequest"
+              $ref: '#/components/schemas/TaskUpdateRequest'
         required: true
       responses:
-        "200":
+        '200':
           description: The task as updated.
           content:
             application/json:
@@ -759,18 +756,18 @@ paths:
                   value:
                     id: 42
                     description: Renew the passport
-                    dueDate: 2026-11-30
+                    dueDate: '2026-11-30'
                     importance: HIGH
                     state: TODO
               schema:
-                $ref: "#/components/schemas/TaskResponse"
-        "400":
+                $ref: '#/components/schemas/TaskResponse'
+        '400':
           description: A field failed validation.
-        "404":
+        '404':
           description: No task with this id is owned by the caller.
-        "401":
+        '401':
           description: Not Authorized
-        "403":
+        '403':
           description: Not Allowed
       security:
       - SecurityScheme: []
@@ -786,21 +783,21 @@ paths:
           type: integer
           format: int64
       responses:
-        "204":
+        '204':
           description: The task was deleted.
-        "404":
+        '404':
           description: No task with this id is owned by the caller.
-        "401":
+        '401':
           description: Not Authorized
-        "403":
+        '403':
           description: Not Allowed
       security:
       - SecurityScheme: []
   /api/tasks/{taskId}/attachments:
     post:
       summary: Announce an upload
-      description: "Checks the type and the limits, and answers with a link that accepts\
-        \ exactly this file: PUT it there with the given headers, then confirm."
+      description: 'Checks the type and the limits, and answers with a link that accepts
+        exactly this file: PUT it there with the given headers, then confirm.'
       tags:
       - Attachments
       parameters:
@@ -814,37 +811,37 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/AnnounceRequest"
+              $ref: '#/components/schemas/AnnounceRequest'
         required: true
       responses:
-        "201":
-          description: "The attachment, pending, and its upload link."
+        '201':
+          description: The attachment, pending, and its upload link.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/UploadResponse"
-        "422":
-          description: "Refused: an unsupported type, too large, or a limit reached."
+                $ref: '#/components/schemas/UploadResponse'
+        '422':
+          description: 'Refused: an unsupported type, too large, or a limit reached.'
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/RefusalResponse"
-        "404":
+                $ref: '#/components/schemas/RefusalResponse'
+        '404':
           description: No task with this id is owned by the caller.
-        "401":
+        '401':
           description: Not Authorized
-        "403":
+        '403':
           description: Not Allowed
-        "400":
+        '400':
           description: Bad Request
       security:
       - SecurityScheme: []
   /api/tasks/{taskId}/attachments/links:
     post:
       summary: Add a link
-      description: "A web address, with the page's title where the sharing app gave\
-        \ one (#414). Counted against the same limits as files; available at once,\
-        \ with nothing to upload."
+      description: A web address, with the page's title where the sharing app gave
+        one (#414). Counted against the same limits as files; available at once, with
+        nothing to upload.
       tags:
       - Attachments
       parameters:
@@ -858,28 +855,28 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/LinkRequest"
+              $ref: '#/components/schemas/LinkRequest'
         required: true
       responses:
-        "201":
-          description: "The link, available."
+        '201':
+          description: The link, available.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/AttachmentResponse"
-        "400":
+                $ref: '#/components/schemas/AttachmentResponse'
+        '400':
           description: The URL is not a web address.
-        "422":
-          description: "Refused: a limit reached."
+        '422':
+          description: 'Refused: a limit reached.'
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/RefusalResponse"
-        "404":
+                $ref: '#/components/schemas/RefusalResponse'
+        '404':
           description: No task with this id is owned by the caller.
-        "401":
+        '401':
           description: Not Authorized
-        "403":
+        '403':
           description: Not Allowed
       security:
       - SecurityScheme: []
@@ -903,13 +900,13 @@ paths:
           type: integer
           format: int64
       responses:
-        "204":
+        '204':
           description: Removed.
-        "404":
+        '404':
           description: No such attachment on a task the caller owns.
-        "401":
+        '401':
           description: Not Authorized
-        "403":
+        '403':
           description: Not Allowed
       security:
       - SecurityScheme: []
@@ -933,34 +930,34 @@ paths:
           type: integer
           format: int64
       responses:
-        "200":
-          description: "The attachment, available."
+        '200':
+          description: The attachment, available.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/AttachmentResponse"
-        "409":
+                $ref: '#/components/schemas/AttachmentResponse'
+        '409':
           description: The file has not arrived yet.
-        "422":
+        '422':
           description: What arrived is not what was announced; it was deleted.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/RefusalResponse"
-        "404":
+                $ref: '#/components/schemas/RefusalResponse'
+        '404':
           description: No such attachment on a task the caller owns.
-        "401":
+        '401':
           description: Not Authorized
-        "403":
+        '403':
           description: Not Allowed
       security:
       - SecurityScheme: []
   /api/tasks/{taskId}/attachments/{id}/link:
     get:
       summary: A link to open the file
-      description: "For the owner's browser to fetch the file straight from storage.\
-        \ The same link is handed out again while it is fresh, and the answer may\
-        \ be kept for as long as that, so the browser's cache keeps the file."
+      description: For the owner's browser to fetch the file straight from storage.
+        The same link is handed out again while it is fresh, and the answer may be
+        kept for as long as that, so the browser's cache keeps the file.
       tags:
       - Attachments
       parameters:
@@ -977,25 +974,25 @@ paths:
           type: integer
           format: int64
       responses:
-        "200":
+        '200':
           description: The link and until when it works.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/LinkResponse"
-        "404":
+                $ref: '#/components/schemas/LinkResponse'
+        '404':
           description: No such available attachment on a task the caller owns.
-        "401":
+        '401':
           description: Not Authorized
-        "403":
+        '403':
           description: Not Allowed
       security:
       - SecurityScheme: []
   /api/tasks/{taskId}/attachments/{id}/thumbnail-link:
     get:
       summary: A link to the preview thumbnail
-      description: "Like the file's link, for the small preview an image's row shows\
-        \ (#236)."
+      description: Like the file's link, for the small preview an image's row shows
+        (#236).
       tags:
       - Attachments
       parameters:
@@ -1012,30 +1009,30 @@ paths:
           type: integer
           format: int64
       responses:
-        "200":
+        '200':
           description: The link and until when it works.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/LinkResponse"
-        "404":
+                $ref: '#/components/schemas/LinkResponse'
+        '404':
           description: No such available attachment with a thumbnail on a task the
             caller owns.
-        "401":
+        '401':
           description: Not Authorized
-        "403":
+        '403':
           description: Not Allowed
       security:
       - SecurityScheme: []
   /api/version:
     get:
       summary: Report the running release
-      description: "The version this backend was built as, and the oldest mobile app\
-        \ release it still serves, needing no authentication to ask."
+      description: The version this backend was built as, and the oldest mobile app
+        release it still serves, needing no authentication to ask.
       tags:
       - Deployment
       responses:
-        "200":
+        '200':
           description: The running version.
           content:
             application/json:
@@ -1045,7 +1042,7 @@ paths:
                     version: 1.3.0
                     minimumAppVersion: 1.0.0
               schema:
-                $ref: "#/components/schemas/VersionResponse"
+                $ref: '#/components/schemas/VersionResponse'
 info:
   title: TaskFest API
   version: 1.0.0-SNAPSHOT

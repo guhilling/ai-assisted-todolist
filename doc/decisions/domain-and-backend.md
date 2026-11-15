@@ -554,3 +554,27 @@ where a left-out one always keeps its stored value: more general, but then "no z
 holds on create only, and the zone-needs-a-time rule has to be checked against the stored values.
 A hand-written check of which fields the body has, instead of `JsonNullable`: untyped, and the
 generated schema would no longer come from the record.
+
+## The API contract is the source
+
+*Accepted · 2026-11-14 · #559*
+
+**Decision.** `doc/api/openapi.json` is edited by hand and is the one place a wire change starts.
+`doc/api/generate.py` checks it is valid OpenAPI 3.1 and derives the YAML and the per-type JSON
+Schemas from it; the Go backend's routes and types and the frontend's types and validators are
+generated from those, and Contract CI, Serverless CI and Frontend CI fail on any drift. oasdiff
+still refuses a change that breaks the oldest release in use.
+
+**Why.** It was generated from the Quarkus backend's records and annotations, which goes with
+that backend (#559): with the Go backend generated from the contract rather than the other way
+round, the contract has nothing left to be generated from. Writing it by hand keeps one source,
+in the language both clients and the backend already read.
+
+**Rejected:** generating it from the Go code, which would make the Go backend the source again
+and need annotations or a framework it does not have.
+
+**Cost.** Descriptions, examples and required fields are kept by hand; the validator catches a
+malformed document, not a misleading one. Switching sources found one flaw on the way: the link
+pattern used `(?i)`, a Java regex flag that JSON Schema's ECMAScript dialect does not have,
+rewritten as `[Hh][Tt][Tt][Pp][Ss]?` with the same meaning.
+

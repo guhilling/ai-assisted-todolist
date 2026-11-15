@@ -3,6 +3,7 @@
 | Workflow | Runs |
 | --- | --- |
 | `backend-ci.yml` | style, backend tests, the coverage gate, packaging, container image build |
+| `contract-ci.yml` | when `doc/api/` changes: the contract is valid OpenAPI 3.1, what `generate.py` derives from it is current, and oasdiff finds nothing that breaks the oldest release in use (#559) |
 | `frontend-ci.yml` | install, lint, build, frontend image build |
 | `e2e.yml` | builds both images, brings the stack up, runs Playwright |
 | `e2e-serverless.yml` | the same suite against the Go backend's stack (#556), on amd64, when the Go backend, the frontend, the suite or Keycloak change; it reads `e2e.yml`'s caches and saves none ([the stack](../local-development/end-to-end-stack.md#with-the-go-backend)) |

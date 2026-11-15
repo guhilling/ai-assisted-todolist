@@ -128,12 +128,16 @@ jobs:
           VERSION: ${{ steps.version.outputs.version }}
         run: ./mvnw -B -Prelease -Drevision="$VERSION" verify
 
-      - name: Regenerate the API contract at the release version
-        # The committed doc/api says 1.0.0-SNAPSHOT, because that is what main's revision
-        # permanently is. Regenerating here, after a build that overrode the revision from the
-        # tag, is what makes the attached spec claim the version it actually describes. It
-        # dirties the working tree, which does not matter: nothing commits from this job.
-        run: python3 doc/api/generate.py
+      - name: Write the API contract at the release version
+        # The committed doc/api says 1.0.0-SNAPSHOT, which is what main's version permanently is.
+        # generate.py --version writes the tag's version into the documents, so the contract
+        # attached to the release claims the version it describes. It dirties the working tree,
+        # which does not matter: nothing commits from this job.
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          pip install -r .github/scripts/requirements.txt
+          python3 doc/api/generate.py --version "$VERSION"
 
       - name: Upload the API contract
         uses: actions/upload-artifact@v7
