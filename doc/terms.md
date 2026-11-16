@@ -14,13 +14,16 @@ It is free of charge. It is not a product, and it is not run for anyone's day-to
 
 ## Who may use it
 
-Only Google accounts that have been invited. An invitation can be withdrawn at any time, without
-giving a reason.
+Anyone with a Google account. `taskfest-qa.cloud.hilling.de` is a test environment: whatever you
+keep there may be lost at any time, more readily than at `taskfest.cloud.hilling.de`. Access can be
+withdrawn at any time, without giving a reason.
 
 ## No promise of availability or of keeping data
 
-- The application is **switched off much of the time**, deliberately, to keep its cost down.
-  While it is off, you cannot reach your tasks.
+- There is **no promise that the application is available**: it may be unreachable at any time,
+  for as long as it takes.
+- Each account holds at most **500 tasks** and **five attached files**, of up to 10 MB each, and
+  the application answers only a limited number of requests a second, for everyone together.
 - It may be reset, changed or shut down for good at any time. **Your tasks may be lost** — keep
   nothing in it that you cannot do without.
 - There is no support, and no guaranteed response to anything you report.
@@ -54,4 +57,4 @@ These terms may change; the current version is always the one on this page. Germ
 If you are a consumer living elsewhere, the mandatory consumer protection of the country you live
 in is not affected.
 
-Last changed: 8 October 2026
+Last changed: 16 November 2026

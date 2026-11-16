@@ -15,13 +15,17 @@ Gebrauch durch irgendjemanden betrieben.
 
 ## Wer sie nutzen darf
 
-Nur Google-Konten, die eingeladen wurden. Eine Einladung kann jederzeit ohne Angabe von Gründen
-zurückgenommen werden.
+Jeder mit einem Google-Konto. `taskfest-qa.cloud.hilling.de` ist eine Testumgebung: Was Sie dort
+speichern, kann jederzeit verloren gehen, eher noch als unter `taskfest.cloud.hilling.de`. Der
+Zugang kann jederzeit ohne Angabe von Gründen entzogen werden.
 
 ## Keine Zusage von Verfügbarkeit oder Datenerhalt
 
-- Die Anwendung ist **einen großen Teil der Zeit abgeschaltet**, bewusst, um die Kosten gering zu
-  halten. Solange sie abgeschaltet ist, erreichen Sie Ihre Aufgaben nicht.
+- Es gibt **keine Zusage, dass die Anwendung erreichbar ist**: Sie kann jederzeit und beliebig
+  lange nicht erreichbar sein.
+- Jedes Konto fasst höchstens **500 Aufgaben** und **fünf angehängte Dateien** von je bis zu
+  10 MB, und die Anwendung beantwortet nur eine begrenzte Zahl von Anfragen pro Sekunde, für alle
+  zusammen.
 - Sie kann jederzeit zurückgesetzt, geändert oder endgültig eingestellt werden. **Ihre Aufgaben
   können verloren gehen** – speichern Sie darin nichts, worauf Sie nicht verzichten können.
 - Es gibt keinen Support und keine zugesagte Antwort auf etwas, das Sie melden.
@@ -58,4 +62,4 @@ Diese Bedingungen können sich ändern; maßgeblich ist stets die Fassung auf di
 deutsches Recht. Sind Sie Verbraucher mit Wohnsitz in einem anderen Land, bleibt der zwingende
 Verbraucherschutz Ihres Wohnsitzlandes unberührt.
 
-Stand: 8. Oktober 2026
+Stand: 16. November 2026

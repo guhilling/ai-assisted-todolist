@@ -6,9 +6,10 @@ This policy covers TaskFest, the task list at `taskfest-qa.cloud.hilling.de` and
 (“the application”), and this documentation site. It describes what the application actually
 does, and changes in the same change as the behaviour it describes.
 
-The application is a non-commercial demonstration project of Hilling IT GmbH. It is open to Google
-accounts that have been invited to it; nobody else can sign in — except, in qa only, two test
-accounts which automated tests sign in with. They belong to no person and hold only what those tests create and delete again.
+The application is a non-commercial demonstration project of Hilling IT GmbH. Anyone with a Google
+account can sign in. `taskfest-qa.cloud.hilling.de` is its test environment, which may be changed
+or reset at any time; there, two test accounts also sign in, which automated tests use. They
+belong to no person and hold only what those tests create and delete again.
 
 ## Who is responsible
 
@@ -30,16 +31,17 @@ an identifier for your account.
 
 - **Your email address** is stored, with the time your account was first created. It is what
   your tasks belong to.
-- **Your name and picture** are used only to show you who you are signed in as. They are read
-  from Google's sign-in token on each request and **are not stored**.
+- **Your name and picture** are used only to show you who you are signed in as. They are taken
+  from Google's sign-in token when you sign in and kept with your session, **never with your
+  tasks**; they are deleted when the session ends, at the latest seven days after you signed in.
 
 Legal basis: Art. 6(1)(b) GDPR, providing the application you asked to use. Kept until your
 account is deleted.
 
 ### Your tasks
 
-What you enter: each task's description, due date, importance and state, and when it was created
-and last changed. Nobody but you can see your tasks in the application.
+What you enter: each task's description, due date, due time and its time zone if you give one,
+importance and state. Nobody but you can see your tasks in the application.
 
 Legal basis: Art. 6(1)(b) GDPR. Kept until you delete them, or your account is deleted.
 
@@ -64,9 +66,14 @@ The same request applies to files as to tasks: please attach nothing sensitive.
 
 ### The session cookie
 
-Signing in sets **one cookie**, which keeps you signed in and holds your encrypted sign-in tokens.
-It is technically necessary for the application to work, which is why no consent banner is shown
-(§ 25(2) no. 2 TDDDG). It ends when you sign out or your session expires.
+Signing in sets **one cookie**, which keeps you signed in. It holds only a random value that
+names your session on the server; your sign-in tokens are not kept. The session itself — your
+email address, name, picture address and your account's identifier at Google — is stored in the
+application's database until it ends: when you sign out, after eight hours without use, and at
+the latest seven days after you signed in. During sign-in itself a second cookie exists for at
+most ten minutes, to check that Google's answer belongs to this sign-in. Both are technically
+necessary for the application to work, which is why no consent banner is shown (§ 25(2) no. 2
+TDDDG).
 
 There are **no** analytics, advertising or tracking cookies, and no analytics or tracking scripts
 of any kind.
@@ -99,6 +106,15 @@ with everything that was stored in it.
 Your browser loads your profile picture directly from Google. Only if Google provides none does
 the application look for a picture at **Gravatar** (Automattic Inc., USA); your browser then
 loads it from Gravatar, which thereby learns your IP address and a hash of your email address.
+
+### How the application uses Google user data
+
+From Google the application receives only what is listed under *Signing in with Google*. It uses
+it to sign you in, to keep your tasks yours, and to show you who you are signed in as; it shares
+it with no one beyond the processors listed below, and stores and deletes it as this policy
+describes. The application's use of information received from Google APIs adheres to the
+[Google API Services User Data Policy](https://developers.google.com/terms/api-services-user-data-policy),
+including the Limited Use requirements.
 
 ## Who else receives data
 

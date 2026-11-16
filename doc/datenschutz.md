@@ -7,10 +7,11 @@ Diese Erklärung gilt für TaskFest, die Aufgabenliste unter `taskfest-qa.cloud.
 was die Anwendung tatsächlich tut, und wird in derselben Änderung angepasst wie das Verhalten, das
 sie beschreibt.
 
-Die Anwendung ist ein nicht kommerzielles Demonstrationsprojekt der Hilling IT GmbH. Sie steht
-Google-Konten offen, die dazu eingeladen wurden; sonst kann sich niemand anmelden – ausgenommen,
-nur in qa, zwei Testkonten, mit denen sich automatisierte Tests anmelden. Sie gehören keiner
-Person und enthalten nur, was diese Tests anlegen und wieder löschen.
+Die Anwendung ist ein nicht kommerzielles Demonstrationsprojekt der Hilling IT GmbH. Jeder mit
+einem Google-Konto kann sich anmelden. `taskfest-qa.cloud.hilling.de` ist ihre Testumgebung, die
+jederzeit geändert oder zurückgesetzt werden kann; dort melden sich außerdem zwei Testkonten an,
+die automatisierte Tests verwenden. Sie gehören keiner Person und enthalten nur, was diese Tests
+anlegen und wieder löschen.
 
 ## Verantwortlicher
 
@@ -33,15 +34,17 @@ und eine Kennung Ihres Kontos mit.
 - **Ihre E-Mail-Adresse** wird gespeichert, zusammen mit dem Zeitpunkt, zu dem Ihr Konto angelegt
   wurde. Ihr gehören Ihre Aufgaben.
 - **Ihr Name und Ihr Bild** dienen nur dazu, Ihnen anzuzeigen, mit welchem Konto Sie angemeldet
-  sind. Sie werden bei jeder Anfrage aus Googles Anmelde-Token gelesen und **nicht gespeichert**.
+  sind. Sie werden bei der Anmeldung aus Googles Anmelde-Token übernommen und mit Ihrer Sitzung
+  gespeichert, **nie mit Ihren Aufgaben**; sie werden gelöscht, wenn die Sitzung endet,
+  spätestens sieben Tage nach der Anmeldung.
 
 Rechtsgrundlage: Art. 6 Abs. 1 lit. b DSGVO – die Bereitstellung der Anwendung, die Sie nutzen
 wollen. Gespeichert, bis Ihr Konto gelöscht wird.
 
 ### Ihre Aufgaben
 
-Was Sie eingeben: Beschreibung, Fälligkeitsdatum, Wichtigkeit und Zustand jeder Aufgabe sowie
-wann sie angelegt und zuletzt geändert wurde. Außer Ihnen kann niemand Ihre Aufgaben in der
+Was Sie eingeben: Beschreibung, Fälligkeitsdatum, Uhrzeit und deren Zeitzone, wenn Sie eine
+angeben, Wichtigkeit und Zustand jeder Aufgabe. Außer Ihnen kann niemand Ihre Aufgaben in der
 Anwendung sehen.
 
 Rechtsgrundlage: Art. 6 Abs. 1 lit. b DSGVO. Gespeichert, bis Sie sie löschen oder Ihr Konto
@@ -70,10 +73,14 @@ Für Dateien gilt dieselbe Bitte wie für Aufgaben: Hängen Sie bitte nichts Sen
 
 ### Das Sitzungs-Cookie
 
-Die Anmeldung setzt **ein Cookie**, das Sie angemeldet hält und Ihre verschlüsselten
-Anmelde-Token enthält. Es ist für den Betrieb der Anwendung technisch erforderlich, weshalb kein
-Einwilligungsbanner erscheint (§ 25 Abs. 2 Nr. 2 TDDDG). Es endet, wenn Sie sich abmelden oder
-Ihre Sitzung abläuft.
+Die Anmeldung setzt **ein Cookie**, das Sie angemeldet hält. Es enthält nur einen Zufallswert,
+der Ihre Sitzung auf dem Server bezeichnet; Ihre Anmelde-Token werden nicht aufbewahrt. Die
+Sitzung selbst – Ihre E-Mail-Adresse, Ihr Name, die Adresse Ihres Bildes und die Kennung Ihres
+Kontos bei Google – wird in der Datenbank der Anwendung gespeichert, bis sie endet: wenn Sie sich
+abmelden, nach acht Stunden ohne Nutzung und spätestens sieben Tage nach der Anmeldung. Während
+der Anmeldung selbst besteht für höchstens zehn Minuten ein zweites Cookie, mit dem geprüft wird,
+dass die Antwort von Google zu dieser Anmeldung gehört. Beide sind für den Betrieb der Anwendung
+technisch erforderlich, weshalb kein Einwilligungsbanner erscheint (§ 25 Abs. 2 Nr. 2 TDDDG).
 
 Es gibt **keine** Analyse-, Werbe- oder Tracking-Cookies und keinerlei Analyse- oder
 Tracking-Skripte.
@@ -107,6 +114,16 @@ am 15. November 2026 gelöscht, mit allem, was darin gespeichert war.
 Ihr Browser lädt Ihr Profilbild direkt von Google. Nur wenn Google keines bereitstellt, sucht die
 Anwendung bei **Gravatar** (Automattic Inc., USA) nach einem Bild; Ihr Browser lädt es dann von
 Gravatar, das dadurch Ihre IP-Adresse und einen Hashwert Ihrer E-Mail-Adresse erfährt.
+
+### Wie die Anwendung Nutzerdaten von Google verwendet
+
+Von Google erhält die Anwendung nur, was unter *Anmeldung mit Google* aufgeführt ist. Sie
+verwendet es, um Sie anzumelden, Ihre Aufgaben Ihnen zuzuordnen und Ihnen anzuzeigen, mit welchem
+Konto Sie angemeldet sind; sie gibt es an niemanden weiter außer an die unten genannten
+Auftragsverarbeiter und speichert und löscht es, wie diese Erklärung beschreibt. Die Verwendung
+von Informationen, die die Anwendung über Google-APIs erhält, entspricht der
+[Google API Services User Data Policy](https://developers.google.com/terms/api-services-user-data-policy),
+einschließlich der Anforderungen an die eingeschränkte Nutzung („Limited Use“).
 
 ## Wer außerdem Daten erhält
 
