@@ -52,10 +52,11 @@ Nothing to take down, and `prod` can simply stay up.
   ([observability.md](observability.md#the-monitoring-server)). [The infrastructure](#the-infrastructure) says what each is given.
 - **DynamoDB, one table.** The partition key is the user, `USER#<sha256 of the email>`; the sort
   key says what the item is: `META` for the user, `TASK#<id>`, `DRAFT#<id>`, `ATT#<id>`, and
-  `SESSION#<key>` for each of the website's sessions, so that deleting the account ends them. A
+  `SESSION#<key>` for each of the website's and the apps' sessions, so that deleting the account
+  ends them. A
   board is one `Query` on `TASK#`, and a draft, which is no task yet, never matches it. Task
-  stays the aggregate the [domain model](../domain-model.md) says it is. The website's sessions
-  and its sign-ins under way have partitions of their own, `SESSION#<key>` and `SIGNIN#<key>`
+  stays the aggregate the [domain model](../domain-model.md) says it is. The sessions and the
+  website's sign-ins under way have partitions of their own, `SESSION#<key>` and `SIGNIN#<key>`
   ([Sign-in](#sign-in)).
 - **The per-user limits** (five drafts, five attachments, two per task) are kept on the user's
   `META` item, changed in the same conditional transaction as the item they count. That replaces
@@ -241,10 +242,12 @@ objects under `serverless/` only. Callers in the Go code name a file by its bare
 The Go backend signs in as the Quarkus backend does ([authentication.md](../authentication.md)),
 with the same paths, callbacks included, so the redirect URIs registered at Google and Cognito
 stay valid. The website signs in through the backend and gets a cookie; the apps send a bearer
-ID token. Every provider must vouch for the email, a bearer token must have been issued to one
-of the provider's named clients and be an ID token, and the provider list and the Gravatar
-fallback are unchanged. The function checks bearer tokens itself, not API Gateway's JWT
-authorizer: the cookie needs the function anyway, and one place decides for both.
+ID token, or the token of an app session they trade one for (#281,
+[authentication.md](../authentication.md#app-sessions)). Every provider must vouch for the email,
+a bearer ID token must have been issued to one of the provider's named clients and be an ID
+token, and the provider list and the Gravatar fallback are unchanged. The function checks bearer
+tokens itself, not API Gateway's JWT authorizer: the cookie needs the function anyway, and one
+place decides for both.
 
 Two things differ, by Gunnar's decision on #549:
 
@@ -295,10 +298,11 @@ without a bucket an account is deleted without one. Two things differ, by Gunnar
   items go.
 - **It ends the account's sessions on every device.** Each sign-in also writes a
   `SESSION#<key>` item into the user's partition, which deleting the account deletes along with
-  the session it names; the item expires with the session's seven days. Quarkus's sessions were
-  encrypted cookies, so a session left open elsewhere began a new, empty account; now it is
-  signed out. The apps send a bearer ID token with every request, which no deletion can end:
-  their next request uses a new, empty account, as before.
+  the session it names; the item expires with the session's seven days, or an app session's 30.
+  Quarkus's sessions were encrypted cookies, so a session left open elsewhere began a new, empty
+  account; now it is signed out, an app with an app session (#281) included. An app that sends
+  a bearer ID token with every request has nothing a deletion can end: its next request uses a
+  new, empty account, as before.
 
 One gap is accepted, as in the Quarkus backend (Gunnar's decision on #572): two deletions of the
 same account at the same moment share one record, and if one of them cannot be marked, taking its

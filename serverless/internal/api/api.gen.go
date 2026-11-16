@@ -101,6 +101,17 @@ type AnnounceRequest struct {
 	ThumbnailSizeBytes *int64 `json:"thumbnailSizeBytes"`
 }
 
+// AppSessionResponse defines model for AppSessionResponse.
+type AppSessionResponse struct {
+	// ExpiresAt Examples: 2022-03-10T16:15:50Z
+	ExpiresAt Instant `json:"expiresAt"`
+
+	// Token The app session token, sent as `Authorization: Bearer <token>` on every later request. `taskfest_app_` and 43 characters of base64url, with no dot, so it is never mistaken for an ID token, which is a JWT of three dot-separated parts.
+	//
+	// Examples: taskfest_app_q8Jx2mJ0bZ8tQ1n4Yc7d5v3s6K9wF2hL0aR1uE4oP7i
+	Token string `json:"token"`
+}
+
 // AttachmentResponse defines model for AttachmentResponse.
 type AttachmentResponse struct {
 	// ContentType Examples: application/pdf
@@ -335,6 +346,12 @@ type ServerInterface interface {
 	// DeleteApiAccount Delete my account
 	// (DELETE /api/account)
 	DeleteApiAccount(w http.ResponseWriter, r *http.Request)
+	// DeleteApiAuthAppSession End the app session
+	// (DELETE /api/auth/app-session)
+	DeleteApiAuthAppSession(w http.ResponseWriter, r *http.Request)
+	// PostApiAuthAppSession Start an app session
+	// (POST /api/auth/app-session)
+	PostApiAuthAppSession(w http.ResponseWriter, r *http.Request)
 	// GetApiAuthLogin Start or complete sign-in
 	// (GET /api/auth/login)
 	GetApiAuthLogin(w http.ResponseWriter, r *http.Request)
@@ -408,6 +425,34 @@ func (siw *ServerInterfaceWrapper) DeleteApiAccount(w http.ResponseWriter, r *ht
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.DeleteApiAccount(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteApiAuthAppSession operation middleware
+func (siw *ServerInterfaceWrapper) DeleteApiAuthAppSession(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteApiAuthAppSession(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PostApiAuthAppSession operation middleware
+func (siw *ServerInterfaceWrapper) PostApiAuthAppSession(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PostApiAuthAppSession(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -972,6 +1017,8 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	}
 
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/api/account", wrapper.DeleteApiAccount)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/api/auth/app-session", wrapper.DeleteApiAuthAppSession)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/auth/app-session", wrapper.PostApiAuthAppSession)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/auth/login", wrapper.GetApiAuthLogin)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/auth/login/{provider}", wrapper.GetApiAuthLoginProvider)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/auth/logout", wrapper.GetApiAuthLogout)

@@ -45,6 +45,27 @@
           }
         }
       },
+      "AppSessionResponse": {
+        "type": "object",
+        "required": [
+          "token",
+          "expiresAt"
+        ],
+        "properties": {
+          "token": {
+            "type": "string",
+            "description": "The app session token, sent as `Authorization: Bearer <token>` on every later request. `taskfest_app_` and 43 characters of base64url, with no dot, so it is never mistaken for an ID token, which is a JWT of three dot-separated parts.",
+            "pattern": "^taskfest_app_[A-Za-z0-9_-]{43}$",
+            "examples": [
+              "taskfest_app_q8Jx2mJ0bZ8tQ1n4Yc7d5v3s6K9wF2hL0aR1uE4oP7i"
+            ],
+            "maxLength": 56
+          },
+          "expiresAt": {
+            "$ref": "#/components/schemas/Instant"
+          }
+        }
+      },
       "AttachmentResponse": {
         "type": "object",
         "required": [
@@ -644,6 +665,69 @@
           },
           "401": {
             "description": "Not Authorized"
+          },
+          "403": {
+            "description": "Not Allowed"
+          }
+        },
+        "security": [
+          {
+            "SecurityScheme": []
+          }
+        ]
+      }
+    },
+    "/api/auth/app-session": {
+      "post": {
+        "summary": "Start an app session",
+        "description": "Trades the ID token the app signed in with, sent as `Authorization: Bearer`, once for a TaskFest app session token, which the app sends instead from then on. The ID token is checked exactly as on any bearer request. The session ends 30 days after it starts however much it is used, when the app ends it, or with the account. An app session token or a session cookie cannot start another.",
+        "tags": [
+          "Authentication"
+        ],
+        "responses": {
+          "201": {
+            "description": "The session started.",
+            "content": {
+              "application/json": {
+                "examples": {
+                  "appSession": {
+                    "value": {
+                      "token": "taskfest_app_q8Jx2mJ0bZ8tQ1n4Yc7d5v3s6K9wF2hL0aR1uE4oP7i",
+                      "expiresAt": "2026-12-16T09:30:00Z"
+                    }
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/AppSessionResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid ID token was sent."
+          },
+          "403": {
+            "description": "Not Allowed"
+          }
+        },
+        "security": [
+          {
+            "SecurityScheme": []
+          }
+        ]
+      },
+      "delete": {
+        "summary": "End the app session",
+        "description": "Signs the app out: ends the app session whose token is sent as `Authorization: Bearer`. Ending one that has ended already succeeds too. The identity provider's own session is untouched.",
+        "tags": [
+          "Authentication"
+        ],
+        "responses": {
+          "204": {
+            "description": "The session has ended."
+          },
+          "401": {
+            "description": "No app session token was sent."
           },
           "403": {
             "description": "Not Allowed"

@@ -18,6 +18,16 @@ export type AnnounceRequest = {
 };
 
 /**
+ * The `AppSessionResponse` the backend speaks.
+ *
+ * Generated from `doc/api/schema/AppSessionResponse.schema.json`. Do not edit.
+ */
+export type AppSessionResponse = {
+    token: string;
+    expiresAt: Instant;
+};
+
+/**
  * The `AttachmentResponse` the backend speaks.
  *
  * Generated from `doc/api/schema/AttachmentResponse.schema.json`. Do not edit.

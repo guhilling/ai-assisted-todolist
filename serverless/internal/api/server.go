@@ -32,7 +32,7 @@ type SignIn interface {
 	Login(w http.ResponseWriter, r *http.Request, provider string)
 	Callback(w http.ResponseWriter, r *http.Request, provider string)
 	Logout(w http.ResponseWriter, r *http.Request)
-	// EndSession ends this browser's session and writes nothing else.
+	// EndSession ends the request's session, the browser's or an app's, and writes nothing else.
 	EndSession(w http.ResponseWriter, r *http.Request)
 	Config() auth.Config
 }
@@ -56,6 +56,8 @@ type Server struct {
 	// Caller is who sent a request, as the email their account is keyed by (Keyed).
 	Caller Caller
 	SignIn SignIn
+	// Apps starts and ends the apps' sessions (#281); nil answers both routes 401.
+	Apps AppSessions
 	// Now is the clock a new task's due date is judged by; time.Now when nil.
 	Now func() time.Time
 	// Version is the release this build was made as, MinimumAppVersion the oldest app it serves.

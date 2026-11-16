@@ -23,6 +23,10 @@ locals {
   apple_signing_key = "${local.name}-apple-signing-key"
   apple_key_exists  = var.apple_sign_in.services_id != ""
   apple_offered     = local.sign_in_enabled && local.apple_key_exists && var.apple_sign_in.offered
+
+  # The iOS app's bundle id in this environment, as mobile/src/variants.ts makes it: prod's is the
+  # bare id, qa's ends in .qa. The app's native Sign in with Apple issues ID tokens to it (#281).
+  ios_bundle_id = var.environment == "prod" ? "de.hilling.taskfest" : "de.hilling.taskfest.${var.environment}"
 }
 
 # AWS-0098, a customer-managed KMS key: about $1 a month for one secret, more than the secret.

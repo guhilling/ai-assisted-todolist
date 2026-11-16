@@ -188,6 +188,11 @@ Revised in part on 2026-11-16 (#559, #613): the checks are the Go backend's own
 (`serverless/internal/auth`), not Quarkus' `BearerIdToken` and `token.audience`; the rule stands
 ([authentication.md](../authentication.md#apps-sign-in-with-a-bearer-id-token)).
 
+Revised in part on 2026-11-16 (#281): an app may trade its ID token once for an app session of
+the backend's own, which the rejection below had turned down, and send that session's token
+instead; a bearer ID token is still accepted, checked as before ([An app trades its ID token
+once for an app session](#an-app-trades-its-id-token-once-for-an-app-session)).
+
 **Decision (#266, S1 on #264).** Every tenant is `hybrid`: the website keeps its code flow and
 session cookie, and an installed app sends its ID token as `Authorization: Bearer`. The tenant is
 chosen by the token's issuer. `BearerIdToken` refuses a bearer token not issued to the tenant's own
@@ -247,3 +252,45 @@ the code to the browser either way, and a real sign-in is the first proof Apple 
 nothing only as long as the reasoning above holds, so it is limited to where it is needed. A
 `response_mode=query` for Apple, which keeps the cookie `Lax` — Apple refuses it once the `email`
 scope is asked for, and without that scope its ID token carries no email, which is the identity.
+
+## An app trades its ID token once for an app session
+
+*Accepted · 2026-11-16 · #281*
+
+**Decision (Gunnar, #281).** The mobile app offers Sign in with Apple natively
+(`expo-apple-authentication`, iOS). After a native sign-in, the app trades the provider's ID token
+once, at `POST /api/auth/app-session`, for a TaskFest **app session** token, and every later
+request carries that token as `Authorization: Bearer`. The session is kept in the same store as
+the website's sessions, with only the token's SHA-256, and lasts **30 days** from its start, the
+apps' sign-in limit; it has no idle limit. `DELETE /api/auth/app-session` ends it, and so does
+deleting the account. It works for any provider, and the backend keeps no Apple refresh token
+([authentication.md](../authentication.md#app-sessions)).
+
+**Why.** Apple's native sign-in hands the app an ID token that is short-lived and that the app
+cannot renew without the person: there is no silent renewal like Google's SDK, so sending it as
+the bearer token would soon sign the app out. Renewing through Apple would mean the backend
+exchanging the authorization code for Apple's refresh token, keeping it for every person and
+checking it with Apple, with Apple's client secret, from time to time: a store of long-lived
+credentials, and calls to Apple, where a session of our own needs neither. The session store
+exists already for the website, and its links from the account already end every session when
+the account is deleted, so an app session costs one more kind of item, not a mechanism.
+
+**Why 30 days, and no idle limit.** The apps sign a person out after 30 days without use today
+([mobile/sign-in.md](../mobile/sign-in.md)), and Gunnar took that number as the session's
+lifetime. It is counted from the session's start, not renewed by use: renewing it would make the
+session last for ever for anyone who uses the app weekly, which the website's seven days do not
+allow either. An idle limit inside the 30 days would sign out someone who simply did not open
+the app for a while, and would mean a write per request; there is none.
+
+**Why the token cannot be taken for an ID token.** It is `taskfest_app_` and 43 base64url
+characters: no dot, where a JWT has three dot-separated parts, and a prefix no JWT starts with.
+The prefix alone decides how a bearer token is judged, so an app session token is never parsed as
+a JWT, nor an ID token looked up as a session. An app session token cannot start another, nor
+does a session cookie; neither kind of session is accepted as the other.
+
+**Cost.** A second kind of bearer token, and a session the backend stores per installation. A
+revoked provider account still signs in for up to 30 days, as a website session does for seven.
+
+**Rejected.** Keeping Apple's refresh token to renew its ID tokens: long-lived credentials for
+every person, kept and checked with Apple. A session only for Apple: the trade is the same for
+every provider, and one way in is less to test.

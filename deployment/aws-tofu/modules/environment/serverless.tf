@@ -221,6 +221,9 @@ resource "aws_lambda_function" "api" {
       TASKFEST_OIDC_APPLE_SIGNING_TEAM_ID        = var.apple_sign_in.team_id
       TASKFEST_OIDC_APPLE_SCOPES                 = "openid,email"
       TASKFEST_OIDC_APPLE_RESPONSE_MODE          = "form_post"
+      # The iOS app's native sign-in issues ID tokens to its bundle id, not to the Services ID; the
+      # app trades one for an app session (#281).
+      TASKFEST_OIDC_APPLE_AUDIENCES = local.ios_bundle_id
       } : {}, local.sign_in_enabled && var.test_sign_in ? {
       # The test accounts (test-sign-in.tf). The client's secret is in state already (D4 on #141),
       # so a setting here shows it to no one who could not read it there; like the origin secret.

@@ -40,10 +40,32 @@ const (
 	SignInCookie  = "taskfest_signin"
 )
 
-// Session is a signed-in website session as stored.
+// Session is a signed-in session as stored: the website's, or with App an app's (#281), which
+// the app holds as a bearer token instead of a cookie.
 type Session struct {
 	identity.Identity
 	Created, LastSeen time.Time
+	// App marks an app session: AppLifetime from its start and no idle limit, where a website
+	// session has IdleLifetime and AbsoluteLifetime. Neither kind is accepted as the other.
+	App bool
+}
+
+// Lifetime is the longest the session can last from its start, however it is used:
+// AbsoluteLifetime for the website's, AppLifetime for an app's.
+func (s Session) Lifetime() time.Duration {
+	if s.App {
+		return AppLifetime
+	}
+	return AbsoluteLifetime
+}
+
+// ends is when the session ends unless it is used again: an app session at the end of its
+// lifetime, a website session at its idle limit or its absolute one, whichever comes first.
+func (s Session) ends() time.Time {
+	if s.App {
+		return s.Created.Add(AppLifetime)
+	}
+	return expiry(s.Created, s.LastSeen)
 }
 
 // PendingSignIn is a sign-in under way: what the callback needs to finish it.
@@ -51,7 +73,8 @@ type PendingSignIn struct {
 	Provider, Verifier, Nonce string
 }
 
-// Store keeps sessions and sign-ins under way, keyed by a hash of their cookie's value. Each item
+// Store keeps sessions and sign-ins under way, keyed by a hash of their cookie's value or of the
+// app session token (#281). A session's link from the account lasts its Lifetime. Each item
 // expires by itself at the time given (internal/store: DynamoDB's TTL), and the service also
 // checks the times on reading, since TTL deletes late.
 type Store interface {
@@ -87,8 +110,9 @@ func New(cfg Config, store Store, avatars Avatars) *Service {
 func (s *Service) Config() Config { return s.cfg }
 
 // Identify says who sent a request. A request with an Authorization header is an app's and is
-// judged by its bearer ID token alone, never by a cookie; any other is the website's and is judged
-// by its session cookie (doc/authentication.md: every tenant is hybrid).
+// judged by its bearer token alone, never by a cookie: an app session token (#281), or a
+// provider's ID token; any other is the website's and is judged by its session cookie
+// (doc/authentication.md: every tenant is hybrid).
 func (s *Service) Identify(r *http.Request) (identity.Identity, bool) {
 	if !s.cfg.Enabled {
 		return identity.Identity{}, false
@@ -108,11 +132,22 @@ func (s *Service) Identify(r *http.Request) (identity.Identity, bool) {
 	return s.session(r.Context(), cookie.Value)
 }
 
+// bearer judges a request's Authorization header: an app session token by the session it names,
+// anything else as a provider's ID token. The prefix decides, so an app session token is never
+// parsed as a JWT, nor an ID token looked up as a session.
 func (s *Service) bearer(ctx context.Context, header string) (identity.Identity, error) {
 	scheme, raw, ok := strings.Cut(header, " ")
 	if !ok || !strings.EqualFold(scheme, "Bearer") || raw == "" {
 		return identity.Identity{}, refused("not a bearer token")
 	}
+	if IsAppSessionToken(raw) {
+		return s.appSession(ctx, raw)
+	}
+	return s.idToken(ctx, raw)
+}
+
+// idToken verifies a provider's ID token sent as a bearer token, and returns whom it names.
+func (s *Service) idToken(ctx context.Context, raw string) (identity.Identity, error) {
 	issuer, ok := issuerOf(raw)
 	if !ok {
 		return identity.Identity{}, refused("not a JWT")
@@ -148,7 +183,8 @@ func (s *Service) session(ctx context.Context, token string) (identity.Identity,
 		slog.ErrorContext(ctx, "reading a session failed", "error", err)
 		return identity.Identity{}, false
 	}
-	if !ok {
+	if !ok || stored.App {
+		// An app session's token is no cookie's value: it is sent as a bearer token alone.
 		return identity.Identity{}, false
 	}
 	now := s.now()
@@ -352,9 +388,16 @@ func (s *Service) Logout(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, s.cfg.PostLoginRedirect, http.StatusSeeOther)
 }
 
-// EndSession ends this browser's session, on the server and in its cookies, and writes nothing
-// else: signing out, and deleting the account (#553), which answers on its own.
+// EndSession ends the request's session, on the server and in the browser's cookies, and writes
+// nothing else: signing out, and deleting the account (#553), which answers on its own. That is
+// the browser's session, or the app session the request's bearer token names (#281); deleting the
+// account ends every other session through its links from the account.
 func (s *Service) EndSession(w http.ResponseWriter, r *http.Request) {
+	if raw := bearerToken(r); IsAppSessionToken(raw) {
+		if err := s.store.DeleteSession(r.Context(), hash(raw)); err != nil {
+			slog.ErrorContext(r.Context(), "deleting an app session failed", "error", err)
+		}
+	}
 	if cookie, err := r.Cookie(SessionCookie); err == nil && cookie.Value != "" {
 		if err := s.store.DeleteSession(r.Context(), hash(cookie.Value)); err != nil {
 			slog.ErrorContext(r.Context(), "deleting a session failed", "error", err)
