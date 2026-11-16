@@ -19,6 +19,14 @@ import App from './App'
 import { pausedEnvironment, respond, stubApi } from './testing/api'
 import { ALICE, COGNITO, GOOGLE, renderSignedIn } from './testing/board'
 
+const APPLE = {
+  id: 'apple',
+  label: 'Apple',
+  available: true,
+  loginUrl: '/api/auth/login/apple',
+  issuer: 'https://appleid.apple.com',
+}
+
 const UNCONFIGURED_KEYCLOAK = {
   id: 'keycloak',
   label: 'Keycloak',
@@ -127,6 +135,24 @@ describe('sign-in buttons', () => {
     expect(testAccount).toHaveAttribute('href', '/api/auth/login/cognito')
     // Decorative: the label already says which provider it is.
     expect(testAccount.querySelector('img')).toHaveAttribute('alt', '')
+  })
+
+  it("says beside Apple's button that a hidden address is an account of its own (#281)", async () => {
+    // Q6 on #264: Apple's Hide My Email gives a relay address, so the same person signed in with
+    // Google is someone else there, and the page says so where the choice is made.
+    globalThis.fetch = stubApi({ providers: { enabled: true, providers: [GOOGLE, APPLE] } }) as unknown as typeof fetch
+    render(<App />)
+
+    await waitFor(() => expect(screen.getByRole('link', { name: /sign in with apple/i })).toBeInTheDocument())
+    expect(screen.getByText(/hide my email/i)).toBeInTheDocument()
+  })
+
+  it('says nothing of hidden addresses without Apple', async () => {
+    globalThis.fetch = stubApi({ providers: { enabled: true, providers: [GOOGLE] } }) as unknown as typeof fetch
+    render(<App />)
+
+    await waitFor(() => expect(screen.getByRole('link', { name: /sign in with google/i })).toBeInTheDocument())
+    expect(screen.queryByText(/hide my email/i)).not.toBeInTheDocument()
   })
 })
 

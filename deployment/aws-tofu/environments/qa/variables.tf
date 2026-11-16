@@ -37,6 +37,17 @@ variable "google_ios_client_id" {
   default     = ""
 }
 
+variable "apple_sign_in" {
+  description = "Sign in with Apple (#281): the Services ID, key id and team id, and whether it is offered. Off while empty."
+  type = object({
+    services_id = string
+    key_id      = string
+    team_id     = string
+    offered     = bool
+  })
+  default = { services_id = "", key_id = "", team_id = "", offered = false }
+}
+
 variable "google_client_id" {
   description = "The Google OAuth client id; empty keeps sign-in off. The secret is not here -- see sign-in.tf."
   type        = string

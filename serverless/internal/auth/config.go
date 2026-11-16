@@ -8,6 +8,10 @@
 package auth
 
 import (
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/x509"
+	"encoding/pem"
 	"fmt"
 	"slices"
 	"strings"
@@ -35,9 +39,26 @@ type Provider struct {
 	// local stacks (#556), Keycloak's issuer is the browser's localhost:8082, which a container
 	// cannot reach, as Quarkus's auth-server-url is set apart from it. Empty means Issuer.
 	DiscoveryURL string
-	// ClientID and ClientSecret are the backend's client at the provider. A provider without
-	// both is listed but not usable.
+	// ClientID and ClientSecret are the backend's client at the provider. A provider without a
+	// client id and either a secret or a SigningKey is listed but not usable.
 	ClientID, ClientSecret string
+	// SigningKey, where set, takes the place of ClientSecret: the client secret is then a JWT
+	// the backend signs with it for each exchange of a code (signedClientSecret), as Sign in with
+	// Apple requires. SigningKeyID names the key in the JWT's header (kid), and SigningTeamID is
+	// the JWT's issuer (iss), at Apple the developer team's id.
+	SigningKey                  *ecdsa.PrivateKey
+	SigningKeyID, SigningTeamID string
+	// Scopes are what sign-in asks the provider for; empty means openid email profile. Apple
+	// knows no profile scope.
+	Scopes []string
+	// ResponseMode is how the provider returns the browser to the callback: "" by a redirect
+	// with the answer in the query, as every provider can, or ResponseModeFormPost.
+	ResponseMode string
+	// NoPKCE leaves PKCE out of sign-in with this provider: no challenge in the authorization
+	// request, no verifier in the exchange. Off by default; Apple documents no PKCE (#281), and if
+	// its token endpoint ever refused the verifier, a setting rather than a release turns it off.
+	// The nonce still ties the code to this browser's sign-in.
+	NoPKCE bool
 	// Audiences are the client ids a bearer ID token may be issued to; empty means ClientID
 	// alone. An app with a client of its own (iOS at Google, the app's Cognito client) adds it.
 	Audiences []string
@@ -45,10 +66,30 @@ type Provider struct {
 	Main bool
 }
 
-// Usable is whether sign-in with the provider can work: it has a client id and a secret.
+// ResponseModeFormPost is the response mode of a provider that returns the browser by a form it
+// POSTs to the callback, as Apple does whenever a scope is asked for.
+const ResponseModeFormPost = "form_post"
+
+// defaultScopes are what sign-in asks a provider for unless its configuration says otherwise.
+var defaultScopes = []string{"openid", "email", "profile"}
+
+// Usable is whether sign-in with the provider can work: it has a client id and a secret, or a key
+// to sign one with.
 func (p Provider) Usable() bool {
-	return strings.TrimSpace(p.ClientID) != "" && strings.TrimSpace(p.ClientSecret) != ""
+	return strings.TrimSpace(p.ClientID) != "" &&
+		(strings.TrimSpace(p.ClientSecret) != "" || p.SigningKey != nil)
 }
+
+// scopes are what sign-in asks the provider for.
+func (p Provider) scopes() []string {
+	if len(p.Scopes) > 0 {
+		return p.Scopes
+	}
+	return defaultScopes
+}
+
+// formPost is whether the provider returns the browser by a POST rather than a redirect.
+func (p Provider) formPost() bool { return p.ResponseMode == ResponseModeFormPost }
 
 // LoginPath is where sign-in with the provider starts.
 func (p Provider) LoginPath() string {
@@ -100,6 +141,13 @@ type Config struct {
 //	TASKFEST_OIDC_<ID>_CLIENT_ID     the backend's client id
 //	TASKFEST_OIDC_<ID>_CLIENT_SECRET its secret
 //	TASKFEST_OIDC_<ID>_AUDIENCES     further client ids a bearer token may name, comma-separated
+//	TASKFEST_OIDC_<ID>_SCOPES        what sign-in asks for, comma-separated; openid,email,profile
+//	TASKFEST_OIDC_<ID>_RESPONSE_MODE "form_post" for a provider that POSTs the browser back
+//	TASKFEST_OIDC_<ID>_PKCE          "false" leaves PKCE out with this provider; on otherwise
+//	TASKFEST_OIDC_<ID>_SIGNING_KEY_SECRET in place of CLIENT_SECRET: a PEM EC P-256 private key
+//	                                 (Apple's .p8) that signs the client secret, with
+//	TASKFEST_OIDC_<ID>_SIGNING_KEY_ID     the key's id, and
+//	TASKFEST_OIDC_<ID>_SIGNING_TEAM_ID    the signed secret's issuer, Apple's team id
 //	TASKFEST_AUTH_POST_LOGIN_REDIRECT_URI, TASKFEST_PUBLIC_ORIGIN, TASKFEST_COOKIE_SECURE
 //
 // A provider the deployment switched off is simply not in TASKFEST_AUTH_PROVIDERS, so it is not
@@ -129,6 +177,30 @@ func LoadConfig(getenv func(string) string) (Config, error) {
 			DiscoveryURL: getenv(key + "DISCOVERY_URL"),
 			ClientID:     getenv(key + "CLIENT_ID"), ClientSecret: getenv(key + "CLIENT_SECRET"),
 			Audiences: list(getenv(key + "AUDIENCES")), Main: i == 0,
+			Scopes: list(getenv(key + "SCOPES")), ResponseMode: getenv(key + "RESPONSE_MODE"),
+			SigningKeyID: getenv(key + "SIGNING_KEY_ID"), SigningTeamID: getenv(key + "SIGNING_TEAM_ID"),
+		}
+		switch p.ResponseMode {
+		case "", ResponseModeFormPost:
+		case "query":
+			p.ResponseMode = ""
+		default:
+			return Config{}, fmt.Errorf("provider %q: %sRESPONSE_MODE is %q; query or %s are known",
+				id, key, p.ResponseMode, ResponseModeFormPost)
+		}
+		switch pkce := getenv(key + "PKCE"); pkce {
+		case "", "true":
+		case "false":
+			p.NoPKCE = true
+		default:
+			return Config{}, fmt.Errorf("provider %q: %sPKCE is %q; true or false are known", id, key, pkce)
+		}
+		if len(p.Scopes) > 0 && !slices.Contains(p.Scopes, "openid") {
+			// Without it the provider sends no ID token, and every sign-in fails after a good start.
+			return Config{}, fmt.Errorf("provider %q: %sSCOPES %v lacks openid", id, key, p.Scopes)
+		}
+		if err := p.loadSigningKey(getenv(key+"SIGNING_KEY_SECRET"), key); err != nil {
+			return Config{}, fmt.Errorf("provider %q: %w", id, err)
 		}
 		if p.Label == "" {
 			p.Label = id
@@ -143,6 +215,35 @@ func LoadConfig(getenv func(string) string) (Config, error) {
 		c.Providers = append(c.Providers, p)
 	}
 	return c, nil
+}
+
+// loadSigningKey reads the key a provider signs its client secret with, if it has one: all three
+// settings or none, never beside a client secret, and a key that can sign ES256, so that a
+// mistake stops the start rather than every sign-in after it.
+func (p *Provider) loadSigningKey(pemKey, key string) error {
+	if pemKey == "" && p.SigningKeyID == "" && p.SigningTeamID == "" {
+		return nil
+	}
+	if pemKey == "" || p.SigningKeyID == "" || p.SigningTeamID == "" {
+		return fmt.Errorf("%sSIGNING_KEY_SECRET, _SIGNING_KEY_ID and _SIGNING_TEAM_ID go together", key)
+	}
+	if p.ClientSecret != "" {
+		return fmt.Errorf("%sCLIENT_SECRET and %sSIGNING_KEY_SECRET are both set", key, key)
+	}
+	block, _ := pem.Decode([]byte(pemKey))
+	if block == nil {
+		return fmt.Errorf("%sSIGNING_KEY_SECRET is not a PEM key", key)
+	}
+	parsed, err := x509.ParsePKCS8PrivateKey(block.Bytes)
+	if err != nil {
+		return fmt.Errorf("%sSIGNING_KEY_SECRET: %w", key, err)
+	}
+	ec, ok := parsed.(*ecdsa.PrivateKey)
+	if !ok || ec.Curve != elliptic.P256() {
+		return fmt.Errorf("%sSIGNING_KEY_SECRET is not an EC P-256 key, which ES256 needs", key)
+	}
+	p.SigningKey = ec
+	return nil
 }
 
 func list(s string) []string {

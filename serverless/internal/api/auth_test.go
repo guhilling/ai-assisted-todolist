@@ -141,3 +141,15 @@ func TestEachSignInPathGoesToItsProvider(t *testing.T) {
 		}
 	}
 }
+
+func TestAPostedCallbackGoesToItsProviderToo(t *testing.T) {
+	// A provider returning by form_post POSTs to its callback; which method a provider may use is
+	// the sign-in's to judge (auth.Service.Callback), so both reach it.
+	for path, want := range map[string]string{"/api/auth/callback": "", "/api/auth/callback/apple": "apple"} {
+		f := &fakeSignIn{}
+		serve(&Server{SignIn: f}, "POST", path)
+		if f.called != "callback" || f.provider != want {
+			t.Errorf("POST %s: %s %q; want callback %q", path, f.called, f.provider, want)
+		}
+	}
+}

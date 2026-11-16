@@ -66,12 +66,16 @@ type Server struct {
 // contract leaves out because only a provider calls them.
 func Routes(s *Server) http.Handler {
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET "+auth.MainCallbackPath, func(w http.ResponseWriter, r *http.Request) {
-		s.SignIn.Callback(w, r, "")
-	})
-	mux.HandleFunc("GET "+auth.MainCallbackPath+"/{provider}", func(w http.ResponseWriter, r *http.Request) {
-		s.SignIn.Callback(w, r, r.PathValue("provider"))
-	})
+	// GET and POST: a provider configured for form_post returns the browser by a POST (Apple's).
+	// The sign-in answers each provider by its own method alone.
+	for _, method := range []string{"GET ", "POST "} {
+		mux.HandleFunc(method+auth.MainCallbackPath, func(w http.ResponseWriter, r *http.Request) {
+			s.SignIn.Callback(w, r, "")
+		})
+		mux.HandleFunc(method+auth.MainCallbackPath+"/{provider}", func(w http.ResponseWriter, r *http.Request) {
+			s.SignIn.Callback(w, r, r.PathValue("provider"))
+		})
+	}
 	mux.Handle("/", HandlerWithOptions(s, StdHTTPServerOptions{
 		ErrorHandlerFunc: func(w http.ResponseWriter, r *http.Request, _ error) {
 			// A path id that is no number: no such resource, which is what JAX-RS answers too,

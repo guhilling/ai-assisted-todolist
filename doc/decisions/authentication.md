@@ -209,3 +209,41 @@ token credential keeps both unchanged. It is the truth, too: what the app sends 
 **Rejected.** A separate `service` tenant per provider for apps — twice the tenants, and the main
 provider's bearer requests would have needed a path or header to reach theirs. And a session of
 the backend's own for apps (S2 on #264), which would have needed a session store.
+
+
+## A provider may sign its client secret, and post the browser back
+
+*Accepted · 2026-11-16 · #281*
+
+**Decision.** Sign in with Apple on the website is a further provider, configured like the
+others, and what Apple needs beyond them is three generic provider settings rather than an
+`apple` in the code: `SIGNING_KEY_SECRET` (with `_KEY_ID` and `_TEAM_ID`), from which the backend
+signs an ES256 JWT as the client secret for every exchange of a code, valid five minutes;
+`RESPONSE_MODE=form_post`, for which that provider's callback answers a POST and reads its form;
+and `SCOPES`. The sign-in cookie of a `form_post` provider is `SameSite=None` (with `Secure`); the
+session cookie stays `Lax` for every provider
+([authentication.md](../authentication.md#sign-in-with-apple)).
+
+**Why sign per exchange.** Apple accepts a secret for up to six months, and a long-lived one
+would need rotating by hand twice a year or a job to do it. Signing costs microseconds, so a fresh
+secret for each code needs no cache, no rotation and no clock for expiry, and one that leaked
+from a log is worthless minutes later. The key itself is a secret like Google's client secret,
+read from Secrets Manager at a cold start.
+
+**Why the sign-in cookie may cross sites.** Apple POSTs the browser back whenever a scope is
+asked for, and a browser does not send a `Lax` cookie with a cross-site POST, so the state check
+would refuse every Apple sign-in. `SameSite` keeps a cookie from lending its authority to another
+site's request; this one has none to lend. It holds only the random state of one sign-in, for ten
+minutes, and the callback refuses a POST whose state is not the cookie's: a forged POST cannot
+know the value, and an attacker's own code and state (login CSRF) do not match the victim's
+cookie. Comparing state to cookie is the CSRF defence, and it is exactly what needs the cookie.
+
+**Cost.** Two cookie policies instead of one, chosen per provider, and a callback that answers
+POST, which was GET alone. The name Apple sends once, unsigned, beside the code is not read, so
+an Apple session shows no name. PKCE is sent though Apple does not document it; the nonce binds
+the code to the browser either way, and a real sign-in is the first proof Apple ignores it.
+
+**Rejected.** `SameSite=None` for every provider's sign-in cookie — simpler, but it weakens
+nothing only as long as the reasoning above holds, so it is limited to where it is needed. A
+`response_mode=query` for Apple, which keeps the cookie `Lax` — Apple refuses it once the `email`
+scope is asked for, and without that scope its ID token carries no email, which is the identity.

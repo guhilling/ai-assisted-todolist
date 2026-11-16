@@ -61,6 +61,7 @@ module "environment" {
   hostname             = var.hostname
   google_client_id     = var.google_client_id
   google_ios_client_id = var.google_ios_client_id
+  apple_sign_in        = var.apple_sign_in
   test_sign_in         = var.test_sign_in
 
   table_point_in_time_recovery = var.table_point_in_time_recovery

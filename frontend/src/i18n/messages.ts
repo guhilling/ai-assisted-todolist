@@ -272,6 +272,12 @@ export const en = {
     google: 'Sign in with Google',
     /** The mobile app's, when its sign-in in the browser did not complete. */
     failed: 'Signing in did not work. Try again.',
+    /**
+     * Beside Apple's button (Q6 on #264, #281): Hide My Email gives a relay address, and the email
+     * is the identity, so it is an account of its own.
+     */
+    appleHiddenEmail:
+      'If you choose Hide My Email, Apple gives TaskFest a different address: that is an account of its own, separate from one with Google.',
   },
   paused: {
     message: (environment: string | null) =>
@@ -495,6 +501,8 @@ export const de: Messages = {
     signInWith: (provider: string) => `Mit ${provider} anmelden`,
     google: 'Sign in with Google',
     failed: 'Die Anmeldung hat nicht geklappt. Versuch es noch einmal.',
+    appleHiddenEmail:
+      'Wenn du „E-Mail-Adresse verbergen“ wählst, gibt Apple TaskFest eine andere Adresse: Das ist ein eigenes Konto, getrennt von einem mit Google.',
   },
   paused: {
     message: (environment: string | null) =>

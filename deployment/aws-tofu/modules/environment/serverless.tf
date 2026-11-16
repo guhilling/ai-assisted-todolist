@@ -31,7 +31,7 @@ locals {
   # The providers the function offers, the main one first, as auth.LoadConfig reads them. Sign-in
   # is on only where Google is: the test accounts are a provider beside it, whose client allows
   # only its own callback, never the main one.
-  api_providers = local.sign_in_enabled ? concat(["google"], var.test_sign_in ? ["cognito"] : []) : []
+  api_providers = local.sign_in_enabled ? concat(["google"], local.apple_offered ? ["apple"] : [], var.test_sign_in ? ["cognito"] : []) : []
 }
 
 # AWS-0024, point-in-time recovery, is a variable: on in prod, off in qa, which restores from an
@@ -160,6 +160,15 @@ data "aws_iam_policy_document" "api_function" {
     resources = [aws_secretsmanager_secret.google_client_secret.arn]
   }
 
+  dynamic "statement" {
+    for_each = aws_secretsmanager_secret.apple_signing_key
+    content {
+      sid       = "ReadTheAppleSigningKeyAtAColdStart"
+      actions   = ["secretsmanager:GetSecretValue"]
+      resources = [statement.value.arn]
+    }
+  }
+
   statement {
     sid       = "WriteItsOwnLogs"
     actions   = ["logs:CreateLogStream", "logs:PutLogEvents"]
@@ -201,6 +210,17 @@ resource "aws_lambda_function" "api" {
       TASKFEST_OIDC_GOOGLE_CLIENT_SECRET_ARN = aws_secretsmanager_secret.google_client_secret.arn
       # The iOS app's own client, whose ID tokens are accepted beside the web client's (#280).
       TASKFEST_OIDC_GOOGLE_AUDIENCES = var.google_ios_client_id
+      } : {}, local.apple_offered ? {
+      # Sign in with Apple (#281): the backend signs Apple's client secret with the key, asks for
+      # the email alone (Apple has no profile scope), and takes the answer posted back.
+      TASKFEST_OIDC_APPLE_LABEL                  = "Apple"
+      TASKFEST_OIDC_APPLE_ISSUER                 = "https://appleid.apple.com"
+      TASKFEST_OIDC_APPLE_CLIENT_ID              = var.apple_sign_in.services_id
+      TASKFEST_OIDC_APPLE_SIGNING_KEY_SECRET_ARN = aws_secretsmanager_secret.apple_signing_key[0].arn
+      TASKFEST_OIDC_APPLE_SIGNING_KEY_ID         = var.apple_sign_in.key_id
+      TASKFEST_OIDC_APPLE_SIGNING_TEAM_ID        = var.apple_sign_in.team_id
+      TASKFEST_OIDC_APPLE_SCOPES                 = "openid,email"
+      TASKFEST_OIDC_APPLE_RESPONSE_MODE          = "form_post"
       } : {}, local.sign_in_enabled && var.test_sign_in ? {
       # The test accounts (test-sign-in.tf). The client's secret is in state already (D4 on #141),
       # so a setting here shows it to no one who could not read it there; like the origin secret.

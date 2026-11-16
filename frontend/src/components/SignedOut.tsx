@@ -22,6 +22,15 @@ type SignedOutProps = {
   apiBaseUrl: string
 }
 
+/** Whether an issuer is Apple's, whose Hide My Email makes an account of its own (#281). */
+function isApple(issuer: string): boolean {
+  try {
+    return new URL(issuer).hostname === 'appleid.apple.com'
+  } catch {
+    return false
+  }
+}
+
 /**
  * What an anonymous visitor sees: the app's name, a way in, and a link to what this is.
  *
@@ -83,6 +92,9 @@ function SignedOut({ providers, apiBaseUrl }: Readonly<SignedOutProps>) {
               </a>
             )
           })}
+          {available.some((provider) => isApple(provider.issuer)) && (
+            <p className="signed-out-note">{messages.signedOut.appleHiddenEmail}</p>
+          )}
         </div>
       )}
     </div>

@@ -69,7 +69,34 @@ This is manual configuration in the Google console and cannot be automated here.
   share this client**, so its publishing status is theirs together: both are open to anyone once
   it is published (Gunnar's choice on #607).
 
+## Sign in with Apple (#281)
+
+A further provider on the website, beside Google; its code is generic
+([authentication.md](../authentication.md)). What Apple needs is made by hand in the Apple
+developer account, *Certificates, Identifiers & Profiles*:
+
+- **A Services ID** for the website, with *Sign in with Apple* configured: the domains
+  `taskfest.cloud.hilling.de` and `taskfest-qa.cloud.hilling.de`, and as return URLs each one's
+  `https://<hostname>/api/auth/callback/apple`.
+- **A key** with *Sign in with Apple*: the `.p8` file, downloadable once, its key id and the team
+  id.
+
+Then, per environment, in three steps, because an empty key would stop the function's every start:
+
+1. `apple_sign_in` in `terraform.tfvars` with the Services ID, key id and team id, `offered = false`;
+   applied, it creates the secret `taskfest-<env>-apple-signing-key`, empty (about $0.40 a month).
+2. The key put in by hand, never through the repository or state:
+
+    ```sh
+    aws secretsmanager put-secret-value --secret-id taskfest-qa-apple-signing-key \
+      --secret-string file://AuthKey_<key id>.p8
+    ```
+
+3. `offered = true`, applied: the function's settings name the provider, and its button appears.
+
 ## The test accounts' Cognito pool (qa)
+
+
 
 qa has a second sign-in provider beside Google: a Cognito user pool with two test accounts,
 `taskfest-test-one@example.com` and `taskfest-test-two@example.com`, which the live tests sign in
