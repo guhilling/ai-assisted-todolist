@@ -28,7 +28,7 @@ func (f *fakeEmails) AccountEmail(_ context.Context, email string) (string, erro
 	if f.legacy[email] {
 		return email, nil
 	}
-	return strings.ToLower(email), nil
+	return identity.Canonical(email), nil
 }
 
 func TestTheCallerIsTheEmailTheirAccountIsKeyedBy(t *testing.T) {

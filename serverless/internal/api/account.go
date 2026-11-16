@@ -95,7 +95,12 @@ func (s *Server) accountEmail(r *http.Request, email string) (string, bool) {
 	if s.Emails == nil {
 		return email, true
 	}
-	return Keyed(func(*http.Request) (string, bool) { return email, true }, s.Emails)(r)
+	keyed, err := s.Emails.AccountEmail(r.Context(), email)
+	if err != nil {
+		slog.ErrorContext(r.Context(), "reading which account an email is keyed by failed", "error", err)
+		return "", false
+	}
+	return keyed, true
 }
 
 // Settled is the caller, once any deletion of their account that was left half-way is finished

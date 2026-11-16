@@ -8,11 +8,17 @@ import (
 
 // Canonical is the email as the identity knows it: lower-cased, so that Gunnar@Example.com and
 // gunnar@example.com are one person whichever case a provider sends (Gunnar's decision on #622).
-// Nothing else about the address is changed. It is the one place the case is ignored; which
+// Only A to Z are folded: Unicode's lower case maps some other letters onto them, the Kelvin sign
+// onto k among them, and would make two addresses one account. Nothing else is changed. It is the one place the case is ignored; which
 // email an account is keyed by, this one or an older account's as sent, internal/store decides
 // (Accounts.AccountEmail).
 func Canonical(email string) string {
-	return strings.ToLower(email)
+	return strings.Map(func(r rune) rune {
+		if 'A' <= r && r <= 'Z' {
+			return r + ('a' - 'A')
+		}
+		return r
+	}, email)
 }
 
 // EmailHash is the SHA-256 of the email exactly as given, in lower-case hex: what a user's items

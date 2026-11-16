@@ -39,7 +39,8 @@ erase them (#497); `null` clears them.
 **User is a separate aggregate**, and a thin one. It exists to give tasks something to
 belong to and to give the application a stable identity for the email arriving in a token. It is
 not an item but a partition: every item of a user is keyed `USER#<SHA-256 of the email>`
-(`store.OwnerKey`), the email lower-cased (#622), and a task names no owner because its key already does. The user's own state
+(`store.OwnerKey`), the email lower-cased (#622) -- or, for an account begun before that under an
+email with capitals, the email as sent (`Accounts.AccountEmail`) -- and a task names no owner because its key already does. The user's own state
 is the partition's `META` item: the counts that hand out task and attachment ids, the open drafts
 and the versions that keep their limits, when the account began and whether it is being deleted
 ([serverless.md](deployment/serverless.md#tasks)).
@@ -69,7 +70,7 @@ package, the requests in `api`, and the items and their conditions in `store`.
 | A time zone is one the backend knows by its IANA name, never an offset: neither a bare one like `+02:00` nor one by name like `Etc/GMT-2` or `EST`, UTC and GMT excepted | `board.KnownZone`: a name in the tzdata the binary embeds (`zones.gen.go`), exactly as written, and at most 64 characters. A stored zone the running binary does not know gives the task no `dueAt` rather than failing the board (`board.DueAt`) |
 | A due time is to the minute | `board.Check`, which takes only `HH:mm`, `00:00` to `23:59`, the same `pattern` as the published contract; it is read only as text (`optional` in `api/tasks.go`) and stored as that text |
 | State and importance are always set | `board.Check` refuses a missing or unknown one; `WORKING` is stored as `TODO` (`board.Open`) |
-| A user's email is present and unique | `verifyIDToken` (`auth/tokens.go`) refuses a token without one; the partition is the SHA-256 of the email lower-cased (`identity.Canonical`, `identity.EmailHash`), so one address is one user whatever case a provider sends it in; an account begun before that, under an email with capitals, keeps the partition of the email as sent (`Accounts.AccountEmail`, [#622](https://github.com/guhilling/ai-assisted-todolist/issues/622)) |
+| A user's email is present and unique | `verifyIDToken` (`auth/tokens.go`) refuses a token without one; the partition is the SHA-256 of the email with A to Z lower-cased (`identity.Canonical`, `identity.EmailHash`), so one address is one user whatever case a provider sends it in; an account begun before that, under an email with capitals, keeps the partition of the email as sent (`Accounts.AccountEmail`, [#622](https://github.com/guhilling/ai-assisted-todolist/issues/622)) |
 | A user's name and picture are **not** domain state | Nothing stores them with the tasks; the website's session item keeps them for the session's life ([authentication.md](authentication.md#what-the-browser-learns-about-you)) |
 | A user sees and changes only their own tasks | Every read and write is keyed on the caller's partition, and a replace or delete is conditional on the item being there |
 | An attachment is a PDF, JPEG, PNG, WebP or GIF file, or a link (#414) | `board.Kind`; a file's declared type is read by `board.KindOf` on announce, and any other is refused by `board.Admit` |
