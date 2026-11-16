@@ -43,6 +43,7 @@ commit that first wrote each one down. CI checks every line and that this index 
 - [Name and picture are session data, not identity](authentication.md#name-and-picture-are-session-data-not-identity)
 - [Gravatar is asked by the backend, and that buys accuracy rather than privacy](authentication.md#gravatar-is-asked-by-the-backend-and-that-buys-accuracy-rather-than-privacy)
 - [Apps send a bearer ID token, and the audience is checked in code](authentication.md#apps-send-a-bearer-id-token-and-the-audience-is-checked-in-code)
+- [A provider may sign its client secret, and post the browser back](authentication.md#a-provider-may-sign-its-client-secret-and-post-the-browser-back)
 
 ## [Frontend and user interface](frontend.md)
 

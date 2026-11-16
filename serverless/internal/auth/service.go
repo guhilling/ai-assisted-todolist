@@ -10,9 +10,12 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"net/url"
+	"slices"
 	"strings"
 	"time"
 
+	"github.com/coreos/go-oidc/v3/oidc"
 	"golang.org/x/oauth2"
 
 	"github.com/guhilling/ai-assisted-todolist/serverless/internal/identity"
@@ -212,9 +215,41 @@ func (s *Service) Login(w http.ResponseWriter, r *http.Request, id string) {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	http.SetCookie(w, s.cookie(SignInCookie, state, SignInLifetime))
-	http.Redirect(w, r, conf.AuthCodeURL(state, oauth2.S256ChallengeOption(verifier),
-		oauth2.SetAuthURLParam("nonce", nonce)), http.StatusFound)
+	http.SetCookie(w, s.signInCookie(p, state, SignInLifetime))
+	options := []oauth2.AuthCodeOption{oauth2.S256ChallengeOption(verifier), oauth2.SetAuthURLParam("nonce", nonce)}
+	if p.formPost() {
+		options = append(options, oauth2.SetAuthURLParam("response_mode", ResponseModeFormPost))
+	}
+	http.Redirect(w, r, conf.AuthCodeURL(state, options...), http.StatusFound)
+}
+
+// maxCallbackForm bounds a callback's form: a code, a state and, at Apple's first sign-in, the
+// user's name, far below this.
+const maxCallbackForm = 64 << 10
+
+// callbackParameters are the provider's answer: the query of a redirect, or the body of a form
+// POST for a provider returning that way, and never the query then, so that the answer is the
+// one the provider posted. Each provider is answered by the one method its configuration says
+// it uses; the other is a 405, which no provider of ours ever sees.
+func callbackParameters(w http.ResponseWriter, r *http.Request, p Provider) (url.Values, bool) {
+	allowed := http.MethodGet
+	if p.formPost() {
+		allowed = http.MethodPost
+	}
+	if r.Method != allowed {
+		w.Header().Set("Allow", allowed)
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return nil, false
+	}
+	if !p.formPost() {
+		return r.URL.Query(), true
+	}
+	r.Body = http.MaxBytesReader(w, r.Body, maxCallbackForm)
+	if err := r.ParseForm(); err != nil {
+		slog.InfoContext(r.Context(), "sign-in refused", "provider", p.ID, "reason", "unreadable form: "+err.Error())
+		return url.Values{}, true
+	}
+	return r.PostForm, true
 }
 
 // Callback finishes sign-in with the provider id names ("" for the main one): the state must be
@@ -226,7 +261,11 @@ func (s *Service) Callback(w http.ResponseWriter, r *http.Request, id string) {
 		http.NotFound(w, r)
 		return
 	}
-	ident, err := s.finish(r, p)
+	q, ok := callbackParameters(w, r, p)
+	if !ok {
+		return
+	}
+	ident, err := s.finish(r, p, q)
 	if err != nil {
 		level := slog.LevelError
 		if errors.Is(err, ErrRefused) {
@@ -235,7 +274,7 @@ func (s *Service) Callback(w http.ResponseWriter, r *http.Request, id string) {
 		slog.Log(r.Context(), level, "sign-in refused", "provider", p.ID, "reason", err.Error())
 		// Back to the app, signed out, which offers sign-in again: a second tab's sign-in, a
 		// callback used twice or a cancelled sign-in would otherwise end on a blank page.
-		http.SetCookie(w, s.cookie(SignInCookie, "", -1))
+		http.SetCookie(w, s.signInCookie(p, "", -1))
 		s.backToTheApp(w, r)
 		return
 	}
@@ -249,12 +288,15 @@ func (s *Service) Callback(w http.ResponseWriter, r *http.Request, id string) {
 	}
 	slog.InfoContext(r.Context(), "signed-in", "event", "signed-in", "user", ident.Subject, "provider", ident.Provider)
 	http.SetCookie(w, s.cookie(SessionCookie, token, AbsoluteLifetime))
-	http.SetCookie(w, s.cookie(SignInCookie, "", -1))
+	http.SetCookie(w, s.signInCookie(p, "", -1))
 	s.backToTheApp(w, r)
 }
 
-func (s *Service) finish(r *http.Request, p Provider) (identity.Identity, error) {
-	q := r.URL.Query()
+// finish checks the provider's answer q and returns who signed in. A name sent beside the code,
+// as Apple's form POST sends one at a person's first sign-in in its user field, is not read: it
+// comes from the browser, unsigned, and the name is only ever shown to its owner, so the ID
+// token's name, or none, is shown.
+func (s *Service) finish(r *http.Request, p Provider, q url.Values) (identity.Identity, error) {
 	if e := q.Get("error"); e != "" {
 		return identity.Identity{}, refused("the provider answered %q", e)
 	}
@@ -336,11 +378,32 @@ func (s *Service) oauth(r *http.Request, p Provider) (*oauth2.Config, error) {
 	if err != nil {
 		return nil, err
 	}
+	secret, err := p.clientSecret(s.now())
+	if err != nil {
+		return nil, err
+	}
+	endpoint := op.Endpoint()
+	endpoint.AuthStyle = authStyle(op)
 	return &oauth2.Config{
-		ClientID: p.ClientID, ClientSecret: p.ClientSecret, Endpoint: op.Endpoint(),
+		ClientID: p.ClientID, ClientSecret: secret, Endpoint: endpoint,
 		RedirectURL: s.origin(r) + p.CallbackPath(),
-		Scopes:      []string{"openid", "email", "profile"},
+		Scopes:      p.scopes(),
 	}, nil
+}
+
+// authStyle is how the client's credentials go to the token endpoint. A provider whose metadata
+// offers client_secret_post alone, as Apple's does, gets them in the form; any other is left to
+// the oauth2 package to find out, which tries the Authorization header first, OpenID Connect's
+// default, as before.
+func authStyle(op *oidc.Provider) oauth2.AuthStyle {
+	var metadata struct {
+		Methods []string `json:"token_endpoint_auth_methods_supported"`
+	}
+	if op.Claims(&metadata) == nil && slices.Contains(metadata.Methods, "client_secret_post") &&
+		!slices.Contains(metadata.Methods, "client_secret_basic") {
+		return oauth2.AuthStyleInParams
+	}
+	return oauth2.AuthStyleAutoDetect
 }
 
 // origin is the site the browser sees, for the redirect URI the provider sends it back to.
@@ -360,6 +423,28 @@ func (s *Service) cookie(name, value string, maxAge time.Duration) *http.Cookie 
 		SameSite: http.SameSiteLaxMode, MaxAge: int(maxAge.Seconds())}
 	if maxAge < 0 {
 		c.MaxAge = -1
+	}
+	return c
+}
+
+// signInCookie is the taskfest_signin cookie for a sign-in with p. Like every cookie it is
+// SameSite=Lax, except for a provider that returns the browser by a form POST: a browser does
+// not send a Lax cookie with a POST from another site, so the state check would fail every
+// sign-in. That provider's sign-in cookie is SameSite=None, where Secure allows it (browsers
+// refuse None without Secure; such a provider needs https anyway).
+//
+// Why that is safe: SameSite guards against cross-site requests that act with the cookie's
+// authority, and this cookie has none. It holds only the random state of one sign-in under way,
+// lasts ten minutes, is HttpOnly and is cleared at the callback. A forged POST to the callback
+// carries the victim's cookie but cannot know its value, so its state does not match and it is
+// refused; an attacker's own code and state, posted into the victim's browser to sign it in as
+// the attacker (login CSRF), fail the same way, as the victim's cookie, if any, holds another
+// state. Matching the state to the cookie is the CSRF defence, and it needs the cookie. The
+// session cookie, which does carry authority, stays Lax.
+func (s *Service) signInCookie(p Provider, value string, maxAge time.Duration) *http.Cookie {
+	c := s.cookie(SignInCookie, value, maxAge)
+	if p.formPost() && s.cfg.SecureCookies {
+		c.SameSite = http.SameSiteNoneMode
 	}
 	return c
 }

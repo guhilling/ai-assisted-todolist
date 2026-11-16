@@ -51,7 +51,13 @@ provider calls them and the contract leaves them out.
   the stored sign-in in the same step as it reads it, so a callback works once. The code is
   exchanged with that sign-in's verifier, and the ID token is checked as a bearer token is (below),
   but for the backend's own client alone and with the nonce it was given. The backend asks for the
-  scopes `openid email profile`.
+  scopes `openid email profile`, unless a provider's `SCOPES` setting says otherwise.
+- **A provider may return the browser by a form POST** instead of the redirect in step 5, where
+  its `RESPONSE_MODE` is `form_post`: Apple does so whenever a scope is asked for
+  ([Sign in with Apple](#sign-in-with-apple)). The backend then adds `response_mode=form_post` to
+  step 3, and that provider's callback answers a POST and reads the code and state from its form,
+  never from the query. Every other provider's callback answers a GET alone; the other method is
+  a 405.
 - **A refused callback goes back to the app**, signed out, which offers sign-in again: a second
   tab's sign-in, a callback used twice or a sign-in cancelled at the provider would otherwise end on
   a blank page. The log says why, and the `taskfest_signin` cookie is cleared.
@@ -84,6 +90,17 @@ Both are `HttpOnly`, `SameSite=Lax` and on the path `/`, and `Secure` everywhere
 `TASKFEST_COOKIE_SECURE=false` says the site is plain HTTP, which only the end-to-end stack and running from source do. The
 table stores only each value's SHA-256, so nothing in it lets anyone in. Signing in or out also
 expires any `q_session…` and `q_auth…` cookie a browser still holds from the Quarkus backend.
+
+**One exception: `taskfest_signin` for a `form_post` provider is `SameSite=None`.** A browser
+does not send a `Lax` cookie with a POST from another site, so with `Lax` the state check would
+refuse every sign-in that provider posts back. `None` is safe for this cookie because it carries
+no authority: it holds the random state of one sign-in, for ten minutes, and the callback refuses
+any POST whose state is not the cookie's — a forged one cannot know it, and an attacker's own code
+and state (login CSRF) do not match the victim's cookie. That comparison is the CSRF defence, and
+it needs the cookie. `None` requires `Secure`, so where cookies are not `Secure` it stays `Lax`;
+a `form_post` provider needs `https` anyway. The session cookie stays `Lax` for every provider
+(`Service.signInCookie`;
+[decisions/authentication.md](decisions/authentication.md#a-provider-may-sign-its-client-secret-and-post-the-browser-back)).
 
 ## Sign-out
 
@@ -130,6 +147,12 @@ TASKFEST_OIDC_<ID>_DISCOVERY_URL=…       # where its metadata is, when not at 
 TASKFEST_OIDC_<ID>_CLIENT_ID=…
 TASKFEST_OIDC_<ID>_CLIENT_SECRET=…       # or _CLIENT_SECRET_ARN, a Secrets Manager secret
 TASKFEST_OIDC_<ID>_AUDIENCES=…           # further client ids a bearer token may be issued to
+TASKFEST_OIDC_<ID>_SCOPES=openid,email   # what sign-in asks for; openid,email,profile if unset
+TASKFEST_OIDC_<ID>_RESPONSE_MODE=form_post  # the provider POSTs the browser back; query if unset
+TASKFEST_OIDC_<ID>_SIGNING_KEY_SECRET=…  # instead of CLIENT_SECRET: a PEM EC P-256 key that signs
+                                         # it, or _SIGNING_KEY_SECRET_ARN, a Secrets Manager secret
+TASKFEST_OIDC_<ID>_SIGNING_KEY_ID=…      # the key's id, the signed secret's kid
+TASKFEST_OIDC_<ID>_SIGNING_TEAM_ID=…     # the signed secret's iss
 ```
 
 `<ID>` is the id in upper case, with `-` as `_`.
@@ -153,6 +176,47 @@ TASKFEST_OIDC_<ID>_AUDIENCES=…           # further client ids a bearer token m
   Gateway's; without it, as from source, it is the request's own `Host`, and `https` where
   `X-Forwarded-Proto` says so.
 
+### Sign in with Apple
+
+Apple (#281) is a further provider like any other, configured, not coded; what sets it apart is
+three settings no other provider needs. Its website client is a **Services ID**, whose return URL
+is `<public origin>/api/auth/callback/<id>`:
+
+```sh
+TASKFEST_OIDC_APPLE_ISSUER=https://appleid.apple.com
+TASKFEST_OIDC_APPLE_CLIENT_ID=<the Services ID>
+TASKFEST_OIDC_APPLE_SIGNING_KEY_SECRET_ARN=<the secret holding the .p8 file's text>
+TASKFEST_OIDC_APPLE_SIGNING_KEY_ID=<the key's 10-character id>
+TASKFEST_OIDC_APPLE_SIGNING_TEAM_ID=<the 10-character team id>
+TASKFEST_OIDC_APPLE_SCOPES=openid,email
+TASKFEST_OIDC_APPLE_RESPONSE_MODE=form_post
+```
+
+- **The client secret is a JWT the backend signs** with the team's Sign in with Apple key (the
+  `.p8`), as
+  [Apple requires](https://developer.apple.com/documentation/accountorganizationaldatasharing/creating-a-client-secret):
+  ES256, `kid` the key's id, `iss` the team id, `sub` the Services ID, `aud` the provider's
+  issuer, `https://appleid.apple.com`. Apple allows six months; the backend signs a fresh one for
+  every exchange of a code, valid five minutes, so there is nothing to rotate and nothing worth
+  stealing (`signedClientSecret` in `internal/auth/clientsecret.go`). The key is checked at the
+  start: one that is no EC P-256 key in PEM, or half the three settings, stops it.
+- **The credentials go in the form.** Apple's metadata offers `client_secret_post` alone; a
+  provider whose metadata says so gets them in the token request's body, and every other provider
+  as before (`authStyle`).
+- **Apple POSTs the browser back** whenever a scope is asked for
+  ([its authorization request](https://developer.apple.com/documentation/signinwithapplerestapi/request-an-authorization-to-the-sign-in-with-apple-server.)),
+  hence `form_post` and the sign-in cookie's `SameSite=None` ([The cookies](#the-cookies)). A
+  cancelled sign-in posts `error=user_cancelled_authorize` and goes back to the app.
+- **The scopes are `openid email`.** Apple knows no `profile`, and its ID token carries no name
+  or picture. The name comes once, at a person's first sign-in, as a `user` field beside the
+  code, from the browser and unsigned; the backend does not read it, so an Apple session shows no
+  name, and a Gravatar where one exists.
+- **The ID token** carries `email`, `email_verified` as a boolean or the string `"true"`, which
+  `verifyIDToken` already accepts, and `is_private_email`, which is not read: a hidden
+  `…@privaterelay.appleid.com` address is an account of its own (Q6 on #264, Gunnar's decision).
+- **PKCE is sent though Apple documents none**; the nonce, which Apple does document and the
+  backend checks, binds the code to the browser either way.
+
 ### Every provider must vouch for the email
 
 The email is the identity: with more than one provider, the same address from either means the
@@ -161,8 +225,8 @@ same person. So **a sign-in is refused unless the provider says the address is v
 sign someone in as another person's account. `verifyIDToken` in `internal/auth/tokens.go` enforces
 it for every provider, at the callback and for bearer tokens alike, and refuses a token without an
 email. The claim is the boolean `true` at Google and Keycloak; Cognito has sent the string
-`"true"`, which is accepted too, in any case. Adding a provider therefore means trusting it with
-that claim — see
+`"true"`, and Apple documents either, which is accepted too, in any case. Adding a provider
+therefore means trusting it with that claim — see
 [decisions/authentication.md](decisions/authentication.md#the-email-stays-the-identity-and-every-provider-must-verify-it).
 
 ## Apps sign in with a bearer ID token
@@ -280,7 +344,8 @@ Anything that had to display one user's name to another — sharing, an audit tr
 to revisit that
 ([decisions/authentication.md](decisions/authentication.md#name-and-picture-are-session-data-not-identity)).
 
-Both need the `profile` scope, which every sign-in asks for. These are non-sensitive scopes;
+Both need the `profile` scope, which every sign-in asks for but Apple's, which knows none and
+sends neither ([Sign in with Apple](#sign-in-with-apple)). These are non-sensitive scopes;
 Google needs no verification review for them, and `picture` arrives with `profile` rather than
 being a permission of its own.
 
@@ -335,6 +400,13 @@ provider in the test with its own keys, discovery and token endpoint.
   signed in; a session ending after eight idle hours and seven days after sign-in, and not written
   on every request; sign-out ending it on the server; the Quarkus cookies cleared; only a usable
   provider's paths answering, and a further provider signing in at its own callback.
+- `internal/auth/formpost_test.go` — a provider shaped like Apple's (`postingProvider`): asked for
+  `form_post` and its own scopes, a sign-in cookie of `SameSite=None` for it alone and `Lax`
+  without `Secure`, a sign-in by POST with a signed client secret sent in the form and checked
+  against Apple's documented form, a fresh secret per exchange, a cancelled or another browser's
+  POST refused, the form read and not the query, and each callback answering its own method alone.
+- `internal/auth/config_signing_test.go` — the scopes, response mode and signing key settings,
+  and a half-configured, unreadable or wrong-curve key stopping the start.
 - `internal/auth/bearer_test.go` — the apps' way in: a verified email signed in; a token issued to
   another application, an unverified address, an access token, and an expired, forged or unknown
   token refused; an app's own client accepted where named; the provider chosen by issuer, and
@@ -343,8 +415,8 @@ provider in the test with its own keys, discovery and token endpoint.
   mistakes that stop the start, the provider list, discovery at another address, and ending a
   session without a redirect, as deleting an account does.
 - `internal/api/auth_test.go` — `/api/auth/me`, the provider list against the contract, and each
-  sign-in path reaching its provider; `internal/store/sessions_test.go` — the items, and a sign-in
-  under way taken once and not late; `internal/gravatar/gravatar_test.go` — the fallback.
+  sign-in path reaching its provider, a callback by GET or POST;
+  `internal/store/sessions_test.go` — the items, and a sign-in under way taken once and not late; `internal/gravatar/gravatar_test.go` — the fallback.
 - `e2e/tests/login.spec.ts` — the real authorization code flow against the stack's Keycloak in a
   real browser through httpd, including two accounts not seeing each other's tasks.
 - The live tests sign in to qa with its Cognito test accounts ([testing/live.md](testing/live.md)).
