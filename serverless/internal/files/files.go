@@ -28,8 +28,8 @@ import (
 )
 
 // Root is the prefix of everything the Go backend keeps in the bucket; attachmentPrefix and
-// recordPrefix are under it. The containers' backend keeps its files at bare keys and its records
-// under deleted-accounts/, and lists nothing under a prefix but those records.
+// recordPrefix are under it. The containers' backend, until #559, kept its files at bare keys and
+// its records under deleted-accounts/; what it left there is outside this backend's sight.
 const (
 	Root             = "serverless/"
 	attachmentPrefix = Root + "attachments/"

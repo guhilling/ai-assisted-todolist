@@ -10,6 +10,10 @@ server; and it is never renewed with the provider, ending after eight hours with
 in any case seven days after sign-in
 ([serverless.md](../deployment/serverless.md#sign-in)).
 
+Revised in part on 2026-11-16 (#613): the Go backend answers a plain 401 whatever a request
+carries, so `X-Requested-With` is no longer needed, and only Vite's proxy, where
+`TASKFEST_PUBLIC_ORIGIN` is unset, must preserve the `Host` header.
+
 **Decision.** The backend is the OIDC client; tokens live in the encrypted `q_session`
 cookie and never reach the browser.
 
@@ -32,6 +36,12 @@ provider beside Google, and #143 made the others named tenants.
 ## A main provider per profile, and named tenants beside it
 
 *Accepted · 2026-10-07 · #143, #194*
+
+Revised in part on 2026-11-16 (#559, #613): the Go backend has no tenants and nothing inherited.
+Each provider is its own `TASKFEST_OIDC_<ID>_*` settings, the main one first in
+`TASKFEST_AUTH_PROVIDERS`, and the cookies' `Secure` is one setting for all of them
+([authentication.md](../authentication.md#which-provider-where)). The Quarkus tenant block this
+section names is in the tag `pre-serverless`.
 
 **Decision (#143, reversing the earlier "one OIDC tenant").** The default `quarkus.oidc.*` tenant
 stays the main provider — Google in production and qa, Keycloak in dev and test — at
@@ -67,6 +77,10 @@ providers' sessions and state cookies, so a browser is never two people at once.
 
 *Accepted · 2026-10-07 · #143, #194*
 
+Revised in part on 2026-11-16 (#559, #613): the check is `verifyIDToken` in
+`serverless/internal/auth/tokens.go`, not `VerifiedEmail`; the rule stands. Whether the email's
+case should count is open in #622.
+
 **Decision (D1 on #141).** With several providers, the same email from any of them is the same
 `User`; no `(issuer, subject)` identity, no migration. A sign-in is refused unless the provider's
 ID token says `email_verified` (`VerifiedEmail`).
@@ -100,6 +114,11 @@ is also exactly what a fresh production deployment should show.
 ## Name and picture are session data, not identity
 
 *Accepted · 2026-09-28 · #63*
+
+Revised in part on 2026-11-16 (#559, #613): the Go backend keeps name and picture on the session
+item, so they are stored for the session's life, up to seven days, though never with the tasks
+([authentication.md](../authentication.md)). The scopes are the Go backend's own,
+`openid email profile`, for the same reason as below.
 
 **Decision.** `/api/auth/me` returns the signed-in person's display name and picture, read
 from the provider's token on each request. Neither is stored. `User` remains `id`, `email`,
@@ -159,6 +178,10 @@ trade is now written down rather than decided by omission.
 ## Apps send a bearer ID token, and the audience is checked in code
 
 *Accepted · 2026-10-10 · #270*
+
+Revised in part on 2026-11-16 (#559, #613): the checks are the Go backend's own
+(`serverless/internal/auth`), not Quarkus' `BearerIdToken` and `token.audience`; the rule stands
+([authentication.md](../authentication.md#apps-sign-in-with-a-bearer-id-token)).
 
 **Decision (#266, S1 on #264).** Every tenant is `hybrid`: the website keeps its code flow and
 session cookie, and an installed app sends its ID token as `Authorization: Bearer`. The tenant is
