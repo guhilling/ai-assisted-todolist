@@ -31,13 +31,16 @@ import type { Language } from '../i18n/language'
  * `https://appleid.cdn-apple.com/appleid/button?height=40&width=180&color=white&border=<true for
  * light>&type=sign-in&locale=<en_US|de_DE>&scale=<1|2|3>`.
  */
-const appleButtons: Record<Language, { light: string[]; dark: string[] }> = {
+const appleButtons: Record<Language, { light: Scales; dark: Scales }> = {
   en: { light: [appleEnLight, appleEnLight2x, appleEnLight3x], dark: [appleEnDark, appleEnDark2x, appleEnDark3x] },
   de: { light: [appleDeLight, appleDeLight2x, appleDeLight3x], dark: [appleDeDark, appleDeDark2x, appleDeDark3x] },
 }
 
+/** One image at 1x, 2x and 3x: a tuple, so that a missing scale does not compile. */
+type Scales = readonly [string, string, string]
+
 /** A `srcSet` of an image at 1x, 2x and 3x. */
-function scaled([one, two, three]: string[]): string {
+function scaled([one, two, three]: Scales): string {
   return `${one} 1x, ${two} 2x, ${three} 3x`
 }
 
@@ -57,11 +60,10 @@ type SignedOutProps = {
  * What an anonymous visitor sees: the app's name, a way in, and a link to what this is.
  *
  * Only providers the backend reports as `available` are offered, since an unavailable one has
- * no `loginUrl` and a card for it is a dead end. The buttons stand one under another, all in
- * Google's neutral style -- white, or dark in a dark theme -- each with its provider's icon
- * (`providerIcons.ts`): Google's rules require its button to be at least as prominent as any other. In practice exactly one is available -- the
- * profile decides whether that is Google or the local Keycloak -- so the normal render is a
- * single button and no chooser at all.
+ * no `loginUrl` and a card for it is a dead end. The buttons stand one under another: Google's and
+ * Apple's are their own images (#281), and every other provider's copies Google's neutral style --
+ * white, or dark in a dark theme -- with its icon (`providerIcons.ts`). Google's rules require its
+ * button to be at least as prominent as any other, Apple's that its be no smaller.
  *
  * Deliberately not an automatic redirect to that single provider. This repository exists to
  * be read, and bouncing every visitor to an identity provider would leave nowhere to say so.

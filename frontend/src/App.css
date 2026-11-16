@@ -443,7 +443,8 @@ html {
   border-radius: 20px;
 }
 
-/* Apple's generated button (#281), an image like Google's; its corners are Apple's own. */
+/* Apple's generated button (#281), an image like Google's. Its corners are drawn into the image;
+   the radius here shapes only the focus ring around them. */
 .sign-in-apple {
   display: block;
   line-height: 0;

@@ -148,7 +148,10 @@ describe('sign-in buttons', () => {
     const image = within(apple).getByRole('img', { name: 'Sign in with Apple' })
     expect(image).toHaveAttribute('width', '180')
     expect(image).toHaveAttribute('height', '40')
-    expect(apple.querySelector('source[media="(prefers-color-scheme: dark)"]')).not.toBeNull()
+    expect(image.getAttribute('src')).toMatch(/apple-sign-in-en-light/)
+    expect(apple.querySelector('source[media="(prefers-color-scheme: dark)"]')?.getAttribute('srcset')).toMatch(
+      /apple-sign-in-en-dark/,
+    )
   })
 
   it("speaks German on Apple's button when the page does", async () => {
@@ -159,6 +162,9 @@ describe('sign-in buttons', () => {
 
       const apple = await screen.findByRole('link', { name: 'Mit Apple anmelden' })
       expect(within(apple).getByRole('img').getAttribute('src')).toMatch(/apple-sign-in-de-light/)
+      expect(apple.querySelector('source[media="(prefers-color-scheme: dark)"]')?.getAttribute('srcset')).toMatch(
+        /apple-sign-in-de-dark/,
+      )
     } finally {
       localStorage.removeItem('taskfest.language')
       document.documentElement.lang = 'en'

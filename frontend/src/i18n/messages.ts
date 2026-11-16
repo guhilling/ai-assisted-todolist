@@ -270,7 +270,10 @@ export const en = {
     signInWith: (provider: string) => `Sign in with ${provider}`,
     /** Google's official button's words: Google's English in either language (D3 on #203). */
     google: 'Sign in with Google',
-    /** What Apple's generated button says in English, its image's alt (#281). */
+    /**
+     * What Apple's generated button says in English, its image's alt (#281). The words are drawn
+     * into the image (`assets/apple-sign-in-*`): changing them means fetching the images again.
+     */
     apple: 'Sign in with Apple',
     /** The mobile app's, when its sign-in in the browser did not complete. */
     failed: 'Signing in did not work. Try again.',
