@@ -64,4 +64,8 @@ func TestAProviderWithoutPKCEIsAskedAndExchangedWithoutIt(t *testing.T) {
 	if res.StatusCode != http.StatusSeeOther || posting.verifierSent {
 		t.Fatalf("callback answered %d; verifier sent: %v", res.StatusCode, posting.verifierSent)
 	}
+	// A refused sign-in answers 303 too: only a session proves the exchange went through.
+	if id, ok := s.Identify(b.request("GET", "/api/auth/me")); !ok || id.Provider != "posting" {
+		t.Errorf("not signed in: %+v, %v", id, ok)
+	}
 }
