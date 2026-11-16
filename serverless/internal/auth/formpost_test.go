@@ -29,6 +29,8 @@ type postingProvider struct {
 	key *ecdsa.PrivateKey
 	// secrets are the client secrets the token endpoint was sent, for the test to look at.
 	secrets []string
+	// verifierSent is whether any exchange came with a PKCE code verifier.
+	verifierSent bool
 }
 
 func newPostingProvider(t *testing.T) *postingProvider {
@@ -88,9 +90,15 @@ func (p *postingProvider) token(w http.ResponseWriter, r *http.Request) {
 	if err == nil {
 		err = signed.Claims(&p.key.PublicKey, &c)
 	}
-	sum := sha256.Sum256([]byte(r.PostForm.Get("code_verifier")))
-	if err != nil || !ok || r.PostForm.Get("client_id") != "services-id" ||
-		base64.RawURLEncoding.EncodeToString(sum[:]) != issued.challenge {
+	// A code issued without a challenge takes no verifier, as one issued with it needs its own.
+	verifier := r.PostForm.Get("code_verifier")
+	p.mu.Lock()
+	p.verifierSent = p.verifierSent || verifier != ""
+	p.mu.Unlock()
+	sum := sha256.Sum256([]byte(verifier))
+	pkce := issued.challenge == "" && verifier == "" ||
+		issued.challenge != "" && base64.RawURLEncoding.EncodeToString(sum[:]) == issued.challenge
+	if err != nil || !ok || r.PostForm.Get("client_id") != "services-id" || !pkce {
 		w.WriteHeader(http.StatusBadRequest)
 		_, _ = w.Write([]byte(`{"error":"invalid_client"}`))
 		return

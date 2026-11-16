@@ -130,6 +130,10 @@ is the first in `TASKFEST_AUTH_PROVIDERS`.
 | qa | `google`, and `cognito` beside it (`test_sign_in = true`) | Google's as in prod; the test accounts' pool and client are made by `deployment/aws-tofu/modules/environment/test-sign-in.tf`; `serverless.tf` puts the client's id and secret in the function's settings |
 | the end-to-end stack, and running from source | `keycloak` | `taskfest-backend` / `taskfest-secret`, checked in as throwaway values |
 
+Either AWS environment adds `apple` after `google` once its `apple_sign_in` is `offered` (#281):
+the Services ID, key id and team id from `terraform.tfvars`, the key from Secrets Manager
+([deployment/names-and-certificates.md](deployment/names-and-certificates.md#sign-in-with-apple-281)).
+
 `deployment/aws-tofu/modules/environment/serverless.tf` writes these settings. An environment with
 no Google client id has sign-in switched off: `TASKFEST_AUTH_ENABLED` is false and no provider is
 declared.
@@ -149,6 +153,7 @@ TASKFEST_OIDC_<ID>_CLIENT_SECRET=…       # or _CLIENT_SECRET_ARN, a Secrets Ma
 TASKFEST_OIDC_<ID>_AUDIENCES=…           # further client ids a bearer token may be issued to
 TASKFEST_OIDC_<ID>_SCOPES=openid,email   # what sign-in asks for; openid,email,profile if unset
 TASKFEST_OIDC_<ID>_RESPONSE_MODE=form_post  # the provider POSTs the browser back; query if unset
+TASKFEST_OIDC_<ID>_PKCE=false            # leaves PKCE out with this provider; on if unset
 TASKFEST_OIDC_<ID>_SIGNING_KEY_SECRET=…  # instead of CLIENT_SECRET: a PEM EC P-256 key that signs
                                          # it, or _SIGNING_KEY_SECRET_ARN, a Secrets Manager secret
 TASKFEST_OIDC_<ID>_SIGNING_KEY_ID=…      # the key's id, the signed secret's kid
@@ -200,6 +205,10 @@ TASKFEST_OIDC_APPLE_RESPONSE_MODE=form_post
   every exchange of a code, valid five minutes, so there is nothing to rotate and nothing worth
   stealing (`signedClientSecret` in `internal/auth/clientsecret.go`). The key is checked at the
   start: one that is no EC P-256 key in PEM, or half the three settings, stops it.
+- **PKCE is sent to Apple as to every provider**, though Apple documents none; a forum report says
+  its token endpoint ignores the verifier. Should a real sign-in show otherwise,
+  `TASKFEST_OIDC_APPLE_PKCE=false` turns it off for Apple alone, without a release; the nonce
+  still ties the code to the browser's sign-in. Scopes without `openid` stop the start.
 - **The credentials go in the form.** Apple's metadata offers `client_secret_post` alone; a
   provider whose metadata says so gets them in the token request's body, and every other provider
   as before (`authStyle`).

@@ -216,7 +216,10 @@ func (s *Service) Login(w http.ResponseWriter, r *http.Request, id string) {
 		return
 	}
 	http.SetCookie(w, s.signInCookie(p, state, SignInLifetime))
-	options := []oauth2.AuthCodeOption{oauth2.S256ChallengeOption(verifier), oauth2.SetAuthURLParam("nonce", nonce)}
+	options := []oauth2.AuthCodeOption{oauth2.SetAuthURLParam("nonce", nonce)}
+	if !p.NoPKCE {
+		options = append(options, oauth2.S256ChallengeOption(verifier))
+	}
 	if p.formPost() {
 		options = append(options, oauth2.SetAuthURLParam("response_mode", ResponseModeFormPost))
 	}
@@ -318,7 +321,11 @@ func (s *Service) finish(r *http.Request, p Provider, q url.Values) (identity.Id
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 	defer cancel()
-	tokens, err := conf.Exchange(ctx, q.Get("code"), oauth2.VerifierOption(pending.Verifier))
+	var exchange []oauth2.AuthCodeOption
+	if !p.NoPKCE {
+		exchange = append(exchange, oauth2.VerifierOption(pending.Verifier))
+	}
+	tokens, err := conf.Exchange(ctx, q.Get("code"), exchange...)
 	if err != nil {
 		return identity.Identity{}, refused("exchanging the code: %v", err)
 	}

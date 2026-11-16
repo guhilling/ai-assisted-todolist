@@ -277,7 +277,7 @@ export const en = {
      * is the identity, so it is an account of its own.
      */
     appleHiddenEmail:
-      'If you hide your email from Apple, TaskFest sees a different address: that is an account of its own, separate from one with Google.',
+      'If you choose Hide My Email, Apple gives TaskFest a different address: that is an account of its own, separate from one with Google.',
   },
   paused: {
     message: (environment: string | null) =>
@@ -502,7 +502,7 @@ export const de: Messages = {
     google: 'Sign in with Google',
     failed: 'Die Anmeldung hat nicht geklappt. Versuch es noch einmal.',
     appleHiddenEmail:
-      'Wenn du deine E-Mail-Adresse vor Apple verbirgst, sieht TaskFest eine andere Adresse: Das ist ein eigenes Konto, getrennt von einem mit Google.',
+      'Wenn du „E-Mail-Adresse verbergen“ wählst, gibt Apple TaskFest eine andere Adresse: Das ist ein eigenes Konto, getrennt von einem mit Google.',
   },
   paused: {
     message: (environment: string | null) =>

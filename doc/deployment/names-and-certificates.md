@@ -94,6 +94,8 @@ Then, per environment, in three steps, because an empty key would stop the funct
 
 3. `offered = true`, applied: the function's settings name the provider, and its button appears.
 
+## The test accounts' Cognito pool (qa)
+
 
 
 qa has a second sign-in provider beside Google: a Cognito user pool with two test accounts,

@@ -54,6 +54,11 @@ type Provider struct {
 	// ResponseMode is how the provider returns the browser to the callback: "" by a redirect
 	// with the answer in the query, as every provider can, or ResponseModeFormPost.
 	ResponseMode string
+	// NoPKCE leaves PKCE out of sign-in with this provider: no challenge in the authorization
+	// request, no verifier in the exchange. Off by default; Apple documents no PKCE (#281), and if
+	// its token endpoint ever refused the verifier, a setting rather than a release turns it off.
+	// The nonce still ties the code to this browser's sign-in.
+	NoPKCE bool
 	// Audiences are the client ids a bearer ID token may be issued to; empty means ClientID
 	// alone. An app with a client of its own (iOS at Google, the app's Cognito client) adds it.
 	Audiences []string
@@ -138,6 +143,7 @@ type Config struct {
 //	TASKFEST_OIDC_<ID>_AUDIENCES     further client ids a bearer token may name, comma-separated
 //	TASKFEST_OIDC_<ID>_SCOPES        what sign-in asks for, comma-separated; openid,email,profile
 //	TASKFEST_OIDC_<ID>_RESPONSE_MODE "form_post" for a provider that POSTs the browser back
+//	TASKFEST_OIDC_<ID>_PKCE          "false" leaves PKCE out with this provider; on otherwise
 //	TASKFEST_OIDC_<ID>_SIGNING_KEY_SECRET in place of CLIENT_SECRET: a PEM EC P-256 private key
 //	                                 (Apple's .p8) that signs the client secret, with
 //	TASKFEST_OIDC_<ID>_SIGNING_KEY_ID     the key's id, and
@@ -181,6 +187,17 @@ func LoadConfig(getenv func(string) string) (Config, error) {
 		default:
 			return Config{}, fmt.Errorf("provider %q: %sRESPONSE_MODE is %q; query or %s are known",
 				id, key, p.ResponseMode, ResponseModeFormPost)
+		}
+		switch pkce := getenv(key + "PKCE"); pkce {
+		case "", "true":
+		case "false":
+			p.NoPKCE = true
+		default:
+			return Config{}, fmt.Errorf("provider %q: %sPKCE is %q; true or false are known", id, key, pkce)
+		}
+		if len(p.Scopes) > 0 && !slices.Contains(p.Scopes, "openid") {
+			// Without it the provider sends no ID token, and every sign-in fails after a good start.
+			return Config{}, fmt.Errorf("provider %q: %sSCOPES %v lacks openid", id, key, p.Scopes)
 		}
 		if err := p.loadSigningKey(getenv(key+"SIGNING_KEY_SECRET"), key); err != nil {
 			return Config{}, fmt.Errorf("provider %q: %w", id, err)

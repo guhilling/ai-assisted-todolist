@@ -136,9 +136,7 @@ describe('sign-in buttons', () => {
     // Decorative: the label already says which provider it is.
     expect(testAccount.querySelector('img')).toHaveAttribute('alt', '')
   })
-})
 
-describe('paused', () => {
   it("says beside Apple's button that a hidden address is an account of its own (#281)", async () => {
     // Q6 on #264: Apple's Hide My Email gives a relay address, so the same person signed in with
     // Google is someone else there, and the page says so where the choice is made.
@@ -146,7 +144,7 @@ describe('paused', () => {
     render(<App />)
 
     await waitFor(() => expect(screen.getByRole('link', { name: /sign in with apple/i })).toBeInTheDocument())
-    expect(screen.getByText(/hide your email/i)).toBeInTheDocument()
+    expect(screen.getByText(/hide my email/i)).toBeInTheDocument()
   })
 
   it('says nothing of hidden addresses without Apple', async () => {
@@ -154,9 +152,11 @@ describe('paused', () => {
     render(<App />)
 
     await waitFor(() => expect(screen.getByRole('link', { name: /sign in with google/i })).toBeInTheDocument())
-    expect(screen.queryByText(/hide your email/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/hide my email/i)).not.toBeInTheDocument()
   })
+})
 
+describe('paused', () => {
   it('says which environment is paused while its backend is not running', async () => {
     globalThis.fetch = pausedEnvironment('QA')
     render(<App />)
