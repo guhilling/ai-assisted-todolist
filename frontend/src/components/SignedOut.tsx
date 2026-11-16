@@ -5,10 +5,41 @@ import googleDark3x from '../assets/google-sign-in-dark@3x.png'
 import googleLight from '../assets/google-sign-in-light.png'
 import googleLight2x from '../assets/google-sign-in-light@2x.png'
 import googleLight3x from '../assets/google-sign-in-light@3x.png'
+import appleDeDark from '../assets/apple-sign-in-de-dark.png'
+import appleDeDark2x from '../assets/apple-sign-in-de-dark@2x.png'
+import appleDeDark3x from '../assets/apple-sign-in-de-dark@3x.png'
+import appleDeLight from '../assets/apple-sign-in-de-light.png'
+import appleDeLight2x from '../assets/apple-sign-in-de-light@2x.png'
+import appleDeLight3x from '../assets/apple-sign-in-de-light@3x.png'
+import appleEnDark from '../assets/apple-sign-in-en-dark.png'
+import appleEnDark2x from '../assets/apple-sign-in-en-dark@2x.png'
+import appleEnDark3x from '../assets/apple-sign-in-en-dark@3x.png'
+import appleEnLight from '../assets/apple-sign-in-en-light.png'
+import appleEnLight2x from '../assets/apple-sign-in-en-light@2x.png'
+import appleEnLight3x from '../assets/apple-sign-in-en-light@3x.png'
 import key from '../assets/key.svg'
 import taskfestMark from '../assets/taskfest-mark.svg'
 import { iconFor } from '../providerIcons'
 import { useI18n } from '../i18n/context'
+import type { Language } from '../i18n/language'
+
+/**
+ * Apple's button as Apple's server draws it (#281), in each language and theme, at 180 by 40 like
+ * Google's: Apple's rules want its button no smaller than any other sign-in button, and its logo
+ * only as Apple supplies it. White with an outline on the light page, white without one on the
+ * dark page, where Apple forbids its black button. Fetched from
+ * `https://appleid.cdn-apple.com/appleid/button?height=40&width=180&color=white&border=<true for
+ * light>&type=sign-in&locale=<en_US|de_DE>&scale=<1|2|3>`.
+ */
+const appleButtons: Record<Language, { light: string[]; dark: string[] }> = {
+  en: { light: [appleEnLight, appleEnLight2x, appleEnLight3x], dark: [appleEnDark, appleEnDark2x, appleEnDark3x] },
+  de: { light: [appleDeLight, appleDeLight2x, appleDeLight3x], dark: [appleDeDark, appleDeDark2x, appleDeDark3x] },
+}
+
+/** A `srcSet` of an image at 1x, 2x and 3x. */
+function scaled([one, two, three]: string[]): string {
+  return `${one} 1x, ${two} 2x, ${three} 3x`
+}
 
 type SignedOutProps = {
   providers: AuthProvidersResponse
@@ -20,15 +51,6 @@ type SignedOutProps = {
    * it the component needs.
    */
   apiBaseUrl: string
-}
-
-/** Whether an issuer is Apple's, whose Hide My Email makes an account of its own (#281). */
-function isApple(issuer: string): boolean {
-  try {
-    return new URL(issuer).hostname === 'appleid.apple.com'
-  } catch {
-    return false
-  }
 }
 
 /**
@@ -45,7 +67,7 @@ function isApple(issuer: string): boolean {
  * be read, and bouncing every visitor to an identity provider would leave nowhere to say so.
  */
 function SignedOut({ providers, apiBaseUrl }: Readonly<SignedOutProps>) {
-  const { messages } = useI18n()
+  const { messages, language } = useI18n()
   const available = providers.providers.filter((provider) => provider.available && provider.loginUrl)
 
   return (
@@ -85,6 +107,17 @@ function SignedOut({ providers, apiBaseUrl }: Readonly<SignedOutProps>) {
                 </a>
               )
             }
+            if (icon === 'apple') {
+              const apple = appleButtons[language]
+              return (
+                <a className="sign-in-apple" key={provider.id} href={href}>
+                  <picture>
+                    <source srcSet={scaled(apple.dark)} media="(prefers-color-scheme: dark)" />
+                    <img src={apple.light[0]} srcSet={scaled(apple.light)} alt={messages.signedOut.apple} width={180} height={40} />
+                  </picture>
+                </a>
+              )
+            }
             return (
               <a className="sign-in-button" key={provider.id} href={href}>
                 <img className="sign-in-icon" src={icon === 'taskfest' ? taskfestMark : key} alt="" width={20} height={20} />
@@ -92,7 +125,7 @@ function SignedOut({ providers, apiBaseUrl }: Readonly<SignedOutProps>) {
               </a>
             )
           })}
-          {available.some((provider) => isApple(provider.issuer)) && (
+          {available.some((provider) => iconFor(provider.issuer) === 'apple') && (
             <p className="signed-out-note">{messages.signedOut.appleHiddenEmail}</p>
           )}
         </div>
