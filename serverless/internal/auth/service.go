@@ -85,6 +85,9 @@ type Store interface {
 	PutPendingSignIn(ctx context.Context, key string, p PendingSignIn, expires time.Time) error
 	// TakePendingSignIn returns and deletes it in one step, so a callback can be used once.
 	TakePendingSignIn(ctx context.Context, key string) (PendingSignIn, bool, error)
+	// ClaimIDToken records that an ID token, by its hash, has been traded for an app session, and
+	// says whether it was the first time, in one conditional write; the record ends by itself.
+	ClaimIDToken(ctx context.Context, key string, until time.Time) (bool, error)
 }
 
 // Avatars finds a picture for an address when the provider sent none: Gravatar, in the backend.
@@ -136,8 +139,8 @@ func (s *Service) Identify(r *http.Request) (identity.Identity, bool) {
 // anything else as a provider's ID token. The prefix decides, so an app session token is never
 // parsed as a JWT, nor an ID token looked up as a session.
 func (s *Service) bearer(ctx context.Context, header string) (identity.Identity, error) {
-	scheme, raw, ok := strings.Cut(header, " ")
-	if !ok || !strings.EqualFold(scheme, "Bearer") || raw == "" {
+	raw := bearerOf(header)
+	if raw == "" {
 		return identity.Identity{}, refused("not a bearer token")
 	}
 	if IsAppSessionToken(raw) {

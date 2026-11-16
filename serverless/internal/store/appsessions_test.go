@@ -93,3 +93,20 @@ func TestEndingAnAppSessionDeletesItAndItsLink(t *testing.T) {
 		t.Errorf("left: %v", left)
 	}
 }
+
+func TestAnIDTokenCanBeClaimedForAnAppSessionOnce(t *testing.T) {
+	client, table := localTable(t)
+	s := NewSessions(client, table)
+	ctx := context.Background()
+	until := time.Now().Add(time.Hour)
+
+	if first, err := s.ClaimIDToken(ctx, "token-hash", until); err != nil || !first {
+		t.Fatalf("first claim: %v, %v", first, err)
+	}
+	if first, err := s.ClaimIDToken(ctx, "token-hash", until); err != nil || first {
+		t.Fatalf("second claim: %v, %v", first, err)
+	}
+	if first, err := s.ClaimIDToken(ctx, "another-hash", until); err != nil || !first {
+		t.Fatalf("another token: %v, %v", first, err)
+	}
+}

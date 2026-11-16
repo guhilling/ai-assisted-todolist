@@ -84,9 +84,9 @@ technisch erforderlich, weshalb kein Einwilligungsbanner erscheint (§ 25 Abs. 2
 
 Die TaskFest-App kann Sie ohne Cookie angemeldet halten: Nach der Anmeldung erhält sie einen
 Zufallswert derselben Art, bewahrt ihn auf Ihrem Gerät auf und sendet ihn mit jeder Anfrage. Die
-Sitzung, die er bezeichnet, enthält dasselbe wie oben und wird gespeichert, bis sie endet: wenn
-Sie sich in der App abmelden, und spätestens 30 Tage nach der Anmeldung. Auch hier werden Ihre
-Anmelde-Token nicht aufbewahrt.
+Sitzung, die er bezeichnet, enthält dasselbe wie eine Sitzung auf der Website und wird gespeichert,
+bis sie endet: wenn Sie sich in der App abmelden oder Ihr Konto löschen, und spätestens 30 Tage
+nach der Anmeldung. Auch hier werden Ihre Anmelde-Token nicht aufbewahrt.
 
 Es gibt **keine** Analyse-, Werbe- oder Tracking-Cookies und keinerlei Analyse- oder
 Tracking-Skripte.

@@ -49,8 +49,9 @@ func TestAnAppSessionTokenCanNeverBeMistakenForAnIDToken(t *testing.T) {
 	s, _ := serviceFor(f)
 	format := regexp.MustCompile(`^taskfest_app_[A-Za-z0-9_-]{43}$`)
 
-	for range 20 {
-		token := startApp(t, s, f.sign(nil)).Token
+	for i := range 20 {
+		// A token of its own each time: an ID token trades once (#630).
+		token := startApp(t, s, f.sign(map[string]any{"jti": i})).Token
 		if !format.MatchString(token) || strings.Contains(token, ".") {
 			t.Errorf("token %q is not taskfest_app_ and 43 characters of base64url without a dot", token)
 		}
@@ -66,7 +67,8 @@ func TestAnAppSessionTokenCanNeverBeMistakenForAnIDToken(t *testing.T) {
 func TestAnAppSessionLastsThirtyDaysHoweverLittleItIsUsed(t *testing.T) {
 	f := newFakeProvider(t)
 	s, store := serviceFor(f)
-	start := time.Now()
+	// Whole seconds, as an app session is stored (#630).
+	start := time.Unix(time.Now().Unix(), 0)
 	s.now = func() time.Time { return start }
 	token := startApp(t, s, f.sign(nil)).Token
 
@@ -159,7 +161,7 @@ func TestEndingAnAppSessionSignsTheAppOut(t *testing.T) {
 	f := newFakeProvider(t)
 	s, store := serviceFor(f)
 	token := startApp(t, s, f.sign(nil)).Token
-	other := startApp(t, s, f.sign(nil)).Token
+	other := startApp(t, s, f.sign(map[string]any{"jti": "another sign-in"})).Token
 
 	if err := s.EndAppSession(withBearer(token)); err != nil {
 		t.Fatal(err)

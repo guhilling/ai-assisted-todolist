@@ -217,6 +217,30 @@ func (s *Sessions) PutPendingSignIn(ctx context.Context, key string, p auth.Pend
 	return nil
 }
 
+// ClaimIDToken records an ID token traded for an app session, by its hash, as TRADED#<key>, and
+// says whether it was the first claim: a conditional put, so two trades at once cannot both pass.
+// The record's TTL ends it once no ID token it could name is valid any more.
+func (s *Sessions) ClaimIDToken(ctx context.Context, key string, until time.Time) (bool, error) {
+	_, err := s.client.PutItem(ctx, &dynamodb.PutItemInput{
+		TableName: aws.String(s.table),
+		Item: map[string]types.AttributeValue{
+			"PK":        &types.AttributeValueMemberS{Value: "TRADED#" + key},
+			"SK":        &types.AttributeValueMemberS{Value: "TRADED"},
+			"expiresAt": &types.AttributeValueMemberN{Value: strconv.FormatInt(until.Unix(), 10)},
+		},
+		ConditionExpression: aws.String("attribute_not_exists(PK)"),
+	})
+	var taken *types.ConditionalCheckFailedException
+	switch {
+	case err == nil:
+		return true, nil
+	case errors.As(err, &taken):
+		return false, nil
+	default:
+		return false, fmt.Errorf("claim an ID token: %w", err)
+	}
+}
+
 // TakePendingSignIn deletes a sign-in under way and returns what it was, in one request, so two
 // callbacks with the same state cannot both finish it. One past its time counts as none.
 func (s *Sessions) TakePendingSignIn(ctx context.Context, key string) (auth.PendingSignIn, bool, error) {

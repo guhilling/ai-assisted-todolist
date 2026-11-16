@@ -309,6 +309,10 @@ App      GET /api/tasks  Authorization: Bearer taskfest_app_…  → 200, or 401
 App      DELETE /api/auth/app-session  Authorization: Bearer taskfest_app_…  → 204 (sign-out)
 ```
 
+- **An ID token trades once.** The backend remembers each traded token's hash for a day
+  (`TRADED#<hash>`, a conditional write, so two trades at once cannot both pass), longer than any
+  provider's ID token is valid: one that leaked cannot be turned into many thirty-day sessions. A
+  new sign-in brings a new ID token. The session ends on a whole second, as it is stored.
 - **Only a provider's ID token starts one.** It is verified exactly as a bearer request's is:
   issuer, signature, expiry, audience, an ID token, a verified email. An app session token cannot
   start another, so a session cannot renew itself, and a session cookie cannot start one either.

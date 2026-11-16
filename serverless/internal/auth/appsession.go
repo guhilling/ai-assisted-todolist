@@ -34,9 +34,19 @@ func IsAppSessionToken(raw string) bool {
 	return strings.HasPrefix(raw, AppSessionPrefix)
 }
 
+// idTokenClaimLifetime is how long a traded ID token is remembered as traded: a day, longer than
+// any provider's ID token is valid (Google's an hour, Apple's minutes).
+const idTokenClaimLifetime = 24 * time.Hour
+
 // bearerToken is the token of a request's Authorization: Bearer header, or "" without one.
 func bearerToken(r *http.Request) string {
-	scheme, raw, ok := strings.Cut(r.Header.Get("Authorization"), " ")
+	return bearerOf(r.Header.Get("Authorization"))
+}
+
+// bearerOf is the token of an Authorization header's Bearer scheme, or "" for any other header:
+// the one place a bearer token is read, for a request's identity and its app session alike.
+func bearerOf(header string) string {
+	scheme, raw, ok := strings.Cut(header, " ")
 	if !ok || !strings.EqualFold(scheme, "Bearer") {
 		return ""
 	}
@@ -61,8 +71,19 @@ func (s *Service) StartAppSession(r *http.Request) (AppSession, error) {
 	if err != nil {
 		return AppSession{}, err
 	}
+	// Once, and enforced (#630): an ID token that leaked could otherwise be traded for any number
+	// of thirty-day sessions while it is valid. Remembered for a day, longer than any provider's
+	// ID token lasts.
+	first, err := s.store.ClaimIDToken(r.Context(), hash(raw), s.now().Add(idTokenClaimLifetime))
+	if err != nil {
+		return AppSession{}, err
+	}
+	if !first {
+		return AppSession{}, refused("this ID token has been traded for an app session already")
+	}
 	token := AppSessionPrefix + random()
-	now := s.now()
+	// Whole seconds, as the store keeps them: the end the app is told is the end the backend keeps.
+	now := s.now().Truncate(time.Second)
 	session := Session{Identity: id, Created: now, LastSeen: now, App: true}
 	if err := s.store.PutSession(r.Context(), hash(token), session, session.ends()); err != nil {
 		return AppSession{}, err
