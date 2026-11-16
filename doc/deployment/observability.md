@@ -10,8 +10,9 @@ watched.
 - **Logs.** Each of the five functions writes to its own CloudWatch log group, and the HTTP API
   writes an access log, one line per request with its path, status and latency; JSON lines, 30 days
   in qa and 90 in prod (`serverless.tf`, `serverless-jobs.tf`).
-- **Alarms**, eight per environment, on what a function-based backend shows: the API function's
-  errors and throttles, the HTTP API's server errors (five in five minutes), the stream function
+- **Alarms**, nine per environment, on what a function-based backend shows: the API function's
+  errors and throttles, the HTTP API's server errors (five in five minutes) and its request count
+  (20,000 in an hour, #607), the stream function
   falling behind, the scheduled jobs' errors, and the table's throttles. Thresholds and reasons are
   in [serverless.md](serverless.md#the-infrastructure). And the orphan alert: a metric filter on
   the clean-up's log counts the alert line.

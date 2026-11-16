@@ -897,6 +897,9 @@
           "400": {
             "description": "A field failed validation, for example a blank description or a due date that is past everywhere."
           },
+          "422": {
+            "description": "Refused: the caller has 500 tasks already (#607)."
+          },
           "401": {
             "description": "Not Authorized"
           },
@@ -1029,6 +1032,9 @@
           },
           "404": {
             "description": "No draft or task with this id is owned by the caller."
+          },
+          "422": {
+            "description": "Refused: the caller has 500 tasks already, and the draft would be one more (#607)."
           },
           "401": {
             "description": "Not Authorized"

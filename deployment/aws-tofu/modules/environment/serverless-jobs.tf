@@ -361,6 +361,17 @@ locals {
       dimensions  = { ApiId = aws_apigatewayv2_api.this.id, Stage = aws_apigatewayv2_stage.default.name }
       threshold   = 5
     }
+    # Abuse under the throttle (#607): a script sending steadily trips no error alarm, and a budget
+    # only a day or more later. The throttle lets about 36,000 an hour through, so the threshold
+    # sits well below that, and still far above what the demo's people send: a script at half the
+    # throttle mails within the hour (the alarm is Gunnar's choice on #607, the threshold Claude's).
+    api-requests = {
+      description = "The ${var.environment} API answered 20,000 requests or more in an hour: far beyond its people; a script, most likely (#607)."
+      namespace   = "AWS/ApiGateway", metric = "Count"
+      dimensions  = { ApiId = aws_apigatewayv2_api.this.id, Stage = aws_apigatewayv2_stage.default.name }
+      threshold   = 20000
+      period      = 3600
+    }
     # A record whose files fail to go is reported, not raised, so the function's errors never see
     # it; the stream falling behind does, ten minutes before the hour after which it gives up.
     streams-behind = {
@@ -396,7 +407,7 @@ resource "aws_cloudwatch_metric_alarm" "serverless" {
   metric_name         = each.value.metric
   dimensions          = each.value.dimensions
   statistic           = lookup(each.value, "statistic", "Sum")
-  period              = 300
+  period              = lookup(each.value, "period", 300)
   evaluation_periods  = 1
   threshold           = lookup(each.value, "threshold", 1)
   comparison_operator = "GreaterThanOrEqualToThreshold"

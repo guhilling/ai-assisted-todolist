@@ -1,8 +1,11 @@
 package api
 
 import (
+	"errors"
 	"log/slog"
 	"net/http"
+
+	"github.com/guhilling/ai-assisted-todolist/serverless/internal/board"
 )
 
 // PostApiTasksDrafts starts a draft (#381) for the caller's add form to attach files to before
@@ -44,6 +47,11 @@ func (s *Server) PostApiTasksDraftsIdAdd(w http.ResponseWriter, r *http.Request,
 	// attachmentIds is accepted and does nothing: a draft's attachments come with it, and an
 	// undo only ever re-creates a task.
 	t, found, err := s.Writes.AddDraft(r.Context(), email, req.task(id), s.now())
+	if errors.Is(err, board.ErrTooManyTasks) {
+		slog.InfoContext(r.Context(), "a draft is refused as a task", "reason", "the tasks' limit")
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		return
+	}
 	if err != nil {
 		slog.ErrorContext(r.Context(), "adding a draft failed", "error", err)
 		w.WriteHeader(http.StatusInternalServerError)

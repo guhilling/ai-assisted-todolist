@@ -38,6 +38,8 @@ import {
   isWebAddress,
   localeOf,
   NotDatedBackError,
+  REQUESTS_AT_ONCE,
+  settledInTurn,
   todayIso,
   type Attachment,
   type Language,
@@ -1467,7 +1469,8 @@ export function TaskFestApp({
     const signedOut = sinceSignIn()
     const outcomes = await sending(() =>
       caller().then(
-        (session) => Promise.allSettled(tasks.map((task) => changes.remove(session, task))),
+        // A few at a time, inside the API's burst (#607).
+        (session) => settledInTurn(tasks, REQUESTS_AT_ONCE, (task) => changes.remove(session, task)),
         // Without a session, none of them went.
         (cause: unknown) => tasks.map((): PromiseSettledResult<void> => ({ status: 'rejected', reason: cause })),
       ),
@@ -1505,7 +1508,7 @@ export function TaskFestApp({
     const signedOut = sinceSignIn()
     const outcomes = await sending(() =>
       caller().then(
-        (session) => Promise.allSettled(tasks.map((task) => changes.restore(session, task, today))),
+        (session) => settledInTurn(tasks, REQUESTS_AT_ONCE, (task) => changes.restore(session, task, today)),
         (cause: unknown) => tasks.map((): PromiseSettledResult<BoardTask> => ({ status: 'rejected', reason: cause })),
       ),
     )

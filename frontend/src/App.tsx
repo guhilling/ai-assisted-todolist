@@ -54,6 +54,7 @@ import { useI18n } from './i18n/context'
 import { describeFailure } from './i18n/failures'
 import type { Messages } from './i18n/messages'
 import { I18nProvider } from './i18n/I18nProvider'
+import { REQUESTS_AT_ONCE, settledInTurn } from './settledInTurn'
 
 /**
  * The dated sections, in the order they appear. `Completed` is handled separately. A section's
@@ -402,9 +403,14 @@ function Board() {
 
   const clearCompleted = async () => {
     setError(null)
-    // All at once: each deletion stands on its own, and the undo offers those that went.
-    const outcomes = await Promise.all(completedTasks.map(async (task) => ((await deleteOne(task)) ? task : null)))
-    const gone = outcomes.filter((task): task is Task => task !== null)
+    // A few at a time, inside the API's burst (#607): each deletion stands on its own, and the
+    // undo offers those that went.
+    const outcomes = await settledInTurn(completedTasks, REQUESTS_AT_ONCE, async (task) =>
+      (await deleteOne(task)) ? task : null,
+    )
+    const gone = outcomes
+      .map((outcome) => (outcome.status === 'fulfilled' ? outcome.value : null))
+      .filter((task): task is Task => task !== null)
     if (gone.length > 0) {
       offerUndo(gone)
     }
@@ -420,7 +426,7 @@ function Board() {
     // Each restore stands on its own (#426): what came back is shown, whatever another one did. An
     // expired session is the failure said first, since it signs out; then a task that did not come
     // back at all, before one only left dated today.
-    const outcomes = await Promise.allSettled(tasksToRestore.map((task) => restoreTask(task, today)))
+    const outcomes = await settledInTurn(tasksToRestore, REQUESTS_AT_ONCE, (task) => restoreTask(task, today))
     const restored: Task[] = []
     const lost: unknown[] = []
     const notDatedBack: unknown[] = []

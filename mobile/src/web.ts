@@ -40,6 +40,7 @@ export { storageUrl } from '../../frontend/src/storage'
 export { isWebAddress, LINK_CONTENT_TYPE } from '../../frontend/src/webAddress'
 export { attachmentLimits, attachmentTypes, checkFile, type AttachmentRefusal } from '../../frontend/src/attachmentPolicy'
 export { MAX_THUMBNAIL_BYTES, thumbnailCrop, thumbnailSize } from '../../frontend/src/thumbnail'
+export { REQUESTS_AT_ONCE, settledInTurn } from '../../frontend/src/settledInTurn'
 
 /**
  * Google's official "Sign in with Google" button, the images the website shows (#325): Google's

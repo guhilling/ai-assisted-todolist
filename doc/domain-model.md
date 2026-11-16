@@ -4,7 +4,7 @@
 
 | Term | Meaning |
 | --- | --- |
-| **Task** | A single thing its owner means to get done. With its attachments, the only thing this application stores on anyone's behalf. |
+| **Task** | A single thing its owner means to get done. With its attachments, the only thing this application stores on anyone's behalf. At most 500 per user; the next is refused, a draft added too (#607). |
 | **Owner** | The user a task belongs to. Every task has exactly one, and it never changes. |
 | **User** | Someone who owns tasks, identified by the verified email claim in their OIDC token. |
 | **State** | Whether a task is open (`TODO`) or done (`DONE`). `WORKING`, "in progress", is no longer offered (#334): the tasks that had it became open, and it stays in the API only until #345, because apps installed before then can still send it. The API accepts it and stores it as `TODO`, so no task is in progress again. |
