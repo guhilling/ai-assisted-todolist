@@ -3,11 +3,11 @@
  *
  * By the issuer rather than the provider's id, so no provider is named in the frontend: Google's
  * branding rules belong to Google as the identity provider, wherever a deployment declares it.
- * Google gets its own official button; a Cognito pool -- ours, the test accounts -- the TaskFest
- * mark; anything else a plain key. No other provider has an official sign-in icon we may use: AWS's
- * icons are licensed for architecture diagrams, not login buttons.
+ * Google and Apple get their own official buttons (#281); a Cognito pool -- ours, the test
+ * accounts -- the TaskFest mark; anything else a plain key. No other provider has an official
+ * sign-in icon we may use: AWS's icons are licensed for architecture diagrams, not login buttons.
  */
-export type ProviderIcon = 'google' | 'taskfest' | 'key'
+export type ProviderIcon = 'google' | 'apple' | 'taskfest' | 'key'
 
 /** Matches the host of a Cognito user pool's issuer, `cognito-idp.<region>.amazonaws.com`. */
 const COGNITO_HOST = /^cognito-idp\.[a-z0-9-]+\.amazonaws\.com$/
@@ -22,6 +22,9 @@ export function iconFor(issuer: string): ProviderIcon {
   }
   if (host === 'accounts.google.com') {
     return 'google'
+  }
+  if (host === 'appleid.apple.com') {
+    return 'apple'
   }
   return COGNITO_HOST.test(host) ? 'taskfest' : 'key'
 }

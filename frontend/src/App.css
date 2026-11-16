@@ -443,6 +443,14 @@ html {
   border-radius: 20px;
 }
 
+/* Apple's generated button (#281), an image like Google's. Its corners are drawn into the image;
+   the radius here shapes only the focus ring around them. */
+.sign-in-apple {
+  display: block;
+  line-height: 0;
+  border-radius: 6px;
+}
+
 /* Every other provider, in the style of Google's: its neutral light and dark themes, 40px high,
    so no button outranks another. The colours are Google's, deliberately not the app's tokens. */
 .sign-in-button {

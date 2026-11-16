@@ -62,6 +62,7 @@ commit that first wrote each one down. CI checks every line and that this index 
 - [Responses are validated against the schema the backend publishes](frontend.md#responses-are-validated-against-the-schema-the-backend-publishes)
 - [Spacing and type are scales, not values](frontend.md#spacing-and-type-are-scales-not-values)
 - [Sign-in buttons follow Google's branding rules, and every provider looks alike](frontend.md#sign-in-buttons-follow-googles-branding-rules-and-every-provider-looks-alike)
+- [Apple's own sign-in button, in the page's language](frontend.md#apples-own-sign-in-button-in-the-pages-language)
 - [English and German, from a typed catalogue of our own](frontend.md#english-and-german-from-a-typed-catalogue-of-our-own)
 - [Files go straight to storage, with the tab opened on the click](frontend.md#files-go-straight-to-storage-with-the-tab-opened-on-the-click)
 - [The mark is a panda with a ticked ear](frontend.md#the-mark-is-a-panda-with-a-ticked-ear)
