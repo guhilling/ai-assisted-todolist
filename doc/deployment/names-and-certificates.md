@@ -59,8 +59,14 @@ This is manual configuration in the Google console and cannot be automated here.
 - **Behind CloudFront and the HTTP API** the backend does not build its callback from the request:
   it takes its own address from `TASKFEST_PUBLIC_ORIGIN`, `https://<hostname>`, so Google is always
   asked to return to the registered redirect URI.
-- **Who may sign in** is decided in the Google console: with the app in *Testing*, only the Google
-  accounts listed as test users can.
+- **Who may sign in** is decided in the Google console, on the Google Auth Platform's *Audience*
+  page: in *Testing*, only the Google accounts listed as test users (at most 100); *In production*,
+  anyone with a Google account (#607). With only `openid`, `email` and `profile`, publishing needs
+  no verification review. Without brand verification the consent screen shows the domain rather
+  than the app's name and logo; brand verification usually takes two to three working days, and a
+  later change to the branding needs it again. Going back to *Testing* is not described in
+  Google's documentation: check the *Audience* page offers it before relying on it. **qa and prod
+  share this client**, so its publishing status is theirs together.
 
 ## The test accounts' Cognito pool (qa)
 
