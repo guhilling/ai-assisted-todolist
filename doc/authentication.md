@@ -271,7 +271,9 @@ the email lower-cased>`, so `Gunnar@Example.com` and `gunnar@example.com` are on
 case a provider sends (#622). An account begun before that under an email with capitals was keyed by
 the email as sent, and keeps that partition: `Accounts.AccountEmail` (`internal/store/emails.go`)
 answers which email keys the account, with one read of that partition's `META` item for an email
-with capitals and none for one in lower case. The API's caller is that email (`api.Keyed`), and so
+with capitals and none for one in lower case. Such a board is found only under exactly that
+casing: signed in as `gunnar@example.com`, or as any other casing, the lower-cased account is
+used, and the two stay apart until the older one is deleted. The API's caller is that email (`api.Keyed`), and so
 are a session's link, an account's deletion and its deletion record. A consequence worth
 knowing: because nothing outlives the session, a name can only ever be shown to its own owner.
 Anything that had to display one user's name to another — sharing, an audit trail — would have
