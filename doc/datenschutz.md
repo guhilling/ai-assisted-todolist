@@ -7,11 +7,11 @@ Diese Erklärung gilt für TaskFest, die Aufgabenliste unter `taskfest-qa.cloud.
 was die Anwendung tatsächlich tut, und wird in derselben Änderung angepasst wie das Verhalten, das
 sie beschreibt.
 
-Die Anwendung ist ein nicht kommerzielles Demonstrationsprojekt der Hilling IT GmbH. Unter
-`taskfest.cloud.hilling.de` kann sich jeder mit einem Google-Konto anmelden.
-`taskfest-qa.cloud.hilling.de` ist ihre Testumgebung, offen nur für Google-Konten, die dazu
-eingeladen wurden, und für zwei Testkonten, mit denen sich automatisierte Tests anmelden. Sie
-gehören keiner Person und enthalten nur, was diese Tests anlegen und wieder löschen.
+Die Anwendung ist ein nicht kommerzielles Demonstrationsprojekt der Hilling IT GmbH. Jeder mit
+einem Google-Konto kann sich anmelden. `taskfest-qa.cloud.hilling.de` ist ihre Testumgebung, die
+jederzeit geändert oder zurückgesetzt werden kann; dort melden sich außerdem zwei Testkonten an,
+die automatisierte Tests verwenden. Sie gehören keiner Person und enthalten nur, was diese Tests
+anlegen und wieder löschen.
 
 ## Verantwortlicher
 

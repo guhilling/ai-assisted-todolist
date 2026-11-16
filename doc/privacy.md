@@ -6,11 +6,10 @@ This policy covers TaskFest, the task list at `taskfest-qa.cloud.hilling.de` and
 (“the application”), and this documentation site. It describes what the application actually
 does, and changes in the same change as the behaviour it describes.
 
-The application is a non-commercial demonstration project of Hilling IT GmbH. At
-`taskfest.cloud.hilling.de` anyone with a Google account can sign in. `taskfest-qa.cloud.hilling.de`
-is its test environment, open only to Google accounts invited to it, and to two test accounts
-which automated tests sign in with. They belong to no person and hold only what those tests create
-and delete again.
+The application is a non-commercial demonstration project of Hilling IT GmbH. Anyone with a Google
+account can sign in. `taskfest-qa.cloud.hilling.de` is its test environment, which may be changed
+or reset at any time; there, two test accounts also sign in, which automated tests use. They
+belong to no person and hold only what those tests create and delete again.
 
 ## Who is responsible
 
