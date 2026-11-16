@@ -41,6 +41,8 @@ const VALIDATED = [
     'AttachmentResponse', 'UploadResponse', 'LinkResponse', 'RefusalResponse', 'VersionResponse',
     // The app's draft task (#381).
     'DraftResponse',
+    // The app's session, traded for a provider's ID token (#281).
+    'AppSessionResponse',
 ];
 
 /**
