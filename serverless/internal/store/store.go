@@ -33,7 +33,10 @@ func New(client QueryAPI, table string) *Store {
 }
 
 // OwnerKey is the partition key of a user's items: a hash of the email that identifies them, so
-// that the table's keys, which show up in logs and metrics, carry no address.
+// that the table's keys, which show up in logs and metrics, carry no address. It is given the
+// email their account is keyed by (Accounts.AccountEmail), which the API's caller already is; it
+// hashes it as given, so that an account begun before #622 keeps the partition of its email as
+// sent.
 func OwnerKey(email string) string {
 	return "USER#" + identity.EmailHash(email)
 }

@@ -50,8 +50,12 @@ type Server struct {
 	// nil where there is no bucket, and then an account is deleted without a record.
 	Accounts AccountDeletion
 	Records  DeletionRecords
-	Caller   Caller
-	SignIn   SignIn
+	// Emails says which email keys a signed-in person's account (#622), for the one route that
+	// identifies them without Caller, GetApiAuthMe; nil takes the email as sent.
+	Emails AccountEmails
+	// Caller is who sent a request, as the email their account is keyed by (Keyed).
+	Caller Caller
+	SignIn SignIn
 	// Now is the clock a new task's due date is judged by; time.Now when nil.
 	Now func() time.Time
 	// Version is the release this build was made as, MinimumAppVersion the oldest app it serves.
@@ -102,8 +106,14 @@ func (s *Server) GetApiAuthProviders(w http.ResponseWriter, r *http.Request) {
 func (s *Server) GetApiAuthMe(w http.ResponseWriter, r *http.Request) {
 	id, ok := s.SignIn.Identify(r)
 	if ok && s.Accounts != nil {
-		// As every other route's caller (Settled), so a session a deletion ended shows signed out.
-		switch settle(r, s.Accounts, id.Email) {
+		// As every other route's caller (Settled), so a session a deletion ended shows signed out;
+		// settled under the email the account is keyed by, but shown as the provider sent it.
+		email, keyed := s.accountEmail(r, id.Email)
+		if !keyed {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		switch settle(r, s.Accounts, email) {
 		case refuse:
 			ok = false
 		case identifyAgain:

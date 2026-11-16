@@ -94,11 +94,12 @@ func main() {
 	signIn := auth.New(authConfig, store.NewSessions(client, table), avatars)
 	accounts := store.NewAccounts(client, table)
 	server := &api.Server{Tasks: tasks, Writes: writes, Attachments: writes, Files: bucket, SignIn: signIn,
-		Accounts: accounts, Version: version, MinimumAppVersion: minimumApp,
-		Caller: api.Settled(func(r *http.Request) (string, bool) {
+		Accounts: accounts, Emails: accounts, Version: version, MinimumAppVersion: minimumApp,
+		// The caller is the email their account is keyed by (#622), then settled under it.
+		Caller: api.Settled(api.Keyed(func(r *http.Request) (string, bool) {
 			id, ok := signIn.Identify(r)
 			return id.Email, ok
-		}, accounts)}
+		}, accounts), accounts)}
 	if bucketName != "" {
 		// Without a bucket, as in a local stack with none, an account is deleted without a record.
 		server.Records = bucket
