@@ -19,6 +19,14 @@ import App from './App'
 import { pausedEnvironment, respond, stubApi } from './testing/api'
 import { ALICE, COGNITO, GOOGLE, renderSignedIn } from './testing/board'
 
+const APPLE = {
+  id: 'apple',
+  label: 'Apple',
+  available: true,
+  loginUrl: '/api/auth/login/apple',
+  issuer: 'https://appleid.apple.com',
+}
+
 const UNCONFIGURED_KEYCLOAK = {
   id: 'keycloak',
   label: 'Keycloak',
@@ -131,6 +139,24 @@ describe('sign-in buttons', () => {
 })
 
 describe('paused', () => {
+  it("says beside Apple's button that a hidden address is an account of its own (#281)", async () => {
+    // Q6 on #264: Apple's Hide My Email gives a relay address, so the same person signed in with
+    // Google is someone else there, and the page says so where the choice is made.
+    globalThis.fetch = stubApi({ providers: { enabled: true, providers: [GOOGLE, APPLE] } }) as unknown as typeof fetch
+    render(<App />)
+
+    await waitFor(() => expect(screen.getByRole('link', { name: /sign in with apple/i })).toBeInTheDocument())
+    expect(screen.getByText(/hide your email/i)).toBeInTheDocument()
+  })
+
+  it('says nothing of hidden addresses without Apple', async () => {
+    globalThis.fetch = stubApi({ providers: { enabled: true, providers: [GOOGLE] } }) as unknown as typeof fetch
+    render(<App />)
+
+    await waitFor(() => expect(screen.getByRole('link', { name: /sign in with google/i })).toBeInTheDocument())
+    expect(screen.queryByText(/hide your email/i)).not.toBeInTheDocument()
+  })
+
   it('says which environment is paused while its backend is not running', async () => {
     globalThis.fetch = pausedEnvironment('QA')
     render(<App />)

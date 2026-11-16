@@ -61,6 +61,28 @@ variable "google_ios_client_id" {
   default     = ""
 }
 
+variable "apple_sign_in" {
+  description = <<-EOT
+    Sign in with Apple on the website (#281), a provider beside Google. The Services ID, the key's
+    id and the team id are from the Apple developer account and not secrets; the key itself is in
+    Secrets Manager (sign-in.tf), put in by hand. A Services ID creates the secret; `offered` turns
+    the provider on, and only once the key is in: the function reads it at a cold start, and an
+    empty secret would stop every start, Google's sign-in and the whole API with it.
+  EOT
+  type = object({
+    services_id = string
+    key_id      = string
+    team_id     = string
+    offered     = bool
+  })
+  default = { services_id = "", key_id = "", team_id = "", offered = false }
+
+  validation {
+    condition     = !var.apple_sign_in.offered || (var.apple_sign_in.services_id != "" && var.apple_sign_in.key_id != "" && var.apple_sign_in.team_id != "")
+    error_message = "Offering Sign in with Apple needs its Services ID, key id and team id."
+  }
+}
+
 variable "google_client_id" {
   description = <<-EOT
     The Google OAuth client this environment signs in with, from the Google console. Not a
