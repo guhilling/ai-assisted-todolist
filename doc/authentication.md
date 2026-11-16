@@ -266,7 +266,13 @@ An absent field is `null`.
 **The name and picture are not part of the account.** Nothing stores them with the user's tasks:
 the website's session item keeps them, with the email, for as long as the session lasts, and a
 bearer request reads them from its token each time. The email remains the whole of the identity,
-which is what a user's partition is keyed by and what ownership is decided on. A consequence worth
+which is what a user's partition is keyed by and what ownership is decided on: `USER#<SHA-256 of
+the email lower-cased>`, so `Gunnar@Example.com` and `gunnar@example.com` are one account whichever
+case a provider sends (#622). An account begun before that under an email with capitals was keyed by
+the email as sent, and keeps that partition: `Accounts.AccountEmail` (`internal/store/emails.go`)
+answers which email keys the account, with one read of that partition's `META` item for an email
+with capitals and none for one in lower case. The API's caller is that email (`api.Keyed`), and so
+are a session's link, an account's deletion and its deletion record. A consequence worth
 knowing: because nothing outlives the session, a name can only ever be shown to its own owner.
 Anything that had to display one user's name to another — sharing, an audit trail — would have
 to revisit that

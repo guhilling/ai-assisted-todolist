@@ -63,6 +63,41 @@ func (s *Server) DeleteApiAccount(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// AccountEmails says which email keys the account of someone signed in with an email
+// (internal/store's Accounts.AccountEmail): the email lower-cased, or for an account begun before
+// #622, the email as sent.
+type AccountEmails interface {
+	AccountEmail(ctx context.Context, email string) (string, error)
+}
+
+// Keyed is the caller as the email their account is keyed by (AccountEmails), so that every
+// route, deletion and deletion record finds the same partition however the provider cased the
+// address (#622). A request whose account cannot be told is refused, as one whose deletion cannot
+// be settled is.
+func Keyed(caller Caller, emails AccountEmails) Caller {
+	return func(r *http.Request) (string, bool) {
+		email, ok := caller(r)
+		if !ok {
+			return email, ok
+		}
+		keyed, err := emails.AccountEmail(r.Context(), email)
+		if err != nil {
+			slog.ErrorContext(r.Context(), "reading which account an email is keyed by failed", "error", err)
+			return "", false
+		}
+		return keyed, true
+	}
+}
+
+// accountEmail is the email that keys the account of email, as Keyed has it, and false when that
+// could not be read; the email itself without Emails.
+func (s *Server) accountEmail(r *http.Request, email string) (string, bool) {
+	if s.Emails == nil {
+		return email, true
+	}
+	return Keyed(func(*http.Request) (string, bool) { return email, true }, s.Emails)(r)
+}
+
 // Settled is the caller, once any deletion of their account that was left half-way is finished
 // (settle), so that no request sees what is left of it.
 func Settled(caller Caller, accounts AccountDeletion) Caller {

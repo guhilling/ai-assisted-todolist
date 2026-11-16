@@ -23,6 +23,8 @@ const recordBody = "TaskFest account deletion record (#213); the time is this ob
 
 // RecordDeletion records that the account with this email is being deleted now, replacing an
 // older record. It lives outside the table, so that a restore of the table cannot take it back.
+// The email is the one the account is keyed by (the API's caller, #622), so that the record names
+// the partition the replay must delete again.
 func (f *Files) RecordDeletion(ctx context.Context, email string) error {
 	_, err := f.client.PutObject(ctx, &s3.PutObjectInput{
 		Bucket: aws.String(f.bucket), Key: aws.String(recordPrefix + identity.EmailHash(email)),

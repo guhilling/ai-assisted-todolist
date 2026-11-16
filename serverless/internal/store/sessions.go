@@ -45,13 +45,16 @@ var _ auth.Store = (*Sessions)(nil)
 
 // sessionItem is a session as stored. Times are Unix seconds, like the TTL attribute.
 type sessionItem struct {
-	PK        string `dynamodbav:"PK"`
-	SK        string `dynamodbav:"SK"`
-	Email     string `dynamodbav:"email"`
-	Name      string `dynamodbav:"name,omitempty"`
-	Picture   string `dynamodbav:"picture,omitempty"`
-	Provider  string `dynamodbav:"provider"`
-	Subject   string `dynamodbav:"subject,omitempty"`
+	PK       string `dynamodbav:"PK"`
+	SK       string `dynamodbav:"SK"`
+	Email    string `dynamodbav:"email"`
+	Name     string `dynamodbav:"name,omitempty"`
+	Picture  string `dynamodbav:"picture,omitempty"`
+	Provider string `dynamodbav:"provider"`
+	Subject  string `dynamodbav:"subject,omitempty"`
+	// Owner is the partition the session is linked from (Accounts.AccountEmail); empty in a
+	// session begun before #622, which is linked from the partition of its email as sent.
+	Owner     string `dynamodbav:"owner,omitempty"`
 	Created   int64  `dynamodbav:"created"`
 	LastSeen  int64  `dynamodbav:"lastSeen"`
 	ExpiresAt int64  `dynamodbav:"expiresAt"`
@@ -92,9 +95,16 @@ type sessionLink struct {
 }
 
 // PutSession stores a new session, and first its link from the user's account: a link without a
-// session ends nothing, a session without a link would outlive the account's deletion.
+// session ends nothing, a session without a link would outlive the account's deletion. The link
+// is in the partition the account is keyed by (Accounts.AccountEmail), which the session item
+// names for signing out; the session keeps the email as the provider sent it.
 func (s *Sessions) PutSession(ctx context.Context, key string, session auth.Session, expires time.Time) error {
-	link, err := attributevalue.MarshalMap(sessionLink{PK: OwnerKey(session.Email), SK: sessionLinkPrefix + key,
+	email, err := accountEmail(ctx, s.client, s.table, session.Email)
+	if err != nil {
+		return fmt.Errorf("link the session: %w", err)
+	}
+	owner := OwnerKey(email)
+	link, err := attributevalue.MarshalMap(sessionLink{PK: owner, SK: sessionLinkPrefix + key,
 		Created: session.Created.Unix(), ExpiresAt: session.Created.Add(auth.AbsoluteLifetime).Unix()})
 	if err != nil {
 		return err
@@ -105,7 +115,7 @@ func (s *Sessions) PutSession(ctx context.Context, key string, session auth.Sess
 	item, err := attributevalue.MarshalMap(sessionItem{
 		PK: "SESSION#" + key, SK: "SESSION",
 		Email: session.Email, Name: session.Name, Picture: session.Picture,
-		Provider: session.Provider, Subject: session.Subject,
+		Provider: session.Provider, Subject: session.Subject, Owner: owner,
 		Created: session.Created.Unix(), LastSeen: session.LastSeen.Unix(), ExpiresAt: expires.Unix(),
 	})
 	if err != nil {
@@ -159,7 +169,8 @@ func (s *Sessions) TouchSession(ctx context.Context, key string, lastSeen, expir
 	return nil
 }
 
-// DeleteSession ends a session, and deletes its link from the user's account.
+// DeleteSession ends a session, and deletes its link from the user's account: from the partition
+// the session names, or for one begun before #622, which names none, the partition of its email.
 func (s *Sessions) DeleteSession(ctx context.Context, key string) error {
 	out, err := s.client.DeleteItem(ctx, &dynamodb.DeleteItemInput{
 		TableName: aws.String(s.table), Key: sessionKey(key), ReturnValues: types.ReturnValueAllOld,
@@ -167,13 +178,17 @@ func (s *Sessions) DeleteSession(ctx context.Context, key string) error {
 	if err != nil {
 		return fmt.Errorf("delete session: %w", err)
 	}
-	email, ok := out.Attributes["email"].(*types.AttributeValueMemberS)
-	if !ok {
+	var owner string
+	if named, ok := out.Attributes["owner"].(*types.AttributeValueMemberS); ok && named.Value != "" {
+		owner = named.Value
+	} else if email, ok := out.Attributes["email"].(*types.AttributeValueMemberS); ok {
+		owner = OwnerKey(email.Value)
+	} else {
 		return nil
 	}
 	_, err = s.client.DeleteItem(ctx, &dynamodb.DeleteItemInput{TableName: aws.String(s.table),
 		Key: map[string]types.AttributeValue{
-			"PK": &types.AttributeValueMemberS{Value: OwnerKey(email.Value)},
+			"PK": &types.AttributeValueMemberS{Value: owner},
 			"SK": &types.AttributeValueMemberS{Value: sessionLinkPrefix + key},
 		}})
 	if err != nil {

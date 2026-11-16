@@ -9,3 +9,11 @@ func TestTheEmailsHashIsItsSHA256InLowerCaseHex(t *testing.T) {
 		t.Errorf("hash %s; want %s", got, want)
 	}
 }
+
+func TestTheEmailIsKnownInLowerCase(t *testing.T) {
+	// #622: Gunnar@Example.com and gunnar@example.com are one person, whichever case a provider
+	// sends; nothing else about the address is changed.
+	if got := Canonical(" Gunnar@Example.COM"); got != " gunnar@example.com" {
+		t.Errorf("got %q", got)
+	}
+}

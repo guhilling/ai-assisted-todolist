@@ -78,8 +78,13 @@ providers' sessions and state cookies, so a browser is never two people at once.
 *Accepted · 2026-10-07 · #143, #194*
 
 Revised in part on 2026-11-16 (#559, #613): the check is `verifyIDToken` in
-`serverless/internal/auth/tokens.go`, not `VerifiedEmail`; the rule stands. Whether the email's
-case should count is open in #622.
+`serverless/internal/auth/tokens.go`, not `VerifiedEmail`; the rule stands.
+
+Revised in part on 2026-11-16 (#622): the email's case is ignored (Gunnar's decision), so
+`Gunnar@Example.com` and `gunnar@example.com` are one user: the partition is the hash of the email
+lower-cased. An account begun before under an email with capitals keeps the partition of the
+email as sent, found by one read of its `META` item, rather than its data being moved; nothing
+existing loses its board. Two such accounts, one per case, stay two until the older is deleted.
 
 **Decision (D1 on #141).** With several providers, the same email from any of them is the same
 `User`; no `(issuer, subject)` identity, no migration. A sign-in is refused unless the provider's
