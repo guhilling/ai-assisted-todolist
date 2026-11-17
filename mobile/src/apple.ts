@@ -1,5 +1,6 @@
 import { AppleAuthenticationScope, type isAvailableAsync, type signInAsync } from 'expo-apple-authentication'
 import type { Tokens } from './staySignedIn'
+import type { Variant } from './variants'
 
 /**
  * Sign in with Apple on iOS (#281), natively, with `expo-apple-authentication`: Apple's own sheet,
@@ -47,4 +48,13 @@ export function appleProviderFor(apple: AppleAuthentication): AppleProvider {
       return { idToken: credential.identityToken }
     },
   }
+}
+
+/**
+ * Sign in with Apple where it is offered (#281): on iOS, where the build has it -- the one place
+ * that decides, so the sign-in screen only asks whether the phone can. Apple has no sign-in for
+ * Android apps of its own.
+ */
+export function appleSignInFor(variant: Pick<Variant, 'apple'>, os: string, apple: AppleAuthentication): AppleProvider | undefined {
+  return variant.apple && os === 'ios' ? appleProviderFor(apple) : undefined
 }

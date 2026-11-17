@@ -1,6 +1,6 @@
 import { SignedOutError } from './api'
 import { accountOf, hasEnded, type Session } from './session'
-import { RenewalUnavailableError, createSessionStore, currentSession, type Trade } from './staySignedIn'
+import { RenewalUnavailableError, createSessionStore, currentSession, type Trade, type Trading } from './staySignedIn'
 import { HOUR, memoryStore, tokenWith } from './testing'
 
 // Noon, not the shared NOW, as staySignedIn.test.ts has it.
@@ -26,6 +26,11 @@ const idTokenSession: Session = {
 
 function trading(token = 'taskfest_app_ada', expiresAt = NOW + 30 * DAY): jest.MockedFunction<Trade> {
   return jest.fn().mockResolvedValue({ token, expiresAt })
+}
+
+/** The trade as `currentSession` takes it, with no failure behind it yet. */
+function by(trade: Trade): Trading {
+  return { trade }
 }
 
 describe('app sessions on the phone (#281)', () => {
@@ -61,7 +66,7 @@ describe('app sessions on the phone (#281)', () => {
     const refresh = jest.fn()
     const trade = trading()
 
-    const current = await currentSession(sessions, refresh, NOW + 29 * DAY, undefined, trade)
+    const current = await currentSession(sessions, refresh, NOW + 29 * DAY, undefined, by(trade))
 
     expect(current).toMatchObject({ idToken: 'taskfest_app_ada', expiresAt: NOW + 30 * DAY, app: { email: 'ada@example.com' } })
     expect(refresh).not.toHaveBeenCalled()
@@ -73,7 +78,7 @@ describe('app sessions on the phone (#281)', () => {
     const sessions = createSessionStore(store)
     await sessions.save(appSession)
 
-    await expect(currentSession(sessions, jest.fn(), NOW + 30 * DAY, undefined, trading())).resolves.toBeNull()
+    await expect(currentSession(sessions, jest.fn(), NOW + 30 * DAY, undefined, by(trading()))).resolves.toBeNull()
     expect(store.values.size).toBe(0)
   })
 
@@ -82,7 +87,7 @@ describe('app sessions on the phone (#281)', () => {
     await sessions.save({ ...idTokenSession, via: 'google' })
     const trade = trading()
 
-    const current = await currentSession(sessions, jest.fn(), NOW, jest.fn(), trade)
+    const current = await currentSession(sessions, jest.fn(), NOW, jest.fn(), by(trade))
 
     const traded: Session = { ...appSession, via: 'google' }
     expect(trade).toHaveBeenCalledWith(idTokenSession.idToken)
@@ -97,31 +102,33 @@ describe('app sessions on the phone (#281)', () => {
     const refresh = jest.fn().mockResolvedValue({ idToken: fresh })
     const trade = trading()
 
-    const current = await currentSession(sessions, refresh, NOW, undefined, trade)
+    const current = await currentSession(sessions, refresh, NOW, undefined, by(trade))
 
     expect(refresh).toHaveBeenCalledWith('refresh-1')
     expect(trade).toHaveBeenCalledWith(fresh)
     expect(current).toEqual(appSession)
   })
 
-  it('ends a session from before that the backend refuses to trade', async () => {
+  it('ends a session from before that the backend refuses to trade, and says it was refused', async () => {
     const store = memoryStore()
     const sessions = createSessionStore(store)
     await sessions.save(idTokenSession)
     const trade = jest.fn().mockRejectedValue(new SignedOutError())
 
-    await expect(currentSession(sessions, jest.fn(), NOW, undefined, trade)).resolves.toBeNull()
+    await expect(currentSession(sessions, jest.fn(), NOW, undefined, by(trade))).rejects.toBeInstanceOf(SignedOutError)
     expect(store.values.size).toBe(0)
   })
 
-  it('goes on with a session from before that cannot be traded just now, and trades it next time', async () => {
+  it('goes on with a session from before that cannot be traded just now, its ID token known to be spent', async () => {
     const sessions = createSessionStore(memoryStore())
     await sessions.save(idTokenSession)
     const trade = jest.fn().mockRejectedValueOnce(new TypeError('Network request failed'))
-    trade.mockResolvedValueOnce({ token: 'taskfest_app_ada', expiresAt: NOW + 30 * DAY })
 
-    await expect(currentSession(sessions, jest.fn(), NOW, undefined, trade)).resolves.toEqual({ ...idTokenSession, lastUsedAt: NOW })
-    await expect(currentSession(sessions, jest.fn(), NOW, undefined, trade)).resolves.toEqual(appSession)
+    await expect(currentSession(sessions, jest.fn(), NOW, undefined, by(trade))).resolves.toEqual({
+      ...idTokenSession,
+      lastUsedAt: NOW,
+      idTokenSpent: true,
+    })
   })
 
   it('keeps a session from before when it cannot be renewed just now, without trying to trade it', async () => {
@@ -130,7 +137,7 @@ describe('app sessions on the phone (#281)', () => {
     const trade = trading()
     const refresh = jest.fn().mockRejectedValue(new TypeError('Network request failed'))
 
-    await expect(currentSession(sessions, refresh, NOW, undefined, trade)).rejects.toBeInstanceOf(RenewalUnavailableError)
+    await expect(currentSession(sessions, refresh, NOW, undefined, by(trade))).rejects.toBeInstanceOf(RenewalUnavailableError)
     expect(trade).not.toHaveBeenCalled()
     await expect(sessions.load()).resolves.toEqual({ ...idTokenSession, expiresAt: NOW })
   })

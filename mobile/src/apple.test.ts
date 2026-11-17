@@ -1,5 +1,5 @@
 import { AppleAuthenticationScope } from 'expo-apple-authentication'
-import { appleProviderFor, type AppleAuthentication } from './apple'
+import { appleProviderFor, appleSignInFor, type AppleAuthentication } from './apple'
 
 function apple(overrides: Partial<AppleAuthentication> = {}): AppleAuthentication {
   return {
@@ -35,5 +35,16 @@ describe('Sign in with Apple, on the phone (#281)', () => {
     await expect(appleProviderFor(apple()).available()).resolves.toBe(true)
     await expect(appleProviderFor(apple({ isAvailableAsync: jest.fn().mockResolvedValue(false) })).available()).resolves.toBe(false)
     await expect(appleProviderFor(apple({ isAvailableAsync: jest.fn().mockRejectedValue(new Error('no')) })).available()).resolves.toBe(false)
+  })
+})
+
+describe('where Sign in with Apple is offered (#281)', () => {
+  it('on iOS, where the build has it', () => {
+    expect(appleSignInFor({ apple: true }, 'ios', apple())).toBeDefined()
+  })
+
+  it('nowhere else: not where the build lacks it, and never on Android', () => {
+    expect(appleSignInFor({}, 'ios', apple())).toBeUndefined()
+    expect(appleSignInFor({ apple: true }, 'android', apple())).toBeUndefined()
   })
 })

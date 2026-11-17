@@ -31,6 +31,12 @@ export type Session = {
    * nothing about the account, so the address of the ID token it was traded for is kept beside it.
    */
   app?: { email: string | null }
+  /**
+   * Set on a session from before app sessions whose ID token was sent to be traded without a clear
+   * answer (#634): the backend may have traded it, and would refuse it a second time, so it is
+   * never sent to be traded again -- the session is renewed first, and the new one traded.
+   */
+  idTokenSpent?: true
 }
 
 /** How long a session lasts without being used: thirty days. */

@@ -1,10 +1,10 @@
 import { act, fireEvent, render, screen, userEvent, waitFor } from '@testing-library/react-native'
-import { SignedOutError } from './api'
+import { SignedOutError, TimedOutError } from './api'
 import type { AppleProvider } from './apple'
 import type { KeptBoard } from './keptBoard'
 import type { Session } from './session'
 import { TaskFestApp, type Dependencies } from './TaskFestApp'
-import { HOUR, dependencies as appDependencies, memoryBoard, memorySessions, prod, qa, tokenWith } from './testing'
+import { HOUR, dependencies as appDependencies, foreground, memoryBoard, memorySessions, prod, qa, tokenWith } from './testing'
 import type { Variant } from './variants'
 import type { Task } from './web'
 
@@ -171,6 +171,57 @@ describe('app sessions, in the app (#281)', () => {
     expect(await screen.findByText('Your session has expired. Sign in again to carry on.')).toBeOnTheScreen()
     expect(deps.appSessions?.end).not.toHaveBeenCalled()
   })
+
+  it('keeps Google’s ID token known to be spent when its trade went unanswered, so it is never sent again', async () => {
+    const trade = appSessions()
+    trade.start.mockRejectedValueOnce(new TimedOutError(10_000))
+    const sessions = memorySessions(null)
+    await render(<TaskFestApp variant={prod} language="en" dependencies={dependencies({ appSessions: trade, sessions })} />)
+
+    await userEvent.setup().press(await screen.findByRole('button', { name: 'Sign in with Google' }))
+
+    expect(await screen.findByText('Water the plants')).toBeOnTheScreen()
+    expect(sessions.current()).toMatchObject({ idToken, via: 'google', idTokenSpent: true })
+  })
+
+  it('says the session has expired when the backend refuses to trade the one kept from before', async () => {
+    const before: Session = { idToken, refreshToken: null, expiresAt: NOW + HOUR, lastUsedAt: NOW - DAY, via: 'google' }
+    const trade = appSessions()
+    trade.start.mockRejectedValue(new SignedOutError())
+    const sessions = memorySessions(before)
+    await render(<TaskFestApp variant={prod} language="en" dependencies={dependencies({ sessions, appSessions: trade })} />)
+
+    expect(await screen.findByText('Your session has expired. Sign in again to carry on.')).toBeOnTheScreen()
+    expect(sessions.current()).toBeNull()
+  })
+
+  it('does not let a lookup begun before a sign-in forget the session it saves', async () => {
+    const back = foreground()
+    const stored = memorySessions(null)
+    let answer: (session: Session | null) => void = () => undefined
+    let hang = false
+    const sessions = {
+      ...stored,
+      // The start's lookups find nothing; the next one, the return to the foreground's, hangs until told.
+      load: jest.fn(() => {
+        if (!hang) {
+          return stored.load()
+        }
+        hang = false
+        return new Promise<Session | null>((resolve) => (answer = resolve))
+      }),
+    }
+    await render(<TaskFestApp variant={prod} language="en" dependencies={dependencies({ sessions })} />)
+    const button = await screen.findByRole('button', { name: 'Sign in with Google' })
+    hang = true
+    await back()
+
+    await userEvent.setup().press(button)
+    await act(async () => answer(null))
+
+    expect(await screen.findByText('Water the plants')).toBeOnTheScreen()
+    expect(stored.current()).toEqual({ ...appSession, via: 'google' })
+  })
 })
 
 describe('Sign in with Apple, in the app (#281)', () => {
@@ -180,13 +231,6 @@ describe('Sign in with Apple, in the app (#281)', () => {
     expect(await screen.findByTestId('apple-sign-in')).toBeOnTheScreen()
     expect(screen.getByRole('button', { name: 'Sign in with Google' })).toBeOnTheScreen()
     expect(screen.getByText(/If you choose Hide My Email/)).toBeOnTheScreen()
-  })
-
-  it('does not offer Apple where the build lacks it', async () => {
-    await render(<TaskFestApp variant={prod} language="en" dependencies={dependencies({ apple: apple() })} />)
-
-    await screen.findByRole('button', { name: 'Sign in with Google' })
-    expect(screen.queryByTestId('apple-sign-in')).toBeNull()
   })
 
   it('does not offer Apple where the phone cannot sign in with it', async () => {
@@ -219,6 +263,23 @@ describe('Sign in with Apple, in the app (#281)', () => {
     expect(google.signIn).not.toHaveBeenCalled()
     expect(deps.appSessions?.start).toHaveBeenCalledWith(idToken)
     expect((deps.sessions as ReturnType<typeof memorySessions>).current()).toEqual(appSession)
+  })
+
+  it('fails an Apple sign-in whose trade cannot be made, since Apple’s ID token cannot be renewed, and lets it be tried again at once', async () => {
+    const trade = appSessions()
+    trade.start.mockRejectedValueOnce(new TypeError('Network request failed'))
+    const sessions = memorySessions(null)
+    await render(<TaskFestApp variant={withApple} language="en" dependencies={dependencies({ apple: apple(), appSessions: trade, sessions })} />)
+
+    await pressApple(await screen.findByTestId('apple-sign-in'))
+
+    expect(await screen.findByText('Signing in did not work. Try again.')).toBeOnTheScreen()
+    expect(sessions.current()).toBeNull()
+
+    await pressApple(screen.getByTestId('apple-sign-in'))
+
+    expect(await screen.findByText('Water the plants')).toBeOnTheScreen()
+    expect(sessions.current()).toEqual(appSession)
   })
 
   it('stays at the sign-in, saying nothing, when the person turns Apple’s sheet away', async () => {

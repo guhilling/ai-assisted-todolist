@@ -349,8 +349,13 @@ export async function startAppSession(
   fetchImpl: typeof fetch = fetch,
 ): Promise<AppSession> {
   const data = await send({ ...caller, idToken }, 'POST', '/api/auth/app-session', fetchImpl)
-  const expiresAt = validateAppSessionResponse(data) ? Date.parse(data.expiresAt) : Number.NaN
-  if (!validateAppSessionResponse(data) || Number.isNaN(expiresAt)) {
+  if (!validateAppSessionResponse(data)) {
+    throw new ContractBreachError('an app session')
+  }
+  // The schema checks the format; whether this engine's Date reads every date-time it allows is
+  // another matter, and a session with no end would never end.
+  const expiresAt = Date.parse(data.expiresAt)
+  if (Number.isNaN(expiresAt)) {
     throw new ContractBreachError('an app session')
   }
   return { token: data.token, expiresAt }

@@ -25,9 +25,12 @@ import {
   currentSession,
   sessionFromTokens,
   type Refresh,
+  afterFailedTrade,
+  appSessionFrom,
   type SessionStore,
   type Tokens,
   type Trade,
+  type Trading,
 } from './staySignedIn'
 import { stylesFor, type Styles } from './styles'
 import { TaskForm, type TaskValues } from './TaskForm'
@@ -78,7 +81,7 @@ export type Dependencies = {
   provider: { signIn(): Promise<Tokens | null>; refresh: Refresh }
   /** Google's sign-in (#280), where the variant has it. */
   google?: GoogleProvider
-  /** Sign in with Apple (#281), on iOS where the variant has it; none on Android. */
+  /** Sign in with Apple (#281), where it is offered: on iOS, where the variant has it (`appleSignInFor`). */
   apple?: AppleProvider
   /**
    * The backend's app sessions (#281): every sign-in's ID token is traded for one, and a session
@@ -401,6 +404,8 @@ export function TaskFestApp({
    * the app signs out, the sign-out's own forgetting of the session, which hands out none.
    */
   const renewal = useRef<Promise<Session | null> | null>(null)
+  /** Trading sessions kept from before for app sessions (#281), with when a trade last failed, for this run. */
+  const trading = useRef<Trading | undefined>(appSessions && { trade: appSessions.start })
 
   const sessionNow = useCallback(() => {
     if (!renewal.current) {
@@ -409,7 +414,7 @@ export function TaskFestApp({
         provider.refresh,
         now(),
         google && renewWithGoogle(google),
-        appSessions?.start,
+        trading.current,
       ).finally(() => {
         // A sign-out may have taken its place meanwhile (#428): that one stays until it is done.
         if (renewal.current === renewing) {
@@ -419,7 +424,7 @@ export function TaskFestApp({
       renewal.current = renewing
     }
     return renewal.current
-  }, [appSessions, google, now, provider, renewWithGoogle, sessions])
+  }, [google, now, provider, renewWithGoogle, sessions])
 
   /**
    * Forgets every file of the session: the image open, the links asked for, and the copies opened
@@ -793,7 +798,9 @@ export function TaskFestApp({
         setState({ kind: 'tooOld' })
         return
       }
-      if (superseded()) {
+      // A sign-in begun meanwhile decides what is shown, and what is kept: this start read the
+      // keychain before it, and would sign it out again (#634).
+      if (superseded() || signingIn.current) {
         return
       }
       let session: Session | null
@@ -804,6 +811,12 @@ export function TaskFestApp({
         if (failure instanceof RenewalUnavailableError) {
           // Offline, or the provider unreachable: the session is kept for when it is back.
           loadFailed()
+          return
+        }
+        if (failure instanceof SignedOutError) {
+          // A session kept from before that the backend refused to trade (#281): it ends as any
+          // session the backend refuses does, and says so.
+          await signOut('sessionExpired')
           return
         }
         // The keychain could not be read -- invalidated, restored from a backup: start afresh.
@@ -872,9 +885,11 @@ export function TaskFestApp({
 
   /**
    * Signs in with the variant's provider, with Google or with Apple: a Google session says so, to
-   * be signed out of Google too. With app sessions (#281) the ID token is then traded for one at
-   * once, by asking for the session just kept: refused, the sign-in did not work; not possible just
-   * now, the ID token signs in as before and is traded the next time.
+   * be signed out of Google too. With app sessions (#281) the ID token is traded for one at once.
+   * Refused, the sign-in did not work. Not possible just now, a Google or OpenID Connect sign-in
+   * goes on with its ID token, as before, and is traded later -- renewed first if the trade went
+   * unanswered (#634); an Apple sign-in did not work, since Apple's ID token cannot be renewed, and
+   * the next one brings a new token to trade.
    */
   const signIn = async (via?: 'google' | 'apple') => {
     // One at a time: a second tap while the first sign-in is still under way would start another.
@@ -891,14 +906,36 @@ export function TaskFestApp({
       if (!issued) {
         throw new Error('The provider issued no ID token the app can use.')
       }
-      const session: Session = via === 'google' ? { ...issued, via: 'google' } : issued
-      await sessions.save(session)
-      // Whatever was asked for before the sign-in is waited for first: it read no session.
-      const current = appSessions ? await (renewal.current ?? Promise.resolve(null)).catch(() => null).then(sessionNow) : session
-      if (!current) {
-        throw new Error('The backend refused the sign-in.')
-      }
-      await showBoard(current)
+      // A lookup begun before -- a return to the foreground, say -- read no session, and would
+      // forget the one saved here once it is done: it is waited for first, and stood in for by this
+      // sign-in until the session is saved, so none begins meanwhile.
+      await (renewal.current ?? Promise.resolve(null)).catch(() => null)
+      const signingInNow = (async (): Promise<Session> => {
+        const session: Session = via === 'google' ? { ...issued, via: 'google' } : issued
+        let kept = session
+        if (appSessions) {
+          try {
+            kept = appSessionFrom(await appSessions.start(session.idToken), session, now())
+          } catch (failure) {
+            if (failure instanceof SignedOutError || via === 'apple') {
+              throw failure
+            }
+            console.warn('The sign-in could not be traded for an app session just now', failure)
+            kept = afterFailedTrade(session, failure)
+          }
+        }
+        await sessions.save(kept)
+        return kept
+      })()
+      const standIn: Promise<Session | null> = signingInNow
+        .catch(() => null)
+        .finally(() => {
+          if (renewal.current === standIn) {
+            renewal.current = null
+          }
+        })
+      renewal.current = standIn
+      await showBoard(await signingInNow)
     } catch (failure) {
       // Logged for the device log -- the only trace a failed sign-in on a test device leaves.
       console.warn('Signing in failed', failure)
@@ -1782,7 +1819,7 @@ export function TaskFestApp({
             notice={state.notice}
             onSignIn={() => signIn()}
             onSignInWithGoogle={google && variant.google ? () => signIn('google') : undefined}
-            onSignInWithApple={apple && variant.apple && appleAvailable ? () => signIn('apple') : undefined}
+            onSignInWithApple={apple && appleAvailable ? () => signIn('apple') : undefined}
           />
         ) : state.kind === 'board' ? (
           <>

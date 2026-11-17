@@ -37,7 +37,7 @@ import { sharesFrom } from './incoming'
 import { pickFile, type PickedPhoto } from './pick'
 import { makeThumbnail } from './thumbnails'
 import { uploadFile, type UploadParts } from './upload'
-import { appleProviderFor } from './apple'
+import { appleSignInFor } from './apple'
 import { googleProviderFor } from './google'
 import { createKeptBoardStore } from './keptBoard'
 import { createPreviewStore, type PreviewFolder } from './previews'
@@ -292,8 +292,8 @@ const dependencies: Dependencies = {
   sessions: createSessionStore(SecureStore),
   provider: variant.signIn ? providerFor(variant.signIn, variant.scheme) : noProvider,
   google: variant.google ? googleProviderFor(variant.google, GoogleOneTapSignIn, Platform.OS) : undefined,
-  // Apple has no sign-in for Android apps of its own; on iOS, where the build has it (#281).
-  apple: variant.apple && Platform.OS === 'ios' ? appleProviderFor(AppleAuthentication) : undefined,
+  // On iOS, where the build has it (#281).
+  apple: appleSignInFor(variant, Platform.OS, AppleAuthentication),
   // Every sign-in's ID token is traded for an app session, and the app signs out by ending it (#281).
   appSessions: {
     start: (idToken) => startAppSession({ baseUrl: variant.apiBaseUrl, appVersion }, idToken),

@@ -27,9 +27,10 @@ token itself says nothing about the account (`mobile/src/staySignedIn.ts`). The 
 ID token once only, and the first trade is the one that counts.
 
 - **Refused** (401): the sign-in did not work, and the app says so.
-- **Not possible just now**, offline or against a backend from before app sessions: the ID token
-  signs in as it did before, and is traded the next time the app asks for its session. That is the
-  same as a session kept from before (below).
+- **Not possible just now**, offline or against a backend from before app sessions: a Google or
+  OpenID Connect sign-in goes on with its ID token, as before, and is traded later, as a session
+  kept from before is (below). An **Apple** sign-in did not work, since Apple's ID token cannot be
+  renewed and would end within minutes; the next Apple sign-in brings a new one to trade.
 - **Signing out** ends the session at the backend with `DELETE /api/auth/app-session`, as well as
   forgetting it on the phone ([account.md](account.md)). It is not waited for: offline, the phone
   forgets the session all the same, and the backend ends it when its 30 days are over. A session
@@ -44,9 +45,17 @@ A session kept on the phone by a release before app sessions is the provider's I
 Gunnar chose to trade it silently: at the first start after the update, the app renews it as it
 always did if it is about to run out, trades it, and keeps the app session in its place. Nobody
 signs in again. A backend that refuses it ends it, as it would have ended at its next refusal.
-One that cannot be asked keeps it, and the app trades it the next time. Until then the session
-goes on as before: renewed with the refresh token or Google's SDK, and ended after thirty days
-without use.
+One that cannot be asked keeps it, and the app tries again after five minutes, not before every
+request (`TRADE_RETRY_MS`). A backend that refuses the trade ends the session, and the app says
+it has expired. Until the trade succeeds, the session goes on as before: renewed with the refresh
+token or Google's SDK, and ended after thirty days without use.
+
+**An ID token is never sent to be traded twice.** The backend trades one only once, and a trade
+whose answer was lost — a timeout, no connection, a server error — may have been made. Such an ID
+token is marked as spent, on the phone, and the next trade renews the session first and trades
+the new ID token. A session that cannot be renewed is not traded again, and goes on until it
+ends. A clear answer that nothing was traded, as a 404 from a backend from before app sessions,
+leaves the ID token as it was.
 
 That renewal is only there for the transition, and goes once a release with app sessions has
 been in the stores for 30 days (#633).
@@ -161,8 +170,11 @@ everywhere else. The dev build never has it: the local Keycloak takes no Apple t
 
 ## Where the session lives
 
-In the platform's keychain (`expo-secure-store`), never in plain storage — each part under its own
-key, because some iOS releases refused values above about 2 KB (`mobile/src/staySignedIn.ts`).
+In the platform's keychain (`expo-secure-store`), never in plain storage
+(`mobile/src/staySignedIn.ts`). An app session is kept whole under a key of its own,
+`taskfest.appSession`, in one write, so no half of it is ever read as an ID token; the session it
+replaces goes only once it is kept. A session from before keeps each part under its own key,
+because some iOS releases refused values above about 2 KB.
 
 ## How long it lasts
 
