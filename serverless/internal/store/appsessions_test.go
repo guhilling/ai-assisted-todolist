@@ -35,7 +35,11 @@ func TestAnAppSessionIsStoredAsOneAndLinkedForItsThirtyDays(t *testing.T) {
 	if err != nil || !ok || !got.App || got.Email != me || !got.Created.Equal(created) {
 		t.Fatalf("got %+v, %v, %v", got, ok, err)
 	}
-	if web, _, _ := s.GetSession(context.Background(), "web"); web.App {
+	web, ok, err := s.GetSession(context.Background(), "web")
+	if err != nil || !ok {
+		t.Fatalf("the website's session: %v, %v", ok, err)
+	}
+	if web.App {
 		t.Error("the website's session reads as an app's")
 	}
 	want := map[string]time.Duration{"SESSION#app": auth.AppLifetime, "SESSION#web": auth.AbsoluteLifetime}
@@ -68,8 +72,8 @@ func TestDeletingAnAccountEndsItsAppSessions(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if _, ok, _ := sessions.GetSession(ctx, "phone"); ok {
-		t.Error("the app session outlived the account")
+	if _, ok, err := sessions.GetSession(ctx, "phone"); err != nil || ok {
+		t.Errorf("the app session outlived the account: %v, %v", ok, err)
 	}
 	if left := partition(t, client, table, me); len(left) != 0 {
 		t.Errorf("left: %v", left)
@@ -86,8 +90,8 @@ func TestEndingAnAppSessionDeletesItAndItsLink(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if _, ok, _ := sessions.GetSession(context.Background(), "phone"); ok {
-		t.Error("the app session outlived its end")
+	if _, ok, err := sessions.GetSession(context.Background(), "phone"); err != nil || ok {
+		t.Errorf("the app session outlived its end: %v, %v", ok, err)
 	}
 	if left := partition(t, client, table, me); len(left) != 0 {
 		t.Errorf("left: %v", left)

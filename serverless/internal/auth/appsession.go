@@ -34,8 +34,9 @@ func IsAppSessionToken(raw string) bool {
 	return strings.HasPrefix(raw, AppSessionPrefix)
 }
 
-// idTokenClaimLifetime is how long a traded ID token is remembered as traded: a day, longer than
-// any provider's ID token is valid (Google's an hour, Apple's minutes).
+// idTokenClaimLifetime is how long a traded ID token is remembered as traded at least: a day,
+// longer than Google's and Apple's ID tokens are valid (an hour, and minutes). One valid for longer
+// is remembered until it expires.
 const idTokenClaimLifetime = 24 * time.Hour
 
 // bearerToken is the token of a request's Authorization: Bearer header, or "" without one.
@@ -67,14 +68,19 @@ func (s *Service) StartAppSession(r *http.Request) (AppSession, error) {
 	if raw == "" || IsAppSessionToken(raw) {
 		return AppSession{}, refused("an app session starts with a provider's ID token alone")
 	}
-	id, err := s.idToken(r.Context(), raw)
+	id, c, err := s.verifiedIDToken(r.Context(), raw)
 	if err != nil {
 		return AppSession{}, err
 	}
 	// Once, and enforced (#630): an ID token that leaked could otherwise be traded for any number
-	// of thirty-day sessions while it is valid. Remembered for a day, longer than any provider's
-	// ID token lasts.
-	first, err := s.store.ClaimIDToken(r.Context(), hash(raw), s.now().Add(idTokenClaimLifetime))
+	// of thirty-day sessions while it is valid. Known by the claims its provider signed, not by
+	// its spelling, which can vary: go-jose ignores whitespace, and base64url's last character
+	// carries bits nobody reads. Remembered for as long as the token is valid, a day at least.
+	until := s.now().Add(idTokenClaimLifetime)
+	if c.expiry.After(until) {
+		until = c.expiry
+	}
+	first, err := s.store.ClaimIDToken(r.Context(), hash(string(c.payload)), until)
 	if err != nil {
 		return AppSession{}, err
 	}

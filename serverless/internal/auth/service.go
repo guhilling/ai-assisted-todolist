@@ -151,9 +151,16 @@ func (s *Service) bearer(ctx context.Context, header string) (identity.Identity,
 
 // idToken verifies a provider's ID token sent as a bearer token, and returns whom it names.
 func (s *Service) idToken(ctx context.Context, raw string) (identity.Identity, error) {
+	id, _, err := s.verifiedIDToken(ctx, raw)
+	return id, err
+}
+
+// verifiedIDToken is idToken with the verified token's claims, for what needs more of it than the
+// person it signs in.
+func (s *Service) verifiedIDToken(ctx context.Context, raw string) (identity.Identity, claims, error) {
 	issuer, ok := issuerOf(raw)
 	if !ok {
-		return identity.Identity{}, refused("not a JWT")
+		return identity.Identity{}, claims{}, refused("not a JWT")
 	}
 	err := refused("no provider issues %q", issuer)
 	// Two providers may share an issuer, as two clients of one Cognito pool would; the token is
@@ -163,11 +170,12 @@ func (s *Service) idToken(ctx context.Context, raw string) (identity.Identity, e
 			continue
 		}
 		var id identity.Identity
-		if id, _, err = verifyIDToken(ctx, s.discovery, p, raw, p.audiences()); err == nil {
-			return id, nil
+		var c claims
+		if id, c, err = verifyIDToken(ctx, s.discovery, p, raw, p.audiences()); err == nil {
+			return id, c, nil
 		}
 	}
-	return identity.Identity{}, err
+	return identity.Identity{}, claims{}, err
 }
 
 // WithPicture fills in a picture from Gravatar where the provider sent none. Only /api/auth/me

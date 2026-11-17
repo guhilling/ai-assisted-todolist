@@ -33,7 +33,8 @@ an identifier for your account.
   your tasks belong to.
 - **Your name and picture** are used only to show you who you are signed in as. They are taken
   from Google's sign-in token when you sign in and kept with your session, **never with your
-  tasks**; they are deleted when the session ends, at the latest seven days after you signed in.
+  tasks**; they are deleted when the session ends: on the website at the latest seven days after
+  you signed in, in the app at the latest 30 days after.
 
 Legal basis: Art. 6(1)(b) GDPR, providing the application you asked to use. Kept until your
 account is deleted.

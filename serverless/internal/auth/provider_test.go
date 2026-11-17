@@ -134,7 +134,7 @@ type memStore struct {
 	sessions map[string]Session
 	pending  map[string]PendingSignIn
 	expires  map[string]time.Time
-	claimed  map[string]bool
+	claimed  map[string]time.Time
 }
 
 func newMemStore() *memStore {
@@ -186,15 +186,17 @@ func (m *memStore) TakePendingSignIn(_ context.Context, key string) (PendingSign
 	return p, ok, nil
 }
 
-func (m *memStore) ClaimIDToken(_ context.Context, key string, _ time.Time) (bool, error) {
+func (m *memStore) ClaimIDToken(_ context.Context, key string, until time.Time) (bool, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if m.claimed == nil {
-		m.claimed = map[string]bool{}
+		m.claimed = map[string]time.Time{}
 	}
-	first := !m.claimed[key]
-	m.claimed[key] = true
-	return first, nil
+	if _, taken := m.claimed[key]; taken {
+		return false, nil
+	}
+	m.claimed[key] = until
+	return true, nil
 }
 
 // noAvatars finds a picture for nobody, and counts the lookups.

@@ -35,8 +35,8 @@ und eine Kennung Ihres Kontos mit.
   wurde. Ihr gehören Ihre Aufgaben.
 - **Ihr Name und Ihr Bild** dienen nur dazu, Ihnen anzuzeigen, mit welchem Konto Sie angemeldet
   sind. Sie werden bei der Anmeldung aus Googles Anmelde-Token übernommen und mit Ihrer Sitzung
-  gespeichert, **nie mit Ihren Aufgaben**; sie werden gelöscht, wenn die Sitzung endet,
-  spätestens sieben Tage nach der Anmeldung.
+  gespeichert, **nie mit Ihren Aufgaben**; sie werden gelöscht, wenn die Sitzung endet: auf der
+  Website spätestens sieben Tage nach der Anmeldung, in der App spätestens 30 Tage danach.
 
 Rechtsgrundlage: Art. 6 Abs. 1 lit. b DSGVO – die Bereitstellung der Anwendung, die Sie nutzen
 wollen. Gespeichert, bis Ihr Konto gelöscht wird.

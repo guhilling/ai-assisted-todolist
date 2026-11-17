@@ -96,6 +96,11 @@ type claims struct {
 	Nonce         string          `json:"nonce"`
 	Type          any             `json:"typ"`
 	TokenUse      any             `json:"token_use"`
+
+	// payload is the token's claims as the provider signed them, the same bytes however the token
+	// was spelled; expiry is when the token stops being valid.
+	payload json.RawMessage
+	expiry  time.Time
 }
 
 // verified reads email_verified as the Quarkus backend does (VerifiedEmail): the boolean true,
@@ -134,6 +139,10 @@ func verifyIDToken(ctx context.Context, d *discovery, p Provider, raw string, au
 	if err := token.Claims(&c); err != nil {
 		return identity.Identity{}, claims{}, refused("unreadable claims: %v", err)
 	}
+	if err := token.Claims(&c.payload); err != nil {
+		return identity.Identity{}, claims{}, refused("unreadable claims: %v", err)
+	}
+	c.expiry = token.Expiry
 	if declaresOtherThanID(c.Type) || declaresOtherThanID(c.TokenUse) {
 		return identity.Identity{}, claims{}, refused("the token is an access token, not an ID token")
 	}
