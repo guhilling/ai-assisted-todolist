@@ -101,8 +101,8 @@ Jede Anfrage durchläuft das Content Delivery Network und das API-Gateway von Am
 und erreicht die Anwendung. Dabei werden technische Daten erfasst, etwa der Zeitpunkt,
 die aufgerufene Adresse, Ihre IP-Adresse, die Kennung Ihres Browsers und ob die Anfrage erfolgreich
 war. Das eigene Protokoll der Anwendung wird für `taskfest-qa` 30 Tage und für `taskfest` 90 Tage
-aufbewahrt. Für `taskfest-qa` wird das Protokoll der Anwendung
-zusätzlich an einen Monitoring-Server bei Hetzner gesendet und dort ebenfalls 30 Tage aufbewahrt;
+aufbewahrt. Es wird zusätzlich an einen Monitoring-Server bei Hetzner gesendet und dort 30 Tage
+aufbewahrt;
 es enthält Ihre Anmeldekennung, aber weder Ihre IP-Adresse noch die Inhalte Ihrer Aufgaben.
 
 Rechtsgrundlage: Art. 6 Abs. 1 lit. f DSGVO – das berechtigte Interesse, die Anwendung sicher zu
@@ -138,7 +138,7 @@ einschließlich der Anforderungen an die eingeschränkte Nutzung („Limited Use
   seiner Region Frankfurt. Sein Content Delivery Network beantwortet Anfragen von Standorten
   weltweit.
 - **Hetzner** (Hetzner Online GmbH, Gunzenhausen) betreibt in Nürnberg den Monitoring-Server, der
-  das Protokoll der Anwendung von `taskfest-qa` erhält.
+  das Protokoll der Anwendung erhält.
 - **Google** (Google Ireland Ltd.) stellt die Anmeldung bereit.
 - **Automattic** (Gravatar), wie oben beschrieben, nur wenn Google kein Bild bereitstellt.
 - **GitHub** (GitHub Inc., USA) betreibt diese Dokumentationsseite und erhält die technischen
@@ -188,4 +188,4 @@ Prinzenstraße 5<br>
 Diese Erklärung ist Teil der Projektdokumentation und wird öffentlich im Repository geändert. Das
 Datum unten ist das der letzten inhaltlichen Änderung.
 
-Stand: 16. November 2026
+Stand: 17. November 2026

@@ -137,6 +137,40 @@ describe('sign-in buttons', () => {
     expect(testAccount.querySelector('img')).toHaveAttribute('alt', '')
   })
 
+  it("offers Apple through Apple's own button, as large as Google's, light and dark (#281)", async () => {
+    globalThis.fetch = stubApi({ providers: { enabled: true, providers: [GOOGLE, APPLE] } }) as unknown as typeof fetch
+    render(<App />)
+
+    const apple = await screen.findByRole('link', { name: 'Sign in with Apple' })
+    expect(apple).toHaveAttribute('href', '/api/auth/login/apple')
+    // Apple's generated image is the whole button, logo included; Apple's rules want it no
+    // smaller than any other sign-in button.
+    const image = within(apple).getByRole('img', { name: 'Sign in with Apple' })
+    expect(image).toHaveAttribute('width', '180')
+    expect(image).toHaveAttribute('height', '40')
+    expect(image.getAttribute('src')).toMatch(/apple-sign-in-en-light/)
+    expect(apple.querySelector('source[media="(prefers-color-scheme: dark)"]')?.getAttribute('srcset')).toMatch(
+      /apple-sign-in-en-dark/,
+    )
+  })
+
+  it("speaks German on Apple's button when the page does", async () => {
+    localStorage.setItem('taskfest.language', 'de')
+    try {
+      globalThis.fetch = stubApi({ providers: { enabled: true, providers: [GOOGLE, APPLE] } }) as unknown as typeof fetch
+      render(<App />)
+
+      const apple = await screen.findByRole('link', { name: 'Mit Apple anmelden' })
+      expect(within(apple).getByRole('img').getAttribute('src')).toMatch(/apple-sign-in-de-light/)
+      expect(apple.querySelector('source[media="(prefers-color-scheme: dark)"]')?.getAttribute('srcset')).toMatch(
+        /apple-sign-in-de-dark/,
+      )
+    } finally {
+      localStorage.removeItem('taskfest.language')
+      document.documentElement.lang = 'en'
+    }
+  })
+
   it("says beside Apple's button that a hidden address is an account of its own (#281)", async () => {
     // Q6 on #264: Apple's Hide My Email gives a relay address, so the same person signed in with
     // Google is someone else there, and the page says so where the choice is made.
