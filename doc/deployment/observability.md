@@ -95,7 +95,7 @@ that line.
 Gunnar's shared monitoring, VictoriaMetrics, VictoriaLogs and Perses on one Hetzner VM, lives in
 [guhilling/monitoring](https://github.com/guhilling/monitoring) (private), which says how it is set
 up and reached. TaskFest sends it the Go backend's logs from the environments that set
-`monitoring_endpoint` in `terraform.tfvars`: qa, once it is switched on; prod not, for now.
+`monitoring_endpoint` in `terraform.tfvars`: qa, and prod since #631.
 
 **How they get there** (`monitoring.tf`). A CloudWatch Logs subscription filter on each of the Go
 backend's log groups -- the other four functions' and the HTTP API's access log -- hands every batch of
@@ -116,7 +116,7 @@ latency and error figures come from: the Go backend has no metrics endpoint.
 **What leaves AWS:** the sign-in line's `user`, the OIDC subject, is personal data, which is why
 the privacy texts name Hetzner for the environments that send; the ids of the tasks and attachments
 some lines name go too, though not their content. The access log holds no IP address.
-VictoriaLogs keeps everything for 30 days, as qa's CloudWatch does.
+VictoriaLogs keeps everything for 30 days, as qa's CloudWatch does; prod's CloudWatch keeps 90.
 
 **Switching an environment on**, in this order, the first two by Gunnar:
 1. The server answers at its name with a certificate, and its Caddy knows the sender

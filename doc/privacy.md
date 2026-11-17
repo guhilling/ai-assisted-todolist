@@ -86,8 +86,9 @@ not sent to the application.
 Every request passes through Amazon Web Services' content delivery network and its API gateway,
 and reaches the application. These record technical data such as the time, the requested
 address, your IP address, your browser's identification, and whether the request succeeded. The
-application's own log is kept for 30 days for `taskfest-qa` and 90 days for `taskfest`. For `taskfest-qa`, the application's log is also sent to a monitoring
-server at Hetzner and kept there for 30 days as well; it holds your sign-in identifier, but neither
+application's own log is kept for 30 days for `taskfest-qa` and 90 days for `taskfest`. It is
+also sent to a monitoring server at Hetzner and kept there for 30 days; it holds your sign-in
+identifier, but neither
 your IP address nor the content of your tasks.
 
 Legal basis: Art. 6(1)(f) GDPR — the legitimate interest in running the application securely and
@@ -121,7 +122,7 @@ including the Limited Use requirements.
 - **Amazon Web Services** (Amazon Web Services EMEA SARL, Luxembourg) hosts the application, in
   its Frankfurt region. Its content delivery network serves requests from locations worldwide.
 - **Hetzner** (Hetzner Online GmbH, Gunzenhausen, Germany) hosts the monitoring server that
-  receives the application log of `taskfest-qa`, in Nuremberg.
+  receives the application log, in Nuremberg.
 - **Google** (Google Ireland Ltd.) provides the sign-in.
 - **Automattic** (Gravatar), as described above, only where Google provides no picture.
 - **GitHub** (GitHub Inc., USA) hosts this documentation site and receives the technical data of
@@ -168,4 +169,4 @@ Prinzenstraße 5<br>
 This policy is part of the project's documentation and is changed in the open, in the
 repository. The date below is the date of the last change to its content.
 
-Last changed: 16 November 2026
+Last changed: 17 November 2026
