@@ -10,6 +10,8 @@ import type { PickedFile } from './upload'
 import { AccountScreen } from './AccountScreen'
 import { isTooOld } from './appVersion'
 import { isChangeable } from './board'
+import type { AppleProvider } from './apple'
+import { AppleButton } from './AppleButton'
 import type { GoogleProvider } from './google'
 import { BoardScreen } from './BoardScreen'
 import type { KeptBoardStore } from './keptBoard'
@@ -17,7 +19,7 @@ import { noPreviews, type PreviewStore } from './previews'
 import { AboutLink, LegalLinks } from './LegalLinks'
 import type { ReminderScheduler } from './notifications'
 import { remindersFor } from './reminders'
-import { emailOf, isInactive, type Session } from './session'
+import { accountOf, hasEnded, type Session } from './session'
 import {
   RenewalUnavailableError,
   currentSession,
@@ -25,6 +27,7 @@ import {
   type Refresh,
   type SessionStore,
   type Tokens,
+  type Trade,
 } from './staySignedIn'
 import { stylesFor, type Styles } from './styles'
 import { TaskForm, type TaskValues } from './TaskForm'
@@ -75,6 +78,15 @@ export type Dependencies = {
   provider: { signIn(): Promise<Tokens | null>; refresh: Refresh }
   /** Google's sign-in (#280), where the variant has it. */
   google?: GoogleProvider
+  /** Sign in with Apple (#281), on iOS where the variant has it; none on Android. */
+  apple?: AppleProvider
+  /**
+   * The backend's app sessions (#281): every sign-in's ID token is traded for one, and a session
+   * kept from before is traded silently; ending one is how the app signs out. None, and the app
+   * sends the ID token itself, as it did before -- the tests written before app sessions run so,
+   * until the transition goes (#633).
+   */
+  appSessions?: { start: Trade; end(token: string): Promise<void> }
   fetchTasks(caller: Caller): Promise<BoardTask[]>
   changes: TaskChanges
   /** A task's files (#274): links that show them, signed for a limited time, and removing one. */
@@ -242,6 +254,8 @@ export function TaskFestApp({
     sessions,
     provider,
     google,
+    apple,
+    appSessions,
     fetchTasks,
     fetchMinimumAppVersion,
     appVersion,
@@ -308,6 +322,15 @@ export function TaskFestApp({
   const [offerReminders, setOfferReminders] = useState(false)
   /** Whether the board's colours still need explaining (#335): until dismissed once on this phone. */
   const [explainColours, setExplainColours] = useState(false)
+  /** Whether this phone can sign in with Apple (#281), asked once: Apple's button shows only then. */
+  const [appleAvailable, setAppleAvailable] = useState(false)
+  useEffect(() => {
+    let current = true
+    void apple?.available().then((available) => current && setAppleAvailable(available))
+    return () => {
+      current = false
+    }
+  }, [apple])
   useEffect(() => {
     let current = true
     legend
@@ -381,7 +404,13 @@ export function TaskFestApp({
 
   const sessionNow = useCallback(() => {
     if (!renewal.current) {
-      const renewing: Promise<Session | null> = currentSession(sessions, provider.refresh, now(), google && renewWithGoogle(google)).finally(() => {
+      const renewing: Promise<Session | null> = currentSession(
+        sessions,
+        provider.refresh,
+        now(),
+        google && renewWithGoogle(google),
+        appSessions?.start,
+      ).finally(() => {
         // A sign-out may have taken its place meanwhile (#428): that one stays until it is done.
         if (renewal.current === renewing) {
           renewal.current = null
@@ -390,7 +419,7 @@ export function TaskFestApp({
       renewal.current = renewing
     }
     return renewal.current
-  }, [google, now, provider, renewWithGoogle, sessions])
+  }, [appSessions, google, now, provider, renewWithGoogle, sessions])
 
   /**
    * Forgets every file of the session: the image open, the links asked for, and the copies opened
@@ -449,6 +478,14 @@ export function TaskFestApp({
             console.warn('Google could not be signed out of', failure)
           })
         }
+        // The app session ends at the backend too (#281), unless the backend has ended it already:
+        // refused, or gone with the account. Not waited for either: offline, the phone forgets it
+        // all the same, and the backend ends it at the latest when its thirty days are over.
+        if (kept?.app && appSessions && notice !== 'sessionExpired' && notice !== 'accountDeleted') {
+          appSessions.end(kept.idToken).catch((failure: unknown) => {
+            console.warn('The app session could not be ended at the backend', failure)
+          })
+        }
         await keptBoard.clear().catch((failure: unknown) => {
           // Never shown to anyone else regardless: it names its account.
           console.warn('The kept board could not be forgotten', failure)
@@ -474,7 +511,7 @@ export function TaskFestApp({
         signingOut.current -= 1
       }
     },
-    [forgetFiles, google, keptBoard, previews, reminders, sessions],
+    [appSessions, forgetFiles, google, keptBoard, previews, reminders, sessions],
   )
 
   /** Keeps the backend's view of the board on the phone, after applying what it just agreed to. */
@@ -515,7 +552,7 @@ export function TaskFestApp({
       keptBoard.load().catch(() => null),
       sessions.load().catch(() => null),
     ])
-    if (!board || !stored || isInactive(stored, now()) || emailOf(stored.idToken) !== board.account) {
+    if (!board || !stored || hasEnded(stored, now()) || accountOf(stored) !== board.account) {
       return
     }
     setState((current) =>
@@ -567,7 +604,7 @@ export function TaskFestApp({
       try {
         const tasks = await fetchTasks({ baseUrl: variant.apiBaseUrl, idToken: session.idToken })
         if (!signedOut() && !superseded()) {
-          const email = emailOf(session.idToken)
+          const email = accountOf(session)
           const loadedAt = now()
           setState({ kind: 'board', tasks, email, loadedAt })
           // A change refused because the board was not current is moot once it is.
@@ -833,15 +870,20 @@ export function TaskFestApp({
     return true
   }
 
-  /** Signs in with the variant's provider, or with Google: a Google session says so, to be renewed by Google. */
-  const signIn = async (withGoogle = false) => {
+  /**
+   * Signs in with the variant's provider, with Google or with Apple: a Google session says so, to
+   * be signed out of Google too. With app sessions (#281) the ID token is then traded for one at
+   * once, by asking for the session just kept: refused, the sign-in did not work; not possible just
+   * now, the ID token signs in as before and is traded the next time.
+   */
+  const signIn = async (via?: 'google' | 'apple') => {
     // One at a time: a second tap while the first sign-in is still under way would start another.
     if (signingIn.current) {
       return
     }
     signingIn.current = true
     try {
-      const tokens = withGoogle && google ? await google.signIn() : await provider.signIn()
+      const tokens = via === 'google' && google ? await google.signIn() : via === 'apple' && apple ? await apple.signIn() : await provider.signIn()
       if (!tokens) {
         return
       }
@@ -849,9 +891,14 @@ export function TaskFestApp({
       if (!issued) {
         throw new Error('The provider issued no ID token the app can use.')
       }
-      const session: Session = withGoogle ? { ...issued, via: 'google' } : issued
+      const session: Session = via === 'google' ? { ...issued, via: 'google' } : issued
       await sessions.save(session)
-      await showBoard(session)
+      // Whatever was asked for before the sign-in is waited for first: it read no session.
+      const current = appSessions ? await (renewal.current ?? Promise.resolve(null)).catch(() => null).then(sessionNow) : session
+      if (!current) {
+        throw new Error('The backend refused the sign-in.')
+      }
+      await showBoard(current)
     } catch (failure) {
       // Logged for the device log -- the only trace a failed sign-in on a test device leaves.
       console.warn('Signing in failed', failure)
@@ -1734,7 +1781,8 @@ export function TaskFestApp({
             styles={styles}
             notice={state.notice}
             onSignIn={() => signIn()}
-            onSignInWithGoogle={google && variant.google ? () => signIn(true) : undefined}
+            onSignInWithGoogle={google && variant.google ? () => signIn('google') : undefined}
+            onSignInWithApple={apple && variant.apple && appleAvailable ? () => signIn('apple') : undefined}
           />
         ) : state.kind === 'board' ? (
           <>
@@ -1897,6 +1945,7 @@ function SignedOutScreen({
   darkMode,
   onSignIn,
   onSignInWithGoogle,
+  onSignInWithApple,
 }: {
   variant: Variant
   language: Language
@@ -1909,6 +1958,8 @@ function SignedOutScreen({
   onSignIn: () => void
   /** Present where the variant signs in with Google and the app can (#280). */
   onSignInWithGoogle?: () => void
+  /** Present where the variant signs in with Apple and the phone can (#281). */
+  onSignInWithApple?: () => void
 }) {
   return (
     <View style={styles.board}>
@@ -1924,13 +1975,15 @@ function SignedOutScreen({
         {onSignInWithGoogle ? (
           <GoogleButton darkMode={darkMode} label={messages.signedOut.google} styles={styles} onPress={onSignInWithGoogle} />
         ) : null}
+        {onSignInWithApple ? <AppleButton darkMode={darkMode} onPress={onSignInWithApple} /> : null}
         {variant.signIn ? (
           <Pressable accessibilityRole="button" style={styles.button} onPress={onSignIn}>
             <Text style={styles.buttonText}>{messages.signedOut.signInWith(variant.signIn.label)}</Text>
           </Pressable>
-        ) : onSignInWithGoogle ? null : (
+        ) : onSignInWithGoogle || onSignInWithApple ? null : (
           <Text style={styles.muted}>{messages.signedOut.notConfigured}</Text>
         )}
+        {onSignInWithApple ? <Text style={styles.muted}>{messages.signedOut.appleHiddenEmail}</Text> : null}
       </View>
       <LegalLinks language={language} messages={messages} styles={styles} appVersion={appVersion} />
     </View>

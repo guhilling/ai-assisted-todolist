@@ -2,6 +2,7 @@ import type { ConfigContext, ExpoConfig } from 'expo/config'
 import { withShareExtensionName } from './plugins/withShareExtensionName.ts'
 import { withShareLabel } from './plugins/withShareLabel.ts'
 import { withTimeZoneReceiver } from './plugins/withTimeZoneReceiver.ts'
+import { withoutAppleSignIn } from './plugins/withoutAppleSignIn.ts'
 import { fontFiles } from './src/fonts.ts'
 import { releaseOf } from './src/release.ts'
 import { SHARE_ACTIVATION_RULE } from './src/shareExtension.ts'
@@ -37,6 +38,9 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       config: { usesNonExemptEncryption: false },
       // The dev build's plain HTTP to localhost; App Transport Security allows nothing else.
       ...(dev ? { infoPlist: { NSAppTransportSecurity: { NSAllowsLocalNetworking: true } } } : {}),
+      // Sign in with Apple (#281), only where the build says the App ID has the capability: the
+      // entitlement fails the signing of an App ID without it (doc/mobile/sign-in.md).
+      ...(variant.apple ? { usesAppleSignIn: true } : {}),
     },
     android: {
       package: variant.bundleId,
@@ -75,6 +79,11 @@ export default ({ config }: ConfigContext): ExpoConfig => {
         'react-native-nitro-google-signin',
         { iosUrlScheme: variant.google ? googleUrlScheme(variant.google) : 'com.googleusercontent.apps.taskfest-without-google' },
       ],
+      // Sign in with Apple (#281): the entitlement, and the button in the phone's language. Expo
+      // applies the plugin to every build by itself, entitlement and all; where the variant has no
+      // Apple, withoutAppleSignIn below takes the entitlement out again. The native module is
+      // linked in every build, and simply never called there.
+      'expo-apple-authentication',
       // Attaching photos (#274): what iOS says when it asks for the camera and the library. The app
       // takes no videos, so it never asks for the microphone; Android's photo picker needs no
       // permission at all.
@@ -107,5 +116,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
   // What the share sheets offer the app as (#355, #356), applied here rather than listed in
   // plugins: the changes must follow expo-sharing's, as plugins/withShareExtensionName.ts says.
   // The reminders follow a change of time zone on Android (#479): a receiver of the app's own.
-  return withTimeZoneReceiver(withShareLabel(withShareExtensionName(app, variant.shareName), variant.shareName))
+  const built = withTimeZoneReceiver(withShareLabel(withShareExtensionName(app, variant.shareName), variant.shareName))
+  // Without Apple, its entitlement goes again, after the plugin that adds it to every build (#281).
+  return variant.apple ? built : withoutAppleSignIn(built)
 }

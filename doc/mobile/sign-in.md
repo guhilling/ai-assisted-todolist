@@ -1,9 +1,12 @@
 # Sign-in
 
 The app cannot use the website's session cookie, so it signs in as a native app should — the
-system browser, a public client, PKCE, the tokens kept on the device (RFC 8252) — and sends the
-**ID token** to the backend as `Authorization: Bearer`. The backend's side is in
-[authentication.md](../authentication.md#apps-sign-in-with-a-bearer-id-token).
+platform's own sign-in, or the system browser with a public client and PKCE (RFC 8252) — and
+trades the **ID token** it is given, once, for an **app session** of the backend's own (#281). From
+then on it sends that session's token as `Authorization: Bearer`, and the token lives in the
+keychain. The backend's side is in [authentication.md](../authentication.md#app-sessions), the
+decision in
+[decisions/authentication.md](../decisions/authentication.md#an-app-trades-its-id-token-once-for-an-app-session).
 
 ## How
 
@@ -12,7 +15,41 @@ provider and the app's own public client there: `taskfest-app` at the local Keyc
 Cognito app client once it exists. The redirect is `<bundle id>://oauthredirect`. Only the ID token
 and the refresh token are kept; the access token is never used.
 
-Google is different: it wants its own SDKs on phones rather than a browser flow — below.
+Google is different: it wants its own SDKs on phones rather than a browser flow — below. So is
+Apple, whose sign-in is native too, and on iOS only.
+
+## App sessions
+
+Whichever way the person signs in, the app then trades the ID token at
+`POST /api/auth/app-session` (`startAppSession` in `mobile/src/api.ts`) and keeps the session it
+gets instead: its token, its end, and the address of the ID token it was traded for, since the
+token itself says nothing about the account (`mobile/src/staySignedIn.ts`). The backend trades an
+ID token once only, and the first trade is the one that counts.
+
+- **Refused** (401): the sign-in did not work, and the app says so.
+- **Not possible just now**, offline or against a backend from before app sessions: the ID token
+  signs in as it did before, and is traded the next time the app asks for its session. That is the
+  same as a session kept from before (below).
+- **Signing out** ends the session at the backend with `DELETE /api/auth/app-session`, as well as
+  forgetting it on the phone ([account.md](account.md)). It is not waited for: offline, the phone
+  forgets the session all the same, and the backend ends it when its 30 days are over. A session
+  the backend has refused already, or that went with the account, is not sent again.
+
+`Caller.idToken` in `mobile/src/api.ts`, and `Session.idToken`, carry whichever token the session
+sends: the name goes with the transition (#633).
+
+### Sessions from before
+
+A session kept on the phone by a release before app sessions is the provider's ID token itself.
+Gunnar chose to trade it silently: at the first start after the update, the app renews it as it
+always did if it is about to run out, trades it, and keeps the app session in its place. Nobody
+signs in again. A backend that refuses it ends it, as it would have ended at its next refusal.
+One that cannot be asked keeps it, and the app trades it the next time. Until then the session
+goes on as before: renewed with the refresh token or Google's SDK, and ended after thirty days
+without use.
+
+That renewal is only there for the transition, and goes once a release with app sessions has
+been in the stores for 30 days (#633).
 
 ## Google
 
@@ -36,8 +73,9 @@ the app speaks (`signedOut.google` in the catalogue, the same in both languages)
 40 points high, so it takes 4 more above and below for the finger. qa's test-account button keeps
 the app's own style.
 
-**Renewing.** Google gives the app no refresh token; its SDK keeps what it needs. A Google session
-says so (`via: 'google'`) and is renewed through the SDK instead: on Android by signing in again
+**Renewing**, for a session from before app sessions only: an app session is never renewed.
+Google gives the app no refresh token; its SDK keeps what it needs. A Google session says so
+(`via: 'google'`) and is renewed through the SDK instead: on Android by signing in again
 silently — Credential Manager picks the account already chosen, without asking, since the ID token
 the library keeps is never renewed — and on iOS by restoring the sign-in and asking for fresh
 tokens. Google refusing ends the session as a refused refresh token does — no saved credential on
@@ -45,8 +83,8 @@ Android, or an `invalid_grant` passed on from Google on iOS, where the SDK has n
 for it. Anything else keeps the session: no connection, or the user turning away an account sheet
 that came up because more than one account has been used with the app. An Android renewal may
 take up to two minutes for that sheet, and one that comes back for another account ends the
-session rather than switching it. Signing out of a Google session signs out of the SDK too, so the
-next sign-in asks which account.
+session rather than switching it. Signing out of a Google session, an app session traded from
+Google's ID token included, signs out of the SDK too, so the next sign-in asks which account.
 
 **Only a build that knows the client ids has it.** They are repository variables, read by
 `mobile-release.yml`, and a release refuses to build without them
@@ -84,6 +122,43 @@ And for the backend, each environment's iOS client in its `terraform.tfvars`
 ([decisions/mobile-app.md](../decisions/mobile-app.md)), each environment with a client secret of
 its own ([deployment/names-and-certificates.md](../deployment/names-and-certificates.md)).
 
+## Apple
+
+Sign in with Apple on iOS (#281), with
+[expo-apple-authentication](https://docs.expo.dev/versions/v57.0.0/sdk/apple-authentication/):
+Apple's own sheet, no browser, and `mobile/src/apple.ts`. Apple has no SDK for Android, so the
+Android app offers Google alone. Only the address is asked for: the backend keys the account by
+it, and the app shows no name it would need Apple's for. A person who chooses Hide My Email gives
+TaskFest a `…@privaterelay.appleid.com` address, an account of its own: the sign-in says so, in
+the website's words.
+
+**The button is Apple's own**, `AppleAuthenticationButton`, drawn by iOS in the phone's language:
+white with an outline in light mode, white without one in dark mode, as the website shows Apple's
+images, and as large as Google's (`mobile/src/AppleButton.tsx`). It appears only where the phone
+says it can sign in with Apple.
+
+**Only a build that is told the App ID has the capability has it.** The entitlement Apple's sign-in
+needs fails the signing of an App ID without the capability, so a build keeps it, with
+`ios.usesAppleSignIn`, only where the repository variable `TASKFEST_QA_APPLE_SIGN_IN` or
+`TASKFEST_PROD_APPLE_SIGN_IN` is `true` (`mobile/src/variants.ts`, `mobile/app.config.ts`).
+Expo applies the library's config plugin to every build by itself, and it adds the entitlement
+whatever it is told, so the app's own `mobile/plugins/withoutAppleSignIn.ts` takes it out again
+everywhere else. The dev build never has it: the local Keycloak takes no Apple token.
+
+### Setting it up, once
+
+1. **At Apple**, in *Certificates, Identifiers & Profiles → Identifiers*: tick *Sign in with
+   Apple* for the App IDs `de.hilling.taskfest` and `de.hilling.taskfest.qa`, each *as a primary
+   App ID*. The release build's automatic signing makes the profiles anew with it.
+2. **The backend** must accept the app's tokens: Apple's sign-in set up for the environment as for
+   the website ([names-and-certificates.md](../deployment/names-and-certificates.md)), and offered.
+   Then `TASKFEST_OIDC_APPLE_AUDIENCES` names the bundle id, which Apple issues the app's ID tokens
+   to ([authentication.md](../authentication.md#sign-in-with-apple)). Until then a trade of Apple's
+   token is refused, and the app says the sign-in did not work.
+3. **The repository variables** (*Settings → Secrets and variables → Actions → Variables*):
+   `TASKFEST_QA_APPLE_SIGN_IN` and `TASKFEST_PROD_APPLE_SIGN_IN`, each `true` once its App ID has
+   the capability and its backend takes the tokens. The next release's iOS build offers Apple.
+
 ## Where the session lives
 
 In the platform's keychain (`expo-secure-store`), never in plain storage — each part under its own
@@ -91,18 +166,17 @@ key, because some iOS releases refused values above about 2 KB (`mobile/src/stay
 
 ## How long it lasts
 
-The backend sees only ID tokens, which live an hour, so the month a sign-in lasts is the app's rule
-([decisions/mobile-app.md](../decisions/mobile-app.md)):
+**30 days from the sign-in**, as the backend's app session does
+([decisions/authentication.md](../decisions/authentication.md#an-app-trades-its-id-token-once-for-an-app-session)):
 
-- An ID token about to run out is renewed with the refresh token, a minute early — or, for
-  Google, through its SDK (above).
-- A session unused for **thirty days** ends; every use starts the thirty days again.
-- A session that cannot be renewed, or that the backend refuses (401), ends, and the app says so
-  and offers the sign-in again — as the website does when its cookie has expired.
-- Signing out ends it at once, on the phone only ([account.md](account.md)).
+- However much or little it is used: the app renews nothing, and the session has no idle limit.
+- A session that has ended, or that the backend refuses (401), ends on the phone too, and the app
+  says so and offers the sign-in again — as the website does when its cookie has expired.
+- Signing out ends it at once, at the backend and on the phone ([account.md](account.md)).
 
-The provider has to let the refresh token live that long. Keycloak's does with the
-`offline_access` scope, which the `dev` variant asks for — and which a user may only be given
-with the realm's default roles: the local accounts are imported with `default-roles-taskfest`,
-since an imported user gets no roles otherwise; Cognito's client sets the refresh token's
-lifetime itself, and asking for `offline_access` there is an error.
+A session from before app sessions keeps its old rules until it is traded (above). Its provider
+has to let the refresh token live that long. Keycloak's does with the `offline_access` scope,
+which the `dev` variant asks for — and which a user may only be given with the realm's default
+roles: the local accounts are imported with `default-roles-taskfest`, since an imported user gets
+no roles otherwise; Cognito's client sets the refresh token's lifetime itself, and asking for
+`offline_access` there is an error.

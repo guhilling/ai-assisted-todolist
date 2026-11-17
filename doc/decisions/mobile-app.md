@@ -79,6 +79,12 @@ on 10 October 2026, and asked for it to be reviewed later.
 
 *Accepted · 2026-10-10 · #269*
 
+Revised in part on 2026-11-17 (#281): the app trades every sign-in's ID token once for an app
+session of the backend's own and sends that session's token instead, which lasts 30 days from the
+sign-in rather than 30 days from the last use; the month is the backend's now
+([An app trades its ID token once for an app
+session](authentication.md#an-app-trades-its-id-token-once-for-an-app-session)).
+
 **Decision (S1 on #264).** The app signs in with the platform's Google SDK (Credential Manager on
 Android, the Google Sign-In SDK on iOS) and sends the ID token as `Authorization: Bearer`. The
 backend accepts that beside its session cookie. The app signs itself out after **30 days without

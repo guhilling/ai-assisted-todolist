@@ -5,6 +5,7 @@
   "dependencies": {
     "@react-native-community/datetimepicker": "9.1.0",
     "expo": "~57.0.27",
+    "expo-apple-authentication": "~57.0.2",
     "expo-auth-session": "~57.0.14",
     "expo-build-properties": "~57.0.22",
     "expo-constants": "~57.0.21",
@@ -72,7 +73,7 @@
         "statements": 96,
         "branches": 92,
         "functions": 94,
-        "lines": 96
+        "lines": 97
       }
     }
   },

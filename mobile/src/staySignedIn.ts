@@ -1,4 +1,5 @@
-import { expiryOf, isInactive, needsRefresh, subjectOf, used, type Session } from './session'
+import { SignedOutError, type AppSession } from './api'
+import { emailOf, expiryOf, hasEnded, needsRefresh, subjectOf, used, type Session } from './session'
 
 /**
  * Keeping a sign-in on the phone, and handing out a session fit to send (#267).
@@ -26,6 +27,12 @@ export type Refresh = (refreshToken: string) => Promise<Tokens>
  * with the code `invalid_grant` when Google will not, as a provider refusing a refresh token does.
  */
 export type RenewGoogle = () => Promise<Tokens>
+
+/**
+ * Trades a provider's ID token for an app session (#281); rejects with a `SignedOutError` when the
+ * backend refuses it, and otherwise when it cannot be asked.
+ */
+export type Trade = (idToken: string) => Promise<AppSession>
 
 /**
  * The session could not be renewed for now -- no connection, the provider unreachable -- and is
@@ -74,7 +81,7 @@ export function createSessionStore(store: KeyValueStore) {
       // Where the session came from travels with its times: the one small record kept beside the tokens.
       await store.setItemAsync(
         TIMES,
-        JSON.stringify({ expiresAt: session.expiresAt, lastUsedAt: session.lastUsedAt, via: session.via }),
+        JSON.stringify({ expiresAt: session.expiresAt, lastUsedAt: session.lastUsedAt, via: session.via, app: session.app }),
       )
     },
 
@@ -84,9 +91,9 @@ export function createSessionStore(store: KeyValueStore) {
       if (!idToken || !times) {
         return null
       }
-      const { expiresAt, lastUsedAt, via } = JSON.parse(times) as Pick<Session, 'expiresAt' | 'lastUsedAt' | 'via'>
+      const { expiresAt, lastUsedAt, via, app } = JSON.parse(times) as Pick<Session, 'expiresAt' | 'lastUsedAt' | 'via' | 'app'>
       const session: Session = { idToken, refreshToken: await store.getItemAsync(REFRESH_TOKEN), expiresAt, lastUsedAt }
-      return via ? { ...session, via } : session
+      return { ...session, ...(via ? { via } : {}), ...(app ? { app } : {}) }
     },
 
     async clear() {
@@ -101,23 +108,30 @@ export type SessionStore = ReturnType<typeof createSessionStore>
 /**
  * The session to send now, or null when the user has to sign in.
  *
- * Ends a session unused for thirty days, renews an ID token about to run out, and ends the
- * session when the provider refuses to renew it. When the provider cannot be asked, the session is
- * kept and a {@link RenewalUnavailableError} says so. Every session handed out is recorded as used
- * now. A Google session is renewed with `renewGoogle`, and ends when there is none to renew it.
+ * An app session (#281) is handed out as it is until the end the backend gave it. One kept from
+ * before ends unused for thirty days; its ID token is renewed when about to run out, and the
+ * session ends when the provider refuses to renew it. When the provider cannot be asked, the
+ * session is kept and a {@link RenewalUnavailableError} says so. A Google session is renewed with
+ * `renewGoogle`, and ends when there is none to renew it. With `trade`, a session kept from before
+ * is then traded for an app session, silently, as Gunnar decided: until #633 removes the
+ * transition. Every session handed out is recorded as used now.
  */
 export async function currentSession(
   sessions: SessionStore,
   refresh: Refresh,
   now: number,
   renewGoogle?: RenewGoogle,
+  trade?: Trade,
 ): Promise<Session | null> {
   let session = await sessions.load()
-  if (session && isInactive(session, now)) {
+  if (session && hasEnded(session, now)) {
     session = null
   }
-  if (session && needsRefresh(session, now)) {
+  if (session && !session.app && needsRefresh(session, now)) {
     session = await renewed(session, renewalOf(session, refresh, renewGoogle), now)
+  }
+  if (session && !session.app && trade) {
+    session = await traded(session, trade, now)
   }
   if (!session) {
     await sessions.clear()
@@ -126,6 +140,32 @@ export async function currentSession(
   const current = used(session, now)
   await sessions.save(current)
   return current
+}
+
+/**
+ * A session kept from before as the app session its ID token trades for, or null when the backend
+ * refuses it. One that cannot be traded just now -- no connection, a backend from before app
+ * sessions -- goes on as it is, and is traded the next time it is asked for.
+ */
+async function traded(session: Session, trade: Trade, now: number): Promise<Session | null> {
+  let started: AppSession
+  try {
+    started = await trade(session.idToken)
+  } catch (failure) {
+    if (failure instanceof SignedOutError) {
+      return null
+    }
+    console.warn('The session could not be traded for an app session just now', failure)
+    return session
+  }
+  return {
+    idToken: started.token,
+    refreshToken: null,
+    expiresAt: started.expiresAt,
+    lastUsedAt: now,
+    ...(session.via ? { via: session.via } : {}),
+    app: { email: emailOf(session.idToken) },
+  }
 }
 
 /** What renews this session, or null when nothing can. */

@@ -7,10 +7,12 @@ sheet over the board.
 ## What it does
 
 - **Who is signed in** — the address from the ID token's `email` claim, the one the backend keys
-  the account by.
-- **Sign out** — forgets the session on the phone (the tokens in the keychain) and everything shown
-  for it, and goes back to the sign-in. Like the website's sign-out it leaves the provider's own
-  session alone: it is not an RP-initiated logout, so signing in again may not ask for a password.
+  the account by: kept beside the app session the ID token was traded for, which names none
+  ([sign-in.md](sign-in.md#app-sessions)).
+- **Sign out** — ends the app session at the backend, without waiting for it (#281), forgets the
+  session on the phone (the tokens in the keychain) and everything shown for it, and goes back to
+  the sign-in. Like the website's sign-out it leaves the provider's own session alone: it is not an
+  RP-initiated logout, so signing in again may not ask for a password.
   The board kept for reading offline ([board.md](board.md)) with its files' previews, and the
   scheduled reminders ([reminders.md](reminders.md)) go with it, and whatever else the app comes
   to keep for a signed-in user is removed in the same place,
