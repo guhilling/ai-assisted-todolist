@@ -26,3 +26,7 @@ table_name = ""
 
 # Point-in-time recovery for the Go backend's table, as decided on #553.
 table_point_in_time_recovery = true
+
+# The Go backend's logs also go to the shared monitoring server (#508), with the password in
+# /taskfest/prod/monitoring-password (doc/deployment/observability.md, "The monitoring server").
+monitoring_endpoint = "https://monitoring.cloud.hilling.de"
