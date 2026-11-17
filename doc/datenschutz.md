@@ -83,10 +83,11 @@ dass die Antwort von Google zu dieser Anmeldung gehört. Beide sind für den Bet
 technisch erforderlich, weshalb kein Einwilligungsbanner erscheint (§ 25 Abs. 2 Nr. 2 TDDDG).
 
 Die TaskFest-App kann Sie ohne Cookie angemeldet halten: Nach der Anmeldung erhält sie einen
-Zufallswert derselben Art, bewahrt ihn auf Ihrem Gerät auf und sendet ihn mit jeder Anfrage. Die
-Sitzung, die er bezeichnet, enthält dasselbe wie eine Sitzung auf der Website und wird gespeichert,
-bis sie endet: wenn Sie sich in der App abmelden oder Ihr Konto löschen, und spätestens 30 Tage
-nach der Anmeldung. Auch hier werden Ihre Anmelde-Token nicht aufbewahrt.
+Zufallswert wie den im Sitzungs-Cookie, der Ihre Sitzung auf dem Server bezeichnet. Die App
+bewahrt ihn auf Ihrem Gerät auf und sendet ihn mit jeder Anfrage. Diese Sitzung enthält dasselbe
+wie eine Sitzung auf der Website und wird gespeichert, bis sie endet: wenn Sie sich in der App
+abmelden oder Ihr Konto löschen, und spätestens 30 Tage nach der Anmeldung. Auch hier werden Ihre
+Anmelde-Token nicht aufbewahrt.
 
 Es gibt **keine** Analyse-, Werbe- oder Tracking-Cookies und keinerlei Analyse- oder
 Tracking-Skripte.

@@ -76,10 +76,10 @@ necessary for the application to work, which is why no consent banner is shown (
 TDDDG).
 
 The TaskFest app can keep you signed in without a cookie: once you have signed in, it receives a
-random value of the same kind, keeps it on your device, and sends it with every request. The
-session it names holds the same as a website session, and is stored until it ends: when you sign
-out in the app or delete your account, and at the latest 30 days after you signed in. Here too,
-your sign-in tokens are not kept.
+random value like the one in the session cookie, which names your session on the server. The app
+keeps it on your device and sends it with every request. That session holds the same as a website
+session, and is stored until it ends: when you sign out in the app or delete your account, and at
+the latest 30 days after you signed in. Here too, your sign-in tokens are not kept.
 
 There are **no** analytics, advertising or tracking cookies, and no analytics or tracking scripts
 of any kind.
