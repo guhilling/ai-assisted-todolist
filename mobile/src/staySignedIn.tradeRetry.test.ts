@@ -168,6 +168,34 @@ describe('trading a session from before again (#281, review of #634)', () => {
     expect(trades.trade).toHaveBeenCalledTimes(2)
   })
 
+  it('waits a few minutes after a renewal to trade with that cannot be made, rather than renewing before every request', async () => {
+    const sessions = createSessionStore(memoryStore())
+    await sessions.save({ ...before, idTokenSpent: true })
+    const trades = trading(null)
+    const refresh = jest.fn().mockRejectedValueOnce(new TypeError('Network request failed')).mockResolvedValue({ idToken: fresh })
+
+    await currentSession(sessions, refresh, NOW, undefined, trades)
+    await currentSession(sessions, refresh, NOW + TRADE_RETRY_MS - 1, undefined, trades)
+    expect(refresh).toHaveBeenCalledTimes(1)
+
+    await currentSession(sessions, refresh, NOW + TRADE_RETRY_MS, undefined, trades)
+    expect(refresh).toHaveBeenCalledTimes(2)
+    expect(trades.trade).toHaveBeenCalledWith(fresh)
+  })
+
+  it('waits a few minutes too after a renewal that hands back the spent ID token', async () => {
+    const sessions = createSessionStore(memoryStore())
+    await sessions.save({ ...before, idTokenSpent: true })
+    const refresh = jest.fn().mockResolvedValue({ idToken: before.idToken })
+
+    const trades = trading()
+    await currentSession(sessions, refresh, NOW, undefined, trades)
+    await currentSession(sessions, refresh, NOW + TRADE_RETRY_MS - 1, undefined, trades)
+
+    expect(refresh).toHaveBeenCalledTimes(1)
+    expect(trades.trade).not.toHaveBeenCalled()
+  })
+
   it('says the session was refused when the backend refuses the trade, after forgetting it', async () => {
     const store = memoryStore()
     await createSessionStore(store).save(before)

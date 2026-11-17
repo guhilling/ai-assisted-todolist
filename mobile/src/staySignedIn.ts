@@ -164,7 +164,7 @@ export type SessionStore = ReturnType<typeof createSessionStore>
  * `SignedOutError` says so. Not possible just now, it goes on as it is, and is tried again after
  * {@link TRADE_RETRY_MS}; an ID token sent without a clear answer may have been traded already, so
  * it is never sent again: the session is renewed first, and the new ID token traded, and one that
- * cannot be renewed is not traded at all. Every session handed out is recorded as used now.
+ * cannot be renewed is not traded at all. A renewal that brings no new ID token waits as long. Every session handed out is recorded as used now.
  */
 export async function currentSession(
   sessions: SessionStore,
@@ -189,7 +189,11 @@ export async function currentSession(
     if (session && loaded?.idTokenSpent && session.idToken === loaded.idToken) {
       session = { ...session, idTokenSpent: true }
     }
-    if (session && trading && tradeDue && !session.idTokenSpent) {
+    if (session && trading && tradeDue && session.idTokenSpent) {
+      // No new ID token to trade -- the renewal failed, or handed back the spent one: renewed again
+      // after TRADE_RETRY_MS, as a failed trade is tried again, not before every request (#634).
+      trading.failedAt = now
+    } else if (session && trading && tradeDue) {
       try {
         session = await traded(session, trading, now)
       } catch (failure) {

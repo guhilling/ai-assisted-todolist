@@ -33,8 +33,11 @@ sheet over the board.
   legal links leave the app, and a half-typed confirmation would be lost.
 - **Delete account** — the website's confirmation, in its words: everything goes, for good, and
   the delete button stays disabled until the signed-in address is typed (in any case, with any
-  spaces around it: the website's own rule, `frontend/src/confirmsEmail.ts`). It calls the website's endpoint, `DELETE /api/account`, with the ID token,
-  then signs out and says the account was deleted; signing in again starts a new, empty one. A
+  spaces around it: the website's own rule, `frontend/src/confirmsEmail.ts`). It calls the
+  website's endpoint, `DELETE /api/account`, with the app session's token (#281) — with the ID
+  token only while a sign-in's trade could not be made yet, or a session kept from before is not
+  traded yet ([sign-in.md](sign-in.md#app-sessions)) — then signs out and says the account was
+  deleted; signing in again starts a new, empty one. A
   refused delete closes the question and says why; a session that has ended leads to the sign-in,
   as any change does ([board.md](board.md)). While the delete is on its way the sheet offers
   nothing else: no sign-out, and it cannot be closed, so a late answer can never sign out a

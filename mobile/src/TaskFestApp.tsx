@@ -406,6 +406,11 @@ export function TaskFestApp({
   const renewal = useRef<Promise<Session | null> | null>(null)
   /** Trading sessions kept from before for app sessions (#281), with when a trade last failed, for this run. */
   const trading = useRef<Trading | undefined>(appSessions && { trade: appSessions.start })
+  /**
+   * The start forgetting the board of a session that ran out, while it does: a sign-in begun
+   * meanwhile waits for it, or its board and reminders would be forgotten with the old ones (#634).
+   */
+  const forgettingBoard = useRef<Promise<void> | null>(null)
 
   const sessionNow = useCallback(() => {
     if (!renewal.current) {
@@ -829,9 +834,16 @@ export function TaskFestApp({
       } else {
         // The session ran out unused: its board, its files and its reminders go with it.
         forgetFiles()
-        await keptBoard.clear().catch(() => undefined)
-        await previews.clear().catch(() => undefined)
-        await reminders.replace([]).catch(() => undefined)
+        const forgetting = (async () => {
+          await keptBoard.clear().catch(() => undefined)
+          await previews.clear().catch(() => undefined)
+          await reminders.replace([]).catch(() => undefined)
+        })()
+        forgettingBoard.current = forgetting
+        await forgetting
+        if (forgettingBoard.current === forgetting) {
+          forgettingBoard.current = null
+        }
         // Already at the sign-in, it stays as it is, with whatever it says -- "account deleted", say.
         setState((current) => (current.kind === 'signedOut' ? current : { kind: 'signedOut' }))
       }
@@ -906,6 +918,9 @@ export function TaskFestApp({
       if (!issued) {
         throw new Error('The provider issued no ID token the app can use.')
       }
+      // A start forgetting the board of a session that ran out is done first, so it does not
+      // forget this one's.
+      await forgettingBoard.current
       // A lookup begun before -- a return to the foreground, say -- read no session, and would
       // forget the one saved here once it is done: it is waited for first, and stood in for by this
       // sign-in until the session is saved, so none begins meanwhile.
@@ -921,6 +936,10 @@ export function TaskFestApp({
               throw failure
             }
             console.warn('The sign-in could not be traded for an app session just now', failure)
+            // Tried again after TRADE_RETRY_MS, as a lookup's failed trade is (#634).
+            if (trading.current) {
+              trading.current.failedAt = now()
+            }
             kept = afterFailedTrade(session, failure)
           }
         }

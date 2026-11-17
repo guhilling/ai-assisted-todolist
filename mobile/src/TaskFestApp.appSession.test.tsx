@@ -1,8 +1,9 @@
 import { act, fireEvent, render, screen, userEvent, waitFor } from '@testing-library/react-native'
-import { SignedOutError, TimedOutError } from './api'
+import { RequestFailedError, SignedOutError, TimedOutError } from './api'
 import type { AppleProvider } from './apple'
 import type { KeptBoard } from './keptBoard'
 import type { Session } from './session'
+import { TRADE_RETRY_MS } from './staySignedIn'
 import { TaskFestApp, type Dependencies } from './TaskFestApp'
 import { HOUR, dependencies as appDependencies, foreground, memoryBoard, memorySessions, prod, qa, tokenWith } from './testing'
 import type { Variant } from './variants'
@@ -184,6 +185,26 @@ describe('app sessions, in the app (#281)', () => {
     expect(sessions.current()).toMatchObject({ idToken, via: 'google', idTokenSpent: true })
   })
 
+  it('waits a few minutes after a sign-in whose trade failed before it trades again', async () => {
+    const back = foreground()
+    let clock = NOW
+    const trade = appSessions()
+    trade.start.mockRejectedValueOnce(new RequestFailedError(429))
+    const sessions = memorySessions(null)
+    await render(<TaskFestApp variant={prod} language="en" dependencies={dependencies({ appSessions: trade, sessions, now: () => clock })} />)
+    await userEvent.setup().press(await screen.findByRole('button', { name: 'Sign in with Google' }))
+    await screen.findByText('Water the plants')
+
+    clock = NOW + TRADE_RETRY_MS - 1
+    await back()
+    expect(trade.start).toHaveBeenCalledTimes(1)
+
+    clock = NOW + TRADE_RETRY_MS
+    await back()
+    await waitFor(() => expect(trade.start).toHaveBeenCalledTimes(2))
+    await waitFor(() => expect(sessions.current()).toMatchObject({ idToken: 'taskfest_app_ada' }))
+  })
+
   it('says the session has expired when the backend refuses to trade the one kept from before', async () => {
     const before: Session = { idToken, refreshToken: null, expiresAt: NOW + HOUR, lastUsedAt: NOW - DAY, via: 'google' }
     const trade = appSessions()
@@ -193,6 +214,35 @@ describe('app sessions, in the app (#281)', () => {
 
     expect(await screen.findByText('Your session has expired. Sign in again to carry on.')).toBeOnTheScreen()
     expect(sessions.current()).toBeNull()
+  })
+
+  it('does not let a start forgetting the board of a session that ran out forget the board of a sign-in meanwhile', async () => {
+    const back = foreground()
+    const stored = memoryBoard(null)
+    let forget: () => void = () => undefined
+    let hold = false
+    const keptBoard = {
+      ...stored,
+      // The return to the foreground's start forgets the board only when told.
+      clear: jest.fn(() => {
+        if (!hold) {
+          return stored.clear()
+        }
+        hold = false
+        return new Promise<void>((resolve) => (forget = () => void stored.clear().then(resolve)))
+      }),
+    }
+    await render(<TaskFestApp variant={prod} language="en" dependencies={dependencies({ keptBoard })} />)
+    const button = await screen.findByRole('button', { name: 'Sign in with Google' })
+    hold = true
+    await back()
+    await waitFor(() => expect(keptBoard.clear).toHaveBeenCalledTimes(2))
+
+    await userEvent.setup().press(button)
+    await act(async () => forget())
+
+    expect(await screen.findByText('Water the plants')).toBeOnTheScreen()
+    await waitFor(() => expect(stored.current()).toMatchObject({ account: 'ada@example.com' }))
   })
 
   it('does not let a lookup begun before a sign-in forget the session it saves', async () => {

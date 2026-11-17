@@ -249,15 +249,21 @@ therefore means trusting it with that claim — see
 
 The mobile app (#264) cannot use the cookie: Google refuses sign-in inside a WebView, and a cookie
 set in the system browser never reaches the app. It signs in with its platform's own sign-in —
-Google's SDK, or code + PKCE through the system browser — and sends the **ID token** it is given as
-`Authorization: Bearer` on every request ([decisions/mobile-app.md](decisions/mobile-app.md)).
+Google's SDK, Apple's on iOS, or code + PKCE through the system browser — and sends the **ID
+token** it is given as `Authorization: Bearer`
+([decisions/mobile-app.md](decisions/mobile-app.md)). Since #281 it sends it once, to trade it for
+an app session, whose token it sends on every request from then on ([App sessions](#app-sessions)).
+An ID token is still accepted on any request: from a session kept from before app sessions until
+it is traded, from a sign-in whose trade could not be made just now, and from any other client
+that sends one. This section is how it is checked, wherever it is sent.
 
 ```
-App      sign-in with the platform's SDK          → an ID token, kept in the Keychain / Keystore
-App      GET /api/tasks  Authorization: Bearer <ID token>
+App      sign-in with the platform's SDK          → an ID token
+App      POST /api/auth/app-session  Authorization: Bearer <ID token>
+           (until it is traded: GET /api/tasks and the rest with it)
 Backend  provider by the token's iss → signature, issuer, expiry (go-oidc)
          → issued to one of the provider's clients? an ID token? email verified? (verifyIDToken)
-         → 200, or 401 — never a redirect, never a session cookie
+         → 201 or 200, or 401 — never a redirect, never a session cookie
 ```
 
 - **A request with an `Authorization` header is judged by its token alone**, never by a cookie;

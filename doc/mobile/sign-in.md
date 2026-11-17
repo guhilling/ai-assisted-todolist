@@ -184,7 +184,10 @@ because some iOS releases refused values above about 2 KB.
 - However much or little it is used: the app renews nothing, and the session has no idle limit.
 - A session that has ended, or that the backend refuses (401), ends on the phone too, and the app
   says so and offers the sign-in again — as the website does when its cookie has expired.
-- Signing out ends it at once, at the backend and on the phone ([account.md](account.md)).
+- Signing out ends it on the phone at once ([account.md](account.md)), and at the backend as far
+  as it can be told: the app does not wait for the backend's answer, and only logs a failure, so
+  offline the session stays valid at the backend until its 30 days are over, though no phone holds
+  its token any more.
 
 A session from before app sessions keeps its old rules until it is traded (above). Its provider
 has to let the refresh token live that long. Keycloak's does with the `offline_access` scope,
