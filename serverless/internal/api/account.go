@@ -128,8 +128,8 @@ const (
 	// serveAsIs serves the request as it came.
 	serveAsIs settlement = iota
 	// identifyAgain: a deletion was finished, and with it the request's own session; a website
-	// session is gone, an app's bearer token goes on with a new, empty account, as after any
-	// deletion.
+	// session or an app session (#281) is gone, a bearer ID token goes on with a new, empty
+	// account, as after any deletion.
 	identifyAgain
 	// refuse the request: its deletion could not be finished, or whether there is one not read.
 	refuse

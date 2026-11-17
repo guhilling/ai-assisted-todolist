@@ -27,8 +27,9 @@ type ItemAPI interface {
 	TransactWriteItems(ctx context.Context, in *dynamodb.TransactWriteItemsInput, opts ...func(*dynamodb.Options)) (*dynamodb.TransactWriteItemsOutput, error)
 }
 
-// Sessions keeps the website's sessions and its sign-ins under way in the table (#549), each in
-// a partition of its own, SESSION#<key> or SIGNIN#<key>, keyed by the hash of its cookie's value.
+// Sessions keeps the website's sessions and its sign-ins under way in the table (#549), and the
+// apps' sessions (#281), each in a partition of its own, SESSION#<key> or SIGNIN#<key>, keyed by
+// the hash of its cookie's value or of the app session token.
 // expiresAt, in Unix seconds, is the table's TTL attribute, so an ended item deletes itself.
 type Sessions struct {
 	client ItemAPI
@@ -54,10 +55,12 @@ type sessionItem struct {
 	Subject  string `dynamodbav:"subject,omitempty"`
 	// Owner is the partition the session is linked from (Accounts.AccountEmail); empty in a
 	// session begun before #622, which is linked from the partition of its email as sent.
-	Owner     string `dynamodbav:"owner,omitempty"`
-	Created   int64  `dynamodbav:"created"`
-	LastSeen  int64  `dynamodbav:"lastSeen"`
-	ExpiresAt int64  `dynamodbav:"expiresAt"`
+	Owner string `dynamodbav:"owner,omitempty"`
+	// App marks an app session (#281); absent in a website session.
+	App       bool  `dynamodbav:"app,omitempty"`
+	Created   int64 `dynamodbav:"created"`
+	LastSeen  int64 `dynamodbav:"lastSeen"`
+	ExpiresAt int64 `dynamodbav:"expiresAt"`
 }
 
 type pendingItem struct {
@@ -86,7 +89,8 @@ func pendingKey(key string) map[string]types.AttributeValue {
 }
 
 // sessionLink is the item in the user's partition that names one of their sessions, so that
-// deleting the account ends it (#553). It expires when the session can last no longer.
+// deleting the account ends it (#553). It expires when the session can last no longer: seven days
+// after a website session's start, 30 after an app session's (auth.Session.Lifetime).
 type sessionLink struct {
 	PK        string `dynamodbav:"PK"`
 	SK        string `dynamodbav:"SK"`
@@ -105,7 +109,7 @@ func (s *Sessions) PutSession(ctx context.Context, key string, session auth.Sess
 	}
 	owner := OwnerKey(email)
 	link, err := attributevalue.MarshalMap(sessionLink{PK: owner, SK: sessionLinkPrefix + key,
-		Created: session.Created.Unix(), ExpiresAt: session.Created.Add(auth.AbsoluteLifetime).Unix()})
+		Created: session.Created.Unix(), ExpiresAt: session.Created.Add(session.Lifetime()).Unix()})
 	if err != nil {
 		return err
 	}
@@ -115,7 +119,7 @@ func (s *Sessions) PutSession(ctx context.Context, key string, session auth.Sess
 	item, err := attributevalue.MarshalMap(sessionItem{
 		PK: "SESSION#" + key, SK: "SESSION",
 		Email: session.Email, Name: session.Name, Picture: session.Picture,
-		Provider: session.Provider, Subject: session.Subject, Owner: owner,
+		Provider: session.Provider, Subject: session.Subject, Owner: owner, App: session.App,
 		Created: session.Created.Unix(), LastSeen: session.LastSeen.Unix(), ExpiresAt: expires.Unix(),
 	})
 	if err != nil {
@@ -145,7 +149,7 @@ func (s *Sessions) GetSession(ctx context.Context, key string) (auth.Session, bo
 	return auth.Session{
 		Identity: identity.Identity{Email: it.Email, Name: it.Name, Picture: it.Picture,
 			Provider: it.Provider, Subject: it.Subject},
-		Created: time.Unix(it.Created, 0), LastSeen: time.Unix(it.LastSeen, 0),
+		Created: time.Unix(it.Created, 0), LastSeen: time.Unix(it.LastSeen, 0), App: it.App,
 	}, true, nil
 }
 
@@ -211,6 +215,30 @@ func (s *Sessions) PutPendingSignIn(ctx context.Context, key string, p auth.Pend
 		return fmt.Errorf("put sign-in: %w", err)
 	}
 	return nil
+}
+
+// ClaimIDToken records an ID token traded for an app session, by the hash of its claims, as
+// TRADED#<key>, and says whether it was the first claim: a conditional put, so two trades at once
+// cannot both pass. The record's TTL ends it once the ID token it names is no longer valid.
+func (s *Sessions) ClaimIDToken(ctx context.Context, key string, until time.Time) (bool, error) {
+	_, err := s.client.PutItem(ctx, &dynamodb.PutItemInput{
+		TableName: aws.String(s.table),
+		Item: map[string]types.AttributeValue{
+			"PK":        &types.AttributeValueMemberS{Value: "TRADED#" + key},
+			"SK":        &types.AttributeValueMemberS{Value: "TRADED"},
+			"expiresAt": &types.AttributeValueMemberN{Value: strconv.FormatInt(until.Unix(), 10)},
+		},
+		ConditionExpression: aws.String("attribute_not_exists(PK)"),
+	})
+	var taken *types.ConditionalCheckFailedException
+	switch {
+	case err == nil:
+		return true, nil
+	case errors.As(err, &taken):
+		return false, nil
+	default:
+		return false, fmt.Errorf("claim an ID token: %w", err)
+	}
 }
 
 // TakePendingSignIn deletes a sign-in under way and returns what it was, in one request, so two

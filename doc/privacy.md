@@ -33,7 +33,8 @@ an identifier for your account.
   your tasks belong to.
 - **Your name and picture** are used only to show you who you are signed in as. They are taken
   from Google's sign-in token when you sign in and kept with your session, **never with your
-  tasks**; they are deleted when the session ends, at the latest seven days after you signed in.
+  tasks**; they are deleted when the session ends: on the website at the latest seven days after
+  you signed in, in the app at the latest 30 days after.
 
 Legal basis: Art. 6(1)(b) GDPR, providing the application you asked to use. Kept until your
 account is deleted.
@@ -74,6 +75,12 @@ the latest seven days after you signed in. During sign-in itself a second cookie
 most ten minutes, to check that Google's answer belongs to this sign-in. Both are technically
 necessary for the application to work, which is why no consent banner is shown (§ 25(2) no. 2
 TDDDG).
+
+The TaskFest app can keep you signed in without a cookie: once you have signed in, it receives a
+random value like the one in the session cookie, which names your session on the server. The app
+keeps it on your device and sends it with every request. That session holds the same as a website
+session, and is stored until it ends: when you sign out in the app or delete your account, and at
+the latest 30 days after you signed in. Here too, your sign-in tokens are not kept.
 
 There are **no** analytics, advertising or tracking cookies, and no analytics or tracking scripts
 of any kind.

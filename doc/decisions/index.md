@@ -44,6 +44,7 @@ commit that first wrote each one down. CI checks every line and that this index 
 - [Gravatar is asked by the backend, and that buys accuracy rather than privacy](authentication.md#gravatar-is-asked-by-the-backend-and-that-buys-accuracy-rather-than-privacy)
 - [Apps send a bearer ID token, and the audience is checked in code](authentication.md#apps-send-a-bearer-id-token-and-the-audience-is-checked-in-code)
 - [A provider may sign its client secret, and post the browser back](authentication.md#a-provider-may-sign-its-client-secret-and-post-the-browser-back)
+- [An app trades its ID token once for an app session](authentication.md#an-app-trades-its-id-token-once-for-an-app-session)
 
 ## [Frontend and user interface](frontend.md)
 

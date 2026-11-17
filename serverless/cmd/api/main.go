@@ -93,7 +93,7 @@ func main() {
 	avatars := gravatar.New(os.Getenv("TASKFEST_GRAVATAR_ENABLED") != "false", gravatar.DefaultBase)
 	signIn := auth.New(authConfig, store.NewSessions(client, table), avatars)
 	accounts := store.NewAccounts(client, table)
-	server := &api.Server{Tasks: tasks, Writes: writes, Attachments: writes, Files: bucket, SignIn: signIn,
+	server := &api.Server{Tasks: tasks, Writes: writes, Attachments: writes, Files: bucket, SignIn: signIn, Apps: signIn,
 		Accounts: accounts, Emails: accounts, Version: version, MinimumAppVersion: minimumApp,
 		// The caller is the email their account is keyed by (#622), then settled under it.
 		Caller: api.Settled(api.Keyed(func(r *http.Request) (string, bool) {

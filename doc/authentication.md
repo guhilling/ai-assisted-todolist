@@ -1,7 +1,8 @@
 # Authentication
 
 How TaskFest signs people in: the website through the backend, with a session the backend keeps,
-and the apps with a bearer ID token. The code is `serverless/internal/auth`, with the sessions'
+and the apps with a bearer ID token, or an app session they trade one for
+([App sessions](#app-sessions)). The code is `serverless/internal/auth`, with the sessions'
 storage in `serverless/internal/store/sessions.go`. It keeps the paths, providers and rules of the
 Quarkus backend it replaced, which the tag `pre-serverless` holds; what differs from it, and why,
 is in [serverless.md](deployment/serverless.md#sign-in).
@@ -114,8 +115,10 @@ in will not prompt for credentials again. This matters for tests — the Playwri
 opens a fresh `browser.newContext()` per account, because reusing one would silently sign
 the second account in as the first.
 
-Deleting the account ends its sessions on every device, through the links each sign-in writes into
-the user's partition ([serverless.md](deployment/serverless.md#deleting-an-account)).
+Deleting the account ends its sessions on every device, the apps' sessions among them, through the
+links each sign-in writes into the user's partition
+([serverless.md](deployment/serverless.md#deleting-an-account)). The apps sign out with
+`DELETE /api/auth/app-session` ([App sessions](#app-sessions)).
 
 ## Which provider, where
 
@@ -220,6 +223,10 @@ TASKFEST_OIDC_APPLE_RESPONSE_MODE=form_post
   or picture. The name comes once, at a person's first sign-in, as a `user` field beside the
   code, from the browser and unsigned; the backend does not read it, so an Apple session shows no
   name, and a Gravatar where one exists.
+- **The app's native sign-in issues ID tokens to the app's bundle id**, not to the Services ID, so
+  `TASKFEST_OIDC_APPLE_AUDIENCES` names the environment's iOS bundle id: `de.hilling.taskfest` in
+  prod, `de.hilling.taskfest.qa` in qa (`local.ios_bundle_id` in OpenTofu's `sign-in.tf`). The app
+  trades that token for an app session ([App sessions](#app-sessions)).
 - **The ID token** carries `email`, `email_verified` as a boolean or the string `"true"`, which
   `verifyIDToken` already accepts, and `is_private_email`, which is not read: a hidden
   `…@privaterelay.appleid.com` address is an account of its own (Q6 on #264, Gunnar's decision).
@@ -279,9 +286,63 @@ Backend  provider by the token's iss → signature, issuer, expiry (go-oidc)
 - **Both ways in give the same identity** (`identity.Identity`), so every handler serves the
   website and the apps alike. The function checks tokens itself rather than with API Gateway's JWT
   authorizer: the cookie needs the function anyway, and one place decides for both.
-- **How long it lasts is the app's business.** The backend only ever sees ID tokens, valid for an
-  hour at Google and renewed silently by the SDK. The app signs itself out after 30 days without
-  use ([mobile/sign-in.md](mobile/sign-in.md)); the website's limits are unchanged.
+- **How long it lasts is the app's business** while it sends ID tokens, valid for an hour at
+  Google and renewed silently by the SDK. The app signs itself out after 30 days without use
+  ([mobile/sign-in.md](mobile/sign-in.md)); the website's limits are unchanged. An ID token that
+  cannot be renewed so, as from Apple's native sign-in, is traded for an app session instead.
+
+## App sessions
+
+Apple's native sign-in on iOS (#281) gives the app an ID token that it cannot renew without the
+person, unlike Google's SDK. So, after a native sign-in, the app trades the provider's ID token
+**once** for an **app session** of the backend's own, and sends that session's token from then
+on. It works for any provider; the backend keeps no provider's refresh token
+([decisions/authentication.md](decisions/authentication.md#an-app-trades-its-id-token-once-for-an-app-session)).
+
+```
+App      native sign-in                               → the provider's ID token
+App      POST /api/auth/app-session  Authorization: Bearer <ID token>
+Backend  the ID token checked as any bearer ID token (above) → the session stored
+         → 201 { "token": "taskfest_app_…", "expiresAt": "2026-12-16T09:30:00Z" }
+App      keeps the token in the Keychain / Keystore
+App      GET /api/tasks  Authorization: Bearer taskfest_app_…  → 200, or 401 once it has ended
+App      DELETE /api/auth/app-session  Authorization: Bearer taskfest_app_…  → 204 (sign-out)
+```
+
+- **An ID token trades once.** The backend remembers each traded token by the hash of its signed
+  claims (`TRADED#<hash>`, a conditional write, so two trades at once cannot both pass), not of its
+  spelling, which can vary: go-jose ignores whitespace in a token, and base64url's last character
+  carries bits nobody reads. It does so for as long as the token is valid, and a day at least,
+  longer than Google's and Apple's ID tokens last: one that leaked cannot be turned into many
+  thirty-day sessions. A new sign-in brings a new ID token. The session ends on a whole second, as
+  it is stored.
+- **Only a provider's ID token starts one.** It is verified exactly as a bearer request's is:
+  issuer, signature, expiry, audience, an ID token, a verified email. An app session token cannot
+  start another, so a session cannot renew itself, and a session cookie cannot start one either.
+  Anything else is a 401 (`Service.StartAppSession`).
+- **The token is `taskfest_app_` and 32 random bytes in base64url**, 43 characters. It has no dot,
+  where a JWT, which every ID token is, has three parts separated by dots; and a JWT begins with
+  its header's base64url, `ey` for the `{` its JSON starts with, never with that prefix. The
+  prefix alone decides how a bearer token is judged (`IsAppSessionToken`): one with it is looked up
+  as an app session and never parsed as a JWT, one without it is checked as an ID token and never
+  looked up. An unknown, ended or expired app session token is a 401, as a bad ID token is.
+- **It is kept like the website's sessions** (`internal/store/sessions.go`): the item
+  `SESSION#<SHA-256 of the token>` holds who signed in, as a website session's does, and is marked
+  `app`; a link from the user's partition, the one the account is keyed by
+  (`Accounts.AccountEmail`), names it. The table stores only the token's SHA-256.
+- **It lasts 30 days from its start** (`AppLifetime`), however much or little it is used: no idle
+  limit, and nothing is written per request. Its item and its link carry `expiresAt` 30 days on,
+  and the backend checks the time on every read as well. The website's eight hours and seven days
+  are unchanged. After the 30 days the app signs in again.
+- **Neither kind of session stands in for the other.** An app session token sent as the
+  `taskfest_session` cookie signs nobody in, nor does a website session's value sent as a bearer
+  token.
+- **Sign-out** is `DELETE /api/auth/app-session` with the token as the bearer token: it deletes the
+  item and its link, and answers 204, also for a session that had ended already; without an app
+  session token it is a 401. Like the website's, it leaves the provider's own session alone.
+- **Deleting the account ends it**, as it ends the website's: the account's deletion deletes every
+  session its links name, and `DELETE /api/account` sent with an app session token ends that one
+  directly too (`Service.EndSession`). Its next request is a 401.
 
 ## The provider list
 
@@ -420,6 +481,13 @@ provider in the test with its own keys, discovery and token endpoint.
   another application, an unverified address, an access token, and an expired, forged or unknown
   token refused; an app's own client accepted where named; the provider chosen by issuer, and
   providers sharing one; a request with an `Authorization` header never judged by its cookie.
+- `internal/auth/appsession_test.go` — app sessions: an ID token traded for a session that signs
+  in as its person, stored by hash alone; the token's format, which never reads as a JWT; 30 days
+  with no idle limit and no write per request; only a provider's ID token starting one; neither
+  kind of session standing in for the other; signing out, and ending the request's session as
+  deleting the account does. `internal/api/appsession_test.go` — the two routes against the
+  contract; `internal/store/appsessions_test.go` — the item, its 30-day link, and an account's
+  deletion ending it.
 - `internal/auth/config_test.go`, `discovery_test.go`, `end_test.go` — the settings and the
   mistakes that stop the start, the provider list, discovery at another address, and ending a
   session without a redirect, as deleting an account does.

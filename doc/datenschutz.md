@@ -35,8 +35,8 @@ und eine Kennung Ihres Kontos mit.
   wurde. Ihr gehören Ihre Aufgaben.
 - **Ihr Name und Ihr Bild** dienen nur dazu, Ihnen anzuzeigen, mit welchem Konto Sie angemeldet
   sind. Sie werden bei der Anmeldung aus Googles Anmelde-Token übernommen und mit Ihrer Sitzung
-  gespeichert, **nie mit Ihren Aufgaben**; sie werden gelöscht, wenn die Sitzung endet,
-  spätestens sieben Tage nach der Anmeldung.
+  gespeichert, **nie mit Ihren Aufgaben**; sie werden gelöscht, wenn die Sitzung endet: auf der
+  Website spätestens sieben Tage nach der Anmeldung, in der App spätestens 30 Tage danach.
 
 Rechtsgrundlage: Art. 6 Abs. 1 lit. b DSGVO – die Bereitstellung der Anwendung, die Sie nutzen
 wollen. Gespeichert, bis Ihr Konto gelöscht wird.
@@ -81,6 +81,13 @@ abmelden, nach acht Stunden ohne Nutzung und spätestens sieben Tage nach der An
 der Anmeldung selbst besteht für höchstens zehn Minuten ein zweites Cookie, mit dem geprüft wird,
 dass die Antwort von Google zu dieser Anmeldung gehört. Beide sind für den Betrieb der Anwendung
 technisch erforderlich, weshalb kein Einwilligungsbanner erscheint (§ 25 Abs. 2 Nr. 2 TDDDG).
+
+Die TaskFest-App kann Sie ohne Cookie angemeldet halten: Nach der Anmeldung erhält sie einen
+Zufallswert wie den im Sitzungs-Cookie, der Ihre Sitzung auf dem Server bezeichnet. Die App
+bewahrt ihn auf Ihrem Gerät auf und sendet ihn mit jeder Anfrage. Diese Sitzung enthält dasselbe
+wie eine Sitzung auf der Website und wird gespeichert, bis sie endet: wenn Sie sich in der App
+abmelden oder Ihr Konto löschen, und spätestens 30 Tage nach der Anmeldung. Auch hier werden Ihre
+Anmelde-Token nicht aufbewahrt.
 
 Es gibt **keine** Analyse-, Werbe- oder Tracking-Cookies und keinerlei Analyse- oder
 Tracking-Skripte.
