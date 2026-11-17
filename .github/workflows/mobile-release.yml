@@ -204,6 +204,10 @@ jobs:
       TASKFEST_GOOGLE_WEB_CLIENT_ID: ${{ vars.TASKFEST_GOOGLE_WEB_CLIENT_ID }}
       TASKFEST_QA_GOOGLE_IOS_CLIENT_ID: ${{ vars.TASKFEST_QA_GOOGLE_IOS_CLIENT_ID }}
       TASKFEST_PROD_GOOGLE_IOS_CLIENT_ID: ${{ vars.TASKFEST_PROD_GOOGLE_IOS_CLIENT_ID }}
+      # Sign in with Apple (#281): `true` once the variant's App ID has the capability, which the
+      # entitlement it adds needs to sign (doc/mobile/sign-in.md). Unset, the build has no Apple.
+      TASKFEST_QA_APPLE_SIGN_IN: ${{ vars.TASKFEST_QA_APPLE_SIGN_IN }}
+      TASKFEST_PROD_APPLE_SIGN_IN: ${{ vars.TASKFEST_PROD_APPLE_SIGN_IN }}
       APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
     steps:
       - uses: actions/checkout@v7

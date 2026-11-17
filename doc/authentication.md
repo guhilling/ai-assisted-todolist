@@ -249,15 +249,21 @@ therefore means trusting it with that claim — see
 
 The mobile app (#264) cannot use the cookie: Google refuses sign-in inside a WebView, and a cookie
 set in the system browser never reaches the app. It signs in with its platform's own sign-in —
-Google's SDK, or code + PKCE through the system browser — and sends the **ID token** it is given as
-`Authorization: Bearer` on every request ([decisions/mobile-app.md](decisions/mobile-app.md)).
+Google's SDK, Apple's on iOS, or code + PKCE through the system browser — and sends the **ID
+token** it is given as `Authorization: Bearer`
+([decisions/mobile-app.md](decisions/mobile-app.md)). Since #281 it sends it once, to trade it for
+an app session, whose token it sends on every request from then on ([App sessions](#app-sessions)).
+An ID token is still accepted on any request: from a session kept from before app sessions until
+it is traded, from a sign-in whose trade could not be made just now, and from any other client
+that sends one. This section is how it is checked, wherever it is sent.
 
 ```
-App      sign-in with the platform's SDK          → an ID token, kept in the Keychain / Keystore
-App      GET /api/tasks  Authorization: Bearer <ID token>
+App      sign-in with the platform's SDK          → an ID token
+App      POST /api/auth/app-session  Authorization: Bearer <ID token>
+           (until it is traded: GET /api/tasks and the rest with it)
 Backend  provider by the token's iss → signature, issuer, expiry (go-oidc)
          → issued to one of the provider's clients? an ID token? email verified? (verifyIDToken)
-         → 200, or 401 — never a redirect, never a session cookie
+         → 201 or 200, or 401 — never a redirect, never a session cookie
 ```
 
 - **A request with an `Authorization` header is judged by its token alone**, never by a cookie;
@@ -286,17 +292,19 @@ Backend  provider by the token's iss → signature, issuer, expiry (go-oidc)
 - **Both ways in give the same identity** (`identity.Identity`), so every handler serves the
   website and the apps alike. The function checks tokens itself rather than with API Gateway's JWT
   authorizer: the cookie needs the function anyway, and one place decides for both.
-- **How long it lasts is the app's business** while it sends ID tokens, valid for an hour at
-  Google and renewed silently by the SDK. The app signs itself out after 30 days without use
-  ([mobile/sign-in.md](mobile/sign-in.md)); the website's limits are unchanged. An ID token that
-  cannot be renewed so, as from Apple's native sign-in, is traded for an app session instead.
+- **How long it lasts was the app's business** while it sent ID tokens, valid for an hour at
+  Google and renewed silently by the SDK, and signed itself out after 30 days without use. Since
+  #281 the app trades every sign-in's ID token for an app session instead, and a session kept from
+  before is traded silently ([mobile/sign-in.md](mobile/sign-in.md#app-sessions)); a bearer ID
+  token is still accepted, for that transition and for any client that sends one. The website's
+  limits are unchanged.
 
 ## App sessions
 
 Apple's native sign-in on iOS (#281) gives the app an ID token that it cannot renew without the
-person, unlike Google's SDK. So, after a native sign-in, the app trades the provider's ID token
-**once** for an **app session** of the backend's own, and sends that session's token from then
-on. It works for any provider; the backend keeps no provider's refresh token
+person, unlike Google's SDK. So, after every sign-in, whatever the provider, the app trades its ID
+token **once** for an **app session** of the backend's own, and sends that session's token from
+then on; the backend keeps no provider's refresh token
 ([decisions/authentication.md](decisions/authentication.md#an-app-trades-its-id-token-once-for-an-app-session)).
 
 ```

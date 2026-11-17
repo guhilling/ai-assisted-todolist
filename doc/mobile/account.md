@@ -7,10 +7,12 @@ sheet over the board.
 ## What it does
 
 - **Who is signed in** — the address from the ID token's `email` claim, the one the backend keys
-  the account by.
-- **Sign out** — forgets the session on the phone (the tokens in the keychain) and everything shown
-  for it, and goes back to the sign-in. Like the website's sign-out it leaves the provider's own
-  session alone: it is not an RP-initiated logout, so signing in again may not ask for a password.
+  the account by: kept beside the app session the ID token was traded for, which names none
+  ([sign-in.md](sign-in.md#app-sessions)).
+- **Sign out** — ends the app session at the backend, without waiting for it (#281), forgets the
+  session on the phone (the tokens in the keychain) and everything shown for it, and goes back to
+  the sign-in. Like the website's sign-out it leaves the provider's own session alone: it is not an
+  RP-initiated logout, so signing in again may not ask for a password.
   The board kept for reading offline ([board.md](board.md)) with its files' previews, and the
   scheduled reminders ([reminders.md](reminders.md)) go with it, and whatever else the app comes
   to keep for a signed-in user is removed in the same place,
@@ -31,8 +33,11 @@ sheet over the board.
   legal links leave the app, and a half-typed confirmation would be lost.
 - **Delete account** — the website's confirmation, in its words: everything goes, for good, and
   the delete button stays disabled until the signed-in address is typed (in any case, with any
-  spaces around it: the website's own rule, `frontend/src/confirmsEmail.ts`). It calls the website's endpoint, `DELETE /api/account`, with the ID token,
-  then signs out and says the account was deleted; signing in again starts a new, empty one. A
+  spaces around it: the website's own rule, `frontend/src/confirmsEmail.ts`). It calls the
+  website's endpoint, `DELETE /api/account`, with the app session's token (#281) — with the ID
+  token only while a sign-in's trade could not be made yet, or a session kept from before is not
+  traded yet ([sign-in.md](sign-in.md#app-sessions)) — then signs out and says the account was
+  deleted; signing in again starts a new, empty one. A
   refused delete closes the question and says why; a session that has ended leads to the sign-in,
   as any change does ([board.md](board.md)). While the delete is on its way the sheet offers
   nothing else: no sign-out, and it cannot be closed, so a late answer can never sign out a

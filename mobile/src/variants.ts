@@ -37,6 +37,11 @@ export type Variant = {
   signIn: SignIn | null
   /** Google's sign-in, where the build knows its client ids; absent or null elsewhere. */
   google?: GoogleSignIn | null
+  /**
+   * Sign in with Apple (#281), on iOS only, where the build is told its App ID has the capability:
+   * the entitlement it adds fails the signing of an App ID without it. Absent elsewhere.
+   */
+  apple?: true
 }
 
 /** The variant names `APP_VARIANT` accepts. */
@@ -54,8 +59,18 @@ function variant(
   apiBaseUrl: string,
   signIn: SignIn | null,
   google: GoogleSignIn | null = null,
+  apple = false,
 ): Variant {
-  return { name, shareName, bundleId, scheme: bundleId, apiBaseUrl, signIn, google }
+  return { name, shareName, bundleId, scheme: bundleId, apiBaseUrl, signIn, google, ...(apple ? { apple: true as const } : {}) }
+}
+
+/**
+ * Whether the build offers Sign in with Apple on qa or prod (#281): a repository variable, set to
+ * `true` once the App ID has the capability -- no client id, since Apple knows the app by its
+ * bundle id.
+ */
+function appleSignIn(env: BuildEnvironment, prefix: 'QA' | 'PROD'): boolean {
+  return env[`TASKFEST_${prefix}_APPLE_SIGN_IN`] === 'true'
 }
 
 /**
@@ -100,9 +115,25 @@ export function variantOf(name: string | undefined, env: BuildEnvironment): Vari
       })
     case 'qa':
       // Google, and the test accounts beside it: the end-to-end runs sign in with those.
-      return variant('TaskFest QA', 'Create Task (QA)', `${BUNDLE_ID}.qa`, 'https://taskfest-qa.cloud.hilling.de', qaSignIn(env), googleSignIn(env, 'QA'))
+      return variant(
+        'TaskFest QA',
+        'Create Task (QA)',
+        `${BUNDLE_ID}.qa`,
+        'https://taskfest-qa.cloud.hilling.de',
+        qaSignIn(env),
+        googleSignIn(env, 'QA'),
+        appleSignIn(env, 'QA'),
+      )
     case 'prod':
-      return variant('TaskFest', 'Create Task', BUNDLE_ID, 'https://taskfest.cloud.hilling.de', null, googleSignIn(env, 'PROD'))
+      return variant(
+        'TaskFest',
+        'Create Task',
+        BUNDLE_ID,
+        'https://taskfest.cloud.hilling.de',
+        null,
+        googleSignIn(env, 'PROD'),
+        appleSignIn(env, 'PROD'),
+      )
     default:
       throw new Error(`APP_VARIANT is ${name}; it must be dev, qa or prod.`)
   }
@@ -114,10 +145,13 @@ export function variantOf(name: string | undefined, env: BuildEnvironment): Vari
  * without sign-in offered a button for a provider of no name. So a provider counts only with the
  * fields it is made of.
  */
-export function variantFromConfig(variant: Omit<Variant, 'signIn' | 'google'> & { signIn?: object | null; google?: object | null }): Variant {
+export function variantFromConfig(
+  variant: Omit<Variant, 'signIn' | 'google' | 'apple'> & { signIn?: object | null; google?: object | null; apple?: unknown },
+): Variant {
   const signIn = variant.signIn && 'issuer' in variant.signIn ? (variant.signIn as SignIn) : null
   const google = variant.google && 'webClientId' in variant.google ? (variant.google as GoogleSignIn) : null
-  return { ...variant, signIn, google }
+  const { apple, ...rest } = variant
+  return { ...rest, signIn, google, ...(apple === true ? { apple: true as const } : {}) }
 }
 
 /** Every variant as a build without extra environment would make it. */

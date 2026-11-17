@@ -69,8 +69,9 @@ frontend obtained for itself. For the browser, the backend runs the code flow
 never holds a token, and never sees one.
 
 The mobile app is the exception, and a deliberate one: it cannot carry the website's cookie, so
-it sends the ID token its platform's sign-in gave it as a bearer token, and the backend accepts
-both ([authentication.md](authentication.md#apps-sign-in-with-a-bearer-id-token)).
+it trades the ID token its platform's sign-in gave it, once, for an app session of the backend's
+own, and sends that session's token as a bearer token; the backend accepts both
+([authentication.md](authentication.md#app-sessions)).
 
 The consequences are worth stating, because they explain several shapes elsewhere:
 

@@ -1,3 +1,4 @@
+import * as AppleAuthentication from 'expo-apple-authentication'
 import Constants from 'expo-constants'
 import { Directory, File, Paths } from 'expo-file-system'
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator'
@@ -20,11 +21,13 @@ import {
   deleteAccount,
   deleteTask,
   discardDraft,
+  endAppSession,
   fetchMinimumAppVersion,
   fetchTasks,
   removeAttachment,
   addLink,
   restoreTask,
+  startAppSession,
   startDraft,
   updateTask,
 } from './api'
@@ -34,6 +37,7 @@ import { sharesFrom } from './incoming'
 import { pickFile, type PickedPhoto } from './pick'
 import { makeThumbnail } from './thumbnails'
 import { uploadFile, type UploadParts } from './upload'
+import { appleSignInFor } from './apple'
 import { googleProviderFor } from './google'
 import { createKeptBoardStore } from './keptBoard'
 import { createPreviewStore, type PreviewFolder } from './previews'
@@ -288,6 +292,13 @@ const dependencies: Dependencies = {
   sessions: createSessionStore(SecureStore),
   provider: variant.signIn ? providerFor(variant.signIn, variant.scheme) : noProvider,
   google: variant.google ? googleProviderFor(variant.google, GoogleOneTapSignIn, Platform.OS) : undefined,
+  // On iOS, where the build has it (#281).
+  apple: appleSignInFor(variant, Platform.OS, AppleAuthentication),
+  // Every sign-in's ID token is traded for an app session, and the app signs out by ending it (#281).
+  appSessions: {
+    start: (idToken) => startAppSession({ baseUrl: variant.apiBaseUrl, appVersion }, idToken),
+    end: (token) => endAppSession({ baseUrl: variant.apiBaseUrl, idToken: token, appVersion }),
+  },
   // Every request names the app's release (#268).
   fetchTasks: (caller) => fetchTasks({ ...caller, appVersion }),
   changes: {

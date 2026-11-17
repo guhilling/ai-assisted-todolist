@@ -1,5 +1,6 @@
 import {
   importanceRank,
+  validateAppSessionResponse,
   needsDatingBack,
   NotDatedBackError,
   restoreInput,
@@ -22,12 +23,17 @@ import { REQUEST_MS, withinLimit } from './timeLimit'
 export { REQUEST_MS, TimedOutError } from './timeLimit'
 
 /**
- * The app's side of the REST API (#267): every request carries the ID token as a bearer token
- * (#266), and every response is checked against the schema the backend publishes, with the
- * website's own generated validators, before anything reads it.
+ * The app's side of the REST API (#267): every request carries the session's token as a bearer
+ * token -- an app session's since #281, the ID token before (#266) -- and every response is
+ * checked against the schema the backend publishes, with the website's own generated validators,
+ * before anything reads it.
  */
 
-/** Where to ask, as whom, and from which release of the app, which goes along as `X-TaskFest-App`. */
+/**
+ * Where to ask, as whom, and from which release of the app, which goes along as `X-TaskFest-App`.
+ * `idToken` is the bearer token: the app session's (#281), or the ID token of a session kept from
+ * before it, until that is traded. The name goes with the transition (#633).
+ */
 export type Caller = { baseUrl: string; idToken: string; appVersion?: string }
 
 /** The header the app names its release in, so the backend's log can tell who still calls what. */
@@ -325,6 +331,39 @@ export async function addLink(
     throw new ContractBreachError('an attachment')
   }
   return data
+}
+
+/** An app session as the backend starts it (#281): its token, and when it ends. */
+export type AppSession = { token: string; expiresAt: number }
+
+/**
+ * Trades a provider's ID token for an app session (#281), once: the backend refuses the same
+ * token a second time. The ID token goes as the bearer token of this one request only.
+ *
+ * @returns the app session, its end in milliseconds since the epoch
+ * @throws SignedOutError when the backend refuses the ID token
+ */
+export async function startAppSession(
+  caller: Omit<Caller, 'idToken'>,
+  idToken: string,
+  fetchImpl: typeof fetch = fetch,
+): Promise<AppSession> {
+  const data = await send({ ...caller, idToken }, 'POST', '/api/auth/app-session', fetchImpl)
+  if (!validateAppSessionResponse(data)) {
+    throw new ContractBreachError('an app session')
+  }
+  // The schema checks the format; whether this engine's Date reads every date-time it allows is
+  // another matter, and a session with no end would never end.
+  const expiresAt = Date.parse(data.expiresAt)
+  if (Number.isNaN(expiresAt)) {
+    throw new ContractBreachError('an app session')
+  }
+  return { token: data.token, expiresAt }
+}
+
+/** Ends the app session the caller's token names, which is how the app signs out (#281). */
+export async function endAppSession(caller: Caller, fetchImpl: typeof fetch = fetch): Promise<void> {
+  await send(caller, 'DELETE', '/api/auth/app-session', fetchImpl)
 }
 
 /** Removes a file from its task, for good: unlike a task, a removed file has no undo. */

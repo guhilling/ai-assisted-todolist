@@ -20,6 +20,7 @@ export type {
   TaskState,
 } from '../../frontend/src/generated/types'
 export {
+  validateAppSessionResponse,
   validateAttachmentResponse,
   validateDraftResponse,
   validateLinkResponse,

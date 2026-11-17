@@ -1,13 +1,19 @@
 /**
  * What the app keeps between launches to stay signed in, and the rules for how long (#264, #267).
  *
- * The backend sees only ID tokens, which live an hour: there is nothing on the server to expire.
- * So the month a sign-in lasts is the app's rule, kept here. A session ends after thirty days
- * without use, and every use starts the thirty days again. Until then, an ID token running out is
- * renewed with the refresh token, a minute early so no request goes out with one about to lapse.
+ * Since #281 that is an **app session**: the backend's own, traded once for the provider's ID token
+ * at sign-in, which ends 30 days after it, however much or little it is used; the app renews
+ * nothing. A session kept from before is the provider's ID token itself, and the month it lasts is
+ * the app's rule: it ends after thirty days without use, and every use starts the thirty days
+ * again; until then, an ID token running out is renewed with the refresh token, a minute early so
+ * no request goes out with one about to lapse. Such a session is traded for an app session as soon
+ * as it can be, and that transition goes after one release (#633).
  */
 export type Session = {
-  /** The ID token the backend is sent as a bearer token. */
+  /**
+   * The token the backend is sent as a bearer token: the app session's, or, for a session kept
+   * from before, the ID token. The name goes with the transition (#633).
+   */
   idToken: string
   /** What renews the ID token, if the provider issued one. */
   refreshToken: string | null
@@ -20,6 +26,17 @@ export type Session = {
    * and its own SDK renews the ID token instead. Absent for the OpenID Connect providers.
    */
   via?: 'google'
+  /**
+   * Set for an app session (#281), which ends at `expiresAt` and is never renewed. Its token says
+   * nothing about the account, so the address of the ID token it was traded for is kept beside it.
+   */
+  app?: { email: string | null }
+  /**
+   * Set on a session from before app sessions whose ID token was sent to be traded without a clear
+   * answer (#634): the backend may have traded it, and would refuse it a second time, so it is
+   * never sent to be traded again -- the session is renewed first, and the new one traded.
+   */
+  idTokenSpent?: true
 }
 
 /** How long a session lasts without being used: thirty days. */
@@ -83,6 +100,22 @@ export function needsRefresh(session: Session, now: number) {
 /** Whether the session has gone unused for longer than it may. */
 export function isInactive(session: Session, now: number) {
   return now - session.lastUsedAt > INACTIVITY_LIMIT_MS
+}
+
+/**
+ * Whether the session is over: an app session at the end the backend gave it (#281), however
+ * much it was used; one kept from before after thirty days without use.
+ */
+export function hasEnded(session: Session, now: number) {
+  return session.app ? now >= session.expiresAt : isInactive(session, now)
+}
+
+/**
+ * The address of the account a session signs in: kept beside an app session's token, which names
+ * none (#281); read from the ID token of one kept from before.
+ */
+export function accountOf(session: Session): string | null {
+  return session.app ? session.app.email : emailOf(session.idToken)
 }
 
 /** The session as it is after being used now. */
