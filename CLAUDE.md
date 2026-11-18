@@ -110,8 +110,9 @@ In this repository, stopping to ask applies especially to:
   and `epic` must exist in each repository that takes the forms.
 - The GitHub project that holds the priorities is the
   [TaskFest project](https://github.com/users/guhilling/projects/2) (private), number 2
-  (`gh project item-add 2 --owner guhilling --url …`). Renovate's Dependency Dashboard (#22) is
-  the one issue without a priority.
+  (`gh project item-add 2 --owner guhilling --url …`).
+- **An issue labelled `won't finish` gets no priority**: it stays open for good, as Renovate's
+  Dependency Dashboard (#22) does, and is no work to plan. Gunnar's issue views leave it out.
 - **`needs: Gunnar` marks an issue whose next step is Gunnar's**: a decision, an answer, or
   something only he can do or provide. Claude adds it in the same step that leaves the issue
   waiting for him, with a comment or section saying exactly what is needed, and removes it as soon
