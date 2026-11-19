@@ -37,7 +37,11 @@ sheet over the board.
   website's endpoint, `DELETE /api/account`, with the app session's token (#281) — with the ID
   token only while a sign-in's trade could not be made yet, or a session kept from before is not
   traded yet ([sign-in.md](sign-in.md#app-sessions)) — then signs out and says the account was
-  deleted; signing in again starts a new, empty one. A
+  deleted; signing in again starts a new, empty one. An account signed in with Apple is deleted
+  only once Apple confirms it (#635): the backend answers 428, Apple's sheet comes up once more,
+  and the code it issues goes with a second delete, so that the backend revokes TaskFest at Apple
+  ([authentication.md](../authentication.md#app-sessions)). Turning the sheet away keeps the
+  account, and the sheet offers the delete again. A
   refused delete closes the question and says why; a session that has ended leads to the sign-in,
   as any change does ([board.md](board.md)). While the delete is on its way the sheet offers
   nothing else: no sign-out, and it cannot be closed, so a late answer can never sign out a

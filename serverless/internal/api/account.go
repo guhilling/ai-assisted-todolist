@@ -2,8 +2,20 @@ package api
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
+	"io"
 	"log/slog"
 	"net/http"
+
+	"github.com/guhilling/ai-assisted-todolist/serverless/internal/auth"
+)
+
+// maxDeletionBody bounds a deletion's body: one authorization code from Apple, and room around it;
+// maxAppleAuthorizationCode bounds the code, as the contract does.
+const (
+	maxDeletionBody           = 8 << 10
+	maxAppleAuthorizationCode = 4096
 )
 
 // AccountDeletion deletes an account in the table (internal/store's Accounts): marked first, then
@@ -30,6 +42,10 @@ type DeletionRecords interface {
 // it failed, so the replay never carries out a deletion the user was told did not happen. Once
 // marked, it counts as done (Gunnar's decision on #553): whatever stops it later is finished by
 // the account's next request or by the replay.
+//
+// An account signed in with Apple is deleted only with Apple's confirmation (#635), and Apple's
+// authorization of TaskFest is revoked once the account is marked, before the rest of it goes; a
+// revocation that fails is logged, and does not keep the account: the person asked for it to go.
 func (s *Server) DeleteApiAccount(w http.ResponseWriter, r *http.Request) {
 	email, ok := s.Caller(r)
 	if !ok {
@@ -37,6 +53,22 @@ func (s *Server) DeleteApiAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ctx := r.Context()
+	code, ok := appleConfirmation(w, r)
+	if !ok {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	revocation, err := s.SignIn.RevocationForDeletion(r, code)
+	if errors.Is(err, auth.ErrNotIdentified) {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	} else if errors.Is(err, auth.ErrAppleConfirmationNeeded) {
+		w.WriteHeader(http.StatusPreconditionRequired)
+		return
+	} else if err != nil {
+		slog.ErrorContext(ctx, "Apple's authorization cannot be revoked; the account is deleted regardless",
+			"error", err)
+	}
 	if s.Records != nil {
 		if err := s.Records.RecordDeletion(ctx, email); err != nil {
 			slog.ErrorContext(ctx, "recording an account deletion failed", "error", err)
@@ -55,12 +87,44 @@ func (s *Server) DeleteApiAccount(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
+	// Only now, as the deletion counts as done: one that failed leaves Apple as it was.
+	if revocation != nil {
+		if err := revocation(ctx); err != nil {
+			slog.ErrorContext(ctx, "revoking Apple's authorization failed; the account is deleted regardless",
+				"error", err)
+		}
+	}
 	if err := s.Accounts.Finish(ctx, email); err != nil {
 		slog.ErrorContext(ctx, "an account deletion stopped half-way; its next request or the replay finishes it",
 			"error", err)
 	}
 	s.SignIn.EndSession(w, r)
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// appleConfirmation is the authorization code a deletion's body carries (AccountDeletionRequest),
+// "" for a deletion without a body or without a code, and false for a body that is no such
+// request: null, or a code that is null, are neither an object nor a string (CodeRabbit on #637).
+func appleConfirmation(w http.ResponseWriter, r *http.Request) (string, bool) {
+	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, maxDeletionBody))
+	if err != nil {
+		return "", false
+	}
+	if len(body) == 0 {
+		return "", true
+	}
+	// Decoding into a map first tells null from absent, which the generated type does not.
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(body, &fields); err != nil || fields == nil ||
+		string(fields["appleAuthorizationCode"]) == "null" {
+		return "", false
+	}
+	var request AccountDeletionRequest
+	if err := json.Unmarshal(body, &request); err != nil || request.AppleAuthorizationCode == nil {
+		return "", err == nil
+	}
+	code := *request.AppleAuthorizationCode
+	return code, len(code) <= maxAppleAuthorizationCode
 }
 
 // AccountEmails says which email keys the account of someone signed in with an email

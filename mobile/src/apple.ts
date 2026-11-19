@@ -22,6 +22,12 @@ export type AppleProvider = {
   available(): Promise<boolean>
   /** Runs Apple's sheet; null when the person turned it away, a rejection on an error. */
   signIn(): Promise<Tokens | null>
+  /**
+   * Runs Apple's sheet once more to confirm deleting the account (#635), and hands over the
+   * authorization code it issues, with which the backend revokes TaskFest's authorization at Apple;
+   * null when the person turned it away, a rejection on an error.
+   */
+  confirm(): Promise<string | null>
 }
 
 /** The code with which Apple's sheet says the person turned it away. */
@@ -33,20 +39,39 @@ export function appleProviderFor(apple: AppleAuthentication): AppleProvider {
     available: () => apple.isAvailableAsync().catch(() => false),
 
     async signIn() {
-      let credential: Awaited<ReturnType<typeof signInAsync>>
-      try {
-        credential = await apple.signInAsync({ requestedScopes: [AppleAuthenticationScope.EMAIL] })
-      } catch (failure) {
-        if ((failure as { code?: unknown }).code === CANCELED) {
-          return null
-        }
-        throw failure
+      const credential = await sheet(apple, [AppleAuthenticationScope.EMAIL])
+      if (!credential) {
+        return null
       }
       if (!credential.identityToken) {
         throw new Error('Apple issued no ID token.')
       }
       return { idToken: credential.identityToken }
     },
+
+    async confirm() {
+      // Nothing asked for: the backend needs only the code, and the account is known already.
+      const credential = await sheet(apple, [])
+      if (!credential) {
+        return null
+      }
+      if (!credential.authorizationCode) {
+        throw new Error('Apple issued no authorization code.')
+      }
+      return credential.authorizationCode
+    },
+  }
+}
+
+/** Apple's sheet, asking for scopes: what it issued, or null when the person turned it away. */
+async function sheet(apple: AppleAuthentication, requestedScopes: AppleAuthenticationScope[]) {
+  try {
+    return await apple.signInAsync({ requestedScopes })
+  } catch (failure) {
+    if ((failure as { code?: unknown }).code === CANCELED) {
+      return null
+    }
+    throw failure
   }
 }
 

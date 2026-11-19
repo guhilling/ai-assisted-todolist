@@ -8,12 +8,18 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/guhilling/ai-assisted-todolist/serverless/internal/auth"
 	"github.com/guhilling/ai-assisted-todolist/serverless/internal/identity"
 )
 
 func (f *fakeSignIn) EndSession(w http.ResponseWriter, _ *http.Request) {
 	f.called = "end-session"
 	http.SetCookie(w, &http.Cookie{Name: "taskfest_session", MaxAge: -1})
+}
+
+func (f *fakeSignIn) RevocationForDeletion(_ *http.Request, code string) (auth.Revocation, error) {
+	f.revoked = &code
+	return f.revocation, f.revokeErr
 }
 
 // fakeDeletion records the steps of a deletion in order, and fails the one named in fail.
@@ -223,5 +229,134 @@ func TestWhoIsSignedInFinishesADeletionLeftHalfWayToo(t *testing.T) {
 
 	if rec.Code != http.StatusUnauthorized || strings.Join(d.steps, ", ") != "settle person@example.com" {
 		t.Errorf("got %d after %v; want 401 after settling", rec.Code, d.steps)
+	}
+}
+
+// deleteWith deletes the account with body, as the app sends Apple's confirmation (#635).
+func deleteWith(s *Server, body string) *httptest.ResponseRecorder {
+	rec := httptest.NewRecorder()
+	r := httptest.NewRequest("DELETE", "/api/account", strings.NewReader(body))
+	r.Header.Set("Content-Type", "application/json")
+	Routes(s).ServeHTTP(rec, r)
+	return rec
+}
+
+func TestDeletingAnAccountSignedInWithAppleRevokesOnceTheDeletionCountsAsDone(t *testing.T) {
+	d := &fakeDeletion{}
+	s, signIn := deletingServer(d, true)
+	signIn.revocation = func(context.Context) error { return d.step("revoke", "at Apple") }
+
+	rec := deleteWith(s, `{"appleAuthorizationCode":"code-1"}`)
+
+	if rec.Code != http.StatusNoContent || signIn.revoked == nil || *signIn.revoked != "code-1" {
+		t.Fatalf("got %d, revoked with %v; want 204 after revoking with code-1", rec.Code, signIn.revoked)
+	}
+	if got := strings.Join(d.steps, ", "); got != "record person@example.com, mark person@example.com, revoke at Apple, finish person@example.com" {
+		t.Errorf("steps %q; want Apple revoked once the account is marked", got)
+	}
+}
+
+func TestADeletionThatFailsRevokesNothing(t *testing.T) {
+	d := &fakeDeletion{fail: "mark"}
+	s, signIn := deletingServer(d, true)
+	revoked := false
+	signIn.revocation = func(context.Context) error { revoked = true; return nil }
+
+	if rec := deleteWith(s, `{"appleAuthorizationCode":"code-1"}`); rec.Code != http.StatusInternalServerError || revoked {
+		t.Errorf("got %d, revoked %v; want 500 and Apple left as it was", rec.Code, revoked)
+	}
+}
+
+func TestDeletingWithoutABodyHandsOnNoConfirmation(t *testing.T) {
+	s, signIn := deletingServer(&fakeDeletion{}, true)
+
+	if rec := serve(s, "DELETE", "/api/account"); rec.Code != http.StatusNoContent {
+		t.Fatalf("got %d; want 204", rec.Code)
+	}
+	if signIn.revoked == nil || *signIn.revoked != "" {
+		t.Errorf("revoked with %v; want asked with no code", signIn.revoked)
+	}
+}
+
+func TestAnAppleAccountIsNotDeletedWithoutAppleConfirmingIt(t *testing.T) {
+	d := &fakeDeletion{}
+	s, signIn := deletingServer(d, true)
+	signIn.revokeErr = auth.ErrAppleConfirmationNeeded
+
+	rec := serve(s, "DELETE", "/api/account")
+
+	if rec.Code != http.StatusPreconditionRequired {
+		t.Errorf("got %d; want 428", rec.Code)
+	}
+	if len(d.steps) != 0 || signIn.called != "" {
+		t.Errorf("steps %v, %q; want nothing deleted or ended", d.steps, signIn.called)
+	}
+}
+
+func TestAnAppleAccountIsDeletedEvenWhenAppleCannotRevoke(t *testing.T) {
+	d := &fakeDeletion{}
+	s, signIn := deletingServer(d, true)
+	signIn.revocation = func(context.Context) error {
+		return errors.New("revoke at Apple: the revocation endpoint answered 503")
+	}
+
+	if rec := deleteWith(s, `{"appleAuthorizationCode":"code-1"}`); rec.Code != http.StatusNoContent || len(d.steps) != 3 {
+		t.Errorf("got %d, steps %v; want 204 and the account deleted", rec.Code, d.steps)
+	}
+}
+
+func TestADeletionWhoseBodyIsNoConfirmationIsRefused(t *testing.T) {
+	for _, body := range []string{
+		`{"appleAuthorizationCode":`,
+		`{"appleAuthorizationCode":"code-1"} and more`,
+		`{"appleAuthorizationCode":"` + strings.Repeat("c", 4097) + `"}`,
+	} {
+		d := &fakeDeletion{}
+		s, signIn := deletingServer(d, true)
+
+		rec := deleteWith(s, body)
+
+		if rec.Code != http.StatusBadRequest || len(d.steps) != 0 || signIn.revoked != nil {
+			t.Errorf("%.40s: got %d, steps %v; want 400 and nothing done", body, rec.Code, d.steps)
+		}
+	}
+}
+
+func TestADeletionWhoseBodyOrCodeIsNullIsRefused(t *testing.T) {
+	for _, body := range []string{`null`, ` null `, `{"appleAuthorizationCode":null}`} {
+		d := &fakeDeletion{}
+		s, signIn := deletingServer(d, true)
+
+		rec := deleteWith(s, body)
+
+		if rec.Code != http.StatusBadRequest || len(d.steps) != 0 || signIn.revoked != nil {
+			t.Errorf("%s: got %d, steps %v; want 400 and nothing done", body, rec.Code, d.steps)
+		}
+	}
+}
+
+func TestADeletionWithAnEmptyRequestHandsOnNoConfirmation(t *testing.T) {
+	s, signIn := deletingServer(&fakeDeletion{}, true)
+
+	if rec := deleteWith(s, `{}`); rec.Code != http.StatusNoContent {
+		t.Fatalf("got %d; want 204", rec.Code)
+	}
+	if signIn.revoked == nil || *signIn.revoked != "" {
+		t.Errorf("revoked with %v; want asked with no code", signIn.revoked)
+	}
+}
+
+func TestADeletionWhoseRequestCannotBeIdentifiedAgainDoesNotHappen(t *testing.T) {
+	d := &fakeDeletion{}
+	s, signIn := deletingServer(d, true)
+	signIn.revokeErr = auth.ErrNotIdentified
+
+	rec := serve(s, "DELETE", "/api/account")
+
+	if rec.Code != http.StatusUnauthorized {
+		t.Errorf("got %d; want 401", rec.Code)
+	}
+	if len(d.steps) != 0 || signIn.called != "" {
+		t.Errorf("steps %v, %q; want nothing deleted or ended", d.steps, signIn.called)
 	}
 }

@@ -38,8 +38,12 @@ function googleProvider() {
   return { signIn: jest.fn().mockResolvedValue({ idToken }), renew: jest.fn(), signOut: jest.fn().mockResolvedValue(undefined) }
 }
 
-function apple(available = true): AppleProvider & { signIn: jest.Mock } {
-  return { available: jest.fn().mockResolvedValue(available), signIn: jest.fn().mockResolvedValue({ idToken }) }
+function apple(available = true): AppleProvider & { signIn: jest.Mock; confirm: jest.Mock } {
+  return {
+    available: jest.fn().mockResolvedValue(available),
+    signIn: jest.fn().mockResolvedValue({ idToken }),
+    confirm: jest.fn().mockResolvedValue('code-1'),
+  }
 }
 
 /** Nobody signed in, Google to hand, and a backend that trades every ID token. */
@@ -341,5 +345,69 @@ describe('Sign in with Apple, in the app (#281)', () => {
 
     expect(screen.getByRole('button', { name: 'Sign in with Google' })).toBeOnTheScreen()
     expect(screen.queryByText('Signing in did not work. Try again.')).toBeNull()
+  })
+})
+
+/** Deletes the account from the board, as the account sheet asks it to be confirmed. */
+async function deleteTheAccount() {
+  const user = userEvent.setup()
+  await user.press(screen.getByRole('button', { name: 'Account' }))
+  await user.press(screen.getByRole('button', { name: 'Delete account' }))
+  await user.type(screen.getByLabelText('Type your email address to confirm'), 'ada@example.com')
+  await user.press(screen.getByRole('button', { name: 'Delete my account' }))
+}
+
+describe('deleting an account signed in with Apple (#635)', () => {
+  /** A backend that deletes an Apple account only with Apple's confirmation. */
+  function deleting() {
+    return jest.fn((_caller: unknown, code?: string) => (code ? Promise.resolve() : Promise.reject(new RequestFailedError(428))))
+  }
+
+  it('asks Apple to confirm when the backend says it must, and deletes with the code Apple issues', async () => {
+    const native = apple()
+    const deleteAccount = deleting()
+    const sessions = memorySessions(appSession)
+    await render(<TaskFestApp variant={withApple} language="en" dependencies={dependencies({ apple: native, deleteAccount, sessions })} />)
+    await screen.findByText('Water the plants')
+
+    await deleteTheAccount()
+
+    expect(await screen.findByText('Your account has been deleted. Signing in again starts a new, empty one.')).toBeOnTheScreen()
+    expect(native.confirm).toHaveBeenCalledTimes(1)
+    expect(deleteAccount.mock.calls).toEqual([
+      [{ baseUrl: PROD, idToken: 'taskfest_app_ada' }],
+      [{ baseUrl: PROD, idToken: 'taskfest_app_ada' }, 'code-1'],
+    ])
+    expect(sessions.current()).toBeNull()
+  })
+
+  it('keeps the account, signed in, when the person turns Apple’s sheet away', async () => {
+    const native = apple()
+    native.confirm.mockResolvedValue(null)
+    const deleteAccount = deleting()
+    const sessions = memorySessions(appSession)
+    await render(<TaskFestApp variant={withApple} language="en" dependencies={dependencies({ apple: native, deleteAccount, sessions })} />)
+    await screen.findByText('Water the plants')
+
+    await deleteTheAccount()
+
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Delete account' })).toBeOnTheScreen())
+    expect(deleteAccount).toHaveBeenCalledTimes(1)
+    expect(sessions.current()).toEqual(appSession)
+    expect(screen.queryByText('Your account has been deleted. Signing in again starts a new, empty one.')).toBeNull()
+  })
+
+  it('asks nothing of Apple for an account the backend deletes as it is', async () => {
+    const native = apple()
+    const deleteAccount = jest.fn().mockResolvedValue(undefined)
+    await render(
+      <TaskFestApp variant={withApple} language="en" dependencies={dependencies({ apple: native, deleteAccount, sessions: memorySessions(appSession) })} />,
+    )
+    await screen.findByText('Water the plants')
+
+    await deleteTheAccount()
+
+    expect(await screen.findByText('Your account has been deleted. Signing in again starts a new, empty one.')).toBeOnTheScreen()
+    expect(native.confirm).not.toHaveBeenCalled()
   })
 })

@@ -13,6 +13,7 @@ import googleSignInDark from '../../frontend/src/assets/google-sign-in-dark.png'
 import googleSignInLight from '../../frontend/src/assets/google-sign-in-light.png'
 
 export type {
+  AccountDeletionRequest,
   AttachmentResponse as Attachment,
   TaskCreateRequest as TaskInput,
   TaskImportance,

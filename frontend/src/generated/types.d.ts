@@ -6,6 +6,15 @@
  */
 
 /**
+ * The `AccountDeletionRequest` the backend speaks.
+ *
+ * Generated from `doc/api/schema/AccountDeletionRequest.schema.json`. Do not edit.
+ */
+export type AccountDeletionRequest = {
+    appleAuthorizationCode?: string;
+};
+
+/**
  * The `AnnounceRequest` the backend speaks.
  *
  * Generated from `doc/api/schema/AnnounceRequest.schema.json`. Do not edit.

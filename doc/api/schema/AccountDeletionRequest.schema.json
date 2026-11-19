@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "AccountDeletionRequest.schema.json",
+  "type": "object",
+  "properties": {
+    "appleAuthorizationCode": {
+      "type": "string",
+      "description": "The authorization code Apple's sign-in sheet issued to the app when the person signed in with Apple once more, to confirm. The backend exchanges it for Apple's tokens and revokes them at once; it keeps nothing.",
+      "maxLength": 4096
+    }
+  }
+}

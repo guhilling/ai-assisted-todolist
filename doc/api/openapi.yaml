@@ -1,6 +1,15 @@
 openapi: 3.1.0
 components:
   schemas:
+    AccountDeletionRequest:
+      type: object
+      properties:
+        appleAuthorizationCode:
+          type: string
+          description: The authorization code Apple's sign-in sheet issued to the
+            app when the person signed in with Apple once more, to confirm. The backend
+            exchanges it for Apple's tokens and revokes them at once; it keeps nothing.
+          maxLength: 4096
     AnnounceRequest:
       type: object
       required:
@@ -485,12 +494,28 @@ paths:
     delete:
       summary: Delete my account
       description: Deletes every task and every file of the caller, and the account
-        itself. It cannot be undone.
+        itself. It cannot be undone. An account signed in with Apple is deleted only
+        with Apple's confirmation, and its authorization at Apple is revoked first;
+        a revocation that fails does not stop the deletion.
       tags:
       - Account
+      requestBody:
+        description: 'Only for an account signed in with Apple: Apple''s confirmation,
+          so that TaskFest''s authorization is revoked at Apple before the account
+          is deleted (#635). Any other sends no body.'
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AccountDeletionRequest'
+        required: false
       responses:
         '204':
           description: Deleted, and this browser's session ended.
+        '400':
+          description: The body is not an account deletion request.
+        '428':
+          description: 'The caller signed in with Apple, and sent no `appleAuthorizationCode`:
+            nothing was deleted.'
         '401':
           description: Not Authorized
         '403':

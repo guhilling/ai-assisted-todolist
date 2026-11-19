@@ -12,6 +12,7 @@ import {
   validateTaskResponse,
   validateUploadResponse,
   validateVersionResponse,
+  type AccountDeletionRequest,
   type Attachment,
   type AttachmentRefusal,
   type Task,
@@ -41,6 +42,13 @@ const APP_VERSION_HEADER = 'X-TaskFest-App'
 
 /** How long the start waits to hear which releases the backend serves, before carrying on. */
 export const VERSION_CHECK_MS = 3000
+
+/**
+ * How long a deletion Apple confirmed (#635) is waited for: the backend exchanges the code and
+ * revokes at Apple, within eight seconds, before it deletes, so the usual ten seconds could give up
+ * on a deletion that went through, and its code cannot be sent again.
+ */
+export const CONFIRMED_DELETE_MS = 25_000
 
 /**
  * A task as the board holds it: as sent, except that an importance or state this release does not
@@ -201,10 +209,13 @@ export async function deleteTask(caller: Caller, task: Task, fetchImpl: typeof f
 
 /**
  * Deletes the signed-in user's account with every task and file it holds (#275), as the website's
- * header does. It cannot be undone; forgetting the session is the caller's next step.
+ * header does. It cannot be undone; forgetting the session is the caller's next step. An account
+ * signed in with Apple goes only with the code of Apple's confirmation (#635): without it the
+ * backend answers 428, a `RequestFailedError`.
  */
-export async function deleteAccount(caller: Caller, fetchImpl: typeof fetch = fetch): Promise<void> {
-  await send(caller, 'DELETE', '/api/account', fetchImpl)
+export async function deleteAccount(caller: Caller, fetchImpl: typeof fetch = fetch, appleAuthorizationCode?: string): Promise<void> {
+  const confirmation: AccountDeletionRequest | undefined = appleAuthorizationCode ? { appleAuthorizationCode } : undefined
+  await send(caller, 'DELETE', '/api/account', fetchImpl, confirmation, confirmation ? CONFIRMED_DELETE_MS : REQUEST_MS)
 }
 
 /**

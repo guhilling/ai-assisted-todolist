@@ -1,4 +1,4 @@
-import { RequestFailedError, SignedOutError, deleteAccount } from './api'
+import { CONFIRMED_DELETE_MS, RequestFailedError, SignedOutError, TimedOutError, deleteAccount } from './api'
 
 const BASE = 'https://taskfest.example'
 const caller = { baseUrl: BASE, idToken: 'the-token', appVersion: '1.4.0' }
@@ -22,5 +22,42 @@ describe('deleting the account, as the app asks the backend (#275)', () => {
   it('signs out when the backend no longer accepts the token, and says when it refused', async () => {
     await expect(deleteAccount(caller, respond(401))).rejects.toBeInstanceOf(SignedOutError)
     await expect(deleteAccount(caller, respond(500))).rejects.toEqual(new RequestFailedError(500))
+  })
+
+  it('sends Apple’s confirmation where there is one (#635)', async () => {
+    const fetchImpl = respond(204)
+
+    await deleteAccount(caller, fetchImpl, 'code-1')
+
+    expect(fetchImpl).toHaveBeenCalledWith(`${BASE}/api/account`, {
+      method: 'DELETE',
+      headers: {
+        Accept: 'application/json',
+        Authorization: 'Bearer the-token',
+        'X-TaskFest-App': '1.4.0',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ appleAuthorizationCode: 'code-1' }),
+      signal: expect.any(AbortSignal),
+    })
+  })
+})
+
+describe('deleting an account Apple confirmed (#635)', () => {
+  beforeEach(() => jest.useFakeTimers())
+  afterEach(() => jest.useRealTimers())
+
+  it('waits longer than any other request, as the backend asks Apple before it answers', async () => {
+    let settled = false
+    const silent = jest.fn(() => new Promise<Response>(() => undefined))
+    const deleting = deleteAccount(caller, silent, 'code-1').finally(() => (settled = true))
+    const failed = expect(deleting).rejects.toBeInstanceOf(TimedOutError)
+
+    await jest.advanceTimersByTimeAsync(CONFIRMED_DELETE_MS - 1)
+    expect(settled).toBe(false)
+
+    await jest.advanceTimersByTimeAsync(1)
+    await failed
+    expect(CONFIRMED_DELETE_MS).toBe(25_000)
   })
 })
