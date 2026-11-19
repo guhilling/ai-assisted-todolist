@@ -59,7 +59,10 @@ func (s *Server) DeleteApiAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	revocation, err := s.SignIn.RevocationForDeletion(r, code)
-	if errors.Is(err, auth.ErrAppleConfirmationNeeded) {
+	if errors.Is(err, auth.ErrNotIdentified) {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	} else if errors.Is(err, auth.ErrAppleConfirmationNeeded) {
 		w.WriteHeader(http.StatusPreconditionRequired)
 		return
 	} else if err != nil {
@@ -100,7 +103,8 @@ func (s *Server) DeleteApiAccount(w http.ResponseWriter, r *http.Request) {
 }
 
 // appleConfirmation is the authorization code a deletion's body carries (AccountDeletionRequest),
-// "" for a deletion without a body, and false for a body that is no such request.
+// "" for a deletion without a body or without a code, and false for a body that is no such
+// request: null, or a code that is null, are neither an object nor a string (CodeRabbit on #637).
 func appleConfirmation(w http.ResponseWriter, r *http.Request) (string, bool) {
 	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, maxDeletionBody))
 	if err != nil {
@@ -108,6 +112,12 @@ func appleConfirmation(w http.ResponseWriter, r *http.Request) (string, bool) {
 	}
 	if len(body) == 0 {
 		return "", true
+	}
+	// Decoding into a map first tells null from absent, which the generated type does not.
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(body, &fields); err != nil || fields == nil ||
+		string(fields["appleAuthorizationCode"]) == "null" {
+		return "", false
 	}
 	var request AccountDeletionRequest
 	if err := json.Unmarshal(body, &request); err != nil || request.AppleAuthorizationCode == nil {

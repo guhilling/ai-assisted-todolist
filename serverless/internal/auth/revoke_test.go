@@ -211,6 +211,20 @@ func TestDeletingAnAccountSignedInWithAnotherProviderAsksNothingOfApple(t *testi
 	}
 }
 
+func TestADeletionWhoseRequestCannotBeIdentifiedIsRefused(t *testing.T) {
+	s, apple, r := appleService(t)
+	r.Header.Set("Authorization", "Bearer "+AppSessionPrefix+"ended-session")
+
+	revocation, err := s.RevocationForDeletion(r, "code-1")
+
+	if !errors.Is(err, ErrNotIdentified) || revocation != nil {
+		t.Errorf("revocation %v, err %v; want ErrNotIdentified", revocation != nil, err)
+	}
+	if len(apple.exchanged) != 0 {
+		t.Errorf("exchanged %v; want nothing sent to Apple", apple.exchanged)
+	}
+}
+
 func TestAnotherAppleIDsConfirmationRevokesNothing(t *testing.T) {
 	s, apple, r := appleService(t)
 	apple.codes["code-1"] = appleCode{client: "bundle-id", subject: "someone-else"}

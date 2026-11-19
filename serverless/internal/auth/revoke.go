@@ -22,6 +22,11 @@ const AppleIssuer = "https://appleid.apple.com"
 // confirmation: the authorization code its sheet issues when the person signs in with it once more.
 var ErrAppleConfirmationNeeded = errors.New("deleting an account signed in with Apple needs Apple's confirmation")
 
+// ErrNotIdentified refuses a deletion whose request can no longer be identified: its session
+// ended, or could not be read, after the caller was. Without knowing the provider, an account
+// signed in with Apple could otherwise go without Apple's confirmation (CodeRabbit on #637).
+var ErrNotIdentified = errors.New("the deletion's request can no longer be identified")
+
 // appleBudget bounds everything a revocation asks of Apple together: its metadata, the exchange
 // and the revocation. The app waits for the deletion's answer, and the function has a deletion to
 // finish after it, all within API Gateway's 29 seconds.
@@ -35,7 +40,8 @@ type Revocation func(ctx context.Context) error
 // that TaskFest is no longer listed under the person's Apple ID once the account is gone. A
 // request signed in with any other provider is asked for nothing: no revocation, and nil. One
 // signed in with Apple returns ErrAppleConfirmationNeeded without a code, the authorization code
-// Apple's sheet issued when the person signed in with Apple once more, to confirm.
+// Apple's sheet issued when the person signed in with Apple once more, to confirm. A request
+// that cannot be identified returns ErrNotIdentified.
 //
 // With a code, the revocation it returns exchanges the code for Apple's tokens and revokes the
 // refresh token, once the deletion counts as done: a deletion that fails before then leaves
@@ -48,7 +54,7 @@ type Revocation func(ctx context.Context) error
 func (s *Service) RevocationForDeletion(r *http.Request, code string) (Revocation, error) {
 	id, ok := s.Identify(r)
 	if !ok {
-		return nil, nil
+		return nil, ErrNotIdentified
 	}
 	p, ok := s.cfg.provider(id.Provider)
 	if !ok || p.Issuer != AppleIssuer {
