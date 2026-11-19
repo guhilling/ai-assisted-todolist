@@ -21,6 +21,7 @@ import type {
 import { NotDatedBackError, needsDatingBack, restoreInput } from './restore'
 import { makeThumbnail as makeImageThumbnail } from './thumbnail'
 import {
+  validateAccountDeletionConfirmation,
   validateAttachmentResponse,
   validateAuthProvidersResponse,
   validateCurrentUserResponse,
@@ -756,11 +757,22 @@ const accountUrl = `${apiBaseUrl}/api/account`
 /**
  * Deletes the signed-in user's account with every task and file it holds (#213). It cannot be
  * undone; signing out is the caller's next step.
+ *
+ * An account signed in with Apple is deleted only once Apple confirms it (#635): the backend
+ * answers 428 with Apple's sign-in, which is returned for the browser to go to, and the callback
+ * it comes back to deletes the account and signs out. `null` means the account is deleted.
  */
-export async function deleteAccount() {
+export async function deleteAccount(): Promise<string | null> {
   const response = await fetch(accountUrl, { method: 'DELETE', credentials: 'include', headers: jsFetchHeaders })
   ensureSession(response)
+  if (response.status === 428) {
+    const data: unknown = await response.json().catch(() => null)
+    if (validateAccountDeletionConfirmation(data)) {
+      return data.appleSignInUrl
+    }
+  }
   if (!response.ok) {
     throw new RequestError('deleteAccount')
   }
+  return null
 }

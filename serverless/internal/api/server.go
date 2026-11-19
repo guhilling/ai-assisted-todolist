@@ -38,6 +38,9 @@ type SignIn interface {
 	// marked deleted (#635), with the authorization code Apple confirmed with: nil for a request
 	// not signed in with Apple, auth.ErrAppleConfirmationNeeded for one that brought no code.
 	RevocationForDeletion(r *http.Request, code string) (auth.Revocation, error)
+	// ConfirmDeletionAtApple starts the website's confirmation at Apple of deleting the account
+	// email keys, and returns Apple's sign-in for the browser to go to; "" for an app's request.
+	ConfirmDeletionAtApple(w http.ResponseWriter, r *http.Request, email string) (string, error)
 	Config() auth.Config
 }
 

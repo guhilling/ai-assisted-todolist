@@ -84,8 +84,8 @@ export interface StubApiOptions {
   put?: Answer
   /** A DELETE of a task. The default is a 204. */
   del?: { status: number }
-  /** A DELETE of `/api/account` (#213). The default is a 204. */
-  deleteAccount?: { status: number }
+  /** A DELETE of `/api/account` (#213), with a body where one is given. The default is a 204. */
+  deleteAccount?: { status: number; body?: unknown }
   /**
    * A POST to `/api/tasks/{id}/attachments`, announcing an upload (#204): a fixed reply, or one
    * chosen by what was announced, `undefined` meaning the default. The default accepts the file
@@ -117,7 +117,7 @@ export function stubApi(options: StubApiOptions = {}): ApiStub {
       return respond(options.providers ?? { enabled: true, providers: [] })
     }
     if (url.endsWith('/api/account') && method === 'DELETE') {
-      return respond(null, options.deleteAccount?.status ?? 204)
+      return respond(options.deleteAccount?.body ?? null, options.deleteAccount?.status ?? 204)
     }
     if (url.endsWith('/thumbnail-link')) {
       return linkTo(options.thumbnailLink, 'https://bucket.example.com/thumbnail')

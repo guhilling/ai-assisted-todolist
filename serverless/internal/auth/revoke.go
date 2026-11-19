@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"slices"
@@ -12,6 +13,8 @@ import (
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"golang.org/x/oauth2"
+
+	"github.com/guhilling/ai-assisted-todolist/serverless/internal/identity"
 )
 
 // AppleIssuer is Sign in with Apple's issuer. Apple asks an app that offers it to revoke its
@@ -50,7 +53,8 @@ type Revocation func(ctx context.Context) error
 // when the code confirms another Apple ID than the session's.
 //
 // Only the app's code is exchanged here, as the app's bundle id, the first of Apple's audiences
-// besides the website's client: the website's comes back to its callback.
+// besides the website's client: the website confirms at Apple's sign-in, ConfirmDeletionAtApple,
+// which comes back to the callback.
 func (s *Service) RevocationForDeletion(r *http.Request, code string) (Revocation, error) {
 	id, ok := s.Identify(r)
 	if !ok {
@@ -80,18 +84,66 @@ func (s *Service) RevocationForDeletion(r *http.Request, code string) (Revocatio
 	}, nil
 }
 
+// ConfirmDeletionAtApple starts the sign-in with Apple that confirms deleting the account email
+// keys (#635), for a request from the website signed in with Apple, and returns Apple's address
+// for the browser to go to; "" for an app's request, which confirms with Apple's own sheet. The
+// callback deletes the account once the same Apple ID has signed in (finishDeletion).
+//
+// The website's DELETE /api/account starts it, rather than a link to the sign-in: another site
+// can send a browser to a link, but cannot send that request with the browser's session.
+func (s *Service) ConfirmDeletionAtApple(w http.ResponseWriter, r *http.Request, email string) (string, error) {
+	if bearerToken(r) != "" {
+		return "", nil
+	}
+	id, ok := s.Identify(r)
+	if !ok {
+		return "", ErrNotIdentified
+	}
+	p, ok := s.cfg.provider(id.Provider)
+	if !ok || p.Issuer != AppleIssuer {
+		return "", nil
+	}
+	return s.startSignIn(w, r, p, PendingSignIn{Provider: p.ID, Deleting: email, Subject: id.Subject})
+}
+
+// finishDeletion deletes the account a sign-in with Apple confirmed deleting, once the Apple ID
+// that signed in is the one the account's session had, and revokes the website's authorization
+// with the tokens the sign-in brought once the deletion counts as done; a revocation that fails
+// is logged, and does not keep the account. The browser goes back to the app either way: signed
+// out once the account is gone, still signed in where it is not.
+func (s *Service) finishDeletion(w http.ResponseWriter, r *http.Request, p Provider, pending PendingSignIn,
+	ident identity.Identity, tokens *oauth2.Token) {
+	http.SetCookie(w, s.signInCookie(p, "", -1))
+	switch {
+	case ident.Subject != pending.Subject:
+		slog.InfoContext(r.Context(), "account deletion refused", "provider", p.ID,
+			"reason", "another Apple ID confirmed it")
+	case s.deleter == nil:
+		slog.ErrorContext(r.Context(), "an account deletion Apple confirmed has nothing to delete it")
+	default:
+		revocation := func(ctx context.Context) error {
+			ctx, cancel := context.WithTimeout(ctx, appleBudget)
+			defer cancel()
+			if err := s.revokeTokens(ctx, p, tokens); err != nil {
+				return fmt.Errorf("revoke at Apple: %w", err)
+			}
+			return nil
+		}
+		if err := s.deleter.DeleteAccount(r.Context(), pending.Deleting, revocation); err != nil {
+			slog.ErrorContext(r.Context(), "deleting an account Apple confirmed failed", "error", err)
+			break
+		}
+		http.SetCookie(w, s.cookie(SessionCookie, "", -1))
+	}
+	s.backToTheApp(w, r)
+}
+
 // revoke exchanges code as p's client and revokes the refresh token it brings, or the access token
 // where Apple sent none, after checking that the code is the person's whose subject this is.
 func (s *Service) revoke(ctx context.Context, p Provider, code, subject string) error {
 	op, err := s.discovery.provider(ctx, p)
 	if err != nil {
 		return fmt.Errorf("revoke at Apple: %w", err)
-	}
-	var metadata struct {
-		Revocation string `json:"revocation_endpoint"`
-	}
-	if err := op.Claims(&metadata); err != nil || metadata.Revocation == "" {
-		return fmt.Errorf("revoke at Apple: the metadata names no revocation endpoint")
 	}
 	secret, err := p.clientSecret(s.now())
 	if err != nil {
@@ -114,6 +166,29 @@ func (s *Service) revoke(ctx context.Context, p Provider, code, subject string) 
 	if confirmed.Subject != subject {
 		return fmt.Errorf("revoke at Apple: another Apple ID confirmed, so nothing was revoked")
 	}
+	if err := s.revokeTokens(ctx, p, tokens); err != nil {
+		return fmt.Errorf("revoke at Apple: %w", err)
+	}
+	return nil
+}
+
+// revokeTokens revokes p's client's refresh token among tokens at Apple's revocation endpoint, or
+// the access token where Apple sent none.
+func (s *Service) revokeTokens(ctx context.Context, p Provider, tokens *oauth2.Token) error {
+	op, err := s.discovery.provider(ctx, p)
+	if err != nil {
+		return err
+	}
+	var metadata struct {
+		Revocation string `json:"revocation_endpoint"`
+	}
+	if err := op.Claims(&metadata); err != nil || metadata.Revocation == "" {
+		return fmt.Errorf("the metadata names no revocation endpoint")
+	}
+	secret, err := p.clientSecret(s.now())
+	if err != nil {
+		return err
+	}
 	token, hint := tokens.RefreshToken, "refresh_token"
 	if token == "" {
 		token, hint = tokens.AccessToken, "access_token"
@@ -121,16 +196,16 @@ func (s *Service) revoke(ctx context.Context, p Provider, code, subject string) 
 	form := url.Values{"client_id": {p.ClientID}, "client_secret": {secret}, "token": {token}, "token_type_hint": {hint}}
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, metadata.Revocation, strings.NewReader(form.Encode()))
 	if err != nil {
-		return fmt.Errorf("revoke at Apple: %w", err)
+		return err
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return fmt.Errorf("revoke at Apple: %w", err)
+		return err
 	}
 	_ = res.Body.Close()
 	if res.StatusCode != http.StatusOK {
-		return fmt.Errorf("revoke at Apple: the revocation endpoint answered %d", res.StatusCode)
+		return fmt.Errorf("the revocation endpoint answered %d", res.StatusCode)
 	}
 	return nil
 }

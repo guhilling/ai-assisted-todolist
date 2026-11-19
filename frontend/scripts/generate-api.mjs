@@ -43,6 +43,8 @@ const VALIDATED = [
     'DraftResponse',
     // The app's session, traded for a provider's ID token (#281).
     'AppSessionResponse',
+    // Apple's sign-in that confirms the website's deletion of an account (#635).
+    'AccountDeletionConfirmation',
 ];
 
 /**

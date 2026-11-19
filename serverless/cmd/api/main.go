@@ -104,6 +104,8 @@ func main() {
 		// Without a bucket, as in a local stack with none, an account is deleted without a record.
 		server.Records = bucket
 	}
+	// The website's deletion of an account signed in with Apple ends at the callback (#635).
+	signIn.DeleteAccountsWith(server)
 	routes := api.Routes(server)
 
 	<-primed

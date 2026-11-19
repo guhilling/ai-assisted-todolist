@@ -24,6 +24,11 @@ type fakeSignIn struct {
 	revoked    *string
 	revocation auth.Revocation
 	revokeErr  error
+	// confirmedFor is the email ConfirmDeletionAtApple was given; confirmAt and confirmErr are
+	// what it answers.
+	confirmedFor string
+	confirmAt    string
+	confirmErr   error
 }
 
 func (f *fakeSignIn) Identify(*http.Request) (identity.Identity, bool) {

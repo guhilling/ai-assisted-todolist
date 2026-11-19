@@ -365,10 +365,20 @@ App      DELETE /api/auth/app-session  Authorization: Bearer taskfest_app_…  �
   an error, revokes nothing, and the account is deleted regardless: the person asked for it to go
   (`Service.RevocationForDeletion`, `internal/auth/revoke.go`). The code is no proof of who asks —
   the session is — only what revoking needs. A session of any other provider is asked for
-  nothing. The provider is Apple by its issuer, `https://appleid.apple.com`. The website's Apple
-  sessions are not covered yet: their code comes back to the callback, not to the page, and until
-  that is built a website Apple session's deletion answers 428 too; Apple is offered on neither
-  until both are
+  nothing. The provider is Apple by its issuer, `https://appleid.apple.com`.
+- **On the website, Apple confirms at its sign-in, and the callback deletes.** Apple's code for
+  the website comes back to the callback, not to the page, so a website session signed in with
+  Apple gets the 428 with `appleSignInUrl`: Apple's sign-in, started like any other
+  (`Service.ConfirmDeletionAtApple`), whose pending sign-in also names the account to delete and
+  the session's Apple ID. The page sends the browser there. The callback exchanges the code as
+  every sign-in's is, and where the ID token names the same Apple ID it deletes the account
+  through the same steps as the route (`Server.DeleteAccount`), revoking the refresh token that
+  exchange brought, as the Services ID, once the deletion counts as done. It then clears the
+  session cookie and goes back to the app, which says the account was deleted. Another Apple ID,
+  Apple turned away, or a deletion that fails before it counts as done deletes nothing and goes
+  back to the app still signed in (`finishDeletion`). The DELETE starts it, not a link to the
+  sign-in, because another site can send a browser to a link but cannot send that request with
+  the browser's session
   ([decisions/authentication.md](decisions/authentication.md#deleting-an-apple-account-revokes-taskfest-at-apple-with-apples-confirmation)).
 
 ## The provider list

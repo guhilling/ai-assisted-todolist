@@ -8,6 +8,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"net/url"
@@ -71,6 +72,9 @@ func (s Session) ends() time.Time {
 // PendingSignIn is a sign-in under way: what the callback needs to finish it.
 type PendingSignIn struct {
 	Provider, Verifier, Nonce string
+	// Deleting is the email keying the account whose deletion the sign-in confirms (#635), and
+	// Subject the Apple ID that must confirm it; both "" for a sign-in.
+	Deleting, Subject string
 }
 
 // Store keeps sessions and sign-ins under way, keyed by a hash of their cookie's value or of the
@@ -95,6 +99,13 @@ type Avatars interface {
 	Lookup(ctx context.Context, email string) string
 }
 
+// AccountDeleter deletes an account once its deletion is confirmed, revoking with revocation once
+// the deletion counts as done: internal/api's Server, which the website's DELETE /api/account
+// deletes with too. An error means the account was not deleted.
+type AccountDeleter interface {
+	DeleteAccount(ctx context.Context, email string, revocation Revocation) error
+}
+
 // Service is sign-in for one deployment.
 type Service struct {
 	cfg       Config
@@ -102,12 +113,18 @@ type Service struct {
 	avatars   Avatars
 	discovery *discovery
 	now       func() time.Time
+	// deleter carries out a deletion confirmed at the callback (#635).
+	deleter AccountDeleter
 }
 
 // New returns sign-in for cfg, keeping sessions in store.
 func New(cfg Config, store Store, avatars Avatars) *Service {
 	return &Service{cfg: cfg, store: store, avatars: avatars, discovery: &discovery{}, now: time.Now}
 }
+
+// DeleteAccountsWith sets what deletes an account whose deletion Apple confirmed at the callback;
+// cmd/api sets the API's server, which is made after the service.
+func (s *Service) DeleteAccountsWith(d AccountDeleter) { s.deleter = d }
 
 // Config returns the configuration the service runs with.
 func (s *Service) Config() Config { return s.cfg }
@@ -248,29 +265,43 @@ func (s *Service) Login(w http.ResponseWriter, r *http.Request, id string) {
 		s.backToTheApp(w, r)
 		return
 	}
-	conf, err := s.oauth(r, p)
-	if err != nil {
+	at, err := s.startSignIn(w, r, p, PendingSignIn{Provider: p.ID})
+	if errors.Is(err, errUnreachable) {
 		slog.ErrorContext(r.Context(), "starting sign-in failed", "provider", p.ID, "error", err)
 		w.WriteHeader(http.StatusBadGateway)
 		return
-	}
-	state, nonce, verifier := random(), random(), oauth2.GenerateVerifier()
-	err = s.store.PutPendingSignIn(r.Context(), hash(state),
-		PendingSignIn{Provider: p.ID, Verifier: verifier, Nonce: nonce}, s.now().Add(SignInLifetime))
-	if err != nil {
+	} else if err != nil {
 		slog.ErrorContext(r.Context(), "storing a sign-in failed", "error", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
+	http.Redirect(w, r, at, http.StatusFound)
+}
+
+// errUnreachable is a sign-in that cannot start because the provider's metadata cannot be read.
+var errUnreachable = errors.New("the provider cannot be reached")
+
+// startSignIn stores pending, given its state, nonce and PKCE verifier, sets the browser's
+// sign-in cookie, and returns the provider's address that the browser signs in at.
+func (s *Service) startSignIn(w http.ResponseWriter, r *http.Request, p Provider, pending PendingSignIn) (string, error) {
+	conf, err := s.oauth(r, p)
+	if err != nil {
+		return "", fmt.Errorf("%w: %w", errUnreachable, err)
+	}
+	state := random()
+	pending.Nonce, pending.Verifier = random(), oauth2.GenerateVerifier()
+	if err := s.store.PutPendingSignIn(r.Context(), hash(state), pending, s.now().Add(SignInLifetime)); err != nil {
+		return "", err
+	}
 	http.SetCookie(w, s.signInCookie(p, state, SignInLifetime))
-	options := []oauth2.AuthCodeOption{oauth2.SetAuthURLParam("nonce", nonce)}
+	options := []oauth2.AuthCodeOption{oauth2.SetAuthURLParam("nonce", pending.Nonce)}
 	if !p.NoPKCE {
-		options = append(options, oauth2.S256ChallengeOption(verifier))
+		options = append(options, oauth2.S256ChallengeOption(pending.Verifier))
 	}
 	if p.formPost() {
 		options = append(options, oauth2.SetAuthURLParam("response_mode", ResponseModeFormPost))
 	}
-	http.Redirect(w, r, conf.AuthCodeURL(state, options...), http.StatusFound)
+	return conf.AuthCodeURL(state, options...), nil
 }
 
 // maxCallbackForm bounds a callback's form: a code, a state and, at Apple's first sign-in, the
@@ -315,7 +346,7 @@ func (s *Service) Callback(w http.ResponseWriter, r *http.Request, id string) {
 	if !ok {
 		return
 	}
-	ident, err := s.finish(r, p, q)
+	ident, pending, tokens, err := s.finish(r, p, q)
 	if err != nil {
 		level := slog.LevelError
 		if errors.Is(err, ErrRefused) {
@@ -326,6 +357,10 @@ func (s *Service) Callback(w http.ResponseWriter, r *http.Request, id string) {
 		// callback used twice or a cancelled sign-in would otherwise end on a blank page.
 		http.SetCookie(w, s.signInCookie(p, "", -1))
 		s.backToTheApp(w, r)
+		return
+	}
+	if pending.Deleting != "" {
+		s.finishDeletion(w, r, p, pending, ident, tokens)
 		return
 	}
 	token := random()
@@ -346,25 +381,28 @@ func (s *Service) Callback(w http.ResponseWriter, r *http.Request, id string) {
 // as Apple's form POST sends one at a person's first sign-in in its user field, is not read: it
 // comes from the browser, unsigned, and the name is only ever shown to its owner, so the ID
 // token's name, or none, is shown.
-func (s *Service) finish(r *http.Request, p Provider, q url.Values) (identity.Identity, error) {
+//
+// It returns the sign-in it finished as well, and the provider's tokens, which a deletion revokes.
+func (s *Service) finish(r *http.Request, p Provider, q url.Values) (identity.Identity, PendingSignIn, *oauth2.Token, error) {
+	var none PendingSignIn
 	if e := q.Get("error"); e != "" {
-		return identity.Identity{}, refused("the provider answered %q", e)
+		return identity.Identity{}, none, nil, refused("the provider answered %q", e)
 	}
 	state := q.Get("state")
 	cookie, err := r.Cookie(SignInCookie)
 	if err != nil || state == "" || subtle.ConstantTimeCompare([]byte(cookie.Value), []byte(state)) != 1 {
-		return identity.Identity{}, refused("the state is not this browser's")
+		return identity.Identity{}, none, nil, refused("the state is not this browser's")
 	}
 	pending, ok, err := s.store.TakePendingSignIn(r.Context(), hash(state))
 	if err != nil {
-		return identity.Identity{}, err
+		return identity.Identity{}, none, nil, err
 	}
 	if !ok || pending.Provider != p.ID {
-		return identity.Identity{}, refused("no sign-in under way with %s for this state", p.ID)
+		return identity.Identity{}, none, nil, refused("no sign-in under way with %s for this state", p.ID)
 	}
 	conf, err := s.oauth(r, p)
 	if err != nil {
-		return identity.Identity{}, err
+		return identity.Identity{}, none, nil, err
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 	defer cancel()
@@ -374,22 +412,22 @@ func (s *Service) finish(r *http.Request, p Provider, q url.Values) (identity.Id
 	}
 	tokens, err := conf.Exchange(ctx, q.Get("code"), exchange...)
 	if err != nil {
-		return identity.Identity{}, refused("exchanging the code: %v", err)
+		return identity.Identity{}, none, nil, refused("exchanging the code: %v", err)
 	}
 	raw, _ := tokens.Extra("id_token").(string)
 	if raw == "" {
-		return identity.Identity{}, refused("the provider sent no ID token")
+		return identity.Identity{}, none, nil, refused("the provider sent no ID token")
 	}
 	ident, c, err := verifyIDToken(ctx, s.discovery, p, raw, []string{p.ClientID})
 	if err != nil {
-		return identity.Identity{}, err
+		return identity.Identity{}, none, nil, err
 	}
 	if subtle.ConstantTimeCompare([]byte(c.Nonce), []byte(pending.Nonce)) != 1 {
-		return identity.Identity{}, refused("the ID token's nonce is not this sign-in's")
+		return identity.Identity{}, none, nil, refused("the ID token's nonce is not this sign-in's")
 	}
 	// No Gravatar here: /api/auth/me asks, through WithPicture, so the return from the provider
 	// never waits for it.
-	return ident, nil
+	return ident, pending, tokens, nil
 }
 
 // Logout ends the browser's session, on the server and in the browser, and sends it back to the

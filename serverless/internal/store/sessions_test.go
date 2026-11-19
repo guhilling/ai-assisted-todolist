@@ -54,6 +54,21 @@ func TestTouchingAnEndedSessionDoesNotBringItBack(t *testing.T) {
 	}
 }
 
+func TestASignInConfirmingADeletionKeepsWhoseAccountAndAppleID(t *testing.T) {
+	client, table := localTable(t)
+	s := NewSessions(client, table)
+	ctx := context.Background()
+	pending := auth.PendingSignIn{Provider: "apple", Verifier: "v", Nonce: "n",
+		Deleting: "person@example.com", Subject: "apple-subject"}
+
+	if err := s.PutPendingSignIn(ctx, "st", pending, time.Now().Add(time.Minute)); err != nil {
+		t.Fatal(err)
+	}
+	if got, ok, err := s.TakePendingSignIn(ctx, "st"); err != nil || !ok || got != pending {
+		t.Errorf("got %+v, %v, %v; want %+v", got, ok, err, pending)
+	}
+}
+
 func TestASignInUnderWayCanBeTakenOnceAndNotLate(t *testing.T) {
 	client, table := localTable(t)
 	s := NewSessions(client, table)

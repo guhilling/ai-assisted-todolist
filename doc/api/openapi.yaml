@@ -10,6 +10,16 @@ components:
             app when the person signed in with Apple once more, to confirm. The backend
             exchanges it for Apple's tokens and revokes them at once; it keeps nothing.
           maxLength: 4096
+    AccountDeletionConfirmation:
+      type: object
+      required:
+      - appleSignInUrl
+      properties:
+        appleSignInUrl:
+          type: string
+          description: 'Apple''s sign-in, for the browser to go to: once the same
+            Apple ID has signed in, the callback deletes the account, revokes TaskFest
+            at Apple and sends the browser back signed out.'
     AnnounceRequest:
       type: object
       required:
@@ -495,8 +505,10 @@ paths:
       summary: Delete my account
       description: Deletes every task and every file of the caller, and the account
         itself. It cannot be undone. An account signed in with Apple is deleted only
-        with Apple's confirmation, and its authorization at Apple is revoked first;
-        a revocation that fails does not stop the deletion.
+        with Apple's confirmation, and its authorization at Apple is revoked once
+        the deletion counts as done; a revocation that fails does not stop the deletion.
+        The app confirms with Apple's sheet and sends the code it issues; the website
+        is sent to Apple's sign-in, and its callback deletes the account.
       tags:
       - Account
       requestBody:
@@ -515,7 +527,13 @@ paths:
           description: The body is not an account deletion request.
         '428':
           description: 'The caller signed in with Apple, and sent no `appleAuthorizationCode`:
-            nothing was deleted.'
+            nothing was deleted. To the website, it names Apple''s sign-in that confirms
+            the deletion (#635); the app confirms with Apple''s sheet and is sent
+            no body.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountDeletionConfirmation'
         '401':
           description: Not Authorized
         '403':

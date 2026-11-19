@@ -308,6 +308,10 @@ also how the app learns it must ask Apple. Only a session signed in with Apple i
 in with Google is not, even where the same address once signed in with Apple
 ([authentication.md](../authentication.md#sign-in-with-apple)).
 
+**On the website (Gunnar, #635).** Apple's code for the website comes back to the sign-in
+callback, not to the page, so there the 428 names Apple's sign-in, and the callback deletes the
+account once the same Apple ID has signed in, revoking the refresh token that sign-in brought.
+
 **Why.** Apple asks an app that offers Sign in with Apple to revoke its tokens when the account is
 deleted, so that the app no longer appears under the person's Apple ID. TaskFest keeps no Apple
 token to revoke ([An app trades its ID token once for an app
