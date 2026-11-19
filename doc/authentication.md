@@ -376,7 +376,9 @@ App      DELETE /api/auth/app-session  Authorization: Bearer taskfest_app_â€¦  â
   exchange brought, as the Services ID, once the deletion counts as done. It then clears the
   session cookie and goes back to the app, which says the account was deleted. Another Apple ID,
   Apple turned away, or a deletion that fails before it counts as done deletes nothing and goes
-  back to the app still signed in (`finishDeletion`). The DELETE starts it, not a link to the
+  back to the app still signed in (`finishDeletion`), which says the deletion failed. A website
+  request is sent to Apple's sign-in even with an `appleAuthorizationCode`, which only the app's
+  is exchanged as. The DELETE starts it, not a link to the
   sign-in, because another site can send a browser to a link but cannot send that request with
   the browser's session
   ([decisions/authentication.md](decisions/authentication.md#deleting-an-apple-account-revokes-taskfest-at-apple-with-apples-confirmation)).

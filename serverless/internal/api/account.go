@@ -85,6 +85,9 @@ func (s *Server) confirmAtApple(w http.ResponseWriter, r *http.Request, email st
 	switch {
 	case errors.Is(err, auth.ErrNotIdentified):
 		w.WriteHeader(http.StatusUnauthorized)
+	case errors.Is(err, auth.ErrUnreachable):
+		slog.ErrorContext(r.Context(), "Apple cannot be reached to confirm a deletion", "error", err)
+		w.WriteHeader(http.StatusBadGateway)
 	case err != nil:
 		slog.ErrorContext(r.Context(), "starting Apple's confirmation of a deletion failed", "error", err)
 		w.WriteHeader(http.StatusInternalServerError)

@@ -23,6 +23,7 @@ import {
   postTask,
   putTask,
   removeAttachment,
+  RequestError,
   restoreTask,
   SessionExpiredError,
   uploadAttachment,
@@ -149,6 +150,8 @@ function Board() {
   // Read once on mount: the sign-out after deleting an account comes back here (#213), and so does
   // Apple's callback (#635), or, where Apple was turned away, the person still signed in.
   const [accountDeleted, setAccountDeleted] = useState(takeAccountDeleted)
+  // The note as the page found it, for the first load to judge whether the deletion happened.
+  const deletionAsked = useRef(accountDeleted)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   /** The offer to undo: the tasks it would put back, and its number, by which the toast is keyed. */
@@ -224,8 +227,13 @@ function Board() {
         if (!user) {
           return
         }
-        // Still signed in, so nothing was deleted: a later signed-out page has no note to show.
-        setAccountDeleted(false)
+        if (deletionAsked.current) {
+          // Still signed in, so nothing was deleted (#635): Apple turned away, another Apple ID,
+          // or a deletion that failed at the callback. Said once, and no note for a later
+          // signed-out page.
+          setAccountDeleted(false)
+          reportFailure(new RequestError('deleteAccount'), 'deleting')
+        }
 
         setTasks(await fetchTasks())
       } catch (loadError) {

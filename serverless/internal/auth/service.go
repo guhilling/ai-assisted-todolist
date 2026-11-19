@@ -266,7 +266,7 @@ func (s *Service) Login(w http.ResponseWriter, r *http.Request, id string) {
 		return
 	}
 	at, err := s.startSignIn(w, r, p, PendingSignIn{Provider: p.ID})
-	if errors.Is(err, errUnreachable) {
+	if errors.Is(err, ErrUnreachable) {
 		slog.ErrorContext(r.Context(), "starting sign-in failed", "provider", p.ID, "error", err)
 		w.WriteHeader(http.StatusBadGateway)
 		return
@@ -278,15 +278,16 @@ func (s *Service) Login(w http.ResponseWriter, r *http.Request, id string) {
 	http.Redirect(w, r, at, http.StatusFound)
 }
 
-// errUnreachable is a sign-in that cannot start because the provider's metadata cannot be read.
-var errUnreachable = errors.New("the provider cannot be reached")
+// ErrUnreachable is a sign-in that cannot start because the provider's metadata cannot be read:
+// a 502, the provider's failure rather than ours.
+var ErrUnreachable = errors.New("the provider cannot be reached")
 
 // startSignIn stores pending, given its state, nonce and PKCE verifier, sets the browser's
 // sign-in cookie, and returns the provider's address that the browser signs in at.
 func (s *Service) startSignIn(w http.ResponseWriter, r *http.Request, p Provider, pending PendingSignIn) (string, error) {
 	conf, err := s.oauth(r, p)
 	if err != nil {
-		return "", fmt.Errorf("%w: %w", errUnreachable, err)
+		return "", fmt.Errorf("%w: %w", ErrUnreachable, err)
 	}
 	state := random()
 	pending.Nonce, pending.Verifier = random(), oauth2.GenerateVerifier()

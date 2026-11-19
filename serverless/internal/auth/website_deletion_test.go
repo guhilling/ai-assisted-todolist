@@ -161,3 +161,26 @@ func TestAPlainSignInWithAppleDeletesNothing(t *testing.T) {
 			d.deleted, apple.revoked, b.cookies)
 	}
 }
+
+func TestAWebsiteRequestWithACodeIsStillSentToApplesSignIn(t *testing.T) {
+	s, apple, _, b := websiteAppleSession(t)
+	apple.codes["code-1"] = appleCode{client: "bundle-id", subject: "apple-subject"}
+
+	revocation, err := s.RevocationForDeletion(b.request("DELETE", "/api/account"), "code-1")
+
+	if !errors.Is(err, ErrAppleConfirmationNeeded) || revocation != nil {
+		t.Errorf("revocation %v, err %v; want the website sent to Apple's sign-in", revocation != nil, err)
+	}
+}
+
+func TestNobodyIsSentToAppleWhereNothingWouldDeleteTheAccount(t *testing.T) {
+	s, _, _, b := websiteAppleSession(t)
+	s.DeleteAccountsWith(nil)
+	rec := httptest.NewRecorder()
+
+	at, err := s.ConfirmDeletionAtApple(rec, b.request("DELETE", "/api/account"), "person@example.com")
+
+	if at != "" || err == nil || len(rec.Result().Cookies()) != 0 {
+		t.Errorf("confirm at %q, %v; want an error before any sign-in starts", at, err)
+	}
+}

@@ -43,8 +43,9 @@ type Revocation func(ctx context.Context) error
 // that TaskFest is no longer listed under the person's Apple ID once the account is gone. A
 // request signed in with any other provider is asked for nothing: no revocation, and nil. One
 // signed in with Apple returns ErrAppleConfirmationNeeded without a code, the authorization code
-// Apple's sheet issued when the person signed in with Apple once more, to confirm. A request
-// that cannot be identified returns ErrNotIdentified.
+// Apple's sheet issued when the person signed in with Apple once more, to confirm, and from the
+// website always, with a code or without. A request that cannot be identified returns
+// ErrNotIdentified.
 //
 // With a code, the revocation it returns exchanges the code for Apple's tokens and revokes the
 // refresh token, once the deletion counts as done: a deletion that fails before then leaves
@@ -64,11 +65,9 @@ func (s *Service) RevocationForDeletion(r *http.Request, code string) (Revocatio
 	if !ok || p.Issuer != AppleIssuer {
 		return nil, nil
 	}
-	if code == "" {
+	// The website confirms at Apple's sign-in, never with a code it sends (/code-review on #638).
+	if code == "" || bearerToken(r) == "" {
 		return nil, ErrAppleConfirmationNeeded
-	}
-	if bearerToken(r) == "" {
-		return nil, fmt.Errorf("revoke at Apple: only the app's code is exchanged")
 	}
 	i := slices.IndexFunc(p.Audiences, func(a string) bool { return a != p.ClientID })
 	if i < 0 {
@@ -77,11 +76,16 @@ func (s *Service) RevocationForDeletion(r *http.Request, code string) (Revocatio
 	// The code was issued to the app, so the app's bundle id is the client, and signs the secret.
 	app := p
 	app.ClientID = p.Audiences[i]
+	return budgeted(func(ctx context.Context) error { return s.revoke(ctx, app, code, id.Subject) }), nil
+}
+
+// budgeted is revoke as a Revocation, bounded by appleBudget.
+func budgeted(revoke func(ctx context.Context) error) Revocation {
 	return func(ctx context.Context) error {
 		ctx, cancel := context.WithTimeout(ctx, appleBudget)
 		defer cancel()
-		return s.revoke(ctx, app, code, id.Subject)
-	}, nil
+		return revoke(ctx)
+	}
 }
 
 // ConfirmDeletionAtApple starts the sign-in with Apple that confirms deleting the account email
@@ -103,6 +107,10 @@ func (s *Service) ConfirmDeletionAtApple(w http.ResponseWriter, r *http.Request,
 	if !ok || p.Issuer != AppleIssuer {
 		return "", nil
 	}
+	if s.deleter == nil {
+		// Before Apple, not after: the person would confirm a deletion nothing carries out.
+		return "", errors.New("nothing deletes an account Apple confirmed: DeleteAccountsWith was not called")
+	}
 	return s.startSignIn(w, r, p, PendingSignIn{Provider: p.ID, Deleting: email, Subject: id.Subject})
 }
 
@@ -121,14 +129,12 @@ func (s *Service) finishDeletion(w http.ResponseWriter, r *http.Request, p Provi
 	case s.deleter == nil:
 		slog.ErrorContext(r.Context(), "an account deletion Apple confirmed has nothing to delete it")
 	default:
-		revocation := func(ctx context.Context) error {
-			ctx, cancel := context.WithTimeout(ctx, appleBudget)
-			defer cancel()
+		revocation := budgeted(func(ctx context.Context) error {
 			if err := s.revokeTokens(ctx, p, tokens); err != nil {
 				return fmt.Errorf("revoke at Apple: %w", err)
 			}
 			return nil
-		}
+		})
 		if err := s.deleter.DeleteAccount(r.Context(), pending.Deleting, revocation); err != nil {
 			slog.ErrorContext(r.Context(), "deleting an account Apple confirmed failed", "error", err)
 			break

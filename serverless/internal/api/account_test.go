@@ -392,6 +392,7 @@ func TestTheWebsiteIsSentToApplesSignInToConfirmDeletingAnAppleAccount(t *testin
 func TestAConfirmationAtAppleThatCannotStartDeletesNothing(t *testing.T) {
 	for err, want := range map[error]int{
 		auth.ErrNotIdentified:                  http.StatusUnauthorized,
+		auth.ErrUnreachable:                    http.StatusBadGateway,
 		errors.New("storing a sign-in failed"): http.StatusInternalServerError,
 	} {
 		d := &fakeDeletion{}

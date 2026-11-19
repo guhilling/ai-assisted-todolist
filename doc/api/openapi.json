@@ -700,7 +700,7 @@
             "description": "The body is not an account deletion request."
           },
           "428": {
-            "description": "The caller signed in with Apple, and sent no `appleAuthorizationCode`: nothing was deleted. To the website, it names Apple's sign-in that confirms the deletion (#635); the app confirms with Apple's sheet and is sent no body.",
+            "description": "The caller signed in with Apple, and sent no `appleAuthorizationCode`, or is the website, which confirms at Apple's sign-in rather than with a code: nothing was deleted. To the website, it names Apple's sign-in that confirms the deletion (#635); the app confirms with Apple's sheet and is sent no body.",
             "content": {
               "application/json": {
                 "schema": {

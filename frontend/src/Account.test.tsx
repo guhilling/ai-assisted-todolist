@@ -205,6 +205,15 @@ describe('deleting an account signed in with Apple (#635)', () => {
     expect(sessionStorage.getItem('taskfest.accountDeleted')).toBeNull()
   })
 
+  it('says the account was not deleted when the person comes back still signed in', async () => {
+    // Apple turned away, another Apple ID, or a deletion that failed at the callback.
+    sessionStorage.setItem('taskfest.accountDeleted', 'true')
+
+    await renderSignedIn(stubApi({ me: ALICE }))
+
+    expect(await screen.findByText('Unable to delete your account.')).toBeInTheDocument()
+  })
+
   it('drops the note unseen when the person comes back still signed in, having turned Apple away', async () => {
     sessionStorage.setItem('taskfest.accountDeleted', 'true')
     // Signed in, and then the session ends while the page is open: no deletion to speak of.
