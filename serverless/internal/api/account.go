@@ -43,9 +43,9 @@ type DeletionRecords interface {
 // marked, it counts as done (Gunnar's decision on #553): whatever stops it later is finished by
 // the account's next request or by the replay.
 //
-// An account signed in with Apple is deleted only with Apple's confirmation (#635), and Apple's
-// authorization of TaskFest is revoked once the account is marked, before the rest of it goes; a
-// revocation that fails is logged, and does not keep the account: the person asked for it to go.
+// An account signed in with Apple is deleted only with Apple's confirmation (#635): the app sends
+// the code Apple's sheet issued, and the website, answered with Apple's sign-in, is deleted at the
+// callback (auth's ConfirmDeletionAtApple), through DeleteAccount as here.
 func (s *Server) DeleteApiAccount(w http.ResponseWriter, r *http.Request) {
 	email, ok := s.Caller(r)
 	if !ok {
@@ -63,17 +63,50 @@ func (s *Server) DeleteApiAccount(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
 		return
 	} else if errors.Is(err, auth.ErrAppleConfirmationNeeded) {
-		w.WriteHeader(http.StatusPreconditionRequired)
+		s.confirmAtApple(w, r, email)
 		return
 	} else if err != nil {
 		slog.ErrorContext(ctx, "Apple's authorization cannot be revoked; the account is deleted regardless",
 			"error", err)
 	}
+	if err := s.DeleteAccount(ctx, email, revocation); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	s.SignIn.EndSession(w, r)
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// confirmAtApple answers a deletion that needs Apple's confirmation with a 428: to the website,
+// with Apple's sign-in, which confirms it and comes back to the callback; to the app, which
+// confirms with Apple's sheet, with nothing else.
+func (s *Server) confirmAtApple(w http.ResponseWriter, r *http.Request, email string) {
+	at, err := s.SignIn.ConfirmDeletionAtApple(w, r, email)
+	switch {
+	case errors.Is(err, auth.ErrNotIdentified):
+		w.WriteHeader(http.StatusUnauthorized)
+	case errors.Is(err, auth.ErrUnreachable):
+		slog.ErrorContext(r.Context(), "Apple cannot be reached to confirm a deletion", "error", err)
+		w.WriteHeader(http.StatusBadGateway)
+	case err != nil:
+		slog.ErrorContext(r.Context(), "starting Apple's confirmation of a deletion failed", "error", err)
+		w.WriteHeader(http.StatusInternalServerError)
+	case at != "":
+		writeJSON(r.Context(), w, http.StatusPreconditionRequired, AccountDeletionConfirmation{AppleSignInUrl: at})
+	default:
+		w.WriteHeader(http.StatusPreconditionRequired)
+	}
+}
+
+// DeleteAccount deletes the account email keys, and revokes with revocation, if any, once the
+// deletion counts as done; a revocation that fails is logged, and does not keep the account: the
+// person asked for it to go. An error means the account was not deleted. Both the route and the
+// website's callback for a deletion Apple confirmed (auth's AccountDeleter) delete through it.
+func (s *Server) DeleteAccount(ctx context.Context, email string, revocation auth.Revocation) error {
 	if s.Records != nil {
 		if err := s.Records.RecordDeletion(ctx, email); err != nil {
 			slog.ErrorContext(ctx, "recording an account deletion failed", "error", err)
-			w.WriteHeader(http.StatusInternalServerError)
-			return
+			return err
 		}
 	}
 	if err := s.Accounts.Mark(ctx, email); err != nil {
@@ -84,8 +117,7 @@ func (s *Server) DeleteApiAccount(w http.ResponseWriter, r *http.Request) {
 				slog.ErrorContext(ctx, "taking back the record of a failed deletion failed", "error", err)
 			}
 		}
-		w.WriteHeader(http.StatusInternalServerError)
-		return
+		return err
 	}
 	// Only now, as the deletion counts as done: one that failed leaves Apple as it was.
 	if revocation != nil {
@@ -98,8 +130,7 @@ func (s *Server) DeleteApiAccount(w http.ResponseWriter, r *http.Request) {
 		slog.ErrorContext(ctx, "an account deletion stopped half-way; its next request or the replay finishes it",
 			"error", err)
 	}
-	s.SignIn.EndSession(w, r)
-	w.WriteHeader(http.StatusNoContent)
+	return nil
 }
 
 // appleConfirmation is the authorization code a deletion's body carries (AccountDeletionRequest),

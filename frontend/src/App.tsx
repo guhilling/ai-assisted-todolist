@@ -23,6 +23,7 @@ import {
   postTask,
   putTask,
   removeAttachment,
+  RequestError,
   restoreTask,
   SessionExpiredError,
   uploadAttachment,
@@ -146,8 +147,11 @@ function Board() {
   // renders, so switching language translates a banner already on screen too.
   const [error, setError] = useState<Failure | null>(null)
   const [sessionExpired, setSessionExpired] = useState(false)
-  // Read once on mount: the sign-out after deleting an account comes back here (#213).
-  const [accountDeleted] = useState(takeAccountDeleted)
+  // Read once on mount: the sign-out after deleting an account comes back here (#213), and so does
+  // Apple's callback (#635), or, where Apple was turned away, the person still signed in.
+  const [accountDeleted, setAccountDeleted] = useState(takeAccountDeleted)
+  // The note as the page found it, for the first load to judge whether the deletion happened.
+  const deletionAsked = useRef(accountDeleted)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   /** The offer to undo: the tasks it would put back, and its number, by which the toast is keyed. */
@@ -222,6 +226,13 @@ function Board() {
 
         if (!user) {
           return
+        }
+        if (deletionAsked.current) {
+          // Still signed in, so nothing was deleted (#635): Apple turned away, another Apple ID,
+          // or a deletion that failed at the callback. Said once, and no note for a later
+          // signed-out page.
+          setAccountDeleted(false)
+          reportFailure(new RequestError('deleteAccount'), 'deleting')
         }
 
         setTasks(await fetchTasks())
@@ -508,14 +519,17 @@ function Board() {
 
   /**
    * Deletes the account (#213), then signs out by navigating to the sign-out, which ends the
-   * session the backend still holds and comes back to the signed-out page.
+   * session the backend still holds and comes back to the signed-out page. An account signed in
+   * with Apple goes to Apple's sign-in instead (#635), whose callback deletes it and comes back
+   * signed out; the note is left for that page too, and is dropped unseen if the person comes back
+   * still signed in, having turned Apple away.
    */
   const deleteMyAccount = async () => {
     setError(null)
     try {
-      await deleteAccount()
+      const confirmAtApple = await deleteAccount()
       rememberAccountDeleted()
-      window.location.assign(authLogoutUrl)
+      window.location.assign(confirmAtApple ?? authLogoutUrl)
       return true
     } catch (deleteError) {
       reportFailure(deleteError, 'deleting')

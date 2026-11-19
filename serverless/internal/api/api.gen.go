@@ -86,6 +86,12 @@ func (e TaskState) Valid() bool {
 	}
 }
 
+// AccountDeletionConfirmation defines model for AccountDeletionConfirmation.
+type AccountDeletionConfirmation struct {
+	// AppleSignInUrl Apple's sign-in, for the browser to go to: once the same Apple ID has signed in, the callback deletes the account, revokes TaskFest at Apple and sends the browser back signed out.
+	AppleSignInUrl string `json:"appleSignInUrl"`
+}
+
 // AccountDeletionRequest defines model for AccountDeletionRequest.
 type AccountDeletionRequest struct {
 	// AppleAuthorizationCode The authorization code Apple's sign-in sheet issued to the app when the person signed in with Apple once more, to confirm. The backend exchanges it for Apple's tokens and revokes them at once; it keeps nothing.

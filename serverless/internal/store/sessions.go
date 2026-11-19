@@ -64,11 +64,14 @@ type sessionItem struct {
 }
 
 type pendingItem struct {
-	PK        string `dynamodbav:"PK"`
-	SK        string `dynamodbav:"SK"`
-	Provider  string `dynamodbav:"provider"`
-	Verifier  string `dynamodbav:"verifier"`
-	Nonce     string `dynamodbav:"nonce"`
+	PK       string `dynamodbav:"PK"`
+	SK       string `dynamodbav:"SK"`
+	Provider string `dynamodbav:"provider"`
+	Verifier string `dynamodbav:"verifier"`
+	Nonce    string `dynamodbav:"nonce"`
+	// Deleting and Subject are a deletion's that the sign-in confirms (#635); absent otherwise.
+	Deleting  string `dynamodbav:"deleting,omitempty"`
+	Subject   string `dynamodbav:"subject,omitempty"`
 	ExpiresAt int64  `dynamodbav:"expiresAt"`
 }
 
@@ -205,7 +208,7 @@ func (s *Sessions) DeleteSession(ctx context.Context, key string) error {
 func (s *Sessions) PutPendingSignIn(ctx context.Context, key string, p auth.PendingSignIn, expires time.Time) error {
 	item, err := attributevalue.MarshalMap(pendingItem{
 		PK: "SIGNIN#" + key, SK: "SIGNIN", Provider: p.Provider, Verifier: p.Verifier, Nonce: p.Nonce,
-		ExpiresAt: expires.Unix(),
+		Deleting: p.Deleting, Subject: p.Subject, ExpiresAt: expires.Unix(),
 	})
 	if err != nil {
 		return err
@@ -260,5 +263,6 @@ func (s *Sessions) TakePendingSignIn(ctx context.Context, key string) (auth.Pend
 	if s.now().Unix() > it.ExpiresAt {
 		return auth.PendingSignIn{}, false, nil
 	}
-	return auth.PendingSignIn{Provider: it.Provider, Verifier: it.Verifier, Nonce: it.Nonce}, true, nil
+	return auth.PendingSignIn{Provider: it.Provider, Verifier: it.Verifier, Nonce: it.Nonce,
+		Deleting: it.Deleting, Subject: it.Subject}, true, nil
 }

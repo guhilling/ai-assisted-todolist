@@ -179,6 +179,52 @@ describe('deleting the account', () => {
   })
 })
 
+describe('deleting an account signed in with Apple (#635)', () => {
+  const appleSignIn = 'https://appleid.apple.com/auth/authorize?client_id=services-id&state=s'
+
+  async function deleteTheAccount(fetchMock: ApiStub) {
+    await signedInBoard(fetchMock)
+    fireEvent.click(screen.getByRole('button', { name: 'Delete account' }))
+    fireEvent.change(screen.getByLabelText('Type your email address to confirm'), { target: { value: 'alice@example.com' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Delete my account' }))
+  }
+
+  it("goes to Apple's sign-in to confirm, leaving the note for when the callback has deleted it", async () => {
+    await deleteTheAccount(stubApi({ me: ALICE, deleteAccount: { status: 428, body: { appleSignInUrl: appleSignIn } } }))
+
+    await waitFor(() => expect(assign).toHaveBeenCalledWith(appleSignIn))
+    expect(assign).toHaveBeenCalledTimes(1)
+    expect(sessionStorage.getItem('taskfest.accountDeleted')).toBe('true')
+  })
+
+  it("says the deletion failed when Apple's confirmation is asked for without its sign-in", async () => {
+    await deleteTheAccount(stubApi({ me: ALICE, deleteAccount: { status: 428 } }))
+
+    expect(await screen.findByText('Unable to delete your account.')).toBeInTheDocument()
+    expect(assign).not.toHaveBeenCalled()
+    expect(sessionStorage.getItem('taskfest.accountDeleted')).toBeNull()
+  })
+
+  it('says the account was not deleted when the person comes back still signed in', async () => {
+    // Apple turned away, another Apple ID, or a deletion that failed at the callback.
+    sessionStorage.setItem('taskfest.accountDeleted', 'true')
+
+    await renderSignedIn(stubApi({ me: ALICE }))
+
+    expect(await screen.findByText('Unable to delete your account.')).toBeInTheDocument()
+  })
+
+  it('drops the note unseen when the person comes back still signed in, having turned Apple away', async () => {
+    sessionStorage.setItem('taskfest.accountDeleted', 'true')
+    // Signed in, and then the session ends while the page is open: no deletion to speak of.
+    globalThis.fetch = stubApi({ me: ALICE, tasks: 'error' }) as unknown as typeof fetch
+    render(<App />)
+
+    await waitFor(() => expect(screen.getByText(/your session has expired/i)).toBeInTheDocument())
+    expect(screen.queryByText(/your account has been deleted/i)).not.toBeInTheDocument()
+  })
+})
+
 describe('confirming by email address', () => {
   it('keeps the delete button disabled until the address is typed', async () => {
     await signedInBoard(stubApi({ me: ALICE }))

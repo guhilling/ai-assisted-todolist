@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -20,6 +21,11 @@ func (f *fakeSignIn) EndSession(w http.ResponseWriter, _ *http.Request) {
 func (f *fakeSignIn) RevocationForDeletion(_ *http.Request, code string) (auth.Revocation, error) {
 	f.revoked = &code
 	return f.revocation, f.revokeErr
+}
+
+func (f *fakeSignIn) ConfirmDeletionAtApple(_ http.ResponseWriter, _ *http.Request, email string) (string, error) {
+	f.confirmedFor = email
+	return f.confirmAt, f.confirmErr
 }
 
 // fakeDeletion records the steps of a deletion in order, and fails the one named in fail.
@@ -358,5 +364,72 @@ func TestADeletionWhoseRequestCannotBeIdentifiedAgainDoesNotHappen(t *testing.T)
 	}
 	if len(d.steps) != 0 || signIn.called != "" {
 		t.Errorf("steps %v, %q; want nothing deleted or ended", d.steps, signIn.called)
+	}
+}
+
+func TestTheWebsiteIsSentToApplesSignInToConfirmDeletingAnAppleAccount(t *testing.T) {
+	c := loadContract(t)
+	d := &fakeDeletion{}
+	s, signIn := deletingServer(d, true)
+	signIn.revokeErr = auth.ErrAppleConfirmationNeeded
+	signIn.confirmAt = "https://appleid.apple.com/auth/authorize?client_id=services-id"
+
+	rec := serve(s, "DELETE", "/api/account")
+
+	if rec.Code != http.StatusPreconditionRequired || signIn.confirmedFor != "person@example.com" {
+		t.Fatalf("got %d, confirmed for %q; want 428 for the caller's account", rec.Code, signIn.confirmedFor)
+	}
+	c.checkResponse(t, "DELETE", "/api/account", rec.Code, rec.Body.Bytes())
+	var body AccountDeletionConfirmation
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil || body.AppleSignInUrl != signIn.confirmAt {
+		t.Errorf("body %s, %v; want Apple's sign-in", rec.Body, err)
+	}
+	if len(d.steps) != 0 || signIn.called != "" {
+		t.Errorf("steps %v, %q; want nothing deleted or ended", d.steps, signIn.called)
+	}
+}
+
+func TestAConfirmationAtAppleThatCannotStartDeletesNothing(t *testing.T) {
+	for err, want := range map[error]int{
+		auth.ErrNotIdentified:                  http.StatusUnauthorized,
+		auth.ErrUnreachable:                    http.StatusBadGateway,
+		errors.New("storing a sign-in failed"): http.StatusInternalServerError,
+	} {
+		d := &fakeDeletion{}
+		s, signIn := deletingServer(d, true)
+		signIn.revokeErr = auth.ErrAppleConfirmationNeeded
+		signIn.confirmErr = err
+
+		rec := serve(s, "DELETE", "/api/account")
+
+		if rec.Code != want || len(d.steps) != 0 {
+			t.Errorf("%v: got %d, steps %v; want %d and nothing deleted", err, rec.Code, d.steps, want)
+		}
+	}
+}
+
+func TestAnAccountAppleConfirmedAtTheCallbackIsDeletedLikeAnyOther(t *testing.T) {
+	d := &fakeDeletion{}
+	s, _ := deletingServer(d, true)
+
+	err := s.DeleteAccount(context.Background(), "person@example.com",
+		func(context.Context) error { return d.step("revoke", "at Apple") })
+
+	if got := strings.Join(d.steps, ", "); err != nil ||
+		got != "record person@example.com, mark person@example.com, revoke at Apple, finish person@example.com" {
+		t.Errorf("steps %q, %v; want recorded, marked, revoked and finished", got, err)
+	}
+}
+
+func TestAnAccountAppleConfirmedThatCannotBeMarkedIsNotDeleted(t *testing.T) {
+	d := &fakeDeletion{fail: "mark"}
+	s, _ := deletingServer(d, true)
+	revoked := false
+
+	err := s.DeleteAccount(context.Background(), "person@example.com",
+		func(context.Context) error { revoked = true; return nil })
+
+	if err == nil || revoked {
+		t.Errorf("err %v, revoked %v; want an error and Apple left as it was", err, revoked)
 	}
 }

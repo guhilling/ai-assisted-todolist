@@ -38,8 +38,9 @@ type fakeApple struct {
 	revocation int
 }
 
-// appleCode is an authorization code as Apple's sheet issued it.
-type appleCode struct{ client, subject string }
+// appleCode is an authorization code as Apple issued it: to which client, for which person, and
+// for a sign-in on the website, the nonce it asked for and the email it shares.
+type appleCode struct{ client, subject, nonce, email string }
 
 func newFakeApple(t *testing.T) *fakeApple {
 	t.Helper()
@@ -103,7 +104,8 @@ func (a *fakeApple) token(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// idToken is the ID token Apple hands out with the tokens: no email, since none was asked for.
+// idToken is the ID token Apple hands out with the tokens: the nonce and email only where the
+// sign-in asked for them, as the website's does and the app's confirmation does not.
 func (a *fakeApple) idToken(issued appleCode) string {
 	signer, err := jose.NewSigner(jose.SigningKey{Algorithm: jose.RS256, Key: a.idKey},
 		(&jose.SignerOptions{}).WithType("JWT").WithHeader("kid", "apple-1"))
@@ -111,10 +113,17 @@ func (a *fakeApple) idToken(issued appleCode) string {
 		a.t.Fatal(err)
 	}
 	now := time.Now()
-	raw, err := jwt.Signed(signer).Claims(map[string]any{
+	claims := map[string]any{
 		"iss": AppleIssuer, "aud": issued.client, "sub": issued.subject,
 		"iat": now.Unix(), "exp": now.Add(10 * time.Minute).Unix(),
-	}).Serialize()
+	}
+	if issued.nonce != "" {
+		claims["nonce"] = issued.nonce
+	}
+	if issued.email != "" {
+		claims["email"], claims["email_verified"] = issued.email, "true"
+	}
+	raw, err := jwt.Signed(signer).Claims(claims).Serialize()
 	if err != nil {
 		a.t.Fatal(err)
 	}

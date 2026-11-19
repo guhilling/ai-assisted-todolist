@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "AccountDeletionConfirmation.schema.json",
+  "type": "object",
+  "required": [
+    "appleSignInUrl"
+  ],
+  "properties": {
+    "appleSignInUrl": {
+      "type": "string",
+      "description": "Apple's sign-in, for the browser to go to: once the same Apple ID has signed in, the callback deletes the account, revokes TaskFest at Apple and sends the browser back signed out."
+    }
+  }
+}

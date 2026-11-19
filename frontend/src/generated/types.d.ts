@@ -6,6 +6,15 @@
  */
 
 /**
+ * The `AccountDeletionConfirmation` the backend speaks.
+ *
+ * Generated from `doc/api/schema/AccountDeletionConfirmation.schema.json`. Do not edit.
+ */
+export type AccountDeletionConfirmation = {
+    appleSignInUrl: string;
+};
+
+/**
  * The `AccountDeletionRequest` the backend speaks.
  *
  * Generated from `doc/api/schema/AccountDeletionRequest.schema.json`. Do not edit.
