@@ -302,7 +302,7 @@ every provider, and one way in is less to test.
 **Decision (Gunnar, #634 and #635).** Deleting an account whose session was signed in with Apple
 asks for Apple's sign-in once more, as the confirmation. Its authorization code goes to the
 backend with `DELETE /api/account`, which exchanges it with Apple for Apple's tokens and revokes
-the refresh token at once, before it deletes the account; a revocation that fails is logged and
+the refresh token at once, once the deletion counts as done; a revocation that fails is logged and
 does not keep the account. Without the code the backend deletes nothing and answers 428, which is
 also how the app learns it must ask Apple. Only a session signed in with Apple is asked: one signed
 in with Google is not, even where the same address once signed in with Apple

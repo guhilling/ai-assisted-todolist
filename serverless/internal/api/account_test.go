@@ -17,9 +17,9 @@ func (f *fakeSignIn) EndSession(w http.ResponseWriter, _ *http.Request) {
 	http.SetCookie(w, &http.Cookie{Name: "taskfest_session", MaxAge: -1})
 }
 
-func (f *fakeSignIn) RevokeForDeletion(_ *http.Request, code string) error {
+func (f *fakeSignIn) RevocationForDeletion(_ *http.Request, code string) (auth.Revocation, error) {
 	f.revoked = &code
-	return f.revokeErr
+	return f.revocation, f.revokeErr
 }
 
 // fakeDeletion records the steps of a deletion in order, and fails the one named in fail.
@@ -241,17 +241,29 @@ func deleteWith(s *Server, body string) *httptest.ResponseRecorder {
 	return rec
 }
 
-func TestDeletingAnAccountSignedInWithAppleHandsOnItsConfirmationFirst(t *testing.T) {
+func TestDeletingAnAccountSignedInWithAppleRevokesOnceTheDeletionCountsAsDone(t *testing.T) {
 	d := &fakeDeletion{}
 	s, signIn := deletingServer(d, true)
+	signIn.revocation = func(context.Context) error { return d.step("revoke", "at Apple") }
 
 	rec := deleteWith(s, `{"appleAuthorizationCode":"code-1"}`)
 
 	if rec.Code != http.StatusNoContent || signIn.revoked == nil || *signIn.revoked != "code-1" {
 		t.Fatalf("got %d, revoked with %v; want 204 after revoking with code-1", rec.Code, signIn.revoked)
 	}
-	if len(d.steps) != 3 {
-		t.Errorf("steps %v; want the account deleted", d.steps)
+	if got := strings.Join(d.steps, ", "); got != "record person@example.com, mark person@example.com, revoke at Apple, finish person@example.com" {
+		t.Errorf("steps %q; want Apple revoked once the account is marked", got)
+	}
+}
+
+func TestADeletionThatFailsRevokesNothing(t *testing.T) {
+	d := &fakeDeletion{fail: "mark"}
+	s, signIn := deletingServer(d, true)
+	revoked := false
+	signIn.revocation = func(context.Context) error { revoked = true; return nil }
+
+	if rec := deleteWith(s, `{"appleAuthorizationCode":"code-1"}`); rec.Code != http.StatusInternalServerError || revoked {
+		t.Errorf("got %d, revoked %v; want 500 and Apple left as it was", rec.Code, revoked)
 	}
 }
 
@@ -284,7 +296,9 @@ func TestAnAppleAccountIsNotDeletedWithoutAppleConfirmingIt(t *testing.T) {
 func TestAnAppleAccountIsDeletedEvenWhenAppleCannotRevoke(t *testing.T) {
 	d := &fakeDeletion{}
 	s, signIn := deletingServer(d, true)
-	signIn.revokeErr = errors.New("revoke at Apple: the revocation endpoint answered 503")
+	signIn.revocation = func(context.Context) error {
+		return errors.New("revoke at Apple: the revocation endpoint answered 503")
+	}
 
 	if rec := deleteWith(s, `{"appleAuthorizationCode":"code-1"}`); rec.Code != http.StatusNoContent || len(d.steps) != 3 {
 		t.Errorf("got %d, steps %v; want 204 and the account deleted", rec.Code, d.steps)
@@ -292,12 +306,18 @@ func TestAnAppleAccountIsDeletedEvenWhenAppleCannotRevoke(t *testing.T) {
 }
 
 func TestADeletionWhoseBodyIsNoConfirmationIsRefused(t *testing.T) {
-	d := &fakeDeletion{}
-	s, signIn := deletingServer(d, true)
+	for _, body := range []string{
+		`{"appleAuthorizationCode":`,
+		`{"appleAuthorizationCode":"code-1"} and more`,
+		`{"appleAuthorizationCode":"` + strings.Repeat("c", 4097) + `"}`,
+	} {
+		d := &fakeDeletion{}
+		s, signIn := deletingServer(d, true)
 
-	rec := deleteWith(s, `{"appleAuthorizationCode":`)
+		rec := deleteWith(s, body)
 
-	if rec.Code != http.StatusBadRequest || len(d.steps) != 0 || signIn.revoked != nil {
-		t.Errorf("got %d, steps %v; want 400 and nothing done", rec.Code, d.steps)
+		if rec.Code != http.StatusBadRequest || len(d.steps) != 0 || signIn.revoked != nil {
+			t.Errorf("%.40s: got %d, steps %v; want 400 and nothing done", body, rec.Code, d.steps)
+		}
 	}
 }

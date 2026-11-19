@@ -351,19 +351,24 @@ App      DELETE /api/auth/app-session  Authorization: Bearer taskfest_app_…  �
 - **Deleting the account ends it**, as it ends the website's: the account's deletion deletes every
   session its links name, and `DELETE /api/account` sent with an app session token ends that one
   directly too (`Service.EndSession`). Its next request is a 401.
-- **Deleting an account signed in with Apple revokes TaskFest at Apple first** (#635), as Apple
+- **Deleting an account signed in with Apple revokes TaskFest at Apple** (#635), as Apple
   asks of an app that offers its sign-in. The app's session is Apple's, so `DELETE /api/account`
   without a body answers 428 and deletes nothing; the app then runs Apple's sheet once more and
   sends the authorization code it issues as `appleAuthorizationCode`. The backend exchanges it at
   Apple's token endpoint as the app's bundle id (the first of `TASKFEST_OIDC_APPLE_AUDIENCES`
-  besides the Services ID), with a client secret signed for that id, and revokes the refresh token
-  at Apple's `revocation_endpoint`; then it deletes the account. Nothing of Apple's is kept. A
-  failed exchange or revocation is logged as an error and the account is deleted regardless: the
-  person asked for it to go (`Service.RevokeForDeletion`, `internal/auth/revoke.go`). A session of
-  any other provider is asked for nothing. The provider is Apple by its issuer,
-  `https://appleid.apple.com`. The website's Apple sessions are not covered yet: their code comes
-  back to the callback, not to the page, and until that is built a website Apple session's
-  deletion answers 428 too; Apple is offered on neither until both are
+  besides the Services ID), with a client secret signed for that id, checks that the ID token it
+  brings names the session's Apple ID (`sub`), and revokes the refresh token at Apple's
+  `revocation_endpoint`. It does so once the account is marked deleted, when the deletion counts as
+  done, so a deletion that fails before then leaves Apple as it was; and within eight seconds in
+  all, so the app, which waits 25 seconds for this one request, hears the answer. Nothing of
+  Apple's is kept. A failed exchange or revocation, or another Apple ID's confirmation, is logged as
+  an error, revokes nothing, and the account is deleted regardless: the person asked for it to go
+  (`Service.RevocationForDeletion`, `internal/auth/revoke.go`). The code is no proof of who asks —
+  the session is — only what revoking needs. A session of any other provider is asked for
+  nothing. The provider is Apple by its issuer, `https://appleid.apple.com`. The website's Apple
+  sessions are not covered yet: their code comes back to the callback, not to the page, and until
+  that is built a website Apple session's deletion answers 428 too; Apple is offered on neither
+  until both are
   ([decisions/authentication.md](decisions/authentication.md#deleting-an-apple-account-revokes-taskfest-at-apple-with-apples-confirmation)).
 
 ## The provider list

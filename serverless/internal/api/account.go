@@ -1,8 +1,8 @@
 package api
 
 import (
-	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"log/slog"
@@ -11,8 +11,12 @@ import (
 	"github.com/guhilling/ai-assisted-todolist/serverless/internal/auth"
 )
 
-// maxDeletionBody bounds a deletion's body: one authorization code from Apple, and room around it.
-const maxDeletionBody = 8 << 10
+// maxDeletionBody bounds a deletion's body: one authorization code from Apple, and room around it;
+// maxAppleAuthorizationCode bounds the code, as the contract does.
+const (
+	maxDeletionBody           = 8 << 10
+	maxAppleAuthorizationCode = 4096
+)
 
 // AccountDeletion deletes an account in the table (internal/store's Accounts): marked first, then
 // deleted batch by batch. Settle finishes a deletion left half-way and says whether there was one.
@@ -40,8 +44,8 @@ type DeletionRecords interface {
 // the account's next request or by the replay.
 //
 // An account signed in with Apple is deleted only with Apple's confirmation (#635), and Apple's
-// authorization of TaskFest is revoked before anything is deleted; a revocation that fails is
-// logged, and does not keep the account: the person asked for it to go.
+// authorization of TaskFest is revoked once the account is marked, before the rest of it goes; a
+// revocation that fails is logged, and does not keep the account: the person asked for it to go.
 func (s *Server) DeleteApiAccount(w http.ResponseWriter, r *http.Request) {
 	email, ok := s.Caller(r)
 	if !ok {
@@ -54,11 +58,12 @@ func (s *Server) DeleteApiAccount(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	if err := s.SignIn.RevokeForDeletion(r, code); errors.Is(err, auth.ErrAppleConfirmationNeeded) {
+	revocation, err := s.SignIn.RevocationForDeletion(r, code)
+	if errors.Is(err, auth.ErrAppleConfirmationNeeded) {
 		w.WriteHeader(http.StatusPreconditionRequired)
 		return
 	} else if err != nil {
-		slog.ErrorContext(ctx, "revoking Apple's authorization failed; the account is deleted regardless",
+		slog.ErrorContext(ctx, "Apple's authorization cannot be revoked; the account is deleted regardless",
 			"error", err)
 	}
 	if s.Records != nil {
@@ -79,6 +84,13 @@ func (s *Server) DeleteApiAccount(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
+	// Only now, as the deletion counts as done: one that failed leaves Apple as it was.
+	if revocation != nil {
+		if err := revocation(ctx); err != nil {
+			slog.ErrorContext(ctx, "revoking Apple's authorization failed; the account is deleted regardless",
+				"error", err)
+		}
+	}
 	if err := s.Accounts.Finish(ctx, email); err != nil {
 		slog.ErrorContext(ctx, "an account deletion stopped half-way; its next request or the replay finishes it",
 			"error", err)
@@ -97,11 +109,12 @@ func appleConfirmation(w http.ResponseWriter, r *http.Request) (string, bool) {
 	if len(body) == 0 {
 		return "", true
 	}
-	var code string
-	if err := readFields(bytes.NewReader(body), map[string]any{"appleAuthorizationCode": &code}); err != nil {
-		return "", false
+	var request AccountDeletionRequest
+	if err := json.Unmarshal(body, &request); err != nil || request.AppleAuthorizationCode == nil {
+		return "", err == nil
 	}
-	return code, true
+	code := *request.AppleAuthorizationCode
+	return code, len(code) <= maxAppleAuthorizationCode
 }
 
 // AccountEmails says which email keys the account of someone signed in with an email

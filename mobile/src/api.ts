@@ -44,6 +44,13 @@ const APP_VERSION_HEADER = 'X-TaskFest-App'
 export const VERSION_CHECK_MS = 3000
 
 /**
+ * How long a deletion Apple confirmed (#635) is waited for: the backend exchanges the code and
+ * revokes at Apple, within eight seconds, before it deletes, so the usual ten seconds could give up
+ * on a deletion that went through, and its code cannot be sent again.
+ */
+export const CONFIRMED_DELETE_MS = 25_000
+
+/**
  * A task as the board holds it: as sent, except that an importance or state this release does not
  * know is listed in `unknown` and stands in as the least important, open value meanwhile (#268).
  */
@@ -208,7 +215,7 @@ export async function deleteTask(caller: Caller, task: Task, fetchImpl: typeof f
  */
 export async function deleteAccount(caller: Caller, fetchImpl: typeof fetch = fetch, appleAuthorizationCode?: string): Promise<void> {
   const confirmation: AccountDeletionRequest | undefined = appleAuthorizationCode ? { appleAuthorizationCode } : undefined
-  await send(caller, 'DELETE', '/api/account', fetchImpl, confirmation)
+  await send(caller, 'DELETE', '/api/account', fetchImpl, confirmation, confirmation ? CONFIRMED_DELETE_MS : REQUEST_MS)
 }
 
 /**

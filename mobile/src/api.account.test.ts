@@ -1,4 +1,4 @@
-import { RequestFailedError, SignedOutError, deleteAccount } from './api'
+import { CONFIRMED_DELETE_MS, RequestFailedError, SignedOutError, TimedOutError, deleteAccount } from './api'
 
 const BASE = 'https://taskfest.example'
 const caller = { baseUrl: BASE, idToken: 'the-token', appVersion: '1.4.0' }
@@ -40,5 +40,24 @@ describe('deleting the account, as the app asks the backend (#275)', () => {
       body: JSON.stringify({ appleAuthorizationCode: 'code-1' }),
       signal: expect.any(AbortSignal),
     })
+  })
+})
+
+describe('deleting an account Apple confirmed (#635)', () => {
+  beforeEach(() => jest.useFakeTimers())
+  afterEach(() => jest.useRealTimers())
+
+  it('waits longer than any other request, as the backend asks Apple before it answers', async () => {
+    let settled = false
+    const silent = jest.fn(() => new Promise<Response>(() => undefined))
+    const deleting = deleteAccount(caller, silent, 'code-1').finally(() => (settled = true))
+    const failed = expect(deleting).rejects.toBeInstanceOf(TimedOutError)
+
+    await jest.advanceTimersByTimeAsync(CONFIRMED_DELETE_MS - 1)
+    expect(settled).toBe(false)
+
+    await jest.advanceTimersByTimeAsync(1)
+    await failed
+    expect(CONFIRMED_DELETE_MS).toBe(25_000)
   })
 })
