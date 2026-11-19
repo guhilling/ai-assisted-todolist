@@ -13,7 +13,9 @@ import (
 )
 
 // fakeDeleter is the account deletion as the callback hands a confirmed one on: it records whose
-// account it was asked to delete, and revokes as the real one does once the account is marked.
+// account it was asked to delete, and revokes as the real one does once the account is marked,
+// deleted whether or not the revocation works (internal/api's Server.DeleteAccount); fail is a
+// deletion that stops before then.
 type fakeDeleter struct {
 	deleted []string
 	fail    error
@@ -24,7 +26,8 @@ func (d *fakeDeleter) DeleteAccount(ctx context.Context, email string, revocatio
 		return d.fail
 	}
 	d.deleted = append(d.deleted, email)
-	return revocation(ctx)
+	_ = revocation(ctx)
+	return nil
 }
 
 // websiteAppleSession is a deployment offering Apple beside its main provider, and a browser
@@ -182,5 +185,22 @@ func TestNobodyIsSentToAppleWhereNothingWouldDeleteTheAccount(t *testing.T) {
 
 	if at != "" || err == nil || len(rec.Result().Cookies()) != 0 {
 		t.Errorf("confirm at %q, %v; want an error before any sign-in starts", at, err)
+	}
+}
+
+func TestAWebsiteDeletionIsDoneEvenWhenAppleCannotRevoke(t *testing.T) {
+	s, apple, d, b := websiteAppleSession(t)
+	apple.revocation = http.StatusServiceUnavailable
+	asked := confirmAtApple(t, s, b)
+	apple.codes["code-1"] = appleCode{client: "services-id", subject: "apple-subject",
+		nonce: asked.Get("nonce"), email: "person@example.com"}
+
+	res := appleCallback(s, b, "code-1", asked.Get("state"))
+
+	if len(d.deleted) != 1 || len(apple.revoked) != 1 {
+		t.Errorf("deleted %v, revoked %v; want deleted after asking Apple once", d.deleted, apple.revoked)
+	}
+	if res.StatusCode != http.StatusSeeOther || b.cookies[SessionCookie] != nil {
+		t.Errorf("got %d, cookies %v; want back to the app, signed out", res.StatusCode, b.cookies)
 	}
 }
