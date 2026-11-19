@@ -385,7 +385,7 @@ const dependencies: Dependencies = {
       }
     },
   }),
-  deleteAccount: (caller) => deleteAccount({ ...caller, appVersion }),
+  deleteAccount: (caller, appleAuthorizationCode) => deleteAccount({ ...caller, appVersion }, fetch, appleAuthorizationCode),
   keptBoard: createKeptBoardStore(new File(Paths.cache, 'board.json')),
   previews: createPreviewStore(previewFolder),
   legend: fileFlag(new File(Paths.document, 'colours-explained'), 'explained'),

@@ -86,6 +86,12 @@ func (e TaskState) Valid() bool {
 	}
 }
 
+// AccountDeletionRequest defines model for AccountDeletionRequest.
+type AccountDeletionRequest struct {
+	// AppleAuthorizationCode The authorization code Apple's sign-in sheet issued to the app when the person signed in with Apple once more, to confirm. The backend exchanges it for Apple's tokens and revokes them at once; it keeps nothing.
+	AppleAuthorizationCode *string `json:"appleAuthorizationCode,omitempty"`
+}
+
 // AnnounceRequest defines model for AnnounceRequest.
 type AnnounceRequest struct {
 	// ContentType Examples: application/pdf
@@ -325,6 +331,9 @@ type VersionResponse struct {
 	// Version Examples: 0.11.0
 	Version string `json:"version"`
 }
+
+// DeleteApiAccountJSONRequestBody defines body for DeleteApiAccount for application/json ContentType.
+type DeleteApiAccountJSONRequestBody = AccountDeletionRequest
 
 // PostApiTasksJSONRequestBody defines body for PostApiTasks for application/json ContentType.
 type PostApiTasksJSONRequestBody = TaskCreateRequest

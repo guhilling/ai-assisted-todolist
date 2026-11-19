@@ -38,6 +38,29 @@ describe('Sign in with Apple, on the phone (#281)', () => {
   })
 })
 
+describe('Apple confirming an account’s deletion (#635)', () => {
+  it('runs Apple’s sheet once more, asking for nothing, and hands over the code it issues', async () => {
+    const native = apple({ signInAsync: jest.fn().mockResolvedValue({ identityToken: 'apple-id-token', authorizationCode: 'code-1' }) })
+
+    await expect(appleProviderFor(native).confirm()).resolves.toBe('code-1')
+    expect(native.signInAsync).toHaveBeenCalledWith({ requestedScopes: [] })
+  })
+
+  it('takes the sheet turned away for no confirmation, and anything else for a failure', async () => {
+    const canceled = Object.assign(new Error('canceled'), { code: 'ERR_REQUEST_CANCELED' })
+    const failed = Object.assign(new Error('failed'), { code: 'ERR_REQUEST_FAILED' })
+
+    await expect(appleProviderFor(apple({ signInAsync: jest.fn().mockRejectedValue(canceled) })).confirm()).resolves.toBeNull()
+    await expect(appleProviderFor(apple({ signInAsync: jest.fn().mockRejectedValue(failed) })).confirm()).rejects.toBe(failed)
+  })
+
+  it('fails a confirmation that brings no code', async () => {
+    const native = apple({ signInAsync: jest.fn().mockResolvedValue({ identityToken: 'apple-id-token', authorizationCode: null }) })
+
+    await expect(appleProviderFor(native).confirm()).rejects.toThrow('no authorization code')
+  })
+})
+
 describe('where Sign in with Apple is offered (#281)', () => {
   it('on iOS, where the build has it', () => {
     expect(appleSignInFor({ apple: true }, 'ios', apple())).toBeDefined()

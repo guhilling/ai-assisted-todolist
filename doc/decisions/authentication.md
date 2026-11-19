@@ -294,3 +294,39 @@ revoked provider account still signs in for up to 30 days, as a website session 
 **Rejected.** Keeping Apple's refresh token to renew its ID tokens: long-lived credentials for
 every person, kept and checked with Apple. A session only for Apple: the trade is the same for
 every provider, and one way in is less to test.
+
+## Deleting an Apple account revokes TaskFest at Apple, with Apple's confirmation
+
+*Accepted · 2026-11-19 · #635*
+
+**Decision (Gunnar, #634 and #635).** Deleting an account whose session was signed in with Apple
+asks for Apple's sign-in once more, as the confirmation. Its authorization code goes to the
+backend with `DELETE /api/account`, which exchanges it with Apple for Apple's tokens and revokes
+the refresh token at once, before it deletes the account; a revocation that fails is logged and
+does not keep the account. Without the code the backend deletes nothing and answers 428, which is
+also how the app learns it must ask Apple. Only a session signed in with Apple is asked: one signed
+in with Google is not, even where the same address once signed in with Apple
+([authentication.md](../authentication.md#sign-in-with-apple)).
+
+**Why.** Apple asks an app that offers Sign in with Apple to revoke its tokens when the account is
+deleted, so that the app no longer appears under the person's Apple ID. TaskFest keeps no Apple
+token to revoke ([An app trades its ID token once for an app
+session](#an-app-trades-its-id-token-once-for-an-app-session)); a fresh code brings one for
+the moment it takes, and nothing is stored. The backend decides who must confirm, since only it
+knows each session's provider: the app keeps no record of it, and a website session is judged by
+the same rule.
+
+**Why only Apple sessions.** The session's provider is stored already; an account that ever
+signed in with Apple is not, and recording that would be new data about the person, to be
+mentioned in the privacy texts, for the rare case of one address signing in with both. A hidden
+`privaterelay.appleid.com` address can only sign in with Apple, so it is always asked.
+
+**Cost.** One more request for an Apple account's deletion, and a deletion that Apple's sheet
+being turned away stops. The person can always confirm: an account signed in with Apple on this
+phone can be confirmed with Apple on it.
+
+**Rejected.** Only telling the person to remove TaskFest under their Apple ID's settings: whether
+App Review accepts that is uncertain. Keeping Apple's refresh token from every sign-in to revoke
+it later: long-lived credentials for every person, which the app session decision chose not to
+keep. Remembering on the account that it signed in with Apple: new data for a rare case.
+

@@ -34,6 +34,10 @@ type SignIn interface {
 	Logout(w http.ResponseWriter, r *http.Request)
 	// EndSession ends the request's session, the browser's or an app's, and writes nothing else.
 	EndSession(w http.ResponseWriter, r *http.Request)
+	// RevokeForDeletion revokes Apple's authorization before the request's account is deleted
+	// (#635), with the authorization code Apple confirmed with; auth.ErrAppleConfirmationNeeded
+	// when the request signed in with Apple and brought none.
+	RevokeForDeletion(r *http.Request, code string) error
 	Config() auth.Config
 }
 

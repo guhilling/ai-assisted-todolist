@@ -1,10 +1,18 @@
 package api
 
 import (
+	"bytes"
 	"context"
+	"errors"
+	"io"
 	"log/slog"
 	"net/http"
+
+	"github.com/guhilling/ai-assisted-todolist/serverless/internal/auth"
 )
+
+// maxDeletionBody bounds a deletion's body: one authorization code from Apple, and room around it.
+const maxDeletionBody = 8 << 10
 
 // AccountDeletion deletes an account in the table (internal/store's Accounts): marked first, then
 // deleted batch by batch. Settle finishes a deletion left half-way and says whether there was one.
@@ -30,6 +38,10 @@ type DeletionRecords interface {
 // it failed, so the replay never carries out a deletion the user was told did not happen. Once
 // marked, it counts as done (Gunnar's decision on #553): whatever stops it later is finished by
 // the account's next request or by the replay.
+//
+// An account signed in with Apple is deleted only with Apple's confirmation (#635), and Apple's
+// authorization of TaskFest is revoked before anything is deleted; a revocation that fails is
+// logged, and does not keep the account: the person asked for it to go.
 func (s *Server) DeleteApiAccount(w http.ResponseWriter, r *http.Request) {
 	email, ok := s.Caller(r)
 	if !ok {
@@ -37,6 +49,18 @@ func (s *Server) DeleteApiAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ctx := r.Context()
+	code, ok := appleConfirmation(w, r)
+	if !ok {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	if err := s.SignIn.RevokeForDeletion(r, code); errors.Is(err, auth.ErrAppleConfirmationNeeded) {
+		w.WriteHeader(http.StatusPreconditionRequired)
+		return
+	} else if err != nil {
+		slog.ErrorContext(ctx, "revoking Apple's authorization failed; the account is deleted regardless",
+			"error", err)
+	}
 	if s.Records != nil {
 		if err := s.Records.RecordDeletion(ctx, email); err != nil {
 			slog.ErrorContext(ctx, "recording an account deletion failed", "error", err)
@@ -61,6 +85,23 @@ func (s *Server) DeleteApiAccount(w http.ResponseWriter, r *http.Request) {
 	}
 	s.SignIn.EndSession(w, r)
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// appleConfirmation is the authorization code a deletion's body carries (AccountDeletionRequest),
+// "" for a deletion without a body, and false for a body that is no such request.
+func appleConfirmation(w http.ResponseWriter, r *http.Request) (string, bool) {
+	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, maxDeletionBody))
+	if err != nil {
+		return "", false
+	}
+	if len(body) == 0 {
+		return "", true
+	}
+	var code string
+	if err := readFields(bytes.NewReader(body), map[string]any{"appleAuthorizationCode": &code}); err != nil {
+		return "", false
+	}
+	return code, true
 }
 
 // AccountEmails says which email keys the account of someone signed in with an email

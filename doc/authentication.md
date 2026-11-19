@@ -351,6 +351,20 @@ App      DELETE /api/auth/app-session  Authorization: Bearer taskfest_app_â€¦  â
 - **Deleting the account ends it**, as it ends the website's: the account's deletion deletes every
   session its links name, and `DELETE /api/account` sent with an app session token ends that one
   directly too (`Service.EndSession`). Its next request is a 401.
+- **Deleting an account signed in with Apple revokes TaskFest at Apple first** (#635), as Apple
+  asks of an app that offers its sign-in. The app's session is Apple's, so `DELETE /api/account`
+  without a body answers 428 and deletes nothing; the app then runs Apple's sheet once more and
+  sends the authorization code it issues as `appleAuthorizationCode`. The backend exchanges it at
+  Apple's token endpoint as the app's bundle id (the first of `TASKFEST_OIDC_APPLE_AUDIENCES`
+  besides the Services ID), with a client secret signed for that id, and revokes the refresh token
+  at Apple's `revocation_endpoint`; then it deletes the account. Nothing of Apple's is kept. A
+  failed exchange or revocation is logged as an error and the account is deleted regardless: the
+  person asked for it to go (`Service.RevokeForDeletion`, `internal/auth/revoke.go`). A session of
+  any other provider is asked for nothing. The provider is Apple by its issuer,
+  `https://appleid.apple.com`. The website's Apple sessions are not covered yet: their code comes
+  back to the callback, not to the page, and until that is built a website Apple session's
+  deletion answers 428 too; Apple is offered on neither until both are
+  ([decisions/authentication.md](decisions/authentication.md#deleting-an-apple-account-revokes-taskfest-at-apple-with-apples-confirmation)).
 
 ## The provider list
 

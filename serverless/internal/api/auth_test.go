@@ -19,6 +19,9 @@ type fakeSignIn struct {
 	provider string
 	called   string
 	picture  string
+	// revoked is the code RevokeForDeletion was given, and revokeErr what it answers.
+	revoked   *string
+	revokeErr error
 }
 
 func (f *fakeSignIn) Identify(*http.Request) (identity.Identity, bool) {

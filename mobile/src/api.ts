@@ -12,6 +12,7 @@ import {
   validateTaskResponse,
   validateUploadResponse,
   validateVersionResponse,
+  type AccountDeletionRequest,
   type Attachment,
   type AttachmentRefusal,
   type Task,
@@ -201,10 +202,13 @@ export async function deleteTask(caller: Caller, task: Task, fetchImpl: typeof f
 
 /**
  * Deletes the signed-in user's account with every task and file it holds (#275), as the website's
- * header does. It cannot be undone; forgetting the session is the caller's next step.
+ * header does. It cannot be undone; forgetting the session is the caller's next step. An account
+ * signed in with Apple goes only with the code of Apple's confirmation (#635): without it the
+ * backend answers 428, a `RequestFailedError`.
  */
-export async function deleteAccount(caller: Caller, fetchImpl: typeof fetch = fetch): Promise<void> {
-  await send(caller, 'DELETE', '/api/account', fetchImpl)
+export async function deleteAccount(caller: Caller, fetchImpl: typeof fetch = fetch, appleAuthorizationCode?: string): Promise<void> {
+  const confirmation: AccountDeletionRequest | undefined = appleAuthorizationCode ? { appleAuthorizationCode } : undefined
+  await send(caller, 'DELETE', '/api/account', fetchImpl, confirmation)
 }
 
 /**

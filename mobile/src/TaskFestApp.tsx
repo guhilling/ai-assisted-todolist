@@ -119,7 +119,7 @@ export type Dependencies = {
     save?(url: string, fileName: string, contentType: string): Promise<void>
   }
   /** Deletes the signed-in user's account with everything in it (#275). */
-  deleteAccount(caller: Caller): Promise<void>
+  deleteAccount(caller: Caller, appleAuthorizationCode?: string): Promise<void>
   /** The last board loaded, kept on the phone to be read without a connection (#272). */
   keptBoard: KeptBoardStore
   /** The files' previews, kept on the phone to be shown without a connection too (#397); none, and each is loaded every time. */
@@ -1064,8 +1064,27 @@ export function TaskFestApp({
     // Another change can still find the session ended meanwhile, and sign out: the answer is then
     // the old account's, and neither signs out nor says anything to whoever signed in next (#428).
     const signedOut = sinceSignIn()
+    let turnedAway: boolean
     try {
-      await sending(async () => deleteAccount(await signedInCaller()))
+      turnedAway = await sending(async () => {
+        const caller = await signedInCaller()
+        try {
+          await deleteAccount(caller)
+          return false
+        } catch (failure) {
+          // An account signed in with Apple goes only once Apple confirms it (#635): the backend
+          // says so, and Apple's sheet comes up once more; turned away, nothing is deleted.
+          if (!(failure instanceof RequestFailedError && failure.status === 428) || !apple) {
+            throw failure
+          }
+          const code = await apple.confirm()
+          if (code === null) {
+            return true
+          }
+          await deleteAccount(caller, code)
+          return false
+        }
+      })
     } catch (cause) {
       if (signedOut()) {
         return false
@@ -1077,6 +1096,10 @@ export function TaskFestApp({
       return false
     }
     if (signedOut()) {
+      return false
+    }
+    if (turnedAway) {
+      setAccount((current) => current && {})
       return false
     }
     await signOut('accountDeleted')

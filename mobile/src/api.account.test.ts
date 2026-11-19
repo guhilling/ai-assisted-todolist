@@ -23,4 +23,22 @@ describe('deleting the account, as the app asks the backend (#275)', () => {
     await expect(deleteAccount(caller, respond(401))).rejects.toBeInstanceOf(SignedOutError)
     await expect(deleteAccount(caller, respond(500))).rejects.toEqual(new RequestFailedError(500))
   })
+
+  it('sends Apple’s confirmation where there is one (#635)', async () => {
+    const fetchImpl = respond(204)
+
+    await deleteAccount(caller, fetchImpl, 'code-1')
+
+    expect(fetchImpl).toHaveBeenCalledWith(`${BASE}/api/account`, {
+      method: 'DELETE',
+      headers: {
+        Accept: 'application/json',
+        Authorization: 'Bearer the-token',
+        'X-TaskFest-App': '1.4.0',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ appleAuthorizationCode: 'code-1' }),
+      signal: expect.any(AbortSignal),
+    })
+  })
 })
