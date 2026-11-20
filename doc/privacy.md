@@ -7,9 +7,9 @@ This policy covers TaskFest, the task list at `taskfest-qa.cloud.hilling.de` and
 does, and changes in the same change as the behaviour it describes.
 
 The application is a non-commercial demonstration project of Hilling IT GmbH. Anyone with a Google
-account can sign in. `taskfest-qa.cloud.hilling.de` is its test environment, which may be changed
-or reset at any time; there, two test accounts also sign in, which automated tests use. They
-belong to no person and hold only what those tests create and delete again.
+account or an Apple Account can sign in. `taskfest-qa.cloud.hilling.de` is its test environment,
+which may be changed or reset at any time; there, two test accounts also sign in, which automated
+tests use. They belong to no person and hold only what those tests create and delete again.
 
 ## Who is responsible
 
@@ -38,6 +38,22 @@ an identifier for your account.
 
 Legal basis: Art. 6(1)(b) GDPR, providing the application you asked to use. Kept until your
 account is deleted.
+
+### Signing in with Apple
+
+You can also sign in with your Apple Account, on the website and in the TaskFest app on the
+iPhone. Apple tells the application your **email address** and an identifier for your account.
+Apple sends no picture, and the name Apple may pass on at your first sign-in is not read, so no
+name is shown.
+
+- **Your email address** is stored as for Google, above. If you choose Apple's *Hide My Email*,
+  it is an address Apple creates, which forwards to yours. The application sends no email to it,
+  and it counts as an account of its own, separate from one under your own address.
+- **Your Apple identifier** is kept only with your session, as described under *The session
+  cookie*, and in the technical log.
+
+Legal basis: Art. 6(1)(b) GDPR. Kept until your account is deleted. What happens at Apple when
+you delete it is described under *Your rights*.
 
 ### Your tasks
 
@@ -69,12 +85,12 @@ The same request applies to files as to tasks: please attach nothing sensitive.
 
 Signing in sets **one cookie**, which keeps you signed in. It holds only a random value that
 names your session on the server; your sign-in tokens are not kept. The session itself — your
-email address, name, picture address and your account's identifier at Google — is stored in the
-application's database until it ends: when you sign out, after eight hours without use, and at
-the latest seven days after you signed in. During sign-in itself a second cookie exists for at
-most ten minutes, to check that Google's answer belongs to this sign-in. Both are technically
-necessary for the application to work, which is why no consent banner is shown (§ 25(2) no. 2
-TDDDG).
+email address, name, picture address and your account's identifier at Google or Apple — is
+stored in the application's database until it ends: when you sign out, after eight hours without
+use, and at the latest seven days after you signed in. During sign-in itself a second cookie
+exists for at most ten minutes, to check that Google's or Apple's answer belongs to this sign-in.
+Both are technically necessary for the application to work, which is why no consent banner is
+shown (§ 25(2) no. 2 TDDDG).
 
 The TaskFest app can keep you signed in without a cookie: once you have signed in, it receives a
 random value like the one in the session cookie, which names your session on the server. The app
@@ -111,8 +127,9 @@ with everything that was stored in it.
 
 ### Profile pictures
 
-Your browser loads your profile picture directly from Google. Only if Google provides none does
-the application look for a picture at **Gravatar** (Automattic Inc., USA); your browser then
+Your browser loads your profile picture directly from Google. Only if Google provides none, and
+always when you signed in with Apple, which provides none, does the application look for a picture
+at **Gravatar** (Automattic Inc., USA); your browser then
 loads it from Gravatar, which thereby learns your IP address and a hash of your email address.
 
 ### How the application uses Google user data
@@ -130,8 +147,9 @@ including the Limited Use requirements.
   its Frankfurt region. Its content delivery network serves requests from locations worldwide.
 - **Hetzner** (Hetzner Online GmbH, Gunzenhausen, Germany) hosts the monitoring server that
   receives the application log, in Nuremberg.
-- **Google** (Google Ireland Ltd.) provides the sign-in.
-- **Automattic** (Gravatar), as described above, only where Google provides no picture.
+- **Google** (Google Ireland Ltd.) provides the sign-in with Google.
+- **Apple** (Apple Distribution International Ltd., Ireland) provides Sign in with Apple.
+- **Automattic** (Gravatar), as described above, only where the sign-in provides no picture.
 - **GitHub** (GitHub Inc., USA) hosts this documentation site and receives the technical data of
   visits to it.
 
@@ -153,6 +171,16 @@ tasks and all your files. The one exception is a file that was still being uploa
 it can arrive after the deletion, and is then deleted within seven days. You are then signed out.
 Signing in again later starts a new, empty account -- and so does using a session you left open on
 another device, which cannot be ended from here. You can also write to the contact address above.
+
+**If you signed in with Apple**, Apple asks you to confirm the deletion: in the app on Apple's own
+sheet, on the website on Apple's sign-in page. For the at most ten minutes this takes on the
+website, the application keeps which account is to be deleted and your Apple identifier. Once your
+account is deleted, the application also ends its connection to your Apple Account at Apple, so
+that TaskFest no longer appears among the apps using Sign in with Apple in your Apple Account's
+settings. What Apple returns for this is used only for it and not kept. If you do not confirm, or
+confirm with another Apple Account, nothing is deleted. If Apple cannot be reached for that last
+step, your account is deleted all the same, and you can remove TaskFest in those settings
+yourself.
 
 **What a deletion leaves behind:** a record that the account was deleted, so that the deletion
 also applies to a database backup or snapshot restored later. The record holds a SHA-256 hash of
@@ -176,4 +204,4 @@ Prinzenstraße 5<br>
 This policy is part of the project's documentation and is changed in the open, in the
 repository. The date below is the date of the last change to its content.
 
-Last changed: 17 November 2026
+Last changed: 20 November 2026

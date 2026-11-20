@@ -14,9 +14,9 @@ It is free of charge. It is not a product, and it is not run for anyone's day-to
 
 ## Who may use it
 
-Anyone with a Google account. `taskfest-qa.cloud.hilling.de` is a test environment: whatever you
-keep there may be lost at any time, more readily than at `taskfest.cloud.hilling.de`. Access can be
-withdrawn at any time, without giving a reason.
+Anyone with a Google account or an Apple Account. `taskfest-qa.cloud.hilling.de` is a test
+environment: whatever you keep there may be lost at any time, more readily than at
+`taskfest.cloud.hilling.de`. Access can be withdrawn at any time, without giving a reason.
 
 ## No promise of availability or of keeping data
 
