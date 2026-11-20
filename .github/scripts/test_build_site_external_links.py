@@ -56,10 +56,11 @@ class ExternalLinkTest(unittest.TestCase):
         rendered = '<a href="https://go.dev" target="_self">Go</a>'
         self.assertEqual(rendered, site.mark_external_links(rendered))
 
-    def test_marks_a_link_whose_address_merely_mentions_a_target(self):
+    def test_marks_a_link_that_merely_mentions_a_target(self):
         for rendered in (
             '<a href="https://example.com/docs?target=linux">docs</a>',
             '<a data-target="x" href="https://example.com">docs</a>',
+            '<a href="https://example.com" title="Build target=linux">docs</a>',
         ):
             with self.subTest(rendered=rendered):
                 self.assertIn('target="_blank"', site.mark_external_links(rendered))

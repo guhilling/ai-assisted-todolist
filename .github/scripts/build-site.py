@@ -401,7 +401,7 @@ def mark_external_links(rendered: str, lang: str = "en") -> str:
     def replace(match: re.Match[str]) -> str:
         attributes, content = match.group(1), match.group(2)
         href = attribute("href").search(attributes)
-        if not href or re.search(r"(^|\s)target=", attributes):
+        if not href or attribute("target").search(attributes):
             return match.group(0)
         destination = urllib.parse.urlsplit(href.group(2))
         if destination.scheme not in {"http", "https"} or destination.hostname == site_host:
