@@ -23,7 +23,7 @@ Yes, there is. But I wanted to write at least a little of it myself for this pro
 Actions workflows (CI and releases)
 * [SonarQube Cloud](https://sonarcloud.io/project/overview?id=guhilling_ai-assisted-todolist) and [CodeRabbit](https://www.coderabbit.ai) reviews
 * [OpenTofu](https://opentofu.org) configuration files for setting up 
-AWS](https://aws.amazon.com) resources and deployment
+[AWS](https://aws.amazon.com) resources and deployment
 * [Perses](https://perses.dev) dashboards hosted on a [Hetzner](https://www.hetzner.com/) server
 
 For details, please read the great [official documentation](README.md).
