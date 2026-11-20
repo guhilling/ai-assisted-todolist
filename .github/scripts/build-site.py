@@ -370,10 +370,45 @@ def footer(depth: int) -> str:
 GERMAN_PAGES = {"datenschutz", "nutzungsbedingungen"}
 
 
+ANCHOR = re.compile(r"<a\s([^>]*)>(.*?)</a>", re.DOTALL)
+HREF = re.compile(r'\bhref="([^"]*)"')
+
+
+def mark_external_links(rendered: str) -> str:
+    """
+    Opens every link that leaves the site in a new tab, and says so (#644).
+
+    A reader comes here to read the documentation, and a link to another site in the same tab
+    took them out of it; one that looked like a link to the next page gave no warning either. The
+    class is what site.css puts a ↗ after, left off a link that is only an image, such as a badge,
+    where the arrow would hang beside the picture. The hidden text says to a screen reader what
+    the arrow says to the eye. A file on GitHub counts as another site: the reader leaves this one.
+    """
+    def replace(match: re.Match[str]) -> str:
+        attributes, content = match.group(1), match.group(2)
+        href = HREF.search(attributes)
+        if (
+            not href
+            or not href.group(1).startswith(("https://", "http://"))
+            or href.group(1).startswith(SITE_URL)
+            or "target=" in attributes
+        ):
+            return match.group(0)
+        if re.sub(r"<[^>]+>", "", content).strip():
+            if 'class="' in attributes:
+                attributes = re.sub(r'class="([^"]*)"', r'class="\1 external"', attributes, count=1)
+            else:
+                attributes += ' class="external"'
+        hidden = '<span class="visually-hidden"> (opens in a new tab)</span>'
+        return f'<a {attributes} target="_blank" rel="noopener">{content}{hidden}</a>'
+
+    return ANCHOR.sub(replace, rendered)
+
+
 def page(*, title: str, description: str, depth: int, current: str, body: str, lang: str = "en") -> str:
     """One complete HTML document, shell and all."""
     up = "../" * depth
-    return f"""<!DOCTYPE html>
+    return mark_external_links(f"""<!DOCTYPE html>
 <html lang="{lang}">
 <head>
 <meta charset="utf-8">
@@ -391,7 +426,7 @@ def page(*, title: str, description: str, depth: int, current: str, body: str, l
 {footer(depth)}
 </body>
 </html>
-"""
+""")
 
 
 # --------------------------------------------------------------------------------------------

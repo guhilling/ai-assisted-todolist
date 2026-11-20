@@ -51,6 +51,16 @@ body {
 
 a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 2px; }
 a:hover { text-decoration-thickness: 2px; }
+/* A link that leaves the site (build-site.py, mark_external_links). Inline-block keeps the
+   underline off the arrow; the empty alternative text keeps a screen reader from reading it out,
+   since the link's hidden text already says it opens in a new tab. */
+a.external::after {
+  content: "\2197";
+  content: "\2197" / "";
+  display: inline-block;
+  margin-left: 0.15em;
+  font-size: 0.8em;
+}
 
 /* ---------- the bar every page carries ---------- */
 
