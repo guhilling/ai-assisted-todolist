@@ -33,7 +33,7 @@ used [Quarkus](https://quarkus.io) in the backend as I'm really fluent
 in [Java](https://www.java.com) in general and Quarkus in particular.
 
 For several reasons (mainly financial ones) I wanted a second version,
-and I deliberately chose Go, precisely because  _I'm not really familiar with it_.
+and I deliberately chose Go, precisely because _I'm not really familiar with it_.
 
 So for the implementation, testing and documentation,
 I relied completely on Claude.
