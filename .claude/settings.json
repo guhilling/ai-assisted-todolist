@@ -12,6 +12,11 @@
   "enabledPlugins": {
     "conventions@conventions": true
   },
+  "permissions": {
+    "deny": [
+      "Edit(/doc/message-from-gunnar.md)"
+    ]
+  },
   "hooks": {
     "SessionStart": [
       {

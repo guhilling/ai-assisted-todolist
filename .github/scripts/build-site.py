@@ -114,6 +114,7 @@ SHARED_RULES_FILE = "plugins/conventions/rules.md"
 # reading order is written down once, where a reader sees it, rather than here a second time.
 DOC_ORDER = [
     "purpose",
+    "message-from-gunnar",
     "architecture",
     "domain-model",
     "authentication",
@@ -418,6 +419,9 @@ def site_path(repo_relative: str) -> str | None:
         return repo_relative
     if repo_relative == "doc":
         return "doc/"
+    # The root README is the landing page (build_landing), so a document links home through it.
+    if repo_relative == "README.md":
+        return "index.html"
     # A chapter directory, linked as a whole: its index page.
     if repo_relative.startswith("doc/") and (REPO / repo_relative.rstrip("/") / "index.md").is_file():
         return repo_relative.rstrip("/") + "/"
@@ -698,10 +702,11 @@ def build_docs(site: pathlib.Path, pages: list[DocPage]) -> None:
     """Renders doc/ into doc/ on the site, each page carrying the shared sidebar."""
     out = site / "doc"
     out.mkdir(parents=True, exist_ok=True)
-    # The artwork only. generate.py lives beside it and is not something to publish.
+    # The artwork and the photos only. generate.py lives beside them and is not something to
+    # publish.
     (out / "images").mkdir(exist_ok=True)
-    for drawing in sorted(IMAGES.glob("*.svg")):
-        shutil.copyfile(drawing, out / "images" / drawing.name)
+    for image in sorted(p for p in IMAGES.iterdir() if p.suffix in {".svg", ".jpg", ".png"}):
+        shutil.copyfile(image, out / "images" / image.name)
 
     keys = ["index"] + [key for p in pages for key in [p.key] + [c.key for c in p.children]]
     sources = [(key, DOCS / ("README.md" if key == "index" else f"{key}.md")) for key in keys]

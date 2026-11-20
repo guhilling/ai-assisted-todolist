@@ -48,6 +48,10 @@ In this repository, stopping to ask applies especially to:
   are gone through with Gunnar one by one, like any other review's, and need not hold up the merge.
 - `/doc` is the source of truth because the README had already drifted into documenting
   endpoints and task states that no longer existed.
+- **`doc/message-from-gunnar.md` is Gunnar's own page, written by him alone.** Claude never edits
+  it: no typo, no rewrapping, no link a rename broke. Claude reads it and points out mistakes,
+  English included, for Gunnar to fix. `.claude/settings.json` denies Claude's file edits on it:
+  `Edit(/doc/message-from-gunnar.md)`, which covers Write and shell redirects too.
 - **A link to a private resource is followed by the plain text ` (private)`**: a private
   repository, the GitHub project, a console such as App Store Connect, Play Console or the AWS
   console. The project is open source, and outsiders cannot open those. `doc/README.md` says why.
