@@ -7,11 +7,11 @@ Diese Erklärung gilt für TaskFest, die Aufgabenliste unter `taskfest-qa.cloud.
 was die Anwendung tatsächlich tut, und wird in derselben Änderung angepasst wie das Verhalten, das
 sie beschreibt.
 
-Die Anwendung ist ein nicht kommerzielles Demonstrationsprojekt der Hilling IT GmbH. Jeder mit
-einem Google-Konto kann sich anmelden. `taskfest-qa.cloud.hilling.de` ist ihre Testumgebung, die
-jederzeit geändert oder zurückgesetzt werden kann; dort melden sich außerdem zwei Testkonten an,
-die automatisierte Tests verwenden. Sie gehören keiner Person und enthalten nur, was diese Tests
-anlegen und wieder löschen.
+Die Anwendung ist ein nicht kommerzielles Demonstrationsprojekt der Hilling IT GmbH. Jeder mit einem
+Google-Konto oder einem Apple Account kann sich anmelden. `taskfest-qa.cloud.hilling.de` ist ihre
+Testumgebung, die jederzeit geändert oder zurückgesetzt werden kann; dort melden sich außerdem zwei
+Testkonten an, die automatisierte Tests verwenden. Sie gehören keiner Person und enthalten nur, was
+diese Tests anlegen und wieder löschen.
 
 ## Verantwortlicher
 
@@ -40,6 +40,24 @@ und eine Kennung Ihres Kontos mit.
 
 Rechtsgrundlage: Art. 6 Abs. 1 lit. b DSGVO – die Bereitstellung der Anwendung, die Sie nutzen
 wollen. Gespeichert, bis Ihr Konto gelöscht wird.
+
+### Anmeldung mit Apple
+
+Sie können sich auch mit Ihrem Apple Account anmelden, auf der Website und in der TaskFest-App auf
+dem iPhone. Die Anwendung fragt Apple nur nach Ihrer **E-Mail-Adresse**, die Apple zusammen mit
+einer Kennung Ihres Kontos sendet. Nach einem Namen fragt sie nicht, und ein Bild sendet Apple
+nicht; es wird also kein Name angezeigt.
+
+- **Ihre E-Mail-Adresse** wird gespeichert wie bei Google, siehe oben. Wählen Sie bei Apple
+  *E-Mail-Adresse verbergen*, ist es eine Adresse, die Apple anlegt und an Ihre weiterleitet. Die
+  Anwendung sendet keine E-Mails an sie, und sie gilt als eigenes Konto, getrennt von einem unter
+  Ihrer eigenen Adresse.
+- **Ihre Apple-Kennung** wird mit Ihrer Sitzung gespeichert, wie unter *Das Sitzungs-Cookie*
+  beschrieben, im technischen Protokoll und während Sie das Löschen Ihres Kontos bestätigen, wie
+  unter *Ihre Rechte* beschrieben.
+
+Rechtsgrundlage: Art. 6 Abs. 1 lit. b DSGVO. Gespeichert, bis Ihr Konto gelöscht wird. Was beim
+Löschen Ihres Kontos bei Apple geschieht, steht unter *Ihre Rechte*.
 
 ### Ihre Aufgaben
 
@@ -73,14 +91,16 @@ Für Dateien gilt dieselbe Bitte wie für Aufgaben: Hängen Sie bitte nichts Sen
 
 ### Das Sitzungs-Cookie
 
-Die Anmeldung setzt **ein Cookie**, das Sie angemeldet hält. Es enthält nur einen Zufallswert,
-der Ihre Sitzung auf dem Server bezeichnet; Ihre Anmelde-Token werden nicht aufbewahrt. Die
-Sitzung selbst – Ihre E-Mail-Adresse, Ihr Name, die Adresse Ihres Bildes und die Kennung Ihres
-Kontos bei Google – wird in der Datenbank der Anwendung gespeichert, bis sie endet: wenn Sie sich
-abmelden, nach acht Stunden ohne Nutzung und spätestens sieben Tage nach der Anmeldung. Während
-der Anmeldung selbst besteht für höchstens zehn Minuten ein zweites Cookie, mit dem geprüft wird,
-dass die Antwort von Google zu dieser Anmeldung gehört. Beide sind für den Betrieb der Anwendung
-technisch erforderlich, weshalb kein Einwilligungsbanner erscheint (§ 25 Abs. 2 Nr. 2 TDDDG).
+Die Anmeldung setzt **ein Cookie**, das Sie angemeldet hält. Es enthält nur einen Zufallswert, der
+Ihre Sitzung auf dem Server bezeichnet; Ihre Anmelde-Token werden nicht aufbewahrt. Die Sitzung
+selbst – Ihre E-Mail-Adresse, Ihr Name, die Adresse Ihres Bildes und die Kennung Ihres Kontos bei
+Google oder Apple – wird in der Datenbank der Anwendung gespeichert, bis sie endet: wenn Sie sich
+abmelden, nach acht Stunden ohne Nutzung und spätestens sieben Tage nach der Anmeldung. Während der
+Anmeldung selbst und während Sie auf der Website das Löschen Ihres Kontos bei Apple bestätigen,
+besteht für höchstens zehn Minuten ein zweites Cookie, mit dem geprüft wird, dass die Antwort von
+Google oder Apple zu dieser Anmeldung oder Bestätigung gehört. Beide sind für den Betrieb der
+Anwendung technisch erforderlich, weshalb kein Einwilligungsbanner erscheint (§ 25 Abs. 2 Nr. 2
+TDDDG).
 
 Die TaskFest-App kann Sie ohne Cookie angemeldet halten: Nach der Anmeldung erhält sie einen
 Zufallswert wie den im Sitzungs-Cookie, der Ihre Sitzung auf dem Server bezeichnet. Die App
@@ -118,9 +138,10 @@ am 15. November 2026 gelöscht, mit allem, was darin gespeichert war.
 
 ### Profilbilder
 
-Ihr Browser lädt Ihr Profilbild direkt von Google. Nur wenn Google keines bereitstellt, sucht die
-Anwendung bei **Gravatar** (Automattic Inc., USA) nach einem Bild; Ihr Browser lädt es dann von
-Gravatar, das dadurch Ihre IP-Adresse und einen Hashwert Ihrer E-Mail-Adresse erfährt.
+Ihr Browser lädt Ihr Profilbild direkt von Google. Nur wenn die Anmeldung keines bereitstellt, was
+bei Apple immer so ist, sucht die Anwendung bei **Gravatar** (Automattic Inc., USA) nach einem Bild;
+Ihr Browser lädt es dann von Gravatar, das dadurch Ihre IP-Adresse und einen Hashwert Ihrer
+E-Mail-Adresse erfährt.
 
 ### Wie die Anwendung Nutzerdaten von Google verwendet
 
@@ -139,8 +160,9 @@ einschließlich der Anforderungen an die eingeschränkte Nutzung („Limited Use
   weltweit.
 - **Hetzner** (Hetzner Online GmbH, Gunzenhausen) betreibt in Nürnberg den Monitoring-Server, der
   das Protokoll der Anwendung erhält.
-- **Google** (Google Ireland Ltd.) stellt die Anmeldung bereit.
-- **Automattic** (Gravatar), wie oben beschrieben, nur wenn Google kein Bild bereitstellt.
+- **Google** (Google Ireland Ltd.) stellt die Anmeldung mit Google bereit.
+- **Apple** (Apple Distribution International Ltd., Irland) stellt die Anmeldung mit Apple bereit.
+- **Automattic** (Gravatar), wie oben beschrieben, nur wenn die Anmeldung kein Bild bereitstellt.
 - **GitHub** (GitHub Inc., USA) betreibt diese Dokumentationsseite und erhält die technischen
   Daten der Besuche.
 
@@ -165,6 +187,19 @@ gelöscht. Danach werden Sie abgemeldet. Melden Sie sich später wieder an, begi
 Konto -- ebenso, wenn Sie eine auf einem anderen Gerät noch offene Sitzung weiter nutzen, die sich
 von hier aus nicht beenden lässt. Sie können auch an die oben genannte Adresse schreiben.
 
+**Löschen Sie Ihr Konto, während Sie mit Apple angemeldet sind**, bittet Apple Sie, die Löschung zu
+bestätigen: in der App in Apples eigenem Dialog, auf der Website auf Apples Anmeldeseite. Während
+Sie auf der Website bestätigen, merkt sich die Anwendung, welches Konto gelöscht werden soll, und
+Ihre Apple-Kennung; das läuft nach zehn Minuten ab und wird aus der Datenbank entfernt, meist
+innerhalb weniger Tage. Ist Ihr Konto gelöscht, beendet die Anwendung auch ihre Verbindung zu Ihrem
+Apple Account bei Apple, sodass TaskFest in den Einstellungen Ihres Apple Accounts nicht mehr unter
+den Apps erscheint, die „Mit Apple anmelden“ verwenden. Was Apple dafür zurückgibt, wird nur dafür
+verwendet und nicht aufbewahrt. Brechen Sie Apples Bestätigung ab, wird nichts gelöscht; auf der
+Website ebenso wenig, wenn Sie mit einem anderen Apple Account bestätigen. Lässt sich die Verbindung
+nicht beenden, etwa weil Apple nicht erreichbar ist oder weil Sie in der App mit einem anderen Apple
+Account bestätigt haben, wird Ihr Konto trotzdem gelöscht, und Sie können TaskFest in diesen
+Einstellungen selbst entfernen.
+
 **Was eine Löschung hinterlässt:** einen Vermerk, dass das Konto gelöscht wurde, damit die
 Löschung auch für eine später wiederhergestellte Datensicherung oder ein Abbild der Datenbank gilt.
 Der Vermerk enthält einen SHA-256-Hashwert Ihrer E-Mail-Adresse und den Zeitpunkt der Löschung,
@@ -188,4 +223,4 @@ Prinzenstraße 5<br>
 Diese Erklärung ist Teil der Projektdokumentation und wird öffentlich im Repository geändert. Das
 Datum unten ist das der letzten inhaltlichen Änderung.
 
-Stand: 17. November 2026
+Stand: 20. November 2026

@@ -15,9 +15,9 @@ Gebrauch durch irgendjemanden betrieben.
 
 ## Wer sie nutzen darf
 
-Jeder mit einem Google-Konto. `taskfest-qa.cloud.hilling.de` ist eine Testumgebung: Was Sie dort
-speichern, kann jederzeit verloren gehen, eher noch als unter `taskfest.cloud.hilling.de`. Der
-Zugang kann jederzeit ohne Angabe von Gründen entzogen werden.
+Jeder mit einem Google-Konto oder einem Apple Account. `taskfest-qa.cloud.hilling.de` ist eine
+Testumgebung: Was Sie dort speichern, kann jederzeit verloren gehen, eher noch als unter
+`taskfest.cloud.hilling.de`. Der Zugang kann jederzeit ohne Angabe von Gründen entzogen werden.
 
 ## Keine Zusage von Verfügbarkeit oder Datenerhalt
 
