@@ -60,6 +60,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import urllib.parse
 import urllib.request
 from typing import NamedTuple
 
@@ -254,6 +255,10 @@ REFERENCE_BAR_STYLE = """<style>
     font-weight: 650; }
   .site-return .home img { display: block; width: 22px; height: 22px; }
   .site-return .rest { margin-left: auto; display: flex; gap: 1rem; }
+  /* The links that leave the site, as site.css marks them on every other page. */
+  .site-return .external::after { content: "\\202F\\2197"; content: "\\202F\\2197" / ""; }
+  .site-return .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden;
+    clip-path: inset(50%); white-space: nowrap; }
 </style>"""
 
 
@@ -265,7 +270,7 @@ CONTACT = "demo-apps[at]hilling.de"
 
 def reference_bar(up: str) -> str:
     """The one piece of the site that the API reference carries: a way back out of it."""
-    return (
+    return mark_external_links(
         f'<div class="site-return">'
         f'<a class="home" href="{up}"><img src="{up}assets/logo-light.svg" alt="">'
         f'{PROJECT}</a>'
@@ -371,10 +376,17 @@ GERMAN_PAGES = {"datenschutz", "nutzungsbedingungen"}
 
 
 ANCHOR = re.compile(r"<a\s([^>]*)>(.*?)</a>", re.DOTALL)
-HREF = re.compile(r'\bhref="([^"]*)"')
+
+# What a screen reader hears after a link that opens a new tab, in the language of the page.
+NEW_TAB = {"en": " (opens in a new tab)", "de": " (öffnet in neuem Tab)"}
 
 
-def mark_external_links(rendered: str) -> str:
+def attribute(name: str) -> re.Pattern[str]:
+    """An attribute in a tag's attribute text, by its whole name: `class=`, never `data-class=`."""
+    return re.compile(rf'(^|\s){name}="([^"]*)"')
+
+
+def mark_external_links(rendered: str, lang: str = "en") -> str:
     """
     Opens every link that leaves the site in a new tab, and says so (#644).
 
@@ -384,23 +396,27 @@ def mark_external_links(rendered: str) -> str:
     where the arrow would hang beside the picture. The hidden text says to a screen reader what
     the arrow says to the eye. A file on GitHub counts as another site: the reader leaves this one.
     """
+    site_host = urllib.parse.urlsplit(SITE_URL).hostname
+
     def replace(match: re.Match[str]) -> str:
         attributes, content = match.group(1), match.group(2)
-        href = HREF.search(attributes)
-        if (
-            not href
-            or not href.group(1).startswith(("https://", "http://"))
-            or href.group(1).startswith(SITE_URL)
-            or "target=" in attributes
-        ):
+        href = attribute("href").search(attributes)
+        if not href or re.search(r"(^|\s)target=", attributes):
+            return match.group(0)
+        destination = urllib.parse.urlsplit(href.group(2))
+        if destination.scheme not in {"http", "https"} or destination.hostname == site_host:
             return match.group(0)
         if re.sub(r"<[^>]+>", "", content).strip():
-            if 'class="' in attributes:
-                attributes = re.sub(r'class="([^"]*)"', r'class="\1 external"', attributes, count=1)
+            if attribute("class").search(attributes):
+                attributes = attribute("class").sub(r'\1class="\2 external"', attributes, count=1)
             else:
                 attributes += ' class="external"'
-        hidden = '<span class="visually-hidden"> (opens in a new tab)</span>'
-        return f'<a {attributes} target="_blank" rel="noopener">{content}{hidden}</a>'
+        attributes += ' target="_blank"'
+        if attribute("rel").search(attributes):
+            attributes = attribute("rel").sub(r'\1rel="\2 noopener"', attributes, count=1)
+        else:
+            attributes += ' rel="noopener"'
+        return f'<a {attributes}>{content}<span class="visually-hidden">{NEW_TAB[lang]}</span></a>'
 
     return ANCHOR.sub(replace, rendered)
 
@@ -426,7 +442,7 @@ def page(*, title: str, description: str, depth: int, current: str, body: str, l
 {footer(depth)}
 </body>
 </html>
-""")
+""", lang)
 
 
 # --------------------------------------------------------------------------------------------
