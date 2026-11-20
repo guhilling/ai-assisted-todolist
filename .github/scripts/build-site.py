@@ -114,6 +114,7 @@ SHARED_RULES_FILE = "plugins/conventions/rules.md"
 # reading order is written down once, where a reader sees it, rather than here a second time.
 DOC_ORDER = [
     "purpose",
+    "message-from-gunnar",
     "architecture",
     "domain-model",
     "authentication",

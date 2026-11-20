@@ -6,6 +6,7 @@ truth; the root `README.md` is a short entry point that links here.
 | Document | What it covers |
 | --- | --- |
 | [purpose.md](purpose.md) | What this project is for, and the working conventions that follow from that |
+| [message-from-gunnar.md](message-from-gunnar.md) | A page Gunnar writes on his own, without Claude |
 | [architecture.md](architecture.md) | The pieces, how a request travels through them, and how they are deployed |
 | [domain-model.md](domain-model.md) | Ubiquitous language, the Task aggregate, and where each invariant is enforced |
 | [authentication.md](authentication.md) | The backend-for-frontend OIDC design, Google in production, Keycloak locally |
