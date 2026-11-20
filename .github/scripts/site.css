@@ -51,6 +51,15 @@ body {
 
 a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 2px; }
 a:hover { text-decoration-thickness: 2px; }
+/* A link that leaves the site (build-site.py, mark_external_links). The narrow no-break space
+   keeps the arrow on the line of the link's last word; inline-block would have kept the underline
+   off it, but also let it wrap to the next line alone. The empty alternative text keeps a screen
+   reader from reading it out, since the link's hidden text already says it opens in a new tab. */
+a.external::after {
+  content: "\202F\2197";
+  content: "\202F\2197" / "";
+  font-size: 0.8em;
+}
 
 /* ---------- the bar every page carries ---------- */
 
@@ -288,6 +297,9 @@ pre code { padding: 0; background: none; border: 0; white-space: pre; }
   transition: border-color 120ms ease, transform 120ms ease, box-shadow 120ms ease;
 }
 .card:hover { border-color: var(--accent); transform: translateY(-2px); box-shadow: var(--shadow); }
+/* A card that leaves the site carries its arrow beside its title, not under its text. */
+.card.external::after { content: none; }
+.card.external strong::after { content: "\202F\2197"; content: "\202F\2197" / ""; font-size: 0.8em; }
 .card strong { display: block; font-size: 1.02rem; margin-bottom: 0.2rem; }
 .card span { color: var(--muted); font-size: 0.92rem; line-height: 1.5; display: block; }
 
