@@ -97,6 +97,11 @@
       "matchDepTypes": ["indirect"],
       "matchPackageNames": ["github.com/oapi-codegen/oapi-codegen/v2"],
       "enabled": true
+    },
+    {
+      "description": "go mod tidy after every Go update. Without it an update of a tool, such as oapi-codegen, left go.sum without the new version's own dependencies, and Serverless CI failed (#624). The header of api.gen.go names oapi-codegen's version, so its updates still need go generate ./... pushed to their branch by hand.",
+      "matchManagers": ["gomod"],
+      "postUpdateOptions": ["gomodTidy"]
     }
   ]
 }
