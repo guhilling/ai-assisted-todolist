@@ -962,8 +962,8 @@ def build_landing(site: pathlib.Path, versions: list[tuple[str, str]]) -> None:
     # The one page here Gunnar writes himself, rather than with Claude (#643), and the person
     # behind the project, beside what the project is (#646).
     author = (
-        '<a class="hero__author" href="doc/message-from-gunnar.html">'
-        '<img src="doc/images/gunnar-hilling.jpg" alt="Gunnar Hilling" width="128" height="160">'
+        f'<a class="hero__author" href="{site_path("doc/message-from-gunnar.md")}">'
+        f'<img src="{site_path("doc/images/gunnar-hilling.jpg")}" alt="Gunnar Hilling" width="128" height="160">'
         "<span>My contribution</span></a>"
     )
     hero = f"""  <main>

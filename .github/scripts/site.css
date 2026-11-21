@@ -300,8 +300,8 @@ pre code { padding: 0; background: none; border: 0; white-space: pre; }
   border-radius: 12px;
   transition: border-color 120ms ease;
 }
-.hero__author:hover { color: var(--accent); }
-.hero__author:hover img { border-color: var(--accent); }
+.hero__author:is(:hover, :focus-visible) { color: var(--accent); }
+.hero__author:is(:hover, :focus-visible) img { border-color: var(--accent); }
 
 .cards {
   display: grid;

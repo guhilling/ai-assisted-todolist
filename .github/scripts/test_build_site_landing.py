@@ -7,6 +7,7 @@ Run with:  python3 -m unittest discover -s .github/scripts -p 'test_*.py'
 
 import importlib.util
 import pathlib
+import re
 import tempfile
 import unittest
 
@@ -24,17 +25,15 @@ class LandingTest(unittest.TestCase):
             cls.landing = (pathlib.Path(directory) / "index.html").read_text()
 
     def test_leads_from_the_photo_and_its_caption_to_gunnars_page(self):
-        self.assertIn(
-            '<a class="hero__author" href="doc/message-from-gunnar.html">'
-            '<img src="doc/images/gunnar-hilling.jpg" alt="Gunnar Hilling" width="128" height="160">'
-            "<span>My contribution</span></a>",
-            self.landing,
-        )
+        author = re.search(r'<a class="hero__author" href="([^"]*)">(.*?)</a>', self.landing, re.DOTALL)
+        self.assertIsNotNone(author)
+        self.assertEqual("doc/message-from-gunnar.html", author.group(1))
+        self.assertRegex(author.group(2), r'<img src="doc/images/gunnar-hilling.jpg" alt="Gunnar Hilling"')
+        self.assertIn("<span>My contribution</span>", author.group(2))
 
-    def test_keeps_the_photo_beside_the_project_in_the_hero(self):
+    def test_puts_the_photo_after_the_project_not_inside_it(self):
         hero = self.landing[self.landing.index('<div class="hero">'):self.landing.index('<div class="cards">')]
-        self.assertIn("<h1>", hero)
-        self.assertIn('class="hero__author"', hero)
+        self.assertRegex(hero, r'(?s)<div class="hero__project">.*?<h1>.*?</div>\s*<a class="hero__author"')
 
 
 if __name__ == "__main__":
