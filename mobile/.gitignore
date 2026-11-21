@@ -40,5 +40,9 @@ yarn-error.*
 /ios
 /android
 
+# Gradle's cache, which a local Android build leaves in a native module's own android/ folder
+# (modules/time-zone-cache/android/), outside the generated /android above
+.gradle/
+
 # test coverage reports (npm run test:coverage)
 coverage/
