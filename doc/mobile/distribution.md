@@ -180,7 +180,15 @@ registered for apps outside Play, is not needed: Play registers its own apps.
     users*: the service account's email; under *App permissions* both apps, with **Release to
     testing tracks**. No account-wide permission.
 4. **Testers**, per app: *Test and release → Testing → Internal testing → Testers*, an email list
-    of Google accounts (up to 100). Each tester opens the opt-in link shown there once.
+    of Google accounts (up to 100). Each tester opens the opt-in link shown there once. Two
+    traps, both met in November 2026:
+    - **An account not on the list gets "App not available"** on the opt-in page, in any browser,
+      not a message saying it is no tester. The list's tick being set says nothing about who is on
+      it: compare the addresses with the account, and mind that prod and qa each have their own.
+    - **Right after accepting, the Play Store still says "not found"**, for half an hour or so,
+      until the opt-in reaches the phone. Wait, clear the Play Store's cache (*Settings → Apps →
+      Google Play Store → Storage*), and open the store link on the opt-in page: an internal
+      test's app is not found by searching the store.
 5. **The first bundle, by hand.** Play's API cannot upload an app's first build; the upload step
     says so with a warning, and the release still succeeds. Download the bundle from that run (*taskfest-qa-1.4.0-aab*, say), then
     *Internal testing → Create new release*, accept **Play App Signing** with a key Google
