@@ -334,6 +334,28 @@ the source is this application's own backend. The check costs a few lines, and i
 file from going anywhere but HTTPS storage.
 
 
+## An account deletion sends the browser only to Apple's sign-in
+
+*Accepted · 2026-11-21 · #639*
+
+**Decision.** `deleteAccount` in `api.ts` follows the sign-in URL of the backend's 428 answer
+(#635) only when it starts with `https://appleid.apple.com/`; any other URL is a failed deletion,
+worded like any other, and the browser stays where it is.
+
+**Why.** SonarCloud's taint analysis reported the redirect as a client-side open redirect
+(`tssecurity:S6105`, a blocker), which failed the quality gate on `main`. As with the two checks
+above, the risk is small, since the source is this application's own backend, and the check is
+one line. The slash in the prefix is what refuses a host such as `appleid.apple.com.example.com`.
+
+**Left out, to keep it simple.** A `pattern` in `openapi.json` would say the same in the
+contract; one check is enough, and this is the one SonarCloud sees. A refused URL is not worded as
+a broken contract (`ContractBreachError`), which would need a subject in both languages for a case
+that only a broken backend produces. Should SonarCloud not recognise the check, its finding is
+silenced at its line, as
+[A SonarCloud false positive is silenced in the code, at its line](build-and-dependencies.md#a-sonarcloud-false-positive-is-silenced-in-the-code-at-its-line)
+says.
+
+
 ## Responses are validated against the schema the backend publishes
 
 *Accepted · 2026-09-29 · #74*

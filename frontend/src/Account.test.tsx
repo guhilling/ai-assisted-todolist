@@ -205,6 +205,17 @@ describe('deleting an account signed in with Apple (#635)', () => {
     expect(sessionStorage.getItem('taskfest.accountDeleted')).toBeNull()
   })
 
+  it.each([
+    ['another host', 'https://appleid.apple.com.example.com/auth/authorize?state=s'],
+    ['plain HTTP', 'http://appleid.apple.com/auth/authorize?state=s'],
+  ])("says the deletion failed when the sign-in it is sent to is not Apple's: %s (#639)", async (_, elsewhere) => {
+    await deleteTheAccount(stubApi({ me: ALICE, deleteAccount: { status: 428, body: { appleSignInUrl: elsewhere } } }))
+
+    expect(await screen.findByText('Unable to delete your account.')).toBeInTheDocument()
+    expect(assign).not.toHaveBeenCalled()
+    expect(sessionStorage.getItem('taskfest.accountDeleted')).toBeNull()
+  })
+
   it('says the account was not deleted when the person comes back still signed in', async () => {
     // Apple turned away, another Apple ID, or a deletion that failed at the callback.
     sessionStorage.setItem('taskfest.accountDeleted', 'true')

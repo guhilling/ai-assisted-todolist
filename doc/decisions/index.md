@@ -61,6 +61,7 @@ commit that first wrote each one down. CI checks every line and that this index 
 - [Sign out and Delete account wait behind Account](frontend.md#sign-out-and-delete-account-wait-behind-account)
 - [A task id is checked before it is put in a URL](frontend.md#a-task-id-is-checked-before-it-is-put-in-a-url)
 - [A storage link is checked before a file goes to it](frontend.md#a-storage-link-is-checked-before-a-file-goes-to-it)
+- [An account deletion sends the browser only to Apple's sign-in](frontend.md#an-account-deletion-sends-the-browser-only-to-apples-sign-in)
 - [Responses are validated against the schema the backend publishes](frontend.md#responses-are-validated-against-the-schema-the-backend-publishes)
 - [Spacing and type are scales, not values](frontend.md#spacing-and-type-are-scales-not-values)
 - [Sign-in buttons follow Google's branding rules, and every provider looks alike](frontend.md#sign-in-buttons-follow-googles-branding-rules-and-every-provider-looks-alike)
