@@ -26,7 +26,7 @@ Actions workflows (CI and releases)
 [AWS](https://aws.amazon.com) resources and deployment
 * [Perses](https://perses.dev) dashboards hosted on a [Hetzner](https://www.hetzner.com/) server
 
-For details, please read the great [official documentation](README.md).
+For details, please read the [landing page](../README.md) and the [documentation](README.md).
 
 It's also worth mentioning that the first implementation of this project
 used [Quarkus](https://quarkus.io) in the backend as I'm really fluent
