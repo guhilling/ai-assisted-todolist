@@ -644,10 +644,23 @@
       }
     },
     "securitySchemes": {
-      "SecurityScheme": {
-        "type": "openIdConnect",
-        "openIdConnectUrl": "https://accounts.google.com/.well-known/openid-configuration",
-        "description": "Authentication"
+      "sessionCookie": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "taskfest_session",
+        "description": "The website's session: the browser holds the cookie the sign-in callback sets, and the session itself is kept by the backend. Not sent when a request has an Authorization header, which is judged by its bearer token alone."
+      },
+      "appSession": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "TaskFest app session",
+        "description": "An app's session (#281): the token `POST /api/auth/app-session` answers with, sent as the bearer token for 30 days."
+      },
+      "idToken": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "An ID token from a provider's sign-in, Google's or Apple's, sent as the bearer token while it is valid."
       }
     }
   },
@@ -718,7 +731,13 @@
         },
         "security": [
           {
-            "SecurityScheme": []
+            "sessionCookie": []
+          },
+          {
+            "appSession": []
+          },
+          {
+            "idToken": []
           }
         ]
       }
@@ -758,7 +777,7 @@
         },
         "security": [
           {
-            "SecurityScheme": []
+            "idToken": []
           }
         ]
       },
@@ -781,7 +800,7 @@
         },
         "security": [
           {
-            "SecurityScheme": []
+            "appSession": []
           }
         ]
       }
@@ -803,12 +822,7 @@
           "403": {
             "description": "Not Allowed"
           }
-        },
-        "security": [
-          {
-            "SecurityScheme": []
-          }
-        ]
+        }
       }
     },
     "/api/auth/login/{provider}": {
@@ -839,12 +853,7 @@
           "403": {
             "description": "Not Allowed"
           }
-        },
-        "security": [
-          {
-            "SecurityScheme": []
-          }
-        ]
+        }
       }
     },
     "/api/auth/logout": {
@@ -897,7 +906,13 @@
         },
         "security": [
           {
-            "SecurityScheme": []
+            "sessionCookie": []
+          },
+          {
+            "appSession": []
+          },
+          {
+            "idToken": []
           }
         ]
       }
@@ -982,7 +997,13 @@
         },
         "security": [
           {
-            "SecurityScheme": []
+            "sessionCookie": []
+          },
+          {
+            "appSession": []
+          },
+          {
+            "idToken": []
           }
         ]
       },
@@ -1039,7 +1060,13 @@
         },
         "security": [
           {
-            "SecurityScheme": []
+            "sessionCookie": []
+          },
+          {
+            "appSession": []
+          },
+          {
+            "idToken": []
           }
         ]
       }
@@ -1074,7 +1101,13 @@
         },
         "security": [
           {
-            "SecurityScheme": []
+            "sessionCookie": []
+          },
+          {
+            "appSession": []
+          },
+          {
+            "idToken": []
           }
         ]
       }
@@ -1113,7 +1146,13 @@
         },
         "security": [
           {
-            "SecurityScheme": []
+            "sessionCookie": []
+          },
+          {
+            "appSession": []
+          },
+          {
+            "idToken": []
           }
         ]
       }
@@ -1175,7 +1214,13 @@
         },
         "security": [
           {
-            "SecurityScheme": []
+            "sessionCookie": []
+          },
+          {
+            "appSession": []
+          },
+          {
+            "idToken": []
           }
         ]
       }
@@ -1245,7 +1290,13 @@
         },
         "security": [
           {
-            "SecurityScheme": []
+            "sessionCookie": []
+          },
+          {
+            "appSession": []
+          },
+          {
+            "idToken": []
           }
         ]
       },
@@ -1281,7 +1332,13 @@
         },
         "security": [
           {
-            "SecurityScheme": []
+            "sessionCookie": []
+          },
+          {
+            "appSession": []
+          },
+          {
+            "idToken": []
           }
         ]
       }
@@ -1350,7 +1407,13 @@
         },
         "security": [
           {
-            "SecurityScheme": []
+            "sessionCookie": []
+          },
+          {
+            "appSession": []
+          },
+          {
+            "idToken": []
           }
         ]
       }
@@ -1419,7 +1482,13 @@
         },
         "security": [
           {
-            "SecurityScheme": []
+            "sessionCookie": []
+          },
+          {
+            "appSession": []
+          },
+          {
+            "idToken": []
           }
         ]
       }
@@ -1467,7 +1536,13 @@
         },
         "security": [
           {
-            "SecurityScheme": []
+            "sessionCookie": []
+          },
+          {
+            "appSession": []
+          },
+          {
+            "idToken": []
           }
         ]
       }
@@ -1535,7 +1610,13 @@
         },
         "security": [
           {
-            "SecurityScheme": []
+            "sessionCookie": []
+          },
+          {
+            "appSession": []
+          },
+          {
+            "idToken": []
           }
         ]
       }
@@ -1590,7 +1671,13 @@
         },
         "security": [
           {
-            "SecurityScheme": []
+            "sessionCookie": []
+          },
+          {
+            "appSession": []
+          },
+          {
+            "idToken": []
           }
         ]
       }
@@ -1645,7 +1732,13 @@
         },
         "security": [
           {
-            "SecurityScheme": []
+            "sessionCookie": []
+          },
+          {
+            "appSession": []
+          },
+          {
+            "idToken": []
           }
         ]
       }
