@@ -959,14 +959,24 @@ def build_landing(site: pathlib.Path, versions: list[tuple[str, str]]) -> None:
         f'<span>{html.escape(text)}</span></a>'
         for name, href, text in cards
     )
+    # The one page here Gunnar writes himself, rather than with Claude (#643), and the person
+    # behind the project, beside what the project is (#646).
+    author = (
+        '<a class="hero__author" href="doc/message-from-gunnar.html">'
+        '<img src="doc/images/gunnar-hilling.jpg" alt="Gunnar Hilling" width="128" height="160">'
+        "<span>My contribution</span></a>"
+    )
     hero = f"""  <main>
     <div class="hero">
-      <picture>
-        <source media="(prefers-color-scheme: dark)" srcset="assets/logo-dark.svg">
-        <img src="assets/logo-light.svg" alt="" width="84" height="84">
-      </picture>
-      <h1>{html.escape(title)}</h1>
-      <p>{html.escape(intro)}</p>
+      <div class="hero__project">
+        <picture>
+          <source media="(prefers-color-scheme: dark)" srcset="assets/logo-dark.svg">
+          <img src="assets/logo-light.svg" alt="" width="84" height="84">
+        </picture>
+        <h1>{html.escape(title)}</h1>
+        <p>{html.escape(intro)}</p>
+      </div>
+      {author}
     </div>
     <div class="cards">
       {card_html}
