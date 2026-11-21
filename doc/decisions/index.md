@@ -31,6 +31,7 @@ commit that first wrote each one down. CI checks every line and that this index 
 - [A due time is optional, and its zone is too](domain-and-backend.md#a-due-time-is-optional-and-its-zone-is-too)
 - [An update that leaves out the due time keeps it](domain-and-backend.md#an-update-that-leaves-out-the-due-time-keeps-it)
 - [The API contract is the source](domain-and-backend.md#the-api-contract-is-the-source)
+- [A removed security requirement is no breaking change](domain-and-backend.md#a-removed-security-requirement-is-no-breaking-change)
 - [At most 500 tasks per user, and the API throttled at 10 a second](domain-and-backend.md#at-most-500-tasks-per-user-and-the-api-throttled-at-10-a-second)
 
 ## [Authentication](authentication.md)

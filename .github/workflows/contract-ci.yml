@@ -51,6 +51,8 @@ jobs:
       - name: Check the API breaks nothing that release relies on
         # Errors only: a warning is a change oasdiff cannot judge, such as a new enum value in a
         # response, which an app tolerates by reading unknown values as unknown (doc/releasing.md).
+        # doc/api/oasdiff-levels lowers the checks that are no break here: a removed security
+        # requirement (#632), since the backend authenticates in code and nothing reads it.
         uses: docker://tufin/oasdiff:v1.33.0
         with:
-          args: breaking .oasdiff/baseline.yaml doc/api/openapi.yaml --fail-on ERR
+          args: breaking .oasdiff/baseline.yaml doc/api/openapi.yaml --fail-on ERR --severity-levels doc/api/oasdiff-levels

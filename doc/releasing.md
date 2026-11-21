@@ -73,6 +73,10 @@ clients tolerate them. The app reads a value it does not know as unknown rather 
 response, so for the app they are compatible; the website, which always deploys with its backend,
 stays strict.
 
+**A removed security requirement** is a warning too, not oasdiff's error: `doc/api/oasdiff-levels`
+says so for Contract CI and `cut-release.yml` alike (#632). The backend authenticates in code, and
+nothing generated from the contract reads its `security`, so removing one breaks no client.
+
 **Several API versions at once**, should a breaking change ever be unavoidable: today's paths are
 version 1. A breaking change would add `/api/v2/...` beside them, from records of its own, with its
 own OpenAPI document and its own baseline, and v1 would stay served until
