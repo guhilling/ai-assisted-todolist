@@ -581,10 +581,11 @@ does:
 
 **The alarms**, each $0.10 a month, mail through the existing topic on entering ALARM and on leaving
 it: the API function's errors and throttles, the API's server errors, at least five in one five-
-minute period (#558, Gunnar's threshold), the stream function more than ten minutes behind (it
+minute period (#558, Gunnar's threshold), its requests, at least 20,000 in an hour (#607), the
+stream function more than ten minutes behind (it
 reports a failed record rather than failing, so its errors would never show one), the scheduled
-functions' errors, and the table's throttled reads and writes. That is eight per environment, about
-$1.60 a month for both.
+functions' errors, and the table's throttled reads and writes. That is nine per environment, about
+$1.80 a month for both.
 
 **The dashboard** `taskfest-<env>-go-backend` (#558, `serverless-dashboard.tf`) shows the requests
 and their answers, the time they take, the API function's time, errors and throttles, the jobs'
