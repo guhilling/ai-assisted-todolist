@@ -1,45 +1,65 @@
-import { INACTIVITY_LIMIT_MS, type Session } from './session'
-import { RenewalUnavailableError, createSessionStore, currentSession, sessionFromTokens, type Tokens } from './staySignedIn'
+import type { Session } from './session'
+import { appSessionFrom, createSessionStore, currentSession } from './staySignedIn'
 import { HOUR, memoryStore, tokenWith } from './testing'
 
-// Noon, not the shared NOW, and a session with a refresh token the assertions name.
+// Noon, not the shared NOW.
 const NOW = Date.UTC(2026, 9, 10, 12)
+const DAY = 24 * HOUR
 
-const session: Session = {
-  idToken: tokenWith({ exp: (NOW + HOUR) / 1000 }),
-  refreshToken: 'refresh-1',
-  expiresAt: NOW + HOUR,
-  lastUsedAt: NOW,
+/** Ada's app session, traded at NOW and lasting the backend's thirty days. */
+const session: Session = { token: 'taskfest_app_ada', expiresAt: NOW + 30 * DAY, email: 'ada@example.com' }
+
+/** What a release before app sessions left in the keychain: an ID token, its refresh token and its times. */
+function keptBefore() {
+  const store = memoryStore()
+  store.values.set('taskfest.idToken', tokenWith({ exp: (NOW + HOUR) / 1000, email: 'ada@example.com' }))
+  store.values.set('taskfest.refreshToken', 'refresh-1')
+  store.values.set('taskfest.times', JSON.stringify({ expiresAt: NOW + HOUR, lastUsedAt: NOW - DAY }))
+  return store
 }
 
 describe('staying signed in', () => {
-  it('makes a session of what the provider issued, timed by the ID token', () => {
-    const tokens: Tokens = { idToken: session.idToken, refreshToken: 'refresh-1' }
+  it('makes a session of what the backend started, its address the ID token’s', () => {
+    const idToken = tokenWith({ email: 'ada@example.com' })
 
-    expect(sessionFromTokens(tokens, NOW)).toEqual(session)
+    expect(appSessionFrom({ token: 'taskfest_app_ada', expiresAt: NOW + 30 * DAY }, idToken)).toEqual(session)
   })
 
-  it('cannot make a session without an ID token it can read', () => {
-    expect(sessionFromTokens({ refreshToken: 'r' }, NOW)).toBeNull()
-    expect(sessionFromTokens({ idToken: 'opaque' }, NOW)).toBeNull()
+  it('remembers that a session came from Google, across a restart', async () => {
+    const google = appSessionFrom({ token: 'taskfest_app_ada', expiresAt: NOW + 30 * DAY }, 'opaque', 'google')
+    const store = memoryStore()
+
+    await createSessionStore(store).save(google)
+
+    expect(google).toEqual({ token: 'taskfest_app_ada', expiresAt: NOW + 30 * DAY, via: 'google', email: null })
+    await expect(createSessionStore(store).load()).resolves.toEqual(google)
   })
 
-  it('keeps each part of a session under its own key, so none outgrows what a keychain holds', async () => {
+  it('is kept under a key of its own, in one value, with its address, which its token does not carry', async () => {
     const store = memoryStore()
 
     await createSessionStore(store).save(session)
 
-    expect([...store.values.keys()].sort()).toEqual(['taskfest.idToken', 'taskfest.refreshToken', 'taskfest.times'])
+    expect([...store.values.keys()]).toEqual(['taskfest.appSession'])
     await expect(createSessionStore(store).load()).resolves.toEqual(session)
   })
 
-  it('keeps a session without a refresh token', async () => {
+  it('leaves nothing of a session from before app sessions beside the one it keeps (#633)', async () => {
+    const store = keptBefore()
+
+    await createSessionStore(store).save(session)
+
+    expect([...store.values.keys()]).toEqual(['taskfest.appSession'])
+  })
+
+  it('reads a session as the release that brought app sessions kept it', async () => {
     const store = memoryStore()
-    const withoutRefresh = { ...session, refreshToken: null }
+    store.values.set(
+      'taskfest.appSession',
+      JSON.stringify({ token: 'taskfest_app_ada', expiresAt: NOW + 30 * DAY, lastUsedAt: NOW, email: 'ada@example.com' }),
+    )
 
-    await createSessionStore(store).save(withoutRefresh)
-
-    await expect(createSessionStore(store).load()).resolves.toEqual(withoutRefresh)
+    await expect(createSessionStore(store).load()).resolves.toEqual(session)
   })
 
   it('forgets everything on clearing', async () => {
@@ -52,69 +72,30 @@ describe('staying signed in', () => {
     await expect(createSessionStore(store).load()).resolves.toBeNull()
   })
 
-  it('hands back a stored session as used now', async () => {
+  it('hands out an app session as it is, to its last day', async () => {
     const sessions = createSessionStore(memoryStore())
     await sessions.save(session)
 
-    const current = await currentSession(sessions, jest.fn(), NOW + 1000)
-
-    expect(current?.lastUsedAt).toBe(NOW + 1000)
-    await expect(sessions.load()).resolves.toMatchObject({ lastUsedAt: NOW + 1000 })
+    await expect(currentSession(sessions, NOW + 30 * DAY - 1)).resolves.toEqual(session)
   })
 
-  it('ends a session unused for more than thirty days', async () => {
-    const sessions = createSessionStore(memoryStore())
+  it('forgets an app session that has ended, and hands out none', async () => {
+    const store = memoryStore()
+    const sessions = createSessionStore(store)
     await sessions.save(session)
 
-    await expect(currentSession(sessions, jest.fn(), NOW + INACTIVITY_LIMIT_MS + 1)).resolves.toBeNull()
-    await expect(sessions.load()).resolves.toBeNull()
-  })
-
-  it('renews an ID token about to run out', async () => {
-    const sessions = createSessionStore(memoryStore())
-    await sessions.save(session)
-    const later = NOW + HOUR
-    const renewedToken = tokenWith({ exp: (later + HOUR) / 1000 })
-    const refresh = jest.fn().mockResolvedValue({ idToken: renewedToken, refreshToken: 'refresh-2' })
-
-    const current = await currentSession(sessions, refresh, later)
-
-    expect(refresh).toHaveBeenCalledWith('refresh-1')
-    expect(current).toEqual({ idToken: renewedToken, refreshToken: 'refresh-2', expiresAt: later + HOUR, lastUsedAt: later })
-  })
-
-  it('keeps the refresh token when the provider issues no new one', async () => {
-    const sessions = createSessionStore(memoryStore())
-    await sessions.save(session)
-    const later = NOW + HOUR
-    const refresh = jest.fn().mockResolvedValue({ idToken: tokenWith({ exp: (later + HOUR) / 1000 }) })
-
-    await expect(currentSession(sessions, refresh, later)).resolves.toMatchObject({ refreshToken: 'refresh-1' })
-  })
-
-  it('ends the session when the provider refuses to renew it, or renewing is impossible', async () => {
-    const refused = createSessionStore(memoryStore())
-    await refused.save(session)
-    const invalidGrant = Object.assign(new Error('revoked'), { code: 'invalid_grant' })
-    await expect(currentSession(refused, jest.fn().mockRejectedValue(invalidGrant), NOW + HOUR)).resolves.toBeNull()
-    await expect(refused.load()).resolves.toBeNull()
-
-    const withoutRefresh = createSessionStore(memoryStore())
-    await withoutRefresh.save({ ...session, refreshToken: null })
-    await expect(currentSession(withoutRefresh, jest.fn(), NOW + HOUR)).resolves.toBeNull()
-  })
-
-  it('keeps the session when renewing fails for any other reason, such as being offline', async () => {
-    const sessions = createSessionStore(memoryStore())
-    await sessions.save(session)
-
-    await expect(
-      currentSession(sessions, jest.fn().mockRejectedValue(new TypeError('Network request failed')), NOW + HOUR),
-    ).rejects.toBeInstanceOf(RenewalUnavailableError)
-    await expect(sessions.load()).resolves.toEqual(session)
+    await expect(currentSession(sessions, NOW + 30 * DAY)).resolves.toBeNull()
+    expect(store.values.size).toBe(0)
   })
 
   it('has nothing when nobody signed in', async () => {
-    await expect(currentSession(createSessionStore(memoryStore()), jest.fn(), NOW)).resolves.toBeNull()
+    await expect(currentSession(createSessionStore(memoryStore()), NOW)).resolves.toBeNull()
+  })
+
+  it('takes a session from before app sessions for none, and leaves nothing of it in the keychain (#633)', async () => {
+    const store = keptBefore()
+
+    await expect(currentSession(createSessionStore(store), NOW)).resolves.toBeNull()
+    expect(store.values.size).toBe(0)
   })
 })

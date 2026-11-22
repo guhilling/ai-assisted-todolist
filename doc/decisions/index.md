@@ -46,6 +46,7 @@ commit that first wrote each one down. CI checks every line and that this index 
 - [Apps send a bearer ID token, and the audience is checked in code](authentication.md#apps-send-a-bearer-id-token-and-the-audience-is-checked-in-code)
 - [A provider may sign its client secret, and post the browser back](authentication.md#a-provider-may-sign-its-client-secret-and-post-the-browser-back)
 - [An app trades its ID token once for an app session](authentication.md#an-app-trades-its-id-token-once-for-an-app-session)
+- [The app no longer knows sessions from before app sessions](authentication.md#the-app-no-longer-knows-sessions-from-before-app-sessions)
 - [Deleting an Apple account revokes TaskFest at Apple, with Apple's confirmation](authentication.md#deleting-an-apple-account-revokes-taskfest-at-apple-with-apples-confirmation)
 
 ## [Frontend and user interface](frontend.md)

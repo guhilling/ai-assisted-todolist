@@ -3,7 +3,6 @@ import { RequestFailedError, SignedOutError, TimedOutError } from './api'
 import type { AppleProvider } from './apple'
 import type { KeptBoard } from './keptBoard'
 import type { Session } from './session'
-import { TRADE_RETRY_MS } from './staySignedIn'
 import { TaskFestApp, type Dependencies } from './TaskFestApp'
 import { HOUR, dependencies as appDependencies, foreground, memoryBoard, memorySessions, prod, qa, tokenWith } from './testing'
 import type { Variant } from './variants'
@@ -19,11 +18,9 @@ const tasks: Task[] = [{ id: 1, description: 'Water the plants', dueDate: '2026-
 const idToken = tokenWith({ exp: (NOW + HOUR) / 1000, email: 'ada@example.com' })
 /** The app session the backend trades it for. */
 const appSession: Session = {
-  idToken: 'taskfest_app_ada',
-  refreshToken: null,
+  token: 'taskfest_app_ada',
   expiresAt: NOW + 30 * DAY,
-  lastUsedAt: NOW,
-  app: { email: 'ada@example.com' },
+  email: 'ada@example.com',
 }
 const withApple: Variant = { ...prod, apple: true }
 
@@ -35,7 +32,7 @@ function appSessions() {
 }
 
 function googleProvider() {
-  return { signIn: jest.fn().mockResolvedValue({ idToken }), renew: jest.fn(), signOut: jest.fn().mockResolvedValue(undefined) }
+  return { signIn: jest.fn().mockResolvedValue({ idToken }), signOut: jest.fn().mockResolvedValue(undefined) }
 }
 
 function apple(available = true): AppleProvider & { signIn: jest.Mock; confirm: jest.Mock } {
@@ -77,13 +74,13 @@ describe('app sessions, in the app (#281)', () => {
     await userEvent.setup().press(await screen.findByRole('button', { name: 'Sign in with Google' }))
 
     expect(await screen.findByText('Water the plants')).toBeOnTheScreen()
-    expect(deps.appSessions?.start).toHaveBeenCalledWith(idToken)
-    expect(deps.fetchTasks).toHaveBeenCalledWith({ baseUrl: PROD, idToken: 'taskfest_app_ada' })
+    expect(deps.appSessions.start).toHaveBeenCalledWith(idToken)
+    expect(deps.fetchTasks).toHaveBeenCalledWith({ baseUrl: PROD, token: 'taskfest_app_ada' })
     expect((deps.sessions as ReturnType<typeof memorySessions>).current()).toEqual({ ...appSession, via: 'google' })
   })
 
   it('trades the variant’s own provider’s ID token too', async () => {
-    const provider = { signIn: jest.fn().mockResolvedValue({ idToken, refreshToken: 'r' }), refresh: jest.fn() }
+    const provider = { signIn: jest.fn().mockResolvedValue({ idToken }) }
     const deps = dependencies({ provider })
     await render(<TaskFestApp variant={qa} language="en" dependencies={deps} />)
 
@@ -105,30 +102,42 @@ describe('app sessions, in the app (#281)', () => {
     expect(sessions.current()).toBeNull()
   })
 
-  it('signs in with the ID token when the trade cannot be made just now, and trades it later', async () => {
+  it.each([
+    ['there is no connection', new TypeError('Network request failed')],
+    ['the trade goes unanswered', new TimedOutError(10_000)],
+  ])('says signing in did not work when %s, keeps nothing, and lets it be tried again', async (_reason, failure) => {
     const trade = appSessions()
-    trade.start.mockRejectedValueOnce(new TypeError('Network request failed'))
+    trade.start.mockRejectedValueOnce(failure)
     const sessions = memorySessions(null)
     const fetchTasks = jest.fn().mockResolvedValue(tasks)
-    await render(<TaskFestApp variant={prod} language="en" dependencies={dependencies({ appSessions: trade, sessions, fetchTasks })} />)
+    const google = googleProvider()
+    await render(<TaskFestApp variant={prod} language="en" dependencies={dependencies({ appSessions: trade, sessions, fetchTasks, google })} />)
+    const user = userEvent.setup()
+
+    await user.press(await screen.findByRole('button', { name: 'Sign in with Google' }))
+
+    expect(await screen.findByText('Signing in did not work. Try again.')).toBeOnTheScreen()
+    expect(sessions.current()).toBeNull()
+    expect(google.signOut).toHaveBeenCalled()
+    expect(fetchTasks).not.toHaveBeenCalled()
+
+    await user.press(screen.getByRole('button', { name: 'Sign in with Google' }))
+
+    expect(await screen.findByText('Water the plants')).toBeOnTheScreen()
+    expect(sessions.current()).toEqual({ ...appSession, via: 'google' })
+  })
+
+  it('says signing in did not work even when Google cannot be signed out of after it', async () => {
+    const trade = appSessions()
+    trade.start.mockRejectedValue(new SignedOutError())
+    const google = googleProvider()
+    google.signOut.mockRejectedValue(new Error('no SDK'))
+    await render(<TaskFestApp variant={prod} language="en" dependencies={dependencies({ appSessions: trade, google })} />)
 
     await userEvent.setup().press(await screen.findByRole('button', { name: 'Sign in with Google' }))
 
-    expect(await screen.findByText('Water the plants')).toBeOnTheScreen()
-    expect(fetchTasks).toHaveBeenCalledWith({ baseUrl: PROD, idToken })
-    expect(sessions.current()).toMatchObject({ idToken, via: 'google' })
-  })
-
-  it('trades a session kept from before at start, without the person noticing', async () => {
-    const before: Session = { idToken, refreshToken: null, expiresAt: NOW + HOUR, lastUsedAt: NOW - DAY, via: 'google' }
-    const sessions = memorySessions(before)
-    const deps = dependencies({ sessions })
-    await render(<TaskFestApp variant={prod} language="en" dependencies={deps} />)
-
-    expect(await screen.findByText('Water the plants')).toBeOnTheScreen()
-    expect(deps.appSessions?.start).toHaveBeenCalledWith(idToken)
-    expect(deps.fetchTasks).toHaveBeenCalledWith({ baseUrl: PROD, idToken: 'taskfest_app_ada' })
-    expect(sessions.current()).toEqual({ ...appSession, via: 'google' })
+    expect(await screen.findByText('Signing in did not work. Try again.')).toBeOnTheScreen()
+    expect(google.signOut).toHaveBeenCalled()
   })
 
   it('shows the kept board of an app session’s account at once', async () => {
@@ -153,7 +162,7 @@ describe('app sessions, in the app (#281)', () => {
     await signOutOfTheBoard()
 
     expect(await screen.findByRole('button', { name: 'Sign in with Google' })).toBeOnTheScreen()
-    expect(deps.appSessions?.end).toHaveBeenCalledWith('taskfest_app_ada')
+    expect(deps.appSessions.end).toHaveBeenCalledWith('taskfest_app_ada')
   })
 
   it('signs out of the phone even when the backend cannot be told', async () => {
@@ -174,50 +183,7 @@ describe('app sessions, in the app (#281)', () => {
     await render(<TaskFestApp variant={prod} language="en" dependencies={deps} />)
 
     expect(await screen.findByText('Your session has expired. Sign in again to carry on.')).toBeOnTheScreen()
-    expect(deps.appSessions?.end).not.toHaveBeenCalled()
-  })
-
-  it('keeps Google’s ID token known to be spent when its trade went unanswered, so it is never sent again', async () => {
-    const trade = appSessions()
-    trade.start.mockRejectedValueOnce(new TimedOutError(10_000))
-    const sessions = memorySessions(null)
-    await render(<TaskFestApp variant={prod} language="en" dependencies={dependencies({ appSessions: trade, sessions })} />)
-
-    await userEvent.setup().press(await screen.findByRole('button', { name: 'Sign in with Google' }))
-
-    expect(await screen.findByText('Water the plants')).toBeOnTheScreen()
-    expect(sessions.current()).toMatchObject({ idToken, via: 'google', idTokenSpent: true })
-  })
-
-  it('waits a few minutes after a sign-in whose trade failed before it trades again', async () => {
-    const back = foreground()
-    let clock = NOW
-    const trade = appSessions()
-    trade.start.mockRejectedValueOnce(new RequestFailedError(429))
-    const sessions = memorySessions(null)
-    await render(<TaskFestApp variant={prod} language="en" dependencies={dependencies({ appSessions: trade, sessions, now: () => clock })} />)
-    await userEvent.setup().press(await screen.findByRole('button', { name: 'Sign in with Google' }))
-    await screen.findByText('Water the plants')
-
-    clock = NOW + TRADE_RETRY_MS - 1
-    await back()
-    expect(trade.start).toHaveBeenCalledTimes(1)
-
-    clock = NOW + TRADE_RETRY_MS
-    await back()
-    await waitFor(() => expect(trade.start).toHaveBeenCalledTimes(2))
-    await waitFor(() => expect(sessions.current()).toMatchObject({ idToken: 'taskfest_app_ada' }))
-  })
-
-  it('says the session has expired when the backend refuses to trade the one kept from before', async () => {
-    const before: Session = { idToken, refreshToken: null, expiresAt: NOW + HOUR, lastUsedAt: NOW - DAY, via: 'google' }
-    const trade = appSessions()
-    trade.start.mockRejectedValue(new SignedOutError())
-    const sessions = memorySessions(before)
-    await render(<TaskFestApp variant={prod} language="en" dependencies={dependencies({ sessions, appSessions: trade })} />)
-
-    expect(await screen.findByText('Your session has expired. Sign in again to carry on.')).toBeOnTheScreen()
-    expect(sessions.current()).toBeNull()
+    expect(deps.appSessions.end).not.toHaveBeenCalled()
   })
 
   it('does not let a start forgetting the board of a session that ran out forget the board of a sign-in meanwhile', async () => {
@@ -315,11 +281,11 @@ describe('Sign in with Apple, in the app (#281)', () => {
     expect(await screen.findByText('Water the plants')).toBeOnTheScreen()
     expect(native.signIn).toHaveBeenCalled()
     expect(google.signIn).not.toHaveBeenCalled()
-    expect(deps.appSessions?.start).toHaveBeenCalledWith(idToken)
+    expect(deps.appSessions.start).toHaveBeenCalledWith(idToken)
     expect((deps.sessions as ReturnType<typeof memorySessions>).current()).toEqual(appSession)
   })
 
-  it('fails an Apple sign-in whose trade cannot be made, since Apple’s ID token cannot be renewed, and lets it be tried again at once', async () => {
+  it('fails an Apple sign-in whose trade cannot be made, and lets it be tried again at once', async () => {
     const trade = appSessions()
     trade.start.mockRejectedValueOnce(new TypeError('Network request failed'))
     const sessions = memorySessions(null)
@@ -375,8 +341,8 @@ describe('deleting an account signed in with Apple (#635)', () => {
     expect(await screen.findByText('Your account has been deleted. Signing in again starts a new, empty one.')).toBeOnTheScreen()
     expect(native.confirm).toHaveBeenCalledTimes(1)
     expect(deleteAccount.mock.calls).toEqual([
-      [{ baseUrl: PROD, idToken: 'taskfest_app_ada' }],
-      [{ baseUrl: PROD, idToken: 'taskfest_app_ada' }, 'code-1'],
+      [{ baseUrl: PROD, token: 'taskfest_app_ada' }],
+      [{ baseUrl: PROD, token: 'taskfest_app_ada' }, 'code-1'],
     ])
     expect(sessions.current()).toBeNull()
   })

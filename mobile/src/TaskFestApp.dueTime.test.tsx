@@ -14,7 +14,7 @@ import type { Task } from './web'
 
 // Local noon on 10 October 2026, a Saturday.
 const NOW = new Date(2026, 9, 10, 12).getTime()
-const session: Session = { idToken: 'stored', refreshToken: 'r', expiresAt: NOW + HOUR, lastUsedAt: NOW }
+const session: Session = { token: 'stored', expiresAt: NOW + HOUR, email: null }
 const localMoment = (day: number, hour: number) => new Date(2026, 9, day, hour).toISOString()
 
 const tasks: Task[] = [

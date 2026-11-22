@@ -1,7 +1,7 @@
 import { REQUEST_MS, TimedOutError, VERSION_CHECK_MS, createTask, fetchMinimumAppVersion, fetchTasks } from './api'
 
 const BASE = 'https://taskfest.example'
-const caller = { baseUrl: BASE, idToken: 't' }
+const caller = { baseUrl: BASE, token: 't' }
 
 /** A backend that takes the request and never answers. */
 function silent() {

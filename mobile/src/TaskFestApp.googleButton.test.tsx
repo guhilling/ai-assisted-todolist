@@ -11,7 +11,7 @@ jest.mock('react-native/Libraries/Utilities/useColorScheme', () => ({ __esModule
 function dependencies(overrides: Partial<Dependencies> = {}): Dependencies {
   return appDependencies({
     sessions: memorySessions(null),
-    google: { signIn: jest.fn().mockResolvedValue(null), renew: jest.fn(), signOut: jest.fn() },
+    google: { signIn: jest.fn().mockResolvedValue(null), signOut: jest.fn() },
     fetchTasks: jest.fn().mockResolvedValue([]),
     now: () => Date.UTC(2026, 9, 18, 9),
     ...overrides,
@@ -47,7 +47,7 @@ describe("Google's own sign-in button (#325)", () => {
   })
 
   it('starts the sign-in with Google', async () => {
-    const google = { signIn: jest.fn().mockResolvedValue(null), renew: jest.fn(), signOut: jest.fn() }
+    const google = { signIn: jest.fn().mockResolvedValue(null), signOut: jest.fn() }
     await render(<TaskFestApp variant={prod} language="en" dependencies={dependencies({ google })} />)
 
     await userEvent.setup().press(await screen.findByRole('button', { name: 'Sign in with Google' }))
@@ -56,7 +56,7 @@ describe("Google's own sign-in button (#325)", () => {
   })
 
   it('starts one sign-in however often it is tapped while Google is busy', async () => {
-    const google = { signIn: jest.fn().mockReturnValue(new Promise(() => undefined)), renew: jest.fn(), signOut: jest.fn() }
+    const google = { signIn: jest.fn().mockReturnValue(new Promise(() => undefined)), signOut: jest.fn() }
     await render(<TaskFestApp variant={prod} language="en" dependencies={dependencies({ google })} />)
     const user = userEvent.setup()
     const button = await screen.findByRole('button', { name: 'Sign in with Google' })

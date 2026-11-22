@@ -253,14 +253,13 @@ Google's SDK, Apple's on iOS, or code + PKCE through the system browser — and 
 token** it is given as `Authorization: Bearer`
 ([decisions/mobile-app.md](decisions/mobile-app.md)). Since #281 it sends it once, to trade it for
 an app session, whose token it sends on every request from then on ([App sessions](#app-sessions)).
-An ID token is still accepted on any request: from a session kept from before app sessions until
-it is traded, from a sign-in whose trade could not be made just now, and from any other client
-that sends one. This section is how it is checked, wherever it is sent.
+An ID token is still accepted on any request: from an app older than app sessions (before v1.8.0),
+and from any other client that sends one. This section is how it is checked, wherever it is sent.
 
 ```
 App      sign-in with the platform's SDK          → an ID token
 App      POST /api/auth/app-session  Authorization: Bearer <ID token>
-           (until it is traded: GET /api/tasks and the rest with it)
+           (an app from before app sessions: GET /api/tasks and the rest with it)
 Backend  provider by the token's iss → signature, issuer, expiry (go-oidc)
          → issued to one of the provider's clients? an ID token? email verified? (verifyIDToken)
          → 201 or 200, or 401 — never a redirect, never a session cookie
@@ -294,10 +293,9 @@ Backend  provider by the token's iss → signature, issuer, expiry (go-oidc)
   authorizer: the cookie needs the function anyway, and one place decides for both.
 - **How long it lasts was the app's business** while it sent ID tokens, valid for an hour at
   Google and renewed silently by the SDK, and signed itself out after 30 days without use. Since
-  #281 the app trades every sign-in's ID token for an app session instead, and a session kept from
-  before is traded silently ([mobile/sign-in.md](mobile/sign-in.md#app-sessions)); a bearer ID
-  token is still accepted, for that transition and for any client that sends one. The website's
-  limits are unchanged.
+  #281 the app trades every sign-in's ID token for an app session instead
+  ([mobile/sign-in.md](mobile/sign-in.md#app-sessions)); a bearer ID token is still accepted, for
+  older apps and for any client that sends one. The website's limits are unchanged.
 
 ## App sessions
 

@@ -1,12 +1,12 @@
-import { AuthRequest, exchangeCodeAsync, fetchDiscoveryAsync, makeRedirectUri, refreshAsync } from 'expo-auth-session'
+import { AuthRequest, exchangeCodeAsync, fetchDiscoveryAsync, makeRedirectUri } from 'expo-auth-session'
 import type { Tokens } from './staySignedIn'
 import { withinLimit } from './timeLimit'
 import type { SignIn } from './variants'
 
 /**
  * Signing in the way RFC 8252 asks of a native app (#264, #267): the system browser, a public
- * client, PKCE, and the tokens kept on the device. The ID token is what the backend is sent; the
- * access token is never used.
+ * client and PKCE. The ID token is what the backend is sent, once, to trade for an app session
+ * (#281); the access token is never used, and neither it nor a refresh token is kept.
  *
  * Google's sign-in does not go this way -- Google wants its own SDKs on phones -- and is in
  * `google.ts` (#280). This is for OpenID Connect providers that allow it: the local Keycloak and qa's Cognito.
@@ -16,7 +16,7 @@ import type { SignIn } from './variants'
  */
 export function providerFor(signIn: SignIn, scheme: string) {
   const redirectUri = makeRedirectUri({ scheme, path: 'oauthredirect' })
-  // Asked for once and kept, unless asking failed: renewing should not cost a round trip more.
+  // Asked for once and kept, unless asking failed: signing in again should not cost a round trip more.
   let document: ReturnType<typeof fetchDiscoveryAsync> | null = null
   const discovery = () => {
     document ??= withinLimit(() => fetchDiscoveryAsync(signIn.issuer)).catch((failure: unknown) => {
@@ -49,14 +49,7 @@ export function providerFor(signIn: SignIn, scheme: string) {
           document,
         ),
       )
-      return { idToken: tokens.idToken, refreshToken: tokens.refreshToken }
-    },
-
-    /** Renews the tokens; rejects when the provider will not. */
-    async refresh(refreshToken: string): Promise<Tokens> {
-      const document = await discovery()
-      const tokens = await withinLimit(() => refreshAsync({ clientId: signIn.clientId, refreshToken }, document))
-      return { idToken: tokens.idToken, refreshToken: tokens.refreshToken }
+      return { idToken: tokens.idToken }
     },
   }
 }

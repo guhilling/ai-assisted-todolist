@@ -76,15 +76,6 @@ describe('the board kept on the phone (#272)', () => {
     ).toBeOnTheScreen()
   })
 
-  it('shows the kept board when the sign-in cannot be renewed for want of a connection', async () => {
-    const expiring = { ...session, expiresAt: NOW }
-    const refresh = jest.fn().mockRejectedValue(new TypeError('Network request failed'))
-    await start({ sessions: memorySessions(expiring), keptBoard: memoryBoard(kept), provider: { signIn: jest.fn(), refresh } })
-
-    expect(await screen.findByText(OFFLINE)).toBeOnTheScreen()
-    expect(screen.getByText('Water the plants')).toBeOnTheScreen()
-  })
-
   it('loads again when asked, and drops the note once it has', async () => {
     const fetchTasks = jest.fn().mockImplementationOnce(noConnection).mockResolvedValue([water, train])
     const { user } = await start({ keptBoard: memoryBoard(kept), fetchTasks })

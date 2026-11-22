@@ -23,7 +23,7 @@ describe('the app’s variants', () => {
       label: 'Keycloak',
       issuer: 'http://localhost:8082/realms/taskfest',
       clientId: 'taskfest-app',
-      scopes: ['openid', 'email', 'profile', 'offline_access'],
+      scopes: ['openid', 'email', 'profile'],
     })
   })
 

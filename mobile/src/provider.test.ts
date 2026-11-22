@@ -8,7 +8,6 @@ jest.mock('expo-auth-session', () => {
     makeRedirectUri: jest.fn(({ scheme, path }) => `${scheme}://${path}`),
     fetchDiscoveryAsync: jest.fn().mockResolvedValue({ tokenEndpoint: 'https://idp/token' }),
     exchangeCodeAsync: jest.fn(),
-    refreshAsync: jest.fn(),
     AuthRequest: jest.fn().mockImplementation(() => ({ promptAsync, codeVerifier: 'verifier' })),
     __promptAsync: promptAsync,
   }
@@ -17,7 +16,6 @@ jest.mock('expo-auth-session', () => {
 const mocked = AuthSession as unknown as {
   AuthRequest: jest.Mock
   exchangeCodeAsync: jest.Mock
-  refreshAsync: jest.Mock
   __promptAsync: jest.Mock
 }
 
@@ -25,7 +23,7 @@ const keycloak: SignIn = {
   label: 'Keycloak',
   issuer: 'http://localhost:8082/realms/taskfest',
   clientId: 'taskfest-app',
-  scopes: ['openid', 'offline_access'],
+  scopes: ['openid', 'email'],
 }
 
 describe('signing in with a provider', () => {
@@ -33,23 +31,23 @@ describe('signing in with a provider', () => {
 
   it('asks for a code with PKCE, returning to the variant’s own scheme', async () => {
     mocked.__promptAsync.mockResolvedValue({ type: 'success', params: { code: 'the-code' } })
-    mocked.exchangeCodeAsync.mockResolvedValue({ idToken: 'id', refreshToken: 'refresh' })
+    mocked.exchangeCodeAsync.mockResolvedValue({ idToken: 'id' })
 
     await providerFor(keycloak, 'de.hilling.taskfest.dev').signIn()
 
     expect(mocked.AuthRequest).toHaveBeenCalledWith({
       clientId: 'taskfest-app',
-      scopes: ['openid', 'offline_access'],
+      scopes: ['openid', 'email'],
       redirectUri: 'de.hilling.taskfest.dev://oauthredirect',
       usePKCE: true,
     })
   })
 
-  it('exchanges the code with its verifier and keeps the ID and refresh tokens', async () => {
+  it('exchanges the code with its verifier and keeps the ID token alone', async () => {
     mocked.__promptAsync.mockResolvedValue({ type: 'success', params: { code: 'the-code' } })
-    mocked.exchangeCodeAsync.mockResolvedValue({ idToken: 'id', refreshToken: 'refresh', accessToken: 'unused' })
+    mocked.exchangeCodeAsync.mockResolvedValue({ idToken: 'id', refreshToken: 'unused', accessToken: 'unused' })
 
-    await expect(providerFor(keycloak, 'scheme').signIn()).resolves.toEqual({ idToken: 'id', refreshToken: 'refresh' })
+    await expect(providerFor(keycloak, 'scheme').signIn()).resolves.toEqual({ idToken: 'id' })
     expect(mocked.exchangeCodeAsync).toHaveBeenCalledWith(
       { clientId: 'taskfest-app', code: 'the-code', redirectUri: 'scheme://oauthredirect', extraParams: { code_verifier: 'verifier' } },
       { tokenEndpoint: 'https://idp/token' },
@@ -69,26 +67,14 @@ describe('signing in with a provider', () => {
     await expect(providerFor(keycloak, 'scheme').signIn()).rejects.toThrow('invalid_scope')
   })
 
-  it('asks for the provider’s discovery document once, not on every renewal', async () => {
-    mocked.refreshAsync.mockResolvedValue({ idToken: 'id' })
+  it('asks for the provider’s discovery document once, not on every sign-in', async () => {
+    mocked.__promptAsync.mockResolvedValue({ type: 'cancel' })
     const provider = providerFor(keycloak, 'scheme')
 
-    await provider.refresh('r')
-    await provider.refresh('r')
+    await provider.signIn()
+    await provider.signIn()
 
     expect(AuthSession.fetchDiscoveryAsync).toHaveBeenCalledTimes(1)
   })
 
-  it('renews with the refresh token', async () => {
-    mocked.refreshAsync.mockResolvedValue({ idToken: 'id-2', refreshToken: 'refresh-2' })
-
-    await expect(providerFor(keycloak, 'scheme').refresh('refresh-1')).resolves.toEqual({
-      idToken: 'id-2',
-      refreshToken: 'refresh-2',
-    })
-    expect(mocked.refreshAsync).toHaveBeenCalledWith(
-      { clientId: 'taskfest-app', refreshToken: 'refresh-1' },
-      { tokenEndpoint: 'https://idp/token' },
-    )
-  })
 })

@@ -17,7 +17,7 @@ import { variantOf } from './variants'
 // Its own day, and Alice signed in on it, rather than the shared NOW and session.
 const NOW = Date.UTC(2026, 9, 18, 9)
 const idToken = tokenWith({ exp: (NOW + HOUR) / 1000, email: 'alice@example.com' })
-const session: Session = { idToken, refreshToken: 'r', expiresAt: NOW + HOUR, lastUsedAt: NOW }
+const session: Session = { token: idToken, expiresAt: NOW + HOUR, email: 'alice@example.com' }
 
 const task: BoardTask = { id: 1, description: 'Water the plants', dueDate: '2026-10-18', importance: 'HIGH', state: 'TODO', attachments: [] }
 const photo: PickedFile = { uri: 'file:///cache/photo.jpg', name: 'photo.jpg', type: 'image/jpeg', size: 2_000_000 }
@@ -70,7 +70,7 @@ describe('attaching a file in the editor (#274)', () => {
 
     expect(await within(editor).findByText('photo.jpg')).toBeOnTheScreen()
     expect(deps.pickFile).toHaveBeenCalledWith('camera')
-    expect(deps.attachments!.upload).toHaveBeenCalledWith(expect.objectContaining({ idToken }), 1, photo, expect.any(Function))
+    expect(deps.attachments!.upload).toHaveBeenCalledWith(expect.objectContaining({ token: idToken }), 1, photo, expect.any(Function))
     await user.press(within(editor).getByRole('button', { name: 'Cancel' }))
     expect(within(screen.getByTestId('task-1')).getByRole('button', { name: 'Open photo.jpg' })).toBeOnTheScreen()
   })

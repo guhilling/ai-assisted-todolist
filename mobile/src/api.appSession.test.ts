@@ -37,7 +37,7 @@ describe('app sessions, as the app asks the backend for them (#281)', () => {
   it('ends the app session its token names, which answers with nothing to read', async () => {
     const fetchImpl = respond(204)
 
-    await expect(endAppSession({ baseUrl: BASE, idToken: 'taskfest_app_abc', appVersion: '1.8.0' }, fetchImpl)).resolves.toBeUndefined()
+    await expect(endAppSession({ baseUrl: BASE, token: 'taskfest_app_abc', appVersion: '1.8.0' }, fetchImpl)).resolves.toBeUndefined()
     expect(fetchImpl).toHaveBeenCalledWith(`${BASE}/api/auth/app-session`, {
       method: 'DELETE',
       headers: { Accept: 'application/json', Authorization: 'Bearer taskfest_app_abc', 'X-TaskFest-App': '1.8.0' },

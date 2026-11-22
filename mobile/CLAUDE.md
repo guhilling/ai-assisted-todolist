@@ -35,8 +35,7 @@ or any page with `.md` appended), not what you remember. Add Expo packages with
 - **Coverage has a floor** (`jest.coverageThreshold` in `package.json`): raise it when coverage
   rises, never lower it to land a change.
 - **The backend is sent the app session's token** (#281): every sign-in trades the provider's ID
-  token for one, once, and a session kept from before is traded silently until #633 removes that
-  transition (`src/staySignedIn.ts`, `doc/mobile/sign-in.md`). Never the access token, and every
+  token for one, once (`src/staySignedIn.ts`, `doc/mobile/sign-in.md`). Never the access token, and every
   response is checked with the generated validators before it is read.
 - **Tokens live in the keychain** (`expo-secure-store`), never in AsyncStorage or a file.
 - **Colours come from the website** (`src/theme.ts`, checked against `frontend/src/App.css`).

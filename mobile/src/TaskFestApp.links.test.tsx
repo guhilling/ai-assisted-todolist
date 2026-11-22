@@ -16,7 +16,7 @@ import { variantOf } from './variants'
 // Its own day, and Alice signed in on it, rather than the shared NOW and session.
 const NOW = Date.UTC(2026, 9, 30, 9)
 const idToken = tokenWith({ exp: (NOW + HOUR) / 1000, email: 'alice@example.com' })
-const session: Session = { idToken, refreshToken: 'r', expiresAt: NOW + HOUR, lastUsedAt: NOW }
+const session: Session = { token: idToken, expiresAt: NOW + HOUR, email: 'alice@example.com' }
 
 const ARTICLE = 'https://example.com/articles/42'
 const link = { id: 9, fileName: 'An article worth reading', contentType: 'text/uri-list', sizeBytes: 0, thumbnail: false, url: ARTICLE }
@@ -118,7 +118,7 @@ describe('a shared link (#414)', () => {
 
     await waitFor(() => expect(screen.queryByTestId('task-form')).toBeNull())
     expect(deps.attachments!.addLink).toHaveBeenCalledWith(
-      expect.objectContaining({ idToken }),
+      expect.objectContaining({ token: idToken }),
       2,
       { url: ARTICLE, title: 'An article worth reading' },
     )
@@ -156,7 +156,7 @@ describe('a link answered after a sign-out (#428)', () => {
       incoming: sharing(shared),
       keptBoard: memoryBoard(null),
       fetchTasks: jest.fn().mockResolvedValueOnce([task]).mockResolvedValue([beas]),
-      provider: { signIn: jest.fn().mockResolvedValue({ idToken: beasToken, refreshToken: 'b' }), refresh: jest.fn() },
+      provider: { signIn: jest.fn().mockResolvedValue({ idToken: beasToken }) },
       ...overrides,
     })
   }

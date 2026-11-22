@@ -7,7 +7,7 @@ import { uploadFile, type PickedFile, type UploadApi, type UploadParts } from '.
  * confirmed. The content never passes through the backend.
  */
 
-const caller = { baseUrl: 'https://taskfest.example', idToken: 'the-token' }
+const caller = { baseUrl: 'https://taskfest.example', token: 'the-token' }
 const attachment = { id: 9, fileName: 'photo.jpg', contentType: 'image/jpeg', sizeBytes: 2_000_000, thumbnail: true }
 const photo: PickedFile = { uri: 'file:///cache/photo.jpg', name: 'photo.jpg', type: 'image/jpeg', size: 2_000_000 }
 

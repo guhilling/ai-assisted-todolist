@@ -122,7 +122,7 @@ describe('the account, from the app (#275)', () => {
     await user.type(screen.getByLabelText('Type your email address to confirm'), 'ada@example.com')
     await user.press(screen.getByRole('button', { name: 'Delete my account' }))
 
-    expect(deps.deleteAccount).toHaveBeenCalledWith({ baseUrl: BASE, idToken })
+    expect(deps.deleteAccount).toHaveBeenCalledWith({ baseUrl: BASE, token: session.token })
     expect(
       await screen.findByText('Your account has been deleted. Signing in again starts a new, empty one.'),
     ).toBeOnTheScreen()
@@ -164,8 +164,8 @@ describe('the account, from the app (#275)', () => {
     expect(await screen.findByText('Your session has expired. Sign in again to carry on.')).toBeOnTheScreen()
   })
 
-  it('cannot be deleted when the token names no address to type', async () => {
-    const anonymous = { ...session, idToken: tokenWith({ exp: NOW / 1000 + 3600 }) }
+  it('cannot be deleted when the session names no address to type', async () => {
+    const anonymous = { ...session, email: null }
     const { user } = await openAccount({ sessions: memorySessions(anonymous) })
 
     await user.press(screen.getByRole('button', { name: 'Delete account' }))
@@ -206,30 +206,25 @@ async function confirmDelete(user: ReturnType<typeof userEvent.setup>) {
 }
 
 describe('the account, when things overlap (#275)', () => {
-  it('stays signed out when a renewal under way finishes after the sign-out', async () => {
+  it('stays signed out when a lookup under way finishes after the sign-out', async () => {
     const comeBack = foreground()
-    const soon = tokenWith({ exp: (NOW + 30_000) / 1000, email: 'ada@example.com' })
-    let renew: () => void = () => undefined
-    const refresh = jest
-      .fn()
-      .mockResolvedValueOnce({ idToken: soon })
-      .mockReturnValueOnce(new Promise((resolve) => (renew = () => resolve({ idToken }))))
-    const sessions = memorySessions({ ...session, idToken: soon, expiresAt: NOW + 30_000 })
+    const sessions = slowKeychain(session)
     const fetchTasks = jest.fn().mockResolvedValue([water])
     await render(
       <TaskFestApp
         variant={variants.dev}
         language="en"
-        dependencies={dependencies({ sessions, fetchTasks, provider: { signIn: jest.fn(), refresh } })}
+        dependencies={dependencies({ sessions, fetchTasks })}
       />,
     )
     await screen.findByText('Water the plants')
     const user = userEvent.setup()
 
+    sessions.hold('load')
     await comeBack()
     await user.press(screen.getByRole('button', { name: 'Account' }))
     await user.press(screen.getByRole('button', { name: 'Sign out' }))
-    await act(async () => renew())
+    await act(async () => sessions.letGo())
 
     expect(sessions.current()).toBeNull()
     expect(screen.getByRole('button', { name: 'Sign in with Keycloak' })).toBeOnTheScreen()
@@ -308,14 +303,14 @@ describe('the account, when things overlap (#275)', () => {
     // session yet, and could forget the one the sign-in is about to save.
     const comeBack = foreground()
     let finish: () => void = () => undefined
-    const signIn = jest.fn(() => new Promise<Tokens>((resolve) => (finish = () => resolve({ idToken, refreshToken: 'r' }))))
+    const signIn = jest.fn(() => new Promise<Tokens>((resolve) => (finish = () => resolve({ idToken }))))
     const sessions = memorySessions(null)
     const fetchMinimumAppVersion = jest.fn().mockResolvedValue('0.0.0')
     await render(
       <TaskFestApp
         variant={variants.dev}
         language="en"
-        dependencies={dependencies({ sessions, fetchMinimumAppVersion, provider: { signIn, refresh: jest.fn() } })}
+        dependencies={dependencies({ sessions, fetchMinimumAppVersion, provider: { signIn } })}
       />,
     )
     const user = userEvent.setup()
@@ -331,9 +326,9 @@ describe('the account, when things overlap (#275)', () => {
 
   it('closes the sheet when the backend turns the session away on the next load', async () => {
     const comeBack = foreground()
-    const signIn = jest.fn().mockResolvedValue({ idToken, refreshToken: 'r' })
+    const signIn = jest.fn().mockResolvedValue({ idToken })
     const fetchTasks = jest.fn().mockResolvedValueOnce([water]).mockRejectedValueOnce(new SignedOutError()).mockResolvedValue([water])
-    const { user } = await openAccount({ fetchTasks, provider: { signIn, refresh: jest.fn() } })
+    const { user } = await openAccount({ fetchTasks, provider: { signIn } })
 
     await user.press(screen.getByRole('button', { name: 'Done' }))
     await comeBack()
@@ -373,18 +368,11 @@ function slowKeychain(initial: Session) {
   }
 }
 
-describe('a renewal begun while the app signs out (#428)', () => {
+describe('a lookup begun while the app signs out (#428)', () => {
   // The backend turns the first change away, which signs out; while the keychain is read or
-  // cleared, a second change asks for a session, which renews: its renewal must not save it again.
+  // cleared, a second change asks for a session: it must be handed none, and leave none behind.
   it.each(['load', 'clear'] as const)('stays signed out when it begins during the keychain’s %s', async (step) => {
-    const soon = tokenWith({ exp: (NOW + 30_000) / 1000, email: 'ada@example.com' })
-    let renew: () => void = () => undefined
-    const refresh = jest
-      .fn()
-      .mockResolvedValueOnce({ idToken: soon })
-      .mockResolvedValueOnce({ idToken: soon })
-      .mockReturnValueOnce(new Promise((resolve) => (renew = () => resolve({ idToken }))))
-    const sessions = slowKeychain({ ...session, idToken: soon, expiresAt: NOW + 30_000 })
+    const sessions = slowKeychain(session)
     const update = jest
       .fn()
       .mockImplementationOnce(async () => {
@@ -399,7 +387,6 @@ describe('a renewal begun while the app signs out (#428)', () => {
         dependencies={dependencies({
           sessions,
           fetchTasks: jest.fn().mockResolvedValue([water, train]),
-          provider: { signIn: jest.fn(), refresh },
           changes: { create: jest.fn(), update, remove: jest.fn(), restore: jest.fn() },
         })}
       />,
@@ -409,10 +396,10 @@ describe('a renewal begun while the app signs out (#428)', () => {
     await user.press(await screen.findByRole('checkbox', { name: 'Mark "Water the plants" as done' }))
     await user.press(screen.getByRole('checkbox', { name: 'Mark "Book the train" as done' }))
     await act(async () => sessions.letGo())
-    await act(async () => renew())
 
     expect(await screen.findByRole('button', { name: 'Sign in with Keycloak' })).toBeOnTheScreen()
     expect(sessions.current()).toBeNull()
+    expect(update).toHaveBeenCalledTimes(1)
   })
 })
 
@@ -441,7 +428,7 @@ function twoAccounts(overrides: Partial<Dependencies> = {}) {
     sessions: memorySessions(session),
     keptBoard: memoryBoard(null),
     fetchTasks: jest.fn().mockResolvedValueOnce([water]).mockResolvedValue([bank]),
-    provider: { signIn: jest.fn().mockResolvedValue({ idToken: beasToken, refreshToken: 'b' }), refresh: jest.fn() },
+    provider: { signIn: jest.fn().mockResolvedValue({ idToken: beasToken }) },
     ...overrides,
   })
 }
@@ -467,7 +454,7 @@ async function switchToBea(user: ReturnType<typeof userEvent.setup>, deps: Depen
     expect(screen.getByText('Call the bank')).toBeOnTheScreen()
     expect(screen.queryByText('Water the plants')).toBeNull()
     expect(screen.queryByText('Your session has expired. Sign in again to carry on.')).toBeNull()
-    expect((deps.sessions as ReturnType<typeof memorySessions>).current()).toMatchObject({ idToken: beasToken })
+    expect((deps.sessions as ReturnType<typeof memorySessions>).current()).toMatchObject({ token: beasToken })
     expect(deps.keptBoard.save).toHaveBeenCalledTimes(kept)
     expect(deps.reminders.replace).toHaveBeenCalledTimes(reminded)
   }
@@ -716,7 +703,7 @@ describe('an answer for the account signed out of, found in review (#428)', () =
 
     expect(screen.getByText('Call the bank')).toBeOnTheScreen()
     expect(screen.queryByText('Your account has been deleted. Signing in again starts a new, empty one.')).toBeNull()
-    expect((deps.sessions as ReturnType<typeof memorySessions>).current()).toMatchObject({ idToken: beasToken })
+    expect((deps.sessions as ReturnType<typeof memorySessions>).current()).toMatchObject({ token: beasToken })
   })
 
   it('leaves the next account’s upload, and how far it has got, to it', async () => {

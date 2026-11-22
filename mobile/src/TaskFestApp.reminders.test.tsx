@@ -14,7 +14,7 @@ const OFFER = 'Get reminders for tasks that are due?'
 
 // Ada signed in on this clock, and a board to be reminded of: two tasks due tomorrow, one overdue.
 const idToken = tokenWith({ exp: NOW / 1000 + 3600, email: 'ada@example.com' })
-const session: Session = { idToken, refreshToken: 'r', expiresAt: NOW + HOUR, lastUsedAt: NOW }
+const session: Session = { token: idToken, expiresAt: NOW + HOUR, email: 'ada@example.com' }
 const water: BoardTask = { id: 1, description: 'Water the plants', dueDate: '2026-10-11', importance: 'HIGH', state: 'TODO' }
 const train: BoardTask = { id: 2, description: 'Book the train', dueDate: '2026-10-11', importance: 'LOW', state: 'TODO' }
 const rent: BoardTask = { id: 3, description: 'Pay the rent', dueDate: '2026-10-01', importance: 'MEDIUM', state: 'TODO' }
@@ -174,9 +174,9 @@ describe('the due-day reminders, from the app (#273)', () => {
     expect(screen.queryByText(OFFER)).toBeNull()
   })
 
-  it('clears them when the session ran out unused', async () => {
+  it('clears them when the session ran out', async () => {
     const reminders = scheduler('granted')
-    const stale = { ...session, lastUsedAt: NOW - 31 * 24 * HOUR }
+    const stale = { ...session, expiresAt: NOW }
     await render(
       <TaskFestApp variant={variants.dev} language="en" dependencies={dependencies({ reminders, sessions: memorySessions(stale) })} />,
     )

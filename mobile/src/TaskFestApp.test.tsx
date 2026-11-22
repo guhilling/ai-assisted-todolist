@@ -7,7 +7,7 @@ import { HOUR, NOW, dependencies as appDependencies, foreground, memorySessions,
 import { variants } from './variants'
 
 // An opaque token: the sign-in's own tokens are made in the tests that need one.
-const session: Session = { idToken: 'stored', refreshToken: 'r', expiresAt: NOW + HOUR, lastUsedAt: NOW }
+const session: Session = { token: 'stored', expiresAt: NOW + HOUR, email: null }
 
 /** Nobody signed in: most tests here start at the sign-in. */
 function dependencies(overrides: Partial<Dependencies> = {}): Dependencies {
@@ -35,19 +35,19 @@ describe('the app', () => {
     const deps = dependencies({
       sessions,
       fetchTasks,
-      provider: { signIn: jest.fn().mockResolvedValue({ idToken, refreshToken: 'r' }), refresh: jest.fn() },
+      provider: { signIn: jest.fn().mockResolvedValue({ idToken }) },
     })
     await render(<TaskFestApp variant={variants.dev} language="en" dependencies={deps} />)
 
     await userEvent.setup().press(await screen.findByRole('button', { name: 'Sign in with Keycloak' }))
 
     expect(await screen.findByText('Water the plants')).toBeOnTheScreen()
-    expect(sessions.current()?.idToken).toBe(idToken)
-    expect(fetchTasks).toHaveBeenCalledWith({ baseUrl: 'http://localhost:3000', idToken })
+    expect(sessions.current()?.token).toBe(idToken)
+    expect(fetchTasks).toHaveBeenCalledWith({ baseUrl: 'http://localhost:3000', token: idToken })
   })
 
   it('says so when signing in fails, and offers it again', async () => {
-    const deps = dependencies({ provider: { signIn: jest.fn().mockRejectedValue(new Error('no token')), refresh: jest.fn() } })
+    const deps = dependencies({ provider: { signIn: jest.fn().mockRejectedValue(new Error('no token')) } })
     await render(<TaskFestApp variant={variants.dev} language="en" dependencies={deps} />)
 
     await userEvent.setup().press(await screen.findByRole('button', { name: 'Sign in with Keycloak' }))
@@ -57,7 +57,7 @@ describe('the app', () => {
   })
 
   it('says so when the provider’s answer holds no ID token it can use', async () => {
-    const deps = dependencies({ provider: { signIn: jest.fn().mockResolvedValue({ refreshToken: 'r' }), refresh: jest.fn() } })
+    const deps = dependencies({ provider: { signIn: jest.fn().mockResolvedValue({}) } })
     await render(<TaskFestApp variant={variants.dev} language="en" dependencies={deps} />)
 
     await userEvent.setup().press(await screen.findByRole('button', { name: 'Sign in with Keycloak' }))
@@ -74,22 +74,6 @@ describe('the app', () => {
     expect(await screen.findByRole('button', { name: 'Sign in with Keycloak' })).toBeOnTheScreen()
   })
 
-  it('keeps the session and offers to try again when it cannot be renewed for now', async () => {
-    const expiring = { ...session, expiresAt: NOW }
-    const sessions = memorySessions(expiring)
-    const refresh = jest
-      .fn()
-      .mockRejectedValueOnce(new TypeError('Network request failed'))
-      .mockResolvedValueOnce({ idToken: tokenWith({ exp: (NOW + HOUR) / 1000 }) })
-    const deps = dependencies({ sessions, provider: { signIn: jest.fn(), refresh } })
-    await render(<TaskFestApp variant={variants.dev} language="en" dependencies={deps} />)
-
-    await userEvent.setup().press(await screen.findByRole('button', { name: 'Try again' }))
-
-    expect(await screen.findByText('Water the plants')).toBeOnTheScreen()
-    expect(sessions.current()).not.toBeNull()
-  })
-
   it('offers to try again when the board cannot be loaded', async () => {
     const fetchTasks = jest.fn().mockRejectedValueOnce(new Error('503')).mockResolvedValueOnce(tasks)
     const deps = dependencies({ sessions: memorySessions(session), fetchTasks })
@@ -102,7 +86,7 @@ describe('the app', () => {
   })
 
   it('stays on the sign-in when the user turns back', async () => {
-    const deps = dependencies({ provider: { signIn: jest.fn().mockResolvedValue(null), refresh: jest.fn() } })
+    const deps = dependencies({ provider: { signIn: jest.fn().mockResolvedValue(null) } })
     await render(<TaskFestApp variant={variants.dev} language="en" dependencies={deps} />)
 
     await userEvent.setup().press(await screen.findByRole('button', { name: 'Sign in with Keycloak' }))
@@ -197,7 +181,7 @@ describe('the app', () => {
     const idToken = tokenWith({ exp: (NOW + HOUR) / 1000 })
     const deps = dependencies({
       fetchMinimumAppVersion,
-      provider: { signIn: jest.fn().mockResolvedValue({ idToken, refreshToken: 'r' }), refresh: jest.fn() },
+      provider: { signIn: jest.fn().mockResolvedValue({ idToken }) },
     })
     await render(<TaskFestApp variant={variants.dev} language="en" dependencies={deps} />)
     const signIn = await screen.findByRole('button', { name: 'Sign in with Keycloak' })

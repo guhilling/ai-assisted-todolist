@@ -1,7 +1,7 @@
 import { ContractBreachError, RequestFailedError, addDraft, discardDraft, startDraft } from './api'
 
 const BASE = 'https://taskfest.example'
-const caller = { baseUrl: BASE, idToken: 'the-token', appVersion: '1.4.0' }
+const caller = { baseUrl: BASE, token: 'the-token', appVersion: '1.4.0' }
 
 function respond(...answers: [number, unknown?][]) {
   const fetchImpl = jest.fn()

@@ -13,7 +13,8 @@ decision in
 `mobile/src/provider.ts` runs the code flow with `expo-auth-session`, against the variant's
 provider and the app's own public client there: `taskfest-app` at the local Keycloak, and qa's
 Cognito app client once it exists. The redirect is `<bundle id>://oauthredirect`. Only the ID token
-and the refresh token are kept; the access token is never used.
+is used, once, for the trade below; the access token and a refresh token the provider adds are
+dropped. The local realm still lets the dev client ask for `offline_access`; nothing does (#633).
 
 Google is different: it wants its own SDKs on phones rather than a browser flow — below. So is
 Apple, whose sign-in is native too, and on iOS only.
@@ -26,39 +27,22 @@ gets instead: its token, its end, and the address of the ID token it was traded 
 token itself says nothing about the account (`mobile/src/staySignedIn.ts`). The backend trades an
 ID token once only, and the first trade is the one that counts.
 
-- **Refused** (401): the sign-in did not work, and the app says so.
-- **Not possible just now**, offline or against a backend from before app sessions: a Google or
-  OpenID Connect sign-in goes on with its ID token, as before, and is traded later, as a session
-  kept from before is (below). An **Apple** sign-in did not work, since Apple's ID token cannot be
-  renewed and would end within minutes; the next Apple sign-in brings a new one to trade.
+- **Refused** (401), **unanswered or not possible just now**: the sign-in did not work, and the app
+  says so and keeps no session, and Google's SDK is signed out of. Signing in again brings a new
+  ID token to trade, so one whose trade went unanswered, and may have been made after all, is never
+  sent a second time.
 - **Signing out** ends the session at the backend with `DELETE /api/auth/app-session`, as well as
   forgetting it on the phone ([account.md](account.md)). It is not waited for: offline, the phone
   forgets the session all the same, and the backend ends it when its 30 days are over. A session
   the backend has refused already, or that went with the account, is not sent again.
 
-`Caller.idToken` in `mobile/src/api.ts`, and `Session.idToken`, carry whichever token the session
-sends: the name goes with the transition (#633).
-
 ### Sessions from before
 
-A session kept on the phone by a release before app sessions is the provider's ID token itself.
-Gunnar chose to trade it silently: at the first start after the update, the app renews it as it
-always did if it is about to run out, trades it, and keeps the app session in its place. Nobody
-signs in again. A backend that refuses it ends it, as it would have ended at its next refusal.
-One that cannot be asked keeps it, and the app tries again after five minutes, not before every
-request (`TRADE_RETRY_MS`). A backend that refuses the trade ends the session, and the app says
-it has expired. Until the trade succeeds, the session goes on as before: renewed with the refresh
-token or Google's SDK, and ended after thirty days without use.
-
-**An ID token is never sent to be traded twice.** The backend trades one only once, and a trade
-whose answer was lost — a timeout, no connection, a server error — may have been made. Such an ID
-token is marked as spent, on the phone, and the next trade renews the session first and trades
-the new ID token. A session that cannot be renewed is not traded again, and goes on until it
-ends. A clear answer that nothing was traded, as a 404 from a backend from before app sessions,
-leaves the ID token as it was.
-
-That renewal is only there for the transition, and goes once a release with app sessions has
-been in the stores for 30 days (#633).
+A session kept by a release before app sessions (before v1.8.0) is the provider's ID token itself.
+v1.8.0 traded it silently; since #633 the app does not read it any more. A phone updated straight
+from an older release starts at the sign-in, without a notice, and that start deletes its old tokens
+from the keychain
+([decision](../decisions/authentication.md#the-app-no-longer-knows-sessions-from-before-app-sessions)).
 
 ## Google
 
@@ -82,18 +66,8 @@ the app speaks (`signedOut.google` in the catalogue, the same in both languages)
 40 points high, so it takes 4 more above and below for the finger. qa's test-account button keeps
 the app's own style.
 
-**Renewing**, for a session from before app sessions only: an app session is never renewed.
-Google gives the app no refresh token; its SDK keeps what it needs. A Google session says so
-(`via: 'google'`) and is renewed through the SDK instead: on Android by signing in again
-silently — Credential Manager picks the account already chosen, without asking, since the ID token
-the library keeps is never renewed — and on iOS by restoring the sign-in and asking for fresh
-tokens. Google refusing ends the session as a refused refresh token does — no saved credential on
-Android, or an `invalid_grant` passed on from Google on iOS, where the SDK has no code of its own
-for it. Anything else keeps the session: no connection, or the user turning away an account sheet
-that came up because more than one account has been used with the app. An Android renewal may
-take up to two minutes for that sheet, and one that comes back for another account ends the
-session rather than switching it. Signing out of a Google session, an app session traded from
-Google's ID token included, signs out of the SDK too, so the next sign-in asks which account.
+Google's SDK keeps the account it signed in with. A Google session says so (`via: 'google'`), and
+signing out of it signs out of the SDK too, so the next sign-in asks which account.
 
 **Only a build that knows the client ids has it.** They are repository variables, read by
 `mobile-release.yml`, and a release refuses to build without them
@@ -172,9 +146,7 @@ everywhere else. The dev build never has it: the local Keycloak takes no Apple t
 
 In the platform's keychain (`expo-secure-store`), never in plain storage
 (`mobile/src/staySignedIn.ts`). An app session is kept whole under a key of its own,
-`taskfest.appSession`, in one write, so no half of it is ever read as an ID token; the session it
-replaces goes only once it is kept. A session from before keeps each part under its own key,
-because some iOS releases refused values above about 2 KB.
+`taskfest.appSession`, in one write.
 
 ## How long it lasts
 
@@ -188,10 +160,3 @@ because some iOS releases refused values above about 2 KB.
   as it can be told: the app does not wait for the backend's answer, and only logs a failure, so
   offline the session stays valid at the backend until its 30 days are over, though no phone holds
   its token any more.
-
-A session from before app sessions keeps its old rules until it is traded (above). Its provider
-has to let the refresh token live that long. Keycloak's does with the `offline_access` scope,
-which the `dev` variant asks for — and which a user may only be given with the realm's default
-roles: the local accounts are imported with `default-roles-taskfest`, since an imported user gets
-no roles otherwise; Cognito's client sets the refresh token's lifetime itself, and asking for
-`offline_access` there is an error.

@@ -18,7 +18,7 @@ import { variantOf } from './variants'
 // Its own day, and Alice signed in on it, rather than the shared NOW and session.
 const NOW = Date.UTC(2026, 9, 20, 9)
 const idToken = tokenWith({ exp: (NOW + HOUR) / 1000, email: 'alice@example.com' })
-const session: Session = { idToken, refreshToken: 'r', expiresAt: NOW + HOUR, lastUsedAt: NOW }
+const session: Session = { token: idToken, expiresAt: NOW + HOUR, email: 'alice@example.com' }
 
 const task: BoardTask = { id: 1, description: 'Water the plants', dueDate: '2026-10-20', importance: 'HIGH', state: 'TODO', attachments: [] }
 const scan: PickedFile = { uri: 'file:///cache/shared/1-scan.pdf', name: 'scan.pdf', type: 'application/pdf', size: 90_000 }
@@ -84,7 +84,7 @@ describe('a share opens "Add a task" (#355)', () => {
 
     await waitFor(() => expect(screen.queryByTestId('task-form')).toBeNull())
     expect(deps.changes.create).toHaveBeenCalledWith(
-      expect.objectContaining({ idToken }),
+      expect.objectContaining({ token: idToken }),
       expect.objectContaining({ description: 'Read the article https://example.com/a', state: 'TODO' }),
     )
     expect(deps.attachments!.upload).toHaveBeenCalledWith(expect.anything(), 2, scan, expect.any(Function))
@@ -158,7 +158,7 @@ describe('a share opens "Add a task" (#355)', () => {
     const photo: PickedFile = { uri: 'file:///cache/shared/2-photo.jpg', name: 'photo.jpg', type: 'image/jpeg', size: 1_000 }
     const second: SharedDraft = { description: 'Second', files: [photo], refused: [] }
     const deps = dependencies({ sessions: memorySessions(null), incoming: sharing(share, second) })
-    deps.provider.signIn = jest.fn().mockResolvedValue({ idToken, refreshToken: 'r' })
+    deps.provider.signIn = jest.fn().mockResolvedValue({ idToken })
     let onChange: (state: string) => void = () => undefined
     jest.spyOn(AppState, 'addEventListener').mockImplementation((_type, listener) => {
       onChange = listener as (state: string) => void
@@ -220,7 +220,7 @@ describe('a share waits until the board can take it (#355)', () => {
   it('while signed out: it opens once signed in', async () => {
     const deps = dependencies({
       sessions: memorySessions(null),
-      provider: { signIn: jest.fn().mockResolvedValue({ idToken, refreshToken: 'r' }), refresh: jest.fn() },
+      provider: { signIn: jest.fn().mockResolvedValue({ idToken }) },
     })
     const user = await start(deps)
 
@@ -287,7 +287,7 @@ describe('a share is let go where the platform keeps it once its form is closed 
     const incoming = { ...sharing(share), settle: jest.fn() }
     const deps = dependencies({
       sessions: memorySessions(null),
-      provider: { signIn: jest.fn().mockResolvedValue({ idToken, refreshToken: 'r' }), refresh: jest.fn() },
+      provider: { signIn: jest.fn().mockResolvedValue({ idToken }) },
       incoming,
     })
     const user = await start(deps)

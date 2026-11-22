@@ -111,7 +111,7 @@ with (#141, #190). Unlike the Google client, all of it is code (`test-sign-in.tf
   settings.
 - **The mobile app's client** (#267) is public — an installed app cannot keep a secret — and returns
   to the qa build's scheme, `de.hilling.taskfest.qa://oauthredirect`, through the system browser
-  with PKCE. Its refresh tokens last thirty days. The backend accepts its ID tokens as bearer tokens
+  with PKCE. The app drops its refresh tokens (#633). The backend accepts its ID tokens as bearer tokens
   because the function's settings name it (`TASKFEST_OIDC_COGNITO_AUDIENCES`); the qa build of the
   app is given the issuer and the client id from the outputs `test_accounts_issuer` and
   `test_accounts_app_client_id`.

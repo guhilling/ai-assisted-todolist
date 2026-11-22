@@ -53,10 +53,9 @@ import { attachmentLimits, attachmentTypes, catalogues, chooseLanguage } from '.
 /** The variant this build was made as: `app.config.ts` put it into the app's configuration. */
 const variant = variantFromConfig(Constants.expoConfig?.extra?.variant)
 
-/** No provider at all, for a variant without sign-in: nothing to sign in with or renew. */
+/** No provider at all, for a variant without sign-in: nothing to sign in with. */
 const noProvider: Dependencies['provider'] = {
   signIn: async () => null,
-  refresh: () => Promise.reject(new Error('This build has no sign-in.')),
 }
 
 /**
@@ -291,13 +290,13 @@ const FLAG_GRANT_READ_URI_PERMISSION = 1
 const dependencies: Dependencies = {
   sessions: createSessionStore(SecureStore),
   provider: variant.signIn ? providerFor(variant.signIn, variant.scheme) : noProvider,
-  google: variant.google ? googleProviderFor(variant.google, GoogleOneTapSignIn, Platform.OS) : undefined,
+  google: variant.google ? googleProviderFor(variant.google, GoogleOneTapSignIn) : undefined,
   // On iOS, where the build has it (#281).
   apple: appleSignInFor(variant, Platform.OS, AppleAuthentication),
   // Every sign-in's ID token is traded for an app session, and the app signs out by ending it (#281).
   appSessions: {
     start: (idToken) => startAppSession({ baseUrl: variant.apiBaseUrl, appVersion }, idToken),
-    end: (token) => endAppSession({ baseUrl: variant.apiBaseUrl, idToken: token, appVersion }),
+    end: (token) => endAppSession({ baseUrl: variant.apiBaseUrl, token, appVersion }),
   },
   // Every request names the app's release (#268).
   fetchTasks: (caller) => fetchTasks({ ...caller, appVersion }),
