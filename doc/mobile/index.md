@@ -21,3 +21,4 @@ Push is the further story of #264.
 - [The account](account.md) — signing out, deleting the account, and the legal pages
 - [Due-day reminders](reminders.md) — the 08:00 reminder, and asking for its permission
 - [Distribution to testers](distribution.md) — what a release uploads, and the accounts and keys behind it
+- [Public store release](public-release.md) — what Play and the App Store ask before the app is public, with the proposed answers
