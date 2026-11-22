@@ -622,6 +622,97 @@ def notification_icon() -> str:
     ).replace(f'fill="{INK}"', 'fill="#ffffff"').replace(f'stroke="{INK}"', 'stroke="#ffffff"')
 
 
+# "TaskFest" in Quicksand Bold, as an outline, 1000 units to the em and 4218 wide, baseline at 0:
+# rsvg-convert has only the fonts installed, and Quicksand is not. Cut with fonttools from
+# mobile/assets/fonts/Quicksand-Bold.ttf, kerning included.
+WORDMARK_WIDTH = 4218
+WORDMARK = (
+    "M596 -642Q596 -616 579 -600Q562 -585 535 -585H378V-61Q378 -35 359 -18Q340 0 312 0"
+    "Q284 0 266 -18Q248 -35 248 -61V-585H91Q64 -585 47 -601Q30 -617 30 -643Q30 -668 48 -684"
+    "Q65 -700 91 -700H535Q562 -700 579 -684Q596 -668 596 -642ZM1084 -484V-61Q1084 -35 1067 -18"
+    "Q1050 0 1024 0Q998 0 982 -17Q965 -34 964 -60Q939 -31 896 -10Q854 10 807 10Q738 10 682 -26"
+    "Q626 -61 594 -124Q561 -187 561 -267Q561 -347 593 -410Q625 -474 680 -510Q736 -545 803 -545"
+    "Q851 -545 893 -528Q935 -510 964 -483V-484Q964 -510 981 -528Q998 -545 1024 -545"
+    "Q1050 -545 1067 -528Q1084 -511 1084 -484ZM969 -267Q969 -339 928 -387Q887 -435 822 -435"
+    "Q758 -435 717 -387Q676 -339 676 -267Q676 -195 716 -148Q757 -100 822 -100Q887 -100 928 -148"
+    "Q969 -195 969 -267ZM1174 -113Q1174 -139 1200 -157Q1214 -166 1229 -166Q1250 -166 1269 -147"
+    "Q1299 -116 1332 -101Q1364 -86 1410 -86Q1488 -89 1488 -145Q1488 -174 1462 -189"
+    "Q1435 -204 1379 -219Q1321 -235 1284 -251Q1248 -267 1222 -300Q1195 -332 1195 -387"
+    "Q1195 -435 1222 -470Q1250 -506 1294 -526Q1339 -545 1389 -545Q1440 -545 1491 -526"
+    "Q1542 -507 1571 -470Q1584 -454 1584 -434Q1584 -411 1565 -396Q1551 -385 1533 -385"
+    "Q1511 -385 1497 -399Q1479 -421 1450 -434Q1422 -447 1386 -447Q1310 -447 1310 -392"
+    "Q1310 -370 1324 -356Q1338 -343 1360 -336Q1381 -328 1420 -317Q1474 -302 1510 -286"
+    "Q1546 -270 1571 -237Q1596 -204 1596 -150Q1596 -101 1567 -64Q1538 -28 1492 -9Q1447 10 1399 10"
+    "Q1333 10 1276 -12Q1219 -34 1183 -83Q1174 -95 1174 -113ZM2160 -60Q2160 -35 2140 -18"
+    "Q2121 -1 2099 -1Q2073 -1 2055 -21L1875 -211L1826 -166V-61Q1826 -35 1809 -18Q1792 0 1766 0"
+    "Q1740 0 1723 -18Q1706 -35 1706 -61V-679Q1706 -705 1723 -722Q1740 -740 1766 -740"
+    "Q1792 -740 1809 -722Q1826 -705 1826 -679V-309L2040 -516Q2059 -535 2084 -535"
+    "Q2106 -535 2124 -516Q2141 -498 2141 -479Q2141 -455 2117 -434L1966 -295L2141 -105"
+    "Q2160 -85 2160 -60ZM2400 -585V-409H2616Q2642 -409 2660 -392Q2677 -376 2677 -350"
+    "Q2677 -328 2660 -311Q2642 -294 2616 -294H2400V-61Q2400 -35 2382 -18Q2363 0 2338 0"
+    "Q2310 0 2292 -17Q2275 -34 2275 -61V-639Q2275 -665 2292 -682Q2310 -700 2336 -700H2661"
+    "Q2687 -700 2704 -684Q2722 -667 2722 -641Q2722 -619 2704 -602Q2687 -585 2661 -585ZM3231 -226"
+    "H2901Q2913 -167 2956 -134Q2999 -100 3053 -100Q3094 -100 3117 -108Q3140 -115 3154 -124"
+    "Q3167 -132 3172 -135Q3190 -144 3206 -144Q3227 -144 3242 -129Q3257 -114 3257 -94"
+    "Q3257 -67 3229 -45Q3201 -22 3154 -6Q3107 10 3059 10Q2975 10 2912 -25Q2850 -60 2816 -122"
+    "Q2782 -183 2782 -260Q2782 -346 2818 -411Q2854 -476 2913 -510Q2972 -545 3039 -545"
+    "Q3105 -545 3164 -509Q3222 -473 3257 -412Q3292 -351 3292 -280Q3291 -256 3273 -241"
+    "Q3255 -226 3231 -226ZM2902 -326H3164V-333Q3160 -375 3123 -405Q3086 -435 3039 -435"
+    "Q2923 -435 2902 -326ZM3352 -113Q3352 -139 3378 -157Q3392 -166 3407 -166Q3428 -166 3447 -147"
+    "Q3477 -116 3510 -101Q3542 -86 3588 -86Q3666 -89 3666 -145Q3666 -174 3640 -189"
+    "Q3613 -204 3557 -219Q3499 -235 3462 -251Q3426 -267 3400 -300Q3373 -332 3373 -387"
+    "Q3373 -435 3400 -470Q3428 -506 3472 -526Q3517 -545 3567 -545Q3618 -545 3669 -526"
+    "Q3720 -507 3749 -470Q3762 -454 3762 -434Q3762 -411 3743 -396Q3729 -385 3711 -385"
+    "Q3689 -385 3675 -399Q3657 -421 3628 -434Q3600 -447 3564 -447Q3488 -447 3488 -392"
+    "Q3488 -370 3502 -356Q3516 -343 3538 -336Q3559 -328 3598 -317Q3652 -302 3688 -286"
+    "Q3724 -270 3749 -237Q3774 -204 3774 -150Q3774 -101 3745 -64Q3716 -28 3670 -9Q3625 10 3577 10"
+    "Q3511 10 3454 -12Q3397 -34 3361 -83Q3352 -95 3352 -113ZM4169 -64Q4169 -37 4140 -18"
+    "Q4110 0 4073 0Q4011 0 3968 -26Q3926 -53 3926 -139V-415H3880Q3856 -415 3840 -431"
+    "Q3824 -447 3824 -471Q3824 -494 3840 -510Q3856 -525 3880 -525H3926V-589Q3926 -615 3944 -632"
+    "Q3961 -650 3987 -650Q4012 -650 4029 -632Q4046 -615 4046 -589V-525H4117Q4141 -525 4157 -509"
+    "Q4173 -493 4173 -469Q4173 -446 4157 -430Q4141 -415 4117 -415H4046V-144Q4046 -123 4057 -114"
+    "Q4068 -104 4087 -104Q4095 -104 4109 -108Q4121 -113 4132 -113Q4146 -113 4158 -100"
+    "Q4169 -86 4169 -64Z"
+)
+
+# Play's feature graphic, for both listings' languages: the name is its only text.
+FEATURE_WIDTH, FEATURE_HEIGHT = 1024, 500
+# --brand-strong in frontend/src/App.css, the app's title too.
+BRAND_STRONG = "#58791d"
+
+
+def feature_task(y: int, width: int, done: bool) -> str:
+    """One line of the feature graphic's task list: its circle, ticked or not, and its text."""
+    if done:
+        circle = (f'<circle cx="640" cy="{y}" r="22" fill="{LEAF}"/>'
+                  f'<path d="M 630 {y} l 7 8 l 14 -16" fill="none" stroke="#ffffff" stroke-width="6" '
+                  'stroke-linecap="round" stroke-linejoin="round"/>')
+    else:
+        circle = f'<circle cx="640" cy="{y}" r="20" fill="#ffffff" stroke="{BRAND_STRONG}" stroke-width="4"/>'
+    fill = "#b9d597" if done else "#464648"
+    return f'{circle}\n  <rect x="684" y="{y - 9}" width="{width}" height="18" rx="9" fill="{fill}"/>'
+
+
+def feature_graphic() -> str:
+    """
+    Play's feature graphic (#608), Gunnar's pick "B" of 2026-11-22: the mark over the name, and a
+    task list beside them, two of four done.
+    """
+    size = 0.088
+    tasks = "\n  ".join(feature_task(y, width, done) for y, width, done in
+                        ((150, 150, True), (217, 190, True), (284, 170, False), (351, 120, False)))
+    return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {FEATURE_WIDTH} {FEATURE_HEIGHT}">
+  <rect width="{FEATURE_WIDTH}" height="{FEATURE_HEIGHT}" fill="{MINT}"/>
+  <g transform="translate(160 66) scale(1.75)">
+  {panda()}
+  </g>
+  <path transform="translate({275 - WORDMARK_WIDTH * size / 2:.1f} 402) scale({size})" fill="{BRAND_STRONG}" d="{WORDMARK}"/>
+  <rect x="572" y="80" width="340" height="340" rx="36" fill="#ffffff"/>
+  {tasks}
+</svg>
+"""
+
+
 def alt_text(svg: str) -> str:
     """A generated diagram's description, as its aria-label holds it."""
     return re.search(r'aria-label="([^"]*)"', svg).group(1)
@@ -676,6 +767,7 @@ def main() -> None:
         repo / "mobile/assets/icons/android-icon-background.svg": android_background,
         repo / "mobile/assets/icons/android-icon-monochrome.svg": android_monochrome,
         repo / "mobile/assets/icons/notification-icon.svg": notification_icon,
+        repo / "mobile/assets/icons/feature-graphic.svg": feature_graphic,
     }
     for path, build in artwork.items():
         path.parent.mkdir(parents=True, exist_ok=True)

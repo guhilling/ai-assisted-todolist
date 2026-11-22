@@ -119,8 +119,8 @@ Play Console → *Grow users → Store presence → Main store listing*
 | App name | 30 characters | "TaskFest" |
 | Short description | 80 characters | Gunnar's |
 | Full description | 4,000 characters | Gunnar's; the README's first paragraph is a start |
-| App icon | 512 × 512 PNG with alpha, up to 1 MB | `mobile/assets/icons/icon.svg`, rendered at 512 as `render-icons.sh` renders the others |
-| Feature graphic | 1024 × 500, JPEG or PNG without alpha; required | To be made: the logo on the mint tile beside the name |
+| App icon | 512 × 512 PNG with alpha, up to 1 MB | `mobile/assets/store/play-icon.png`, which `render-icons.sh` renders from the app's own |
+| Feature graphic | 1024 × 500, JPEG or PNG without alpha; required | `mobile/assets/store/feature-graphic.png`, rendered the same way: the mark and the name beside a task list, with no other text, so it serves both languages |
 | Phone screenshots | 2 to 8, JPEG or 24-bit PNG without alpha, 9:16 or 16:9, each side 320 to 3,840 px | From the app on a phone: the board, a task with its files, the reminders |
 | Contact email | Required, and shown on the listing | The privacy policy's contact address, which is public already |
 
