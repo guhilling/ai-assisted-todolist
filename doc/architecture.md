@@ -153,7 +153,7 @@ in what it costs:
 **Why switch: cost while always up.** The containers bill by the hour whether anyone uses them or
 not, almost all of it the load balancer, the task, the database instance and the task's public
 address ([cost.md](deployment/cost.md)). So an environment is taken down when idle, which is easy to
-forget. The Go backend bills per request: an environment that is always up costs about a dollar a
+forget. The Go backend bills per request: an environment that is always up costs about two dollars a
 month, and prod can simply stay up. The price is the tie to AWS, a language Gunnar does not mean
 to learn, and DynamoDB's designed-up-front access patterns. The decision,
 [The backend moves to Lambda, Go and DynamoDB, after a spike](decisions/deployment-and-aws.md#the-backend-moves-to-lambda-go-and-dynamodb-after-a-spike),
