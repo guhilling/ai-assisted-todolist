@@ -127,6 +127,19 @@ describe('app sessions, in the app (#281)', () => {
     expect(sessions.current()).toEqual({ ...appSession, via: 'google' })
   })
 
+  it('says signing in did not work even when Google cannot be signed out of after it', async () => {
+    const trade = appSessions()
+    trade.start.mockRejectedValue(new SignedOutError())
+    const google = googleProvider()
+    google.signOut.mockRejectedValue(new Error('no SDK'))
+    await render(<TaskFestApp variant={prod} language="en" dependencies={dependencies({ appSessions: trade, google })} />)
+
+    await userEvent.setup().press(await screen.findByRole('button', { name: 'Sign in with Google' }))
+
+    expect(await screen.findByText('Signing in did not work. Try again.')).toBeOnTheScreen()
+    expect(google.signOut).toHaveBeenCalled()
+  })
+
   it('shows the kept board of an app session’s account at once', async () => {
     const kept: KeptBoard = { account: 'ada@example.com', savedAt: NOW - HOUR, tasks }
     const fetchTasks = jest.fn(() => new Promise<Task[]>(() => undefined))

@@ -408,6 +408,13 @@ export function TaskFestApp({
     })
   }, [documents])
 
+  /** Has Google's SDK forget the account too, so the next sign-in asks which one. Never waited for. */
+  const signOutOfGoogle = useCallback(() => {
+    google?.signOut().catch((failure: unknown) => {
+      console.warn('Google could not be signed out of', failure)
+    })
+  }, [google])
+
   /**
    * Forgets the session on the phone and everything shown for it, and goes back to the sign-in.
    * The one way out: whatever the app keeps for a signed-in user goes here.
@@ -449,9 +456,7 @@ export function TaskFestApp({
         // Google's SDK remembers the account too; forgotten, the next sign-in asks which one. Not
         // waited for: a native call that never answers must not keep the board on the screen.
         if (kept?.via === 'google') {
-          google?.signOut().catch((failure: unknown) => {
-            console.warn('Google could not be signed out of', failure)
-          })
+          signOutOfGoogle()
         }
         // The app session ends at the backend too (#281), unless the backend has ended it already:
         // refused, or gone with the account. Not waited for either: offline, the phone forgets it
@@ -486,7 +491,7 @@ export function TaskFestApp({
         signingOut.current -= 1
       }
     },
-    [appSessions, forgetFiles, google, keptBoard, previews, reminders, sessions],
+    [appSessions, forgetFiles, keptBoard, previews, reminders, sessions, signOutOfGoogle],
   )
 
   /** Keeps the backend's view of the board on the phone, after applying what it just agreed to. */
@@ -895,9 +900,7 @@ export function TaskFestApp({
       console.warn('Signing in failed', failure)
       // Google's SDK may be signed in though the app is not: forgotten, as signing out does.
       if (via === 'google') {
-        google?.signOut().catch((cause: unknown) => {
-          console.warn('Google could not be signed out of', cause)
-        })
+        signOutOfGoogle()
       }
       setState({ kind: 'signedOut', notice: 'signInFailed' })
     } finally {
