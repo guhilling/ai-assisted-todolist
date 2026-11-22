@@ -67,12 +67,12 @@ jobs:
           git show "$latest:doc/api/openapi.yaml" > .oasdiff/latest.yaml
 
       - name: Compare the API with the newest release's
-        # The same oasdiff as Contract CI, which test_release_version.py holds it to. Through a shell,
-        # because the changelog goes to a file rather than to the log.
+        # The same oasdiff as Contract CI, with the same levels, which test_release_version.py holds
+        # it to. Through a shell, because the changelog goes to a file rather than to the log.
         uses: docker://tufin/oasdiff:v1.33.0
         with:
           entrypoint: sh
-          args: -c "oasdiff changelog .oasdiff/latest.yaml doc/api/openapi.yaml --format json > .oasdiff/changes.json"
+          args: -c "oasdiff changelog .oasdiff/latest.yaml doc/api/openapi.yaml --format json --severity-levels doc/api/oasdiff-levels > .oasdiff/changes.json"
 
       - name: Decide the version
         id: version

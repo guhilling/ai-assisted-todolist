@@ -599,6 +599,28 @@ a change to the one needs the other by hand, and the two differ at the edges of 
 in each language. And oasdiff reports the rewritten pattern as a change, so the next release is a
 minor rather than a patch.
 
+## A removed security requirement is no breaking change
+
+*Accepted · 2026-11-22 · #632*
+
+**Decision.** oasdiff's `api-security-removed` is a warning for this contract, not an error:
+`doc/api/oasdiff-levels` sets it, and Contract CI and `cut-release.yml` both pass that file, which
+`test_release_version.py` holds them to.
+
+**Why.** The contract's `security` is documentation. The backend authenticates in code
+(`serverless/internal/auth`), and nothing generated from the contract reads it, so removing a
+requirement breaks no client. As an error it would have made #632 a major release, with
+`oldest-supported-release` moved and the minimum app version raised, for a change that sends
+nothing different on the wire. Gunnar chose this over an ignore list of the 13 findings, which
+would have lasted until the oldest supported release moved past them, and over keeping the old
+scheme beside the new ones, which would have gone on naming Google's OpenID Connect where it is
+wrong.
+
+**Cost.** A real removal of a scheme from an endpoint, one a client relies on, now only warns;
+since the backend's code is what decides, that is a change to the backend, which its own tests
+catch.
+
+
 ## At most 500 tasks per user, and the API throttled at 10 a second
 
 *Accepted · 2026-11-16 · #607*

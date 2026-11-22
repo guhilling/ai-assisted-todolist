@@ -224,6 +224,14 @@ class SameOasdiffTest(unittest.TestCase):
         self.assertEqual(len(versions["contract-ci.yml"]), 1, versions)
         self.assertEqual(versions["cut-release.yml"], versions["contract-ci.yml"])
 
+    def test_both_workflows_use_the_contracts_levels(self):
+        # A check whose level the contract sets (#632) must weigh the same in the gate and in the
+        # release's version, or a change Contract CI let through would make the next one a major.
+        workflows = pathlib.Path(__file__).parents[1] / "workflows"
+        for name in ("contract-ci.yml", "cut-release.yml"):
+            with self.subTest(name):
+                self.assertIn("--severity-levels doc/api/oasdiff-levels", (workflows / name).read_text())
+
 
 if __name__ == "__main__":
     unittest.main()

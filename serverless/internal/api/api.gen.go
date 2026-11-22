@@ -367,10 +367,10 @@ type ServerInterface interface {
 	// PostApiAuthAppSession Start an app session
 	// (POST /api/auth/app-session)
 	PostApiAuthAppSession(w http.ResponseWriter, r *http.Request)
-	// GetApiAuthLogin Start or complete sign-in
+	// GetApiAuthLogin Start sign-in
 	// (GET /api/auth/login)
 	GetApiAuthLogin(w http.ResponseWriter, r *http.Request)
-	// GetApiAuthLoginProvider Start or complete sign-in with one provider
+	// GetApiAuthLoginProvider Start sign-in with one provider
 	// (GET /api/auth/login/{provider})
 	GetApiAuthLoginProvider(w http.ResponseWriter, r *http.Request, provider string)
 	// GetApiAuthLogout End the local session

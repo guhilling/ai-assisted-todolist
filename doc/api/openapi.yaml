@@ -484,10 +484,28 @@ components:
           - 1.0.0
           maxLength: 64
   securitySchemes:
-    SecurityScheme:
-      type: openIdConnect
-      openIdConnectUrl: https://accounts.google.com/.well-known/openid-configuration
-      description: Authentication
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: taskfest_session
+      description: 'The website''s session: the browser holds the cookie the sign-in
+        callback sets, and the session itself is kept by the backend. Ignored when
+        a request has an Authorization header, which is judged by its bearer token
+        alone.'
+    appSession:
+      type: http
+      scheme: bearer
+      bearerFormat: TaskFest app session
+      description: 'An app''s session (#281): the token `POST /api/auth/app-session`
+        answers with, sent as the bearer token for 30 days. It starts with `taskfest_app_`,
+        which is how the backend tells it from an ID token.'
+    idToken:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: An ID token from the sign-in of a provider the backend is configured
+        for (`GET /api/auth/providers`), such as Google's or Apple's, sent as the
+        bearer token while it is valid.
 tags:
 - name: Account
   description: The signed-in user's own account.
@@ -540,7 +558,9 @@ paths:
         '403':
           description: Not Allowed
       security:
-      - SecurityScheme: []
+      - sessionCookie: []
+      - appSession: []
+      - idToken: []
   /api/auth/app-session:
     post:
       summary: Start an app session
@@ -569,7 +589,7 @@ paths:
         '403':
           description: Not Allowed
       security:
-      - SecurityScheme: []
+      - idToken: []
     delete:
       summary: End the app session
       description: 'Signs the app out: ends the app session whose token is sent as
@@ -585,27 +605,27 @@ paths:
         '403':
           description: Not Allowed
       security:
-      - SecurityScheme: []
+      - appSession: []
   /api/auth/login:
     get:
-      summary: Start or complete sign-in
-      description: 'Being @Authenticated is the whole point: an unauthenticated request
-        is intercepted by the OIDC authorization code flow before this method ever
-        runs.'
+      summary: Start sign-in
+      description: Starts sign-in with the deployment's main provider; the provider's
+        callback completes it. Needs no authentication.
       tags:
       - Authentication
       responses:
+        '302':
+          description: Redirects to the provider's sign-in.
         '303':
-          description: Sign-in succeeded; redirects to the post-login URI.
-        '401':
-          description: Not Authorized
-        '403':
-          description: Not Allowed
-      security:
-      - SecurityScheme: []
+          description: The request is signed in already; redirects to the post-login
+            URI.
+        '404':
+          description: No such provider, or not one available here.
+        '502':
+          description: The provider could not be reached.
   /api/auth/login/{provider}:
     get:
-      summary: Start or complete sign-in with one provider
+      summary: Start sign-in with one provider
       description: For every provider but the deployment's main one, which uses /api/auth/login.
         The provider list names each provider's path.
       tags:
@@ -618,14 +638,15 @@ paths:
           type: string
           maxLength: 64
       responses:
+        '302':
+          description: Redirects to the provider's sign-in.
         '303':
-          description: Sign-in succeeded; redirects to the post-login URI.
-        '401':
-          description: Not Authorized
-        '403':
-          description: Not Allowed
-      security:
-      - SecurityScheme: []
+          description: The request is signed in already; redirects to the post-login
+            URI.
+        '404':
+          description: No such provider, or not one available here.
+        '502':
+          description: The provider could not be reached.
   /api/auth/logout:
     get:
       summary: End the local session
@@ -660,7 +681,9 @@ paths:
         '403':
           description: Not Allowed
       security:
-      - SecurityScheme: []
+      - sessionCookie: []
+      - appSession: []
+      - idToken: []
   /api/auth/providers:
     get:
       summary: List the configured sign-in providers
@@ -713,7 +736,9 @@ paths:
         '403':
           description: Not Allowed
       security:
-      - SecurityScheme: []
+      - sessionCookie: []
+      - appSession: []
+      - idToken: []
     post:
       summary: Create a task
       description: The caller becomes the owner; the id cannot be set.
@@ -750,7 +775,9 @@ paths:
         '403':
           description: Not Allowed
       security:
-      - SecurityScheme: []
+      - sessionCookie: []
+      - appSession: []
+      - idToken: []
   /api/tasks/drafts:
     post:
       summary: Start a draft task
@@ -772,7 +799,9 @@ paths:
         '403':
           description: Not Allowed
       security:
-      - SecurityScheme: []
+      - sessionCookie: []
+      - appSession: []
+      - idToken: []
   /api/tasks/drafts/{id}:
     delete:
       summary: Discard a draft task
@@ -796,7 +825,9 @@ paths:
         '403':
           description: Not Allowed
       security:
-      - SecurityScheme: []
+      - sessionCookie: []
+      - appSession: []
+      - idToken: []
   /api/tasks/drafts/{id}/add:
     post:
       summary: Add a draft task
@@ -837,7 +868,9 @@ paths:
         '403':
           description: Not Allowed
       security:
-      - SecurityScheme: []
+      - sessionCookie: []
+      - appSession: []
+      - idToken: []
   /api/tasks/{id}:
     put:
       summary: Replace a task
@@ -882,7 +915,9 @@ paths:
         '403':
           description: Not Allowed
       security:
-      - SecurityScheme: []
+      - sessionCookie: []
+      - appSession: []
+      - idToken: []
     delete:
       summary: Delete a task
       tags:
@@ -904,7 +939,9 @@ paths:
         '403':
           description: Not Allowed
       security:
-      - SecurityScheme: []
+      - sessionCookie: []
+      - appSession: []
+      - idToken: []
   /api/tasks/{taskId}/attachments:
     post:
       summary: Announce an upload
@@ -947,7 +984,9 @@ paths:
         '400':
           description: Bad Request
       security:
-      - SecurityScheme: []
+      - sessionCookie: []
+      - appSession: []
+      - idToken: []
   /api/tasks/{taskId}/attachments/links:
     post:
       summary: Add a link
@@ -991,7 +1030,9 @@ paths:
         '403':
           description: Not Allowed
       security:
-      - SecurityScheme: []
+      - sessionCookie: []
+      - appSession: []
+      - idToken: []
   /api/tasks/{taskId}/attachments/{id}:
     delete:
       summary: Remove an attachment
@@ -1021,7 +1062,9 @@ paths:
         '403':
           description: Not Allowed
       security:
-      - SecurityScheme: []
+      - sessionCookie: []
+      - appSession: []
+      - idToken: []
   /api/tasks/{taskId}/attachments/{id}/confirm:
     post:
       summary: Confirm an upload
@@ -1063,7 +1106,9 @@ paths:
         '403':
           description: Not Allowed
       security:
-      - SecurityScheme: []
+      - sessionCookie: []
+      - appSession: []
+      - idToken: []
   /api/tasks/{taskId}/attachments/{id}/link:
     get:
       summary: A link to open the file
@@ -1099,7 +1144,9 @@ paths:
         '403':
           description: Not Allowed
       security:
-      - SecurityScheme: []
+      - sessionCookie: []
+      - appSession: []
+      - idToken: []
   /api/tasks/{taskId}/attachments/{id}/thumbnail-link:
     get:
       summary: A link to the preview thumbnail
@@ -1135,7 +1182,9 @@ paths:
         '403':
           description: Not Allowed
       security:
-      - SecurityScheme: []
+      - sessionCookie: []
+      - appSession: []
+      - idToken: []
   /api/version:
     get:
       summary: Report the running release
