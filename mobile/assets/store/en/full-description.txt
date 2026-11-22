@@ -1,0 +1,34 @@
+TaskFest is a small task list of your own. Write down what there is to do, say when it is due and how important it is, and see what is next: today, tomorrow, this week and later.
+
+Plan
+• A due date in one tap, or any day from the calendar
+• A time of day, if a task has one
+• A time zone, for the call that is at 18:00 in Tokyo wherever you are
+• Importance at a glance, and overdue dates in red
+
+Attach
+• Photos, images and PDFs, up to two per task
+• Previews on the board, readable offline too
+
+Remember
+• A reminder around 08:00 on days tasks are due, and one at a task's own time
+• A reminder says how many tasks are due, never which, so your lock screen gives nothing away
+• Reminders are scheduled on your phone and sent by nobody
+
+Collect
+• Share a link, some text, a photo or a PDF from another app to start a task from it
+• The same list on your phone and at taskfest.cloud.hilling.de
+• The last list you loaded stays readable without a connection
+
+Private
+• Nobody but you can see your tasks in the app
+• No ads, no analytics tools, no tracking
+• Delete your account, with its tasks and files, in the app at any time
+
+TaskFest speaks English and German, and follows your phone's light or dark theme. You sign in with your Google account.
+
+Please note: TaskFest is a non-commercial demonstration of building software with the help of AI, run by Hilling IT GmbH, and it is open source. There is no promise that it is available or that your data is kept, so keep nothing in it that you cannot do without, and please enter nothing sensitive. An account holds up to 500 tasks and five files of up to 10 MB each.
+
+Privacy policy: https://taskfest-docs.cloud.hilling.de/doc/privacy.html
+Terms of service: https://taskfest-docs.cloud.hilling.de/doc/terms.html
+Source code: https://github.com/guhilling/ai-assisted-todolist
