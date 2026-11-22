@@ -53,7 +53,7 @@ sheet over the board.
 
 | Piece | Where |
 | --- | --- |
-| The sheet and its confirmation | `mobile/src/AccountScreen.tsx` |
+| What the sheet shows, and its confirmation | `mobile/src/AccountScreen.tsx` |
 | The legal links and the release, and the link to the documentation (#384) | `mobile/src/LegalLinks.tsx` |
 | Signing out and deleting, and what a failure leads to | `mobile/src/TaskFestApp.tsx` |
 | The request | `deleteAccount` in `mobile/src/api.ts` |

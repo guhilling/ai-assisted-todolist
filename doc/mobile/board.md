@@ -56,6 +56,9 @@ and the sign-in has it at its top as well (#384).
 - **The keyboard leaves the buttons in reach** (#382). Add or Save, Cancel and Delete sit below the
   form's fields, and the form gives way to the keyboard: the fields scroll in what is left above it,
   and the buttons stay above it, so a task can be added straight from typing its description.
+- **The phone's status bar stays readable** (#662). Android draws it over the app, so the app sets
+  its icons dark or light by the phone's theme, and a sheet, which fills the screen there, begins
+  below it. iOS does both by itself.
 - **Complete or reopen a task** — the circle in front of it, which a completed task shows ticked in the website's green.
 - **Delete a task** — from its form, at once and without "are you sure?": an offer to undo stands
   below the board for eight seconds. **Clear completed** deletes every completed task the same way.
@@ -120,6 +123,7 @@ connection — read, not changed ([decisions/mobile-app.md](../decisions/mobile-
 | --- | --- |
 | The board, its rows and the undo offer | `mobile/src/BoardScreen.tsx` |
 | The form, for adding and editing | `mobile/src/TaskForm.tsx` |
+| The sheet the form and the account are shown in | `mobile/src/Sheet.tsx` |
 | The platform's date picker | `mobile/src/DueDatePicker.tsx` |
 | The changes, and what a failure leads to | `mobile/src/TaskFestApp.tsx` |
 | The board kept on the phone | `mobile/src/keptBoard.ts` |
