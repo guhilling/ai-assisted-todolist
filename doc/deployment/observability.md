@@ -18,7 +18,7 @@ watched.
   the clean-up's log counts the alert line.
 - **A dashboard**, `taskfest-<env>-go-backend`, in CloudWatch: requests and their answers, time,
   errors, throttles, the stream's lag and the table. Free: the account's first three dashboards are.
-- **The shared monitoring server** (#508), qa only: the log lines also go to VictoriaLogs on a
+- **The shared monitoring server** (#508), prod since #631: the log lines also go to VictoriaLogs on a
   Hetzner VM, where Perses draws latency percentiles by route, cold starts and memory from them,
   beside the lines themselves. Not all of them: logship's own log stays in CloudWatch, the lines
   that only mark an invocation's start and end are left out, and a batch that fails three times is

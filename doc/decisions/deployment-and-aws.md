@@ -712,6 +712,8 @@ move the alias back to an older release's code whenever an apply ran after a dep
 
 *Accepted · 2026-11-13 · #508*
 
+Revised in part on 2026-11-17 (#631): prod sends its logs too, by Gunnar's choice.
+
 **Decision.** Where an environment names the monitoring server (`monitoring_endpoint`), a
 CloudWatch Logs subscription filter on each of the Go backend's log groups invokes `logship`, a
 fifth Go function, which posts the lines to the server's VictoriaLogs over HTTPS with basic auth.
