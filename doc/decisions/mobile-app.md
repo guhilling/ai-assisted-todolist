@@ -201,6 +201,9 @@ and Google's push services, so the privacy policy names both.
 
 Revised in part: a file's transfer is bounded by its size rather than ten seconds (below, #432).
 
+Revised in part on 2026-11-22 (#633): the app renews no tokens any more, so that call is not among
+those bounded.
+
 **Decision.** The app keeps the last board it loaded and shows it without a connection. Changes
 need a connection.
 

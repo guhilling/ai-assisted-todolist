@@ -10,7 +10,7 @@
 
 /**
  * How a variant signs in: an OpenID Connect provider, the app's own public client there, and the
- * scopes to ask for: what makes an ID token with the address, and no refresh token (#281).
+ * scopes to ask for: what makes an ID token with the address. No refresh token is asked for (#281).
  */
 export type SignIn = { label: string; issuer: string; clientId: string; scopes: string[] }
 

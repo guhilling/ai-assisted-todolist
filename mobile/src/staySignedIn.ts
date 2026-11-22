@@ -28,7 +28,8 @@ const APP_SESSION = 'taskfest.appSession'
 
 /**
  * Where releases before app sessions kept the provider's tokens. Nothing reads them any more, and
- * they go whenever the session does (#633): an app updated from such a release starts with none.
+ * they go when a session is saved or forgotten (#633): an app updated from such a release starts
+ * with none.
  */
 const BEFORE_APP_SESSIONS = ['taskfest.idToken', 'taskfest.refreshToken', 'taskfest.times']
 
@@ -36,6 +37,7 @@ const BEFORE_APP_SESSIONS = ['taskfest.idToken', 'taskfest.refreshToken', 'taskf
 export function createSessionStore(store: KeyValueStore) {
   return {
     async save(session: Session) {
+      await Promise.all(BEFORE_APP_SESSIONS.map((key) => store.deleteItemAsync(key)))
       await store.setItemAsync(APP_SESSION, JSON.stringify(session))
     },
 

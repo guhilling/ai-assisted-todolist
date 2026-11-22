@@ -110,13 +110,15 @@ describe('app sessions, in the app (#281)', () => {
     trade.start.mockRejectedValueOnce(failure)
     const sessions = memorySessions(null)
     const fetchTasks = jest.fn().mockResolvedValue(tasks)
-    await render(<TaskFestApp variant={prod} language="en" dependencies={dependencies({ appSessions: trade, sessions, fetchTasks })} />)
+    const google = googleProvider()
+    await render(<TaskFestApp variant={prod} language="en" dependencies={dependencies({ appSessions: trade, sessions, fetchTasks, google })} />)
     const user = userEvent.setup()
 
     await user.press(await screen.findByRole('button', { name: 'Sign in with Google' }))
 
     expect(await screen.findByText('Signing in did not work. Try again.')).toBeOnTheScreen()
     expect(sessions.current()).toBeNull()
+    expect(google.signOut).toHaveBeenCalled()
     expect(fetchTasks).not.toHaveBeenCalled()
 
     await user.press(screen.getByRole('button', { name: 'Sign in with Google' }))
@@ -270,7 +272,7 @@ describe('Sign in with Apple, in the app (#281)', () => {
     expect((deps.sessions as ReturnType<typeof memorySessions>).current()).toEqual(appSession)
   })
 
-  it('fails an Apple sign-in whose trade cannot be made, since Apple’s ID token cannot be renewed, and lets it be tried again at once', async () => {
+  it('fails an Apple sign-in whose trade cannot be made, and lets it be tried again at once', async () => {
     const trade = appSessions()
     trade.start.mockRejectedValueOnce(new TypeError('Network request failed'))
     const sessions = memorySessions(null)

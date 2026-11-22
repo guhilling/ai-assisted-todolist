@@ -44,6 +44,14 @@ describe('staying signed in', () => {
     await expect(createSessionStore(store).load()).resolves.toEqual(session)
   })
 
+  it('leaves nothing of a session from before app sessions beside the one it keeps (#633)', async () => {
+    const store = keptBefore()
+
+    await createSessionStore(store).save(session)
+
+    expect([...store.values.keys()]).toEqual(['taskfest.appSession'])
+  })
+
   it('reads a session as the release that brought app sessions kept it', async () => {
     const store = memoryStore()
     store.values.set(

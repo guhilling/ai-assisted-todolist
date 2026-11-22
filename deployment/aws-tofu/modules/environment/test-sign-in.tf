@@ -138,8 +138,8 @@ resource "aws_cognito_user_pool_client" "app" {
   explicit_auth_flows = ["ALLOW_REFRESH_TOKEN_AUTH", "ALLOW_USER_SRP_AUTH"]
   read_attributes     = ["email", "email_verified", "name"]
 
-  # The app keeps a sign-in for thirty days without use (doc/decisions/mobile-app.md); Cognito's refresh
-  # tokens do not roll, so here it ends thirty days after sign-in, used or not.
+  # The app trades its ID token for an app session (#281) and drops the refresh token, so how long
+  # that lasts no longer matters (#633).
   id_token_validity      = 1
   access_token_validity  = 1
   refresh_token_validity = 30

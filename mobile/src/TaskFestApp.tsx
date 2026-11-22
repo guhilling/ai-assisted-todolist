@@ -893,6 +893,12 @@ export function TaskFestApp({
     } catch (failure) {
       // Logged for the device log -- the only trace a failed sign-in on a test device leaves.
       console.warn('Signing in failed', failure)
+      // Google's SDK may be signed in though the app is not: forgotten, as signing out does.
+      if (via === 'google') {
+        google?.signOut().catch((cause: unknown) => {
+          console.warn('Google could not be signed out of', cause)
+        })
+      }
       setState({ kind: 'signedOut', notice: 'signInFailed' })
     } finally {
       signingIn.current = false

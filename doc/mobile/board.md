@@ -74,8 +74,8 @@ As on the website (`doc/decisions/frontend.md`):
   and says why.
 - **A delete goes at once**, and a task the backend keeps comes back with a message.
 - **A session that has ended is not a failure.** The change leads to the sign-in, saying the
-  session expired, as the website does. The session
-  lasts 30 days from the sign-in and is not renewed ([sign-in.md](sign-in.md#how-long-it-lasts)).
+  session expired, as the website does. The session lasts 30 days from the sign-in and is
+  not renewed ([sign-in.md](sign-in.md#how-long-it-lasts)).
 
 Every text, the app's own included, is in the website's catalogue ([development.md](development.md)).
 

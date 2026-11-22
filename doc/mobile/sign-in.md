@@ -13,8 +13,8 @@ decision in
 `mobile/src/provider.ts` runs the code flow with `expo-auth-session`, against the variant's
 provider and the app's own public client there: `taskfest-app` at the local Keycloak, and qa's
 Cognito app client once it exists. The redirect is `<bundle id>://oauthredirect`. Only the ID token
-is used, once, for the trade below; no refresh token is asked for, and the access token is never
-used.
+is used, once, for the trade below; the access token and a refresh token the provider adds are
+dropped. The local realm still lets the dev client ask for `offline_access`; nothing does (#633).
 
 Google is different: it wants its own SDKs on phones rather than a browser flow — below. So is
 Apple, whose sign-in is native too, and on iOS only.
@@ -28,8 +28,9 @@ token itself says nothing about the account (`mobile/src/staySignedIn.ts`). The 
 ID token once only, and the first trade is the one that counts.
 
 - **Refused** (401), **unanswered or not possible just now**: the sign-in did not work, and the app
-  says so and keeps nothing. Signing in again brings a new ID token to trade, so one whose trade
-  went unanswered, and may have been made after all, is never sent a second time.
+  says so and keeps no session, and Google's SDK is signed out of. Signing in again brings a new
+  ID token to trade, so one whose trade went unanswered, and may have been made after all, is never
+  sent a second time.
 - **Signing out** ends the session at the backend with `DELETE /api/auth/app-session`, as well as
   forgetting it on the phone ([account.md](account.md)). It is not waited for: offline, the phone
   forgets the session all the same, and the backend ends it when its 30 days are over. A session
@@ -39,8 +40,8 @@ ID token once only, and the first trade is the one that counts.
 
 A session kept by a release before app sessions (before v1.8.0) is the provider's ID token itself.
 v1.8.0 traded it silently; since #633 the app does not read it any more. A phone updated straight
-from an older release starts at the sign-in, and its old tokens go from the keychain with the next
-clearing, which that start does
+from an older release starts at the sign-in, without a notice, and that start deletes its old tokens
+from the keychain
 ([decision](../decisions/authentication.md#the-app-no-longer-knows-sessions-from-before-app-sessions)).
 
 ## Google
@@ -159,4 +160,3 @@ In the platform's keychain (`expo-secure-store`), never in plain storage
   as it can be told: the app does not wait for the backend's answer, and only logs a failure, so
   offline the session stays valid at the backend until its 30 days are over, though no phone holds
   its token any more.
-
