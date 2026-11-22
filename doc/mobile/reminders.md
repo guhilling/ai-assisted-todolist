@@ -99,8 +99,8 @@ On Android the reminders have their own channel, **Due tasks**, so they can be s
 without touching anything else, and the status bar shows the mark's single-colour form
 (`mobile/assets/notification-icon.png`). They are scheduled as inexact alarms, so a reminder may
 come late: Android 14 gave those scheduled hours ahead a window of one hour, as `dumpsys alarm` on
-an emulator showed, and some came at its end (#608). Exact alarms need a permission Android grants
-only to clocks and calendars.
+an emulator showed, and one had not come twelve minutes after 08:00 (#608). Exact alarms need a
+permission Android grants only to clocks and calendars.
 
 ## Code and tests
 
