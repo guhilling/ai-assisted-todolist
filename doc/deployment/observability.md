@@ -18,14 +18,14 @@ watched.
   the clean-up's log counts the alert line.
 - **A dashboard**, `taskfest-<env>-go-backend`, in CloudWatch: requests and their answers, time,
   errors, throttles, the stream's lag and the table. Free: the account's first three dashboards are.
-- **The shared monitoring server** (#508), qa only: the log lines also go to VictoriaLogs on a
+- **The shared monitoring server** (#508), prod since #631: the log lines also go to VictoriaLogs on a
   Hetzner VM, where Perses draws latency percentiles by route, cold starts and memory from them,
   beside the lines themselves. Not all of them: logship's own log stays in CloudWatch, the lines
   that only mark an invocation's start and end are left out, and a batch that fails three times is
   dropped. CloudWatch keeps every line. Below: [The monitoring server](#the-monitoring-server).
-- **Metrics of its own:** none. Lambda's and API Gateway's are in CloudWatch, and the logs carry the
-  rest -- which is why the monitoring server's figures come from the access log and the `REPORT`
-  lines.
+- **Metrics of its own:** only the one the orphan alarm's log filter publishes. Lambda's and API
+  Gateway's are in CloudWatch, and the logs carry the rest -- which is why the monitoring server's
+  figures come from the access log and the `REPORT` lines.
 
 **The containers** went from the infrastructure in #557, and with them their log group, its saved
 queries and the up-time reminder;
@@ -40,7 +40,8 @@ describes what watched them.
 - **Budgets**, account-wide and made by hand in the Billing console, not in OpenTofu: one at $1.50,
   one at $15 and a last warning at $100 a month, as of 2026-11-14. The per-environment budgets
   [cost.md](cost.md) proposed were not created; with the Go backend's costs a month at a time, the
-  hand-made ones are what remains to be tested against the new bill (#558).
+  hand-made ones are what remains to be tested against the new bill (#558). The one at $1.50 is
+  likely to mail every month ([cost.md](cost.md#now)).
 - **Traces.** None. One function in front of one table does not repay X-Ray; when the commercial
   shape has more than one service, this is where it goes.
 
