@@ -117,14 +117,20 @@ Play Console → *Grow users → Store presence → Main store listing*
 | Asset | What Play takes | Where it comes from |
 | --- | --- | --- |
 | App name | 30 characters | "TaskFest" |
-| Short description | 80 characters | Gunnar's |
-| Full description | 4,000 characters | Gunnar's; the README's first paragraph is a start |
+| Short description | 80 characters | `mobile/assets/store/<en, de>/short-description.txt` |
+| Full description | 4,000 characters | `mobile/assets/store/<en, de>/full-description.txt` |
 | App icon | 512 × 512 PNG with alpha, up to 1 MB | `mobile/assets/store/play-icon.png`, which `render-icons.sh` renders from the app's own |
 | Feature graphic | 1024 × 500, JPEG or PNG without alpha; required | `mobile/assets/store/feature-graphic.png`, rendered the same way: the mark and the name beside a task list, with no other text, so it serves both languages |
-| Phone screenshots | 2 to 8, JPEG or 24-bit PNG without alpha, 9:16 or 16:9, each side 320 to 3,840 px | From the app on a phone: the board, a task with its files, the reminders |
+| Phone screenshots | 2 to 8, JPEG or 24-bit PNG without alpha, 9:16 or 16:9, each side 320 to 3,840 px | `mobile/assets/store/<en, de>/1-board.png` to `6-dark.png`, in this order |
 | Contact email | Required, and shown on the listing | The privacy policy's contact address, which is public already |
 
-Both languages the app speaks, English and German, can have a listing of their own.
+Both languages the app speaks, English and German, have a listing of their own. Gunnar approved
+the texts on 2026-11-22.
+
+The screenshots show the app on an Android emulator, with example tasks and named as in production,
+against the end-to-end stack (#608). On the reminder's lock screen the network provider's name is
+blurred away, since Play asks for none, and the emulator's wallpaper, which is Google's, is dimmed
+to black.
 
 Both listings link the terms of use ([terms.md](../terms.md)) beside the privacy policy, in the
 full description: Play has no field of its own for them.

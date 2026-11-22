@@ -1,0 +1,34 @@
+TaskFest ist deine eigene, kleine Aufgabenliste. Schreib auf, was zu tun ist, bis wann und wie wichtig es ist, und sieh, was als Nächstes kommt: heute, morgen, diese Woche und später.
+
+Planen
+• Ein Fälligkeitsdatum mit einem Tippen, oder ein beliebiger Tag aus dem Kalender
+• Eine Uhrzeit, wenn eine Aufgabe eine hat
+• Eine Zeitzone, für den Anruf, der um 18:00 Uhr in Tokio ist, wo immer du gerade bist
+• Wichtigkeit auf einen Blick, und überfällige Termine in Rot
+
+Anhängen
+• Fotos, Bilder und PDFs, bis zu zwei pro Aufgabe
+• Vorschaubilder in der Liste, auch ohne Verbindung
+
+Erinnern
+• Eine Erinnerung um 8:00 Uhr an Tagen, an denen Aufgaben fällig sind, und eine zur Uhrzeit einer Aufgabe
+• Eine Erinnerung sagt, wie viele Aufgaben fällig sind, nie welche: Dein Sperrbildschirm verrät nichts
+• Erinnerungen plant dein Telefon selbst, niemand schickt sie dir
+
+Sammeln
+• Teile einen Link, einen Text, ein Foto oder ein PDF aus einer anderen App und beginne damit eine Aufgabe
+• Dieselbe Liste auf dem Telefon und unter taskfest.cloud.hilling.de
+• Die zuletzt geladene Liste bleibt auch ohne Verbindung lesbar
+
+Privat
+• Niemand außer dir kann deine Aufgaben in der App sehen
+• Keine Werbung, keine Analyse, kein Tracking
+• Dein Konto löschst du jederzeit in der App, mit allem, was darin ist
+
+TaskFest spricht Deutsch und Englisch und folgt dem hellen oder dunklen Design deines Telefons. Du meldest dich mit deinem Google-Konto an.
+
+Bitte beachte: TaskFest ist eine nichtkommerzielle Demonstration, wie Software mit Hilfe von KI entsteht, betrieben von der Hilling IT GmbH, und der Quellcode ist offen. Es gibt keine Zusage, dass TaskFest verfügbar ist oder deine Daten erhalten bleiben. Bewahre also nichts darin auf, worauf du nicht verzichten kannst, und gib bitte nichts Vertrauliches ein. Ein Konto fasst bis zu 500 Aufgaben und fünf Dateien von je höchstens 10 MB.
+
+Datenschutzerklärung: https://taskfest-docs.cloud.hilling.de/doc/datenschutz.html
+Nutzungsbedingungen: https://taskfest-docs.cloud.hilling.de/doc/nutzungsbedingungen.html
+Quellcode: https://github.com/guhilling/ai-assisted-todolist
