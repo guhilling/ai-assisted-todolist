@@ -2,7 +2,14 @@
 
 What it takes to move the app from testers only ([distribution.md](distribution.md)) to the
 stores' public listings (#608): Android first, on Play's production track; iOS once Sign in with
-Apple (#281) is done, since App Store Review Guideline 4.8 asks for it beside Google's sign-in.
+Apple (#281) is done. App Store Review Guideline 4.8 asks an app with Google's sign-in to offer a
+login service with privacy features beside it, limited data and a private email address among
+them, and Sign in with Apple is that service.
+
+Only the prod app goes public, `de.hilling.taskfest`; the qa app stays with testers. Going public
+revises the decision
+[Testers only, one app per environment](../decisions/mobile-app.md#testers-only-one-app-per-environment),
+which the change that makes it public marks superseded, and `distribution.md` with it.
 
 Going public in each store is Gunnar's decision, and so are the listing's texts and screenshots
 and the answers about data, which are statements of Hilling IT GmbH. This page lists what each
@@ -35,13 +42,14 @@ production release
 | --- | --- | --- |
 | Privacy policy | A public web page, in the listing and in the app | The documentation site's privacy policy, which the app's Account sheet links already ([account.md](account.md)) |
 | Ads | Whether the app shows ads | No |
+| Advertising ID | Whether the app uses it; asked of every app targeting API 33 or later | No |
 | App access | How a reviewer gets past the sign-in | Sign in with Google with any Google account; a test account of the company's own for the reviewer, entered in Play Console only, never in the repository |
 | Target audience | The age groups the app is for | 18 and over: a task list for adults, which keeps it out of the Families policy |
 | Content rating | The rating questionnaire | No violence, no gambling, nothing shared between users, no location shared: the lowest rating in every region |
 | Data safety | See below | See below |
 | Account deletion | An in-app way, and a web link | The app's *Delete account* ([account.md](account.md)); the web link is the privacy policy's *Your rights*, which says how, and the website's own *Delete account* |
 | News, government, financial features, health | Whether the app is one | No, to each |
-| Sensitive permissions | A form for SMS, call log and the like | None needed: the app asks only for notifications and the camera, and Android's photo picker needs no permission |
+| Sensitive permissions | A form for SMS, call log and the like | None needed: the app asks for notifications and the camera, and Android's photo picker needs no permission |
 
 The account deletion policy asks for both ways because the app lets a person create an account:
 "provide users with an in-app path to delete their app accounts and associated data", and "a web
@@ -68,11 +76,12 @@ their data to be deleted (*Delete account*, in the app and on the website).
 | Photos and videos → Photos | Collected | Optional | App functionality | Images attached to tasks |
 | Files and docs | Collected | Optional | App functionality | PDFs attached to tasks, and every file's name |
 | Other user-generated content | Collected | Required | App functionality | The tasks themselves |
-| App info and performance → Diagnostics | Collected | Required | App functionality, fraud prevention and security | The technical log of each request (30 or 90 days) |
+| App info and performance → Diagnostics | Collected | Required | App functionality, analytics, fraud prevention and security | The technical log of each request, kept 90 days, and 30 at Hetzner: for running the app securely and finding the cause of errors, which Play counts as analytics |
 
 Not declared, as proposed: **approximate location**, because the IP address in the technical log
 is never turned into a place, which is what Play's location type asks about; and **app
-interactions**, because no analytics of any kind are collected. **Nothing is shared**: the
+interactions**, because the app records nothing of what a person does in it beyond the requests
+in the technical log: no analytics tool, nor tracking of any kind. **Nothing is shared**: the
 Gravatar lookup by a hash of the address (privacy policy, *Profile pictures*) is made for the
 website's `GET /api/auth/me`, which the app never calls. Reminders are scheduled on the phone and
 never leave it.
@@ -90,12 +99,24 @@ Play Console → *Grow users → Store presence → Main store listing*
 | App icon | 512 × 512 PNG with alpha, up to 1 MB | `mobile/assets/icons/icon.svg`, rendered at 512 as `render-icons.sh` renders the others |
 | Feature graphic | 1024 × 500, JPEG or PNG without alpha; required | To be made: the logo on the mint tile beside the name |
 | Phone screenshots | 2 to 8, PNG or JPEG, 9:16 or 16:9, each side 320 to 3,840 px | From the app on a phone: the board, a task with its files, the reminders |
-| Contact email | Required | The company's support address, in Play Console only |
+| Contact email | Required, and shown on the listing | The privacy policy's contact address, which is public already |
 
 Both languages the app speaks, English and German, can have a listing of their own.
+
+Both listings link the terms of use ([terms.md](../terms.md)) beside the privacy policy, in the
+full description: Play has no field of its own for them.
+
+## Before the first public build
+
+- **Permissions the app does not need.** The generated manifest still carries the Expo template's
+  `SYSTEM_ALERT_WINDOW` (shown on the listing as drawing over other apps) and `VIBRATE`. The first
+  goes into `android.blockedPermissions` in `mobile/app.config.ts`; `VIBRATE` is harmless and the
+  notifications may use it. The storage permissions are for Android 12 and older only
+  (`maxSdkVersion` 32).
 
 ## iOS, after Sign in with Apple
 
 App Store Connect asks for the same in its own form: the privacy nutrition labels (the data types
-above, in Apple's categories), a demo account for App Review, the screenshots for each phone size
-it requires, and the privacy policy's address. This section is filled in once #281 is done.
+above, in Apple's categories), a demo account for App Review, the privacy policy's address, and
+screenshots for the iPhone sizes it requires and for the 13-inch iPad, since the app supports
+tablets (`supportsTablet` in `mobile/app.config.ts`). This section is filled in once #281 is done.
