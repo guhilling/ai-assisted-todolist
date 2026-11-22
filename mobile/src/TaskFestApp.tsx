@@ -1,6 +1,6 @@
 import { StatusBar } from 'expo-status-bar'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { ActivityIndicator, AppState, Image, Linking, Pressable, Text, useColorScheme, View } from 'react-native'
+import { ActivityIndicator, AppState, Image, Linking, Platform, Pressable, Text, useColorScheme, View } from 'react-native'
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context'
 import { AttachmentRefusedError, RequestFailedError, SignedOutError, TimedOutError, VERSION_CHECK_MS, type BoardTask, type Caller } from './api'
 import { FileViewer } from './Attachments'
@@ -1795,8 +1795,8 @@ export function TaskFestApp({
 
   return (
     <SafeAreaProvider>
-      {/* Android's is drawn over the app, its icons white unless told otherwise (#662). */}
-      <StatusBar style="auto" />
+      {/* Android's is drawn over the app, its icons white unless told otherwise (#662); iOS follows the theme itself. */}
+      {Platform.OS === 'android' ? <StatusBar style={darkMode ? 'light' : 'dark'} /> : null}
       <SafeAreaView style={styles.screen}>
         {state.kind === 'signedOut' ? (
           <SignedOutScreen
