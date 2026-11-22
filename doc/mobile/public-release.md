@@ -13,8 +13,8 @@ which the change that makes it public marks superseded, and `distribution.md` wi
 
 Going public in each store is Gunnar's decision, and so are the listing's texts and screenshots
 and the answers about data, which are statements of Hilling IT GmbH. This page lists what each
-store asks for. **The answers below are Claude's proposals, from the privacy policy and the code,
-for Gunnar to confirm or change**; each is marked *proposed* until he has.
+store asks for. The answers below were proposed by Claude, from the privacy policy and the code,
+and confirmed by Gunnar on 2026-11-22; the one still marked *proposed* waits for his answer.
 
 ## What has to come first
 
@@ -38,18 +38,26 @@ Play Console → *Policy and programs → App content*. Every declaration must b
 production release
 ([prepare your app for review](https://support.google.com/googleplay/android-developer/answer/9859455)).
 
-| Declaration | What Play asks | Proposed answer |
+| Declaration | What Play asks | Answer |
 | --- | --- | --- |
 | Privacy policy | A public web page, in the listing and in the app | The documentation site's privacy policy, which the app's Account sheet links already ([account.md](account.md)) |
 | Ads | Whether the app shows ads | No |
 | Advertising ID | Whether the app uses it; asked of every app targeting API 33 or later | No |
-| App access | How a reviewer gets past the sign-in | Sign in with Google with any Google account; a test account of the company's own for the reviewer, entered in Play Console only, never in the repository |
+| App access | How a reviewer gets past the sign-in | *Proposed:* a Google account of the company's own, for review only, its address and password entered in Play Console only, never in the repository (see below) |
 | Target audience | The age groups the app is for | 18 and over: a task list for adults, which keeps it out of the Families policy |
 | Content rating | The rating questionnaire | No violence, no gambling, nothing shared between users, no location shared: the lowest rating in every region |
 | Data safety | See below | See below |
 | Account deletion | An in-app way, and a web link | The app's *Delete account* ([account.md](account.md)); the web link is the privacy policy's *Your rights*, which says how, and the website's own *Delete account* |
 | News, government, financial features, health | Whether the app is one | No, to each |
 | Sensitive permissions | A form for SMS, call log and the like | None needed: the app asks for notifications and the camera, and Android's photo picker needs no permission |
+
+Play's reviewers sign in with details the developer gives them: for a sign-in with Google, "provide
+all account information with detailed instructions", details that are "reusable, and valid
+regardless of user location", that bypass a 2-step verification code, and are in English
+([sign-in details for review](https://support.google.com/googleplay/android-developer/answer/15748846)).
+So the review account has no 2-step verification, and its password does not expire. Until the
+website is open to everyone (#607), the account must also be one of the Google console's test
+users, or its sign-in is refused at the consent screen.
 
 The account deletion policy asks for both ways because the app lets a person create an account:
 "provide users with an in-app path to delete their app accounts and associated data", and "a web
@@ -64,10 +72,10 @@ it ([data safety](https://support.google.com/googleplay/android-developer/answer
 "Collected" is anything that leaves the phone, the backend included; data processed for the
 company by its processors (AWS, Hetzner) is not "shared".
 
-**For the whole app (proposed):** all data is encrypted in transit (HTTPS only); users can ask for
+**For the whole app:** all data is encrypted in transit (HTTPS only); users can ask for
 their data to be deleted (*Delete account*, in the app and on the website).
 
-| Data type | Collected / shared | Required | Purposes | Proposed because |
+| Data type | Collected / shared | Required | Purposes | Because |
 | --- | --- | --- | --- | --- |
 | Personal info → Email address | Collected | Required | App functionality, account management | Every account is keyed by it |
 | Personal info → Name | Collected | Required | Account management | Google sends it at sign-in, and it is kept with the session; the app does not show it |
@@ -78,7 +86,7 @@ their data to be deleted (*Delete account*, in the app and on the website).
 | Other user-generated content | Collected | Required | App functionality | The tasks themselves |
 | App info and performance → Diagnostics | Collected | Required | App functionality, analytics, fraud prevention and security | The technical log of each request, kept 90 days, and 30 at Hetzner: for running the app securely and finding the cause of errors, which Play counts as analytics |
 
-Not declared, as proposed: **approximate location**, because the IP address in the technical log
+Not declared: **approximate location**, because the IP address in the technical log
 is never turned into a place, which is what Play's location type asks about; and **app
 interactions**, because the app records nothing of what a person does in it beyond the requests
 in the technical log: no analytics tool, nor tracking of any kind. **Nothing is shared**: the
