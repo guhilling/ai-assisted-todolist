@@ -14,8 +14,7 @@ which the change that makes it public marks superseded, and `distribution.md` wi
 Going public in each store is Gunnar's decision, and so are the listing's texts and screenshots
 and the answers about data, which are statements of Hilling IT GmbH. This page lists what each
 store asks for. The answers below were proposed by Claude, from the privacy policy and the code.
-Gunnar confirmed them on 2026-11-22, except those still marked *proposed*, which wait for his
-answer.
+Gunnar confirmed them on 2026-11-22.
 
 ## What has to come first
 
@@ -41,16 +40,16 @@ production release
 
 | Declaration | What Play asks | Answer |
 | --- | --- | --- |
-| Privacy policy | A public web page, in the listing and in the app | *Proposed:* The documentation site's privacy policy, which the app's Account sheet links already ([account.md](account.md)) |
-| Ads | Whether the app shows ads | *Proposed:* No |
-| Advertising ID | Whether the app uses it; asked of every app targeting API 33 or later | *Proposed:* No |
-| App access | How a reviewer gets past the sign-in | *Proposed:* a Google account of the company's own, for review only, its address and password entered in Play Console only, never in the repository (see below) |
+| Privacy policy | A public web page, in the listing and in the app | The documentation site's privacy policy, which the app's Account sheet links already ([account.md](account.md)) |
+| Ads | Whether the app shows ads | No |
+| Advertising ID | Whether the app uses it; asked of every app targeting API 33 or later | No |
+| App access | How a reviewer gets past the sign-in | A Google account of the company's own, for review only, its address and password entered in Play Console only, never in the repository (see below) |
 | Target audience | The age groups the app is for | 18 and over: a task list for adults, which keeps it out of the Families policy |
 | Content rating | The rating questionnaire | No violence, no gambling, nothing shared between users, no location shared: the lowest rating in every region |
 | Data safety | See below | See below |
 | Account deletion | An in-app way, and a web link | The app's *Delete account* ([account.md](account.md)); the web link is the privacy policy's *Your rights*, which says how, and the website's own *Delete account* |
-| News, government, financial features, health | Whether the app is one | *Proposed:* No, to each |
-| Sensitive permissions | A form for SMS, call log and the like | *Proposed:* None needed: the app asks for notifications and the camera, and Android's photo picker needs no permission |
+| News, government, financial features, health | Whether the app is one | No, to each |
+| Sensitive permissions | A form for SMS, call log and the like | None needed: the app asks for notifications and the camera, and Android's photo picker needs no permission |
 
 Play's reviewers sign in with details the developer gives them: for a sign-in with Google, "provide
 all account information with detailed instructions", details that are "reusable, and valid
@@ -59,6 +58,15 @@ regardless of user location", that bypass a 2-step verification code, and are in
 So the review account has no 2-step verification, and its password does not expire. Until the
 website is open to everyone (#607), the account must also be one of the Google console's test
 users, or its sign-in is refused at the consent screen.
+
+Gunnar's steps, before the app is submitted for production:
+
+1. Create the account in the company's name, without 2-step verification.
+2. Before #607, add it to the test users in the Google console.
+3. Sign in to TaskFest on prod with it once, and add a few sample tasks for the reviewer to see.
+4. Enter its address and password, with instructions in English, in Play Console under *App content
+   → App access* (*Sign-in details* in Google's newer help), and nowhere else.
+5. Keep it working after the release: a changed password goes into Play Console too.
 
 The account deletion policy asks for both ways because the app lets a person create an account:
 "provide users with an in-app path to delete their app accounts and associated data", and "a web
