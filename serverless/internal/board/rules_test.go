@@ -115,9 +115,9 @@ func TestADescriptionIsBlankAsJavaSeesIt(t *testing.T) {
 	// @NotBlank is String.isBlank() in Hibernate Validator 9.1, Character.isWhitespace: an em
 	// space is blank, a no-break space is not.
 	task := valid()
-	task.Description = " 　"
+	task.Description = "\u2003\u3000"
 	refused(t, task)
-	task.Description = " "
+	task.Description = "\u00a0"
 	accepted(t, task)
 }
 
