@@ -16,7 +16,7 @@ IPv4 address. So environments were taken down when idle, and `env.sh up` and `do
 chore that was easy to forget: qa once ran four days unnoticed.
 
 Serverless bills per request instead. At TaskFest's traffic, an environment that is **always up**
-costs about **$1 to $1.50 a month**:
+costs about **$1.70 a month** at list price ([cost.md](cost.md#now)):
 
 | | Price in eu-central-1 | At demo traffic |
 | --- | --- | --- |
@@ -535,8 +535,8 @@ it initialises (`Store.Prime`).
 ## The infrastructure
 
 `serverless.tf` and `serverless-jobs.tf` in `deployment/aws-tofu/modules/environment/` (#554), in
-both environments alike. The functions, the API and the table bill per request, and the alarms,
-$0.10 a month each, are the one fixed cost.
+both environments alike. The functions, the API and the table bill per request; what is fixed is in
+[cost.md](cost.md#now), the alarms most of it.
 
 - **The table**, `<project>-<env>-data`, on demand. TTL on `expiresAt` deletes ended sessions,
   sign-ins under way and session links; the stream carries what a deleted item held, for the
@@ -580,12 +580,11 @@ does:
 - The Go orphan clean-up's alert line feeds the orphan alarm's metric through a metric filter.
 
 **The alarms**, each $0.10 a month, mail through the existing topic on entering ALARM and on leaving
-it: the API function's errors and throttles, the API's server errors, at least five in one five-
-minute period (#558, Gunnar's threshold), its requests, at least 20,000 in an hour (#607), the
-stream function more than ten minutes behind (it
-reports a failed record rather than failing, so its errors would never show one), the scheduled
-functions' errors, and the table's throttled reads and writes. That is nine per environment, about
-$1.80 a month for both.
+it: the API function's errors and throttles, the HTTP API's server errors, at least five in one
+five-minute period (#558, Gunnar's threshold), the HTTP API's request count, at least 20,000 in an
+hour (#607), the stream function more than ten minutes behind (it reports a failed record rather
+than failing, so its errors would never show one), the scheduled functions' errors, and the table's
+throttled reads and writes. That is nine per environment, and the orphan alarm the tenth.
 
 **The dashboard** `taskfest-<env>-go-backend` (#558, `serverless-dashboard.tf`) shows the requests
 and their answers, the time they take, the API function's time, errors and throttles, the jobs'

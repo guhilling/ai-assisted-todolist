@@ -129,7 +129,7 @@ What the drawing did not show, because it was not there: the containers had no a
 own beyond the orphan alert and the up-time reminder ([observability.md](deployment/observability.md)),
 and their load balancer, task and database billed by the hour, so an environment had to be taken
 down whenever nobody used it. The README's drawing of the Go backend has a whole band for how it is
-watched, and nothing in it bills by the hour: an idle month costs its alarms, $0.10 each, and the
+watched, and nothing in it bills by the hour: an idle month costs its alarms and secrets, and the
 shared monitoring VM, about €6, is billed by Hetzner whatever runs.
 
 The two backends answered the same API, from the same contract (`doc/api/openapi.json`), and
@@ -142,7 +142,7 @@ in what it costs:
 | Reached through | an internal load balancer, a CloudFront VPC origin | API Gateway's HTTP API, with an origin header |
 | Data | PostgreSQL on RDS, Liquibase | one DynamoDB table, TTL and a stream |
 | Clean-up and deletion replay | inside the backend, while it runs | DynamoDB TTL and a stream function, and the orphan clean-up and replay on a schedule, always |
-| Bills | by the hour, about $1.86 a day while up | by the request, about $1 to $1.50 a month always up, nine alarms at $0.10 each included |
+| Bills | by the hour, about $1.86 a day while up | by the request, about $1.70 a month always up, ten alarms at $0.10 each included ([cost.md](deployment/cost.md#now)) |
 | When idle | taken down with `env.sh down`, a daily chore | nothing to take down |
 | First request after a pause | none while up; once down, `env.sh up` takes minutes | a cold start, 125–146 ms as measured in qa |
 | Deploying | blue/green between two target groups | a new version of each function (#555) |

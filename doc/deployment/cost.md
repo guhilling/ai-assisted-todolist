@@ -6,37 +6,34 @@ while it was up, measured from the bill, is [below](#until-557-the-containers), 
 
 ## Now
 
-Per environment, a month:
+A month, before VAT. The fixed items at list price, and for both environments also with the ten
+alarms and ten custom metrics CloudWatch includes
+([pricing](https://aws.amazon.com/cloudwatch/pricing/)). Those cover everything on the same bill
+together, so how much of them is left for TaskFest only the bill says:
 
-| | Per month |
+| | One environment | Both | Both, with CloudWatch's free ten |
+| --- | --- | --- | --- |
+| Ten alarms each, the orphan alarm (#208) among them, $0.10 an alarm | $1.00 | $2.00 | $1.00 |
+| The custom metric the orphan alarm's log filter publishes | $0.30 | $0.60 | nothing |
+| The Google client secret in Secrets Manager | $0.40 | $0.80 | $0.80 |
+| **Fixed** | **$1.70** | **$3.40** | **$1.80** |
+| Apple's signing key in Secrets Manager, once Sign in with Apple has its OpenTofu variables (#281) | $0.40 | $0.80 | $0.80 |
+| **Fixed, with Apple's key** | **$2.10** | **$4.20** | **$2.60** |
+
+Besides:
+
+| | Per environment |
 | --- | --- |
 | The Go backend's requests: Lambda, API Gateway, DynamoDB, CloudFront | cents at TaskFest's traffic ([serverless.md](serverless.md#why)) |
-| Its nine alarms, $0.10 each | $0.90 |
-| The orphan alarm (#208), and the custom metric its log filter publishes | $0.40 |
-| The Google client secret in Secrets Manager | $0.40 |
-| Apple's signing key in Secrets Manager, once Sign in with Apple has its OpenTofu variables (#281) | $0.40 |
 | The site and attachment buckets, the logs | cents; attachments are at most 50 MB a user |
 | The dashboard, qa's Cognito test accounts, the alerts topic and its mail | nothing |
-| **Total** | **about $1.60, plus requests; $2.00 with Apple's key** |
 
-The dashboards are free because CloudWatch includes three per account and the account had one
-before them; a fourth would cost $3 a month. Cognito's Lite plan is free for the first 10,000
-monthly active users. The Route 53 zone, $0.50 a month, is the account's and exists for other
+The prices of the fixed items, and those of the requests in
+[serverless.md](serverless.md#why), were checked against AWS's price list for `eu-central-1` on
+2026-11-23. The dashboards are free because CloudWatch includes three per account and the account
+had one before them; a fourth would cost $3 a month. Cognito's Lite plan is free for the first
+10,000 monthly active users. The Route 53 zone, $0.50 a month, is the account's and exists for other
 reasons anyway.
-
-These are list prices, checked against AWS's price list for `eu-central-1` on 2026-11-23. The bill
-may be lower: CloudWatch includes ten alarms and ten custom metrics a month
-([pricing](https://aws.amazon.com/cloudwatch/pricing/)), for everything on the same bill together,
-so how much of that is left for TaskFest only the bill says. With all of it:
-
-| The two environments together, a month | List price | With CloudWatch's free ten |
-| --- | --- | --- |
-| Twenty alarms | $2.00 | $1.00 |
-| Two custom metrics | $0.60 | nothing |
-| Two Google client secrets | $0.80 | $0.80 |
-| The Route 53 zone | $0.50 | $0.50 |
-| **Fixed, before VAT** | **$3.90** | **$2.30** |
-| With Apple's two keys | $4.70 | $3.10 |
 
 The Go backend's measured figures follow once a month of it is on the bill (#558). Sending its
 logs to the shared monitoring server, where an environment does (#508), adds a fifth function
@@ -55,9 +52,9 @@ continuously on purpose — an environment left up was exactly what the alarm wa
 **Not created:** the account
 has three budgets instead, made by hand in the Billing console for the whole account, at $1.50,
 $15 and $100 a month (as of 2026-11-14). They are what #558 tests against the Go backend's first
-full month on the bill. **The one at $1.50 is expected to mail every month:** the fixed costs alone
-are above it, by either column. An alarm that always fires says nothing; what it should be is
-Gunnar's to decide once the bill is there.
+full month on the bill. **The one at $1.50 is likely to mail every month**, should it compare the
+whole account's actual costs with the full amount: the fixed items and the account's zone come to
+$2.30 at least. What it should be is Gunnar's to decide once the bill is there.
 
 
 ## Until #557: the containers
