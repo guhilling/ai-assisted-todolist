@@ -1,5 +1,5 @@
 # doc/api/generate.py and Contract CI only (#559): the contract's YAML, and its check
 # against OpenAPI 3.1. Kept apart from .github/scripts/requirements.txt, so the site's jobs do
 # not install what they never import. Renovate keeps both current.
-pyyaml==6.0.3
+pyyaml==6.0.4
 openapi-spec-validator==0.9.0
