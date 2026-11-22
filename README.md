@@ -47,7 +47,7 @@ experiment, and the application inside it is TaskFest.
 </picture>
 
 The backend is Go on AWS Lambda with one DynamoDB table (#547), billed by the request, so an
-environment can stay up for about a dollar a month. It is a *backend-for-frontend*: it is the OIDC
+environment can stay up for under two dollars a month. It is a *backend-for-frontend*: it is the OIDC
 client, it performs the code exchange itself, and what reaches the browser is a session cookie
 rather than a token. One origin for the app and its API, so the SPA needs no API base URL:
 in AWS that origin is CloudFront, locally and in the end-to-end stack it is httpd, and in
