@@ -59,14 +59,20 @@ So the review account has no 2-step verification, and its password does not expi
 website is open to everyone (#607), the account must also be one of the Google console's test
 users, or its sign-in is refused at the consent screen.
 
+Google may still challenge a sign-in from a device or place it does not know, and the help pages
+we read name no way to turn that off. Should a review fail because of it, the sign-in details can
+be changed in Play Console and the app sent for review again
+([prepare your app for review](https://support.google.com/googleplay/android-developer/answer/9859455)).
+
 Gunnar's steps, before the app is submitted for production:
 
 1. Create the account in the company's name, without 2-step verification.
 2. Before #607, add it to the test users in the Google console.
 3. Sign in to TaskFest on prod with it once, and add a few sample tasks for the reviewer to see.
-4. Enter its address and password, with instructions in English, in Play Console under *App content
+4. Sign in with it on another device too, to see whether Google challenges it.
+5. Enter its address and password, with instructions in English, in Play Console under *App content
    → App access* (*Sign-in details* in Google's newer help), and nowhere else.
-5. Keep it working after the release: a changed password goes into Play Console too.
+6. Keep it working after the release: a changed password goes into Play Console too.
 
 The account deletion policy asks for both ways because the app lets a person create an account:
 "provide users with an in-app path to delete their app accounts and associated data", and "a web
@@ -115,7 +121,7 @@ Play Console → *Grow users → Store presence → Main store listing*
 | Full description | 4,000 characters | Gunnar's; the README's first paragraph is a start |
 | App icon | 512 × 512 PNG with alpha, up to 1 MB | `mobile/assets/icons/icon.svg`, rendered at 512 as `render-icons.sh` renders the others |
 | Feature graphic | 1024 × 500, JPEG or PNG without alpha; required | To be made: the logo on the mint tile beside the name |
-| Phone screenshots | 2 to 8, PNG or JPEG, 9:16 or 16:9, each side 320 to 3,840 px | From the app on a phone: the board, a task with its files, the reminders |
+| Phone screenshots | 2 to 8, JPEG or 24-bit PNG without alpha, 9:16 or 16:9, each side 320 to 3,840 px | From the app on a phone: the board, a task with its files, the reminders |
 | Contact email | Required, and shown on the listing | The privacy policy's contact address, which is public already |
 
 Both languages the app speaks, English and German, can have a listing of their own.
