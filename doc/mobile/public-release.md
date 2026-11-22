@@ -13,8 +13,9 @@ which the change that makes it public marks superseded, and `distribution.md` wi
 
 Going public in each store is Gunnar's decision, and so are the listing's texts and screenshots
 and the answers about data, which are statements of Hilling IT GmbH. This page lists what each
-store asks for. The answers below were proposed by Claude, from the privacy policy and the code,
-and confirmed by Gunnar on 2026-11-22; the one still marked *proposed* waits for his answer.
+store asks for. The answers below were proposed by Claude, from the privacy policy and the code.
+Gunnar confirmed them on 2026-11-22, except those still marked *proposed*, which wait for his
+answer.
 
 ## What has to come first
 
@@ -40,16 +41,16 @@ production release
 
 | Declaration | What Play asks | Answer |
 | --- | --- | --- |
-| Privacy policy | A public web page, in the listing and in the app | The documentation site's privacy policy, which the app's Account sheet links already ([account.md](account.md)) |
-| Ads | Whether the app shows ads | No |
-| Advertising ID | Whether the app uses it; asked of every app targeting API 33 or later | No |
+| Privacy policy | A public web page, in the listing and in the app | *Proposed:* The documentation site's privacy policy, which the app's Account sheet links already ([account.md](account.md)) |
+| Ads | Whether the app shows ads | *Proposed:* No |
+| Advertising ID | Whether the app uses it; asked of every app targeting API 33 or later | *Proposed:* No |
 | App access | How a reviewer gets past the sign-in | *Proposed:* a Google account of the company's own, for review only, its address and password entered in Play Console only, never in the repository (see below) |
 | Target audience | The age groups the app is for | 18 and over: a task list for adults, which keeps it out of the Families policy |
 | Content rating | The rating questionnaire | No violence, no gambling, nothing shared between users, no location shared: the lowest rating in every region |
 | Data safety | See below | See below |
 | Account deletion | An in-app way, and a web link | The app's *Delete account* ([account.md](account.md)); the web link is the privacy policy's *Your rights*, which says how, and the website's own *Delete account* |
-| News, government, financial features, health | Whether the app is one | No, to each |
-| Sensitive permissions | A form for SMS, call log and the like | None needed: the app asks for notifications and the camera, and Android's photo picker needs no permission |
+| News, government, financial features, health | Whether the app is one | *Proposed:* No, to each |
+| Sensitive permissions | A form for SMS, call log and the like | *Proposed:* None needed: the app asks for notifications and the camera, and Android's photo picker needs no permission |
 
 Play's reviewers sign in with details the developer gives them: for a sign-in with Google, "provide
 all account information with detailed instructions", details that are "reusable, and valid
