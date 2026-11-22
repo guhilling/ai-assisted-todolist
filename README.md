@@ -79,7 +79,7 @@ reasoning.
 The diagrams and the logo are generated: edit `doc/images/generate.py` and re-run it rather than
 touching the SVGs, which exist in a light and a dark variant that must stay in step. It also writes
 the website's favicon and the sources of the app's icons, which `mobile/assets/render-icons.sh`
-turns into the PNGs the app is built with.
+turns into the PNGs the app is built with and the graphics of its Play listing.
 
 ## Getting it running
 

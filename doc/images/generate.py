@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Generates the project's SVG artwork: the README's diagrams, and the logo -- with the website's
-favicon and sign-in icon, and the sources of the app's icons.
+favicon and sign-in icon, and the sources of the app's icons and Play listing.
 
 Run it after changing anything a diagram claims, or the mark:
 
@@ -623,8 +623,9 @@ def notification_icon() -> str:
 
 
 # "TaskFest" in Quicksand Bold, as an outline, 1000 units to the em and 4218 wide, baseline at 0:
-# rsvg-convert has only the fonts installed, and Quicksand is not. Cut with fonttools from
-# mobile/assets/fonts/Quicksand-Bold.ttf, kerning included.
+# rsvg-convert has only the fonts installed, and Quicksand is not. The glyphs of
+# mobile/assets/fonts/Quicksand-Bold.ttf as fonttools' SVGPathPen draws them, set by HarfBuzz
+# (uharfbuzz), kerning included.
 WORDMARK_WIDTH = 4218
 WORDMARK = (
     "M596 -642Q596 -616 579 -600Q562 -585 535 -585H378V-61Q378 -35 359 -18Q340 0 312 0"

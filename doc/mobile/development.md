@@ -60,7 +60,8 @@ The icons are the website's mark ([decisions/frontend.md](../decisions/frontend.
 `doc/images/generate.py` writes their SVG sources to `mobile/assets/icons/`, and
 `mobile/assets/render-icons.sh` turns them into the PNGs `app.config.ts` names — the iOS icon and
 Android's adaptive icon, with its mint background and a single-colour version for themed icons —
-and the white status-bar icon of the reminders.
+and the white status-bar icon of the reminders. It also renders Play's listing graphics, into
+`mobile/assets/store/` ([public-release.md](public-release.md)).
 
 ## Older than its backend
 
