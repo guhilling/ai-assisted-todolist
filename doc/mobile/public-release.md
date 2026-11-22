@@ -124,13 +124,13 @@ Play Console → *Grow users → Store presence → Main store listing*
 | Phone screenshots | 2 to 8, JPEG or 24-bit PNG without alpha, 9:16 or 16:9, each side 320 to 3,840 px | `mobile/assets/store/<en, de>/1-board.png` to `6-dark.png`, in this order |
 | Contact email | Required, and shown on the listing | The privacy policy's contact address, which is public already |
 
-Both languages the app speaks, English and German, have a listing of their own. Gunnar approved
-the texts on 2026-11-22.
+Both languages the app speaks get a listing of their own: English is the default language, German
+a translation of it in Play Console. Gunnar approved the texts on 2026-11-22.
 
 The screenshots show the app on an Android emulator, with example tasks and named as in production,
 against the end-to-end stack (#608). On the reminder's lock screen the network provider's name is
 blurred away, since Play asks for none, and the emulator's wallpaper, which is Google's, is dimmed
-to black.
+to black; the emulator's clock was set so that it reads 8:00, the reminder having come late.
 
 Both listings link the terms of use ([terms.md](../terms.md)) beside the privacy policy, in the
 full description: Play has no field of its own for them.
