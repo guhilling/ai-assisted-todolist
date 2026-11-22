@@ -337,6 +337,9 @@ file from going anywhere but HTTPS storage.
 ## An account deletion sends the browser only to Apple's sign-in
 
 *Accepted · 2026-11-21 · #639*
+*Revised in part · 2026-11-22 · #654: SonarCloud did not recognise the check, and its finding at
+the redirect is excluded for `App.tsx` in `sonar-project.properties`, as for the storage link's
+above; `NOSONAR` is not documented to work for taint findings.*
 
 **Decision.** `deleteAccount` in `api.ts` follows the sign-in URL of the backend's 428 answer
 (#635) only when it starts with `https://appleid.apple.com/`; any other URL is a failed deletion,
@@ -350,10 +353,11 @@ one line. The slash in the prefix is what refuses a host such as `appleid.apple.
 **Left out, to keep it simple.** A `pattern` in `openapi.json` would say the same in the
 contract; one check is enough, and this is the one SonarCloud sees. A refused URL is not worded as
 a broken contract (`ContractBreachError`), which would need a subject in both languages for a case
-that only a broken backend produces. Should SonarCloud not recognise the check, its finding is
-silenced at its line, as
+that only a broken backend produces. SonarCloud did not recognise the check, so its finding is
+excluded for the file, as
 [A SonarCloud false positive is silenced in the code, at its line](build-and-dependencies.md#a-sonarcloud-false-positive-is-silenced-in-the-code-at-its-line)
-says.
+says of taint findings. The cost is the same as there: a real open redirect elsewhere in `App.tsx`
+would not be reported either.
 
 
 ## Responses are validated against the schema the backend publishes
