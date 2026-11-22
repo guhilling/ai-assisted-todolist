@@ -337,6 +337,11 @@ file from going anywhere but HTTPS storage.
 ## An account deletion sends the browser only to Apple's sign-in
 
 *Accepted · 2026-11-21 · #639*
+*Revised in part · 2026-11-22 · #654: SonarCloud did not see the check after all, so its finding
+at the redirect is excluded for `App.tsx` in `sonar-project.properties`, as taint findings are by
+[A SonarCloud false positive is silenced in the code, at its line](build-and-dependencies.md#a-sonarcloud-false-positive-is-silenced-in-the-code-at-its-line).
+A real open redirect elsewhere in `App.tsx` would not be reported either. The check stays, and so
+does leaving the `pattern` out of `openapi.json`: one check is still enough.*
 
 **Decision.** `deleteAccount` in `api.ts` follows the sign-in URL of the backend's 428 answer
 (#635) only when it starts with `https://appleid.apple.com/`; any other URL is a failed deletion,
