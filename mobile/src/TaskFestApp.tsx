@@ -1,5 +1,6 @@
+import { StatusBar } from 'expo-status-bar'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { ActivityIndicator, AppState, Image, Linking, Modal, Pressable, Text, useColorScheme, View } from 'react-native'
+import { ActivityIndicator, AppState, Image, Linking, Pressable, Text, useColorScheme, View } from 'react-native'
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context'
 import { AttachmentRefusedError, RequestFailedError, SignedOutError, TimedOutError, VERSION_CHECK_MS, type BoardTask, type Caller } from './api'
 import { FileViewer } from './Attachments'
@@ -21,6 +22,7 @@ import type { ReminderScheduler } from './notifications'
 import { remindersFor } from './reminders'
 import { hasEnded, type Session } from './session'
 import { appSessionFrom, currentSession, type SessionStore, type Tokens, type Trade } from './staySignedIn'
+import { Sheet } from './Sheet'
 import { stylesFor, type Styles } from './styles'
 import { TaskForm, type TaskValues } from './TaskForm'
 import { dark, light } from './theme'
@@ -1793,6 +1795,8 @@ export function TaskFestApp({
 
   return (
     <SafeAreaProvider>
+      {/* Android's is drawn over the app, its icons white unless told otherwise (#662). */}
+      <StatusBar style="auto" />
       <SafeAreaView style={styles.screen}>
         {state.kind === 'signedOut' ? (
           <SignedOutScreen
@@ -1855,13 +1859,7 @@ export function TaskFestApp({
               }
               legend={explainColours ? { onDismiss: dismissLegend } : undefined}
             />
-            <Modal
-              testID="task-form"
-              visible={form !== null}
-              animationType="slide"
-              presentationStyle="pageSheet"
-              onRequestClose={() => setForm(null)}
-            >
+            <Sheet testID="task-form" visible={form !== null} styles={styles} onRequestClose={() => setForm(null)}>
               {form ? (
                 <TaskForm
                   key={form.task?.id ?? (form.share ? `share-${form.share}` : 'new')}
@@ -1892,7 +1890,7 @@ export function TaskFestApp({
                   onCancel={() => setForm(null)}
                 />
               ) : null}
-            </Modal>
+            </Sheet>
             <FileViewer
               file={viewing}
               messages={messages}
@@ -1902,11 +1900,10 @@ export function TaskFestApp({
                 documents?.save && viewing ? () => saveViewed(viewing) : undefined
               }
             />
-            <Modal
+            <Sheet
               testID="account-sheet"
               visible={account !== null}
-              animationType="slide"
-              presentationStyle="pageSheet"
+              styles={styles}
               onRequestClose={() => setAccount((current) => (current?.deleting ? current : null))}
             >
               <AccountScreen
@@ -1922,7 +1919,7 @@ export function TaskFestApp({
                 onDelete={removeAccount}
                 onDone={() => setAccount(null)}
               />
-            </Modal>
+            </Sheet>
           </>
         ) : state.kind === 'tooOld' ? (
           <View style={styles.signedOut}>
