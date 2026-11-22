@@ -402,8 +402,9 @@ before — accepted, because it then becomes an issue like any other piece of wo
 
 *Accepted · 2026-11-13 · #561*
 *Revised in part · 2026-11-22 · #654: a second file has a taint finding excluded, the open redirect
-(`tssecurity:S6105`) in `App.tsx`, where an account deletion goes only to Apple's sign-in, which
-`deleteAccount` has checked
+(`tssecurity:S6105`) in `App.tsx`, where an account deletion goes to Apple's sign-in once
+`deleteAccount` has checked it, and otherwise to the website's own sign-out, which is fixed when
+the website is built
 ([An account deletion sends the browser only to Apple's sign-in](frontend.md#an-account-deletion-sends-the-browser-only-to-apples-sign-in)).
 A file-wide exclusion is still the exception, taken only where the code checks first and the
 analysis cannot see it.*
