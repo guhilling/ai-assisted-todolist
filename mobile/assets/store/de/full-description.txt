@@ -11,7 +11,7 @@ Anhängen
 • Vorschaubilder in der Liste, auch ohne Verbindung
 
 Erinnern
-• Eine Erinnerung um 8:00 Uhr an Tagen, an denen Aufgaben fällig sind, und eine zur Uhrzeit einer Aufgabe
+• Eine Erinnerung gegen 8:00 Uhr an Tagen, an denen Aufgaben fällig sind, und eine zur Uhrzeit einer Aufgabe
 • Eine Erinnerung sagt, wie viele Aufgaben fällig sind, nie welche: Dein Sperrbildschirm verrät nichts
 • Erinnerungen plant dein Telefon selbst, niemand schickt sie dir
 
@@ -22,8 +22,8 @@ Sammeln
 
 Privat
 • Niemand außer dir kann deine Aufgaben in der App sehen
-• Keine Werbung, keine Analyse, kein Tracking
-• Dein Konto löschst du jederzeit in der App, mit allem, was darin ist
+• Keine Werbung, keine Analysewerkzeuge, kein Tracking
+• Dein Konto löschst du jederzeit in der App, mit seinen Aufgaben und Dateien
 
 TaskFest spricht Deutsch und Englisch und folgt dem hellen oder dunklen Design deines Telefons. Du meldest dich mit deinem Google-Konto an.
 

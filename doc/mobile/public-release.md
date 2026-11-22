@@ -132,7 +132,7 @@ against the end-to-end stack (#608). On the reminder's lock screen the network p
 blurred away, since Play asks for none, and the emulator's wallpaper, which is Google's, is dimmed
 to black; the emulator's clock was set so that it reads 8:00, the reminder having come late.
 
-Both listings link the terms of use ([terms.md](../terms.md)) beside the privacy policy, in the
+Both listings link the terms of service ([terms.md](../terms.md)) beside the privacy policy, in the
 full description: Play has no field of its own for them.
 
 ## Permissions on the listing

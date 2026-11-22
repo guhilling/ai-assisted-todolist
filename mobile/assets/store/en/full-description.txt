@@ -11,7 +11,7 @@ Attach
 • Previews on the board, readable offline too
 
 Remember
-• A reminder at 08:00 on days tasks are due, and one at a task's own time
+• A reminder around 08:00 on days tasks are due, and one at a task's own time
 • A reminder says how many tasks are due, never which, so your lock screen gives nothing away
 • Reminders are scheduled on your phone and sent by nobody
 
@@ -22,13 +22,13 @@ Collect
 
 Private
 • Nobody but you can see your tasks in the app
-• No ads, no analytics, no tracking
-• Delete your account, with everything in it, in the app at any time
+• No ads, no analytics tools, no tracking
+• Delete your account, with its tasks and files, in the app at any time
 
 TaskFest speaks English and German, and follows your phone's light or dark theme. You sign in with your Google account.
 
 Please note: TaskFest is a non-commercial demonstration of building software with the help of AI, run by Hilling IT GmbH, and it is open source. There is no promise that it is available or that your data is kept, so keep nothing in it that you cannot do without, and please enter nothing sensitive. An account holds up to 500 tasks and five files of up to 10 MB each.
 
 Privacy policy: https://taskfest-docs.cloud.hilling.de/doc/privacy.html
-Terms of use: https://taskfest-docs.cloud.hilling.de/doc/terms.html
+Terms of service: https://taskfest-docs.cloud.hilling.de/doc/terms.html
 Source code: https://github.com/guhilling/ai-assisted-todolist
