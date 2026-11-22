@@ -52,6 +52,9 @@ export default ({ config }: ConfigContext): ExpoConfig => {
         monochromeImage: './assets/android-icon-monochrome.png',
       },
       predictiveBackGestureEnabled: false,
+      // Drawing over other apps comes with Expo's template, the app does not need it, and Play's
+      // listing would show it (#608). Debug builds keep it, from a manifest of their own.
+      blockedPermissions: ['android.permission.SYSTEM_ALERT_WINDOW'],
     },
     plugins: [
       'expo-secure-store',

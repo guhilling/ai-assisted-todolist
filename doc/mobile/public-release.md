@@ -129,13 +129,13 @@ Both languages the app speaks, English and German, can have a listing of their o
 Both listings link the terms of use ([terms.md](../terms.md)) beside the privacy policy, in the
 full description: Play has no field of its own for them.
 
-## Before the first public build
+## Permissions on the listing
 
-- **Permissions the app does not need.** The generated manifest still carries the Expo template's
-  `SYSTEM_ALERT_WINDOW` (shown on the listing as drawing over other apps) and `VIBRATE`. The first
-  goes into `android.blockedPermissions` in `mobile/app.config.ts`; `VIBRATE` is harmless and the
-  notifications may use it. The storage permissions are for Android 12 and older only
-  (`maxSdkVersion` 32).
+`SYSTEM_ALERT_WINDOW` comes with Expo's template, and the listing would show it as drawing over
+other apps: `android.blockedPermissions` in `mobile/app.config.ts` takes it out of the release
+builds. `VIBRATE`, the template's too, stays: it is a normal permission, which nobody is asked for;
+whether the reminders need it has not been checked. The storage permissions are for Android 12 and
+older only (`maxSdkVersion` 32).
 
 ## iOS, after Sign in with Apple
 
