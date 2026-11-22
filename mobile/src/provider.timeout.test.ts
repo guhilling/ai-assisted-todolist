@@ -9,7 +9,6 @@ jest.mock('expo-auth-session', () => {
     makeRedirectUri: jest.fn(({ scheme, path }) => `${scheme}://${path}`),
     fetchDiscoveryAsync: jest.fn(),
     exchangeCodeAsync: jest.fn(),
-    refreshAsync: jest.fn(),
     AuthRequest: jest.fn().mockImplementation(() => ({ promptAsync, codeVerifier: 'verifier' })),
     __promptAsync: promptAsync,
   }
@@ -18,7 +17,6 @@ jest.mock('expo-auth-session', () => {
 const mocked = AuthSession as unknown as {
   fetchDiscoveryAsync: jest.Mock
   exchangeCodeAsync: jest.Mock
-  refreshAsync: jest.Mock
   __promptAsync: jest.Mock
 }
 
@@ -26,7 +24,7 @@ const keycloak: SignIn = {
   label: 'Keycloak',
   issuer: 'http://localhost:8082/realms/taskfest',
   clientId: 'taskfest-app',
-  scopes: ['openid', 'offline_access'],
+  scopes: ['openid', 'email'],
 }
 
 const discovered = { tokenEndpoint: 'https://idp/token' }
@@ -39,27 +37,17 @@ describe('the provider, when it gets no answer (#311)', () => {
   })
   afterEach(() => jest.useRealTimers())
 
-  it('gives up on renewing the tokens after ten seconds', async () => {
-    mocked.fetchDiscoveryAsync.mockResolvedValue(discovered)
-    mocked.refreshAsync.mockImplementation(never)
-    const renewing = providerFor(keycloak, 'scheme').refresh('refresh')
-    const failed = expect(renewing).rejects.toBeInstanceOf(TimedOutError)
-
-    await jest.advanceTimersByTimeAsync(REQUEST_MS)
-
-    await failed
-  })
-
   it('gives up on the discovery document after ten seconds, and asks for it anew next time', async () => {
     mocked.fetchDiscoveryAsync.mockImplementationOnce(never).mockResolvedValue(discovered)
-    mocked.refreshAsync.mockResolvedValue({ idToken: 'id', refreshToken: 'refresh' })
+    mocked.__promptAsync.mockResolvedValue({ type: 'success', params: { code: 'the-code' } })
+    mocked.exchangeCodeAsync.mockResolvedValue({ idToken: 'id' })
     const provider = providerFor(keycloak, 'scheme')
-    const first = expect(provider.refresh('refresh')).rejects.toBeInstanceOf(TimedOutError)
+    const first = expect(provider.signIn()).rejects.toBeInstanceOf(TimedOutError)
 
     await jest.advanceTimersByTimeAsync(REQUEST_MS)
     await first
 
-    await expect(provider.refresh('refresh')).resolves.toEqual({ idToken: 'id', refreshToken: 'refresh' })
+    await expect(provider.signIn()).resolves.toEqual({ idToken: 'id' })
     expect(mocked.fetchDiscoveryAsync).toHaveBeenCalledTimes(2)
   })
 

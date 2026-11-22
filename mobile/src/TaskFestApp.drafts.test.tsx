@@ -17,7 +17,7 @@ import { variantOf } from './variants'
 // Its own day, and Alice signed in on it, rather than the shared NOW and session.
 const NOW = Date.UTC(2026, 9, 18, 9)
 const idToken = tokenWith({ exp: (NOW + HOUR) / 1000, email: 'alice@example.com' })
-const session: Session = { idToken, refreshToken: 'r', expiresAt: NOW + HOUR, lastUsedAt: NOW }
+const session: Session = { token: idToken, expiresAt: NOW + HOUR, email: 'alice@example.com' }
 
 const task: BoardTask = { id: 1, description: 'Water the plants', dueDate: '2026-10-18', importance: 'HIGH', state: 'TODO', attachments: [] }
 const photo: PickedFile = { uri: 'file:///cache/photo.jpg', name: 'photo.jpg', type: 'image/jpeg', size: 2_000_000 }
@@ -78,7 +78,7 @@ describe('files upload while the add form is open (#381)', () => {
 
     await user.press(within(form).getByRole('button', { name: 'Choose a photo' }))
 
-    await waitFor(() => expect(deps.attachments!.upload).toHaveBeenCalledWith(expect.objectContaining({ idToken }), DRAFT, photo, expect.any(Function)))
+    await waitFor(() => expect(deps.attachments!.upload).toHaveBeenCalledWith(expect.objectContaining({ token: idToken }), DRAFT, photo, expect.any(Function)))
     expect(deps.changes.drafts!.start).toHaveBeenCalledTimes(1)
     await user.type(within(form).getByLabelText('What needs doing'), 'Pay the bill')
     await user.press(within(form).getByRole('button', { name: 'Add' }))
@@ -246,13 +246,13 @@ describe('files upload while the add form is open (#381)', () => {
 describe('a draft answered after a sign-out (#428)', () => {
   const beasToken = tokenWith({ exp: (NOW + HOUR) / 1000, email: 'bea@example.com' })
   const beas: BoardTask = { id: 5, description: 'Call the bank', dueDate: '2026-10-19', importance: 'LOW', state: 'TODO', attachments: [] }
-  const asBea = expect.objectContaining({ idToken: beasToken })
+  const asBea = expect.objectContaining({ token: beasToken })
 
   /** Alice's board, and Bea's once Alice has signed out and Bea signed in. */
   function twoAccounts() {
     return dependencies({
       fetchTasks: jest.fn().mockResolvedValueOnce([task]).mockResolvedValue([beas]),
-      provider: { signIn: jest.fn().mockResolvedValue({ idToken: beasToken, refreshToken: 'b' }), refresh: jest.fn() },
+      provider: { signIn: jest.fn().mockResolvedValue({ idToken: beasToken }) },
     })
   }
 

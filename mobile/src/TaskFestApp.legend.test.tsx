@@ -12,7 +12,7 @@ import type { Task } from './web'
  */
 
 // An opaque token, rather than the shared session: nothing here reads who is signed in.
-const session: Session = { idToken: 'stored', refreshToken: 'r', expiresAt: NOW + HOUR, lastUsedAt: NOW }
+const session: Session = { token: 'stored', expiresAt: NOW + HOUR, email: null }
 const tasks: Task[] = [{ id: 1, description: 'Pack the suitcase', dueDate: '2026-10-11', importance: 'HIGH', state: 'TODO' }]
 const LEGEND = 'Importance: High, Medium, Low.'
 

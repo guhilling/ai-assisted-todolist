@@ -17,13 +17,11 @@ sheet over the board.
   scheduled reminders ([reminders.md](reminders.md)) go with it, and whatever else the app comes
   to keep for a signed-in user is removed in the same place,
   `signOut` in `mobile/src/TaskFestApp.tsx`, which every way to the sign-in goes through — a
-  session the backend turns away too. A renewal under way is waited for before the keychain is
-  cleared, and a start or a load begun before the sign-out gives up, so neither signs back in.
-  Once a sign-out has begun, nothing saves a session back (#428): a session asked for while the
-  keychain is being cleared is none, rather than one read, renewed and saved back after the clear.
-  A keychain that refuses a delete is logged and the sign-out goes on; the next start finds the
-  session it kept only if both the ID token and its times survived. Nor does
-  anything answered for the account signed out of reach whoever signs in next. A change, an upload
+  session the backend turns away too. A lookup of the session under way is waited for before the
+  keychain is cleared, and a start or a load begun before the sign-out gives up, so neither signs
+  back in. Once a sign-out has begun, a session asked for while the keychain is being cleared is
+  none (#428). A keychain that refuses a delete is logged and the sign-out goes on; the next start
+  then finds the session it kept. Nor does anything answered for the account signed out of reach whoever signs in next. A change, an upload
   or a link the backend answers late is dropped: not shown on the next board, not kept on the
   phone, no reminder scheduled, and no reason to sign the next account out. The files still
   waiting to go up are not sent as the next account. The same goes for a file being opened, a
@@ -34,9 +32,8 @@ sheet over the board.
 - **Delete account** — the website's confirmation, in its words: everything goes, for good, and
   the delete button stays disabled until the signed-in address is typed (in any case, with any
   spaces around it: the website's own rule, `frontend/src/confirmsEmail.ts`). It calls the
-  website's endpoint, `DELETE /api/account`, with the app session's token (#281) — with the ID
-  token only while a sign-in's trade could not be made yet, or a session kept from before is not
-  traded yet ([sign-in.md](sign-in.md#app-sessions)) — then signs out and says the account was
+  website's endpoint, `DELETE /api/account`, with the app session's token (#281),
+  then signs out and says the account was
   deleted; signing in again starts a new, empty one. An account signed in with Apple is deleted
   only once Apple confirms it (#635): the backend answers 428, Apple's sheet comes up once more,
   and the code it issues goes with a second delete, so that the backend revokes TaskFest at Apple

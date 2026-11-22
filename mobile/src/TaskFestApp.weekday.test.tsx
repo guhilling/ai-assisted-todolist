@@ -13,7 +13,7 @@ import type { Task } from './web'
 
 // Local noon, not the shared NOW, so it is 10 October on the phone's clock in any time zone.
 const NOW = new Date(2026, 9, 10, 12).getTime()
-const session: Session = { idToken: 'stored', refreshToken: 'r', expiresAt: NOW + HOUR, lastUsedAt: NOW }
+const session: Session = { token: 'stored', expiresAt: NOW + HOUR, email: null }
 
 const tasks: Task[] = [
   { id: 1, description: 'Water the plants', dueDate: '2026-10-10', importance: 'HIGH', state: 'TODO' },

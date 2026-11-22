@@ -27,10 +27,10 @@ export function tokenWith(payload: object) {
   return `header.${encoded}.signature`
 }
 
-/** Ada's ID token, good for an hour from {@link NOW}. */
+/** Ada's ID token, as a provider issues it. */
 export const idToken = tokenWith({ exp: NOW / 1000 + 3600, email: 'ada@example.com' })
 /** Ada, signed in at {@link NOW}. */
-export const session: Session = { idToken, refreshToken: 'r', expiresAt: NOW + HOUR, lastUsedAt: NOW }
+export const session: Session = { token: 'taskfest_app_ada', expiresAt: NOW + HOUR, email: 'ada@example.com' }
 
 /** The board most tests start from: one task due today, one tomorrow, one done. */
 export const water: BoardTask = { id: 1, description: 'Water the plants', dueDate: TODAY, importance: 'HIGH', state: 'TODO' }
@@ -107,7 +107,9 @@ export const qa = variantOf('qa', {
 export function dependencies(overrides: Partial<Dependencies> = {}): Dependencies {
   return {
     sessions: memorySessions(session),
-    provider: { signIn: jest.fn(), refresh: jest.fn() },
+    provider: { signIn: jest.fn() },
+    // A backend that trades every ID token, for a session whose token is the same: the tests tell whose it is by it.
+    appSessions: { start: jest.fn(async (token: string) => ({ token, expiresAt: Date.UTC(2100, 0, 1) })), end: jest.fn().mockResolvedValue(undefined) },
     fetchTasks: jest.fn().mockResolvedValue(tasks),
     fetchMinimumAppVersion: jest.fn().mockResolvedValue('0.0.0'),
     changes: { create: jest.fn(), update: jest.fn(), remove: jest.fn(), restore: jest.fn() },

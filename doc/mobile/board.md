@@ -74,8 +74,8 @@ As on the website (`doc/decisions/frontend.md`):
   and says why.
 - **A delete goes at once**, and a task the backend keeps comes back with a message.
 - **A session that has ended is not a failure.** The change leads to the sign-in, saying the
-  session expired, as the website does. Each change first renews an ID token about to run out
-  ([sign-in.md](sign-in.md)), so a board left open does not sign itself out.
+  session expired, as the website does. The session
+  lasts 30 days from the sign-in and is not renewed ([sign-in.md](sign-in.md#how-long-it-lasts)).
 
 Every text, the app's own included, is in the website's catalogue ([development.md](development.md)).
 
@@ -98,9 +98,8 @@ connection — read, not changed ([decisions/mobile-app.md](../decisions/mobile-
   not backed up, and which no other app can read (`mobile/src/keptBoard.ts`).
 - **Shown at once at the start**, before the network answers, with "Loading tasks…" above it;
   the loaded board then replaces it.
-- **Without a connection** — the load fails, or the sign-in cannot be renewed — the kept board stays,
-  with a note saying when it was loaded and that it may not be current, and **Try again**. A board
-  already shown that fails to load again in the foreground stays the same way.
+- **Without a connection** — the load fails — the kept board stays, with a note saying when it was
+  loaded and that it may not be current, and **Try again**. A board already shown that fails to load again in the foreground stays the same way.
 - **The latest load decides** (#432). Loads that overlap — the app back in the foreground twice
   before the first answered — each ask, but only the answer to the latest one asked for is shown and
   kept, or its failure said; an older one arriving after it changes nothing.

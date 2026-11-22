@@ -16,7 +16,7 @@ describe('the backend, as the app asks it', () => {
   it('sends the ID token as a bearer token', async () => {
     const fetchImpl = respond(200, [aTask])
 
-    await fetchTasks({ baseUrl: BASE, idToken: 'the-token' }, fetchImpl)
+    await fetchTasks({ baseUrl: BASE, token: 'the-token' }, fetchImpl)
 
     expect(fetchImpl).toHaveBeenCalledWith(`${BASE}/api/tasks`, {
       headers: { Accept: 'application/json', Authorization: 'Bearer the-token' },
@@ -27,19 +27,19 @@ describe('the backend, as the app asks it', () => {
   it('names the app’s release on every request, so the backend can tell who still calls what', async () => {
     const fetchImpl = respond(200, [aTask])
 
-    await fetchTasks({ baseUrl: BASE, idToken: 't', appVersion: '1.4.0' }, fetchImpl)
+    await fetchTasks({ baseUrl: BASE, token: 't', appVersion: '1.4.0' }, fetchImpl)
 
     expect(fetchImpl.mock.calls[0][1].headers['X-TaskFest-App']).toBe('1.4.0')
   })
 
   it('hands back the tasks it was sent, once they match the schema', async () => {
-    await expect(fetchTasks({ baseUrl: BASE, idToken: 't' }, respond(200, [aTask]))).resolves.toEqual([aTask])
+    await expect(fetchTasks({ baseUrl: BASE, token: 't' }, respond(200, [aTask]))).resolves.toEqual([aTask])
   })
 
   it('refuses a task that does not match the schema', async () => {
     const broken = { ...aTask, description: undefined }
 
-    await expect(fetchTasks({ baseUrl: BASE, idToken: 't' }, respond(200, [broken]))).rejects.toBeInstanceOf(
+    await expect(fetchTasks({ baseUrl: BASE, token: 't' }, respond(200, [broken]))).rejects.toBeInstanceOf(
       ContractBreachError,
     )
   })
@@ -48,7 +48,7 @@ describe('the backend, as the app asks it', () => {
     // A newer backend may add one; an installed app is older than its backend.
     const newer = { ...aTask, importance: 'URGENT', state: 'BLOCKED' }
 
-    const [task] = await fetchTasks({ baseUrl: BASE, idToken: 't' }, respond(200, [newer]))
+    const [task] = await fetchTasks({ baseUrl: BASE, token: 't' }, respond(200, [newer]))
 
     // Ordered as the least important and kept open, so it is never hidden; marked as unknown.
     expect(task).toMatchObject({ id: 1, importance: 'LOW', state: 'TODO', unknown: ['importance', 'state'] })
@@ -57,7 +57,7 @@ describe('the backend, as the app asks it', () => {
   it('does not take a name every object has for a known value', async () => {
     const odd = { ...aTask, importance: 'constructor', state: 'toString' }
 
-    const [task] = await fetchTasks({ baseUrl: BASE, idToken: 't' }, respond(200, [odd]))
+    const [task] = await fetchTasks({ baseUrl: BASE, token: 't' }, respond(200, [odd]))
 
     expect(task.unknown).toEqual(['importance', 'state'])
   })
@@ -65,7 +65,7 @@ describe('the backend, as the app asks it', () => {
   it('still refuses an unknown value where something else is wrong too', async () => {
     const broken = { ...aTask, importance: 'URGENT', id: 'one' }
 
-    await expect(fetchTasks({ baseUrl: BASE, idToken: 't' }, respond(200, [broken]))).rejects.toBeInstanceOf(
+    await expect(fetchTasks({ baseUrl: BASE, token: 't' }, respond(200, [broken]))).rejects.toBeInstanceOf(
       ContractBreachError,
     )
   })
@@ -81,17 +81,17 @@ describe('the backend, as the app asks it', () => {
   })
 
   it('refuses a list that is not a list', async () => {
-    await expect(fetchTasks({ baseUrl: BASE, idToken: 't' }, respond(200, aTask))).rejects.toBeInstanceOf(
+    await expect(fetchTasks({ baseUrl: BASE, token: 't' }, respond(200, aTask))).rejects.toBeInstanceOf(
       ContractBreachError,
     )
   })
 
   it('reads a 401 as signed out, so the app asks for a sign-in again', async () => {
-    await expect(fetchTasks({ baseUrl: BASE, idToken: 't' }, respond(401, {}))).rejects.toBeInstanceOf(SignedOutError)
+    await expect(fetchTasks({ baseUrl: BASE, token: 't' }, respond(401, {}))).rejects.toBeInstanceOf(SignedOutError)
   })
 
   it('reports any other failure with its status', async () => {
-    const failure = fetchTasks({ baseUrl: BASE, idToken: 't' }, respond(503, {}))
+    const failure = fetchTasks({ baseUrl: BASE, token: 't' }, respond(503, {}))
 
     await expect(failure).rejects.toBeInstanceOf(RequestFailedError)
     await expect(failure).rejects.toMatchObject({ status: 503 })

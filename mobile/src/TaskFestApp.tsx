@@ -19,19 +19,8 @@ import { noPreviews, type PreviewStore } from './previews'
 import { AboutLink, LegalLinks } from './LegalLinks'
 import type { ReminderScheduler } from './notifications'
 import { remindersFor } from './reminders'
-import { accountOf, hasEnded, type Session } from './session'
-import {
-  RenewalUnavailableError,
-  currentSession,
-  sessionFromTokens,
-  type Refresh,
-  afterFailedTrade,
-  appSessionFrom,
-  type SessionStore,
-  type Tokens,
-  type Trade,
-  type Trading,
-} from './staySignedIn'
+import { hasEnded, type Session } from './session'
+import { appSessionFrom, currentSession, type SessionStore, type Tokens, type Trade } from './staySignedIn'
 import { stylesFor, type Styles } from './styles'
 import { TaskForm, type TaskValues } from './TaskForm'
 import { dark, light } from './theme'
@@ -78,18 +67,16 @@ export type TaskChanges = {
 /** What the app needs from outside itself, handed in so tests can stand in for each. */
 export type Dependencies = {
   sessions: SessionStore
-  provider: { signIn(): Promise<Tokens | null>; refresh: Refresh }
+  provider: { signIn(): Promise<Tokens | null> }
   /** Google's sign-in (#280), where the variant has it. */
   google?: GoogleProvider
   /** Sign in with Apple (#281), where it is offered: on iOS, where the variant has it (`appleSignInFor`). */
   apple?: AppleProvider
   /**
-   * The backend's app sessions (#281): every sign-in's ID token is traded for one, and a session
-   * kept from before is traded silently; ending one is how the app signs out. None, and the app
-   * sends the ID token itself, as it did before -- the tests written before app sessions run so,
-   * until the transition goes (#633).
+   * The backend's app sessions (#281): every sign-in's ID token is traded for one, and ending one
+   * is how the app signs out.
    */
-  appSessions?: { start: Trade; end(token: string): Promise<void> }
+  appSessions: { start: Trade; end(token: string): Promise<void> }
   fetchTasks(caller: Caller): Promise<BoardTask[]>
   changes: TaskChanges
   /** A task's files (#274): links that show them, signed for a limited time, and removing one. */
@@ -370,21 +357,6 @@ export function TaskFestApp({
   }, [form, account])
   /** A sign-in in the browser: coming back from it is a return to the foreground, not a reason to start over. */
   const signingIn = useRef(false)
-  /**
-   * Google's renewal, which counts as signing in: on Android, Credential Manager may show its
-   * account sheet, and the app coming back from it is no reason to start over.
-   */
-  const renewWithGoogle = useCallback(
-    (google: GoogleProvider) => async () => {
-      signingIn.current = true
-      try {
-        return await google.renew()
-      } finally {
-        signingIn.current = false
-      }
-    },
-    [],
-  )
   /** Raised by every sign-out, so a start or a load begun before one does not sign back in after it. */
   const signOuts = useRef(0)
   /** The sign-outs under way: whatever begins during one belongs to the session it ends. */
@@ -400,12 +372,11 @@ export function TaskFestApp({
     return () => signOuts.current !== at
   }, [])
   /**
-   * The renewal under way, shared, so the refresh token is never spent twice at once -- or, while
-   * the app signs out, the sign-out's own forgetting of the session, which hands out none.
+   * The lookup of the kept session under way, shared -- or what stands in for one: while the app
+   * signs out, the sign-out's own forgetting of the session, which hands out none; while it signs
+   * in, the session being saved.
    */
-  const renewal = useRef<Promise<Session | null> | null>(null)
-  /** Trading sessions kept from before for app sessions (#281), with when a trade last failed, for this run. */
-  const trading = useRef<Trading | undefined>(appSessions && { trade: appSessions.start })
+  const lookup = useRef<Promise<Session | null> | null>(null)
   /**
    * The start forgetting the board of a session that ran out, while it does: a sign-in begun
    * meanwhile waits for it, or its board and reminders would be forgotten with the old ones (#634).
@@ -413,23 +384,17 @@ export function TaskFestApp({
   const forgettingBoard = useRef<Promise<void> | null>(null)
 
   const sessionNow = useCallback(() => {
-    if (!renewal.current) {
-      const renewing: Promise<Session | null> = currentSession(
-        sessions,
-        provider.refresh,
-        now(),
-        google && renewWithGoogle(google),
-        trading.current,
-      ).finally(() => {
+    if (!lookup.current) {
+      const looking: Promise<Session | null> = currentSession(sessions, now()).finally(() => {
         // A sign-out may have taken its place meanwhile (#428): that one stays until it is done.
-        if (renewal.current === renewing) {
-          renewal.current = null
+        if (lookup.current === looking) {
+          lookup.current = null
         }
       })
-      renewal.current = renewing
+      lookup.current = looking
     }
-    return renewal.current
-  }, [google, now, provider, renewWithGoogle, sessions])
+    return lookup.current
+  }, [now, sessions])
 
   /**
    * Forgets every file of the session: the image open, the links asked for, and the copies opened
@@ -447,8 +412,8 @@ export function TaskFestApp({
    * Forgets the session on the phone and everything shown for it, and goes back to the sign-in.
    * The one way out: whatever the app keeps for a signed-in user goes here.
    *
-   * A renewal under way would save its session after the keychain was cleared, so it is waited for
-   * first; and a start, a load or a change begun before the sign-out finds it counted and gives up.
+   * A lookup under way is waited for first; and a start, a load or a change begun before the
+   * sign-out finds it counted and gives up.
    */
   const signOut = useCallback(
     async (notice?: SignedOutNotice) => {
@@ -459,10 +424,10 @@ export function TaskFestApp({
         // and a file downloaded meanwhile must find its session gone, neither shown nor kept.
         agreed.current = null
         forgetFiles()
-        // The keychain is cleared after the renewal under way, and stands in for one until it is: a
-        // session asked for meanwhile is none, rather than one read from the keychain being cleared,
-        // renewed and saved back into it after the clear (#428).
-        const forgetting = (renewal.current ?? Promise.resolve(null))
+        // The keychain is cleared after the lookup under way, and stands in for one until it is: a
+        // session asked for meanwhile is none, rather than one read from the keychain being
+        // cleared (#428).
+        const forgetting = (lookup.current ?? Promise.resolve(null))
           .catch(() => null)
           .then(async () => {
             const kept = await sessions.load().catch(() => null)
@@ -475,11 +440,11 @@ export function TaskFestApp({
         const forgotten: Promise<Session | null> = forgetting
           .then(() => null)
           .finally(() => {
-            if (renewal.current === forgotten) {
-              renewal.current = null
+            if (lookup.current === forgotten) {
+              lookup.current = null
             }
           })
-        renewal.current = forgotten
+        lookup.current = forgotten
         const kept = await forgetting
         // Google's SDK remembers the account too; forgotten, the next sign-in asks which one. Not
         // waited for: a native call that never answers must not keep the board on the screen.
@@ -491,8 +456,8 @@ export function TaskFestApp({
         // The app session ends at the backend too (#281), unless the backend has ended it already:
         // refused, or gone with the account. Not waited for either: offline, the phone forgets it
         // all the same, and the backend ends it at the latest when its thirty days are over.
-        if (kept?.app && appSessions && notice !== 'sessionExpired' && notice !== 'accountDeleted') {
-          appSessions.end(kept.idToken).catch((failure: unknown) => {
+        if (kept && notice !== 'sessionExpired' && notice !== 'accountDeleted') {
+          appSessions.end(kept.token).catch((failure: unknown) => {
             console.warn('The app session could not be ended at the backend', failure)
           })
         }
@@ -562,7 +527,7 @@ export function TaskFestApp({
       keptBoard.load().catch(() => null),
       sessions.load().catch(() => null),
     ])
-    if (!board || !stored || hasEnded(stored, now()) || accountOf(stored) !== board.account) {
+    if (!board || !stored || hasEnded(stored, now()) || stored.email !== board.account) {
       return
     }
     setState((current) =>
@@ -612,9 +577,9 @@ export function TaskFestApp({
       // A board already shown stays while it loads anew, and with it any form open over it.
       setState((current) => (current.kind === 'board' ? current : { kind: 'loading' }))
       try {
-        const tasks = await fetchTasks({ baseUrl: variant.apiBaseUrl, idToken: session.idToken })
+        const tasks = await fetchTasks({ baseUrl: variant.apiBaseUrl, token: session.token })
         if (!signedOut() && !superseded()) {
-          const email = accountOf(session)
+          const email = session.email
           const loadedAt = now()
           setState({ kind: 'board', tasks, email, loadedAt })
           // A change refused because the board was not current is moot once it is.
@@ -812,27 +777,15 @@ export function TaskFestApp({
       if ('session' in outcome) {
         session = outcome.session
       } else {
-        const { failure } = outcome
-        if (failure instanceof RenewalUnavailableError) {
-          // Offline, or the provider unreachable: the session is kept for when it is back.
-          loadFailed()
-          return
-        }
-        if (failure instanceof SignedOutError) {
-          // A session kept from before that the backend refused to trade (#281): it ends as any
-          // session the backend refuses does, and says so.
-          await signOut('sessionExpired')
-          return
-        }
         // The keychain could not be read -- invalidated, restored from a backup: start afresh.
-        console.warn('The kept session could not be read', failure)
+        console.warn('The kept session could not be read', outcome.failure)
         await signOut()
         return
       }
       if (session) {
         await showBoard(session)
       } else {
-        // The session ran out unused: its board, its files and its reminders go with it.
+        // The session ran out, or there is none: its board, its files and its reminders go with it.
         forgetFiles()
         const forgetting = (async () => {
           await keptBoard.clear().catch(() => undefined)
@@ -849,7 +802,7 @@ export function TaskFestApp({
       }
     }
     void start()
-  }, [appVersion, attempt, fetchMinimumAppVersion, forgetFiles, keptBoard, loadFailed, previews, reminders, sessionNow, showBoard, showKept, signOut, sinceLoad, sinceSignIn])
+  }, [appVersion, attempt, fetchMinimumAppVersion, forgetFiles, keptBoard, previews, reminders, sessionNow, showBoard, showKept, signOut, sinceLoad, sinceSignIn])
 
   const retry = () => {
     setState({ kind: 'starting' })
@@ -897,11 +850,9 @@ export function TaskFestApp({
 
   /**
    * Signs in with the variant's provider, with Google or with Apple: a Google session says so, to
-   * be signed out of Google too. With app sessions (#281) the ID token is traded for one at once.
-   * Refused, the sign-in did not work. Not possible just now, a Google or OpenID Connect sign-in
-   * goes on with its ID token, as before, and is traded later -- renewed first if the trade went
-   * unanswered (#634); an Apple sign-in did not work, since Apple's ID token cannot be renewed, and
-   * the next one brings a new token to trade.
+   * be signed out of Google too. The ID token is traded for an app session at once (#281). Refused,
+   * unanswered or not possible just now, the sign-in did not work; the next one brings a new token
+   * to trade.
    */
   const signIn = async (via?: 'google' | 'apple') => {
     // One at a time: a second tap while the first sign-in is still under way would start another.
@@ -914,9 +865,9 @@ export function TaskFestApp({
       if (!tokens) {
         return
       }
-      const issued = sessionFromTokens(tokens, now())
-      if (!issued) {
-        throw new Error('The provider issued no ID token the app can use.')
+      const { idToken } = tokens
+      if (!idToken) {
+        throw new Error('The provider issued no ID token.')
       }
       // A start forgetting the board of a session that ran out is done first, so it does not
       // forget this one's.
@@ -924,36 +875,20 @@ export function TaskFestApp({
       // A lookup begun before -- a return to the foreground, say -- read no session, and would
       // forget the one saved here once it is done: it is waited for first, and stood in for by this
       // sign-in until the session is saved, so none begins meanwhile.
-      await (renewal.current ?? Promise.resolve(null)).catch(() => null)
+      await (lookup.current ?? Promise.resolve(null)).catch(() => null)
       const signingInNow = (async (): Promise<Session> => {
-        const session: Session = via === 'google' ? { ...issued, via: 'google' } : issued
-        let kept = session
-        if (appSessions) {
-          try {
-            kept = appSessionFrom(await appSessions.start(session.idToken), session, now())
-          } catch (failure) {
-            if (failure instanceof SignedOutError || via === 'apple') {
-              throw failure
-            }
-            console.warn('The sign-in could not be traded for an app session just now', failure)
-            // Tried again after TRADE_RETRY_MS, as a lookup's failed trade is (#634).
-            if (trading.current) {
-              trading.current.failedAt = now()
-            }
-            kept = afterFailedTrade(session, failure)
-          }
-        }
-        await sessions.save(kept)
-        return kept
+        const session = appSessionFrom(await appSessions.start(idToken), idToken, via === 'google' ? via : undefined)
+        await sessions.save(session)
+        return session
       })()
       const standIn: Promise<Session | null> = signingInNow
         .catch(() => null)
         .finally(() => {
-          if (renewal.current === standIn) {
-            renewal.current = null
+          if (lookup.current === standIn) {
+            lookup.current = null
           }
         })
-      renewal.current = standIn
+      lookup.current = standIn
       await showBoard(await signingInNow)
     } catch (failure) {
       // Logged for the device log -- the only trace a failed sign-in on a test device leaves.
@@ -1017,15 +952,15 @@ export function TaskFestApp({
   }
 
   /**
-   * The session to send a request as, renewed if it is about to run out. Deleting the account goes
-   * this way: it does not depend on how current the board is.
+   * The session to send a request as. Deleting the account goes this way: it does not depend on how
+   * current the board is.
    */
   const signedInCaller = async (): Promise<Caller> => {
     const session = await sessionNow()
     if (!session) {
       throw new SignedOutError()
     }
-    return { baseUrl: variant.apiBaseUrl, idToken: session.idToken }
+    return { baseUrl: variant.apiBaseUrl, token: session.token }
   }
 
   /**

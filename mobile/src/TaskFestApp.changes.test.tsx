@@ -10,7 +10,7 @@ import { NotDatedBackError } from './web'
 jest.mock('./DueDatePicker', () => ({ DueDatePicker: () => null }))
 
 // An opaque token, which the assertions on what the backend was sent name.
-const session: Session = { idToken: 'stored', refreshToken: 'r', expiresAt: NOW + HOUR, lastUsedAt: NOW }
+const session: Session = { token: 'stored', expiresAt: NOW + HOUR, email: null }
 
 function backend(overrides: Partial<TaskChanges> = {}): TaskChanges {
   return {
@@ -42,7 +42,7 @@ describe('changing the board from the app (#271)', () => {
     await user.press(screen.getByRole('button', { name: 'Add' }))
 
     expect(changes.create).toHaveBeenCalledWith(
-      { baseUrl: BASE, idToken: 'stored' },
+      { baseUrl: BASE, token: 'stored' },
       { description: 'Renew the passport', dueDate: '2026-10-11', importance: 'MEDIUM', state: 'TODO' },
     )
     expect(await screen.findByText('Renew the passport')).toBeOnTheScreen()
@@ -70,19 +70,6 @@ describe('changing the board from the app (#271)', () => {
 
     expect(screen.queryByLabelText('What needs doing')).toBeNull()
     expect(changes.create).not.toHaveBeenCalled()
-  })
-
-  it('renews a session about to run out before it sends a change', async () => {
-    const fresh = `h.${btoa(JSON.stringify({ exp: (NOW + HOUR) / 1000 })).replace(/=+$/, '')}.s`
-    const refresh = jest.fn().mockResolvedValue({ idToken: fresh, refreshToken: 'r2' })
-    const sessions = memorySessions({ ...session, expiresAt: NOW + 1000 })
-    const fetchTasks = jest.fn().mockResolvedValue([water])
-    const changes = backend()
-    const user = await showBoard(changes, { sessions, fetchTasks, provider: { signIn: jest.fn(), refresh } })
-
-    await user.press(screen.getByRole('checkbox', { name: 'Mark "Water the plants" as done' }))
-
-    expect(changes.update).toHaveBeenCalledWith({ baseUrl: BASE, idToken: fresh }, expect.anything())
   })
 
   it('asks for a sign-in again when the backend no longer accepts the session', async () => {
@@ -121,7 +108,7 @@ describe('changing the board from the app (#271)', () => {
     await user.press(screen.getByRole('button', { name: 'Save' }))
 
     expect(changes.update).toHaveBeenCalledWith(
-      { baseUrl: BASE, idToken: 'stored' },
+      { baseUrl: BASE, token: 'stored' },
       { ...train, description: 'Book the night train', state: 'TODO' },
     )
     expect(await screen.findByText('Book the night train')).toBeOnTheScreen()
@@ -183,13 +170,13 @@ describe('changing the board from the app (#271)', () => {
     await user.press(screen.getByRole('button', { name: 'Edit "Book the train"' }))
     await user.press(screen.getByRole('button', { name: 'Delete' }))
 
-    expect(changes.remove).toHaveBeenCalledWith({ baseUrl: BASE, idToken: 'stored' }, train)
+    expect(changes.remove).toHaveBeenCalledWith({ baseUrl: BASE, token: 'stored' }, train)
     expect(screen.queryByText('Book the train')).toBeNull()
     expect(screen.getByText('Task deleted')).toBeOnTheScreen()
 
     await user.press(screen.getByRole('button', { name: 'Undo' }))
 
-    expect(changes.restore).toHaveBeenCalledWith({ baseUrl: BASE, idToken: 'stored' }, train, TODAY)
+    expect(changes.restore).toHaveBeenCalledWith({ baseUrl: BASE, token: 'stored' }, train, TODAY)
     expect(await screen.findByText('Book the train')).toBeOnTheScreen()
     expect(screen.queryByText('Task deleted')).toBeNull()
   })
@@ -420,27 +407,6 @@ describe('changing the board from the app (#271)', () => {
     await act(async () => finish(water))
     await user.press(screen.getByRole('checkbox', { name: 'Mark "Water the plants" as done' }))
     expect(update).toHaveBeenCalledTimes(2)
-  })
-
-  it('renews a session about to run out once, however many changes need it', async () => {
-    const fresh = `h.${btoa(JSON.stringify({ exp: (NOW + HOUR) / 1000 })).replace(/=+$/, '')}.s`
-    // The start renews too, to a token about to run out again; the changes' renewal then waits.
-    const short = `h.${btoa(JSON.stringify({ exp: (NOW + 1000) / 1000 })).replace(/=+$/, '')}.s`
-    let renew: () => void = () => undefined
-    const refresh = jest
-      .fn()
-      .mockResolvedValueOnce({ idToken: short, refreshToken: 'r1' })
-      .mockImplementation(() => new Promise((resolve) => (renew = () => resolve({ idToken: fresh, refreshToken: 'r2' }))))
-    const sessions = memorySessions({ ...session, expiresAt: NOW + 1000 })
-    const changes = backend()
-    const user = await showBoard(changes, { sessions, provider: { signIn: jest.fn(), refresh } })
-
-    await user.press(screen.getByRole('checkbox', { name: 'Mark "Water the plants" as done' }))
-    await user.press(screen.getByRole('checkbox', { name: 'Mark "Book the train" as done' }))
-    await act(async () => renew())
-
-    expect(refresh).toHaveBeenCalledTimes(2)
-    expect(changes.update).toHaveBeenCalledTimes(2)
   })
 
   it('keeps an open form as it is when the app comes back to the foreground', async () => {

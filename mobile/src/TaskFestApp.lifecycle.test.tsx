@@ -16,7 +16,7 @@ import { variantOf } from './variants'
 // Its own day, and Alice signed in on it, rather than the shared NOW and session.
 const NOW = Date.UTC(2026, 9, 18, 9)
 const idToken = tokenWith({ exp: (NOW + HOUR) / 1000, email: 'alice@example.com' })
-const session: Session = { idToken, refreshToken: 'r', expiresAt: NOW + HOUR, lastUsedAt: NOW }
+const session: Session = { token: idToken, expiresAt: NOW + HOUR, email: 'alice@example.com' }
 
 const task: BoardTask = { id: 1, description: 'Water the plants', dueDate: '2026-10-18', importance: 'HIGH', state: 'TODO', attachments: [] }
 const later: BoardTask = { id: 2, description: 'Book the train', dueDate: '2026-10-19', importance: 'LOW', state: 'TODO', attachments: [] }

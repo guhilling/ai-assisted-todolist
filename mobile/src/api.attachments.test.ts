@@ -1,7 +1,7 @@
 import { ContractBreachError, RequestFailedError, SignedOutError, attachmentLink, removeAttachment } from './api'
 
 const BASE = 'https://taskfest.example'
-const caller = { baseUrl: BASE, idToken: 'the-token', appVersion: '1.4.0' }
+const caller = { baseUrl: BASE, token: 'the-token', appVersion: '1.4.0' }
 
 function respond(status: number, body?: unknown) {
   return jest.fn().mockResolvedValue({ ok: status >= 200 && status < 300, status, json: () => Promise.resolve(body) } as Response)

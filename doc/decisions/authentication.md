@@ -295,6 +295,26 @@ revoked provider account still signs in for up to 30 days, as a website session 
 every person, kept and checked with Apple. A session only for Apple: the trade is the same for
 every provider, and one way in is less to test.
 
+## The app no longer knows sessions from before app sessions
+
+*Accepted · 2026-11-22 · #633*
+
+**Decision (Gunnar, #633).** The app loses the transition v1.8.0 came with: reading a session that
+is the provider's ID token, renewing it, and trading it silently for an app session. It goes with
+the next release, without waiting the 30 days planned for every installed app to have traded. A
+phone updated straight from an older release signs in once more. A sign-in whose trade cannot be
+made just now did not work, whichever provider it came from; before, Google's and OpenID Connect's
+went on with the ID token and were traded later.
+
+**Why.** Only testers have the app, and Gunnar's phones run v1.8.0. The wait would spare the few
+who have not opened v1.8.0 one sign-in, and cost a second kind of session in the app until then:
+the renewal of two providers' tokens, the trade's retries, and the tests of their interplay.
+
+**Cost.** Someone who skips v1.8.0 signs in again. A sign-in offline fails instead of carrying on;
+it needs the provider anyway, so what is lost is the case where only TaskFest's backend cannot be
+reached. The backend still takes an ID token on any request, since apps from before v1.8.0 send one
+and `minimumAppVersion` admits them.
+
 ## Deleting an Apple account revokes TaskFest at Apple, with Apple's confirmation
 
 *Accepted · 2026-11-19 · #635*

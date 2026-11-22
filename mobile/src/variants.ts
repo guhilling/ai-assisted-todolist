@@ -10,8 +10,7 @@
 
 /**
  * How a variant signs in: an OpenID Connect provider, the app's own public client there, and the
- * scopes to ask for -- which differ, because a long-lived refresh token is `offline_access` at
- * Keycloak and an error at Cognito, whose client sets the refresh token's lifetime instead.
+ * scopes to ask for: what makes an ID token with the address, and no refresh token (#281).
  */
 export type SignIn = { label: string; issuer: string; clientId: string; scopes: string[] }
 
@@ -111,7 +110,7 @@ export function variantOf(name: string | undefined, env: BuildEnvironment): Vari
         label: 'Keycloak',
         issuer: 'http://localhost:8082/realms/taskfest',
         clientId: 'taskfest-app',
-        scopes: [...OPENID_SCOPES, 'offline_access'],
+        scopes: OPENID_SCOPES,
       })
     case 'qa':
       // Google, and the test accounts beside it: the end-to-end runs sign in with those.

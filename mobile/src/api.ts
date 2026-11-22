@@ -24,18 +24,16 @@ import { REQUEST_MS, withinLimit } from './timeLimit'
 export { REQUEST_MS, TimedOutError } from './timeLimit'
 
 /**
- * The app's side of the REST API (#267): every request carries the session's token as a bearer
- * token -- an app session's since #281, the ID token before (#266) -- and every response is
- * checked against the schema the backend publishes, with the website's own generated validators,
- * before anything reads it.
+ * The app's side of the REST API (#267): every request carries the app session's token (#281) as
+ * a bearer token, and every response is checked against the schema the backend publishes, with the
+ * website's own generated validators, before anything reads it.
  */
 
 /**
  * Where to ask, as whom, and from which release of the app, which goes along as `X-TaskFest-App`.
- * `idToken` is the bearer token: the app session's (#281), or the ID token of a session kept from
- * before it, until that is traded. The name goes with the transition (#633).
+ * `token` is the bearer token: the app session's (#281).
  */
-export type Caller = { baseUrl: string; idToken: string; appVersion?: string }
+export type Caller = { baseUrl: string; token: string; appVersion?: string }
 
 /** The header the app names its release in, so the backend's log can tell who still calls what. */
 const APP_VERSION_HEADER = 'X-TaskFest-App'
@@ -355,11 +353,11 @@ export type AppSession = { token: string; expiresAt: number }
  * @throws SignedOutError when the backend refuses the ID token
  */
 export async function startAppSession(
-  caller: Omit<Caller, 'idToken'>,
+  caller: Omit<Caller, 'token'>,
   idToken: string,
   fetchImpl: typeof fetch = fetch,
 ): Promise<AppSession> {
-  const data = await send({ ...caller, idToken }, 'POST', '/api/auth/app-session', fetchImpl)
+  const data = await send({ ...caller, token: idToken }, 'POST', '/api/auth/app-session', fetchImpl)
   if (!validateAppSessionResponse(data)) {
     throw new ContractBreachError('an app session')
   }
@@ -388,11 +386,11 @@ export async function removeAttachment(
 }
 
 /**
- * One request, signed in when there is an ID token, and the one place requests are made and their
+ * One request, signed in when there is a token, and the one place requests are made and their
  * failures read: the answer's body, none for a DELETE, within `ms` or a `TimedOutError`.
  */
 async function send(
-  caller: Omit<Caller, 'idToken'> & { idToken?: string },
+  caller: Omit<Caller, 'token'> & { token?: string },
   method: 'GET' | 'POST' | 'PUT' | 'DELETE',
   path: string,
   fetchImpl: typeof fetch,
@@ -400,8 +398,8 @@ async function send(
   ms = REQUEST_MS,
 ): Promise<unknown> {
   const headers: Record<string, string> = { Accept: 'application/json' }
-  if (caller.idToken) {
-    headers.Authorization = `Bearer ${caller.idToken}`
+  if (caller.token) {
+    headers.Authorization = `Bearer ${caller.token}`
   }
   if (caller.appVersion) {
     headers[APP_VERSION_HEADER] = caller.appVersion
