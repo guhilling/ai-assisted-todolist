@@ -71,6 +71,11 @@ retry adb reverse tcp:3000 tcp:3000
 retry adb reverse tcp:8082 tcp:8082
 retry adb reverse tcp:8333 tcp:8333
 retry adb install -r "$apk"
+# Exact alarms allowed (#665), which Android 14 leaves off: the board then makes no offer of them,
+# which would push its rows down in every flow. Taken back for the reminders' flows below, which
+# offer them, and allowed again after.
+exact_alarms() { retry adb shell cmd appops set de.hilling.taskfest.dev SCHEDULE_EXACT_ALARM "$1"; }
+exact_alarms allow
 
 case "$share" in
   board)
@@ -110,6 +115,7 @@ flows maestro-report.xml mobile/maestro/account.yaml
 # was the emulator's to decide when the task was added, and a run may cross midnight. In between,
 # the offer of exact alarms (#665), its setting left without allowing them. Then a task due at
 # 09:00 (#478), whose reminder must be there too, at 09:00.
+exact_alarms deny
 flows maestro-reminders.xml mobile/maestro/reminders/turn-on.yaml
 flows maestro-reminders-exact.xml mobile/maestro/reminders/exact-alarms.yaml
 flows maestro-reminders-timed.xml mobile/maestro/reminders/timed.yaml
@@ -157,6 +163,7 @@ expect_alarms_at_8_and_9 America/Los_Angeles || followed=1
 retry adb shell cmd alarm set-timezone "${zone:-UTC}"
 [[ "$auto_zone" == "null" ]] || retry adb shell settings put global auto_time_zone "$auto_zone"
 (( followed == 0 )) || exit 1
+exact_alarms allow
 
 # Attaching (#274): an image in the emulator's Downloads, for the file picker to offer.
 retry bash "$here/put-attach-image.sh"

@@ -148,8 +148,9 @@ on and off. The app offers it once:
   `requestExactAlarmPermissionsAsync`); **Not now** does not.
 - **Either answer is remembered on the phone**, and the note is not shown again, as with the
   reminders' offer ([decisions/mobile-app.md](../decisions/mobile-app.md)).
-- Whether exact alarms are allowed is read from `getExactAlarmPermissionsAsync`, which says they
-  are on iOS and on Android before 14 unless taken back; there the note never comes.
+- Only on Android: whether exact alarms are allowed is read from `getExactAlarmPermissionsAsync`,
+  which says they are before Android 14 unless taken back; there the note never comes. iOS has
+  nothing to offer.
 
 Seen on the emulator:
 
@@ -180,7 +181,8 @@ board it kept and schedules nothing.
 alarms; `TaskFestApp.timeZone.test.tsx` that the zone is dropped on return to the foreground. On
 the emulator, `mobile/maestro/reminders/turn-on.yaml` adds a task due tomorrow and turns the
 reminders on, `reminders/exact-alarms.yaml` opens the setting for exact alarms from the note and
-comes back without allowing them, and `reminders/timed.yaml` adds one due
+comes back without allowing them -- every other flow runs with them allowed, so the note does not
+push the board's rows down -- and `reminders/timed.yaml` adds one due
 tomorrow at 09:00 (#478). `run-on-emulator.sh` then checks that Android holds pending alarms of the
 app's for 08:00 and for 09:00 in the emulator's time zone — any day's, since a run may cross
 midnight. It then moves the emulator to Los Angeles and checks the alarms are at 08:00 and 09:00

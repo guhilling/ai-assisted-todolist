@@ -317,6 +317,8 @@ export function TaskFestApp({
   const [offerReminders, setOfferReminders] = useState(false)
   /** Whether exact alarms may be offered (#665): the reminders are on, they are not, and it was not answered. */
   const [offerExact, setOfferExact] = useState(false)
+  /** Set once it is answered: a look begun before the answer, and ending after it, then offers nothing. */
+  const exactAnswered = useRef(false)
   /** Whether the board's colours still need explaining (#335): until dismissed once on this phone. */
   const [explainColours, setExplainColours] = useState(false)
   /** Whether this phone can sign in with Apple (#281), asked once: Apple's button shows only then. */
@@ -574,7 +576,7 @@ export function TaskFestApp({
     } catch {
       offer = false
     }
-    if (!signedOut()) {
+    if (!signedOut() && !exactAnswered.current) {
       setOfferExact(offer)
     }
   }, [exactAlarms, reminders, sinceSignIn])
@@ -851,12 +853,14 @@ export function TaskFestApp({
    * foreground schedules the reminders anew, as exact ones (`Main.tsx`).
    */
   const allowExactAlarms = () => {
+    exactAnswered.current = true
     setOfferExact(false)
     exactAlarms?.allow().catch((failure: unknown) => console.warn('The setting for exact alarms could not be opened', failure))
   }
 
   /** "Not now", to exact alarms: the offer is not made again. */
   const declineExactAlarms = () => {
+    exactAnswered.current = true
     setOfferExact(false)
     exactAlarms?.decline().catch((failure: unknown) => console.warn('The declined offer could not be kept', failure))
   }

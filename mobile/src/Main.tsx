@@ -107,15 +107,18 @@ const reminders = createReminderScheduler(
   catalogues[language].reminders.channel,
 )
 
-// Exact alarms, offered on Android 14 and later while they are off (#665). Elsewhere the platform
-// says they are allowed, and the offer is never made.
-const exactAlarms = createExactAlarmOffer(
-  {
-    getExactAlarmPermissionsAsync: () => Notifications.getExactAlarmPermissionsAsync(),
-    requestExactAlarmPermissionsAsync: () => Notifications.requestExactAlarmPermissionsAsync(),
-  },
-  new File(Paths.document, 'exact-alarms-offer-answered'),
-)
+// Exact alarms, offered on Android while they are off (#665): from Android 14 on, until the user
+// allows them. iOS has none to offer.
+const exactAlarms =
+  Platform.OS === 'android'
+    ? createExactAlarmOffer(
+        {
+          getExactAlarmPermissionsAsync: () => Notifications.getExactAlarmPermissionsAsync(),
+          requestExactAlarmPermissionsAsync: () => Notifications.requestExactAlarmPermissionsAsync(),
+        },
+        new File(Paths.document, 'exact-alarms-offer-answered'),
+      )
+    : undefined
 
 // Back in the foreground, Android's reminders are scheduled anew, when the start over's load
 // replaces them: the user may have just allowed exact alarms in the settings, which apply only to

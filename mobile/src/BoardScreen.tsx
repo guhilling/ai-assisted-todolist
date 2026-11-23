@@ -191,33 +191,27 @@ export function BoardScreen({
           <Text style={styles.muted}>{messages.board.loading}</Text>
         ) : null}
         {offer ? (
-          <View style={styles.offer}>
-            <Text style={styles.description}>{messages.reminders.offer}</Text>
-            {/* What comes, and that the phone asks next: its question alone did not say why (#336). */}
-            <Text style={styles.muted}>{messages.reminders.explain}</Text>
-            <View style={styles.offerButtons}>
-              <Pressable accessibilityRole="button" style={styles.quietButton} onPress={offer.onNotNow}>
-                <Text style={styles.quietButtonText}>{messages.reminders.notNow}</Text>
-              </Pressable>
-              <Pressable accessibilityRole="button" style={styles.quietButton} onPress={offer.onTurnOn}>
-                <Text style={styles.quietButtonText}>{messages.reminders.turnOn}</Text>
-              </Pressable>
-            </View>
-          </View>
+          // What comes, and that the phone asks next: its question alone did not say why (#336).
+          <Offer
+            title={messages.reminders.offer}
+            explain={messages.reminders.explain}
+            yes={messages.reminders.turnOn}
+            onYes={offer.onTurnOn}
+            onNotNow={offer.onNotNow}
+            messages={messages}
+            styles={styles}
+          />
         ) : null}
         {late ? (
-          <View style={styles.offer}>
-            <Text style={styles.description}>{messages.reminders.late}</Text>
-            <Text style={styles.muted}>{messages.reminders.lateExplain}</Text>
-            <View style={styles.offerButtons}>
-              <Pressable accessibilityRole="button" style={styles.quietButton} onPress={late.onNotNow}>
-                <Text style={styles.quietButtonText}>{messages.reminders.notNow}</Text>
-              </Pressable>
-              <Pressable accessibilityRole="button" style={styles.quietButton} onPress={late.onOpenSettings}>
-                <Text style={styles.quietButtonText}>{messages.reminders.openSettings}</Text>
-              </Pressable>
-            </View>
-          </View>
+          <Offer
+            title={messages.reminders.late}
+            explain={messages.reminders.lateExplain}
+            yes={messages.reminders.openSettings}
+            onYes={late.onOpenSettings}
+            onNotNow={late.onNotNow}
+            messages={messages}
+            styles={styles}
+          />
         ) : null}
         {legend && board.sections.length > 0 ? (
           <View style={styles.legend}>
@@ -302,6 +296,43 @@ export function BoardScreen({
         ) : null}
         <Pressable accessibilityRole="button" style={styles.button} onPress={onAdd}>
           <Text style={styles.buttonText}>{messages.addRow.open}</Text>
+        </Pressable>
+      </View>
+    </View>
+  )
+}
+
+/**
+ * A note above the board that offers something once, until answered (#273, #665): what it is, a
+ * line on what follows, and Not now beside the button that says yes.
+ */
+function Offer({
+  title,
+  explain,
+  yes,
+  onYes,
+  onNotNow,
+  messages,
+  styles,
+}: {
+  title: string
+  explain: string
+  yes: string
+  onYes: () => void
+  onNotNow: () => void
+  messages: Messages
+  styles: Styles
+}) {
+  return (
+    <View style={styles.offer}>
+      <Text style={styles.description}>{title}</Text>
+      <Text style={styles.muted}>{explain}</Text>
+      <View style={styles.offerButtons}>
+        <Pressable accessibilityRole="button" style={styles.quietButton} onPress={onNotNow}>
+          <Text style={styles.quietButtonText}>{messages.reminders.notNow}</Text>
+        </Pressable>
+        <Pressable accessibilityRole="button" style={styles.quietButton} onPress={onYes}>
+          <Text style={styles.quietButtonText}>{yes}</Text>
         </Pressable>
       </View>
     </View>

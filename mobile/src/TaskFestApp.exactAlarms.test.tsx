@@ -1,9 +1,9 @@
-import { render, screen, userEvent } from '@testing-library/react-native'
+import { act, render, screen, userEvent } from '@testing-library/react-native'
 import type { BoardTask } from './api'
 import type { ExactAlarmOffer, ReminderPermission, ReminderScheduler } from './notifications'
 import type { Session } from './session'
 import { TaskFestApp, type Dependencies } from './TaskFestApp'
-import { HOUR, dependencies as appDependencies, memorySessions, tokenWith } from './testing'
+import { HOUR, dependencies as appDependencies, foreground, memorySessions, tokenWith } from './testing'
 import { variants } from './variants'
 
 jest.mock('./DueDatePicker', () => ({ DueDatePicker: () => null }))
@@ -34,7 +34,7 @@ function scheduler(permission: ReminderPermission) {
 function offer(wanted = true) {
   return {
     wanted: jest.fn().mockResolvedValue(wanted),
-    allow: jest.fn().mockResolvedValue(true),
+    allow: jest.fn().mockResolvedValue(undefined),
     decline: jest.fn().mockResolvedValue(undefined),
   } satisfies ExactAlarmOffer
 }
@@ -109,6 +109,22 @@ describe('the offer to bring the reminders on time, on Android (#665)', () => {
       expect(screen.queryByText(LATE)).toBeNull()
       await unmount()
     }
+  })
+
+  it('stays answered when a look begun before the answer comes back after it', async () => {
+    // Back in the foreground, the start over looks again; Not now is tapped before that look ends.
+    const back = foreground()
+    let answer: (wanted: boolean) => void = () => undefined
+    const exactAlarms = offer()
+    const { user } = await start({ exactAlarms })
+    await screen.findByText(LATE)
+    exactAlarms.wanted.mockImplementationOnce(() => new Promise<boolean>((resolve) => (answer = resolve)))
+
+    await back()
+    await user.press(screen.getByRole('button', { name: 'Not now' }))
+    await act(async () => answer(true))
+
+    expect(screen.queryByText(LATE)).toBeNull()
   })
 
   it('carries on when the setting cannot be opened or the answer kept', async () => {

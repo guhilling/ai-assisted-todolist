@@ -225,14 +225,23 @@ describe('the offer to bring reminders on time, on Android (#665)', () => {
     await expect(createExactAlarmOffer(exactAlarms({ granted: false, canAskAgain: false }), memoryFile()).wanted()).resolves.toBe(false)
   })
 
-  it('opens the setting, says whether they were allowed, and is not made again', async () => {
+  it('opens the setting, and is not made again', async () => {
     const api = exactAlarms(notAllowed, allowed)
     const file = memoryFile()
 
-    await expect(createExactAlarmOffer(api, file).allow()).resolves.toBe(true)
+    await createExactAlarmOffer(api, file).allow()
 
     expect(api.requestExactAlarmPermissionsAsync).toHaveBeenCalled()
     await expect(createExactAlarmOffer(exactAlarms(notAllowed), file).wanted()).resolves.toBe(false)
+  })
+
+  it('does not ask the platform once it was answered', async () => {
+    const file = memoryFile()
+    await createExactAlarmOffer(exactAlarms(notAllowed), file).decline()
+    const api = exactAlarms(notAllowed)
+
+    await expect(createExactAlarmOffer(api, file).wanted()).resolves.toBe(false)
+    expect(api.getExactAlarmPermissionsAsync).not.toHaveBeenCalled()
   })
 
   it('is not made again once declined', async () => {
@@ -248,7 +257,9 @@ describe('the offer to bring reminders on time, on Android (#665)', () => {
     const api = exactAlarms(notAllowed, allowed)
     const file = { ...memoryFile(), write: () => Promise.reject(new Error('disk')) }
 
-    await expect(createExactAlarmOffer(api, file).allow()).resolves.toBe(true)
-    expect(console.warn).toHaveBeenCalledWith('The answered offer could not be kept', expect.any(Error))
+    await createExactAlarmOffer(api, file).allow()
+
+    expect(api.requestExactAlarmPermissionsAsync).toHaveBeenCalled()
+    expect(console.warn).toHaveBeenCalledWith('The answered offer of exact alarms could not be kept', expect.any(Error))
   })
 })

@@ -41,12 +41,13 @@ export type ReminderScheduler = {
 
 /**
  * What the offer of exact alarms needs of the platform (#665): expo-notifications' calls, adapted
- * in `Main.tsx` like `NotificationsApi`. Granted on iOS, and on Android before 14 unless taken back.
+ * in `Main.tsx` like `NotificationsApi`, and on Android only. Granted there before Android 14,
+ * unless taken back.
  */
 export type ExactAlarmsApi = {
   getExactAlarmPermissionsAsync(): Promise<{ granted: boolean; canAskAgain: boolean }>
   /** Opens the system's setting, and resolves once the user is back. */
-  requestExactAlarmPermissionsAsync(): Promise<{ granted: boolean }>
+  requestExactAlarmPermissionsAsync(): Promise<unknown>
 }
 
 /**
@@ -57,8 +58,11 @@ export type ExactAlarmsApi = {
 export type ExactAlarmOffer = {
   /** Whether to make it: exact alarms not allowed, the setting there to allow them, not answered. */
   wanted(): Promise<boolean>
-  /** "Open settings": answered, then the system's setting; true when they were allowed there. */
-  allow(): Promise<boolean>
+  /**
+   * "Open settings": answered, then the system's setting, until the user is back. Whatever was
+   * chosen there, the return to the foreground schedules the reminders anew (`Main.tsx`).
+   */
+  allow(): Promise<void>
   /** "Not now". */
   decline(): Promise<void>
 }
@@ -151,7 +155,7 @@ export function createReminderScheduler(
     async ask() {
       await api.createChannel(CHANNEL, channelName)
       // Answered once asked, whatever the answer: the app does not ask a second time.
-      await keepAnswered(answeredFlag)
+      await keepAnswered(answeredFlag, 'The answered offer could not be kept')
       return (await api.requestPermissionsAsync()).granted
     },
 
@@ -182,11 +186,11 @@ export function createReminderScheduler(
  * Records that an offer was answered before the platform is asked. Not kept, the offer only comes
  * again, which is no reason to skip the platform's question now.
  */
-async function keepAnswered(answeredFlag: TextFile) {
+async function keepAnswered(answeredFlag: TextFile, warning: string) {
   try {
     await answeredFlag.write('answered')
   } catch (failure) {
-    console.warn('The answered offer could not be kept', failure)
+    console.warn(warning, failure)
   }
 }
 
@@ -199,14 +203,17 @@ async function keepAnswered(answeredFlag: TextFile) {
 export function createExactAlarmOffer(api: ExactAlarmsApi, answeredFlag: TextFile): ExactAlarmOffer {
   return {
     async wanted() {
+      if (answeredFlag.exists) {
+        return false
+      }
       // canAskAgain is false only where the app does not declare the permission: no setting to open.
       const { granted, canAskAgain } = await api.getExactAlarmPermissionsAsync()
-      return !granted && canAskAgain && !answeredFlag.exists
+      return !granted && canAskAgain
     },
 
     async allow() {
-      await keepAnswered(answeredFlag)
-      return (await api.requestExactAlarmPermissionsAsync()).granted
+      await keepAnswered(answeredFlag, 'The answered offer of exact alarms could not be kept')
+      await api.requestExactAlarmPermissionsAsync()
     },
 
     async decline() {
