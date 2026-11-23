@@ -10,7 +10,7 @@ import * as Notifications from 'expo-notifications'
 import * as SecureStore from 'expo-secure-store'
 import * as Sharing from 'expo-sharing'
 import * as WebBrowser from 'expo-web-browser'
-import { Platform } from 'react-native'
+import { AppState, Platform } from 'react-native'
 import { GoogleOneTapSignIn } from 'react-native-nitro-google-signin'
 import {
   addDraft,
@@ -99,6 +99,19 @@ const notifications: NotificationsApi = {
   createChannel: async (id, name) => {
     await Notifications.setNotificationChannelAsync(id, { name, importance: Notifications.AndroidImportance.DEFAULT })
   },
+}
+
+const reminders = createReminderScheduler(
+  notifications,
+  new File(Paths.document, 'reminders-offer-answered'),
+  catalogues[language].reminders.channel,
+)
+
+// Back in the foreground, Android's reminders are scheduled anew, as the start over then replaces
+// them: the user may have just allowed exact alarms in the settings, which apply only to reminders
+// scheduled after that (#665; doc/mobile/reminders.md).
+if (Platform.OS === 'android') {
+  AppState.addEventListener('change', (next) => next === 'active' && reminders.forget())
 }
 
 /** Where Android keeps the files it opens (#274): the cache, emptied when the session ends. */
@@ -415,11 +428,7 @@ const dependencies: Dependencies = {
     ),
     forget: async (files) => files.forEach((file) => discardCopy(file.uri)),
   },
-  reminders: createReminderScheduler(
-    notifications,
-    new File(Paths.document, 'reminders-offer-answered'),
-    catalogues[language].reminders.channel,
-  ),
+  reminders,
   fetchMinimumAppVersion: () => fetchMinimumAppVersion(variant.apiBaseUrl, appVersion),
   // Hermes keeps the zone it started in until told otherwise (#526).
   resetTimeZone: resetTimeZoneCache,

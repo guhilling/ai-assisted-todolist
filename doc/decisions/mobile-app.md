@@ -518,24 +518,32 @@ stays in the foreground is followed only at its next return there.
 
 *Accepted · 2026-11-23 · #665*
 
-**Decision.** The app declares `SCHEDULE_EXACT_ALARM`, which the user grants in the system settings
-and may take back. expo-notifications then schedules the reminders exactly, and inexactly without
-it, as it does on its own. The app itself offers it only once Expo SDK 58 is in, which has the calls
-for it. Claude's decision, as Gunnar left #665's to Claude on 2026-11-23.
+**Decision.** The app declares `SCHEDULE_EXACT_ALARM`. Android 12 and 13 grant it on install; from
+Android 14 on the user grants it in the system settings, and on any of them may take it back.
+expo-notifications then schedules the reminders exactly, and inexactly without it, as it does on its
+own; the app schedules them anew at each return to the foreground, so a grant takes effect then. The
+app itself offers it only once Expo SDK 58 is in (#673), which has the calls for it. Claude's
+decision, as Gunnar left #665's to Claude on 2026-11-23.
 
-**Why.** An inexact alarm may come up to an hour late, which makes the reminder of a task with a
-time, a call at 18:00, useless. On the emulator inexact ones came up to 60 minutes late, exact ones
-within 15 seconds, in Doze too ([reminders.md](../mobile/reminders.md#on-time-on-android)).
-Declaring the permission is one line, and whoever wants reminders on time can have them now; asking
-for it from the app would need a native module of its own on SDK 57, and none on 58.
+**Why.** An inexact alarm may come an hour late, and later in Doze, which makes the reminder of a
+task with a time, a call at 18:00, useless. On the emulator inexact ones came up to 60 minutes
+late, exact ones within 15 seconds, in Doze too
+([reminders.md](../mobile/reminders.md#on-time-on-android)).
+Declaring the permission is one line, and whoever wants reminders on time can have them now. On SDK
+57, telling whether it is allowed would need a native call of the app's own; SDK 58 has one.
 
 **Rejected:**
 - *`USE_EXACT_ALARM`*, granted on install: Play takes it only from alarm clocks, timers and
-  calendars ([Play's policy](https://support.google.com/googleplay/android-developer/answer/16558241)), and
-  would refuse the app.
+  calendars ([Play's policy](https://support.google.com/googleplay/android-developer/answer/16558241)),
+  and would refuse the app.
 - *`setWindow` with ten minutes*, which needs no permission: it would be a patch to
   expo-notifications, and unlike what that uses now, it waits for the end of Doze.
-- *A native module* to ask for the permission now: more to maintain, for what SDK 58 brings.
+- *Asking for the permission now*, with a native call in the app's local module and
+  expo-intent-launcher to open the setting: more to maintain, for what SDK 58 brings.
+- *A receiver for Android's broadcast on a grant*, rescheduling at once: more Kotlin, where a return
+  to the foreground, which follows a visit to the settings, does it too.
 
-**Cost.** Taking the permission back drops every reminder until the app is next opened. Whoever does
-not allow it has reminders as late as before.
+**Cost.** Taking the permission back drops every reminder until the app is next opened, also on
+Android 12 and 13, where nobody chose it; before, they came late but came. Whoever does not have it
+has reminders as late as before. Each return to the foreground on Android schedules every reminder
+again.

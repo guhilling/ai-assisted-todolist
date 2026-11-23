@@ -101,9 +101,16 @@ without touching anything else, and the status bar shows the mark's single-colou
 
 ### On time, on Android
 
-Unless the user allows exact alarms, Android may bring a reminder late: within an hour of its time,
-and later in Doze or with the battery saver on
-([alarms](https://developer.android.com/develop/background-work/services/alarms)).
+Without exact alarms, Android may bring a reminder late: within an hour of its time, and later in
+Doze or with the battery saver on
+([alarms](https://developer.android.com/develop/background-work/services/alarms)). Which a phone
+has depends on its Android, as expo-notifications schedules exactly whenever it may
+(`ExpoSchedulingDelegate`):
+
+- **Android 11 and older:** exact, with no permission.
+- **Android 12 and 13:** exact, as `SCHEDULE_EXACT_ALARM` is granted on install.
+- **Android 14 and later:** inexact, until the user allows exact alarms
+  ([Android 14](https://developer.android.com/about/versions/14/changes/schedule-exact-alarms)).
 
 Measured on the Android 14 emulator (#665): six reminders, due 20 to 150 minutes after they were
 scheduled, the app in the background. *Awake* is the screen on and the phone charging; *Doze* the
@@ -120,26 +127,27 @@ script looked every 15 seconds.
 | 150 min | 10½ min | 34½ min | 9 s |
 
 Inexact, Android allowed itself three quarters of the time until the reminder, and an hour at most
-(`dumpsys alarm`'s `window`), and used most of it, awake as well. Doze brought nothing later in two
-and a half hours. A phone that lies still longer, such as overnight before the 08:00 reminder, gets
-its maintenance windows ever less often
+(`dumpsys alarm`'s `window`), and used most of it, awake as well. In two and a half hours of Doze
+none came later than that. A phone that lies still longer, such as overnight before the 08:00
+reminder, gets its maintenance windows ever less often
 ([Doze](https://developer.android.com/training/monitoring-device-state/doze-standby)), which the
 emulator did not show. Exact, every reminder came on time.
 
 **Allowing them** (#665) is the system settings' job: *Apps → Special app access → Alarms &
-reminders → TaskFest*. The app declares the permission for it, `SCHEDULE_EXACT_ALARM`, and
-expo-notifications then schedules exactly. Since Android 14 it is off until the user turns it on
-([Android 14](https://developer.android.com/about/versions/14/changes/schedule-exact-alarms)). Seen
-on the emulator:
+reminders → TaskFest*, where the permission the app declares, `SCHEDULE_EXACT_ALARM`, is switched
+on and off. Seen on the emulator:
 
-- **Allowed**, reminders already scheduled stay inexact until the app is next started afresh, which
-  schedules them again.
+- **Allowed**, reminders already scheduled stay inexact until they are scheduled again. The app
+  does that at its next return to the foreground, by forgetting what it scheduled
+  (`mobile/src/Main.tsx`).
 - **After a restart of the phone** they are still exact.
 - **Taken back**, Android ends the app and drops every exact alarm, so no reminder comes until the
   app is next opened, which schedules them inexactly.
 
-The app does not offer it yet. Expo SDK 58 can ask whether it is allowed and open the setting
-(`requestExactAlarmPermissionsAsync`), which SDK 57 cannot.
+The app does not offer it yet (#673). Expo SDK 58 can ask whether it is allowed and open the
+setting (`getExactAlarmPermissionsAsync`, `requestExactAlarmPermissionsAsync`). On SDK 57,
+expo-intent-launcher could open the setting, but whether it is allowed needs a native call of the
+app's own.
 
 ## Code and tests
 
@@ -148,6 +156,7 @@ The app does not offer it yet. Expo SDK 58 can ask whether it is allowed and ope
 | The rule: which days, which time, how many | `mobile/src/reminders.ts` |
 | The platform: permission, channel, scheduling | `mobile/src/notifications.ts` (expo-notifications) |
 | When they are scheduled, cleared and offered | `mobile/src/TaskFestApp.tsx` |
+| Exact alarms on Android: the permission, and scheduling anew in the foreground (#665) | `android.permissions` in `mobile/app.config.ts`, `mobile/src/Main.tsx` |
 | Moving them with the time zone, on iOS | `calendarOf` in `mobile/src/notifications.ts`, used by `mobile/src/Main.tsx` |
 | Moving them with the time zone, on Android | `mobile/plugins/android/TimeZoneChangedReceiver.kt`, declared by `mobile/src/timeZoneReceiver.ts`, added by `mobile/plugins/withTimeZoneReceiver.ts` |
 | Following the phone's zone in JavaScript (#526) | `mobile/modules/time-zone-cache/`, called from `mobile/src/TaskFestApp.tsx` |

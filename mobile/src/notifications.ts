@@ -71,12 +71,18 @@ const CHANNEL = 'reminders'
  *
  * Replacements run one at a time: each cancels everything and then schedules, so two overlapping
  * would otherwise both leave their reminders behind. A replacement with exactly the reminders
- * already scheduled does nothing -- most changes to a board leave them as they were.
+ * already scheduled does nothing -- most changes to a board leave them as they were -- until
+ * `forget` is called: on Android, exact alarms allowed meanwhile apply only to reminders scheduled
+ * after that (#665).
  *
  * @param answeredFlag a file whose existence records that the offer was answered
  * @param channelName the Android channel's name, in the user's language
  */
-export function createReminderScheduler(api: NotificationsApi, answeredFlag: TextFile, channelName: string): ReminderScheduler {
+export function createReminderScheduler(
+  api: NotificationsApi,
+  answeredFlag: TextFile,
+  channelName: string,
+): ReminderScheduler & { forget(): void } {
   let queue: Promise<unknown> = Promise.resolve()
   /** What is scheduled now, as JSON; null when that is not known, or nothing could be. */
   let scheduled: string | null = null
@@ -137,6 +143,13 @@ export function createReminderScheduler(api: NotificationsApi, answeredFlag: Tex
 
     async decline() {
       answeredFlag.write('declined')
+    },
+
+    // After the replacement on its way, which would otherwise count its reminders as scheduled.
+    forget() {
+      queue = queue.then(() => {
+        scheduled = null
+      })
     },
   }
 }
