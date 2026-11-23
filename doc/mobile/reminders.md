@@ -138,11 +138,14 @@ reminders → TaskFest*, where the permission the app declares, `SCHEDULE_EXACT_
 on and off. Seen on the emulator:
 
 - **Allowed**, reminders already scheduled stay inexact until they are scheduled again. The app
-  does that at its next return to the foreground, by forgetting what it scheduled
-  (`mobile/src/Main.tsx`).
+  forgets what it scheduled at each return to the foreground (`mobile/src/Main.tsx`), so the next
+  load of the board schedules them anew.
 - **After a restart of the phone** they are still exact.
 - **Taken back**, Android ends the app and drops every exact alarm, so no reminder comes until the
-  app is next opened, which schedules them inexactly.
+  app has loaded the board from the backend again, which schedules them inexactly.
+
+Only a board loaded from the backend schedules reminders (#273): opened offline, the app shows the
+board it kept and schedules nothing.
 
 The app does not offer it yet (#665). Since Expo SDK 58 (#673), expo-notifications can tell
 whether it is allowed and open the setting (`getExactAlarmPermissionsAsync`,

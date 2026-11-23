@@ -524,9 +524,9 @@ stays in the foreground is followed only at its next return there.
 **Decision.** The app declares `SCHEDULE_EXACT_ALARM`. Android 12 and 13 grant it on install; from
 Android 14 on the user grants it in the system settings, and on any of them may take it back.
 expo-notifications then schedules the reminders exactly, and inexactly without it, as it does on its
-own; the app schedules them anew at each return to the foreground, so a grant takes effect then. The
-app itself offers it only once Expo SDK 58 is in (#673), which has the calls for it. Claude's
-decision, as Gunnar left #665's to Claude on 2026-11-23.
+own; the app schedules them anew at the first load of the board after each return to the foreground,
+so a grant takes effect then. The app itself offers it only once Expo SDK 58 is in (#673), which has
+the calls for it. Claude's decision, as Gunnar left #665's to Claude on 2026-11-23.
 
 **Why.** An inexact alarm may come an hour late, and later in Doze, which makes the reminder of a
 task with a time, a call at 18:00, useless. On the emulator inexact ones came up to 60 minutes
@@ -546,7 +546,7 @@ Declaring the permission is one line, and whoever wants reminders on time can ha
 - *A receiver for Android's broadcast on a grant*, rescheduling at once: more Kotlin, where a return
   to the foreground, which follows a visit to the settings, does it too.
 
-**Cost.** Taking the permission back drops every reminder until the app is next opened, also on
-Android 12 and 13, where nobody chose it; before, they came late but came. Whoever does not have it
-has reminders as late as before. Each return to the foreground on Android schedules every reminder
-again.
+**Cost.** Taking the permission back drops every reminder until the app next loads the board, also
+on Android 12 and 13, where nobody chose it; before, they came late but came. Whoever does not have
+it has reminders as late as before. On Android, the first load after each return to the foreground
+schedules every reminder again.

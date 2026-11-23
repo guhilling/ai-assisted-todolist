@@ -107,9 +107,9 @@ const reminders = createReminderScheduler(
   catalogues[language].reminders.channel,
 )
 
-// Back in the foreground, Android's reminders are scheduled anew, as the start over then replaces
-// them: the user may have just allowed exact alarms in the settings, which apply only to reminders
-// scheduled after that (#665; doc/mobile/reminders.md).
+// Back in the foreground, Android's reminders are scheduled anew, when the start over's load
+// replaces them: the user may have just allowed exact alarms in the settings, which apply only to
+// reminders scheduled after that (#665; doc/mobile/reminders.md).
 if (Platform.OS === 'android') {
   AppState.addEventListener('change', (next) => next === 'active' && reminders.forget())
 }
