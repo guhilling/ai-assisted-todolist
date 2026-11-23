@@ -140,8 +140,12 @@ full description: Play has no field of its own for them.
 `SYSTEM_ALERT_WINDOW` comes with Expo's template, and the listing would show it as drawing over
 other apps: `android.blockedPermissions` in `mobile/app.config.ts` takes it out of the release
 builds. `VIBRATE`, the template's too, stays: it is a normal permission, which nobody is asked for;
-whether the reminders need it has not been checked. The storage permissions are for Android 12 and
-older only (`maxSdkVersion` 32).
+whether the reminders need it has not been checked. `SCHEDULE_EXACT_ALARM` is the app's own
+([reminders.md](reminders.md#on-time-on-android)), granted on install up to Android 13 and by the
+user in the system settings from 14 on; Play asks for a declaration of `USE_EXACT_ALARM` only, which
+the app does not have
+([Play's policy](https://support.google.com/googleplay/android-developer/answer/16558241)).
+The storage permissions are for Android 12 and older only (`maxSdkVersion` 32).
 
 ## iOS, after Sign in with Apple
 

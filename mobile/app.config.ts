@@ -52,6 +52,9 @@ export default ({ config }: ConfigContext): ExpoConfig => {
         monochromeImage: './assets/android-icon-monochrome.png',
       },
       predictiveBackGestureEnabled: false,
+      // Reminders on time for whoever allows it in the system settings, from Android 14 on: without
+      // it Android may bring one an hour late, and later in Doze (#665; doc/mobile/reminders.md).
+      permissions: ['android.permission.SCHEDULE_EXACT_ALARM'],
       // Drawing over other apps comes with Expo's template, the app does not need it, and Play's
       // listing would show it (#608). Debug builds keep it, from a manifest of their own.
       blockedPermissions: ['android.permission.SYSTEM_ALERT_WINDOW'],

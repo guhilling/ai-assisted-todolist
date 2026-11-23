@@ -136,6 +136,31 @@ describe('the reminders, as the platform keeps them (#273)', () => {
 
     expect(api.scheduleNotificationAsync).toHaveBeenCalledTimes(1)
   })
+
+  it('schedules the same reminders again once told to forget them, as exact alarms may be allowed now (#665)', async () => {
+    const api = platform(granted)
+    const scheduler = createReminderScheduler(api, memoryFile(), CHANNEL)
+    const reminders = [{ at: new Date(2026, 9, 11, 8, 0), title: '2 tasks due today' }]
+
+    await scheduler.replace(reminders)
+    scheduler.forget()
+    await scheduler.replace(reminders)
+
+    expect(api.scheduleNotificationAsync).toHaveBeenCalledTimes(2)
+  })
+
+  it('forgets only once the replacement on its way is done, which would otherwise count as scheduled', async () => {
+    const api = platform(granted)
+    const scheduler = createReminderScheduler(api, memoryFile(), CHANNEL)
+    const reminders = [{ at: new Date(2026, 9, 11, 8, 0), title: '2 tasks due today' }]
+
+    const first = scheduler.replace(reminders)
+    scheduler.forget()
+    await first
+    await scheduler.replace(reminders)
+
+    expect(api.scheduleNotificationAsync).toHaveBeenCalledTimes(2)
+  })
 })
 
 describe('the wall-clock time a floating reminder carries (#479)', () => {
