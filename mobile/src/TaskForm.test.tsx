@@ -1,4 +1,4 @@
-import { render, screen, userEvent, within } from '@testing-library/react-native'
+import { act, fireEvent, render, screen, userEvent, within } from '@testing-library/react-native'
 import { StyleSheet } from 'react-native'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 import type { BoardTask } from './api'
@@ -273,6 +273,38 @@ describe('the keyboard does not hide the buttons (#382, #679)', () => {
     await user.type(screen.getByLabelText('What needs doing'), 'Water the plants', { submitEditing: true })
 
     expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ description: 'Water the plants' }))
+  })
+
+  it('saves once, when the return key and Add come before the form shows it is saving', async () => {
+    const onSave = jest.fn(() => new Promise<boolean>(() => undefined))
+    await render(form({ onSave }))
+    const user = userEvent.setup()
+    await user.type(screen.getByLabelText('What needs doing'), 'Water the plants')
+
+    await act(async () => {
+      fireEvent(screen.getByLabelText('What needs doing'), 'submitEditing')
+      fireEvent.press(screen.getByRole('button', { name: 'Add' }))
+    })
+
+    expect(onSave).toHaveBeenCalledTimes(1)
+  })
+
+  it('lets iOS keep the fields clear of the keyboard, and gives way to it on Android', async () => {
+    await render(form())
+
+    expect(screen.getByTestId('task-form-fields').props.automaticallyAdjustKeyboardInsets).toBe(true)
+  })
+
+  it('wraps the buttons in the head rather than push Add off a narrow screen', async () => {
+    await render(form())
+
+    expect(StyleSheet.flatten(screen.getByTestId('task-form-buttons').props.style).flexWrap).toBe('wrap')
+  })
+
+  it('names the form as a heading', async () => {
+    await render(form())
+
+    expect(screen.getByRole('header', { name: 'Add a task' })).toBeOnTheScreen()
   })
 
   it('adds nothing from the return key without a description', async () => {

@@ -96,7 +96,9 @@ export function stylesFor(theme: Theme) {
     chipActive: { backgroundColor: theme.accent, borderColor: theme.accent },
     chipText: { fontFamily: font.text, color: theme.text },
     chipTextActive: { fontFamily: font.text, color: theme.accentContrast },
-    formButtons: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
+    // Wrapped rather than pushing Add off a narrow screen, in German or with large text (#679).
+    formButtons: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
+    formDelete: { alignSelf: 'flex-start' },
     formFields: { flex: 1 },
     // The form's head, Cancel and Add above its fields, which the keyboard never covers (#679).
     formHead: { padding: 16, gap: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: theme.border },
