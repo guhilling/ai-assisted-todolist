@@ -167,3 +167,4 @@ commit that first wrote each one down. CI checks every line and that this index 
 - [iOS's floating reminders are calendar triggers without a time zone](mobile-app.md#ioss-floating-reminders-are-calendar-triggers-without-a-time-zone)
 - [A local Expo module drops Hermes' cached time zone](mobile-app.md#a-local-expo-module-drops-hermes-cached-time-zone)
 - [Android's reminders are on time for whoever allows exact alarms](mobile-app.md#androids-reminders-are-on-time-for-whoever-allows-exact-alarms)
+- [Android's release builds stay without R8](mobile-app.md#androids-release-builds-stay-without-r8)

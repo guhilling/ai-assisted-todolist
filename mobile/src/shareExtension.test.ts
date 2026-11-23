@@ -45,9 +45,13 @@ describe('where the share extension leaves a shared file for the app (#356)', ()
   it('is a folder of its own, so two files of one name do not overwrite each other', () => {
     // expo-sharing does so itself since SDK 58; the app's plugin did before.
     const store = readFileSync(require.resolve('expo-sharing/ios/shared/ShareIntoFileStore.swift'), 'utf8')
+    const template = readFileSync(require.resolve('expo-sharing/plugin/template-files/ios/ShareIntoViewController.swift'), 'utf8')
 
     expect(store).toContain('let directory = rootURL.appendingPathComponent(UUID().uuidString, isDirectory: true)')
     expect(store).toContain('return directory.appendingPathComponent(fileName, isDirectory: false)')
+    // The extension puts every file it copies or writes there, and nowhere else.
+    expect(template.match(/makeDestination\(fileName: fileName\)/g)).toHaveLength(2)
+    expect(template).not.toContain('containerURL.appendingPathComponent(fileName)')
   })
 })
 

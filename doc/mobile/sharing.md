@@ -34,8 +34,9 @@ the raw share, is in [decisions/mobile-app.md](../decisions/mobile-app.md).
 - **On iOS** the extension runs on its own, in the sending app's share sheet. It copies the files
   into an **App Group** — a folder TaskFest and its extension share, `group.<bundle id>` — each
   into a folder of its own, so two files of one name both arrive (expo-sharing does so since SDK
-  58; before, `mobile/plugins/withShareExtensionName.ts` had to) — notes the share there, and opens TaskFest by its URL scheme. Apple offers an extension no public way
-  to open its app; the one used here is the one every such library uses, and App Review may object
+  58; before, `mobile/plugins/withShareExtensionName.ts` had to) — notes the share there, and
+  opens TaskFest by its URL scheme. Apple offers an extension no public way to open its app; the
+  one used here is the one every such library uses, and App Review may object
   to it. If it does, the fallback is an extension of the project's own, not built yet, that keeps
   the share and says *"Saved. Open TaskFest to finish it."*: the app's side would stay the same,
   since it looks for a share whenever it becomes active

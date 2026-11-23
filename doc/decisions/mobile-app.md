@@ -550,3 +550,24 @@ Declaring the permission is one line, and whoever wants reminders on time can ha
 on Android 12 and 13, where nobody chose it; before, they came late but came. Whoever does not have
 it has reminders as late as before. On Android, the first load after each return to the foreground
 schedules every reminder again.
+
+## Android's release builds stay without R8
+
+*Accepted · 2026-11-23 · #673*
+
+**Decision.** `expo-build-properties` sets `android.enableMinifyInReleaseBuilds` to `false`, as it
+was up to Expo SDK 57. SDK 58's template turns R8 on for release builds, which shrinks and
+obfuscates the code. `mobile/src/appConfig.test.ts` checks it. Claude's decision, as part of the
+SDK 58 update.
+
+**Why.** The update should change nothing the app does. A native module that reaches its classes
+by reflection, Google's sign-in or Nitro, may fail only in a release build with R8, and only on a
+path Maestro does not cover: a crash the stores' users would find first.
+
+**Rejected:**
+- *R8 on with the update*: two changes in one, and a failure of the second would look like one of
+  the first.
+
+**Cost.** The APK stays as large as before, and its code readable to whoever unpacks it, which it
+was already. Turning R8 on is a change of its own, with keep rules where a module needs them.
+
