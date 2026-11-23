@@ -96,10 +96,10 @@ export function stylesFor(theme: Theme) {
     chipActive: { backgroundColor: theme.accent, borderColor: theme.accent },
     chipText: { fontFamily: font.text, color: theme.text },
     chipTextActive: { fontFamily: font.text, color: theme.accentContrast },
-    formButtons: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8 },
+    formButtons: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
     formFields: { flex: 1 },
-    // The form's buttons, below its fields and above the keyboard (#382).
-    formFooter: { padding: 16, gap: 12, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.border },
+    // The form's head, Cancel and Add above its fields, which the keyboard never covers (#679).
+    formHead: { padding: 16, gap: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: theme.border },
     // The brand, and the documentation and the account beside it: these wrap below the brand
     // rather than leave the screen, in German or with large text on a narrow phone.
     boardHead: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', paddingTop: 8 },

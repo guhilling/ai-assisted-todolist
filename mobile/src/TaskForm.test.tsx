@@ -1,5 +1,5 @@
-import { act, render, screen, userEvent, within } from '@testing-library/react-native'
-import { DeviceEventEmitter, StyleSheet } from 'react-native'
+import { render, screen, userEvent, within } from '@testing-library/react-native'
+import { StyleSheet } from 'react-native'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 import type { BoardTask } from './api'
 import { stylesFor } from './styles'
@@ -227,12 +227,12 @@ describe('a task a share brought (#355)', () => {
   })
 })
 
-describe('the keyboard does not hide the buttons (#382)', () => {
-  it('keeps Add and Cancel below the scrolling fields, where they stay above the keyboard', async () => {
+describe('the keyboard does not hide the buttons (#382, #679)', () => {
+  it('keeps Add and Cancel in the head, above the scrolling fields, where the keyboard never covers them', async () => {
     await render(form())
 
     const fields = screen.getByTestId('task-form-fields')
-    const buttons = screen.getByTestId('task-form-buttons')
+    const buttons = within(screen.getByTestId('task-form-head')).getByTestId('task-form-buttons')
 
     expect(within(buttons).getByRole('button', { name: 'Add' })).toBeOnTheScreen()
     expect(within(buttons).getByRole('button', { name: 'Cancel' })).toBeOnTheScreen()
@@ -240,33 +240,48 @@ describe('the keyboard does not hide the buttons (#382)', () => {
     expect(within(fields).getByLabelText('What needs doing')).toBeOnTheScreen()
   })
 
-  it('says a refused save beside the buttons, not at the end of the fields the keyboard scrolled away', async () => {
+  it('says a refused save under the head, not at the end of the fields the keyboard scrolled away', async () => {
     await render(form({ failure: 'Unable to create task.' }))
 
-    expect(within(screen.getByTestId('task-form-footer')).getByText('Unable to create task.')).toBeOnTheScreen()
+    expect(within(screen.getByTestId('task-form-head')).getByText('Unable to create task.')).toBeOnTheScreen()
     expect(within(screen.getByTestId('task-form-fields')).queryByText('Unable to create task.')).toBeNull()
   })
 
-  it('keeps the buttons clear of the home indicator, until the keyboard covers it', async () => {
+  it('keeps the end of the fields clear of the home indicator', async () => {
     const insets = { top: 47, bottom: 34, left: 0, right: 0 }
     await render(
       <SafeAreaProvider initialMetrics={{ insets, frame: { x: 0, y: 0, width: 390, height: 844 } }}>{form()}</SafeAreaProvider>,
     )
-    const footer = () => StyleSheet.flatten(screen.getByTestId('task-form-footer').props.style)
 
-    expect(footer().paddingBottom).toBe(50)
-    await act(async () => {
-      DeviceEventEmitter.emit('keyboardDidShow', {})
-    })
-    expect(footer().paddingBottom).toBe(16)
+    expect(StyleSheet.flatten(screen.getByTestId('task-form-fields').props.contentContainerStyle).paddingBottom).toBe(50)
   })
 
-  it('keeps Save and Delete there too, when a task is edited', async () => {
+  it('keeps Save there too when a task is edited, and Delete at the end of the fields', async () => {
     await render(form({ task, onDelete: jest.fn() }))
 
     const buttons = screen.getByTestId('task-form-buttons')
     expect(within(buttons).getByRole('button', { name: 'Save' })).toBeOnTheScreen()
-    expect(within(buttons).getByRole('button', { name: 'Delete' })).toBeOnTheScreen()
+    expect(within(screen.getByTestId('task-form-fields')).getByRole('button', { name: 'Delete' })).toBeOnTheScreen()
     expect(within(screen.getByTestId('task-form-fields')).queryByRole('button', { name: 'Save' })).toBeNull()
+  })
+
+  it("adds the task from the keyboard's return key, as Add does", async () => {
+    const onSave = jest.fn().mockResolvedValue(true)
+    await render(form({ onSave }))
+    const user = userEvent.setup()
+
+    await user.type(screen.getByLabelText('What needs doing'), 'Water the plants', { submitEditing: true })
+
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ description: 'Water the plants' }))
+  })
+
+  it('adds nothing from the return key without a description', async () => {
+    const onSave = jest.fn().mockResolvedValue(true)
+    await render(form({ onSave }))
+    const user = userEvent.setup()
+
+    await user.type(screen.getByLabelText('What needs doing'), '   ', { submitEditing: true })
+
+    expect(onSave).not.toHaveBeenCalled()
   })
 })
