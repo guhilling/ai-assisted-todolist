@@ -18,7 +18,7 @@ import { BoardScreen } from './BoardScreen'
 import type { KeptBoardStore } from './keptBoard'
 import { noPreviews, type PreviewStore } from './previews'
 import { AboutLink, LegalLinks } from './LegalLinks'
-import type { ReminderScheduler } from './notifications'
+import type { ExactAlarmOffer, ReminderScheduler } from './notifications'
 import { remindersFor } from './reminders'
 import { hasEnded, type Session } from './session'
 import { appSessionFrom, currentSession, type SessionStore, type Tokens, type Trade } from './staySignedIn'
@@ -115,6 +115,8 @@ export type Dependencies = {
   previews?: PreviewStore
   /** The due-day reminders on the phone, and the permission they need (#273). */
   reminders: ReminderScheduler
+  /** The offer to bring them on time with exact alarms, on Android (#665); none, and it is never made. */
+  exactAlarms?: ExactAlarmOffer
   /** Whether the board's colours were explained on this phone already (#335); none, and they never are. */
   legend?: { seen(): Promise<boolean>; dismiss(): Promise<void> }
   /**
@@ -261,6 +263,7 @@ export function TaskFestApp({
     keptBoard,
     previews = noPreviews,
     reminders,
+    exactAlarms,
     legend,
     incoming,
     resetTimeZone,
@@ -312,6 +315,8 @@ export function TaskFestApp({
   const [refused, setRefused] = useState(false)
   /** Whether the reminders may be offered (#273): they may be asked for, and the offer was not answered. */
   const [offerReminders, setOfferReminders] = useState(false)
+  /** Whether exact alarms may be offered (#665): the reminders are on, they are not, and it was not answered. */
+  const [offerExact, setOfferExact] = useState(false)
   /** Whether the board's colours still need explaining (#335): until dismissed once on this phone. */
   const [explainColours, setExplainColours] = useState(false)
   /** Whether this phone can sign in with Apple (#281), asked once: Apple's button shows only then. */
@@ -480,6 +485,7 @@ export function TaskFestApp({
           console.warn('The reminders could not be cleared', failure)
         })
         setOfferReminders(false)
+        setOfferExact(false)
         // An upload's own end no longer clears it once its session has ended.
         setUploading(null)
         setForm(null)
@@ -559,6 +565,20 @@ export function TaskFestApp({
     }
   }, [reminders, sinceSignIn])
 
+  /** Offers exact alarms while the reminders are on and may come late, until answered (#665). */
+  const offerExactIfWanted = useCallback(async () => {
+    const signedOut = sinceSignIn()
+    let offer: boolean
+    try {
+      offer = !!exactAlarms && (await reminders.permission()) === 'granted' && (await exactAlarms.wanted())
+    } catch {
+      offer = false
+    }
+    if (!signedOut()) {
+      setOfferExact(offer)
+    }
+  }, [exactAlarms, reminders, sinceSignIn])
+
   /** A load that did not work: a board shown stays, marked as possibly out of date. */
   const loadFailed = useCallback(
     () => setState((current) => (current.kind === 'board' ? { ...current, kept: 'failed' } : { kind: 'failed' })),
@@ -594,6 +614,7 @@ export function TaskFestApp({
           agreed.current = email ? { account: email, loadedAt, tasks: new Map(tasks.map((task) => [task.id, task])) } : null
           keep()
           void offerIfAsked()
+          void offerExactIfWanted()
         }
       } catch (failure) {
         // A later load decides: it has the same session, and its answer is the newer one.
@@ -607,7 +628,7 @@ export function TaskFestApp({
         }
       }
     },
-    [fetchTasks, keep, loadFailed, now, offerIfAsked, signOut, sinceLoad, sinceSignIn, variant.apiBaseUrl],
+    [fetchTasks, keep, loadFailed, now, offerExactIfWanted, offerIfAsked, signOut, sinceLoad, sinceSignIn, variant.apiBaseUrl],
   )
 
   /** Takes what another app shared, if anything, to show once the board can take it (#355). */
@@ -821,7 +842,23 @@ export function TaskFestApp({
     setOfferReminders(false)
     if (await reminders.ask().catch(() => false)) {
       keep()
+      void offerExactIfWanted()
     }
+  }
+
+  /**
+   * "Open settings": the system's setting for exact alarms. Allowed there, the return to the
+   * foreground schedules the reminders anew, as exact ones (`Main.tsx`).
+   */
+  const allowExactAlarms = () => {
+    setOfferExact(false)
+    exactAlarms?.allow().catch((failure: unknown) => console.warn('The setting for exact alarms could not be opened', failure))
+  }
+
+  /** "Not now", to exact alarms: the offer is not made again. */
+  const declineExactAlarms = () => {
+    setOfferExact(false)
+    exactAlarms?.decline().catch((failure: unknown) => console.warn('The declined offer could not be kept', failure))
   }
 
   /** "Got it": the colours are not explained again on this phone (#335). */
@@ -1855,6 +1892,11 @@ export function TaskFestApp({
               offer={
                 offerReminders && !state.kept && remindable
                   ? { onTurnOn: () => void turnOnReminders(), onNotNow: declineReminders }
+                  : undefined
+              }
+              late={
+                offerExact && !state.kept && remindable
+                  ? { onOpenSettings: allowExactAlarms, onNotNow: declineExactAlarms }
                   : undefined
               }
               legend={explainColours ? { onDismiss: dismissLegend } : undefined}

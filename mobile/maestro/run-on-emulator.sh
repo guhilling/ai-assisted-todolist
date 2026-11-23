@@ -107,9 +107,11 @@ flows maestro-report.xml mobile/maestro/account.yaml
 # Reminders (#273): turn them on, then make sure Android holds a pending alarm of the app's
 # (`Alarm{... origWhen <ms> ... <package>}`) set for 08:00 in the emulator's own time zone -- not
 # merely the package's name somewhere in the statistics. Any day's 08:00: which day "tomorrow" is
-# was the emulator's to decide when the task was added, and a run may cross midnight. Then a task
-# due at 09:00 (#478), whose reminder must be there too, at 09:00.
+# was the emulator's to decide when the task was added, and a run may cross midnight. In between,
+# the offer of exact alarms (#665), its setting left without allowing them. Then a task due at
+# 09:00 (#478), whose reminder must be there too, at 09:00.
 flows maestro-reminders.xml mobile/maestro/reminders/turn-on.yaml
+flows maestro-reminders-exact.xml mobile/maestro/reminders/exact-alarms.yaml
 flows maestro-reminders-timed.xml mobile/maestro/reminders/timed.yaml
 zone="$(adb shell getprop persist.sys.timezone | tr -d '\r')"
 # The times of the app's pending alarms, in zone $1, into $times; the dump itself into $alarms.

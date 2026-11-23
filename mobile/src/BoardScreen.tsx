@@ -15,7 +15,8 @@ const UNDO_FOR_MS = 8000
  * tap on it to edit it, and the add button, the offer to undo a delete and any failure below. The
  * account sheet opens from the head of it (#275), and the documentation beside it (#384). The board kept on the phone is shown the same way,
  * with a note above it while it waits for, or could not get, the current one (#272). The offer to
- * turn the due-day reminders on stands above the board until it is answered (#273).
+ * turn the due-day reminders on stands above the board until it is answered (#273), and so, once
+ * they are on, does the one to bring them on time on Android (#665).
  *
  * A task holding an importance or state a newer backend added is shown but not offered for any
  * change: the backend replaces a whole task, so saving it would overwrite the value the app does
@@ -41,6 +42,7 @@ export function BoardScreen({
   onRetry,
   files,
   offer,
+  late,
   legend,
 }: {
   tasks: BoardTask[]
@@ -73,6 +75,8 @@ export function BoardScreen({
   files?: { link: FileLinkSource; onOpen: (task: BoardTask, attachment: Attachment) => void }
   /** The offer to turn the due-day reminders on (#273), while it stands. */
   offer?: { onTurnOn: () => void; onNotNow: () => void }
+  /** The offer to bring them on time on Android, with exact alarms (#665), while it stands. */
+  late?: { onOpenSettings: () => void; onNotNow: () => void }
   /** What the colours mean (#335), until dismissed: shown above a board with open tasks. */
   legend?: { onDismiss: () => void }
 }) {
@@ -197,6 +201,20 @@ export function BoardScreen({
               </Pressable>
               <Pressable accessibilityRole="button" style={styles.quietButton} onPress={offer.onTurnOn}>
                 <Text style={styles.quietButtonText}>{messages.reminders.turnOn}</Text>
+              </Pressable>
+            </View>
+          </View>
+        ) : null}
+        {late ? (
+          <View style={styles.offer}>
+            <Text style={styles.description}>{messages.reminders.late}</Text>
+            <Text style={styles.muted}>{messages.reminders.lateExplain}</Text>
+            <View style={styles.offerButtons}>
+              <Pressable accessibilityRole="button" style={styles.quietButton} onPress={late.onNotNow}>
+                <Text style={styles.quietButtonText}>{messages.reminders.notNow}</Text>
+              </Pressable>
+              <Pressable accessibilityRole="button" style={styles.quietButton} onPress={late.onOpenSettings}>
+                <Text style={styles.quietButtonText}>{messages.reminders.openSettings}</Text>
               </Pressable>
             </View>
           </View>

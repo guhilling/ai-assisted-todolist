@@ -168,3 +168,4 @@ commit that first wrote each one down. CI checks every line and that this index 
 - [A local Expo module drops Hermes' cached time zone](mobile-app.md#a-local-expo-module-drops-hermes-cached-time-zone)
 - [Android's reminders are on time for whoever allows exact alarms](mobile-app.md#androids-reminders-are-on-time-for-whoever-allows-exact-alarms)
 - [Android's release builds stay without R8](mobile-app.md#androids-release-builds-stay-without-r8)
+- [Exact alarms are offered once, after the reminders are on](mobile-app.md#exact-alarms-are-offered-once-after-the-reminders-are-on)

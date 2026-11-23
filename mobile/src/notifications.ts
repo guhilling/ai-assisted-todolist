@@ -39,6 +39,30 @@ export type ReminderScheduler = {
   decline(): Promise<void>
 }
 
+/**
+ * What the offer of exact alarms needs of the platform (#665): expo-notifications' calls, adapted
+ * in `Main.tsx` like `NotificationsApi`. Granted on iOS, and on Android before 14 unless taken back.
+ */
+export type ExactAlarmsApi = {
+  getExactAlarmPermissionsAsync(): Promise<{ granted: boolean; canAskAgain: boolean }>
+  /** Opens the system's setting, and resolves once the user is back. */
+  requestExactAlarmPermissionsAsync(): Promise<{ granted: boolean }>
+}
+
+/**
+ * The offer to bring the reminders on time (#665): without exact alarms, which Android 14 and later
+ * leave off until the user allows them, Android may bring a reminder up to an hour late. Made once,
+ * like the reminders' own offer.
+ */
+export type ExactAlarmOffer = {
+  /** Whether to make it: exact alarms not allowed, the setting there to allow them, not answered. */
+  wanted(): Promise<boolean>
+  /** "Open settings": answered, then the system's setting; true when they were allowed there. */
+  allow(): Promise<boolean>
+  /** "Not now". */
+  decline(): Promise<void>
+}
+
 /** A day and a time on the phone's calendar, without a time zone. */
 export type WallClock = { year: number; month: number; day: number; hour: number; minute: number }
 
@@ -126,13 +150,8 @@ export function createReminderScheduler(
 
     async ask() {
       await api.createChannel(CHANNEL, channelName)
-      // Answered once asked, whatever the answer: the app does not ask a second time. Not kept, the
-      // offer only comes again, which is no reason to skip the platform's question now.
-      try {
-        await answeredFlag.write('answered')
-      } catch (failure) {
-        console.warn('The answered offer could not be kept', failure)
-      }
+      // Answered once asked, whatever the answer: the app does not ask a second time.
+      await keepAnswered(answeredFlag)
       return (await api.requestPermissionsAsync()).granted
     },
 
@@ -155,6 +174,43 @@ export function createReminderScheduler(
       queue = queue.then(() => {
         scheduled = null
       })
+    },
+  }
+}
+
+/**
+ * Records that an offer was answered before the platform is asked. Not kept, the offer only comes
+ * again, which is no reason to skip the platform's question now.
+ */
+async function keepAnswered(answeredFlag: TextFile) {
+  try {
+    await answeredFlag.write('answered')
+  } catch (failure) {
+    console.warn('The answered offer could not be kept', failure)
+  }
+}
+
+/**
+ * The offer of exact alarms with expo-notifications (#665). Allowed, they apply to the reminders
+ * scheduled after that, which the return to the foreground sees to (`Main.tsx`).
+ *
+ * @param answeredFlag a file whose existence records that the offer was answered
+ */
+export function createExactAlarmOffer(api: ExactAlarmsApi, answeredFlag: TextFile): ExactAlarmOffer {
+  return {
+    async wanted() {
+      // canAskAgain is false only where the app does not declare the permission: no setting to open.
+      const { granted, canAskAgain } = await api.getExactAlarmPermissionsAsync()
+      return !granted && canAskAgain && !answeredFlag.exists
+    },
+
+    async allow() {
+      await keepAnswered(answeredFlag)
+      return (await api.requestExactAlarmPermissionsAsync()).granted
+    },
+
+    async decline() {
+      await answeredFlag.write('declined')
     },
   }
 }
