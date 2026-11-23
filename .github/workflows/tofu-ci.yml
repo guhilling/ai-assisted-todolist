@@ -33,7 +33,7 @@ jobs:
           # Pinned, and matching what is installed locally, so a formatting or validation
           # difference is never just a version difference -- `fmt` output has changed between
           # minor releases before now.
-          tofu_version: '1.12.6'
+          tofu_version: '1.13.9'
           # The wrapper replaces the CLI with a script that also sets step outputs, which
           # swallows exit codes inside the `for` loop below.
           tofu_wrapper: false
