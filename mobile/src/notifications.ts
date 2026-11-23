@@ -126,8 +126,13 @@ export function createReminderScheduler(
 
     async ask() {
       await api.createChannel(CHANNEL, channelName)
-      // Answered once asked, whatever the answer: the app does not ask a second time.
-      await answeredFlag.write('answered')
+      // Answered once asked, whatever the answer: the app does not ask a second time. Not kept, the
+      // offer only comes again, which is no reason to skip the platform's question now.
+      try {
+        await answeredFlag.write('answered')
+      } catch (failure) {
+        console.warn('The answered offer could not be kept', failure)
+      }
       return (await api.requestPermissionsAsync()).granted
     },
 

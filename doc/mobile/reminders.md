@@ -88,7 +88,8 @@ variant (*TaskFest QA*).
   and Android 13 and later; allowed, the reminders are scheduled at once.
 - **Either answer is remembered on the phone**, and the note is not shown again: Not now, and Turn
   on whatever the system's question then got — Android would let the app ask a second time after
-  a first refusal, and the app does not.
+  a first refusal, and the app does not. Should the phone fail to keep the answer, the note comes
+  again at the next start; Turn on still brings up the system's question.
 - Whether the app may still ask is read from expo-notifications' `canAskAgain`, not its `status`:
   on Android 13 and later notifications are off until allowed, so expo reports `denied` before
   anyone was asked.
