@@ -8,6 +8,7 @@ import { act } from '@testing-library/react-native'
 import { AppState } from 'react-native'
 import type { BoardTask } from './api'
 import type { KeptBoard, KeptBoardStore } from './keptBoard'
+import type { ReminderPermission, ReminderScheduler } from './notifications'
 import type { Session } from './session'
 import type { KeyValueStore, SessionStore } from './staySignedIn'
 import type { Dependencies } from './TaskFestApp'
@@ -121,3 +122,50 @@ export function dependencies(overrides: Partial<Dependencies> = {}): Dependencie
     ...overrides,
   }
 }
+
+/**
+ * What the reminders' tests share (#273, #665): a clock of their own, the phone's rather than UTC,
+ * at 06:00 on 10 October 2026 -- before any 08:00 they look at; Ada signed in on it; a board to be
+ * reminded of, two tasks due tomorrow and one overdue; a scheduler that says whether reminders are
+ * allowed; and the app's dependencies with all of these, a backend that agrees to every change and
+ * the reminders allowed.
+ */
+export const reminding = (() => {
+  const NOW = new Date(2026, 9, 10, 6, 0).getTime()
+  const session: Session = {
+    token: tokenWith({ exp: NOW / 1000 + 3600, email: 'ada@example.com' }),
+    expiresAt: NOW + HOUR,
+    email: 'ada@example.com',
+  }
+  const water: BoardTask = { id: 1, description: 'Water the plants', dueDate: '2026-10-11', importance: 'HIGH', state: 'TODO' }
+  const train: BoardTask = { id: 2, description: 'Book the train', dueDate: '2026-10-11', importance: 'LOW', state: 'TODO' }
+  const rent: BoardTask = { id: 3, description: 'Pay the rent', dueDate: '2026-10-01', importance: 'MEDIUM', state: 'TODO' }
+
+  /** Reminders with this permission; asked, they are allowed unless `allows` is false. */
+  function scheduler(permission: ReminderPermission, { declined = false, allows = true } = {}) {
+    let current = permission
+    return {
+      permission: jest.fn(async () => current),
+      ask: jest.fn(async () => {
+        current = allows ? 'granted' : 'denied'
+        return allows
+      }),
+      replace: jest.fn().mockResolvedValue(undefined),
+      answered: jest.fn().mockResolvedValue(declined),
+      decline: jest.fn().mockResolvedValue(undefined),
+    } satisfies ReminderScheduler
+  }
+
+  function remindingDependencies(overrides: Partial<Dependencies> = {}): Dependencies {
+    return dependencies({
+      sessions: memorySessions(session),
+      fetchTasks: jest.fn().mockResolvedValue([water, train, rent]),
+      changes: { create: jest.fn(), update: jest.fn(async (_caller, task) => task), remove: jest.fn(), restore: jest.fn() },
+      reminders: scheduler('granted'),
+      now: () => NOW,
+      ...overrides,
+    })
+  }
+
+  return { NOW, session, water, train, rent, scheduler, dependencies: remindingDependencies }
+})()

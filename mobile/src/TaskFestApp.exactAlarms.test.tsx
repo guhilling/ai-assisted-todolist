@@ -1,34 +1,13 @@
 import { act, render, screen, userEvent } from '@testing-library/react-native'
-import type { BoardTask } from './api'
-import type { ExactAlarmOffer, ReminderPermission, ReminderScheduler } from './notifications'
-import type { Session } from './session'
+import type { ExactAlarmOffer } from './notifications'
 import { TaskFestApp, type Dependencies } from './TaskFestApp'
-import { HOUR, dependencies as appDependencies, foreground, memorySessions, tokenWith } from './testing'
+import { foreground, reminding } from './testing'
 import { variants } from './variants'
 
 jest.mock('./DueDatePicker', () => ({ DueDatePicker: () => null }))
 
-const NOW = new Date(2026, 9, 10, 6, 0).getTime()
+const { rent, scheduler } = reminding
 const LATE = 'Reminders may come late'
-
-const idToken = tokenWith({ exp: NOW / 1000 + 3600, email: 'ada@example.com' })
-const session: Session = { token: idToken, expiresAt: NOW + HOUR, email: 'ada@example.com' }
-const water: BoardTask = { id: 1, description: 'Water the plants', dueDate: '2026-10-11', importance: 'HIGH', state: 'TODO' }
-const rent: BoardTask = { id: 3, description: 'Pay the rent', dueDate: '2026-10-01', importance: 'MEDIUM', state: 'TODO' }
-
-function scheduler(permission: ReminderPermission) {
-  let current = permission
-  return {
-    permission: jest.fn(async () => current),
-    ask: jest.fn(async () => {
-      current = 'granted'
-      return true
-    }),
-    replace: jest.fn().mockResolvedValue(undefined),
-    answered: jest.fn().mockResolvedValue(false),
-    decline: jest.fn().mockResolvedValue(undefined),
-  } satisfies ReminderScheduler
-}
 
 /** Exact alarms not allowed, and the offer not answered: what Android 14 starts with. */
 function offer(wanted = true) {
@@ -39,16 +18,9 @@ function offer(wanted = true) {
   } satisfies ExactAlarmOffer
 }
 
-/** The board, with a task due tomorrow, the reminders allowed and exact alarms not. */
+/** The reminders' board and their permission, and exact alarms not allowed. */
 function dependencies(overrides: Partial<Dependencies> = {}): Dependencies {
-  return appDependencies({
-    sessions: memorySessions(session),
-    fetchTasks: jest.fn().mockResolvedValue([water, rent]),
-    reminders: scheduler('granted'),
-    exactAlarms: offer(),
-    now: () => NOW,
-    ...overrides,
-  })
+  return reminding.dependencies({ exactAlarms: offer(), ...overrides })
 }
 
 async function start(overrides: Partial<Dependencies> = {}, language: 'en' | 'de' = 'en') {
