@@ -134,9 +134,25 @@ reminder, gets its maintenance windows ever less often
 ([Doze](https://developer.android.com/training/monitoring-device-state/doze-standby)), which the
 emulator did not show. Exact, every reminder came on time.
 
-**Allowing them** (#665) is the system settings' job: *Apps → Special app access → Alarms &
+**Allowing them** (#665) is done in the system settings: *Apps → Special app access → Alarms &
 reminders → TaskFest*, where the permission the app declares, `SCHEDULE_EXACT_ALARM`, is switched
-on and off. Seen on the emulator:
+on and off. The app offers it once:
+
+- **A note above the board**, *Reminders may come late* ("Erinnerungen kommen vielleicht zu spät"),
+  once the reminders are allowed and exact alarms are not: right after **Turn on**, or at a load of
+  the board on a phone whose reminders were on already. The board must hold an open task due today
+  or later, as for the reminders' offer. A line under it says why: *Without the permission to set
+  alarms and reminders, Android may bring them up to an hour late, and later while the phone lies
+  unused. Allow it in the setting that opens next.*
+- **Open settings** opens that setting for the app (expo-notifications'
+  `requestExactAlarmPermissionsAsync`); **Not now** does not.
+- **Either answer is remembered on the phone**, and the note is not shown again, as with the
+  reminders' offer ([decisions/mobile-app.md](../decisions/mobile-app.md)).
+- Only on Android: whether exact alarms are allowed is read from `getExactAlarmPermissionsAsync`,
+  which says they are before Android 14 unless taken back; there the note never comes. iOS has
+  nothing to offer.
+
+Seen on the emulator:
 
 - **Allowed**, reminders already scheduled stay inexact until they are scheduled again. The app
   forgets what it scheduled at each return to the foreground (`mobile/src/Main.tsx`), so the next
@@ -148,10 +164,6 @@ on and off. Seen on the emulator:
 Only a board loaded from the backend schedules reminders (#273): opened offline, the app shows the
 board it kept and schedules nothing.
 
-The app does not offer it yet (#665). Since Expo SDK 58 (#673), expo-notifications can tell
-whether it is allowed and open the setting (`getExactAlarmPermissionsAsync`,
-`requestExactAlarmPermissionsAsync`).
-
 ## Code and tests
 
 | Piece | Where |
@@ -159,15 +171,18 @@ whether it is allowed and open the setting (`getExactAlarmPermissionsAsync`,
 | The rule: which days, which time, how many | `mobile/src/reminders.ts` |
 | The platform: permission, channel, scheduling | `mobile/src/notifications.ts` (expo-notifications) |
 | When they are scheduled, cleared and offered | `mobile/src/TaskFestApp.tsx` |
-| Exact alarms on Android: the permission, and scheduling anew in the foreground (#665) | `android.permissions` in `mobile/app.config.ts`, `mobile/src/Main.tsx` |
+| Exact alarms on Android: the permission, the offer, and scheduling anew in the foreground (#665) | `android.permissions` in `mobile/app.config.ts`, `createExactAlarmOffer` in `mobile/src/notifications.ts`, `mobile/src/TaskFestApp.tsx`, `mobile/src/Main.tsx` |
 | Moving them with the time zone, on iOS | `calendarOf` in `mobile/src/notifications.ts`, used by `mobile/src/Main.tsx` |
 | Moving them with the time zone, on Android | `mobile/plugins/android/TimeZoneChangedReceiver.kt`, declared by `mobile/src/timeZoneReceiver.ts`, added by `mobile/plugins/withTimeZoneReceiver.ts` |
 | Following the phone's zone in JavaScript (#526) | `mobile/modules/time-zone-cache/`, called from `mobile/src/TaskFestApp.tsx` |
 
 `reminders.test.ts` covers the rule, `notifications.test.ts` the platform's use, and
-`TaskFestApp.reminders.test.tsx` the app's; `TaskFestApp.timeZone.test.tsx` that the zone is
-dropped on return to the foreground. On the emulator, `mobile/maestro/reminders/turn-on.yaml`
-adds a task due tomorrow and turns the reminders on, and `reminders/timed.yaml` adds one due
+`TaskFestApp.reminders.test.tsx` the app's, `TaskFestApp.exactAlarms.test.tsx` the offer of exact
+alarms; `TaskFestApp.timeZone.test.tsx` that the zone is dropped on return to the foreground. On
+the emulator, `mobile/maestro/reminders/turn-on.yaml` adds a task due tomorrow and turns the
+reminders on, `reminders/exact-alarms.yaml` opens the setting for exact alarms from the note and
+comes back without allowing them -- every other flow runs with them allowed, so the note does not
+push the board's rows down -- and `reminders/timed.yaml` adds one due
 tomorrow at 09:00 (#478). `run-on-emulator.sh` then checks that Android holds pending alarms of the
 app's for 08:00 and for 09:00 in the emulator's time zone — any day's, since a run may cross
 midnight. It then moves the emulator to Los Angeles and checks the alarms are at 08:00 and 09:00

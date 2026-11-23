@@ -41,7 +41,7 @@ import { appleSignInFor } from './apple'
 import { googleProviderFor } from './google'
 import { createKeptBoardStore } from './keptBoard'
 import { createPreviewStore, type PreviewFolder } from './previews'
-import { calendarOf, createReminderScheduler, type NotificationsApi } from './notifications'
+import { calendarOf, createExactAlarmOffer, createReminderScheduler, type NotificationsApi } from './notifications'
 import { providerFor } from './provider'
 import { resetTimeZoneCache } from '../modules/time-zone-cache'
 import { createSessionStore } from './staySignedIn'
@@ -106,6 +106,19 @@ const reminders = createReminderScheduler(
   new File(Paths.document, 'reminders-offer-answered'),
   catalogues[language].reminders.channel,
 )
+
+// Exact alarms, offered on Android while they are off (#665): from Android 14 on, until the user
+// allows them. iOS has none to offer.
+const exactAlarms =
+  Platform.OS === 'android'
+    ? createExactAlarmOffer(
+        {
+          getExactAlarmPermissionsAsync: () => Notifications.getExactAlarmPermissionsAsync(),
+          requestExactAlarmPermissionsAsync: () => Notifications.requestExactAlarmPermissionsAsync(),
+        },
+        new File(Paths.document, 'exact-alarms-offer-answered'),
+      )
+    : undefined
 
 // Back in the foreground, Android's reminders are scheduled anew, when the start over's load
 // replaces them: the user may have just allowed exact alarms in the settings, which apply only to
@@ -430,6 +443,7 @@ const dependencies: Dependencies = {
     forget: async (files) => files.forEach((file) => discardCopy(file.uri)),
   },
   reminders,
+  exactAlarms,
   fetchMinimumAppVersion: () => fetchMinimumAppVersion(variant.apiBaseUrl, appVersion),
   // Hermes keeps the zone it started in until told otherwise (#526).
   resetTimeZone: resetTimeZoneCache,

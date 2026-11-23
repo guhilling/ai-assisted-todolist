@@ -571,3 +571,29 @@ path Maestro does not cover: a crash the stores' users would find first.
 **Cost.** The APK stays as large as before, and its code readable to whoever unpacks it, which it
 was already. Turning R8 on is a change of its own, with keep rules where a module needs them.
 
+
+## Exact alarms are offered once, after the reminders are on
+
+*Accepted · 2026-11-23 · #665*
+
+**Decision.** On Android 14 and later, once the reminders are allowed and exact alarms are not, a
+note above the board says the reminders may come late, with **Open settings**, which opens the
+system's setting for exact alarms, and **Not now**. Either answer is remembered on the phone, and
+the note is not shown again, as with the reminders' own offer. It comes right after **Turn on**,
+and at a load of the board for a phone whose reminders were on already. Gunnar's decision, on
+2026-11-23.
+
+**Why.** Without it, exact alarms are for whoever finds *Alarms & reminders* in the settings. One
+note, made the way the reminders' offer is made, adds one more file on the phone and nothing new to
+learn.
+
+**Rejected:**
+- *The note whenever exact alarms are off*, until Not now: also covers a permission taken back
+  later, for more state and more to test.
+- *A line in the reminders' offer*: the smallest change, but easy to overlook, and it would come
+  before the phone is asked for the reminders themselves.
+- *Leaving it to the settings* until the check on a real phone: the emulator's figures already show
+  how late reminders come.
+
+**Cost.** Whoever answers Not now, or takes the permission back later, finds the setting on their
+own again. A failed attempt to open the setting answers the offer too.

@@ -50,8 +50,8 @@ export const en = {
   },
   /**
    * The mobile app's reminders: the 08:00 summary (#273) and the one at a task's time (#478), the
-   * offer to turn them on with the line explaining it (#336), and the name Android shows for them
-   * in its settings.
+   * offer to turn them on with the line explaining it (#336), the one to bring them on time on
+   * Android (#665), and the name Android shows for them in its settings.
    */
   reminders: {
     dueToday: (count: number) => (count === 1 ? '1 task due today' : `${count} tasks due today`),
@@ -70,6 +70,14 @@ export const en = {
       "At 08:00 on days tasks are due, and at a task's time if it has one: how many tasks are due, not which. If your phone asks next, allow it.",
     turnOn: 'Turn on',
     notNow: 'Not now',
+    /**
+     * On Android 14 and later, once they are on and exact alarms are not (#665): why the system's
+     * setting opens next, with Not now beside it. The app is not named, as above.
+     */
+    late: 'Reminders may come late',
+    lateExplain:
+      'Without the permission to set alarms and reminders, Android may bring them up to an hour late, and later while the phone lies unused. Allow it in the setting that opens next.',
+    openSettings: 'Open settings',
     channel: 'Due tasks',
   },
   /** The mobile app's, when the backend no longer serves its release (#268). */
@@ -342,6 +350,10 @@ export const de: Messages = {
       'Um 8:00 an Tagen, an denen Aufgaben fällig sind, und zur Uhrzeit einer Aufgabe, wenn sie eine hat: wie viele Aufgaben fällig sind, nicht welche. Fragt dein Telefon gleich danach, erlaube sie.',
     turnOn: 'Einschalten',
     notNow: 'Nicht jetzt',
+    late: 'Erinnerungen kommen vielleicht zu spät',
+    lateExplain:
+      'Ohne die Erlaubnis, Wecker und Erinnerungen zu stellen, kann Android sie bis zu einer Stunde später bringen, und noch später, wenn das Telefon unbenutzt liegt. Erlaube es in der Einstellung, die sich gleich öffnet.',
+    openSettings: 'Einstellungen öffnen',
     channel: 'Fällige Aufgaben',
   },
   update: {

@@ -1,5 +1,5 @@
 import type { TextFile } from './keptBoard'
-import { calendarOf, createReminderScheduler, type NotificationsApi } from './notifications'
+import { calendarOf, createExactAlarmOffer, createReminderScheduler, type ExactAlarmsApi, type NotificationsApi } from './notifications'
 
 function memoryFile(): TextFile {
   let content: string | undefined
@@ -205,5 +205,61 @@ describe('the calendar trigger a floating reminder gets on iOS (#517)', () => {
   it('is none when the phone’s clock skips that time, so the reminder still comes', () => {
     // 02:30 on a day that skips an hour is moved to 03:30; a calendar trigger might never match it.
     expect(calendarOf(new Date(2026, 2, 29, 3, 30), '2026-03-29T02:30')).toBeUndefined()
+  })
+})
+
+describe('the offer to bring reminders on time, on Android (#665)', () => {
+  function exactAlarms(permission: { granted: boolean; canAskAgain: boolean }, answer = permission) {
+    return {
+      getExactAlarmPermissionsAsync: jest.fn().mockResolvedValue(permission),
+      requestExactAlarmPermissionsAsync: jest.fn().mockResolvedValue(answer),
+    } satisfies ExactAlarmsApi
+  }
+  const notAllowed = { granted: false, canAskAgain: true }
+  const allowed = { granted: true, canAskAgain: true }
+
+  it('is wanted while exact alarms are not allowed but may be, until answered', async () => {
+    await expect(createExactAlarmOffer(exactAlarms(notAllowed), memoryFile()).wanted()).resolves.toBe(true)
+    await expect(createExactAlarmOffer(exactAlarms(allowed), memoryFile()).wanted()).resolves.toBe(false)
+    // Not declared, as on a build without the permission: the setting would not open.
+    await expect(createExactAlarmOffer(exactAlarms({ granted: false, canAskAgain: false }), memoryFile()).wanted()).resolves.toBe(false)
+  })
+
+  it('opens the setting, and is not made again', async () => {
+    const api = exactAlarms(notAllowed, allowed)
+    const file = memoryFile()
+
+    await createExactAlarmOffer(api, file).allow()
+
+    expect(api.requestExactAlarmPermissionsAsync).toHaveBeenCalled()
+    await expect(createExactAlarmOffer(exactAlarms(notAllowed), file).wanted()).resolves.toBe(false)
+  })
+
+  it('does not ask the platform once it was answered', async () => {
+    const file = memoryFile()
+    await createExactAlarmOffer(exactAlarms(notAllowed), file).decline()
+    const api = exactAlarms(notAllowed)
+
+    await expect(createExactAlarmOffer(api, file).wanted()).resolves.toBe(false)
+    expect(api.getExactAlarmPermissionsAsync).not.toHaveBeenCalled()
+  })
+
+  it('is not made again once declined', async () => {
+    const file = memoryFile()
+
+    await createExactAlarmOffer(exactAlarms(notAllowed), file).decline()
+
+    await expect(createExactAlarmOffer(exactAlarms(notAllowed), file).wanted()).resolves.toBe(false)
+  })
+
+  it('still opens the setting when the answer cannot be kept, so the offer only comes again', async () => {
+    jest.spyOn(console, 'warn').mockImplementation(() => undefined)
+    const api = exactAlarms(notAllowed, allowed)
+    const file = { ...memoryFile(), write: () => Promise.reject(new Error('disk')) }
+
+    await createExactAlarmOffer(api, file).allow()
+
+    expect(api.requestExactAlarmPermissionsAsync).toHaveBeenCalled()
+    expect(console.warn).toHaveBeenCalledWith('The answered offer of exact alarms could not be kept', expect.any(Error))
   })
 })

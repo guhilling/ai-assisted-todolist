@@ -1,0 +1,23 @@
+# Exact alarms offered (#665): with the reminders turned on by turn-on.yaml, Android 14 -- the
+# emulator is API 34 -- leaves exact alarms off, so the board says the reminders may come late.
+# "Open settings" opens the system's setting; back without allowing them, the offer is answered
+# and gone, and the alarms run-on-emulator.sh checks next are the inexact ones. Run straight after
+# turn-on.yaml, signed in.
+appId: de.hilling.taskfest.dev
+name: Reminders, exact alarms offered
+---
+- extendedWaitUntil:
+    visible: "Reminders may come late"
+    timeout: 10000
+- assertVisible: "Without the permission to set alarms and reminders.*"
+- takeScreenshot: 18-exact-alarms-offer
+- tapOn: "Open settings"
+- extendedWaitUntil:
+    visible: ".*[Aa]larms.*reminders.*"
+    timeout: 10000
+- takeScreenshot: 19-exact-alarms-setting
+- back
+- extendedWaitUntil:
+    visible: "Renew the passport"
+    timeout: 10000
+- assertNotVisible: "Reminders may come late"
