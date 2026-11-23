@@ -88,7 +88,8 @@ variant (*TaskFest QA*).
   and Android 13 and later; allowed, the reminders are scheduled at once.
 - **Either answer is remembered on the phone**, and the note is not shown again: Not now, and Turn
   on whatever the system's question then got — Android would let the app ask a second time after
-  a first refusal, and the app does not.
+  a first refusal, and the app does not. Should the phone fail to keep the answer, the note comes
+  again at the next start; Turn on still brings up the system's question.
 - Whether the app may still ask is read from expo-notifications' `canAskAgain`, not its `status`:
   on Android 13 and later notifications are off until allowed, so expo reports `denied` before
   anyone was asked.
@@ -147,10 +148,9 @@ on and off. Seen on the emulator:
 Only a board loaded from the backend schedules reminders (#273): opened offline, the app shows the
 board it kept and schedules nothing.
 
-The app does not offer it yet (#673). Expo SDK 58 can ask whether it is allowed and open the
-setting (`getExactAlarmPermissionsAsync`, `requestExactAlarmPermissionsAsync`). On SDK 57,
-expo-intent-launcher could open the setting, but whether it is allowed needs a native call of the
-app's own.
+The app does not offer it yet (#665). Since Expo SDK 58 (#673), expo-notifications can tell
+whether it is allowed and open the setting (`getExactAlarmPermissionsAsync`,
+`requestExactAlarmPermissionsAsync`).
 
 ## Code and tests
 

@@ -1,13 +1,12 @@
 import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import configPlugins, { type ConfigPlugin } from 'expo/config-plugins.js'
-import { withDisplayName, withFolderPerFile, withPageTitle } from '../src/shareExtension.ts'
+import configPlugins, { type ConfigPlugin } from 'expo/config-plugins'
+import { withDisplayName, withPageTitle } from '../src/shareExtension.ts'
 
 /**
  * Gives the iOS share extension its name in the share sheet (#356), where `expo-sharing`'s
- * plugin gives it the target's, "expo-sharing-extension"; has it copy each shared file into a folder
- * of its own (`withFolderPerFile` says why); and has it pass a shared page's title on beside its
- * link (`withPageTitle`, #414).
+ * plugin gives it the target's, "expo-sharing-extension"; and has it pass a shared page's title on
+ * beside its link (`withPageTitle`, #414).
  *
  * It rewrites the Info.plist and the code that plugin writes, so its change must run after that
  * plugin's. A
@@ -23,7 +22,7 @@ export const withShareExtensionName: ConfigPlugin<string> = (config, name) =>
       const infoPlist = join(extension, 'Info.plist')
       writeFileSync(infoPlist, withDisplayName(readFileSync(infoPlist, 'utf8'), name))
       const code = join(extension, 'ShareIntoViewController.swift')
-      writeFileSync(code, withPageTitle(withFolderPerFile(readFileSync(code, 'utf8'))))
+      writeFileSync(code, withPageTitle(readFileSync(code, 'utf8')))
       return config
     },
   ])

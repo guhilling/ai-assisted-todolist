@@ -96,6 +96,16 @@ describe('the reminders, as the platform keeps them (#273)', () => {
     await expect(createReminderScheduler(platform(notAsked), file, CHANNEL).answered()).resolves.toBe(true)
   })
 
+  it('still asks the platform when the answer cannot be kept, so the offer only comes again', async () => {
+    jest.spyOn(console, 'warn').mockImplementation(() => undefined)
+    const api = platform(notAsked, granted)
+    const file = { ...memoryFile(), write: () => Promise.reject(new Error('disk')) }
+
+    await expect(createReminderScheduler(api, file, CHANNEL).ask()).resolves.toBe(true)
+    expect(api.requestPermissionsAsync).toHaveBeenCalled()
+    expect(console.warn).toHaveBeenCalledWith('The answered offer could not be kept', expect.any(Error))
+  })
+
   it('replaces one set at a time, so overlapping calls never leave two behind', async () => {
     const log: string[] = []
     const api = platform(granted)

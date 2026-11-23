@@ -15,3 +15,12 @@ describe('the app’s Android permissions', () => {
     expect(config.android?.permissions).toContain('android.permission.SCHEDULE_EXACT_ALARM')
   })
 })
+
+describe('the app’s Android release build', () => {
+  it('is not minified, as up to Expo SDK 57, whose template had R8 off (#673)', () => {
+    const plugins = appConfig({ config: {} } as ConfigContext).plugins ?? []
+    const buildProperties = plugins.find((plugin) => Array.isArray(plugin) && plugin[0] === 'expo-build-properties')
+
+    expect(buildProperties?.[1]).toMatchObject({ android: { enableMinifyInReleaseBuilds: false } })
+  })
+})

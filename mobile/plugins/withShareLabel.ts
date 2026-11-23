@@ -1,4 +1,4 @@
-import configPlugins, { type ConfigPlugin } from 'expo/config-plugins.js'
+import configPlugins, { type ConfigPlugin } from 'expo/config-plugins'
 import { withShareLabel as labelled } from '../src/shareLabel.ts'
 
 /**

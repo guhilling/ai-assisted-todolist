@@ -70,7 +70,7 @@ afterEach(() => {
 
 describe('a link on a task (#414)', () => {
   it('is listed by its title and opens its address in the browser, asking for no storage link', async () => {
-    const opened = jest.spyOn(Linking, 'openURL').mockResolvedValue(true)
+    const opened = jest.spyOn(Linking, 'openURL').mockResolvedValue(undefined)
     const deps = dependencies()
     const user = await start(deps)
 
@@ -91,7 +91,7 @@ describe('a link on a task (#414)', () => {
   })
 
   it('is not opened when its address is no web address', async () => {
-    const opened = jest.spyOn(Linking, 'openURL').mockResolvedValue(true)
+    const opened = jest.spyOn(Linking, 'openURL').mockResolvedValue(undefined)
     const user = await start(dependencies({ fetchTasks: jest.fn().mockResolvedValue([{ ...task, attachments: [{ ...link, url: 'javascript:alert(1)' }] }]) }))
 
     await user.press(await screen.findByRole('button', { name: 'Open An article worth reading' }))

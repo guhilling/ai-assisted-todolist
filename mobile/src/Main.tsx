@@ -151,7 +151,7 @@ const previewFolder: PreviewFolder = {
     if (kept.exists) {
       kept.delete()
     }
-    new File(previewFiles, from).move(kept)
+    new File(previewFiles, from).moveSync(kept)
     return kept.uri
   },
   names: () => (previewFiles.exists ? previewFiles.list().map((entry) => entry.name) : []),
@@ -205,10 +205,11 @@ function discardPicked(uri: string) {
 }
 
 /**
- * Lets a shared file go once read, if it is the one the iOS share extension left in the App Group's
- * container (#356): the extension copies every file there, and nothing else would delete it -- the
- * folder of its own it was copied into as well (`withFolderPerFile`). Any other -- Android's, which
- * are the sending app's -- stays.
+ * Lets a shared file go once read, with the folder of its own it was copied into, if it is one the
+ * iOS share extension left in the App Group's container (#356). expo-sharing deletes them all when
+ * the share is cleared, but a newer share keeps that from happening (`settle` in `incoming.ts`), and
+ * its own clean-up waits a day, for the next share. Any other -- Android's, which are the sending
+ * app's -- stays.
  */
 function releaseShared(uri: string) {
   const container = Object.values(Paths.appleSharedContainers).find((each) => uri.startsWith(each.uri))
