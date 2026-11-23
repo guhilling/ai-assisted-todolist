@@ -1,5 +1,6 @@
-# Adds a task with the keyboard still open (#382): the form's buttons stay above it, so Add is
-# tapped where it shows, not under the keyboard. Runs after the board flow, signed in.
+# Adds a task with the keyboard still open (#382): the form's buttons are in its head, above the
+# fields (#679), so Add is tapped where it shows, not under the keyboard. Runs after the board flow,
+# signed in.
 appId: de.hilling.taskfest.dev
 name: Add a task with the keyboard open
 ---

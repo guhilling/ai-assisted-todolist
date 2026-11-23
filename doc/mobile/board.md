@@ -53,9 +53,11 @@ and the sign-in has it at its top as well (#384).
 - **Edit a task** — a tap on it opens the same form with its values, and with the state too: not
   started or done. A task still in progress, which none should be any more (#334), shows as not
   started and is saved so. An edit may date a task in the past, as on the website's.
-- **The keyboard leaves the buttons in reach** (#382). Add or Save, Cancel and Delete sit below the
-  form's fields, and the form gives way to the keyboard: the fields scroll in what is left above it,
-  and the buttons stay above it, so a task can be added straight from typing its description.
+- **The keyboard leaves the buttons in reach** (#382, #679). Cancel and Add, or Save, sit in the
+  form's head above its fields, where the keyboard never covers them, and the keyboard's return key
+  adds the task too once it has a description. The fields scroll in what the keyboard leaves of the
+  screen, with Delete at their end. Below the fields, as #382 had them, the buttons stayed under the
+  keyboard on iOS.
 - **The phone's status bar stays readable** (#662). Android draws it over the app, so the app sets
   its icons dark or light by the phone's theme, and a sheet, which fills the screen there, begins
   below it. iOS does both by itself.

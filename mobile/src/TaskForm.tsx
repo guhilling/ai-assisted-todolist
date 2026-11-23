@@ -1,7 +1,7 @@
-import { useContext, useEffect, useRef, useState } from 'react'
+import { useContext, useRef, useState } from 'react'
 import {
-  Keyboard,
   KeyboardAvoidingView,
+  Platform,
   Pressable,
   ScrollView,
   Switch,
@@ -73,10 +73,11 @@ type OfferedState = (typeof STATES)[number]
  * typed until the save went through, and a refused save leaves it there to correct. Whoever shows
  * the form closes it once `onSave` says the task was saved.
  *
- * The buttons sit below the fields rather than at their end, and the whole gives way to the
- * keyboard (#382): the fields scroll in what is left above it, and Add stays in reach while the
- * description is typed, where it used to be under the keyboard. A refused save says so beside the
- * buttons, where it is seen, not at the end of fields the keyboard has left scrolled away.
+ * Cancel and Add (Save) sit in the form's head, above the fields, where the keyboard never covers
+ * them (#679); below the fields, as #382 had them, they stayed under the keyboard on iOS. The
+ * keyboard's return key adds the task too, once it has a description. The fields scroll in what
+ * the keyboard leaves of the screen, Delete at their end. A refused save says so under the head,
+ * where it is seen, not at the end of fields the keyboard has left scrolled away.
  */
 export function TaskForm({
   task,
@@ -146,6 +147,11 @@ export function TaskForm({
   const [zoneSearch, setZoneSearch] = useState<string | null>(null)
   const [picking, setPicking] = useState(false)
   const [saving, setSaving] = useState(false)
+  /**
+   * A save on its way, known at once: the return key and Add may both come before the form is drawn
+   * again as saving, and a second save would add the task twice.
+   */
+  const saveStarted = useRef(false)
 
   const shortcuts = quickDates(today, messages.dates)
   const otherDate = shortcuts.some((quick) => quick.iso === dueDate)
@@ -156,21 +162,12 @@ export function TaskForm({
     DONE: messages.taskState.done,
   }
   const sheet = useRef<ViewInstance>(null)
-  // Where the form starts on the screen. The keyboard says where it starts on the screen, the view
-  // giving way to it measures from the sheet's top, which iOS shows below the screen's: without
-  // this the footer stayed that much under the keyboard.
+  // Where the form starts on the screen, for Android's view giving way to the keyboard: the keyboard
+  // says where it starts on the screen, the view measures from the form's top. iOS insets the
+  // scrolling fields by the keyboard itself, which a page sheet's offset left short (#679).
   const [sheetTop, setSheetTop] = useState(0)
-  // Below the footer, the home indicator or the navigation bar, while the keyboard does not cover them.
+  // Below the end of the fields, the home indicator or the navigation bar.
   const bottomInset = useContext(SafeAreaInsetsContext)?.bottom ?? 0
-  const [keyboardShown, setKeyboardShown] = useState(false)
-  useEffect(() => {
-    const shown = Keyboard.addListener('keyboardDidShow', () => setKeyboardShown(true))
-    const hidden = Keyboard.addListener('keyboardDidHide', () => setKeyboardShown(false))
-    return () => {
-      shown.remove()
-      hidden.remove()
-    }
-  }, [])
   const trimmed = description.trim()
   /** The task's files, and those picked to go with it, a share's links among them (#414). */
   const files = [...(task?.attachments ?? []), ...(pending ?? []), ...(pendingLinks ?? [])]
@@ -178,8 +175,21 @@ export function TaskForm({
   const attachable = onAttach !== undefined && task?.state !== 'DONE'
   // A change to the task on its way -- a file uploading, say -- is waited for before saving or deleting.
   const waiting = busy || uploading !== null
+  const savable = !saving && !waiting && trimmed !== ''
+  const deletable = !saving && !waiting
+  const saveLabel = editing
+    ? saving
+      ? messages.editor.saving
+      : messages.editor.save
+    : saving
+      ? messages.addRow.adding
+      : messages.addRow.add
 
   const save = async () => {
+    if (saveStarted.current) {
+      return
+    }
+    saveStarted.current = true
     setSaving(true)
     const timeChanged = dueTime !== (task?.dueTime ?? null) || timeZone !== (task?.timeZone ?? null)
     const values: TaskValues = editing
@@ -199,6 +209,7 @@ export function TaskForm({
           state,
         }
     if (!(await onSave(values))) {
+      saveStarted.current = false
       setSaving(false)
     }
   }
@@ -241,9 +252,37 @@ export function TaskForm({
 
   return (
     <View ref={sheet} style={styles.formScreen} onLayout={() => sheet.current?.measureInWindow((_x, y) => setSheetTop(y))}>
-      <KeyboardAvoidingView style={styles.formFields} behavior="padding" keyboardVerticalOffset={sheetTop}>
-        <ScrollView testID="task-form-fields" style={styles.formFields} contentContainerStyle={styles.form} keyboardShouldPersistTaps="handled">
-          <Text style={styles.formTitle}>{editing ? messages.editor.label(task.description) : messages.addRow.open}</Text>
+      <View testID="task-form-head" style={styles.formHead}>
+        <View testID="task-form-buttons" style={styles.formButtons}>
+          <Pressable accessibilityRole="button" style={styles.quietButton} onPress={onCancel}>
+            <Text style={styles.quietButtonText}>{editing ? messages.editor.cancel : messages.addRow.cancel}</Text>
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityState={{ disabled: !savable }}
+            disabled={!savable}
+            style={[styles.button, !savable && styles.disabled]}
+            onPress={save}
+          >
+            <Text style={styles.buttonText}>{saveLabel}</Text>
+          </Pressable>
+        </View>
+        {failure ? <Text style={styles.notice}>{failure}</Text> : null}
+      </View>
+      <KeyboardAvoidingView
+        style={styles.formFields}
+        behavior="padding"
+        keyboardVerticalOffset={sheetTop}
+        enabled={Platform.OS === 'android'}
+      >
+        <ScrollView
+          testID="task-form-fields"
+          style={styles.formFields}
+          contentContainerStyle={[styles.form, { paddingBottom: 16 + bottomInset }]}
+          keyboardShouldPersistTaps="handled"
+          automaticallyAdjustKeyboardInsets
+        >
+          <Text accessibilityRole="header" style={styles.formTitle}>{editing ? messages.editor.label(task.description) : messages.addRow.open}</Text>
           <TextInput
             testID="task-description"
             style={styles.input}
@@ -253,6 +292,9 @@ export function TaskForm({
             value={description}
             onChangeText={setDescription}
             autoFocus={!editing}
+            // The keyboard's own key adds the task, as Google's tick does; without a description it only closes.
+            returnKeyType="done"
+            onSubmitEditing={() => savable && void save()}
           />
 
           <Text style={styles.label}>{messages.dueDate.label}</Text>
@@ -394,44 +436,18 @@ export function TaskForm({
               onAttach={(source) => onAttach?.(source)}
             />
           ) : null}
-        </ScrollView>
-
-        <View testID="task-form-footer" style={[styles.formFooter, { paddingBottom: 16 + (keyboardShown ? 0 : bottomInset) }]}>
-          {failure ? <Text style={styles.notice}>{failure}</Text> : null}
-          <View testID="task-form-buttons" style={styles.formButtons}>
-            {onDelete ? (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityState={{ disabled: saving || waiting }}
-                disabled={saving || waiting}
-                style={[styles.quietButton, { marginRight: 'auto' }, (saving || waiting) && styles.disabled]}
-                onPress={onDelete}
-              >
-                <Text style={styles.dangerText}>{messages.row.delete}</Text>
-              </Pressable>
-            ) : null}
-            <Pressable accessibilityRole="button" style={styles.quietButton} onPress={onCancel}>
-              <Text style={styles.quietButtonText}>{editing ? messages.editor.cancel : messages.addRow.cancel}</Text>
-            </Pressable>
+          {onDelete ? (
             <Pressable
               accessibilityRole="button"
-              accessibilityState={{ disabled: saving || waiting || trimmed === '' }}
-              disabled={saving || waiting || trimmed === ''}
-              style={[styles.button, (saving || waiting || trimmed === '') && styles.disabled]}
-              onPress={save}
+              accessibilityState={{ disabled: !deletable }}
+              disabled={!deletable}
+              style={[styles.quietButton, styles.formDelete, !deletable && styles.disabled]}
+              onPress={onDelete}
             >
-              <Text style={styles.buttonText}>
-                {editing
-                  ? saving
-                    ? messages.editor.saving
-                    : messages.editor.save
-                  : saving
-                    ? messages.addRow.adding
-                    : messages.addRow.add}
-              </Text>
+              <Text style={styles.dangerText}>{messages.row.delete}</Text>
             </Pressable>
-          </View>
-        </View>
+          ) : null}
+        </ScrollView>
       </KeyboardAvoidingView>
     </View>
   )
