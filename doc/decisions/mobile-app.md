@@ -352,6 +352,9 @@ active. That needs a small extension of the project's own, a few lines of Swift,
 
 *Accepted · 2026-10-30 · #414*
 
+Revised in part on 2026-11-23 (#673): since SDK 58 expo-sharing copies each shared file into a
+folder of its own, and `withFolderPerFile` is gone.
+
 **Decision.** A link shared from a browser becomes a link titled by its page (#414), and the
 title comes from what the browser already sends beside the link, through two patches to
 expo-sharing: on iOS, `withPageTitle` rewrites its extension template during prebuild, as

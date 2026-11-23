@@ -127,7 +127,7 @@ export function createReminderScheduler(
     async ask() {
       await api.createChannel(CHANNEL, channelName)
       // Answered once asked, whatever the answer: the app does not ask a second time.
-      answeredFlag.write('answered')
+      await answeredFlag.write('answered')
       return (await api.requestPermissionsAsync()).granted
     },
 
@@ -142,7 +142,7 @@ export function createReminderScheduler(
     },
 
     async decline() {
-      answeredFlag.write('declined')
+      await answeredFlag.write('declined')
     },
 
     // After the replacement on its way, which would otherwise count its reminders as scheduled.

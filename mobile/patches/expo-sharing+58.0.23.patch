@@ -1,8 +1,8 @@
 diff --git a/node_modules/expo-sharing/android/src/main/java/expo/modules/sharing/dataParsers/SimpleShareIntentDataParser.kt b/node_modules/expo-sharing/android/src/main/java/expo/modules/sharing/dataParsers/SimpleShareIntentDataParser.kt
-index 8dd50e8..04ec284 100644
+index 3381c5f..b3a25ff 100644
 --- a/node_modules/expo-sharing/android/src/main/java/expo/modules/sharing/dataParsers/SimpleShareIntentDataParser.kt
 +++ b/node_modules/expo-sharing/android/src/main/java/expo/modules/sharing/dataParsers/SimpleShareIntentDataParser.kt
-@@ -20,12 +20,21 @@ internal class SimpleShareIntentDataParser {
+@@ -20,8 +20,10 @@ internal class SimpleShareIntentDataParser {
        return if (type == "text/plain") {
          val text = intent.getStringExtra(Intent.EXTRA_TEXT) ?: return emptyList()
          val isUrl = android.util.Patterns.WEB_URL.matcher(text).matches()
@@ -13,7 +13,10 @@ index 8dd50e8..04ec284 100644
 +        listOfNotNull(
            SharePayload().apply {
              value = text
-             shareType = if (isUrl) ShareType.Url else ShareType.Text
+             shareType = if (isUrl) {
+@@ -30,6 +32,13 @@ internal class SimpleShareIntentDataParser {
+               ShareType.Text
+             }
              mimeType = "text/plain"
 +          },
 +          subject?.let {

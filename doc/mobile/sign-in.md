@@ -108,7 +108,7 @@ its own ([deployment/names-and-certificates.md](../deployment/names-and-certific
 ## Apple
 
 Sign in with Apple on iOS (#281), with
-[expo-apple-authentication](https://docs.expo.dev/versions/v57.0.0/sdk/apple-authentication/):
+[expo-apple-authentication](https://docs.expo.dev/versions/v58.0.0/sdk/apple-authentication/):
 Apple's own sheet, no browser, and `mobile/src/apple.ts`. Apple has no SDK for Android, so the
 Android app offers Google alone. Only the address is asked for: the backend keys the account by
 it, and the app shows no name it would need Apple's for. A person who chooses Hide My Email gives

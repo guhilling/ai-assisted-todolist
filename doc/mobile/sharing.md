@@ -33,9 +33,8 @@ the raw share, is in [decisions/mobile-app.md](../decisions/mobile-app.md).
   links the app may read for as long as it runs, and are copied at once.
 - **On iOS** the extension runs on its own, in the sending app's share sheet. It copies the files
   into an **App Group** — a folder TaskFest and its extension share, `group.<bundle id>` — each
-  into a folder of its own, so two files of one name both arrive (`expo-sharing`'s extension would
-  copy them side by side, under their names; `mobile/plugins/withShareExtensionName.ts` changes
-  that) — notes the share there, and opens TaskFest by its URL scheme. Apple offers an extension no public way
+  into a folder of its own, so two files of one name both arrive (expo-sharing does so since SDK
+  58; before, `mobile/plugins/withShareExtensionName.ts` had to) — notes the share there, and opens TaskFest by its URL scheme. Apple offers an extension no public way
   to open its app; the one used here is the one every such library uses, and App Review may object
   to it. If it does, the fallback is an extension of the project's own, not built yet, that keeps
   the share and says *"Saved. Open TaskFest to finish it."*: the app's side would stay the same,
@@ -58,7 +57,7 @@ the raw share, is in [decisions/mobile-app.md](../decisions/mobile-app.md).
   no preview of the page.
   - **Safari** hands the title to the extension in the item's attributed content text, which
     expo-sharing's template ignores; `withPageTitle` (`mobile/src/shareExtension.ts`) patches the
-    template to pass it on, as `withFolderPerFile` patches it for files.
+    template to pass it on.
   - **Chrome on Android** sends the title as the share's subject (`Intent.EXTRA_SUBJECT`), which
     expo-sharing drops; `mobile/patches/expo-sharing+<version>.patch` passes it on, applied by
     `patch-package` on every `npm ci`. Expo ships expo-sharing for Android precompiled, so

@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs'
-import { SHARE_ACTIVATION_RULE, withDisplayName, withFolderPerFile, withPageTitle } from './shareExtension'
+import { SHARE_ACTIVATION_RULE, withDisplayName, withPageTitle } from './shareExtension'
 
 /** The iOS share extension (#356), as expo-sharing's plugin writes it and the app's plugin names it. */
 const written = `<?xml version="1.0" encoding="UTF-8"?>
@@ -42,20 +42,12 @@ describe('what the share extension accepts (#356)', () => {
 })
 
 describe('where the share extension leaves a shared file for the app (#356)', () => {
-  const template = readFileSync(require.resolve('expo-sharing/plugin/template-files/ios/ShareIntoViewController.swift'), 'utf8')
-
   it('is a folder of its own, so two files of one name do not overwrite each other', () => {
-    const changed = withFolderPerFile(template)
+    // expo-sharing does so itself since SDK 58; the app's plugin did before.
+    const store = readFileSync(require.resolve('expo-sharing/ios/shared/ShareIntoFileStore.swift'), 'utf8')
 
-    expect(changed).toContain('let folder = containerURL.appendingPathComponent(UUID().uuidString, isDirectory: true)')
-    expect(changed).toContain('let destinationURL = folder.appendingPathComponent(fileName)')
-    expect(changed.match(/let destinationURL = containerURL\.appendingPathComponent\(fileName\)/g)).toHaveLength(1)
-  })
-
-  it('says so when expo-sharing no longer copies a file as it did', () => {
-    expect(() => withFolderPerFile('class ShareIntoViewController {}')).toThrow(
-      'The share extension no longer copies a shared file where TaskFest gives it a folder of its own.',
-    )
+    expect(store).toContain('let directory = rootURL.appendingPathComponent(UUID().uuidString, isDirectory: true)')
+    expect(store).toContain('return directory.appendingPathComponent(fileName, isDirectory: false)')
   })
 })
 
@@ -69,12 +61,6 @@ describe('the title of a page shared with its link (#414)', () => {
     expect(changed).toContain('SharePayload(type: .text, value: title, mimeType: "text/plain", metadata: nil)')
     // Only beside a link, and only where the item brought no text of its own.
     expect(changed).toContain('if linked && !texted')
-  })
-
-  it('goes with the folder per file, in either order', () => {
-    const both = withFolderPerFile(withPageTitle(template))
-
-    expect(both).toBe(withPageTitle(withFolderPerFile(template)))
   })
 
   it('says so when expo-sharing no longer reads an item as it did', () => {

@@ -40,7 +40,7 @@ async function openAccount(overrides: Partial<Dependencies> = {}, language: Lang
 
 // jest-expo's Linking is a mock already, which outlives each test's calls unless they are cleared.
 beforeEach(() => {
-  jest.spyOn(Linking, 'openURL').mockClear().mockResolvedValue(true)
+  jest.spyOn(Linking, 'openURL').mockClear().mockResolvedValue(undefined)
 })
 
 describe('the account, from the app (#275)', () => {

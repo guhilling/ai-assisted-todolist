@@ -206,8 +206,9 @@ function discardPicked(uri: string) {
 
 /**
  * Lets a shared file go once read, if it is the one the iOS share extension left in the App Group's
- * container (#356): the extension copies every file there, and nothing else would delete it -- the
- * folder of its own it was copied into as well (`withFolderPerFile`). Any other -- Android's, which
+ * container (#356): the extension copies every file there, and nothing else would delete it before
+ * expo-sharing's own clean-up a day later -- the folder of its own it was copied into as well. Any
+ * other -- Android's, which
  * are the sending app's -- stays.
  */
 function releaseShared(uri: string) {

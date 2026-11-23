@@ -74,8 +74,13 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       ['expo-notifications', { icon: './assets/notification-icon.png', color: '#7fae1c' }],
       [
         'expo-build-properties',
-        // Only the dev build talks plain HTTP, to the end-to-end stack on localhost.
-        dev ? { android: { usesCleartextTraffic: true }, ios: {} } : { android: {}, ios: {} },
+        // Only the dev build talks plain HTTP, to the end-to-end stack on localhost. R8 stays off,
+        // as it was up to Expo SDK 57: SDK 58's template turns it on for release builds, and
+        // whether every native module survives it is a change of its own (#673).
+        {
+          android: { enableMinifyInReleaseBuilds: false, ...(dev ? { usesCleartextTraffic: true } : {}) },
+          ios: {},
+        },
       ],
       // Google's sign-in (#280). In every build, because the native module is linked in every build
       // and its pods only build with what the plugin adds to the Podfile. The plugin also registers

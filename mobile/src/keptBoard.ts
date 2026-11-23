@@ -27,7 +27,8 @@ export type KeptBoardStore = {
 export type TextFile = {
   readonly exists: boolean
   text(): Promise<string>
-  write(text: string): void
+  /** Asynchronous in expo-file-system since SDK 58, so awaited wherever it is called. */
+  write(text: string): void | Promise<void>
   delete(): void
 }
 
@@ -78,7 +79,7 @@ export function createKeptBoardStore(file: TextFile): KeptBoardStore {
     },
 
     async save(board) {
-      file.write(JSON.stringify({ version: FORMAT, ...board }))
+      await file.write(JSON.stringify({ version: FORMAT, ...board }))
     },
 
     async clear() {

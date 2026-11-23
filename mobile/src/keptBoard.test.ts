@@ -29,6 +29,12 @@ describe('the board kept on the phone (#272)', () => {
     await expect(store.load()).resolves.toEqual({ account: 'ada@example.com', savedAt: 1000, tasks: [water] })
   })
 
+  it('fails to keep it when the file cannot be written, which expo-file-system now does in the background', async () => {
+    const file = { ...memoryFile(), write: () => Promise.reject(new Error('disk full')) }
+
+    await expect(createKeptBoardStore(file).save({ account: 'ada@example.com', savedAt: 1000, tasks: [water] })).rejects.toThrow('disk full')
+  })
+
   it('has none until one was kept', async () => {
     await expect(createKeptBoardStore(memoryFile()).load()).resolves.toBeNull()
   })

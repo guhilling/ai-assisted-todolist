@@ -144,10 +144,9 @@ on and off. Seen on the emulator:
 - **Taken back**, Android ends the app and drops every exact alarm, so no reminder comes until the
   app is next opened, which schedules them inexactly.
 
-The app does not offer it yet (#673). Expo SDK 58 can ask whether it is allowed and open the
-setting (`getExactAlarmPermissionsAsync`, `requestExactAlarmPermissionsAsync`). On SDK 57,
-expo-intent-launcher could open the setting, but whether it is allowed needs a native call of the
-app's own.
+The app does not offer it yet (#665). Since Expo SDK 58 (#673), expo-notifications can tell
+whether it is allowed and open the setting (`getExactAlarmPermissionsAsync`,
+`requestExactAlarmPermissionsAsync`).
 
 ## Code and tests
 

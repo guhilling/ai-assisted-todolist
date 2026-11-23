@@ -8,6 +8,7 @@ import {
   Text,
   TextInput,
   View,
+  type ViewInstance,
 } from 'react-native'
 import { SafeAreaInsetsContext } from 'react-native-safe-area-context'
 import type { BoardTask } from './api'
@@ -154,7 +155,7 @@ export function TaskForm({
     TODO: messages.taskState.todo,
     DONE: messages.taskState.done,
   }
-  const sheet = useRef<View>(null)
+  const sheet = useRef<ViewInstance>(null)
   // Where the form starts on the screen. The keyboard says where it starts on the screen, the view
   // giving way to it measures from the sheet's top, which iOS shows below the screen's: without
   // this the footer stayed that much under the keyboard.

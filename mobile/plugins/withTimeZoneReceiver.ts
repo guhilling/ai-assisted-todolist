@@ -1,6 +1,6 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import configPlugins, { type ConfigPlugin } from 'expo/config-plugins.js'
+import configPlugins, { type ConfigPlugin } from 'expo/config-plugins'
 import { declareTimeZoneReceiver, RECEIVER } from '../src/timeZoneReceiver.ts'
 
 /**
