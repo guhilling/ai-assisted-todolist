@@ -97,10 +97,49 @@ variant (*TaskFest QA*).
 
 On Android the reminders have their own channel, **Due tasks**, so they can be switched off there
 without touching anything else, and the status bar shows the mark's single-colour form
-(`mobile/assets/notification-icon.png`). They are scheduled as inexact alarms, so a reminder may
-come late: Android 14 gave those scheduled hours ahead a window of one hour, as `dumpsys alarm` on
-an emulator showed, and one had not come twelve minutes after 08:00 (#608). Exact alarms need a
-permission Android grants only to clocks and calendars.
+(`mobile/assets/notification-icon.png`).
+
+### On time, on Android
+
+Unless the user allows exact alarms, Android may bring a reminder late: within an hour of its time,
+and later in Doze or with the battery saver on
+([alarms](https://developer.android.com/develop/background-work/services/alarms)).
+
+Measured on the Android 14 emulator (#665): six reminders, due 20 to 150 minutes after they were
+scheduled, the app in the background. *Awake* is the screen on and the phone charging; *Doze* the
+screen off, unplugged, and Doze forced on. Each time is how late the notification was there; the
+script looked every 15 seconds.
+
+| Due after | Inexact, awake | Inexact, Doze | Exact, Doze |
+| --- | --- | --- | --- |
+| 20 min | 14½ min | 15 min | 14 s |
+| 45 min | 33 min | 16 min | 3 s |
+| 70 min | 8½ min | 52 min | 8 s |
+| 100 min | 60 min | 22½ min | 14 s |
+| 130 min | 30 min | 54 min | 5 s |
+| 150 min | 10½ min | 34½ min | 9 s |
+
+Inexact, Android allowed itself three quarters of the time until the reminder, and an hour at most
+(`dumpsys alarm`'s `window`), and used most of it, awake as well. Doze brought nothing later in two
+and a half hours. A phone that lies still longer, such as overnight before the 08:00 reminder, gets
+its maintenance windows ever less often
+([Doze](https://developer.android.com/training/monitoring-device-state/doze-standby)), which the
+emulator did not show. Exact, every reminder came on time.
+
+**Allowing them** (#665) is the system settings' job: *Apps → Special app access → Alarms &
+reminders → TaskFest*. The app declares the permission for it, `SCHEDULE_EXACT_ALARM`, and
+expo-notifications then schedules exactly. Since Android 14 it is off until the user turns it on
+([Android 14](https://developer.android.com/about/versions/14/changes/schedule-exact-alarms)). Seen
+on the emulator:
+
+- **Allowed**, reminders already scheduled stay inexact until the app is next started afresh, which
+  schedules them again.
+- **After a restart of the phone** they are still exact.
+- **Taken back**, Android ends the app and drops every exact alarm, so no reminder comes until the
+  app is next opened, which schedules them inexactly.
+
+The app does not offer it yet. Expo SDK 58 can ask whether it is allowed and open the setting
+(`requestExactAlarmPermissionsAsync`), which SDK 57 cannot.
 
 ## Code and tests
 

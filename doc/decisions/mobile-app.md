@@ -426,6 +426,9 @@ a zone; a time-zone library, a dependency for a list.
 
 *Accepted · 2026-11-04 · #479*
 
+Revised in part on 2026-11-23 (#665): exact alarms are open to any app whose user allows them
+([below](#androids-reminders-are-on-time-for-whoever-allows-exact-alarms)).
+
 **Decision.** A Kotlin `BroadcastReceiver` for `ACTION_TIMEZONE_CHANGED`, on Android's list of
 implicit broadcasts an app may still receive from its manifest, moves every floating reminder to its
 wall-clock time in the new zone. A floating reminder carries that time as `wallClock` in its data; a
@@ -510,3 +513,29 @@ alternative below (2026-11-07).
 a JNI function to keep building with each React Native. `resetTimezoneCache` is part of Hermes'
 `IHermes` interface, not of React Native's public API, and may move. A change of zone while the app
 stays in the foreground is followed only at its next return there.
+
+## Android's reminders are on time for whoever allows exact alarms
+
+*Accepted · 2026-11-23 · #665*
+
+**Decision.** The app declares `SCHEDULE_EXACT_ALARM`, which the user grants in the system settings
+and may take back. expo-notifications then schedules the reminders exactly, and inexactly without
+it, as it does on its own. The app itself offers it only once Expo SDK 58 is in, which has the calls
+for it. Claude's decision, as Gunnar left #665's to Claude on 2026-11-23.
+
+**Why.** An inexact alarm may come up to an hour late, which makes the reminder of a task with a
+time, a call at 18:00, useless. On the emulator inexact ones came up to 60 minutes late, exact ones
+within 15 seconds, in Doze too ([reminders.md](../mobile/reminders.md#on-time-on-android)).
+Declaring the permission is one line, and whoever wants reminders on time can have them now; asking
+for it from the app would need a native module of its own on SDK 57, and none on 58.
+
+**Rejected:**
+- *`USE_EXACT_ALARM`*, granted on install: Play takes it only from alarm clocks, timers and
+  calendars ([Play's policy](https://support.google.com/googleplay/android-developer/answer/16558241)), and
+  would refuse the app.
+- *`setWindow` with ten minutes*, which needs no permission: it would be a patch to
+  expo-notifications, and unlike what that uses now, it waits for the end of Doze.
+- *A native module* to ask for the permission now: more to maintain, for what SDK 58 brings.
+
+**Cost.** Taking the permission back drops every reminder until the app is next opened. Whoever does
+not allow it has reminders as late as before.
