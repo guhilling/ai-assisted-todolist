@@ -8,8 +8,9 @@ appId: com.apple.mobilesafari
     browser: true
 # Safari's toolbar, or the tip a fresh simulator's Safari shows over it. The page's own text is not
 # in what Maestro sees of Safari; that the page has loaded is checked in the share sheet below.
+# iOS 27 calls the ⋯ button Page Menu, iOS 26 More (#658).
 - extendedWaitUntil:
-    visible: "(View Bookmarks.*|More)"
+    visible: "(View Bookmarks.*|More|Page Menu)"
     timeout: 60000
 - waitForAnimationToEnd:
     timeout: 8000
@@ -25,7 +26,7 @@ appId: com.apple.mobilesafari
           point: 90%, 71%
       - waitForAnimationToEnd
 - takeScreenshot: ios-share-link-0-page
-- tapOn: "More"
+- tapOn: "(More|Page Menu)"
 - waitForAnimationToEnd
 # Now and then the menu does not open on the first tap, and Share is not found (#533): More is
 # tapped again while Share is not there.
@@ -35,7 +36,7 @@ appId: com.apple.mobilesafari
     times: 3
     commands:
       - tapOn:
-          text: "More"
+          text: "(More|Page Menu)"
           optional: true
       - waitForAnimationToEnd
 - tapOn: "Share"
