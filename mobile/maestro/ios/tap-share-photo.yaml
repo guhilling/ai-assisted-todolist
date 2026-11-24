@@ -8,10 +8,12 @@ appId: com.apple.mobileslideshow
 - runFlow: answer-photos-greeting.yaml
 # A tap while the library is still settling may open nothing (#401): tapped again until the photo
 # is open, which is when Share is there. Only from the grid: when run-on-simulator.sh runs the flow
-# once more, iOS may reopen Photos on the photo the first run had opened (#500).
+# once more, iOS may reopen Photos on the photo the first run had opened (#500). iOS 27's Photos may
+# greet only after the check above, over the grid, so each round answers it first (#658).
 - repeat:
     times: 4
     commands:
+      - runFlow: answer-photos-greeting.yaml
       - runFlow:
           when:
             notVisible: "Share"

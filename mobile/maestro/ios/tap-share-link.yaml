@@ -67,9 +67,9 @@ appId: com.apple.mobilesafari
 - assertVisible: "TaskFest Dev"
 # Safari's share sheet is a scene of its own, and Maestro reads its elements' places relative to
 # that scene: a tap by name lands above the sheet, Safari takes it for a cancel, and no extension
-# starts (#395). TaskFest Dev's icon is tapped where it is on the screen instead -- third in the
-# row, after News and Reminders, on the runner's iPhone. Should iOS order the row differently, the
-# tap misses, the app never opens, and share-link.yaml fails after its second share, with the sheet
-# in its screenshot.
+# starts (#395). TaskFest Dev's icon is tapped where it is on the screen instead -- fourth in the
+# row, after News, Reminders and Safari, on the runner's iPhone 18 Pro with iOS 27 (#658). Should
+# iOS order the row differently, the tap misses, the app never opens, and share-link.yaml fails
+# after its second share, with the sheet in its screenshot.
 - tapOn:
-    point: 61%, 74%
+    point: 83%, 75%
