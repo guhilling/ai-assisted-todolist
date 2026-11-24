@@ -11,14 +11,17 @@ out=${MAESTRO_OUTPUT:-maestro-output-ios}
 mkdir -p "$out"
 
 # The first iPhone of the newest iOS runtime, by its version's numbers: as text, iOS-26-2 would come
-# after iOS-26-10.
+# after iOS-26-10. Not the iPhone Duo, which Xcode 27's image has in a runtime of its own (#658):
+# its wide screen puts Safari's buttons in a column at the side, where the flows do not look.
 udid=$(xcrun simctl list devices available -j | python3 -c '
 import json, re, sys
 devices = json.load(sys.stdin)["devices"]
 def version(runtime):
     return tuple(int(n) for n in re.findall(r"\d+", runtime.rsplit("iOS", 1)[-1]))
 ios = sorted((r for r in devices if ".iOS-" in r), key=version, reverse=True)
-print(next(d["udid"] for r in ios for d in devices[r] if d["name"].startswith("iPhone")))')
+iphone = next(d for r in ios for d in devices[r] if d["name"].startswith("iPhone") and "Duo" not in d["name"])
+print(iphone["name"], file=sys.stderr)
+print(iphone["udid"])')
 # Boots it, if need be, and waits until it has.
 xcrun simctl bootstatus "$udid" -b
 xcrun simctl install "$udid" "$app"
