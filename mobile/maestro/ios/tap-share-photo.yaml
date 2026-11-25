@@ -5,13 +5,11 @@ appId: com.apple.mobileslideshow
 ---
 - waitForAnimationToEnd:
     timeout: 8000
-- runFlow: answer-photos-greeting.yaml
 # A tap while the library is still settling may open nothing (#401): tapped again until the photo
 # is open, which is when Share is there. Only from the grid: when run-on-simulator.sh runs the flow
 # once more, iOS may reopen Photos on the photo the first run had opened (#500). iOS 27's Photos may
-# greet only after the check above, over the grid, so each round answers it first, and a round that
-# finds neither the greeting nor the grid yet goes on to the next (#658). Share, below, fails when
-# no photo was opened.
+# greet only once it has started, over the grid, so each round answers it first, and a round that
+# finds neither the greeting nor the grid yet goes on to the next (#658).
 - repeat:
     times: 4
     commands:
@@ -25,6 +23,11 @@ appId: com.apple.mobileslideshow
                 index: 0
                 optional: true
             - waitForAnimationToEnd
+# The greeting may come even after the loop, over the photo just opened (#658).
+- runFlow: answer-photos-greeting.yaml
+# Without Share no photo was opened: Photos never showed its grid (#500). Said here, rather than as a
+# Share the tap below cannot find.
+- assertVisible: "Share"
 - tapOn: "Share"
 - waitForAnimationToEnd:
     timeout: 5000
