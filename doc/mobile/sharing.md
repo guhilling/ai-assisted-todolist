@@ -20,8 +20,8 @@ the raw share, is in [decisions/mobile-app.md](../decisions/mobile-app.md).
   (`mobile/plugins/withShareLabel.ts`), which the share sheet shows beneath the app's name, as it
   shows Maps' *Add to …*.
 - **iOS's share sheet shows the app**: TaskFest's icon and name — *TaskFest*, *TaskFest QA*,
-  *TaskFest Dev* — in the row of apps, not the extension's own name: iOS 26 names every share
-  extension there by its app. It is the row of icons, not the **Actions** list beneath it:
+  *TaskFest Dev* — in the row of apps, not the extension's own name: iOS 26 and 27 name every
+  share extension there by its app. It is the row of icons, not the **Actions** list beneath it:
   that list is for action extensions, a different kind, which TaskFest does not have. A newly
   installed app may sit at the end of the row, or behind **More**. The extension is still called
   *Create Task* (`mobile/plugins/withShareExtensionName.ts`), where the plugin would call it
@@ -119,10 +119,11 @@ go when the share's form is closed, with their folders (`releaseShared` in `Main
   of each kind, and both signed with the App Group as a release signs them
   (`.github/scripts/check-share-extension.py`, `check-share-activation.swift`,
   `sign-with-app-group.sh`).
-- Mobile CI's iOS share (`mobile/maestro/ios/`, #380): that signed build on an iPhone simulator, a
-  photo shared from Photos and a page from Safari, each through the real share sheet, where
-  *TaskFest Dev* must be offered and must open the app; the simulator's iOS asks first, and the
-  flows let it. In Safari's sheet *TaskFest Dev* is tapped by its place on the screen, not by its
+- Mobile CI's iOS share (`mobile/maestro/ios/`, #380): that signed build on an iPhone simulator of
+  the newest iOS on GitHub's `xcode-27` image (#658), not the iPhone Duo, whose wide screen puts
+  Safari's buttons at the side. A photo shared from Photos and a page from Safari, each through
+  the real share sheet, where *TaskFest Dev* must be offered and must open the app; the
+  simulator's iOS asks first, and the flows let it. In Safari's sheet *TaskFest Dev* is tapped by its place on the screen, not by its
   name: the sheet is a scene of its own, Maestro reads its elements' places relative to it, and a
   tap by name landed above the sheet, which Safari took for a cancel (#395). No stack runs on the
   macOS runner, so it ends at the sign-in: whether the photo was kept is not checked there, and
