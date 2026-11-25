@@ -32,9 +32,10 @@ or any page with `.md` appended), not what you remember. Add Expo packages with
   unknown instead of refusing the response.
 - **No router yet.** One screen; `src/Main.tsx` is the root. Expo Router took the sign-in's return
   link for a page and remounted the app mid-sign-in, so it comes back only with screens to route.
-- **A 64-bit integer from an Expo module is a BigInt on iOS** since SDK 58, whatever its types
-  say: expo-file-system's upload progress was, and a BigInt mixed with a number in arithmetic
-  throws, which ended the app (#682). Wrap such a value in `Number()` where it enters the app.
+- **A 64-bit integer in an Expo module's event is a BigInt on iOS** since SDK 58, whatever its
+  types say: expo-file-system's upload progress was, and a BigInt mixed with a number in arithmetic
+  throws, which ended the app (#682). Turn such a value into a number where it enters the app, as
+  `fractionSent` does. A property such as `File.size` still arrives as a number.
 - **Coverage has a floor** (`jest.coverageThreshold` in `package.json`): raise it when coverage
   rises, never lower it to land a change.
 - **The backend is sent the app session's token** (#281): every sign-in trades the provider's ID

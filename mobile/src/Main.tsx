@@ -269,7 +269,7 @@ async function savedJpeg(
   const image = await context.renderAsync()
   try {
     const saved = await image.saveAsync({ format: SaveFormat.JPEG, compress })
-    return { uri: saved.uri, size: Number(new File(saved.uri).size) }
+    return { uri: saved.uri, size: new File(saved.uri).size }
   } finally {
     image.release()
     context.release()
@@ -287,11 +287,10 @@ const uploadParts: UploadParts = {
         file.upload(url, {
           httpMethod: 'PUT',
           headers,
-          // BigInts on iOS since Expo SDK 58 (#682), numbers on Android.
           onProgress: onProgress && ((progress) => onProgress(fractionSent(progress.bytesSent, progress.totalBytes))),
           signal,
         }),
-      transferMs(Number(file.size)),
+      transferMs(file.size),
     )
     if (result.status < 200 || result.status >= 300) {
       throw new Error(`Storage answered ${result.status}.`)
@@ -373,7 +372,7 @@ const dependencies: Dependencies = {
         const file = picked.canceled ? undefined : picked.assets[0]
         return file ? { uri: file.uri, name: file.name, type: file.mimeType ?? null, size: file.size ?? null } : null
       },
-      sizeOf: (uri) => Number(new File(uri).size),
+      sizeOf: (uri) => new File(uri).size,
       toJpeg: (uri) => savedJpeg(uri, (context) => context, 0.9),
       discard: discardPicked,
       now: () => Date.now(),
@@ -424,7 +423,7 @@ const dependencies: Dependencies = {
       {
         describe: (uri) => {
           const file = new File(uri)
-          return { name: file.name, type: file.type || null, size: Number(file.size) || null }
+          return { name: file.name, type: file.type || null, size: file.size || null }
         },
         copy: async (uri, name) => {
           if (!sharedFiles.exists) {
@@ -433,7 +432,7 @@ const dependencies: Dependencies = {
           sharedCopies += 1
           const copy = new File(sharedFiles, `${sharedCopies}-${name}`)
           await new File(uri).copy(copy)
-          return { uri: copy.uri, size: Number(copy.size) }
+          return { uri: copy.uri, size: copy.size }
         },
         toJpeg: (uri) => savedJpeg(uri, (context) => context, 0.9),
         discard: discardCopy,

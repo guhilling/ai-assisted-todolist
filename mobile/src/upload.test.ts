@@ -163,6 +163,10 @@ describe("how far an upload has got, from expo-file-system's progress (#682)", (
     expect(fractionSent(512, 2048)).toBe(0.25)
   })
 
+  it('is never more than all of it, should more be counted as sent than expected', () => {
+    expect(fractionSent(BigInt(2200), BigInt(2048))).toBe(1)
+  })
+
   it('is none before the size is known', () => {
     expect(fractionSent(0, 0)).toBe(0)
     expect(fractionSent(BigInt(0), BigInt(0))).toBe(0)
