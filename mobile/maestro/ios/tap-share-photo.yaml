@@ -9,7 +9,9 @@ appId: com.apple.mobileslideshow
 # A tap while the library is still settling may open nothing (#401): tapped again until the photo
 # is open, which is when Share is there. Only from the grid: when run-on-simulator.sh runs the flow
 # once more, iOS may reopen Photos on the photo the first run had opened (#500). iOS 27's Photos may
-# greet only after the check above, over the grid, so each round answers it first (#658).
+# greet only after the check above, over the grid, so each round answers it first, and a round that
+# finds neither the greeting nor the grid yet goes on to the next (#658). Share, below, fails when
+# no photo was opened.
 - repeat:
     times: 4
     commands:
@@ -21,6 +23,7 @@ appId: com.apple.mobileslideshow
             - tapOn:
                 text: "Photo, .*"
                 index: 0
+                optional: true
             - waitForAnimationToEnd
 - tapOn: "Share"
 - waitForAnimationToEnd:

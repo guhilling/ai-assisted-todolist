@@ -5,8 +5,14 @@ appId: com.apple.mobileslideshow
 name: Warm Photos up
 ---
 - launchApp
+# iOS 27's Photos greets only once it has started, over the grid (#658): the grid or the greeting,
+# whichever comes, then the greeting answered, then the grid.
+- extendedWaitUntil:
+    visible: "(Photo, .*|Continue)"
+    timeout: 180000
 - runFlow: answer-photos-greeting.yaml
 - extendedWaitUntil:
     visible: "Photo, .*"
     timeout: 180000
+- runFlow: answer-photos-greeting.yaml
 - stopApp
