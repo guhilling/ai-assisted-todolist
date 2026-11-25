@@ -8,8 +8,9 @@ appId: com.apple.mobilesafari
     browser: true
 # Safari's toolbar, or the tip a fresh simulator's Safari shows over it. The page's own text is not
 # in what Maestro sees of Safari; that the page has loaded is checked in the share sheet below.
+# iOS 27 calls the ⋯ button Page Menu, iOS 26 More (#658).
 - extendedWaitUntil:
-    visible: "(View Bookmarks.*|More)"
+    visible: "(View Bookmarks.*|More|Page Menu)"
     timeout: 60000
 - waitForAnimationToEnd:
     timeout: 8000
@@ -25,7 +26,7 @@ appId: com.apple.mobilesafari
           point: 90%, 71%
       - waitForAnimationToEnd
 - takeScreenshot: ios-share-link-0-page
-- tapOn: "More"
+- tapOn: "(More|Page Menu)"
 - waitForAnimationToEnd
 # Now and then the menu does not open on the first tap, and Share is not found (#533): More is
 # tapped again while Share is not there.
@@ -35,7 +36,7 @@ appId: com.apple.mobilesafari
     times: 3
     commands:
       - tapOn:
-          text: "More"
+          text: "(More|Page Menu)"
           optional: true
       - waitForAnimationToEnd
 - tapOn: "Share"
@@ -66,9 +67,9 @@ appId: com.apple.mobilesafari
 - assertVisible: "TaskFest Dev"
 # Safari's share sheet is a scene of its own, and Maestro reads its elements' places relative to
 # that scene: a tap by name lands above the sheet, Safari takes it for a cancel, and no extension
-# starts (#395). TaskFest Dev's icon is tapped where it is on the screen instead -- third in the
-# row, after News and Reminders, on the runner's iPhone. Should iOS order the row differently, the
-# tap misses, the app never opens, and share-link.yaml fails after its second share, with the sheet
-# in its screenshot.
+# starts (#395). TaskFest Dev's icon is tapped where it is on the screen instead -- fourth in the
+# row, after News, Reminders and Safari, on the runner's iPhone 18 Pro with iOS 27 (#658). Should
+# iOS order the row differently, the tap misses, the app never opens, and share-link.yaml fails
+# after its second share, with the sheet in its screenshot.
 - tapOn:
-    point: 61%, 74%
+    point: 83%, 75%

@@ -139,7 +139,9 @@ jobs:
           retention-days: 7
 
   ios:
-    runs-on: macos-26
+    # Xcode 27 and its iOS 27 SDK, which App Store Connect requires from April 2027 (#658): GitHub's
+    # image for it, out of preview since 2026-11-23, on its default Xcode.
+    runs-on: xcode-27
     # The build takes about ten minutes, the simulator's shares a few more.
     timeout-minutes: 45
     env:
@@ -151,11 +153,12 @@ jobs:
       # again, which is two thirds of this job. Saved only once the checks below passed on it.
       # The key is worked out once, from the checkout alone: the cache's post step would hash
       # mobile/** again after the build, Pods and node_modules included, which outran the two
-      # minutes GitHub gives hashFiles.
+      # minutes GitHub gives hashFiles. It names the Xcode too, so a new default Xcode on the image
+      # builds the app afresh, as the release would (#658).
       - name: Key the app by what it is made of
         id: app-key
         run: >-
-          echo "key=taskfest-dev-ios-app-${{ hashFiles('mobile/**', 'frontend/src/**', '.github/workflows/mobile-ci.yml',
+          echo "key=taskfest-dev-ios-app-$(xcodebuild -version | tr -d ' \n')-${{ hashFiles('mobile/**', 'frontend/src/**', '.github/workflows/mobile-ci.yml',
           '.github/scripts/check-share-extension.py', '.github/scripts/check-share-activation.swift',
           '.github/scripts/sign-with-app-group.sh', '!mobile/maestro/**', '!**/*.test.ts', '!**/*.test.tsx') }}" >> "$GITHUB_OUTPUT"
       # Restored and saved apart, not by actions/cache, which saves only when the whole job passes:

@@ -10,15 +10,22 @@ here=$(cd "$(dirname "$0")" && pwd)
 out=${MAESTRO_OUTPUT:-maestro-output-ios}
 mkdir -p "$out"
 
-# The first iPhone of the newest iOS runtime, by its version's numbers: as text, iOS-26-2 would come
-# after iOS-26-10.
+# The iPhone 18 Pro of the newest iOS runtime that has one, by its version's numbers: as text,
+# iOS-26-2 would come after iOS-26-10. That model by name, since the Safari flow taps TaskFest in
+# the share sheet by its place on this screen (#658); not the first iPhone, which on Xcode 27's
+# image was the iPhone Duo, whose wide screen puts Safari's buttons at the side. Without one, it
+# stops and says so.
 udid=$(xcrun simctl list devices available -j | python3 -c '
 import json, re, sys
 devices = json.load(sys.stdin)["devices"]
 def version(runtime):
     return tuple(int(n) for n in re.findall(r"\d+", runtime.rsplit("iOS", 1)[-1]))
 ios = sorted((r for r in devices if ".iOS-" in r), key=version, reverse=True)
-print(next(d["udid"] for r in ios for d in devices[r] if d["name"].startswith("iPhone")))')
+iphone = next((d for r in ios for d in devices[r] if d["name"] == "iPhone 18 Pro"), None)
+if iphone is None:
+    sys.exit("No iPhone 18 Pro simulator on this runner: the iOS share flows tap by its screen.")
+print(iphone["name"], file=sys.stderr)
+print(iphone["udid"])')
 # Boots it, if need be, and waits until it has.
 xcrun simctl bootstatus "$udid" -b
 xcrun simctl install "$udid" "$app"

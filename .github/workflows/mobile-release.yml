@@ -187,7 +187,9 @@ jobs:
     name: iOS ${{ matrix.variant }}
     needs: numbers
     if: ${{ vars.APPLE_TEAM_ID != '' && inputs.platform != 'android' }}
-    runs-on: macos-26
+    # Xcode 27 and its iOS 27 SDK, which App Store Connect requires from April 2027 (#658): GitHub's
+    # image for it, out of preview since 2026-11-23, on its default Xcode.
+    runs-on: xcode-27
     environment: app-stores
     timeout-minutes: 60
     strategy:

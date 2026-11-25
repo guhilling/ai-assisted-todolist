@@ -20,8 +20,8 @@ the raw share, is in [decisions/mobile-app.md](../decisions/mobile-app.md).
   (`mobile/plugins/withShareLabel.ts`), which the share sheet shows beneath the app's name, as it
   shows Maps' *Add to …*.
 - **iOS's share sheet shows the app**: TaskFest's icon and name — *TaskFest*, *TaskFest QA*,
-  *TaskFest Dev* — in the row of apps, not the extension's own name: iOS 26 names every share
-  extension there by its app. It is the row of icons, not the **Actions** list beneath it:
+  *TaskFest Dev* — in the row of apps, not the extension's own name: iOS 26 and 27 name every
+  share extension there by its app. It is the row of icons, not the **Actions** list beneath it:
   that list is for action extensions, a different kind, which TaskFest does not have. A newly
   installed app may sit at the end of the row, or behind **More**. The extension is still called
   *Create Task* (`mobile/plugins/withShareExtensionName.ts`), where the plugin would call it
@@ -119,57 +119,59 @@ go when the share's form is closed, with their folders (`releaseShared` in `Main
   of each kind, and both signed with the App Group as a release signs them
   (`.github/scripts/check-share-extension.py`, `check-share-activation.swift`,
   `sign-with-app-group.sh`).
-- Mobile CI's iOS share (`mobile/maestro/ios/`, #380): that signed build on an iPhone simulator, a
-  photo shared from Photos and a page from Safari, each through the real share sheet, where
-  *TaskFest Dev* must be offered and must open the app; the simulator's iOS asks first, and the
-  flows let it. In Safari's sheet *TaskFest Dev* is tapped by its place on the screen, not by its
-  name: the sheet is a scene of its own, Maestro reads its elements' places relative to it, and a
-  tap by name landed above the sheet, which Safari took for a cancel (#395). No stack runs on the
-  macOS runner, so it ends at the sign-in: whether the photo was kept is not checked there, and
-  the way on to the board is the Android flows'. Its screenshots, Maestro's debug output and the
-  simulator's log for the share are the `maestro-output-ios` artifact. It fails Mobile CI; for a
-  while it did not (#401), because it failed often enough that a red run said nothing. The
-  failures were the simulator's, before any of TaskFest's code: Photos now and then never finishes
-  preparing the photo, so iOS never starts the extension, and a tap on *Open* while iOS's question
-  was still coming in went nowhere. The photo's flow shares it again, once, from a restarted Photos
-  when nothing has happened after 90 s, and taps *Open* again while the question is still there.
-  Maestro's own driver failed too, three times in nineteen runs and never in the share: on the
-  freshly booted simulator it started too slowly, or went away mid-tap. It now has 300 s to start,
-  and `run-on-simulator.sh` runs the flow once more when `driver-failed.sh` finds the driver, not
-  the flow, failed, or (#533, below) Photos stalled; any other failure fails at once. Each run's console output is in the artifact.
-  With that, ten re-runs of `main`'s run for #416 all passed, none needing the driver's second
-  run. Those numbers are the photo's. The Safari share is younger and less proven: its own
-  stumbles were the simulator's too -- a tap on Safari's first-run tip or on the menu's *Share*
-  that came while it was still opening and went nowhere -- and it now taps again while either is
-  still there. Its final version passed in all three runs on #464, which is few.
-  Three more of the simulator's stumbles followed (#473). The first share of a photo once came
-  through late, after Photos had been restarted for the second, and its question stood in the way:
-  a question still there after the restart is now answered, as one on time would be, since the
-  extension has taken the photo and is opening the app, and the photo is not shared again.
-  TaskFest's extension stalled in Safari too, at its compose view (*Cancel* / *Post*), or never
-  started, and handed nothing over in 90 s: the Safari flow now shares again, once, from a
-  restarted Safari, the way the photo's does. A question that comes late there is turned down
-  rather than answered, because a photo's late share asks the same, and only the new share may
-  pass the flow; a late share that reached the app's sign-in is not shared again. And a tap
-  on *Open* hung in Maestro's XCTest runner for nearly three minutes while the app it opened was
-  starting; the runner gave the request up and Maestro failed with an error of no name, which its
-  report calls *Unknown error*. `driver-failed.sh` counts that as the driver's only when Maestro's
-  log says a tap failed at most a minute after the runner's log says it gave a request up, so the
-  flow runs once more; an unknown error alone, or one long after a request the runner got over,
-  still fails at once. The tap on *Open* also lets the question be
-  gone by the time it looks. Either flow still fails at once when *TaskFest Dev* is not offered,
-  and when the app never opens: after the second share, or, for the photo, after a late first
-  share whose question was answered instead. The next stumbles had one cause (#500): on the
-  freshly booted simulator a process's first start may take over a minute, Safari's share sheet
-  stayed blank 41 s and the app once took 82 s to come up. The Safari flow waits up to 120 s
-  for its share sheet, and both up to 150 s for the sign-in; `run-on-simulator.sh` starts the app until its sign-in shows and
-  Photos until its grid does before the shares (`warm-up-app.yaml`, `warm-up-photos.yaml`), and
-  logs Photos' daemons, whose hangs are still unexplained, from the warm-ups on. A second run of the photo's flow taps a photo only when Photos is not already
-  showing one, as iOS may reopen it there. Two stalls of the simulator's iOS stayed (#533), on
-  `main` among others. Safari's menu now and then did not open on the first tap on *More*, so its
-  *Share* was not found: More is tapped again while Share is not there. And Photos still showed
-  *Preparing…* after the flow's restart and second share: the photo's flow then fails on that by
-  name, before TaskFest's extension has started, and `run-on-simulator.sh` runs it once more, as
-  after a driver failure, when `share-stalled.sh` finds that in the final failure. The extension
-  not opening the app, in either flow, and *TaskFest Dev* not offered still fail at once. Still tried by hand, on TestFlight:
-  text shared on an iPhone, and a share taken on to the board signed in.
+- Mobile CI's iOS share (`mobile/maestro/ios/`, #380): that signed build on an iPhone 18 Pro
+  simulator with the newest iOS on GitHub's `xcode-27` image (#658): the Safari flow taps by that
+  screen, and the image's first iPhone, the iPhone Duo, puts Safari's buttons at the side. A photo
+  shared from Photos and a page from Safari, each through the real share sheet, where *TaskFest Dev*
+  must be offered and must open the app; the simulator's iOS asks first, and the flows let it. In
+  Safari's sheet *TaskFest Dev* is tapped by its place on the screen, not by its name: the sheet is
+  a scene of its own, Maestro reads its elements' places relative to it, and a tap by name landed
+  above the sheet, which Safari took for a cancel (#395). No stack runs on the macOS runner, so it
+  ends at the sign-in: whether the photo was kept is not checked there, and the way on to the board
+  is the Android flows'. Its screenshots, Maestro's debug output and the simulator's log for the
+  share are the `maestro-output-ios` artifact. It fails Mobile CI; for a while it did not (#401),
+  because it failed often enough that a red run said nothing. The failures were the simulator's,
+  before any of TaskFest's code: Photos now and then never finishes preparing the photo, so iOS
+  never starts the extension, and a tap on *Open* while iOS's question was still coming in went
+  nowhere. The photo's flow shares it again, once, from a restarted Photos when nothing has happened
+  after 90 s, and taps *Open* again while the question is still there. Maestro's own driver failed
+  too, three times in nineteen runs and never in the share: on the freshly booted simulator it
+  started too slowly, or went away mid-tap. It now has 300 s to start, and `run-on-simulator.sh`
+  runs the flow once more when `driver-failed.sh` finds the driver, not the flow, failed, or (#533,
+  below) Photos stalled; any other failure fails at once. Each run's console output is in the
+  artifact. With that, ten re-runs of `main`'s run for #416 all passed, none needing the driver's
+  second run. Those numbers are the photo's. The Safari share is younger and less proven: its own
+  stumbles were the simulator's too -- a tap on Safari's first-run tip or on the menu's *Share* that
+  came while it was still opening and went nowhere -- and it now taps again while either is still
+  there. Its final version passed in all three runs on #464, which is few. Three more of the
+  simulator's stumbles followed (#473). The first share of a photo once came through late, after
+  Photos had been restarted for the second, and its question stood in the way: a question still
+  there after the restart is now answered, as one on time would be, since the extension has taken
+  the photo and is opening the app, and the photo is not shared again. TaskFest's extension stalled
+  in Safari too, at its compose view (*Cancel* / *Post*), or never started, and handed nothing over
+  in 90 s: the Safari flow now shares again, once, from a restarted Safari, the way the photo's
+  does. A question that comes late there is turned down rather than answered, because a photo's late
+  share asks the same, and only the new share may pass the flow; a late share that reached the app's
+  sign-in is not shared again. And a tap on *Open* hung in Maestro's XCTest runner for nearly three
+  minutes while the app it opened was starting; the runner gave the request up and Maestro failed
+  with an error of no name, which its report calls *Unknown error*. `driver-failed.sh` counts that
+  as the driver's only when Maestro's log says a tap failed at most a minute after the runner's log
+  says it gave a request up, so the flow runs once more; an unknown error alone, or one long after a
+  request the runner got over, still fails at once. The tap on *Open* also lets the question be gone
+  by the time it looks. Either flow still fails at once when *TaskFest Dev* is not offered, and when
+  the app never opens: after the second share, or, for the photo, after a late first share whose
+  question was answered instead. The next stumbles had one cause (#500): on the freshly booted
+  simulator a process's first start may take over a minute, Safari's share sheet stayed blank 41 s
+  and the app once took 82 s to come up. The Safari flow waits up to 120 s for its share sheet, and
+  both up to 150 s for the sign-in; `run-on-simulator.sh` starts the app until its sign-in shows and
+  Photos until its grid does before the shares (`warm-up-app.yaml`, `warm-up-photos.yaml`), and logs
+  Photos' daemons, whose hangs are still unexplained, from the warm-ups on. A second run of the
+  photo's flow taps a photo only when Photos is not already showing one, as iOS may reopen it there.
+  Two stalls of the simulator's iOS stayed (#533), on `main` among others. Safari's menu now and
+  then did not open on the first tap on *More*, so its *Share* was not found: More is tapped again
+  while Share is not there. And Photos still showed *Preparing…* after the flow's restart and second
+  share: the photo's flow then fails on that by name, before TaskFest's extension has started, and
+  `run-on-simulator.sh` runs it once more, as after a driver failure, when `share-stalled.sh` finds
+  that in the final failure. The extension not opening the app, in either flow, and *TaskFest Dev*
+  not offered still fail at once. Still tried by hand, on TestFlight: text shared on an iPhone, and
+  a share taken on to the board signed in.
