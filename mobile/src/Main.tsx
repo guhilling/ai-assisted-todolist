@@ -36,7 +36,7 @@ import { documentsFor } from './documents'
 import { sharesFrom } from './incoming'
 import { pickFile, type PickedPhoto } from './pick'
 import { makeThumbnail } from './thumbnails'
-import { uploadFile, type UploadParts } from './upload'
+import { fractionSent, uploadFile, type UploadParts } from './upload'
 import { appleSignInFor } from './apple'
 import { googleProviderFor } from './google'
 import { createKeptBoardStore } from './keptBoard'
@@ -287,7 +287,7 @@ const uploadParts: UploadParts = {
         file.upload(url, {
           httpMethod: 'PUT',
           headers,
-          onProgress: onProgress && ((progress) => onProgress(progress.totalBytes > 0 ? progress.bytesSent / progress.totalBytes : 0)),
+          onProgress: onProgress && ((progress) => onProgress(fractionSent(progress.bytesSent, progress.totalBytes))),
           signal,
         }),
       transferMs(file.size),

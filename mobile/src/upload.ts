@@ -24,6 +24,17 @@ export type UploadApi = {
   confirm(caller: Caller, taskId: Task['id'], attachmentId: Attachment['id']): Promise<Attachment>
 }
 
+/**
+ * How far an upload has got, as a fraction from 0 to 1: `sent` of `total` bytes, 0 while the total
+ * is not known. Since Expo SDK 58 an event's 64-bit integers reach JavaScript as BigInts on iOS
+ * (#682), so expo-file-system's progress arrives as BigInts there, whatever its types say, and as
+ * numbers on Android; a BigInt fraction would make the progress shown throw, and the app end.
+ */
+export function fractionSent(sent: number | bigint, total: number | bigint): number {
+  const bytes = Number(total)
+  return bytes > 0 ? Math.min(1, Number(sent) / bytes) : 0
+}
+
 /** What attaching needs of the phone. */
 export type UploadParts = {
   /** PUTs a file to a signed link with exactly the headers it was signed for; rejects on any failure. */

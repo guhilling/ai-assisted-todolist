@@ -28,6 +28,8 @@ and removed.
   through the signed link with exactly the headers it was signed for, and confirmed; the content
   never passes through the backend. The editor says how far it has got, and saving or deleting the
   task waits for it; a file that fails after the editor was closed is said on the board instead.
+  How far is expo-file-system's progress, which iOS hands over as BigInts since Expo SDK 58:
+  `fractionSent` turns it into a number, without which the percentage shown ended the app (#682).
   An upload that has not reached storage by the time a file of its size needs on a poor connection
   — ten seconds, and the file at 64 KiB/s — is aborted and fails as one without a connection does
   (#432, [decisions/mobile-app.md](../decisions/mobile-app.md)); so is a preview's download, or a
