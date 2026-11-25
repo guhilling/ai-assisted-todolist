@@ -1,5 +1,5 @@
 import { AttachmentRefusedError } from './api'
-import { uploadFile, type PickedFile, type UploadApi, type UploadParts } from './upload'
+import { fractionSent, uploadFile, type PickedFile, type UploadApi, type UploadParts } from './upload'
 
 /**
  * Attaching a file from the phone (#274), as the website does it: refused on the phone when the
@@ -150,5 +150,21 @@ describe("a photo's thumbnail is let go once it is uploaded (#432)", () => {
     await uploadFile(caller, 7, photo, jest.fn(), backend(false), phone({ discard }))
 
     expect(discard).toHaveBeenCalledWith('file:///cache/thumb.jpg')
+  })
+})
+
+describe("how far an upload has got, from expo-file-system's progress (#682)", () => {
+  it('is a fraction, and a number, though iOS hands the bytes over as BigInts since Expo SDK 58', () => {
+    expect(fractionSent(BigInt(512), BigInt(2048))).toBe(0.25)
+    expect(fractionSent(BigInt(2048), BigInt(2048)) * 100).toBe(100)
+  })
+
+  it('is the same from the plain numbers Android hands over', () => {
+    expect(fractionSent(512, 2048)).toBe(0.25)
+  })
+
+  it('is none before the size is known', () => {
+    expect(fractionSent(0, 0)).toBe(0)
+    expect(fractionSent(BigInt(0), BigInt(0))).toBe(0)
   })
 })
