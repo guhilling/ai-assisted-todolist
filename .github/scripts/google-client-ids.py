@@ -24,7 +24,9 @@ def main(argv):
         return 2
     tfvars = pathlib.Path(argv[2]) if len(argv) > 2 else (
         ROOT / "deployment/aws-tofu/environments" / variant / "terraform.tfvars")
-    values = dict(re.findall(r'(?m)^\s*(\w+)\s*=\s*"([^"]*)"', tfvars.read_text()))
+    # A block comment's lines start like assignments; line comments do not, and need no stripping.
+    text = re.sub(r"/\*.*?\*/", "", tfvars.read_text(), flags=re.DOTALL)
+    values = dict(re.findall(r'(?m)^\s*(\w+)\s*=\s*"([^"]*)"', text))
     for setting, suffix in NAMES.items():
         if values.get(setting):
             print(f"TASKFEST_{variant.upper()}_GOOGLE_{suffix}={values[setting]}")

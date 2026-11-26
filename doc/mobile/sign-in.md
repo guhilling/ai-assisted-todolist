@@ -105,6 +105,12 @@ in a project of their own, kept to its test users
 ([decision](../decisions/authentication.md#qa-signs-in-with-a-google-project-of-its-own)); until
 that project exists, qa's `google_client_id` is still prod's.
 
+**A new web client locks out the apps installed before it.** Once the environment's
+`google_client_id` names another client, its backend refuses ID tokens for the old one, so an
+installed app built with the old id cannot sign in with Google until it is updated to the next
+release. That is accepted for qa's move to its own project, whose only testers are told; there is
+no transition with both ids accepted, which would need the backend to take two web clients.
+
 ## Apple
 
 Sign in with Apple on iOS (#281), with

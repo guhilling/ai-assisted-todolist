@@ -37,6 +37,13 @@ class GoogleClientIdsTest(unittest.TestCase):
             "TASKFEST_QA_GOOGLE_IOS_CLIENT_ID=1-ios.apps.googleusercontent.com",
         ])
 
+    def test_skips_an_id_in_a_block_comment(self):
+        with tempfile.TemporaryDirectory() as directory:
+            tfvars = pathlib.Path(directory, "terraform.tfvars")
+            tfvars.write_text('google_client_id = "current-web"\n/*\ngoogle_client_id = "retired-web"\n*/\n')
+            result = ids("qa", tfvars)
+        self.assertEqual(result.stdout.splitlines(), ["TASKFEST_QA_GOOGLE_WEB_CLIENT_ID=current-web"])
+
     def test_leaves_out_an_id_the_environment_does_not_have(self):
         # The release's settings check then names it, as for any setting missing.
         with tempfile.TemporaryDirectory() as directory:

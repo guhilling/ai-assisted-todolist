@@ -85,10 +85,11 @@ sign-in rather than 30 days from the last use; the month is the backend's now
 ([An app trades its ID token once for an app
 session](authentication.md#an-app-trades-its-id-token-once-for-an-app-session)).
 
-Revised in part on 2026-11-26 (#607): qa and prod no longer share one web client. qa's clients are
-in a Google project of their own, which stays closed to its test users while prod's is open to
-anyone ([qa signs in with a Google project of its
-own](authentication.md#qa-signs-in-with-a-google-project-of-its-own)).
+Revised in part on 2026-11-26 (#607): qa and prod are to stop sharing one web client. qa's clients
+move into a Google project of their own, open only to its test users while prod's is open to anyone
+([qa signs in with a Google project of its
+own](authentication.md#qa-signs-in-with-a-google-project-of-its-own)); until that project exists,
+both name prod's.
 
 **Decision (S1 on #264).** The app signs in with the platform's Google SDK (Credential Manager on
 Android, the Google Sign-In SDK on iOS) and sends the ID token as `Authorization: Bearer`. The
