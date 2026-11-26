@@ -354,3 +354,24 @@ App Review accepts that is uncertain. Keeping Apple's refresh token from every s
 it later: long-lived credentials for every person, which the app session decision chose not to
 keep. Remembering on the account that it signed in with Apple: new data for a rare case.
 
+## qa signs in with a Google project of its own
+
+*Accepted · 2026-11-26 · #607*
+
+**Decision** (Gunnar). prod's website opens to anyone with a Google account, and qa stays with
+the test users listed in Google's console. Google decides who may sign in per Google Cloud
+project, on the Google Auth Platform's *Audience* page, not per client, so qa's web, iOS and
+Android clients move into a project of their own, kept in *Testing*; prod's project, the one both
+shared until then, is the one published. qa is moved first, so it is never open in between.
+
+**The ids have one home.** Each environment's web and iOS client ids are in its
+`terraform.tfvars`, which its backend accepts as an ID token's audience; the mobile release reads
+the variant's ids from there (`.github/scripts/google-client-ids.py`) rather than from repository
+variables, so the app cannot ask Google for tokens its own backend refuses.
+
+**Why.** qa is the test environment: what is kept there may be lost at any time, and it runs
+changes before prod does. Strangers belong on prod.
+
+**Rejected.** qa open to anyone as well, with the legal texts saying so: strangers on a test
+environment. An allowlist of accounts in qa's backend: code and a list to keep, for what Google's
+console does already. A second client in the shared project: it would be published with it.
