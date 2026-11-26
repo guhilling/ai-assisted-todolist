@@ -66,11 +66,14 @@ coarse; the `numbers` job, which runs before any job enters the environment, acc
 | `GOOGLE_PLAY_SERVICE_ACCOUNT` | repository variable | the service account's email |
 | `TASKFEST_QA_COGNITO_ISSUER` | repository variable | qa's tofu output `test_accounts_issuer` |
 | `TASKFEST_QA_APP_CLIENT_ID` | repository variable | qa's tofu output `test_accounts_app_client_id` |
-| `TASKFEST_QA_GOOGLE_WEB_CLIENT_ID`, `TASKFEST_PROD_GOOGLE_WEB_CLIENT_ID`, `TASKFEST_QA_GOOGLE_IOS_CLIENT_ID`, `TASKFEST_PROD_GOOGLE_IOS_CLIENT_ID` | repository variables | Google's client ids, from [sign-in.md](sign-in.md) |
 
 `TASKFEST_QA_COGNITO_ISSUER` and `TASKFEST_QA_APP_CLIENT_ID` come from qa once #283 is applied (`tofu output` in `deployment/aws-tofu/environments/qa`).
 The qa build refuses to start without them, since it would offer no way to sign in; every build
-refuses to start without Google's client ids, for the same reason.
+refuses to start without Google's client ids, for the same reason. Those are no settings here: the
+release takes them from the environment's `terraform.tfvars` ([sign-in.md](sign-in.md#google)).
+The repository variables that held them until #607, `TASKFEST_GOOGLE_WEB_CLIENT_ID`,
+`TASKFEST_QA_GOOGLE_IOS_CLIENT_ID` and `TASKFEST_PROD_GOOGLE_IOS_CLIENT_ID`, stay for rebuilding a
+release from before then, whose workflow still reads them.
 
 ### Apple
 

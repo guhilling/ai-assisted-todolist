@@ -69,8 +69,10 @@ the app's own style.
 Google's SDK keeps the account it signed in with. A Google session says so (`via: 'google'`), and
 signing out of it signs out of the SDK too, so the next sign-in asks which account.
 
-**Only a build that knows the client ids has it.** They are repository variables, read by
-`mobile-release.yml`, and a release refuses to build without them
+**Only a build that knows the client ids has it.** `mobile-release.yml` takes the variant's web
+and iOS client ids from its environment's `terraform.tfvars`
+(`.github/scripts/google-client-ids.py`), the ids that environment's backend accepts, and a
+release refuses to build without them
 (`.github/scripts/check-mobile-release-settings.sh`): a prod app without Google has no way in. A
 build without them elsewhere — the dev build, CI's — offers its other sign-in, or says sign-in is
 not configured. The library's Expo config plugin is in every build all the same: its pods only build
@@ -79,32 +81,29 @@ which Google's SDK returns to the app by — a placeholder in a build without Go
 
 ### Setting it up, once
 
-In the Google Cloud project of the website's web client, *APIs & Services → Credentials → Create
-credentials → OAuth client ID*:
+In each environment's Google Cloud project, the one of its website's web client — qa's and
+prod's are separate (#607) — *APIs & Services → Credentials → Create credentials → OAuth client
+ID*:
 
-1. **Android**, once per package: `de.hilling.taskfest` and `de.hilling.taskfest.qa`, each with
-   the **SHA-1 of the app signing key** from Play Console → the app → *Test and release → App
+1. **Android**, for the environment's package, `de.hilling.taskfest` or `de.hilling.taskfest.qa`,
+   with the **SHA-1 of the app signing key** from Play Console → the app → *Test and release → App
    integrity → App signing*. Play re-signs every build with that key, so it is the one phones see;
    a bundle signed only with the upload key, installed outside Play, will not sign in. The Android
    client ids appear nowhere: Google recognises the app by package and key.
-2. **iOS**, once per bundle id: `de.hilling.taskfest` and `de.hilling.taskfest.qa`.
+2. **iOS**, for the environment's bundle id: `de.hilling.taskfest` or `de.hilling.taskfest.qa`.
 
-Then the repository variables (*Settings → Secrets and variables → Actions → Variables*):
+Credential Manager finds the Android client by the web client's project, so the two must be in the
+same one.
 
-| Name | Value |
-| --- | --- |
-| `TASKFEST_QA_GOOGLE_WEB_CLIENT_ID` | qa's web client, its `google_client_id` in `terraform.tfvars` |
-| `TASKFEST_PROD_GOOGLE_WEB_CLIENT_ID` | prod's web client, its `google_client_id` |
-| `TASKFEST_QA_GOOGLE_IOS_CLIENT_ID` | the iOS client of `de.hilling.taskfest.qa` |
-| `TASKFEST_PROD_GOOGLE_IOS_CLIENT_ID` | the iOS client of `de.hilling.taskfest` |
-
-Client ids are not secrets: every app and web page that signs in with Google carries one.
-
-And for the backend, each environment's iOS client in its `terraform.tfvars`
-(`google_ios_client_id`), applied as usual; until then, an iOS sign-in is refused with 401. prod's
-`google_client_id` is the same web client as qa's, as decided
-([decisions/mobile-app.md](../decisions/mobile-app.md)), each environment with a client secret of
-its own ([deployment/names-and-certificates.md](../deployment/names-and-certificates.md)).
+Then the environment's `terraform.tfvars`: the web client's id as `google_client_id` and the iOS
+client's as `google_ios_client_id`, applied as usual. The backend accepts both as an ID token's
+audience (until then, an iOS sign-in is refused with 401), and the next release builds the app with
+them. Client ids are not secrets: every app and web page that signs in with Google carries one.
+Each environment has a client secret of its own
+([deployment/names-and-certificates.md](../deployment/names-and-certificates.md)). qa's clients are
+in a project of their own, kept to its test users
+([decision](../decisions/authentication.md#qa-signs-in-with-a-google-project-of-its-own)); until
+that project exists, qa's `google_client_id` is still prod's.
 
 ## Apple
 

@@ -65,9 +65,11 @@ This is manual configuration in the Google console and cannot be automated here.
   no verification review. Without brand verification the consent screen shows the domain rather
   than the app's name and logo; brand verification usually takes two to three working days, and a
   later change to the branding needs it again. Going back to *Testing* is not described in
-  Google's documentation: check the *Audience* page offers it before relying on it. **qa and prod
-  share this client**, so its publishing status is theirs together: both are open to anyone once
-  it is published (Gunnar's choice on #607).
+  Google's documentation: check the *Audience* page offers it before relying on it. **qa gets a
+  Google project of its own**, kept in *Testing*, since the publishing status is a project's and
+  not a client's; only prod's project is published, once qa has moved out of it
+  ([decision](../decisions/authentication.md#qa-signs-in-with-a-google-project-of-its-own)).
+  Until then, qa and prod share prod's web client.
 
 ## Sign in with Apple (#281)
 

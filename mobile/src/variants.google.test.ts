@@ -28,6 +28,21 @@ describe('Google sign-in in the variants (#280)', () => {
     expect(variants.prod.google).toBeNull()
   })
 
+  it('signs in neither variant with the other’s web client, and dev with none (#607)', () => {
+    const env = {
+      TASKFEST_QA_GOOGLE_WEB_CLIENT_ID: QA_WEB,
+      TASKFEST_PROD_GOOGLE_WEB_CLIENT_ID: PROD_WEB,
+      TASKFEST_QA_GOOGLE_IOS_CLIENT_ID: QA_IOS,
+      TASKFEST_PROD_GOOGLE_IOS_CLIENT_ID: PROD_IOS,
+    }
+    const { TASKFEST_QA_GOOGLE_WEB_CLIENT_ID: _qa, ...withoutQa } = env
+    const { TASKFEST_PROD_GOOGLE_WEB_CLIENT_ID: _prod, ...withoutProd } = env
+
+    expect(variantOf('qa', withoutQa).google).toBeNull()
+    expect(variantOf('prod', withoutProd).google).toBeNull()
+    expect(variantOf('dev', env).google).toBeNull()
+  })
+
   it('keeps qa’s test accounts beside Google', () => {
     const qa = variantOf('qa', {
       TASKFEST_QA_GOOGLE_WEB_CLIENT_ID: QA_WEB,

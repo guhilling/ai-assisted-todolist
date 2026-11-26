@@ -36,8 +36,8 @@ case "$platform" in
 esac
 
 # Google's sign-in (#280): the variant's web and iOS clients, on both platforms -- the app enables
-# Google only with both, and without it the prod app has no way to sign in at all. qa's can be in a
-# Google project of their own (#607), apart from prod's.
+# Google only with both, and without it the prod app has no way to sign in at all. They come from
+# the environment's terraform.tfvars (google-client-ids.py, #607).
 prefix="TASKFEST_$(echo "$variant" | tr '[:lower:]' '[:upper:]')_GOOGLE"
 need "${prefix}_WEB_CLIENT_ID" "${prefix}_WEB_CLIENT_ID"
 need "${prefix}_IOS_CLIENT_ID" "${prefix}_IOS_CLIENT_ID"

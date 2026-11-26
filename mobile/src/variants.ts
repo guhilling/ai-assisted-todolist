@@ -84,9 +84,9 @@ function qaSignIn(env: BuildEnvironment): SignIn | null {
 
 /**
  * Google's client ids for qa or prod: a web client and an iOS client each, so that qa's can be in
- * a Google project of their own, closed to all but its test users while prod's is open to anyone
- * (#607). Like qa's test accounts, they are the build's to supply -- repository variables, not
- * this file.
+ * a Google project of their own, closed to all but its test users (#607). Like qa's test accounts,
+ * they are the build's to supply -- the release takes them from the environment's
+ * `terraform.tfvars` -- not this file's.
  */
 function googleSignIn(env: BuildEnvironment, prefix: 'QA' | 'PROD'): GoogleSignIn | null {
   const webClientId = env[`TASKFEST_${prefix}_GOOGLE_WEB_CLIENT_ID`]

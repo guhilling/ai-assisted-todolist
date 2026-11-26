@@ -101,14 +101,12 @@ jobs:
       TASKFEST_BUILD_NUMBER: ${{ needs.numbers.outputs.build }}
       TASKFEST_QA_COGNITO_ISSUER: ${{ vars.TASKFEST_QA_COGNITO_ISSUER }}
       TASKFEST_QA_APP_CLIENT_ID: ${{ vars.TASKFEST_QA_APP_CLIENT_ID }}
-      # Google's sign-in (#280): a web and an iOS client per variant, so that qa's can be in a Google
-      # project of their own, closed while prod's is open to anyone (#607).
-      TASKFEST_QA_GOOGLE_WEB_CLIENT_ID: ${{ vars.TASKFEST_QA_GOOGLE_WEB_CLIENT_ID }}
-      TASKFEST_PROD_GOOGLE_WEB_CLIENT_ID: ${{ vars.TASKFEST_PROD_GOOGLE_WEB_CLIENT_ID }}
-      TASKFEST_QA_GOOGLE_IOS_CLIENT_ID: ${{ vars.TASKFEST_QA_GOOGLE_IOS_CLIENT_ID }}
-      TASKFEST_PROD_GOOGLE_IOS_CLIENT_ID: ${{ vars.TASKFEST_PROD_GOOGLE_IOS_CLIENT_ID }}
     steps:
       - uses: actions/checkout@v7
+      - name: Google's client ids, from the environment's terraform.tfvars
+        # Google's sign-in (#280): the variant's web and iOS clients, the ids its backend accepts,
+        # so the two cannot disagree (#607). An id missing there is named by the check below.
+        run: python3 .github/scripts/google-client-ids.py ${{ matrix.variant }} >> "$GITHUB_ENV"
       - name: Everything the build needs is set
         # Seconds here rather than a failure after twenty minutes of building. The qa app also
         # needs its test accounts: without them it would install and offer no way to sign in.
@@ -204,12 +202,6 @@ jobs:
       TASKFEST_BUILD_NUMBER: ${{ needs.numbers.outputs.build }}
       TASKFEST_QA_COGNITO_ISSUER: ${{ vars.TASKFEST_QA_COGNITO_ISSUER }}
       TASKFEST_QA_APP_CLIENT_ID: ${{ vars.TASKFEST_QA_APP_CLIENT_ID }}
-      # Google's sign-in (#280): a web and an iOS client per variant, so that qa's can be in a Google
-      # project of their own, closed while prod's is open to anyone (#607).
-      TASKFEST_QA_GOOGLE_WEB_CLIENT_ID: ${{ vars.TASKFEST_QA_GOOGLE_WEB_CLIENT_ID }}
-      TASKFEST_PROD_GOOGLE_WEB_CLIENT_ID: ${{ vars.TASKFEST_PROD_GOOGLE_WEB_CLIENT_ID }}
-      TASKFEST_QA_GOOGLE_IOS_CLIENT_ID: ${{ vars.TASKFEST_QA_GOOGLE_IOS_CLIENT_ID }}
-      TASKFEST_PROD_GOOGLE_IOS_CLIENT_ID: ${{ vars.TASKFEST_PROD_GOOGLE_IOS_CLIENT_ID }}
       # Sign in with Apple (#281): `true` once the variant's App ID has the capability, which the
       # entitlement it adds needs to sign (doc/mobile/sign-in.md). Unset, the build has no Apple.
       TASKFEST_QA_APPLE_SIGN_IN: ${{ vars.TASKFEST_QA_APPLE_SIGN_IN }}
@@ -217,6 +209,10 @@ jobs:
       APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
     steps:
       - uses: actions/checkout@v7
+      - name: Google's client ids, from the environment's terraform.tfvars
+        # Google's sign-in (#280): the variant's web and iOS clients, the ids its backend accepts,
+        # so the two cannot disagree (#607). An id missing there is named by the check below.
+        run: python3 .github/scripts/google-client-ids.py ${{ matrix.variant }} >> "$GITHUB_ENV"
       - name: Everything the build needs is set
         env:
           APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}

@@ -19,7 +19,7 @@ ANDROID = {
 IOS = {"APPLE_API_KEY": "-----BEGIN PRIVATE KEY-----", "APPLE_API_KEY_ID": "K", "APPLE_API_ISSUER_ID": "I"}
 QA = {"TASKFEST_QA_COGNITO_ISSUER": "https://cognito-idp.example.com/pool", "TASKFEST_QA_APP_CLIENT_ID": "c"}
 # Google's client ids (#280): every build signs in with Google, and needs its variant's web and iOS
-# clients -- the app enables Google only with both. qa's are in a Google project of their own (#607).
+# clients -- the app enables Google only with both (google-client-ids.py, #607).
 GOOGLE = {"TASKFEST_QA_GOOGLE_WEB_CLIENT_ID": "qw", "TASKFEST_PROD_GOOGLE_WEB_CLIENT_ID": "pw",
           "TASKFEST_QA_GOOGLE_IOS_CLIENT_ID": "q", "TASKFEST_PROD_GOOGLE_IOS_CLIENT_ID": "p"}
 
