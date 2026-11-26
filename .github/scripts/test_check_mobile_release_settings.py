@@ -18,9 +18,10 @@ ANDROID = {
 }
 IOS = {"APPLE_API_KEY": "-----BEGIN PRIVATE KEY-----", "APPLE_API_KEY_ID": "K", "APPLE_API_ISSUER_ID": "I"}
 QA = {"TASKFEST_QA_COGNITO_ISSUER": "https://cognito-idp.example.com/pool", "TASKFEST_QA_APP_CLIENT_ID": "c"}
-# Google's client ids (#280): every build signs in with Google, and needs the web client and its
-# variant's iOS client -- the app enables Google only with both.
-GOOGLE = {"TASKFEST_GOOGLE_WEB_CLIENT_ID": "w", "TASKFEST_QA_GOOGLE_IOS_CLIENT_ID": "q", "TASKFEST_PROD_GOOGLE_IOS_CLIENT_ID": "p"}
+# Google's client ids (#280): every build signs in with Google, and needs its variant's web and iOS
+# clients -- the app enables Google only with both. qa's are in a Google project of their own (#607).
+GOOGLE = {"TASKFEST_QA_GOOGLE_WEB_CLIENT_ID": "qw", "TASKFEST_PROD_GOOGLE_WEB_CLIENT_ID": "pw",
+          "TASKFEST_QA_GOOGLE_IOS_CLIENT_ID": "q", "TASKFEST_PROD_GOOGLE_IOS_CLIENT_ID": "p"}
 
 
 def check(platform, variant, env):
@@ -54,11 +55,12 @@ class CheckTest(unittest.TestCase):
         self.assertEqual(check("ios", "prod", {**IOS, **GOOGLE}).returncode, 0)
 
     def test_every_build_needs_google_s_client_ids_for_its_variant(self):
-        result = check("android", "qa", {**ANDROID, **QA, "TASKFEST_PROD_GOOGLE_IOS_CLIENT_ID": "p"})
+        result = check("android", "qa", {**ANDROID, **QA, "TASKFEST_PROD_GOOGLE_WEB_CLIENT_ID": "pw",
+                                         "TASKFEST_PROD_GOOGLE_IOS_CLIENT_ID": "p"})
         self.assertEqual(result.returncode, 1)
-        self.assertIn("TASKFEST_GOOGLE_WEB_CLIENT_ID", result.stdout)
+        self.assertIn("TASKFEST_QA_GOOGLE_WEB_CLIENT_ID", result.stdout)
         self.assertIn("TASKFEST_QA_GOOGLE_IOS_CLIENT_ID", result.stdout)
-        self.assertNotIn("TASKFEST_PROD_GOOGLE_IOS_CLIENT_ID", result.stdout)
+        self.assertNotIn("TASKFEST_PROD_GOOGLE", result.stdout)
 
     def test_refuses_a_platform_it_does_not_know(self):
         self.assertEqual(check("windows", "prod", {}).returncode, 2)

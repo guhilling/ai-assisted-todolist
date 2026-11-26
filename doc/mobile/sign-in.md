@@ -93,7 +93,8 @@ Then the repository variables (*Settings → Secrets and variables → Actions �
 
 | Name | Value |
 | --- | --- |
-| `TASKFEST_GOOGLE_WEB_CLIENT_ID` | the web client's id, the one in `TASKFEST_OIDC_GOOGLE_CLIENT_ID` |
+| `TASKFEST_QA_GOOGLE_WEB_CLIENT_ID` | qa's web client, its `google_client_id` in `terraform.tfvars` |
+| `TASKFEST_PROD_GOOGLE_WEB_CLIENT_ID` | prod's web client, its `google_client_id` |
 | `TASKFEST_QA_GOOGLE_IOS_CLIENT_ID` | the iOS client of `de.hilling.taskfest.qa` |
 | `TASKFEST_PROD_GOOGLE_IOS_CLIENT_ID` | the iOS client of `de.hilling.taskfest` |
 

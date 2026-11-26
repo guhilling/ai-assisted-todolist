@@ -90,7 +90,8 @@ export function foreground() {
 
 /** Google's client IDs (#280), and the variants that sign in with them. */
 export const GOOGLE = {
-  TASKFEST_GOOGLE_WEB_CLIENT_ID: '1234-web.apps.googleusercontent.com',
+  TASKFEST_QA_GOOGLE_WEB_CLIENT_ID: '1234-qa-web.apps.googleusercontent.com',
+  TASKFEST_PROD_GOOGLE_WEB_CLIENT_ID: '1234-prod-web.apps.googleusercontent.com',
   TASKFEST_QA_GOOGLE_IOS_CLIENT_ID: '1234-qa.apps.googleusercontent.com',
   TASKFEST_PROD_GOOGLE_IOS_CLIENT_ID: '1234-prod.apps.googleusercontent.com',
 }

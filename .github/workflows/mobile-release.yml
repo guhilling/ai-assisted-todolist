@@ -101,8 +101,10 @@ jobs:
       TASKFEST_BUILD_NUMBER: ${{ needs.numbers.outputs.build }}
       TASKFEST_QA_COGNITO_ISSUER: ${{ vars.TASKFEST_QA_COGNITO_ISSUER }}
       TASKFEST_QA_APP_CLIENT_ID: ${{ vars.TASKFEST_QA_APP_CLIENT_ID }}
-      # Google's sign-in (#280): one web client for both variants, an iOS client per bundle id.
-      TASKFEST_GOOGLE_WEB_CLIENT_ID: ${{ vars.TASKFEST_GOOGLE_WEB_CLIENT_ID }}
+      # Google's sign-in (#280): a web and an iOS client per variant, so that qa's can be in a Google
+      # project of their own, closed while prod's is open to anyone (#607).
+      TASKFEST_QA_GOOGLE_WEB_CLIENT_ID: ${{ vars.TASKFEST_QA_GOOGLE_WEB_CLIENT_ID }}
+      TASKFEST_PROD_GOOGLE_WEB_CLIENT_ID: ${{ vars.TASKFEST_PROD_GOOGLE_WEB_CLIENT_ID }}
       TASKFEST_QA_GOOGLE_IOS_CLIENT_ID: ${{ vars.TASKFEST_QA_GOOGLE_IOS_CLIENT_ID }}
       TASKFEST_PROD_GOOGLE_IOS_CLIENT_ID: ${{ vars.TASKFEST_PROD_GOOGLE_IOS_CLIENT_ID }}
     steps:
@@ -202,8 +204,10 @@ jobs:
       TASKFEST_BUILD_NUMBER: ${{ needs.numbers.outputs.build }}
       TASKFEST_QA_COGNITO_ISSUER: ${{ vars.TASKFEST_QA_COGNITO_ISSUER }}
       TASKFEST_QA_APP_CLIENT_ID: ${{ vars.TASKFEST_QA_APP_CLIENT_ID }}
-      # Google's sign-in (#280): one web client for both variants, an iOS client per bundle id.
-      TASKFEST_GOOGLE_WEB_CLIENT_ID: ${{ vars.TASKFEST_GOOGLE_WEB_CLIENT_ID }}
+      # Google's sign-in (#280): a web and an iOS client per variant, so that qa's can be in a Google
+      # project of their own, closed while prod's is open to anyone (#607).
+      TASKFEST_QA_GOOGLE_WEB_CLIENT_ID: ${{ vars.TASKFEST_QA_GOOGLE_WEB_CLIENT_ID }}
+      TASKFEST_PROD_GOOGLE_WEB_CLIENT_ID: ${{ vars.TASKFEST_PROD_GOOGLE_WEB_CLIENT_ID }}
       TASKFEST_QA_GOOGLE_IOS_CLIENT_ID: ${{ vars.TASKFEST_QA_GOOGLE_IOS_CLIENT_ID }}
       TASKFEST_PROD_GOOGLE_IOS_CLIENT_ID: ${{ vars.TASKFEST_PROD_GOOGLE_IOS_CLIENT_ID }}
       # Sign in with Apple (#281): `true` once the variant's App ID has the capability, which the

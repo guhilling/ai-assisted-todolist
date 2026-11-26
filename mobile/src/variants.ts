@@ -83,11 +83,13 @@ function qaSignIn(env: BuildEnvironment): SignIn | null {
 }
 
 /**
- * Google's client ids for qa or prod: one web client for both, an iOS client per bundle id. Like
- * qa's test accounts, they are the build's to supply -- repository variables, not this file.
+ * Google's client ids for qa or prod: a web client and an iOS client each, so that qa's can be in
+ * a Google project of their own, closed to all but its test users while prod's is open to anyone
+ * (#607). Like qa's test accounts, they are the build's to supply -- repository variables, not
+ * this file.
  */
 function googleSignIn(env: BuildEnvironment, prefix: 'QA' | 'PROD'): GoogleSignIn | null {
-  const webClientId = env.TASKFEST_GOOGLE_WEB_CLIENT_ID
+  const webClientId = env[`TASKFEST_${prefix}_GOOGLE_WEB_CLIENT_ID`]
   const iosClientId = env[`TASKFEST_${prefix}_GOOGLE_IOS_CLIENT_ID`]
   return webClientId && iosClientId ? { webClientId, iosClientId } : null
 }
