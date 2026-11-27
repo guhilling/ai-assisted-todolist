@@ -50,16 +50,16 @@ at a task's time when it has one (#478).
     not in it: should the app replace its reminders, or the phone reboot, at the very moment the
     zone changes, the next load is what puts them right. Changes that come quickly one after another
     are followed in their order, so the last zone is the one the reminders end up in.
-  - **On iOS by the trigger itself (#517):** a floating reminder is a calendar trigger with its
-    day and time and no time zone, which iOS matches on the phone's current clock. A zoned one
-    stays a fixed moment, and so does a floating one at a time the clocks skip, which a calendar
-    trigger might never match. Seen on an iPhone on 2026-11-27, with the app closed throughout:
-    after the zone was changed from Berlin to London, a floating reminder for 17:00 came at 17:00
-    London time, and the zoned control for 17:30 Berlin at 16:30 London. The 08:00 summary takes
-    the same trigger when every task it counts floats, and was not tested itself. Nor was a flight east that lands after a
-    reminder's time: unlike Android's, such a trigger lies in the past and most likely never comes,
-    and the next load does not schedule a reminder that is over. The simulator cannot show any of
-    this, since it takes the Mac's time zone.
+  - **On iOS by the trigger itself (#517):** a floating reminder is a calendar trigger with its day
+    and time and no time zone, which iOS matches on the phone's current clock. A zoned one stays a
+    fixed moment, and so does a floating one at a time the clocks skip, which a calendar trigger
+    might never match. Seen on an iPhone on 2026-11-27, with the app closed throughout: after the
+    zone was changed from Berlin to London, a floating reminder for 17:00 came at 17:00 London time,
+    and the zoned control for 17:30 Berlin at 16:30 London. The 08:00 summary takes the same trigger
+    when every task it counts floats, and was not tested itself. Nor was a flight east that lands
+    after a reminder's time: unlike Android's, such a trigger lies in the past and most likely never
+    comes, and the next load does not schedule a reminder that is over. The simulator cannot show
+    any of this, since it takes the Mac's time zone.
 
 ## The phone's time zone in the JavaScript engine
 
