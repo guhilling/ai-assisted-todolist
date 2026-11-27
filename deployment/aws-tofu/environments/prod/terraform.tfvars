@@ -10,8 +10,8 @@ log_retention_days = 90
 
 hostname = "taskfest.cloud.hilling.de"
 
-# Created by hand in the Google console; not a secret. The same web client as qa's
-# (doc/decisions/mobile-app.md), with a client secret of its own in Secrets Manager.
+# Created by hand in the Google console, in prod's Google project, which is published; not a
+# secret. The client secret is in Secrets Manager.
 google_client_id = "284066835041-jfetldf4tlh0hei4c54rdch0c0jn8qdk.apps.googleusercontent.com"
 
 # The iOS app's Google client (#280), created by hand in the Google console like the web client;

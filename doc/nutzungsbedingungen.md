@@ -16,8 +16,9 @@ Gebrauch durch irgendjemanden betrieben.
 ## Wer sie nutzen darf
 
 Jeder mit einem Google-Konto oder einem Apple Account. `taskfest-qa.cloud.hilling.de` ist eine
-Testumgebung: Was Sie dort speichern, kann jederzeit verloren gehen, eher noch als unter
-`taskfest.cloud.hilling.de`. Der Zugang kann jederzeit ohne Angabe von Gründen entzogen werden.
+Testumgebung, nur für eingeladene Tester: Was Sie dort speichern, kann jederzeit verloren gehen,
+eher noch als unter `taskfest.cloud.hilling.de`. Der Zugang kann jederzeit ohne Angabe von Gründen
+entzogen werden.
 
 ## Keine Zusage von Verfügbarkeit oder Datenerhalt
 
@@ -62,4 +63,4 @@ Diese Bedingungen können sich ändern; maßgeblich ist stets die Fassung auf di
 deutsches Recht. Sind Sie Verbraucher mit Wohnsitz in einem anderen Land, bleibt der zwingende
 Verbraucherschutz Ihres Wohnsitzlandes unberührt.
 
-Stand: 16. November 2026
+Stand: 27. November 2026

@@ -10,7 +10,9 @@ log_retention_days = 30
 
 hostname = "taskfest-qa.cloud.hilling.de"
 
-# Created by hand in the Google console; not a secret. The client secret is in Secrets Manager.
+# Created by hand in the Google console, in qa's own Google project, kept in Testing for its
+# test users (doc/decisions/authentication.md); not a secret. The client secret is in Secrets
+# Manager.
 google_client_id = "284066835041-jfetldf4tlh0hei4c54rdch0c0jn8qdk.apps.googleusercontent.com"
 
 # The iOS app's Google client (#280), created by hand in the Google console like the web client;

@@ -8,10 +8,11 @@ was die Anwendung tatsächlich tut, und wird in derselben Änderung angepasst wi
 sie beschreibt.
 
 Die Anwendung ist ein nicht kommerzielles Demonstrationsprojekt der Hilling IT GmbH. Jeder mit einem
-Google-Konto oder einem Apple Account kann sich anmelden. `taskfest-qa.cloud.hilling.de` ist ihre
-Testumgebung, die jederzeit geändert oder zurückgesetzt werden kann; dort melden sich außerdem zwei
-Testkonten an, die automatisierte Tests verwenden. Sie gehören keiner Person und enthalten nur, was
-diese Tests anlegen und wieder löschen.
+Google-Konto oder einem Apple Account kann sich unter `taskfest.cloud.hilling.de` anmelden.
+`taskfest-qa.cloud.hilling.de` ist ihre Testumgebung, für eingeladene Tester, die jederzeit geändert
+oder zurückgesetzt werden kann. Dort melden sich außerdem zwei Testkonten an, die automatisierte
+Tests verwenden. Sie gehören keiner Person und enthalten nur, was diese Tests anlegen und wieder
+löschen.
 
 ## Verantwortlicher
 
@@ -40,6 +41,17 @@ und eine Kennung Ihres Kontos mit.
 
 Rechtsgrundlage: Art. 6 Abs. 1 lit. b DSGVO – die Bereitstellung der Anwendung, die Sie nutzen
 wollen. Gespeichert, bis Ihr Konto gelöscht wird.
+
+### Testen unter `taskfest-qa`
+
+Unter `taskfest-qa.cloud.hilling.de` können Sie sich erst mit Google anmelden, wenn Sie als Tester
+eingeladen sind. Dazu trägt der Betreiber die **E-Mail-Adresse** Ihres Google-Kontos in die Liste
+der Testnutzer in Googles Konsole ein, die Google bei der Anmeldung dort prüft. Sonst wird nichts
+eingetragen.
+
+Rechtsgrundlage: Art. 6 Abs. 1 lit. b DSGVO – das Testen, an dem Sie teilnehmen wollen.
+Gespeichert, bis Sie das Testen beenden möchten oder das Projekt der Testumgebung bei Google
+gelöscht wird.
 
 ### Anmeldung mit Apple
 
@@ -223,4 +235,4 @@ Prinzenstraße 5<br>
 Diese Erklärung ist Teil der Projektdokumentation und wird öffentlich im Repository geändert. Das
 Datum unten ist das der letzten inhaltlichen Änderung.
 
-Stand: 20. November 2026
+Stand: 27. November 2026

@@ -7,9 +7,10 @@ This policy covers TaskFest, the task list at `taskfest-qa.cloud.hilling.de` and
 does, and changes in the same change as the behaviour it describes.
 
 The application is a non-commercial demonstration project of Hilling IT GmbH. Anyone with a Google
-account or an Apple Account can sign in. `taskfest-qa.cloud.hilling.de` is its test environment,
-which may be changed or reset at any time; there, two test accounts also sign in, which automated
-tests use. They belong to no person and hold only what those tests create and delete again.
+account or an Apple Account can sign in at `taskfest.cloud.hilling.de`.
+`taskfest-qa.cloud.hilling.de` is its test environment, for invited testers, which may be changed
+or reset at any time. There, two test accounts also sign in, which automated tests use. They
+belong to no person and hold only what those tests create and delete again.
 
 ## Who is responsible
 
@@ -38,6 +39,16 @@ an identifier for your account.
 
 Legal basis: Art. 6(1)(b) GDPR, providing the application you asked to use. Kept until your
 account is deleted.
+
+### Testing on `taskfest-qa`
+
+At `taskfest-qa.cloud.hilling.de`, you can sign in with Google only once you are invited as a
+tester. To invite you, the operator enters your Google account's **email address** in the list
+of test users in Google's console, which Google checks when you sign in there. Nothing else is
+entered.
+
+Legal basis: Art. 6(1)(b) GDPR, the testing you agreed to take part in. Kept until you ask to stop
+testing, or until the test environment's project at Google is deleted.
 
 ### Signing in with Apple
 
@@ -205,4 +216,4 @@ Prinzenstraße 5<br>
 This policy is part of the project's documentation and is changed in the open, in the
 repository. The date below is the date of the last change to its content.
 
-Last changed: 20 November 2026
+Last changed: 27 November 2026
