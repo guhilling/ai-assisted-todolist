@@ -9,10 +9,10 @@ sie beschreibt.
 
 Die Anwendung ist ein nicht kommerzielles Demonstrationsprojekt der Hilling IT GmbH. Jeder mit einem
 Google-Konto oder einem Apple Account kann sich unter `taskfest.cloud.hilling.de` anmelden.
-`taskfest-qa.cloud.hilling.de` ist ihre Testumgebung, für eingeladene Tester, die jederzeit geändert
-oder zurückgesetzt werden kann. Dort melden sich außerdem zwei Testkonten an, die automatisierte
-Tests verwenden. Sie gehören keiner Person und enthalten nur, was diese Tests anlegen und wieder
-löschen.
+`taskfest-qa.cloud.hilling.de` ist ihre Testumgebung, für eingeladene Tester, die sich dort mit
+Google anmelden; sie kann jederzeit geändert oder zurückgesetzt werden. Dort melden sich außerdem
+zwei Testkonten an, die automatisierte Tests verwenden. Sie gehören keiner Person und enthalten nur,
+was diese Tests anlegen und wieder löschen.
 
 ## Verantwortlicher
 
@@ -55,10 +55,10 @@ gelöscht wird.
 
 ### Anmeldung mit Apple
 
-Sie können sich auch mit Ihrem Apple Account anmelden, auf der Website und in der TaskFest-App auf
-dem iPhone. Die Anwendung fragt Apple nur nach Ihrer **E-Mail-Adresse**, die Apple zusammen mit
-einer Kennung Ihres Kontos sendet. Nach einem Namen fragt sie nicht, und ein Bild sendet Apple
-nicht; es wird also kein Name angezeigt.
+Unter `taskfest.cloud.hilling.de` können Sie sich auch mit Ihrem Apple Account anmelden, auf der
+Website und in der TaskFest-App auf dem iPhone. Die Anwendung fragt Apple nur nach Ihrer
+**E-Mail-Adresse**, die Apple zusammen mit einer Kennung Ihres Kontos sendet. Nach einem Namen fragt
+sie nicht, und ein Bild sendet Apple nicht; es wird also kein Name angezeigt.
 
 - **Ihre E-Mail-Adresse** wird gespeichert wie bei Google, siehe oben. Wählen Sie bei Apple
   *E-Mail-Adresse verbergen*, ist es eine Adresse, die Apple anlegt und an Ihre weiterleitet. Die

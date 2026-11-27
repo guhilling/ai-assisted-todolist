@@ -8,9 +8,10 @@ does, and changes in the same change as the behaviour it describes.
 
 The application is a non-commercial demonstration project of Hilling IT GmbH. Anyone with a Google
 account or an Apple Account can sign in at `taskfest.cloud.hilling.de`.
-`taskfest-qa.cloud.hilling.de` is its test environment, for invited testers, which may be changed
-or reset at any time. There, two test accounts also sign in, which automated tests use. They
-belong to no person and hold only what those tests create and delete again.
+`taskfest-qa.cloud.hilling.de` is its test environment, for invited testers, who sign in there with
+Google; it may be changed or reset at any time. There, two test accounts also sign in, which
+automated tests use. They belong to no person and hold only what those tests create and delete
+again.
 
 ## Who is responsible
 
@@ -52,7 +53,8 @@ testing, or until the test environment's project at Google is deleted.
 
 ### Signing in with Apple
 
-You can also sign in with your Apple Account, on the website and in the TaskFest app on the iPhone.
+At `taskfest.cloud.hilling.de`, you can also sign in with your Apple Account, on the website and in
+the TaskFest app on the iPhone.
 The application asks Apple only for your **email address**, which Apple sends with an identifier for
 your account. It asks for no name, and Apple sends no picture, so no name is shown.
 

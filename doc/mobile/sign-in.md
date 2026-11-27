@@ -136,17 +136,21 @@ everywhere else. The dev build never has it: the local Keycloak takes no Apple t
 
 ### Setting it up, once
 
-1. **At Apple**, in *Certificates, Identifiers & Profiles → Identifiers*: tick *Sign in with
-   Apple* for the App IDs `de.hilling.taskfest` and `de.hilling.taskfest.qa`, each *as a primary
-   App ID*. The release build's automatic signing makes the profiles anew with it.
+Only the prod app offers it: qa's backend does not
+([names-and-certificates.md](../deployment/names-and-certificates.md#sign-in-with-apple-281)), so
+`TASKFEST_QA_APPLE_SIGN_IN` stays unset.
+
+1. **At Apple**, in *Certificates, Identifiers & Profiles → Identifiers*: tick *Sign in with Apple*
+   for the App ID `de.hilling.taskfest`, *as a primary App ID*. The release build's automatic
+   signing makes the profiles anew with it.
 2. **The backend** must accept the app's tokens: Apple's sign-in set up for the environment as for
    the website ([names-and-certificates.md](../deployment/names-and-certificates.md)), and offered.
    Then `TASKFEST_OIDC_APPLE_AUDIENCES` names the bundle id, which Apple issues the app's ID tokens
    to ([authentication.md](../authentication.md#sign-in-with-apple)). Until then a trade of Apple's
    token is refused, and the app says the sign-in did not work.
 3. **The repository variables** (*Settings → Secrets and variables → Actions → Variables*):
-   `TASKFEST_QA_APPLE_SIGN_IN` and `TASKFEST_PROD_APPLE_SIGN_IN`, each `true` once its App ID has
-   the capability and its backend takes the tokens. The next release's iOS build offers Apple.
+   `TASKFEST_PROD_APPLE_SIGN_IN`, `true` once the App ID has the capability and prod's backend
+   takes the tokens. The next release's iOS build offers Apple.
 
 ## Where the session lives
 

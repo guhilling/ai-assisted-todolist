@@ -72,23 +72,25 @@ This is manual configuration in the Google console and cannot be automated here.
 ## Sign in with Apple (#281)
 
 A further provider on the website, beside Google; its code is generic
-([authentication.md](../authentication.md)). What Apple needs is made by hand in the Apple
-developer account, *Certificates, Identifiers & Profiles*:
+([authentication.md](../authentication.md)). **prod only**: Apple keeps no list of test users, so on
+qa it would let anyone in, and qa is for invited testers
+([decision](../decisions/authentication.md#qa-signs-in-with-a-google-project-of-its-own)). What
+Apple needs is made by hand in the Apple developer account, *Certificates, Identifiers & Profiles*:
 
-- **A Services ID** for the website, with *Sign in with Apple* configured: the domains
-  `taskfest.cloud.hilling.de` and `taskfest-qa.cloud.hilling.de`, and as return URLs each one's
-  `https://<hostname>/api/auth/callback/apple`.
+- **A Services ID** for the website, with *Sign in with Apple* configured: the domain
+  `taskfest.cloud.hilling.de`, and as return URL
+  `https://taskfest.cloud.hilling.de/api/auth/callback/apple`.
 - **A key** with *Sign in with Apple*: the `.p8` file, downloadable once, its key id and the team
   id.
 
-Then, per environment, in three steps, because an empty key would stop the function's every start:
+Then, in prod, in three steps, because an empty key would stop the function's every start:
 
 1. `apple_sign_in` in `terraform.tfvars` with the Services ID, key id and team id, `offered = false`;
    applied, it creates the secret `taskfest-<env>-apple-signing-key`, empty (about $0.40 a month).
 2. The key put in by hand, never through the repository or state:
 
     ```sh
-    aws secretsmanager put-secret-value --secret-id taskfest-qa-apple-signing-key \
+    aws secretsmanager put-secret-value --secret-id taskfest-prod-apple-signing-key \
       --secret-string file://AuthKey_<key id>.p8
     ```
 
