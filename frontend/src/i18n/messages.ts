@@ -41,6 +41,8 @@ export const en = {
     emptyShort: 'Nothing here yet.',
     /** The mobile app's button after a failure. */
     retry: 'Try again',
+    /** The mobile app's, in place of a board it could not draw (#687). */
+    drawFailed: 'Your tasks could not be shown. Nothing saved is lost.',
   },
   /** The mobile app's board kept on the phone (#272): shown without a connection, never changed. */
   offline: {
@@ -335,6 +337,7 @@ export const de: Messages = {
     sessionExpired: 'Deine Sitzung ist abgelaufen. Melde dich wieder an, um weiterzumachen.',
     emptyShort: 'Noch nichts hier.',
     retry: 'Noch einmal versuchen',
+    drawFailed: 'Deine Aufgaben konnten nicht angezeigt werden. Gespeichertes geht dabei nicht verloren.',
   },
   offline: {
     note: (when: string) => `Keine Verbindung. Das sind deine Aufgaben, Stand ${when}; sie sind vielleicht nicht mehr aktuell.`,
