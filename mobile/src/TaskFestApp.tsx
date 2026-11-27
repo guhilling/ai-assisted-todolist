@@ -1860,7 +1860,8 @@ export function TaskFestApp({
             onRetry={() => {
               setForm(null)
               setViewing(null)
-              setAccount(null)
+              // Not while the account is being deleted: nothing else is offered until the backend answers.
+              setAccount((current) => (current?.deleting ? current : null))
             }}
           >
             <BoardScreen

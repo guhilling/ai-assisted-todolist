@@ -26,6 +26,10 @@ export class BoardBoundary extends Component<Props, { failed: boolean }> {
     return { failed: true }
   }
 
+  componentDidCatch(error: unknown) {
+    console.warn('The board could not be drawn', error)
+  }
+
   render() {
     const { messages, styles, onRetry, children } = this.props
     if (!this.state.failed) {
