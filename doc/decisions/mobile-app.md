@@ -470,6 +470,10 @@ new 08:00 and 09:00, is what notices: it fails the first Mobile CI run after suc
 
 *Accepted · 2026-11-04 · #517*
 
+Revised in part on 2026-11-27 (#517): seen on Gunnar's iPhone, the trigger follows. With the app
+closed and the zone changed from Berlin to London, a floating reminder for 17:00 came at 17:00
+London time ([reminders.md](../mobile/reminders.md)).
+
 **Decision.** On iOS a floating reminder -- the 08:00 summary, a task with a time and no zone -- is
 scheduled as expo-notifications' calendar trigger, iOS's `UNCalendarNotificationTrigger`, with its
 day and time and no time zone, and `repeats` off. Without a zone its date components are matched on
