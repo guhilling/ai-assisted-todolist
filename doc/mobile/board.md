@@ -119,6 +119,19 @@ connection — read, not changed ([decisions/mobile-app.md](../decisions/mobile-
   session of that address, and signing out, deleting the account, or a session that has ended
   removes it, with its previews ([account.md](account.md)).
 
+## An error while it is drawn
+
+An error while the board, the form, the file viewer or the account sheet is drawn ended the whole
+app, as v1.8.1's upload progress did on iOS (#682). Now a message stands in for them, *Your tasks
+could not be shown. Nothing saved is lost.*, with **Try again**, which closes any open sheet and
+draws the board again (#687). The session is held above it, so nobody is signed out; what was
+typed into an open form is lost. Should the same error come again, so does the message, and only
+restarting the app helps.
+
+Only errors while drawing are caught, as with any React error boundary: one in a button's
+handler, a timer or a promise is not. Errors are better kept from happening at all: a native
+module's value is made what the app expects where it enters (`mobile/CLAUDE.md`).
+
 ## Code and tests
 
 | Piece | Where |
@@ -128,11 +141,13 @@ connection — read, not changed ([decisions/mobile-app.md](../decisions/mobile-
 | The sheet the form and the account are shown in | `mobile/src/Sheet.tsx` |
 | The platform's date picker | `mobile/src/DueDatePicker.tsx` |
 | The changes, and what a failure leads to | `mobile/src/TaskFestApp.tsx` |
+| The message for an error while drawing (#687) | `mobile/src/BoardBoundary.tsx` |
 | The board kept on the phone | `mobile/src/keptBoard.ts` |
 | The previews kept with it | `mobile/src/previews.ts` |
 | The requests | `mobile/src/api.ts` |
 
-Component tests cover each piece (`TaskForm.test.tsx`, `TaskFestApp.changes.test.tsx`), and the
+Component tests cover each piece (`TaskForm.test.tsx`, `TaskFestApp.changes.test.tsx`,
+`TaskFestApp.drawFailure.test.tsx`), and the
 Maestro flow `mobile/maestro/change-tasks.yaml` adds, edits, completes, deletes and undoes a task
 in the built app, against the end-to-end stack; `keyboard.yaml` then adds one with the keyboard
 still open, and `due-time.yaml`, last of the board's flows, one due at 09:00 in Tokyo, through

@@ -14,6 +14,7 @@ import { isChangeable } from './board'
 import type { AppleProvider } from './apple'
 import { AppleButton } from './AppleButton'
 import type { GoogleProvider } from './google'
+import { BoardBoundary } from './BoardBoundary'
 import { BoardScreen } from './BoardScreen'
 import type { KeptBoardStore } from './keptBoard'
 import { noPreviews, type PreviewStore } from './previews'
@@ -1853,7 +1854,15 @@ export function TaskFestApp({
             onSignInWithApple={apple && appleAvailable ? () => signIn('apple') : undefined}
           />
         ) : state.kind === 'board' ? (
-          <>
+          <BoardBoundary
+            messages={messages}
+            styles={styles}
+            onRetry={() => {
+              setForm(null)
+              setViewing(null)
+              setAccount(null)
+            }}
+          >
             <BoardScreen
               tasks={state.tasks}
               today={today}
@@ -1966,7 +1975,7 @@ export function TaskFestApp({
                 onDone={() => setAccount(null)}
               />
             </Sheet>
-          </>
+          </BoardBoundary>
         ) : state.kind === 'tooOld' ? (
           <View style={styles.signedOut}>
             <Text style={styles.notice}>{messages.update.required}</Text>
