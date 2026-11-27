@@ -52,9 +52,10 @@ at a task's time when it has one (#478).
   - **On iOS by the trigger itself (#517):** a floating reminder is a calendar trigger with its
     day and time and no time zone, which iOS matches on the phone's current clock. A zoned one
     stays a fixed moment, and so does a floating one at a time the clocks skip, which a calendar
-    trigger might never match. That it follows is still to be seen on an iPhone, since the
-    simulator takes the Mac's time zone; until then, a reminder that does not follow still comes
-    at its old moment, and the next load moves it.
+    trigger might never match. Seen on an iPhone on 2026-11-27, with the app closed throughout:
+    after the zone was changed from Berlin to London, a floating reminder for 17:00 came at 17:00
+    London time, and the zoned control for 17:30 Berlin at 16:30 London. The simulator cannot show
+    it, since it takes the Mac's time zone.
 
 ## The phone's time zone in the JavaScript engine
 
