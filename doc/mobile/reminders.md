@@ -34,8 +34,9 @@ at a task's time when it has one (#478).
   ones.
 - **Signing out, deleting the account and a session that ended clear them**
   ([account.md](account.md)).
-- **08:00, and a floating task's time, follow the phone's time zone.** Every reminder is scheduled
-  as a fixed moment, worked out on the phone's clock, and the next load works them out again.
+- **08:00, and a floating task's time, follow the phone's time zone.** Every reminder is worked out
+  on the phone's clock, and the next load works them out again; a floating one also follows a
+  change of zone by itself:
   - **On Android at once (#479):** after a change of time zone, a receiver of the app's own moves
     every floating reminder -- the summaries and the timed tasks without a zone -- to its wall-clock
     time in the new zone, without the app being opened. After a flight, "pills at 08:00" is at the
@@ -55,7 +56,7 @@ at a task's time when it has one (#478).
     trigger might never match. Seen on an iPhone on 2026-11-27, with the app closed throughout:
     after the zone was changed from Berlin to London, a floating reminder for 17:00 came at 17:00
     London time, and the zoned control for 17:30 Berlin at 16:30 London. The 08:00 summary takes
-    the same trigger, and was not tested itself. Nor was a flight east that lands after a
+    the same trigger when every task it counts floats, and was not tested itself. Nor was a flight east that lands after a
     reminder's time: unlike Android's, such a trigger lies in the past and most likely never comes,
     and the next load does not schedule a reminder that is over. The simulator cannot show any of
     this, since it takes the Mac's time zone.
