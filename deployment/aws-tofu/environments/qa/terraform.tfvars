@@ -17,7 +17,7 @@ google_client_id = "284066835041-jfetldf4tlh0hei4c54rdch0c0jn8qdk.apps.googleuse
 
 # The iOS app's Google client (#280), created by hand in the Google console like the web client;
 # not a secret. doc/mobile/sign-in.md says how it is made.
-google_ios_client_id = "284066835041-9mkopigj4vltdejq0j5r7fib714p0ef0.apps.googleusercontent.com"
+google_ios_client_id = "991424339063-gc2t5erjcsj2om3n26r8b81mtfleujmo.apps.googleusercontent.com"
 
 # The Cognito test accounts the live tests sign in with (#190). qa only.
 test_sign_in = true
