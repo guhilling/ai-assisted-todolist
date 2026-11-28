@@ -221,4 +221,4 @@ Prinzenstraße 5<br>
 This policy is part of the project's documentation and is changed in the open, in the
 repository. The date below is the date of the last change to its content.
 
-Last changed: 27 November 2026
+Last changed: 28 November 2026

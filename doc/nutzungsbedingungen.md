@@ -63,4 +63,4 @@ Diese Bedingungen können sich ändern; maßgeblich ist stets die Fassung auf di
 deutsches Recht. Sind Sie Verbraucher mit Wohnsitz in einem anderen Land, bleibt der zwingende
 Verbraucherschutz Ihres Wohnsitzlandes unberührt.
 
-Stand: 27. November 2026
+Stand: 28. November 2026
