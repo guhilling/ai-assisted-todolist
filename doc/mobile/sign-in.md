@@ -102,8 +102,7 @@ them. Client ids are not secrets: every app and web page that signs in with Goog
 Each environment has a client secret of its own
 ([deployment/names-and-certificates.md](../deployment/names-and-certificates.md)). qa's clients are
 in a project of their own, kept to its test users
-([decision](../decisions/authentication.md#qa-signs-in-with-a-google-project-of-its-own)); until
-that project exists, qa's `google_client_id` is still prod's.
+([decision](../decisions/authentication.md#qa-signs-in-with-a-google-project-of-its-own)).
 
 **A new web client locks out the apps installed before it.** Once the environment's
 `google_client_id` names another client, its backend refuses ID tokens for the old one, so an

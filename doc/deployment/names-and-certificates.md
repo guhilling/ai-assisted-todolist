@@ -86,7 +86,7 @@ Apple needs is made by hand in the Apple developer account, *Certificates, Ident
 Then, in prod, in three steps, because an empty key would stop the function's every start:
 
 1. `apple_sign_in` in `terraform.tfvars` with the Services ID, key id and team id, `offered = false`;
-   applied, it creates the secret `taskfest-<env>-apple-signing-key`, empty (about $0.40 a month).
+   applied, it creates the secret `taskfest-prod-apple-signing-key`, empty (about $0.40 a month).
 2. The key put in by hand, never through the repository or state:
 
     ```sh

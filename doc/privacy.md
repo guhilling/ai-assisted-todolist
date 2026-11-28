@@ -159,7 +159,8 @@ including the Limited Use requirements.
   its Frankfurt region. Its content delivery network serves requests from locations worldwide.
 - **Hetzner** (Hetzner Online GmbH, Gunzenhausen, Germany) hosts the monitoring server that
   receives the application log, in Nuremberg.
-- **Google** (Google Ireland Ltd.) provides the sign-in with Google.
+- **Google** (Google Ireland Ltd.) provides the sign-in with Google, and keeps the list of
+  invited testers for `taskfest-qa`.
 - **Apple** (Apple Distribution International Ltd., Ireland) provides Sign in with Apple.
 - **Automattic** (Gravatar), as described above, only where the sign-in provides no picture.
 - **GitHub** (GitHub Inc., USA) hosts this documentation site and receives the technical data of
@@ -183,6 +184,8 @@ tasks and all your files. The one exception is a file that was still being uploa
 it can arrive after the deletion, and is then deleted within seven days. You are then signed out.
 Signing in again later starts a new, empty account -- and so does using a session you left open on
 another device, which cannot be ended from here. You can also write to the contact address above.
+On `taskfest-qa`, deleting your account does not take you off the list of testers: to be taken
+off, write to the contact address above.
 
 **If you delete your account while signed in with Apple**, Apple asks you to confirm the deletion:
 in the app on Apple's own sheet, on the website on Apple's sign-in page. While you confirm on the

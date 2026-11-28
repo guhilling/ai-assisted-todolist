@@ -49,9 +49,9 @@ eingeladen sind. Dazu trägt der Betreiber die **E-Mail-Adresse** Ihres Google-K
 der Testnutzer in Googles Konsole ein, die Google bei der Anmeldung dort prüft. Sonst wird nichts
 eingetragen.
 
-Rechtsgrundlage: Art. 6 Abs. 1 lit. b DSGVO – das Testen, an dem Sie teilnehmen wollen.
-Gespeichert, bis Sie das Testen beenden möchten oder das Projekt der Testumgebung bei Google
-gelöscht wird.
+Rechtsgrundlage: Art. 6 Abs. 1 lit. b DSGVO – das Testen, an dem teilzunehmen Sie zugestimmt
+haben. Gespeichert, bis Sie darum bitten, das Testen zu beenden, oder das Projekt der Testumgebung
+bei Google gelöscht wird.
 
 ### Anmeldung mit Apple
 
@@ -172,7 +172,8 @@ einschließlich der Anforderungen an die eingeschränkte Nutzung („Limited Use
   weltweit.
 - **Hetzner** (Hetzner Online GmbH, Gunzenhausen) betreibt in Nürnberg den Monitoring-Server, der
   das Protokoll der Anwendung erhält.
-- **Google** (Google Ireland Ltd.) stellt die Anmeldung mit Google bereit.
+- **Google** (Google Ireland Ltd.) stellt die Anmeldung mit Google bereit und führt die Liste der
+  eingeladenen Tester für `taskfest-qa`.
 - **Apple** (Apple Distribution International Ltd., Irland) stellt die Anmeldung mit Apple bereit.
 - **Automattic** (Gravatar), wie oben beschrieben, nur wenn die Anmeldung kein Bild bereitstellt.
 - **GitHub** (GitHub Inc., USA) betreibt diese Dokumentationsseite und erhält die technischen
@@ -198,6 +199,8 @@ hochgeladen wurde: Sie kann nach der Löschung ankommen und wird dann innerhalb 
 gelöscht. Danach werden Sie abgemeldet. Melden Sie sich später wieder an, beginnt ein neues, leeres
 Konto -- ebenso, wenn Sie eine auf einem anderen Gerät noch offene Sitzung weiter nutzen, die sich
 von hier aus nicht beenden lässt. Sie können auch an die oben genannte Adresse schreiben.
+Unter `taskfest-qa` streicht die Löschung Ihres Kontos Sie nicht von der Liste der Tester: Dafür
+schreiben Sie an die oben genannte Adresse.
 
 **Löschen Sie Ihr Konto, während Sie mit Apple angemeldet sind**, bittet Apple Sie, die Löschung zu
 bestätigen: in der App in Apples eigenem Dialog, auf der Website auf Apples Anmeldeseite. Während
