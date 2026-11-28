@@ -358,6 +358,10 @@ keep. Remembering on the account that it signed in with Apple: new data for a ra
 
 *Accepted · 2026-11-26 · #607*
 
+Revised in part on 2026-11-27 (#607): Sign in with Apple stays off on qa (Gunnar). Apple keeps no
+list of test users, so offering it there would let anyone with an Apple Account in. It is set up
+and tested on prod alone, and qa's iOS app is built without it.
+
 **Decision** (Gunnar). prod's website opens to anyone with a Google account, and qa stays with
 the test users listed in Google's console. Google decides who may sign in per Google Cloud
 project, on the Google Auth Platform's *Audience* page, not per client, so qa's web, iOS and

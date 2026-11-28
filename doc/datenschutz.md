@@ -8,10 +8,11 @@ was die Anwendung tatsächlich tut, und wird in derselben Änderung angepasst wi
 sie beschreibt.
 
 Die Anwendung ist ein nicht kommerzielles Demonstrationsprojekt der Hilling IT GmbH. Jeder mit einem
-Google-Konto oder einem Apple Account kann sich anmelden. `taskfest-qa.cloud.hilling.de` ist ihre
-Testumgebung, die jederzeit geändert oder zurückgesetzt werden kann; dort melden sich außerdem zwei
-Testkonten an, die automatisierte Tests verwenden. Sie gehören keiner Person und enthalten nur, was
-diese Tests anlegen und wieder löschen.
+Google-Konto oder einem Apple Account kann sich unter `taskfest.cloud.hilling.de` anmelden.
+`taskfest-qa.cloud.hilling.de` ist ihre Testumgebung, für eingeladene Tester, die sich dort mit
+Google anmelden; sie kann jederzeit geändert oder zurückgesetzt werden. Dort melden sich außerdem
+zwei Testkonten an, die automatisierte Tests verwenden. Sie gehören keiner Person und enthalten nur,
+was diese Tests anlegen und wieder löschen.
 
 ## Verantwortlicher
 
@@ -41,12 +42,23 @@ und eine Kennung Ihres Kontos mit.
 Rechtsgrundlage: Art. 6 Abs. 1 lit. b DSGVO – die Bereitstellung der Anwendung, die Sie nutzen
 wollen. Gespeichert, bis Ihr Konto gelöscht wird.
 
+### Testen unter `taskfest-qa`
+
+Unter `taskfest-qa.cloud.hilling.de` können Sie sich erst mit Google anmelden, wenn Sie als Tester
+eingeladen sind. Dazu trägt der Betreiber die **E-Mail-Adresse** Ihres Google-Kontos in die Liste
+der Testnutzer in Googles Konsole ein, die Google bei der Anmeldung dort prüft. Sonst wird nichts
+eingetragen.
+
+Rechtsgrundlage: Art. 6 Abs. 1 lit. b DSGVO – das Testen, an dem teilzunehmen Sie zugestimmt
+haben. Gespeichert, bis Sie darum bitten, das Testen zu beenden, oder das Projekt der Testumgebung
+bei Google gelöscht wird.
+
 ### Anmeldung mit Apple
 
-Sie können sich auch mit Ihrem Apple Account anmelden, auf der Website und in der TaskFest-App auf
-dem iPhone. Die Anwendung fragt Apple nur nach Ihrer **E-Mail-Adresse**, die Apple zusammen mit
-einer Kennung Ihres Kontos sendet. Nach einem Namen fragt sie nicht, und ein Bild sendet Apple
-nicht; es wird also kein Name angezeigt.
+Unter `taskfest.cloud.hilling.de` können Sie sich auch mit Ihrem Apple Account anmelden, auf der
+Website und in der TaskFest-App auf dem iPhone. Die Anwendung fragt Apple nur nach Ihrer
+**E-Mail-Adresse**, die Apple zusammen mit einer Kennung Ihres Kontos sendet. Nach einem Namen fragt
+sie nicht, und ein Bild sendet Apple nicht; es wird also kein Name angezeigt.
 
 - **Ihre E-Mail-Adresse** wird gespeichert wie bei Google, siehe oben. Wählen Sie bei Apple
   *E-Mail-Adresse verbergen*, ist es eine Adresse, die Apple anlegt und an Ihre weiterleitet. Die
@@ -160,7 +172,8 @@ einschließlich der Anforderungen an die eingeschränkte Nutzung („Limited Use
   weltweit.
 - **Hetzner** (Hetzner Online GmbH, Gunzenhausen) betreibt in Nürnberg den Monitoring-Server, der
   das Protokoll der Anwendung erhält.
-- **Google** (Google Ireland Ltd.) stellt die Anmeldung mit Google bereit.
+- **Google** (Google Ireland Ltd.) stellt die Anmeldung mit Google bereit und führt die Liste der
+  eingeladenen Tester für `taskfest-qa`.
 - **Apple** (Apple Distribution International Ltd., Irland) stellt die Anmeldung mit Apple bereit.
 - **Automattic** (Gravatar), wie oben beschrieben, nur wenn die Anmeldung kein Bild bereitstellt.
 - **GitHub** (GitHub Inc., USA) betreibt diese Dokumentationsseite und erhält die technischen
@@ -186,6 +199,8 @@ hochgeladen wurde: Sie kann nach der Löschung ankommen und wird dann innerhalb 
 gelöscht. Danach werden Sie abgemeldet. Melden Sie sich später wieder an, beginnt ein neues, leeres
 Konto -- ebenso, wenn Sie eine auf einem anderen Gerät noch offene Sitzung weiter nutzen, die sich
 von hier aus nicht beenden lässt. Sie können auch an die oben genannte Adresse schreiben.
+Unter `taskfest-qa` streicht die Löschung Ihres Kontos Sie nicht von der Liste der Tester: Dafür
+schreiben Sie an die oben genannte Adresse.
 
 **Löschen Sie Ihr Konto, während Sie mit Apple angemeldet sind**, bittet Apple Sie, die Löschung zu
 bestätigen: in der App in Apples eigenem Dialog, auf der Website auf Apples Anmeldeseite. Während
@@ -223,4 +238,4 @@ Prinzenstraße 5<br>
 Diese Erklärung ist Teil der Projektdokumentation und wird öffentlich im Repository geändert. Das
 Datum unten ist das der letzten inhaltlichen Änderung.
 
-Stand: 20. November 2026
+Stand: 28. November 2026
